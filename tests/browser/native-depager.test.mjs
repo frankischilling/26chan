@@ -168,6 +168,8 @@ test('isolated Depager DOM and fixed worker transport behavior', async t => {
     ['/client/native-depager.js', '../../apps/public/client/native-depager.js'],
     ['/client/native-depager-transport.js', '../../apps/public/client/native-depager-transport.js'],
     ['/client/native-post-tree.js', '../../apps/public/client/native-post-tree.js'],
+    ['/client/native-spoiler-assets.js', '../../apps/public/client/native-spoiler-assets.js'],
+    ['/client/native-spoilers.js', '../../apps/public/client/native-spoilers.js'],
     ['/static/native-filter.v1.js', '../../apps/public/static/native-filter.v1.js'],
     ['/static/thread-watcher-core.v1.js', '../../apps/public/static/thread-watcher-core.v1.js'],
   ]) assets[path] = await readFile(new URL(file, import.meta.url), 'utf8');

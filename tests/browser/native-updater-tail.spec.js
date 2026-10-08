@@ -1,10 +1,11 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 const origin = 'http://127.0.0.1:3000';
 function fixture(command, slug) {
-  const executable = path.resolve(`target/debug/examples/tail-fixture${process.platform === 'win32' ? '.exe' : ''}`);
+  const executable = path.resolve(process.env.CARGO_TARGET_DIR || 'target', `debug/examples/tail-fixture${process.platform === 'win32' ? '.exe' : ''}`);
   const result = spawnSync(executable, [command, slug], { encoding: 'utf8', timeout: 15000,
     env: { MIGRATION_DATABASE_URL: process.env.MIGRATION_DATABASE_URL, PATH: process.env.PATH, SystemRoot: process.env.SystemRoot } });
   expect(result.status, 'Owned tail fixture helper must succeed').toBe(0);
@@ -15,8 +16,8 @@ const test = base.extend({
     fixture('setup', slug);
     try {
       const write = async (resto, com, track = false) => {
-        const response = await request.post(`/${slug}/post`, { headers: { Origin: origin }, maxRedirects: 0,
-          form: { resto, com, password, ...(resto === '0' ? { sub: 'Owned updater tail' } : {}), ...(track ? { track: '1' } : {}) } });
+        const response = await withPostingHistory(() => request.post(`/${slug}/post`, { headers: { Origin: origin }, maxRedirects: 0,
+          form: { resto, com, password, ...(resto === '0' ? { sub: 'Owned updater tail' } : {}), ...(track ? { track: '1' } : {}) } }));
         expect(response.status()).toBe(303); return response.headers().location.match(/#p(\d+)/)[1];
       };
       const id = await write('0', 'Original post'), ids = [id];
@@ -85,9 +86,11 @@ test('a removed tail falls back without marking the thread dead, while a later f
   await expect(page.locator(`#t${owned.id}`)).toHaveAttribute('data-tail-size', '0');
   await page.clock.runFor(1100); await update(page); await expect.poll(() => responses.length).toBe(3);
   expect(new URL(responses[2].url()).pathname).toBe(owned.full); expect(responses[2].status()).toBe(304);
-  expect((await owned.remove()).status()).toBe(303);
-  await page.clock.runFor(1100); await update(page); await expect(status(page)).toHaveText('This thread has been pruned or deleted');
-  expect(responses.at(-1).status()).toBe(404);
+  await withDeletionQuota(async () => {
+    expect((await owned.remove()).status()).toBe(303);
+    await page.clock.runFor(1100); await update(page); await expect(status(page)).toHaveText('This thread has been pruned or deleted');
+    expect(responses.at(-1).status()).toBe(404);
+  });
 });
 
 test('disabling during a held full fallback cancels the entire cycle and a fresh enabled update recovers the gap', async ({ page, context, owned }) => {

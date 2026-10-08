@@ -1,16 +1,17 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 const origin = 'http://127.0.0.1:3000';
 const test = base.extend({
   owned: async ({ context }, use) => {
     const request = context.request, password = 'owned-notifications-password';
-    const write = form => request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password } });
+    const write = form => withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password } }));
     const response = await write({ resto: '0', sub: 'Owned notifications', com: 'Tracked original post', track: '1' });
     expect(response.status()).toBe(303);
     const id = response.headers().location.match(/thread\/(\d+)/)[1];
     const remove = () => request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } });
     try { await use({ id, url: `/demo/thread/${id}`, path: `/_watch/demo/thread/${id}/posts`, remove,
       reply: async com => { const result = await write({ resto: id, com }); expect(result.status()).toBe(303); return result.headers().location.match(/#p(\d+)/)[1]; } }); }
-    finally { await remove(); }
+    finally { await withDeletionQuota(async () => { await remove(); }); }
   },
 });
 const icon = page => page.locator('link[rel="shortcut icon"]');
@@ -72,11 +73,14 @@ for (const linkify of [false, true]) {
     await page.evaluate(() => localStorage.setItem('4chan-filters', JSON.stringify([
       { active: true, pattern: 'Final filter generation', boards: 'demo', type: 2, color: '#ff0000' },
     ])));
-    const reply = await owned.reply('Final filter generation https://lower.test/path then HTTPS://UPPER.TEST/Path?Q=One');
+    const reply = await owned.reply('Final filter generation https://www.4chan.org/legal then https://lower.test/path then HTTPS://UPPER.TEST/Path?Q=One');
     const snapshot = await (await request.get(owned.path)).json();
     const html = snapshot.posts.find(post => post.no === reply).html;
-    expect(html).toContain('href="https://lower.test/path"');
+    expect(html).toContain('href="https://www.4chan.org/legal"');
+    expect(html).toContain('https://lower.test/path');
+    expect(html).not.toContain('href="https://lower.test/path"');
     expect(html).toContain('HTTPS://UPPER.TEST/Path?Q=One');
+    expect(html).not.toContain('href="HTTPS://UPPER.TEST/Path?Q=One"');
     expect(html).not.toContain('data-native-linkified');
     await page.evaluate(id => {
       window.completedFilterGeneration = null;
@@ -94,9 +98,17 @@ for (const linkify of [false, true]) {
     await update(page);
     await expect(status(page)).toHaveText('1 new post');
     expect(await page.evaluate(() => window.completedFilterGeneration)).toEqual({
-      highlighted: true, generated: linkify ? 1 : 0, notice: '',
+      highlighted: true, generated: linkify ? 2 : 0, notice: '',
     });
     await expect(page.locator(`#p${reply}`)).toHaveClass(/filter-hl/);
+    await expect(page.locator(`#m${reply} a[href="https://www.4chan.org/legal"]`)).toHaveCount(1);
+    const generated = page.locator(`#m${reply} a[data-native-linkified]`);
+    await expect(generated).toHaveCount(linkify ? 2 : 0);
+    if (linkify) {
+      await expect(generated).toHaveText(['https://lower.test/path', 'HTTPS://UPPER.TEST/Path?Q=One']);
+      await expect(generated.nth(0)).toHaveAttribute('href', '/derefer?url=https%3A%2F%2Flower.test%2Fpath');
+      await expect(generated.nth(1)).toHaveAttribute('href', '/derefer?url=HTTPS%3A%2F%2FUPPER.TEST%2FPath%3FQ%3DOne');
+    }
   });
 }
 
@@ -108,9 +120,12 @@ test('manual updates retain the default icon and terminal archival and deletion 
   await page.route(`**${owned.path}`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(snapshot) }));
   await tick(page, 1); await update(page); await expect(status(page)).toHaveText('This thread is archived');
   await expect(icon(page)).toHaveAttribute('href', '/static/notifications/favicon-ws-deadthread.ico');
-  await page.unrouteAll(); await page.reload(); await owned.remove(); await update(page);
-  await expect(status(page)).toHaveText('This thread has been pruned or deleted');
-  await expect(icon(page)).toHaveAttribute('href', '/static/notifications/favicon-ws-deadthread.ico');
+  await page.unrouteAll(); await page.reload();
+  await withDeletionQuota(async () => {
+    await owned.remove(); await update(page);
+    await expect(status(page)).toHaveText('This thread has been pruned or deleted');
+    await expect(icon(page)).toHaveAttribute('href', '/static/notifications/favicon-ws-deadthread.ico');
+  });
 });
 
 test('opted-in hidden reply notifications play real local audio and playback rejection cannot stop updates', async ({ page, owned }) => {

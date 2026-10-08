@@ -1,7 +1,12 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
-import { openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { openSettingControl, openNativeSettingsCategory, openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
+// API contexts share Playwright's keep-alive agent. Complete each fixture
+// exchange on its own connection so later setup cannot reuse a socket at the
+// public listener's retirement deadline. Browser requests keep their defaults.
+const fixtureHeaders = { Origin: origin, Connection: 'close' };
 const mobileAgent = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
 const themes = ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'photon', 'tomorrow'];
 // Pinned theme CSS, including the v1191 extension's burichan override.
@@ -22,11 +27,12 @@ const test = base.extend({
     let last;
     async function write(board, resto, com, { tracked = false } = {}) {
       const client = tracked ? context.request : request;
-      const response = await client.post(`/${board}/post`, {
-        headers: { Origin: origin }, maxRedirects: 0,
+      const response = await withPostingHistory(() => client.post(`/${board}/post`, {
+        headers: fixtureHeaders, maxRedirects: 0,
         form: { resto, com, password, ...(resto === '0' ? { sub: 'Owned native backlinks' } : {}), ...(tracked ? { track: '1' } : {}) },
-      });
+      }));
       expect(response.status(), 'The real form submission must persist successfully').toBe(303);
+      expect(response.headers().connection, 'The fixture write must close its HTTP connection').toBe('close');
       const location = response.headers().location;
       const ids = location?.match(/\/thread\/(\d+)#p(\d+)$/);
       expect(ids, 'The posting redirect must identify the actual thread and post').not.toBeNull();
@@ -50,9 +56,13 @@ const test = base.extend({
       });
     } finally {
       for (const { board, id } of threads.reverse()) {
-        expect((await request.post(`/${board}/delete`, {
-          headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
-        })).status(), 'Only this test\'s owned threads are deleted').toBe(303);
+        await withDeletionQuota(async () => {
+          const response = await request.post(`/${board}/delete`, {
+            headers: fixtureHeaders, maxRedirects: 0, form: { no: id, password },
+          });
+          expect(response.status(), 'Only this test\'s owned threads are deleted').toBe(303);
+          expect(response.headers().connection, 'Fixture cleanup must close its HTTP connection').toBe('close');
+        });
       }
     }
   },
@@ -106,8 +116,8 @@ async function update(page, count = 1) {
 
 async function saveSettings(page, values) {
   const dialog = await openWatcherSettings(page);
-  await dialog.locator('#settings-expand-all').click();
-  for (const [key, value] of Object.entries(values)) await dialog.locator(`.menuOption[data-option="${key}"]`).setChecked(value);
+  await openNativeSettingsCategory(dialog, 'Quotes & Replying');
+  for (const [key, value] of Object.entries(values)) await (await openSettingControl(dialog, key)).setChecked(value);
   await Promise.all([page.waitForEvent('load'), dialog.getByRole('button', { name: 'Save Settings', exact: true }).click()]);
 }
 
@@ -127,7 +137,7 @@ test.describe('unmodified persisted backlink graph', () => {
     await page.goto(owned.url);
     await expectRows(page, owned.id, [reply], owned.id);
     const dialog = await openWatcherSettings(page);
-    await dialog.locator('#settings-expand-all').click();
+    await openNativeSettingsCategory(dialog, 'Quotes & Replying');
     await expect(dialog.getByLabel('Backlinks', { exact: true })).toBeChecked();
     await expect(dialog).toContainText('Show who has replied to a post');
     await dialog.getByRole('button', { name: 'Close settings', exact: true }).click();
@@ -163,11 +173,11 @@ test.describe('unmodified persisted backlink graph', () => {
     await initialize(page, owned.url);
     await page.locator('#togglePostFormLink a').click();
     await page.locator('#com').fill(`>>${owned.id}\nBacklink created through the ordinary posting form`);
-    await page.locator('#password').fill(owned.password);
+    await expect(page.locator('#postPassword')).toHaveValue('');
     const action = await page.locator('form.postEditor').getAttribute('action');
     const posted = page.waitForResponse(response => response.request().method() === 'POST'
       && response.url() === new URL(action, origin).href);
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     expect((await posted).status()).toBe(303);
     await expect(page).toHaveURL(new RegExp(`/demo/thread/${owned.id}#p[0-9]+$`));
     const source = page.url().match(/#p([0-9]+)$/)[1];
@@ -221,15 +231,15 @@ test.describe('unmodified persisted backlink graph', () => {
 
   test('thread-only missing arrows follow stored same-board normalization and preserve cross-board labels without discovery fetches', async ({ page, owned }) => {
     const remote = await owned.createThread('demo', 'Remote same-board target');
-    const otherBoard = await owned.createThread('test', 'Remote other-board target');
-    const reply = await owned.reply(`>>${remote.id}\n>>${absent}\n>>>/demo/${remote.id}\n>>>/test/${otherBoard.id}`);
+    const otherBoard = await owned.createThread('fixture', 'Remote other-board target');
+    const reply = await owned.reply(`>>${remote.id}\n>>${absent}\n>>>/demo/${remote.id}\n>>>/fixture/${otherBoard.id}`);
     const requests = observeFetches(page);
     await initialize(page, owned.url, { quotePreview: false });
     // The actual posting path normalizes >>>/current-board/id to >>id before
     // storage. Preserved explicit same-board labels are covered as augmented DOM.
     await expect(forward(page, reply, remote.id)).toHaveText([`>>${remote.id} →`, `>>${remote.id} →`]);
     await expect(forward(page, reply, absent)).toHaveText(`>>${absent} →`);
-    await expect(forward(page, reply, otherBoard.id, 'test')).toHaveText(`>>>/test/${otherBoard.id}`);
+    await expect(forward(page, reply, otherBoard.id, 'fixture')).toHaveText(`>>>/fixture/${otherBoard.id}`);
     await expectRows(page, remote.id, [], owned.id);
     await settledDOM(page);
     expect(requests).toEqual([]);
@@ -625,7 +635,10 @@ test.describe('persisted layout and preview integration', () => {
 test('the real backlink module is allowed as a same-origin page asset but rejected as a worker and foreign-origin module', async ({ page, request, owned }) => {
   const source = await owned.reply(`>>${owned.id}\nCSP backlink control`);
   const path = '/static/native-backlinks.v1.js';
-  const response = await request.get(path), foreign = await request.get(`http://localhost:3000${path}`);
+  const response = await request.get(path, { headers: { Connection: 'close' } });
+  const foreign = await request.get(`http://localhost:3000${path}`, { headers: { Connection: 'close' } });
+  expect(response.headers().connection, 'Same-origin fixture reads must close their HTTP connection').toBe('close');
+  expect(foreign.headers().connection, 'Foreign-origin fixture reads must close their HTTP connection').toBe('close');
   expect(response.status()).toBe(200);
   expect(foreign.status()).toBe(200);
   expect(response.headers()['content-type']).toMatch(/javascript/);
@@ -734,7 +747,7 @@ test.describe('explicitly augmented DOM and graph bounds', () => {
     await expectRows(page, target, [healthy], owned.id);
     const requests = observeFetches(page), baseId = 900000000000000000n;
     const invalid = [
-      `/test/post/${target}`, `/test/thread/${owned.id}#p${target}`,
+      `/fixture/post/${target}`, `/fixture/thread/${owned.id}#p${target}`,
       `/demo/thread/${String(BigInt(owned.id) + 1n)}#p${target}`,
       `http://localhost:3000/demo/thread/${owned.id}#p${target}`,
       `/demo/post/${target}?graph=forged`, `#p0${target}`,

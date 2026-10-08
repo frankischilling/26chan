@@ -1,3 +1,4 @@
+import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -18,8 +19,8 @@ test('real rollover preserves watched unread state and expiry becomes dead befor
   fixture('setup', slug);
   try {
     const post = async (resto, subject, comment) => {
-      const response = await request.post(`/${slug}/post`, { headers: { Origin: origin },
-        form: { resto, sub: subject, com: comment, password: 'owned-watch-archive-password' }, maxRedirects: 0 });
+      const response = await withPostingHistory(() => request.post(`/${slug}/post`, { headers: { Origin: origin },
+        form: { resto, sub: subject, com: comment, password: 'owned-watch-archive-password' }, maxRedirects: 0 }));
       expect(response.status()).toBe(303);
       return response.headers().location.match(resto === '0' ? /thread\/(\d+)/ : /#p(\d+)/)[1];
     };

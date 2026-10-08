@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use axum::{Router, body::Body, http::Request};
 use board_store::NewPost;
 use http_body_util::BodyExt;
@@ -34,16 +37,16 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         deletion_hash: "owned-link-hash".into(),
         sage: false,
     };
-    let thread = board_store::create_post(&public, &slug, 0, &draft)
+    let thread = posting_fixture::create_post(&public, &slug, 0, &draft)
         .await
         .unwrap();
-    let reply = board_store::create_post(&public, &slug, thread, &draft)
+    let reply = posting_fixture::create_post(&public, &slug, thread, &draft)
         .await
         .unwrap();
-    let other = board_store::create_post(&public, &slug, 0, &draft)
+    let other = posting_fixture::create_post(&public, &slug, 0, &draft)
         .await
         .unwrap();
-    let (app, api) = board_public::routers(public, "http://127.0.0.1:3000".into(), false);
+    let (app, api) = posting_fixture::routers(public, &slug, "http://127.0.0.1:3000".into(), false);
     let path = format!("/{slug}/thread/{thread}");
     let before = get(&api, &format!("{path}.json"), 200).await;
     let links = format!(
@@ -129,7 +132,7 @@ async fn post_links_and_quote_forms_use_visible_thread_posts_without_writes() {
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES($1,'Post links','Owned fixture',1000,100,100,100,10,3600)")
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES(0,0,0,$1,'Post links','Owned fixture',1000,100,100,100,10,3600)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;

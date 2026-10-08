@@ -96,6 +96,53 @@ An automatic update suppresses unread/icon/sound changes only if its sole
 addition is the last Quick Reply post, as in the source. Multiple additions
 use the normal notification path.
 
+## Ordinary reply countdown and automatic posting
+
+Quick Reply reads the current board's ordinary text and image intervals from
+`data-posting-reply-seconds` and `data-posting-image-seconds` on its
+server-rendered source form. Board/thread forms and approved-upload forms
+supply these attributes; the client does not hard-code board defaults or add
+an inline `window.cooldowns` script. See
+[ordinary posting cooldowns](source-posting-cooldowns.md) for the authoritative
+server rules.
+
+A confirmed Quick Reply success records the client receipt time in milliseconds
+under the per-board localStorage key `4chan-cd-<board>`. Opening, arming,
+rejections, aborted requests and ambiguous results do not write a timestamp.
+This is a local success advisory, not the server's private posting history or
+request clock. When storage is unavailable, posting still works and a success
+retains an in-memory timestamp. Nonempty same-board localStorage events refresh
+the advisory; removals, other boards and other storage areas are ignored.
+
+The incoming draft chooses the interval: an approved capability, selected file
+or nonempty inline-upload state selects image timing; otherwise text timing
+applies. Remaining seconds are rounded up with `ceil`, displayed as `Ns`, and
+return to `Post` at zero. Missing, malformed, expired or future timestamps do
+not impose a countdown. The cooldown alone does not disable the button.
+Clicking it with a valid, ready draft toggles `Ns (auto)`. Expiry clears that
+intent before making at most one posting attempt. A failure never rearms or
+retries it. Shift-click skips only this client advisory; form validity,
+thread state, upload readiness and all server checks still apply. A click
+while a request is in flight retains the existing abort behavior, including
+with Shift held.
+
+Automatic intent belongs to one form and a snapshot of its target, fields and
+upload generation. Edits, quote/spoiler insertion, target changes, file
+selection/replacement/cancellation and thread closure disarm it. Close,
+feature disable and page suspension also stop the timer and fence queued
+callbacks. At expiry, the form and snapshot must still match, so a silent
+programmatic draft replacement cannot post the old intent. Pending uploads
+cannot post, and later approval cannot revive canceled intent. Reopening can
+show the remaining countdown but never restores an armed submission.
+Persistent success starts the next text countdown after consuming the
+attachment and clearing the draft.
+
+Tabs share the timestamp, not an automatic-posting lock. Each tab has its own
+one-shot intent, and the server can reject a race or an early client estimate.
+These ordinary-reply controls do not implement Pass discounts, staff-specific
+rules, duplicate flood checks or new-thread client timing, and do not establish
+complete parity under the [active reference boundary](compatibility.md#active-reference-boundary).
+
 ## Security and transport
 
 The request has one fixed current-board imgboard.php destination, exact
@@ -171,6 +218,9 @@ assertions. Existing native/no-JavaScript upload cases still run unchanged.
 - `node --test tests/browser/native-quick-reply.test.mjs`: quote insertion,
   exact IDs, upload/status/cancel receipt binding, bounded response streams,
   caller cancellation, private transport errors, request fields and no retries.
+- `node --test tests/browser/native-quick-reply-cooldown.test.mjs`: ordinary
+  countdown validation, ceil rounding, incoming-media timing, one-shot intent,
+  lifecycle fencing, storage events, clock rollback and unavailable storage.
 - `npm run check:native-quick-reply`: deterministic page-module inputs, fixed
   watcher-core imports and the 32 KiB release budget. The worker bundle retains
   its separate 256 KiB check.
@@ -187,7 +237,16 @@ assertions. Existing native/no-JavaScript upload cases still run unchanged.
 - `npm run test:themes` and `npm run test:watcher-core`: existing theme,
   watcher, tracking, keyboard, filter and updater regression coverage.
 
-Eleven transport cases, both deterministic bundle checks and all 23 Windows
+For the current ordinary-cooldown changes, all nine Node helper cases and the
+Rust `posting_forms_render_the_current_ordinary_cooldown_policy` test passed.
+The Quick Reply bundle measures 27,349 bytes, below the 32 KiB budget. The 22 new scenarios in
+`tests/browser/native-quick-reply-cooldowns.spec.js` have not been run. They
+cover successful posting, countdown/toggle/expiry, Shift bypass, failures,
+storage, lifecycle and draft changes, media readiness and independent tabs.
+Their browser-only 10s/20s policy is synthetic and does not change the database
+policy. These checks do not qualify browser behavior or full source parity.
+
+Earlier checkpoints: eleven transport cases, both deterministic bundle checks and all 23 Windows
 Quick Reply browser cases passed. Two added regressions first reproduced stale
 upload state after reopening and mutable attachment controls during posting;
 both pass with the lifecycle fixes. A separate disable/re-enable fixture now
@@ -200,8 +259,10 @@ post and deletion workflows with the response-body capture fix, including the
 subsequent tripcode integration. These checkpoints do not replace CI for the
 final PR head.
 
-Cooldown/automatic posting, Pass/captcha, drawing and full rendered-source
-comparison remain unfinished. The help lists the source's Global and built-in
+Pass/captcha, staff-specific cooldown rules, duplicate flood rules, drawing
+and full rendered-source comparison remain unfinished. Ordinary Quick Reply
+countdown/one-shot posting is implemented but its new browser cases remain
+unqualified. The help lists the source's Global and built-in
 Quick Reply shortcut groups; exact help geometry remains unqualified. These are
 known source features, not evidence of unknown original behavior. Deployment
 boundary qualification and independent launch review remain separate work.

@@ -1,0 +1,79 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445"
+  },
+  "php": "8.3.6",
+  "cases": [
+    {
+      "capcode": "none",
+      "display_ids": false,
+      "expected": null
+    },
+    {
+      "capcode": "mod",
+      "display_ids": false,
+      "expected": null
+    },
+    {
+      "capcode": "admin",
+      "display_ids": false,
+      "expected": null
+    },
+    {
+      "capcode": "admin_highlight",
+      "display_ids": false,
+      "expected": null
+    },
+    {
+      "capcode": "manager",
+      "display_ids": false,
+      "expected": null
+    },
+    {
+      "capcode": "developer",
+      "display_ids": false,
+      "expected": null
+    },
+    {
+      "capcode": "founder",
+      "display_ids": false,
+      "expected": null
+    },
+    {
+      "capcode": "none",
+      "display_ids": true,
+      "expected": null
+    },
+    {
+      "capcode": "mod",
+      "display_ids": true,
+      "expected": "Mod"
+    },
+    {
+      "capcode": "admin",
+      "display_ids": true,
+      "expected": "Admin"
+    },
+    {
+      "capcode": "admin_highlight",
+      "display_ids": true,
+      "expected": "Admin"
+    },
+    {
+      "capcode": "manager",
+      "display_ids": true,
+      "expected": "Manager"
+    },
+    {
+      "capcode": "developer",
+      "display_ids": true,
+      "expected": "Developer"
+    },
+    {
+      "capcode": "founder",
+      "display_ids": true,
+      "expected": "Founder"
+    }
+  ]
+}

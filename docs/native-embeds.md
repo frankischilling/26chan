@@ -1,7 +1,9 @@
 # Native YouTube and SoundCloud embeds
 
 Board and thread pages add a small control after eligible YouTube and SoundCloud
-links. The original post link is left in place. On desktop, YouTube shows
+URLs, including plain text when URL linkification is disabled. Existing post
+anchors stay in place. Text URLs receive a plain source span that retains soft
+breaks and is unwrapped when the feature is disabled. On desktop, YouTube shows
 **Embed** by default. On the mobile layout it shows **Open** and does not create a
 player. SoundCloud shows **Embed** only when `embedSoundCloud` is enabled.
 `disableAll` removes every control and active player.
@@ -18,8 +20,12 @@ an explicit `false` mobile override, and `embedSoundCloud: false`. The public
 parser still adds the mobile YouTube `Open` control independently of that
 mobile default.
 
-No private or leaked source is used for this module. The public asset is read as
-text; it is not executed in the application or test fixtures.
+The active target is now the operator-supplied `4chan-old` revision
+`545b7812d1849f7958d914950c91fdbbe38f6b22`. Its `js/extension.js`
+`Media.replaceYouTube` and `Media.replaceSoundCloud` helpers also wrap plain
+provider text when `Config.linkify` is false. The implementation follows that
+branch without replacing the post's HTML. The earlier public asset remains
+additional evidence and is not executed in the application.
 
 Current YouTube embed requirements were also checked against Google for
 Developers on September 28, 2026:
@@ -37,8 +43,9 @@ SoundCloud's current oEmbed and Widget API documentation was checked at
 
 ## Provider URL rules
 
-Provider detection reads existing post anchors. It never turns arbitrary HTML
-into provider markup. Every candidate is bounded to 2,048 characters, must use
+Provider detection reads existing anchors and finite text runs within post
+messages. Runs may cross soft breaks, retain their text and stop at other
+element boundaries. Every candidate is bounded to 2,048 characters, must use
 HTTPS, and must not contain credentials, a non-default port, ASCII controls,
 whitespace, or a backslash.
 
@@ -75,7 +82,9 @@ user asks to load a player. The generated frame is always under
 
 Native linkification uses a same-origin `/derefer?url=...` destination. Such an
 anchor is eligible only when it has the native-linkified marker, contains one
-`url` parameter, and the decoded parameter exactly matches its visible URL. The
+`url` parameter, and the destination after one entity-decoding pass exactly
+matches its visible URL. The source linker encodes serialized HTML, so a query
+separator is stored as `&amp;` in that parameter. The
 provider parser then applies the same rules above. This keeps a linkified post
 eligible without trusting a class or data attribute by itself.
 
@@ -104,8 +113,10 @@ which fetched a remote thumbnail before an embed click.
 
 ## DOM ownership and lifecycle
 
-The board scan visits at most 32,768 elements and 4,096 anchors, with a maximum
-source-to-board depth of 32. At most eight provider frames may be open. Tests can
+The board scan visits at most 32,768 nodes, 192,000 text characters and 4,096
+source candidates, with a maximum source-to-board depth of 32. Raw text wrapping
+also reserves space for new nodes and checks the existing 65,536-character
+comment HTML limit before mutation. At most eight provider frames may be open. Tests can
 lower those ceilings but cannot raise them. Crossing a scan ceiling fails closed
 and removes active controls and frames.
 
@@ -140,11 +151,15 @@ JavaScript does not construct style values from post content.
 
 `tests/browser/native-embeds.test.mjs` covers canonical URL parsing, the
 click-only network boundary, YouTube's origin-only Referer, projection output,
-native-linkified anchors, hidden and detached posts, global disabling, scan and
+native-linkified anchors with source entity spelling, plain provider text and
+soft breaks, hidden and detached posts, global disabling, scan and
 frame ceilings, duplicate mounts, stale controls, and BFCache restoration.
 
 `tests/browser/native-embeds.spec.js` exercises the same contract against an
-owned real thread: persisted provider links remain unchanged, hover performs no
+owned real thread: provider text and existing links remain usable, hover performs no
 external request, the real controls create only the two CSP-approved frames,
 `disableAll` removes them, and the mobile layout exposes YouTube as **Open**
 without preloading a player.
+
+The [verification record](verification-embed-source.md) documents the CI
+regression found after the source formatter changed external URLs to text.

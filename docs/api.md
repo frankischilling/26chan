@@ -15,6 +15,13 @@ counts, the last omitted reply ID and the latest replies. See the
 and fallback. The renderer-only `/posts` and `/posts-tail` projections remain
 absent from the API listener.
 
+[Custom-spoiler metadata](custom-spoiler-metadata.md) follows the source board
+policy on both JSON listeners. Enabled boards with a nonzero count advertise
+`custom_spoilers` in `boards.json`. Their opening posts include
+`custom_spoiler`, including zero, in full/tail thread, index and catalog JSON;
+replies omit it. Disabled boards omit both fields. Apply migration 0081 before
+starting the updated binaries.
+
 Set both `API_ORIGIN` and `API_BIND_ADDR` to enable it; omit both for the existing single-listener setup. In a fresh development shell, after the database is migrated and seeded:
 
 ```bash
@@ -36,6 +43,12 @@ cargo run -p board-public --locked
 The public process rejects staff, media and migration credentials. Use separate shells for those services. Test launchers remove unrelated credentials before starting the application.
 
 ## Origin and method contract
+
+[Source staff JSON projections](source-staff-json.md) cover conditional
+name/trip masking, badge reply groups, saved-label archive omission and
+meta-board policy. [Static staff IDs](source-staff-poster-ids.md) retain saved
+labels through policy changes. Complete source JSON and navigation parity remains tracked
+in issue #216.
 
 The pinned [API README](https://github.com/4chan/4chan-API/blob/2bd670d507ba2daa37a3961a661e088cf6f89d57/README.md) documents CORS from board origins for GET, HEAD and OPTIONS. This project maps that role to the exact configured `PUBLIC_ORIGIN`. It does not grant access to the original service's domains or arbitrary browser origins.
 

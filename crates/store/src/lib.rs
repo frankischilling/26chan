@@ -1,20 +1,48 @@
 #![forbid(unsafe_code)]
 
+pub mod anonymous_session;
 mod archives;
+pub mod automatic_admission;
 mod board_snapshot;
-pub use archives::{ArchiveEntry, ArchiveSnapshot, archive_page_snapshot, archive_snapshot};
+mod content_admission;
+pub use archives::{
+    ArchiveEntry, ArchivePageEntry, ArchivePageSnapshot, ArchiveSnapshot,
+    MAX_ARCHIVE_PAGE_READ_BYTES, archive_page_snapshot, archive_snapshot,
+};
 pub mod legacy_media;
 pub mod media;
 pub mod media_assets;
 pub mod media_intake;
 pub mod monitoring;
+mod op_bump;
+mod polls;
+pub use polls::{
+    POLL_READINESS_SQL, PollOption, PollSnapshot, PollSummary, poll_catalogue, poll_snapshot,
+};
 pub mod post_media;
+mod posting_cooldown;
+pub use posting_cooldown::{PostingCooldownReason, PostingCooldownRejection};
+mod public_deletion;
+pub use public_deletion::{
+    PublicDeletionBatch, PublicDeletionContext, public_deletion_precheck,
+    public_deletion_quota_precheck, public_deletion_target_exists,
+};
 mod read;
+pub mod report_admission;
+pub mod report_catalog;
+pub mod report_categories;
+pub use report_categories::{CategoryChoice, CategoryForm, CategoryKind, category_form};
+mod report_target;
+pub use report_target::{ReportTarget, report_target};
+mod robot9000;
+mod rss;
+mod thread_quota;
 mod thread_statistics;
 mod write;
 pub use board_snapshot::*;
 use chrono::{DateTime, Utc};
 pub use read::*;
+pub use rss::{RssSnapshot, rss_snapshot};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Duration;
 pub use thread_statistics::{ThreadStatistics, thread_statistics};
@@ -30,51 +58,90 @@ pub enum StoreError {
     Invalid(&'static str),
     #[error("{0}")]
     Conflict(&'static str),
+    #[error("{0}")]
+    PublicDeletionRejected(&'static str),
     #[error("Authorization is no longer valid.")]
     AuthorizationChanged,
+    #[error("{0}")]
+    ContentRejected(String),
+    #[error("Post accepted.")]
+    ContentQuiet { post: i64 },
     #[error("Database unavailable.")]
     Database(#[from] sqlx::Error),
     #[error("Unsafe database role.")]
     UnsafeRole,
+    #[error("Server randomness is unavailable.")]
+    RandomnessUnavailable,
+    #[error("Snapshot content exceeds its read budget.")]
+    ReadLimit,
+    #[error("{0}")]
+    Robot9000Rejected(String),
+    #[error("{0}")]
+    PostingCooldownRejected(PostingCooldownRejection),
 }
 
 #[derive(Clone, sqlx::FromRow)]
 pub struct Board {
     pub slug: String,
+    pub source_order: i32,
+    pub catalog_enabled: bool,
+    pub json_enabled: bool,
+    pub staff_only: bool,
+    pub meta_board: bool,
+    pub upload_board: bool,
+    pub rss_enabled: bool,
     pub title: String,
     pub description: String,
     pub max_comment_chars: i32,
+    pub max_authorized_comment_chars: i32,
     pub comment_code_spacing: bool,
     pub comment_sjis_spacing: bool,
+    pub math_tags: bool,
     pub comment_max_lines: i32,
     pub comment_spoiler_cleanup: bool,
+    pub custom_spoiler_count: i32,
+    pub spoiler_thumbnail_assets: Vec<String>,
     pub require_subject: bool,
     pub op_markup: bool,
     pub forced_anon: bool,
+    pub strip_tripcode: bool,
     pub user_ids: bool,
     pub country_flags: bool,
+    pub board_flag_type: String,
     pub board_flags: Vec<String>,
     pub text_only: bool,
     pub reply_limit: i32,
     pub bump_limit: i32,
     pub permasage_hours: i32,
+    pub posting_reply_seconds: i32,
+    pub posting_image_seconds: i32,
+    pub posting_thread_seconds: i32,
+    pub user_thread_limit: i32,
+    pub user_thread_period_hours: i32,
     pub op_bump_limit: bool,
     pub op_bump_initial_seconds: i32,
     pub op_bump_repeat_seconds: i32,
     pub thread_limit: i32,
+    pub expire_neglected: bool,
     pub threads_per_page: i32,
     pub worksafe: bool,
     pub archive_retention_seconds: i32,
     pub archive_limit: i32,
     pub image_limit: i32,
+    pub dice_roll: bool,
+    pub fortune_trip: bool,
+    pub robot9000: bool,
+    pub robot9000_state_limit: i32,
+    pub word_filter_enabled: bool,
+    pub word_filter_profile: i16,
 }
 
 impl Board {
     pub fn flag_options(&self) -> Vec<(&'static str, &'static str)> {
-        board_domain::country::BOARD_FLAGS
+        board_domain::board_flags::flags(&self.board_flag_type)
             .iter()
-            .copied()
-            .filter(|(code, _)| self.board_flags.iter().any(|enabled| enabled == code))
+            .filter(|flag| self.board_flags.iter().any(|enabled| enabled == flag.code))
+            .map(|flag| (flag.code, flag.selector))
             .collect()
     }
     pub fn check_attachment_allowed(&self, parent: i64, attached: bool) -> Result<(), StoreError> {
@@ -124,18 +191,44 @@ pub struct Post {
     pub name: String,
     pub trip: Option<String>,
     pub poster_id: Option<String>,
+    #[sqlx(default)]
+    pub json_op_poster_id: Option<String>,
     pub capcode: Option<String>,
     pub country: Option<String>,
     pub country_name: Option<String>,
     pub board_flag: Option<String>,
+    pub board_flag_type: String,
     pub flag_name: Option<String>,
     pub subject: String,
+    pub image_spoiler: bool,
     pub comment: String,
     pub comment_format: i16,
+    pub staff_authorized_limits: bool,
+    pub wordfilter_payload: Option<Vec<u8>>,
+    pub dice_result: Option<String>,
+    pub fortune_text: Option<String>,
+    pub fortune_color: Option<String>,
     pub created_at: DateTime<Utc>,
     pub deleted: bool,
     #[sqlx(skip)]
     pub attachment: Option<post_media::PostAttachment>,
+}
+
+impl Post {
+    pub fn formatted_lines(&self) -> Vec<board_domain::Line> {
+        board_domain::formatting::parse_saved_comment_with_limits(
+            &self.comment,
+            self.comment_format,
+            &self.board,
+            self.wordfilter_payload.as_deref(),
+            if self.staff_authorized_limits {
+                board_domain::PostLimits::authorized(board_domain::MAX_AUTHORIZED_COMMENT_CHARS)
+                    .expect("finite persisted staff bound")
+            } else {
+                board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
+            },
+        )
+    }
 }
 
 pub async fn connect_public(url: &str) -> Result<PgPool, StoreError> {

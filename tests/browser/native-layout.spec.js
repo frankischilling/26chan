@@ -1,13 +1,14 @@
-import { watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
+import { openNativeSettingsCategory, watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
 const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-native-layout-password';
-    const write = form => request.post('/demo/post', {
+    const write = form => withPostingHistory(() => request.post('/demo/post', {
       headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password },
-    });
+    }));
     const created = await write({ resto: '0', sub: 'Owned native layout', com: 'Original layout post' });
     expect(created.status()).toBe(303);
     const id = created.headers().location.match(/thread\/(\d+)/)[1];
@@ -16,10 +17,12 @@ const test = base.extend({
       expect(reply.status()).toBe(303);
       await use({ id, url: `/demo/thread/${id}` });
     } finally {
-      const removed = await request.post('/demo/delete', {
-        headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+      await withDeletionQuota(async () => {
+        const removed = await request.post('/demo/delete', {
+          headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+        });
+        expect(removed.status()).toBe(303);
       });
-      expect(removed.status()).toBe(303);
     }
   },
 });
@@ -43,23 +46,24 @@ async function openSettings(page) {
   await watcherSettingsOpener(page).click();
   const dialog = page.locator('#settingsMenu');
   await expect(dialog).toBeVisible();
-  const expand = dialog.locator('#settings-expand-all');
-  if (await expand.count()) await expand.click();
+  await openNativeSettingsCategory(dialog, 'Miscellaneous');
   return dialog;
 }
 
 test('native layout settings preserve source precedence across desktop, mobile and cross-tab disableAll', async ({ page, context, owned }) => {
   await page.goto(owned.url);
+  // Source exposes darkTheme only on mobile; an existing desktop preference still applies.
+  await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ darkTheme: true })));
+  await page.reload();
   const dialog = await openSettings(page);
   const compact = dialog.getByLabel('Force long posts to wrap');
   const centered = dialog.getByLabel('Center threads');
   const dark = dialog.getByLabel('Use a dark theme');
   await expect(compact).toBeVisible();
   await expect(centered).toBeVisible();
-  await expect(dark).toBeVisible();
+  await expect(dark).toHaveCount(0);
   await compact.check();
   await centered.check();
-  await dark.check();
   const navigation = page.waitForEvent('framenavigated');
   await dialog.getByRole('button', { name: 'Save Settings' }).click();
   await navigation;
@@ -72,18 +76,43 @@ test('native layout settings preserve source precedence across desktop, mobile a
   let reopened = await openSettings(page);
   await expect(reopened.getByLabel('Force long posts to wrap')).toBeChecked();
   await expect(reopened.getByLabel('Center threads')).toBeChecked();
-  await expect(reopened.getByLabel('Use a dark theme')).toBeChecked();
+  await expect(reopened.getByLabel('Use a dark theme')).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')).darkTheme)).toBe(true);
   await reopened.getByRole('button', { name: 'Close settings' }).click();
 
   await page.setViewportSize({ width: 390, height: 800 });
   await expect.poll(() => layout(page)).toBe('centered');
+  // Runtime layout responds immediately, but this page retains its desktop Settings matrix.
+  reopened = await openSettings(page);
+  await expect(reopened.getByLabel('Use a dark theme')).toHaveCount(0);
+  await expect(reopened.getByLabel('Force long posts to wrap')).toBeChecked();
+  await expect(reopened.getByLabel('Center threads')).toBeChecked();
+  await reopened.getByRole('button', { name: 'Close settings' }).click();
   await expect.poll(() => page.locator('.sideArrows').first().evaluate(node => getComputedStyle(node).display)).toBe('none');
+
+  await page.reload();
+  reopened = await openSettings(page);
+  await expect(reopened.getByLabel('Use a dark theme')).toBeChecked();
+  await expect(reopened.getByLabel('Force long posts to wrap')).toHaveCount(0);
+  await expect(reopened.getByLabel('Center threads')).toHaveCount(0);
+  await reopened.getByRole('button', { name: 'Close settings' }).click();
 
   await page.evaluate(() => {
     localStorage.setItem('4chan_never_show_mobile', 'true');
     window.dispatchEvent(new StorageEvent('storage', { key: '4chan_never_show_mobile' }));
   });
   await expect.poll(() => layout(page)).toBe('compact');
+  // A same-page never-mobile change also leaves the captured mobile Settings intact.
+  reopened = await openSettings(page);
+  await expect(reopened.getByLabel('Use a dark theme')).toBeChecked();
+  await expect(reopened.getByLabel('Force long posts to wrap')).toHaveCount(0);
+  await reopened.getByRole('button', { name: 'Close settings' }).click();
+  await page.reload();
+  reopened = await openSettings(page);
+  await expect(reopened.getByLabel('Use a dark theme')).toHaveCount(0);
+  await expect(reopened.getByLabel('Force long posts to wrap')).toBeChecked();
+  await expect(reopened.getByLabel('Center threads')).toBeChecked();
+  await reopened.getByRole('button', { name: 'Close settings' }).click();
 
   const other = await context.newPage();
   await other.goto(owned.url);

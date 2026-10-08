@@ -1,4 +1,5 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
 use board_store::{NewPost, PostingContext, StoreError};
 use sqlx::postgres::PgPoolOptions;
@@ -29,11 +30,11 @@ async fn posting_identity_is_transaction_local_and_failed_identity_rolls_back() 
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Owned identity','Owned fixture',1000,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
-    let thread = board_store::create_post(&public, &board, 0, &post("User#password"))
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned identity','Owned fixture',1000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
+    let thread = support::create_post(&public, &board, 0, &post("User#password"))
         .await
         .unwrap();
-    let plain = board_store::create_post(&public, &board, thread, &post("Plain name"))
+    let plain = support::create_post(&public, &board, thread, &post("Plain name"))
         .await
         .unwrap();
     assert_eq!(
@@ -59,14 +60,14 @@ async fn posting_identity_is_transaction_local_and_failed_identity_rolls_back() 
     assert_eq!(setting, None);
     let before = board_store::thread(&public, &board, thread).await.unwrap();
     assert!(matches!(
-        board_store::create_post(&public, &board, thread, &post("User##private-password")).await,
+        support::create_post(&public, &board, thread, &post("User##private-password")).await,
         Err(StoreError::Invalid("Secure tripcodes are unavailable."))
     ));
     let after = board_store::thread(&public, &board, thread).await.unwrap();
     assert_eq!(before.reply_count, after.reply_count);
     assert_eq!(before.modified_at, after.modified_at);
     let key = board_domain::identity::SecureKey::parse(&"1".repeat(64)).unwrap();
-    let secure = board_store::create_post_with_context_and_key(
+    let secure = support::create_post_with_context_and_key(
         &public,
         &board,
         thread,
@@ -89,7 +90,7 @@ async fn posting_identity_is_transaction_local_and_failed_identity_rolls_back() 
             .as_deref(),
         Some("!!XYWOFgjf7hP")
     );
-    let later = board_store::create_post(&public, &board, thread, &post("Later name"))
+    let later = support::create_post(&public, &board, thread, &post("Later name"))
         .await
         .unwrap();
     assert_eq!(

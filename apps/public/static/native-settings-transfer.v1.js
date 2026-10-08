@@ -594,7 +594,7 @@ export function mountNativeSettingsTransfer({ root, readItem, restore } = {}) {
   window.addEventListener('hashchange', onHashChange);
   window.addEventListener('pagehide', onPageHide);
   window.addEventListener('pageshow', onPageShow);
-  controller = { openExport, refresh, destroy };
+  controller = { openExport, refresh, destroy, hasPendingReview: () => pendingReview !== null };
   mounts.set(root, controller);
   detachObserver.observe(document.documentElement, { childList: true, subtree: true });
   refresh();

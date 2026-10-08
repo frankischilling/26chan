@@ -1,0 +1,20 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "js/extension.js": "05b3b34f68377a44c071e4f74f629d2700fef61e064dcd2e836b161ee9ee0c31",
+    "js/catalog.js": "12f59335953bd013ce892a24186218a31f2e8ad7fe3dbaa54af82f40ca182e5e"
+  },
+  "scope": "source native per-board cache function and catalog suffix expression",
+  "boundary_stubs": [
+    "document image lookup",
+    "current board",
+    "controlled Math.random",
+    "catalog metadata"
+  ],
+  "excludes": [
+    "complete source browser extension",
+    "historical CDN pixel identity"
+  ],
+  "native_selection": "Parser.setCustomSpoiler = function(board, val) {\r\n  var s;\r\n  if (!this.customSpoiler[board] && (val = parseInt(val))) {\r\n    if (board == Main.board && (s = $.cls('imgspoiler')[0])) {\r\n      this.customSpoiler[board] =\r\n        s.firstChild.src.match(/spoiler(-[a-z0-9]+)\\.png$/)[1];\r\n    }\r\n    else {\r\n      this.customSpoiler[board] = '-' + board\r\n        + (Math.floor(Math.random() * val) + 1);\r\n    }\r\n  }\r\n};",
+  "catalog_selection": "if (catalog.custom_spoiler) {\r\n      spoiler = options.imgspoiler + '-' + catalog.slug + catalog.custom_spoiler + '.png';\r\n    }\r\n    else {\r\n      spoiler = options.imgspoiler + '.png';\r\n    }"
+}

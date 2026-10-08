@@ -33,6 +33,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.104"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
+
+[[package]]
 name = "argon2"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -357,9 +363,14 @@ name = "board-domain"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "icu_normalizer",
  "maxminddb",
+ "pcre2",
  "proptest",
  "ring",
+ "rust_icu_sys",
+ "rust_icu_utrans",
+ "serde_json",
  "thiserror 2.0.20",
  "url",
 ]
@@ -369,11 +380,31 @@ name = "board-http"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "board-config",
  "bytes",
+ "futures-util",
  "http-body",
  "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rustix",
+ "tempfile",
  "tokio",
  "tower",
+ "tracing",
+]
+
+[[package]]
+name = "board-intake-client"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "hyper",
+ "hyper-util",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
 ]
 
 [[package]]
@@ -410,9 +441,11 @@ name = "board-media-admin"
 version = "0.1.0"
 dependencies = [
  "board-config",
+ "board-domain",
  "board-media",
  "board-media-dispatch",
  "board-store",
+ "chrono",
  "rcgen",
  "serde",
  "serde_json",
@@ -533,6 +566,7 @@ dependencies = [
  "board-config",
  "board-domain",
  "board-http",
+ "board-intake-client",
  "board-media",
  "board-media-admin",
  "board-media-http",
@@ -545,10 +579,9 @@ dependencies = [
  "futures-util",
  "http-body-util",
  "httpdate",
- "hyper",
- "hyper-util",
  "proptest",
  "rand_core 0.6.4",
+ "roxmltree",
  "rustix",
  "serde",
  "serde_json",
@@ -581,17 +614,23 @@ dependencies = [
 name = "board-staff"
 version = "0.1.0"
 dependencies = [
+ "argon2",
  "askama",
  "axum",
  "base64 0.22.1",
  "board-config",
  "board-domain",
  "board-http",
+ "board-intake-client",
  "board-media",
+ "board-media-intake",
  "board-observe",
  "board-public",
  "board-store",
+ "bytes",
  "chrono",
+ "chrono-tz",
+ "futures-util",
  "http-body-util",
  "openssl",
  "rand 0.8.8",
@@ -599,6 +638,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sqlx",
+ "tempfile",
  "thiserror 2.0.20",
  "tokio",
  "tower",
@@ -613,6 +653,9 @@ version = "0.1.0"
 dependencies = [
  "board-domain",
  "chrono",
+ "chrono-tz",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "sqlx",
  "thiserror 2.0.20",
@@ -644,6 +687,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "005ec2760ca554fae18df7a11195552ec576cd665632a881bc011d5bb2fd4d80"
 dependencies = [
  "find-msvc-tools",
+ "jobserver",
+ "libc",
  "shlex",
 ]
 
@@ -1466,6 +1511,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
+name = "jobserver"
+version = "0.1.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c00acbd29eabad4a2392fa0e921c874934dbbf4194312ad20f04a0ed67a3cb3"
+dependencies = [
+ "getrandom 0.4.3",
+ "libc",
+]
+
+[[package]]
 name = "jpeg-encoder"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1827,10 +1882,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+
+[[package]]
 name = "pastey"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35fb2e5f958ec131621fdd531e9fc186ed768cbe395337403ae56c17a74c68ec"
+
+[[package]]
+name = "pcre2"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e970b0fcce0c7ee6ef662744ff711f21ccd6f11b7cf03cd187a80e89797fc67"
+dependencies = [
+ "libc",
+ "log",
+ "pcre2-sys",
+]
+
+[[package]]
+name = "pcre2-sys"
+version = "0.2.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18b9073c1a2549bd409bf4a32c94d903bb1a09bf845bc306ae148897fa0760a4"
+dependencies = [
+ "cc",
+ "libc",
+ "pkg-config",
+]
 
 [[package]]
 name = "pem"
@@ -2122,6 +2205,86 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "roxmltree"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1964b10c76125c36f8afe190065a4bf9a87bf324842c05701330bba9f1cacbb"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
+name = "rust_icu_common"
+version = "5.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "336ec4aad4d33540be93f536d1fcc9ac8296eca21095c02dfaa7e5a6b6ff9d90"
+dependencies = [
+ "anyhow",
+ "rust_icu_sys",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "rust_icu_release"
+version = "5.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adff2447072626b05450f000578265104ba9df89e67e781ee54add74abed97e8"
+dependencies = [
+ "anyhow",
+]
+
+[[package]]
+name = "rust_icu_sys"
+version = "5.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bf2afe1327bd09e8d50bcf8abcea97410a10b2f10b932e994abad414038a711"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "libc",
+ "paste",
+ "rust_icu_release",
+]
+
+[[package]]
+name = "rust_icu_uenum"
+version = "5.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "922df640912e383005ecf59ed6e7f7357a3e2bf125b35bc608f9eaae60eff926"
+dependencies = [
+ "paste",
+ "rust_icu_common",
+ "rust_icu_sys",
+]
+
+[[package]]
+name = "rust_icu_ustring"
+version = "5.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78e6ff3c2659716ab72ca66fcbddc9e7982a7de7ec6b691e761b5aa34f53c690"
+dependencies = [
+ "log",
+ "paste",
+ "rust_icu_common",
+ "rust_icu_sys",
+]
+
+[[package]]
+name = "rust_icu_utrans"
+version = "5.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b9d2db5b7d5cc182562990161cab7544a8c320a55f545555af2ac2b1eaa0970"
+dependencies = [
+ "anyhow",
+ "log",
+ "paste",
+ "rust_icu_common",
+ "rust_icu_sys",
+ "rust_icu_uenum",
+ "rust_icu_ustring",
 ]
 
 [[package]]

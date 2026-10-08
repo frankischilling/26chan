@@ -1,0 +1,317 @@
+{
+    "reference": "operator-supplied 4chan-old checkout",
+    "files": {
+        "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+        "catalog.php": "9e41cd26755f9cee12e3fffa2050952a227e16362310b9b888438eba307af946"
+    },
+    "dice_cases": [
+        {
+            "options": "dice+2d1+3",
+            "dice": "Rolled 1, 1 + 3 = 5 (2d1 + 3)"
+        },
+        {
+            "options": "dice+2d1-3",
+            "dice": "Rolled 1, 1 + 3 = 5 (2d1 + 3)"
+        },
+        {
+            "options": "dice+2d1 -3",
+            "dice": "Rolled 1, 1 - 3 = -1 (2d1 - 3)"
+        },
+        {
+            "options": "dice+2d1--3",
+            "dice": "Rolled 1, 1 - 3 = -1 (2d1 - 3)"
+        },
+        {
+            "options": "dice 1 1",
+            "dice": "Rolled 1 (1d1)"
+        },
+        {
+            "options": "prefix dice+26+1 suffix",
+            "dice": "Rolled 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 = 25 (25d1)"
+        },
+        {
+            "options": "SaGedice+2d1+3",
+            "dice": "Rolled 1, 1 + 3 = 5 (2d1 + 3)"
+        },
+        {
+            "options": "DICE+2d1",
+            "dice": null
+        },
+        {
+            "options": "dice++2d1",
+            "dice": null
+        },
+        {
+            "options": "dice+1d01",
+            "dice": "Rolled 1 (1d01)"
+        },
+        {
+            "options": "dice+01d1",
+            "dice": "Rolled 1 (01d1)"
+        },
+        {
+            "options": "dice+0002d0001+0003",
+            "dice": "Rolled 1, 1 + 3 = 5 (0002d0001 + 3)"
+        },
+        {
+            "options": "dice+00024d01",
+            "dice": "Rolled 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 = 24 (00024d01)"
+        },
+        {
+            "options": "dice+025d01",
+            "dice": "Rolled 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 = 25 (25d01)"
+        },
+        {
+            "options": "dice+00025d01",
+            "dice": "Rolled 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 = 25 (25d01)"
+        },
+        {
+            "options": "dice+00026d01",
+            "dice": "Rolled 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 = 25 (25d01)"
+        },
+        {
+            "options": "dice+01d01-0000",
+            "dice": "Rolled 1 + 0 (01d01 + 0)"
+        },
+        {
+            "options": "dice+01d01 -0000",
+            "dice": "Rolled 1 + 0 (01d01 + 0)"
+        },
+        {
+            "options": "dice+02d01 -0003",
+            "dice": "Rolled 1, 1 - 3 = -1 (02d01 - 3)"
+        },
+        {
+            "options": "dice+00d",
+            "dice": null
+        },
+        {
+            "options": "dice+00dX",
+            "dice": null
+        },
+        {
+            "options": "dice+00dX dice+01d01",
+            "dice": "Rolled 1 (01d01)"
+        },
+        {
+            "options": "dice+-1d1",
+            "dice": null
+        },
+        {
+            "options": "dice+1D1",
+            "dice": null
+        },
+        {
+            "options": "dice+1d-1",
+            "dice": null
+        },
+        {
+            "options": "dice+１d1",
+            "dice": null
+        },
+        {
+            "options": "dice+1d１",
+            "dice": null
+        },
+        {
+            "options": "dice+000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001d1",
+            "dice": "Rolled 1 (000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001d1)"
+        },
+        {
+            "options": "dice+1d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+            "dice": "Rolled 1 (1d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001)"
+        },
+        {
+            "options": "dice+99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999d01",
+            "dice": "Rolled 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 = 25 (25d01)"
+        },
+        {
+            "options": "dice+01d01+not-a-modifier",
+            "dice": "Rolled 1 (01d01)"
+        }
+    ],
+    "bounded_rejections": [
+        {
+            "options": "dice+0d1",
+            "captures": [
+                "0",
+                "1"
+            ]
+        },
+        {
+            "options": "dice+000d01",
+            "captures": [
+                "000",
+                "01"
+            ]
+        },
+        {
+            "options": "dice+1d0",
+            "captures": [
+                "1",
+                "0"
+            ]
+        },
+        {
+            "options": "dice+01d000",
+            "captures": [
+                "01",
+                "000"
+            ]
+        },
+        {
+            "options": "dice+1d2147483648",
+            "captures": [
+                "1",
+                "2147483648"
+            ]
+        },
+        {
+            "options": "dice+1d0002147483648",
+            "captures": [
+                "1",
+                "0002147483648"
+            ]
+        },
+        {
+            "options": "dice+1d1+9223372036854775808",
+            "captures": [
+                "1",
+                "1",
+                "+9223372036854775808",
+                "+",
+                "9223372036854775808"
+            ]
+        },
+        {
+            "options": "dice+1d1 -9223372036854775809",
+            "captures": [
+                "1",
+                "1",
+                " -9223372036854775809",
+                " ",
+                "-9223372036854775809"
+            ]
+        }
+    ],
+    "fortunes": [
+        {
+            "text": "Bad Luck",
+            "color": "#7fec11"
+        },
+        {
+            "text": "Average Luck",
+            "color": "#bac200"
+        },
+        {
+            "text": "Good Luck",
+            "color": "#e7890c"
+        },
+        {
+            "text": "Excellent Luck",
+            "color": "#fd4d32"
+        },
+        {
+            "text": "Reply hazy, try again",
+            "color": "#f51c6a"
+        },
+        {
+            "text": "Godly Luck",
+            "color": "#d302a7"
+        },
+        {
+            "text": "Very Bad Luck",
+            "color": "#9d05da"
+        },
+        {
+            "text": "Outlook good",
+            "color": "#6023f8"
+        },
+        {
+            "text": "Better not tell you now",
+            "color": "#2a56fb"
+        },
+        {
+            "text": "You will meet a dark handsome stranger",
+            "color": "#0893e1"
+        },
+        {
+            "text": "ｷﾀ━━━━━━(ﾟ∀ﾟ)━━━━━━ !!!!",
+            "color": "#00cbb0"
+        },
+        {
+            "text": "（　´_ゝ`）ﾌｰﾝ ",
+            "color": "#16f174"
+        },
+        {
+            "text": "Good news will come to you by mail",
+            "color": "#43fd3b"
+        }
+    ],
+    "teaser_cases": [
+        {
+            "dice": "Rolled 1, 1 + 3 = 5 (2d1 + 3)",
+            "fortune": null,
+            "color": null,
+            "comment": "ordinary",
+            "truncate": false,
+            "teaser": "Rolled 1, 1 + 3 = 5 (2d1 + 3) ordinary"
+        },
+        {
+            "dice": "Rolled 1, 1 + 3 = 5 (2d1 + 3)",
+            "fortune": null,
+            "color": null,
+            "comment": "ordinary",
+            "truncate": true,
+            "teaser": "<b>Rolled 1, 1 + 3 = 5 (2d1 + 3) </b>ordinary"
+        },
+        {
+            "dice": "Rolled 1, 1 + 3 = 5 (2d1 + 3)",
+            "fortune": null,
+            "color": null,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "truncate": false,
+            "teaser": "Rolled 1, 1 + 3 = 5 (2d1 + 3) xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+            "dice": "Rolled 1, 1 + 3 = 5 (2d1 + 3)",
+            "fortune": null,
+            "color": null,
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "truncate": true,
+            "teaser": "Rolled 1, 1 + 3 = 5 (2d1 + 3) xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+        },
+        {
+            "dice": null,
+            "fortune": "Bad Luck",
+            "color": "#7fec11",
+            "comment": "ordinary",
+            "truncate": false,
+            "teaser": "ordinary Your fortune: Bad Luck"
+        },
+        {
+            "dice": null,
+            "fortune": "Bad Luck",
+            "color": "#7fec11",
+            "comment": "ordinary",
+            "truncate": true,
+            "teaser": "ordinary<span class=\"fortune\" style=\"color:#7fec11\"> <b>Your fortune: Bad Luck</b></span>"
+        },
+        {
+            "dice": null,
+            "fortune": "Bad Luck",
+            "color": "#7fec11",
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "truncate": false,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx Your fortune: Bad Luck"
+        },
+        {
+            "dice": null,
+            "fortune": "Bad Luck",
+            "color": "#7fec11",
+            "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "truncate": true,
+            "teaser": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+        }
+    ]
+}

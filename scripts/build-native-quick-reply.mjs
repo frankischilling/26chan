@@ -29,6 +29,7 @@ for (const path of Object.keys(result.metafile.inputs)) assert.ok([
   'apps/public/client/native-quick-reply-transport.js',
   'apps/public/client/native-post-form.js',
   'apps/public/client/native-quick-reply-position.js',
+  'apps/public/client/native-quick-reply-cooldown.js',
   'apps/public/client/native-post-preferences.js',
   'apps/public/client/native-post-numbers.js',
   'apps/public/static/watcher-position.v1.js',

@@ -43,9 +43,12 @@ template can emit valid UTF-8. Both the Rust view and browser recipe validator
 are tested against those vectors.
 
 This renderer explicitly HTML-escapes its stored name and subject before
-applying that condition. Its public JSON name remains raw text. The vectors
-do not establish how the original server serializes names or which inputs it
-accepts. Shortened native labels retain an escaped full-text `title`.
+applying that condition. Public JSON names use the source's HTML entities and
+omit `name` for an empty trip-only author, as recorded in
+[public-name verification](verification-public-names.md). These label vectors
+qualify the released client helper; they do not establish the original PHP
+server's label shortening or accepted inputs. Shortened native labels retain
+an escaped full-text `title`.
 [Post tooltips](post-tooltips.md) add the released name-hover timing and style
 through a finite text renderer. Direct subjects retain the native title; the
 released callback's result for that shape is recorded separately.

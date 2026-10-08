@@ -10,6 +10,7 @@ pub struct Settings {
     pub database_url: String,
     pub quarantine_dir: PathBuf,
     pub token: String,
+    pub staff_token: Option<String>,
 }
 
 #[derive(Debug)]
@@ -26,6 +27,10 @@ pub(crate) fn valid_token(value: &str) -> bool {
         && value
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
+pub(crate) fn valid_credentials(token: &str, staff_token: Option<&str>) -> bool {
+    valid_token(token) && staff_token.is_none_or(|staff| valid_token(staff) && staff != token)
 }
 
 impl Settings {
@@ -46,6 +51,7 @@ impl Settings {
                         || name == "GH_TOKEN"
                         || name == "GITHUB_TOKEN"
                         || name == "PUBLIC_INTAKE_TOKEN"
+                        || name == "STAFF_INTAKE_TOKEN"
                         || name == "DOCKER_HOST"
                         || name == "SSH_AUTH_SOCK")
             })
@@ -83,7 +89,15 @@ impl Settings {
             .filter(|p| p.is_absolute())
             .ok_or(ConfigError)?;
         let token = env::var("MEDIA_INTAKE_TOKEN").map_err(|_| ConfigError)?;
-        if !valid_token(&token) || env::var_os("METRICS_TOKEN").is_some_and(|v| v == token.as_str())
+        let staff_token = match env::var("MEDIA_INTAKE_STAFF_TOKEN") {
+            Ok(value) => Some(value),
+            Err(env::VarError::NotPresent) => None,
+            Err(env::VarError::NotUnicode(_)) => return Err(ConfigError),
+        };
+        if !valid_credentials(&token, staff_token.as_deref())
+            || env::var_os("METRICS_TOKEN").is_some_and(|v| {
+                v == token.as_str() || staff_token.as_deref().is_some_and(|staff| v == staff)
+            })
         {
             return Err(ConfigError);
         }
@@ -92,6 +106,7 @@ impl Settings {
             database_url,
             quarantine_dir,
             token,
+            staff_token,
         })
     }
 }

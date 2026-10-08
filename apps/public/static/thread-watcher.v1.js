@@ -1,8 +1,8 @@
-import { WATCH_LIMITS, postId, watchKey, splitWatchKey, watchLabel, readWatches, writeWatches,
+import { WATCH_LIMITS, reportURL, createReportRegistry, postId, watchKey, splitWatchKey, watchLabel, readWatches, writeWatches,
   sameEntry, orderedWatches, autoRefreshEligible, acknowledgedEntry,
   WatcherRefresh } from './thread-watcher-core.v1.js';
 import { PostTracking } from './post-tracking.v1.js';
-import { installSettings, catalogDropDownEnabled } from './native-settings.v1.js';
+import { installSettings, catalogDropDownEnabled, captureSettingsPresentation, settingsOptionChecked, settingsStartupDefaults, readSettingsStartup } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
 import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeKeybinds, markNativeTrackedQuotes,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview, quoteTarget,
@@ -10,6 +10,7 @@ import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativ
 import { mountNativeBacklinks, mountNativeInlineQuotes, createCommentProjection } from './native-backlinks.v1.js';
 import { mountNativeQuickReply } from './native-quick-reply.v1.js';
 import { mountNativeImages } from './native-images.v1.js';
+import { mountNativeDeletion } from './native-post-deletion.v1.js';
 import { mountNativeDisplay, mountNativePosterIds, mountNativePosterIdActions } from './native-display.v1.js';
 import { mountNativePostTooltips } from './native-post-tooltips.v1.js';
 import { mountNativeThreadUpdater, mountNativeThreadExpansion, mountNativeDepager, NativeBoardPageTransport } from './native-thread-controls.v1.js';
@@ -24,11 +25,16 @@ import { CatalogFilterMatcher, readCatalogFilters } from './catalog-filter-core.
 const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
 
-function start(context) {
+async function start(context) {
   const board = context.dataset.board;
   const threadId = postId(context.dataset.thread);
   const catalog = context.dataset.catalog === 'true';
-  const projection = createCommentProjection();
+  let mathPage = null;
+  if (!catalog && document.body.dataset.mathTags === '1') {
+    try { mathPage = (await import('./native-math.v1.js')).pageNativeMath(); } catch { /* Literal tags remain usable. */ }
+  }
+  const projection = mathPage?.projection ?? createCommentProjection();
+  const nativeMath = mathPage?.controller;
   const storeKey = '4chan-watch';
   const settingsKey = '4chan-settings';
   const timestampKey = '4chan-tw-timestamp';
@@ -55,6 +61,8 @@ function start(context) {
     } : null,
     warn: text => { notice.textContent = text; },
   });
+  let settingsStartupRead;
+  let settingsStartupState = null;
   let settingsCache = {};
   let settingsRawCache = null;
   let volatileSettings = false;
@@ -63,14 +71,23 @@ function start(context) {
   let volatileCSS = false;
   let cssCache = null;
   let timestampCache = null;
+  const mobile = matchMedia('(max-width: 480px)');
+  const settingsStartupLayout = sourceMobileLayout(mobile.matches, readNeverMobile());
   let entries = readWatches(read(storeKey));
   let enabled = configuration().threadWatcher === true && configuration().disableAll !== true;
   let busy = false;
   let blacklistCache = new Set();
   let invalidBlacklist = false;
   let activePostMenu = null;
-  const mobile = matchMedia('(max-width: 480px)');
   let collapsed = mobile.matches;
+  const settingsPresentation = captureSettingsPresentation(settingsStartupRead, settingsStartupLayout);
+  // Runtime defaults and guarded persistence are independent of presentation.
+  // Only a successful absent/empty startup read establishes this state.
+  if (!catalog && settingsPresentation.firstRun) settingsStartupState = {
+    active: true, mobileLayout: settingsStartupLayout, mobileDevice: mobileQuoteDevice(navigator.userAgent),
+  };
+  // Raw storage is always read afresh before any first-open persistence.
+  settingsStartupRead = { status: 'captured' };
 
   function readNeverMobile() {
     try { return localStorage.getItem('4chan_never_show_mobile'); }
@@ -89,10 +106,14 @@ function start(context) {
     catch { persistent = false; return key === timestampKey ? timestampCache : null; }
   }
   function configuration() {
-    if (volatileSettings) return { ...settingsCache };
+    if (volatileSettings) return effectiveSettings(settingsCache);
     let raw;
     try { raw = localStorage.getItem(settingsKey); }
-    catch { persistent = false; volatileSettings = true; return { ...settingsCache }; }
+    catch {
+      settingsStartupRead ??= { status: 'unavailable' };
+      persistent = false; volatileSettings = true; return effectiveSettings(settingsCache);
+    }
+    settingsStartupRead ??= { status: 'ok', raw };
     settingsRawCache = raw;
     settingsCache = {};
     if (raw && raw.length <= 4096) {
@@ -101,7 +122,30 @@ function start(context) {
         if (value && typeof value === 'object' && !Array.isArray(value)) settingsCache = value;
       } catch { /* Malformed preferences use finite defaults. */ }
     }
-    return { ...settingsCache };
+    return effectiveSettings(settingsCache);
+  }
+  function effectiveSettings(settings) {
+    if (!settingsStartupState?.active) return { ...settings };
+    return { ...settingsStartupDefaults({ ...settingsStartupState, disabled: settings.disableAll === true }), ...settings };
+  }
+  function initializeSettingsOnOpen(signal) {
+    const startup = settingsStartupState;
+    if (!startup?.active || signal?.aborted) return Promise.resolve({ status: 'skipped' });
+    return locked(() => {
+      if (signal?.aborted || !startup.active || location.hash.startsWith('#cfg=')
+        || settingsTransfer?.hasPendingReview()) return { status: 'skipped' };
+      // A captured firstRun flag is never authority to repair unknown raw data
+      // or replace a newer preference snapshot from another tab.
+      let raw;
+      try { raw = localStorage.getItem(settingsKey); }
+      catch { return { status: 'skipped' }; }
+      const current = readSettingsStartup(raw);
+      if (current.status !== 'ok') return { status: 'skipped' };
+      const settings = effectiveSettings(volatileSettings ? { ...current.settings, ...settingsCache } : current.settings);
+      if (JSON.stringify(settings).length > 4096) return { status: 'skipped' };
+      if (!writeSettings(settings)) return false;
+      return { status: 'ok', persisted: persistent && !volatileSettings };
+    }, signal);
   }
   function load() { if (persistent) entries = readWatches(read(storeKey)); }
   function loadBlacklist() {
@@ -273,6 +317,7 @@ function start(context) {
   nativeThreads = catalog ? null : mountNativeThreadHiding({ board, threadId, settings: configuration, changed: syncOpenPostMenu });
   const nativeLinkification = catalog ? null : mountNativeLinkification({
     root: document.querySelector('.board'), settings: configuration, mobile, readNeverMobile, projection,
+    beforeTransform: message => nativeMath?.restoreMessage(message),
   });
   nativeInlineQuotes = catalog ? null : mountNativeInlineQuotes({
     root: document.querySelector('.board'), board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin,
@@ -282,6 +327,7 @@ function start(context) {
     companion: link => nativeQuotePreview?.companion(link) ?? nativeBacklinks?.companion(link),
     backlinkOwner: link => nativeBacklinks?.backlinkOwner(link),
     prepareBacklinks: (...args) => nativeBacklinks?.prepareInlineCopy(...args),
+    registerMath: (...args) => nativeMath?.registerQuote(...args),
   });
   nativeQuotePreview = catalog ? null : mountNativeQuotePreview({
     root: document.querySelector('.board'), board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin,
@@ -291,9 +337,16 @@ function start(context) {
     quoteContext: link => nativeInlineQuotes?.quoteContext(link),
     companion: link => nativeBacklinks?.companion(link) ?? nativeInlineQuotes?.companion(link),
     decoratePreview: (...args) => nativeBacklinks?.decoratePreview(...args),
+    registerMath: (...args) => nativeMath?.registerQuote(...args),
   });
   const nativeImages = catalog ? null : mountNativeImages({ root: document.querySelector('.board'),
     mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, mobile, family: themeFamily,
+    previewRoot: () => document.getElementById('quote-preview'),
+  });
+  const nativeDeletion = catalog ? null : mountNativeDeletion({ root: document.querySelector('.board'), board,
+    settings: configuration, mobileLayout: () => sourceMobileLayout(mobile.matches, readNeverMobile()),
+    projection, images: nativeImages,
+    complete: post => { if (activePostMenu?.post === post) closePostMenu(); },
   });
   const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
     worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection,
@@ -320,7 +373,7 @@ function start(context) {
       } finally { clearTimeout(timer); signal.removeEventListener('abort', cancel); acknowledgement.abort(); }
     },
   });
-  const nativeQuickReply = catalog ? null : mountNativeQuickReply({ board, thread: threadId, settings: configuration,
+  const nativeQuickReply = catalog ? null : mountNativeQuickReply({ board, thread: threadId, settings: configuration, math: nativeMath,
     savePosition: position => saveSettings({ 'QR-position': position }),
     committed: (id, post) => {
       const saved = tracking.committed(id, post).catch(() => false);
@@ -341,21 +394,18 @@ function start(context) {
     mobileLayout: () => mobile.matches && readNeverMobile() !== 'true',
   })).catch(() => { notice.textContent = 'Catalog settings could not be loaded.'; return null; }) : null;
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
+    initializeOnOpen: initializeSettingsOnOpen,
     openCatalogSettings: catalog ? opener => { void catalogTheme.then(controller => {
       if (controller) controller.open(opener); else notice.textContent = 'Catalog settings could not be opened.';
     }); } : undefined,
-    hasMobileLayout: () => mobile.matches && readNeverMobile() !== 'true',
+    presentation: settingsPresentation,
     openFilters: opener => nativeFilters?.open(opener),
     clearThreads: () => { void nativeThreads?.clearHistory(); },
     openKeybinds: opener => nativeKeys?.openHelp(opener),
     openCustomMenu: opener => nativeDisplay?.openEditor(opener),
     openCustomCSS: document.querySelector('.board') ? opener => nativeCustomCSS?.open(opener) : undefined,
     openExport: opener => settingsTransfer?.openExport(opener),
-    optionChecked: (key, initial) => key === 'linkify'
-      ? (initial.disableAll === true ? initial.linkify === true
-        : (mobile.matches && readNeverMobile() !== 'true') || initial.linkify === true)
-      : key === 'embedYouTube' ? (typeof initial.embedYouTube === 'boolean' ? initial.embedYouTube
-        : !sourceMobileLayout(mobile.matches, readNeverMobile())) : undefined,
+    optionChecked: settingsOptionChecked,
     toggleWatcher: () => { collapsed = !collapsed; render(); if (!collapsed) void refreshAll(true); },
   });
   const nativePosterIds = catalog ? null : mountNativePosterIds({ root: document.body, settings: configuration });
@@ -596,6 +646,9 @@ function start(context) {
         try { partial = keys.some(key => localStorage.getItem(key) !== previous[key]); } catch { /* Storage is unavailable. */ }
         return { status: 'storage-error', partial };
       }
+      // Invalidate before releasing the shared lock. A queued first-open save
+      // must not add defaults to a deliberately sparse reviewed restore.
+      if (settingsStartupState) settingsStartupState.active = false;
       return { status: 'ok', persisted: true };
     }, signal);
   }
@@ -749,6 +802,7 @@ function start(context) {
     return link;
   }
   function postFileMenu(menu) {
+    if (menu.post.closest('.deleted') || menu.post.querySelector(':scope > .file.deleted')) return;
     const source = projection.query(menu.post, '.file > .fileText > a[href],.file > p > a[href]');
     if (!source) return;
     let file;
@@ -760,13 +814,13 @@ function start(context) {
       ['Yandex', 'https://www.yandex.com/images/search'],
       ['SauceNAO', 'https://saucenao.com/search.php'],
     ].map(([name, endpoint]) => {
-      const url = new URL(endpoint); url.searchParams.set('url', file.href);
+      const url = new URL(endpoint); url.searchParams.set(name === 'Yandex' ? 'img_url' : 'url', file.href);
       if (name === 'Yandex') url.searchParams.set('rpt', 'imageview');
       return [name, url.href];
     });
-    if (mobile.matches) {
-      if (menu.post.querySelector(`form[action="/${board}/delete"] input[name=file_only]`)) {
-        postMenuItem(menu, 'del-file', 'Delete file', () => openPostAction(menu.post, 'delete', true));
+    if (sourceMobileLayout(mobile.matches, readNeverMobile())) {
+      if (nativeDeletion?.canDelete(menu.post, true)) {
+        postMenuItem(menu, 'del-file', 'Delete file', () => { void nativeDeletion.remove(menu.post, true); });
       }
       postMenuLink(menu.list, 'Open normalized file', file.href);
       for (const [name, url] of providers) postMenuLink(menu.list, `Search image on ${name}`, url);
@@ -793,16 +847,30 @@ function start(context) {
     });
     item.append(toggle, submenu); menu.list.append(item);
   }
-  function openPostAction(post, action, fileOnly = false) {
-    const form = post.querySelector(`.postActions form[action="/${board}/${action}"]`);
-    if (!form) return;
-    if (action === 'delete') {
-      const checkbox = form.querySelector('input[name=file_only]');
-      if (checkbox) checkbox.checked = fileOnly;
-    }
-    const details = form.closest('details');
-    if (details) details.open = true;
-    form.querySelector(action === 'report' ? '[name="reason"]' : '[name="password"]')?.focus();
+  const reportRegistry = createReportRegistry({ origin: location.origin,
+    current: ({ board: expectedBoard, id, target }) => !catalog && mutationLock.active
+      && configuration().disableAll !== true && expectedBoard === board
+      && target.isConnected && document.getElementById(`p${id}`) === target
+      && target.closest('.board') === document.querySelector('.board')
+      && sections().includes(target.closest('.thread')),
+    complete: ({ id, target }) => {
+      if (target.classList.contains('op')) {
+        if (!threadId && nativeThreads?.enabled()) void nativeThreads.hide?.(id);
+      } else if (target.classList.contains('reply')) void nativeReplies?.hide?.(id);
+    },
+  });
+  const receiveReport = event => { reportRegistry.receive(event); };
+  window.addEventListener('message', receiveReport);
+  function openReport(post) {
+    const id = post.id.slice(1), url = reportURL(location.origin, board, id);
+    if (!url || !post.isConnected || configuration().disableAll === true) return;
+    let popup = null;
+    try {
+      popup = window.open(url, `report-popup-${board}-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        'popup,toolbar=0,scrollbars=1,location=0,status=1,menubar=0,resizable=1,width=380,height=510');
+    } catch { /* Popup blocking falls back to the same canonical native GET. */ }
+    if (popup) reportRegistry.register(popup, board, id, post);
+    else location.assign(url);
   }
   function syncOpenPostMenu(position = true) {
     const menu = activePostMenu;
@@ -856,14 +924,14 @@ function start(context) {
     root.append(list);
     const menu = { root, list, trigger, post, section, watch: null, filter: null,
       selection: nativeFilters?.selection() };
-    postMenuItem(menu, 'report', 'Report post', () => openPostAction(post, 'report'));
+    postMenuItem(menu, 'report', 'Report post', () => openReport(post));
     if (!catalog && !threadId && post.classList.contains('op') && nativeThreads?.enabled()) {
       menu.hideThread = postMenuItem(menu, 'hide', '', () => { void nativeThreads.toggle(post.id.slice(1)); });
     }
     if (post.classList.contains('reply')) {
       menu.hide = postMenuItem(menu, 'hide-r', '', () => { void nativeReplies?.toggle(post.id.slice(1)); });
     }
-    if (mobile.matches) postMenuItem(menu, 'del-post', 'Delete post', () => openPostAction(post, 'delete'));
+    if (nativeDeletion?.canDelete(post)) postMenuItem(menu, 'del-post', 'Delete post', () => { void nativeDeletion.remove(post); });
     postFileMenu(menu);
     root.addEventListener('keydown', event => {
       const items = [...list.querySelectorAll('[role="menuitem"]')].filter(item => item.getClientRects().length);
@@ -945,6 +1013,7 @@ function start(context) {
     nativeInlineQuotes?.refresh();
     nativeQuotePreview?.refresh();
     nativeImages?.refresh();
+    nativeDeletion?.refresh();
     nativeEmbeds?.refresh();
     nativeCustomCSS?.refresh();
     nativeDisplay?.refresh();
@@ -1150,8 +1219,8 @@ function start(context) {
     }
   });
   window.addEventListener('resize', () => closePostMenu());
-  window.addEventListener('pagehide', () => { mutationLock.suspend(); closePostMenu(); refresh.cancel(); });
-  window.addEventListener('pageshow', event => { if (event.persisted) mutationLock.resume(); });
+  window.addEventListener('pagehide', () => { mutationLock.suspend(); closePostMenu(); refresh.cancel(); reportRegistry.clear(); window.removeEventListener('message', receiveReport); });
+  window.addEventListener('pageshow', event => { if (event.persisted) { mutationLock.resume(); window.addEventListener('message', receiveReport); } });
   mobile.addEventListener('change', () => { closePostMenu(); collapsed = mobile.matches; render(); });
   const container = document.getElementById('threads');
   if (container) new MutationObserver(controls).observe(container, { childList: true });

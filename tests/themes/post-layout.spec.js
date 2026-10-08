@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 import { readFile } from 'node:fs/promises';
 
 const reference = JSON.parse(await readFile(new URL('../../docs/public-post-layout-reference.json', import.meta.url), 'utf8'));

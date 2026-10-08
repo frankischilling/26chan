@@ -31,7 +31,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut transaction = pool.begin().await?;
     match arguments[0].as_str() {
         "setup" => {
-            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit) VALUES($1,'Owned navigation board','Owned native navigation browser fixture',4000,20,10,12,2,0)")
+            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned navigation board','Owned native navigation browser fixture',4000,20,10,12,2,0,0,0,0)")
                 .bind(slug).execute(&mut *transaction).await?;
         }
         "cleanup" => {

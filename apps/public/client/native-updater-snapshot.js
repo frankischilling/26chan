@@ -4,6 +4,7 @@ import { isCapcodeToken, postIdentityUrl, validateCapcodeTree } from './native-c
 import { validatePostNumbers } from './native-post-numbers.js';
 import { postFileAssetUrl, validateFilePresentation } from './native-file-presentation.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
+import { isWordfilterMarkup, isWordfilterMarkupTag } from './native-wordfilter-markup.js';
 
 export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes: 100000,
   depth: 32, requestMs: 10000, parseMs: 2000, intervalMs: 1000 });
@@ -11,11 +12,13 @@ export const PREVIEW_LIMITS = Object.freeze({ bytes: 262144, nodes: 16384, depth
   requestMs: 5000, parseMs: 1000, intervalMs: 300, companions: 4096 });
 const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'sideArrows', 'post',
   'op', 'reply', 'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'imgspoiler', 'fileDeleted', 'fileDeletedRes',
-  'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions']);
+  'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions',
+  'fortune', 'fortune-0', 'fortune-1', 'fortune-2', 'fortune-3', 'fortune-4', 'fortune-5', 'fortune-6',
+  'fortune-7', 'fortune-8', 'fortune-9', 'fortune-10', 'fortune-11', 'fortune-12']);
 const attributes = {
-  article: ['class', 'id'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
+  article: ['class', 'id', 'data-custom-spoiler'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
   strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title'], blockquote: ['class', 'id'],
-  br: [], wbr: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
+  br: [], wbr: [], b: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required'],
   label: ['for'], button: [], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
 };
@@ -64,7 +67,16 @@ export function postMediaUrl(raw, context) {
   return raw.startsWith(prefix) && /^[1-9][0-9]{0,18}(?:\.png|s\.jpg)$/.test(raw.slice(prefix.length));
 }
 export function postLinkUrl(raw, context) {
-  if (raw.startsWith('/')) return /^\/[a-z0-9]{1,10}\/(?:post\/[1-9][0-9]{0,18}|thread\/[1-9][0-9]{0,18}(?:#p[1-9][0-9]{0,18}|\?quote=[1-9][0-9]{0,18}#reply)?)$/.test(raw);
+  if (raw.startsWith('/')) {
+    if (/^\/rules#[a-z0-9]{1,10}[a-z0-9+/,\-]*$/.test(raw)) return true;
+    // OP Reply/View thread uses the server's ordinary semantic context. Match
+    // the raw root-relative path, never a URL-normalized or decoded alias, and
+    // retain the exact decimal identity across worker/main-thread validation.
+    const semantic = /^\/([a-z0-9]{1,10})\/thread\/([1-9][0-9]{0,18})\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(raw);
+    if (semantic) return semantic[0] === raw && semantic[1] === context.board && semantic[2] === context.thread
+      && postId(semantic[2]) === semantic[2] && semantic[3].length <= 49;
+    return /^\/[a-z0-9]{1,10}\/(?:post\/[1-9][0-9]{0,18}|thread\/[1-9][0-9]{0,18}(?:#p[1-9][0-9]{0,18}|\?quote=[1-9][0-9]{0,18}#reply)?|catalog(?:#s=(?:[a-z0-9+\-]|%2F|%2C)+)?|)$/.test(raw);
+  }
   const url = new URL(raw);
   return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !/[\u0000-\u0020\u007f]/.test(raw);
 }
@@ -74,12 +86,18 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
   budget.chars ??= 0;
   const charge = text => { budget.chars += text.length; require(budget.chars <= limits.bytes); };
   const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'pim', 'm', 'f', 'fT', 'delete', 'report'].map(prefix => prefix + no));
-  function visit(node, depth, form = null) {
+  function visit(node, depth, form = null, comment = false) {
     require(++budget.nodes <= limits.nodes && depth <= limits.depth);
     if (typeof node === 'string') { charge(node); return; }
     exactKeys(node, ['tag', 'attrs', 'children']);
-    require(Object.hasOwn(attributes, node.tag) && Array.isArray(node.children));
+    require((Object.hasOwn(attributes, node.tag) || isWordfilterMarkupTag(node.tag)) && Array.isArray(node.children));
     require(node.attrs && typeof node.attrs === 'object' && !Array.isArray(node.attrs));
+    if (comment && isWordfilterMarkup(node.tag, node.attrs)) {
+      for (const [key, value] of Object.entries(node.attrs)) { charge(key); charge(value); }
+      for (const child of node.children) visit(child, depth + 1, form, true);
+      return;
+    }
+    require(Object.hasOwn(attributes, node.tag));
     for (const [key, value] of Object.entries(node.attrs)) {
       // Rust permits 64 KiB of comment UTF-8; URL percent encoding can triple
       // that size. Preserve those valid links within the aggregate wire budget.
@@ -102,6 +120,10 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       if (key === 'autocomplete') require(value === 'off');
       if (key === 'required') require(value === '');
       if (key.startsWith('data-')) {
+        if (key === 'data-custom-spoiler') {
+          require(depth === 0 && node.tag === 'article' && /^(?:[1-9]|[1-5][0-9]|6[0-4])$/.test(value));
+          continue;
+        }
         if (key === 'data-utc') {
           require(node.tag === 'span' && node.attrs.class === 'dateTime postNum' && /^-?(?:0|[1-9][0-9]{0,11})$/.test(value));
           continue;
@@ -120,7 +142,8 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     if (fileTitle) require(Object.keys(node.attrs).sort().join(',') === 'class,id,title'
       && new TextEncoder().encode(node.attrs.title).length <= 255 && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
     if (mobileLabel) require(Object.keys(node.attrs).sort().join(',') === 'class,title'
-      && new TextEncoder().encode(node.attrs.title).length <= 400 && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
+      && new TextEncoder().encode(node.attrs.title).length <= (node.attrs.class === 'name' ? 255 : 1020)
+      && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
     if ((Object.hasOwn(node.attrs, 'title') && !['strong', 'img', 'a'].includes(node.tag) && !mobileLabel && !fileTitle)
       || (node.attrs.class || '').split(' ').some(isPostFlagToken)) {
       require(node.tag === 'span' && isPostFlagClass(node.attrs.class || '')
@@ -138,6 +161,8 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       const a = node.attrs;
       require(form !== null);
       require((a.type === 'hidden' && a.name === 'no' && a.value === no && !a.id)
+        || (form.endsWith('/delete') && a.type === 'hidden' && a.name === 'password' && a.id === `delete${no}`
+          && Object.keys(a).sort().join(',') === 'id,name,type')
         || (form.endsWith('/delete') && a.type === 'password' && a.name === 'password' && a.id === `delete${no}` && a.value === undefined)
         || (form.endsWith('/delete') && a.type === 'checkbox' && a.name === 'file_only' && a.value === 'true' && !a.id)
         || (form.endsWith('/report') && !a.type && a.name === 'reason' && a.id === `report${no}` && a.value === undefined));
@@ -147,12 +172,17 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     if ((node.attrs.class || '').split(' ').some(value => ['mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b'].includes(value))) {
       require(node.tag === 'span' && ['mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b'].includes(node.attrs.class));
     }
+    const fortuneTokens = (node.attrs.class || '').split(' ').filter(value => value === 'fortune' || /^fortune-(?:[0-9]|1[0-2])$/.test(value));
+    if (fortuneTokens.length) {
+      require(node.tag === 'span' && /^fortune fortune-(?:[0-9]|1[0-2])$/.test(node.attrs.class));
+    }
     if (node.tag === 'img') require(typeof node.attrs.src === 'string' && typeof node.attrs.alt === 'string');
     if (node.tag === 'a') {
       require(typeof node.attrs.href === 'string');
       if (!node.attrs.href.startsWith('/')) require(['noopener noreferrer', 'nofollow noreferrer noopener'].includes(node.attrs.rel));
     }
-    for (const child of node.children) visit(child, depth + 1, form);
+    const message = node.tag === 'blockquote' && node.attrs.class === 'postMessage' && node.attrs.id === `m${no}`;
+    for (const child of node.children) visit(child, depth + 1, form, comment || message);
   }
   visit(tree, 0);
   validateCapcodeTree(tree, no);
@@ -164,7 +194,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
   return tree;
 }
 
-function parsePostRecipe(html, context, no, budget, limits) {
+export function parsePostRecipe(html, context, no, budget, limits) {
   budget.created ??= 0;
   const treeAdapter = { ...defaultTreeAdapter, createElement(...args) {
     require(++budget.created <= limits.nodes); return defaultTreeAdapter.createElement(...args);
@@ -173,7 +203,8 @@ function parsePostRecipe(html, context, no, budget, limits) {
   function recipe(node, depth) {
     require(depth <= limits.depth);
     if (node.nodeName === '#text') return node.value;
-    require(node.namespaceURI === 'http://www.w3.org/1999/xhtml' && Object.hasOwn(attributes, node.tagName));
+    require(node.namespaceURI === 'http://www.w3.org/1999/xhtml'
+      && (Object.hasOwn(attributes, node.tagName) || isWordfilterMarkupTag(node.tagName)));
     return { tag: node.tagName, attrs: Object.fromEntries(node.attrs.map(a => {
       require(!a.namespace && !a.prefix); return [a.name, a.value];
     })), children: node.childNodes.map(child => recipe(child, depth + 1)) };

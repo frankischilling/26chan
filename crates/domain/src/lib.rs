@@ -1,27 +1,57 @@
 #![forbid(unsafe_code)]
+pub mod admission_normalization;
+pub mod anonymous_session;
+pub mod board_flags;
 pub mod capcode;
+pub mod content_admission;
 pub mod country;
 pub mod identity;
+pub mod name_trip_admission;
 pub mod poster_id;
+pub mod public_deletion;
+pub mod semantic_context;
 pub mod word_break;
 
 pub mod bump;
+pub mod comment_admission_projection;
 mod comment_ascii;
 mod comment_lines;
 pub mod comment_markup;
 mod comment_quotes;
 pub mod comment_spacing;
 mod comment_unicode;
-pub use comment_spacing::{CommentSpacing, prepare_post_comment};
+pub use comment_spacing::{CommentSpacing, prepare_post_comment, prepare_post_comment_with_limits};
+pub mod filtered_formatting;
 pub mod formatting;
 pub mod image_limit;
 pub mod op_bump;
 mod post_content;
-pub use post_content::{PostKind, PreparedPostContent, prepare_post_content};
+mod post_limits;
+pub use post_limits::{MAX_AUTHORIZED_COMMENT_CHARS, MAX_AUTHORIZED_FIELD_BYTES, PostLimits};
+pub mod post_quote;
+pub mod server_link;
+pub mod static_quote;
+pub use post_content::{
+    PostContentInput, PostKind, PreparedPostContent, prepare_post_content,
+    prepare_post_content_input, prepare_post_content_input_with_limits,
+};
 pub mod posting_options;
+pub mod posting_randomizers;
+pub mod report_category;
+pub mod report_threat;
+pub mod report_weight;
+pub mod robot9000;
 mod subject;
-pub use formatting::{Line, Token, parse_comment, parse_post_comment};
-pub use subject::{MAX_SUBJECT_BYTES, prepare_post_subject, source_html_entities};
+mod trip_cp932;
+mod trip_cp932_data;
+pub mod wordfilter;
+mod wordfilter_limits;
+pub use wordfilter_limits::WordfilterLimits;
+pub mod wordfiltered_comment;
+pub use formatting::{Line, Token, parse_comment, parse_post_comment, parse_post_comment_on_board};
+pub use subject::{
+    MAX_SUBJECT_BYTES, prepare_post_subject, prepare_post_subject_with_limits, source_html_entities,
+};
 
 pub const MAX_COMMENT_CHARS: usize = 16_000;
 pub const MAX_COMMENT_BYTES: usize = 64_000;
@@ -30,7 +60,14 @@ pub const MAX_PUBLIC_FIELD_BYTES: usize = 100;
 /// The posting reference converts CRLF and lone CR to LF before length checks.
 /// Bound input before allocating; normalization never increases its byte size.
 pub fn normalize_comment(value: &str) -> Result<std::borrow::Cow<'_, str>, ValidationError> {
-    if value.len() > MAX_COMMENT_BYTES {
+    normalize_comment_with_limits(value, PostLimits::ordinary(MAX_COMMENT_CHARS))
+}
+
+pub fn normalize_comment_with_limits(
+    value: &str,
+    limits: PostLimits,
+) -> Result<std::borrow::Cow<'_, str>, ValidationError> {
+    if value.len() > limits.input_bytes() {
         return Err(ValidationError(
             "Enter a comment within this board's character limit.",
         ));
@@ -89,6 +126,11 @@ pub struct BoardSlug(String);
 
 impl BoardSlug {
     pub fn parse(value: &str) -> Result<Self, ValidationError> {
+        if value == "polls" {
+            return Err(ValidationError(
+                "This board name is reserved for public polls.",
+            ));
+        }
         if value.is_empty()
             || value.len() > 10
             || !value
@@ -125,12 +167,27 @@ pub fn validate_post_with_attachment(
     max_chars: usize,
     has_attachment: bool,
 ) -> Result<(), ValidationError> {
-    if name.len() > MAX_PUBLIC_FIELD_BYTES || subject.len() > MAX_PUBLIC_FIELD_BYTES {
-        return Err(ValidationError("Name or subject is too long."));
-    }
-    let comment = normalize_comment(comment)?;
+    validate_post_with_limits(
+        name,
+        subject,
+        comment,
+        PostLimits::ordinary(max_chars),
+        has_attachment,
+    )
+}
+
+pub fn validate_post_with_limits(
+    name: &str,
+    subject: &str,
+    comment: &str,
+    limits: PostLimits,
+    has_attachment: bool,
+) -> Result<(), ValidationError> {
+    limits.validate_field(name)?;
+    limits.validate_field(subject)?;
+    let comment = normalize_comment_with_limits(comment, limits)?;
     if (comment.trim().is_empty() && !has_attachment)
-        || comment.chars().count() > max_chars.min(MAX_COMMENT_CHARS)
+        || comment.chars().count() > limits.comment_chars()
     {
         return Err(ValidationError(
             "Enter a comment within this board's character limit.",
@@ -155,6 +212,13 @@ mod tests {
         for value in ["", "../a", "a/b", "a'", "Admin", "abcdefghijk"] {
             assert!(BoardSlug::parse(value).is_err(), "{value}");
         }
+    }
+
+    #[test]
+    fn public_poll_namespace_cannot_be_a_board() {
+        assert!(BoardSlug::parse("polls").is_err());
+        assert_eq!(BoardSlug::parse("poll").unwrap().as_str(), "poll");
+        assert_eq!(BoardSlug::parse("polls2").unwrap().as_str(), "polls2");
     }
 
     #[test]

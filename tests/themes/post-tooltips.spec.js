@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 import { readFile } from 'node:fs/promises';
 import { mobileHeaderLabel } from '../../apps/public/client/native-post-numbers.js';
 

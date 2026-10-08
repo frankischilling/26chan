@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# This runner only qualifies owned disposable development databases.
+if [[ ${APP_ENV:-development} != development ]]; then
+  echo 'Verification requires development mode.' >&2
+  exit 1
+fi
+export APP_ENV=development
 : "${TEST_PUBLIC_DATABASE_URL:?Set the disposable public test database URL}"
 : "${MEDIA_DATABASE_URL:?Set the disposable media test database URL}"
 : "${MEDIA_READ_DATABASE_URL:?Set the disposable approved-media reader database URL}"
@@ -12,17 +18,35 @@ if [[ ${CI:-} == true ]]; then
   npx playwright install --with-deps chromium
 fi
 npm run check:generated
+timeout 300s npm run test:math
+python3 scripts/check-windows-test-exits.py
+npm run test:settings-categories
+node --test tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
 cargo build --workspace --examples --bins --locked
+cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked
 cargo test --workspace --all-features --locked
+cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture
+cargo test -p board-public --example deletion-fixture --features database-tests --locked
+cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked
+npx playwright test tests/browser/anonymous-session.spec.js
+node --test tests/browser/polls-fixture.test.mjs
+npm run test:polls
+npm run test:global-search
+npm run test:posting-randomizers
+npm run test:robot9000
+npm run test:wordfilters
 npm run test:linkification
+npx playwright test tests/browser/static-quotes.spec.js
 npm run test:quote-preview
 npm run test:backlinks
 npm run test:inline-quotes
 npm run test:images-core
 npm run test:files-core
+npm run test:custom-spoilers
+npm run test:source-flags
 npm run test:display
 npm run test:post-tooltips
 npm run check:native-thread-controls
@@ -47,4 +71,8 @@ npm run test:behavior
 npx playwright test tests/browser/catalog-teasers.spec.js
 npx playwright test tests/browser/text-catalog.spec.js
 npx playwright test tests/browser/catalog-previews.spec.js
-npx playwright test --config playwright.staff.config.js
+# Harmless inherited values must not reach the separately privileged services.
+AZURE_CONFIG_DIR=/tmp/owned-synthetic-cloud-config \
+SSH_AUTH_SOCK=/tmp/owned-synthetic-agent \
+EXTRA_DATABASE_URL=owned-synthetic-shadow-url \
+  npx playwright test --config playwright.staff.config.js

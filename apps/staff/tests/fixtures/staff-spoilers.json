@@ -1,0 +1,5360 @@
+{
+  "reference": "operator-supplied 4chan-old checkout",
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "admin.php": "4415d6684931efb93a9cc044bd69f770bd7bf1dc7b217e6f8cfffa0fe60418eb",
+    "lib/auth.php": "98138062957155f859c6c2650613117290feeb386c6deb3a1097f5b62cbb6019"
+  },
+  "extractor_php": "8.3.6",
+  "scope": "spoiler endpoint policy, rank/scope checks, state changes, unchanged requests, missing inputs/posts, live/archive rebuilds and action masks",
+  "boundary_stubs": [
+    "synthetic rank and board scope",
+    "disabled local authentication",
+    "synthetic GET and username cookie",
+    "successful synthetic SELECT/UPDATE/audit calls",
+    "synthetic post row or absence",
+    "recorded thread rebuild arguments"
+  ],
+  "cases": [
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "-1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": false,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": false,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": false,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          130,
+          40,
+          "g",
+          "Owned name",
+          "SPOILER<>Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          30,
+          true
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": false,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": true,
+      "desired": true,
+      "archived": true,
+      "reply": true,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": true,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": true,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "janitor",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": true,
+      "missing_flag": true,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": true,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": true,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "mod",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": true,
+      "missing_flag": true,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": true,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": true,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "manager",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": true,
+      "missing_flag": true,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": false,
+      "response": "1",
+      "updates": [
+        [
+          "SPOILER<>Owned subject",
+          40
+        ]
+      ],
+      "audits": [
+        [
+          129,
+          40,
+          "g",
+          "Owned name",
+          "Owned subject",
+          "Owned comment",
+          "owned.png",
+          "owned-synthetic"
+        ]
+      ],
+      "rebuilds": [
+        [
+          40,
+          false
+        ]
+      ]
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": false,
+      "missing_flag": true,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": true,
+      "missing_flag": false,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    },
+    {
+      "role": "admin",
+      "scoped": true,
+      "enabled": true,
+      "old": false,
+      "desired": true,
+      "archived": false,
+      "reply": false,
+      "missing_post": true,
+      "missing_flag": true,
+      "response": "0",
+      "updates": [],
+      "audits": [],
+      "rebuilds": []
+    }
+  ]
+}

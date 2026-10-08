@@ -1,13 +1,14 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
-import { openWatcherSettings, saveWatcherSettings } from './helpers/watcher-settings.js';
+import { openNativeSettingsCategory, openWatcherSettings, saveWatcherSettings } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-linkification-password';
-    const write = form => request.post('/demo/post', {
+    const write = form => withPostingHistory(() => request.post('/demo/post', {
       headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password },
-    });
+    }));
     const response = await write({ resto: '0', sub: 'Owned linkification', com: 'Initial https://initial.test/path' });
     expect(response.status()).toBe(303);
     const id = response.headers().location.match(/thread\/(\d+)/)[1];
@@ -23,17 +24,17 @@ const test = base.extend({
           return result.headers().location.match(/#p(\d+)/)[1];
         },
       });
-    } finally { await remove(); }
+    } finally { await withDeletionQuota(async () => { await remove(); }); }
   },
 });
 
 const generated = 'a.linkified[data-native-linkified="true"]';
 const update = page => page.locator('.threadNav.desktop a[data-cmd="update"]').first().click();
 const status = page => page.locator('.threadNav.desktop .nativeUpdaterStatus').first();
-const serverLink = url => `<a href="${url}" rel="nofollow noreferrer noopener">${url}</a>`;
+const serverLink = url => `<a href="${url}" target="_blank" rel="nofollow noreferrer noopener">${url}</a>`;
 
 test('linkification preserves filtering when generated markup would exceed its parser budget', async ({ page, owned }) => {
-  const seed = 'https://seed.test/path';
+  const seed = 'https://www.4chan.org/faq';
   const original = `Budget needle ${serverLink(seed)}`;
   const longComment = `${original} ${'HTTP://EXAMPLE.test/a '.repeat(700)}`;
   const reply = await owned.reply(`Budget needle ${seed}`);
@@ -68,15 +69,15 @@ test('linkification preserves filtering when generated markup would exceed its p
   try {
     await settingsPage.goto(owned.url);
     const dialog = await openWatcherSettings(settingsPage);
-    const navigation = dialog.getByRole('button', { name: 'Navigation', exact: true });
-    if (await navigation.getAttribute('aria-expanded') === 'false') await navigation.click();
+    await openNativeSettingsCategory(dialog, 'Miscellaneous');
+
     await dialog.getByLabel('Linkify URLs', { exact: true }).check();
     await Promise.all([
       settingsPage.waitForEvent('load'),
       dialog.getByRole('button', { name: 'Save Settings', exact: true }).click(),
     ]);
   } finally { await settingsPage.close(); }
-  await expect(page.locator(`#m${normal} ${generated}`)).toHaveCount(1);
+  await expect(page.locator(`#m${normal} ${generated}`)).toHaveCount(2);
   await expect(message.locator(generated)).toHaveCount(0);
   expect(await message.innerHTML()).toBe(before);
   expect(await message.evaluate(node => window.budgetServerAnchor === node.querySelector('a'))).toBe(true);
@@ -87,25 +88,14 @@ test('linkification preserves filtering when generated markup would exceed its p
   await expect(post).toHaveClass(/post-hidden/);
 });
 
-async function serveInitialUrlAsText(page, owned) {
-  await page.route(`**${owned.url}`, async route => {
-    const response = await route.fetch();
-    let body = await response.text();
-    const linked = serverLink('https://initial.test/path');
-    if (!body.includes(linked)) throw new Error('Initial server link fixture was not found');
-    body = body.replace(linked, 'https://initial.test/path');
-    await route.fulfill({ response, body });
-  });
-}
-
 test('desktop starts with source linkification off and the real setting enables it after save', async ({ page, owned }) => {
-  await serveInitialUrlAsText(page, owned);
   await page.goto(owned.url);
   const message = page.locator(`#m${owned.id}`);
   await expect(message).toContainText('https://initial.test/path');
   await expect(message.locator('a')).toHaveCount(0);
 
   const dialog = await openWatcherSettings(page);
+  await openNativeSettingsCategory(dialog, 'Miscellaneous');
   await expect(dialog.getByLabel('Linkify URLs', { exact: true })).not.toBeChecked();
   await dialog.getByRole('button', { name: 'Close settings' }).click();
   await saveWatcherSettings(page, { linkify: true });
@@ -118,7 +108,6 @@ test('desktop starts with source linkification off and the real setting enables 
 test('mobile default, never-mobile exact value, disableAll and viewport changes use the live source option precedence', async ({ page, owned }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ linkify: false })));
-  await serveInitialUrlAsText(page, owned);
   await page.goto(owned.url);
   const message = page.locator(`#m${owned.id}`);
   await expect(message.locator(generated)).toHaveCount(0);
@@ -126,7 +115,9 @@ test('mobile default, never-mobile exact value, disableAll and viewport changes 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(message.locator(generated)).toHaveCount(1);
   let dialog = await openWatcherSettings(page);
-  await expect(dialog.getByLabel('Linkify URLs', { exact: true })).toBeChecked();
+  await openNativeSettingsCategory(dialog, 'Miscellaneous');
+  // Link rendering remains responsive; Settings uses the page's startup desktop layout.
+  await expect(dialog.getByLabel('Linkify URLs', { exact: true })).not.toBeChecked();
   await dialog.getByRole('button', { name: 'Close settings' }).click();
 
   await page.evaluate(() => {
@@ -135,6 +126,7 @@ test('mobile default, never-mobile exact value, disableAll and viewport changes 
   });
   await expect(message.locator(generated)).toHaveCount(0);
   dialog = await openWatcherSettings(page);
+  await openNativeSettingsCategory(dialog, 'Miscellaneous');
   await expect(dialog.getByLabel('Linkify URLs', { exact: true })).not.toBeChecked();
   await dialog.getByRole('button', { name: 'Close settings' }).click();
 
@@ -161,24 +153,24 @@ test('mobile default, never-mobile exact value, disableAll and viewport changes 
 });
 
 test('updater raw replies, quote previews and bounded postMessage fixtures linkify while server anchors survive live disable', async ({ page, request, owned }) => {
-  const quoted = await owned.reply(`>>${owned.id}\nExisting server quote`);
+  const internal = 'https://www.4chan.org/faq';
+  const quoted = await owned.reply(`>>${owned.id}\nExisting server quote ${internal}`);
   await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ linkify: true })));
   await page.goto(owned.url);
   const quote = page.locator(`#m${quoted} .quotelink`);
   await expect(quote).toHaveAttribute('href', `/demo/post/${owned.id}`);
-  await expect(page.locator(`#m${owned.id} a[href="https://initial.test/path"]`)).toHaveCount(1);
-  await page.evaluate(({ id, quoted }) => {
+  await expect(page.locator(`#m${quoted} a[href="${internal}"]`)).toHaveCount(1);
+  await page.evaluate(({ internal, quoted }) => {
     window.serverQuote = document.querySelector(`#m${quoted} .quotelink`);
-    window.serverExternal = document.querySelector(`#m${id} a[href="https://initial.test/path"]`);
-  }, { id: owned.id, quoted });
+    window.serverExternal = document.querySelector(`#m${quoted} a[href="${internal}"]`);
+  }, { internal, quoted });
 
   const reply = await owned.reply('Dynamic https://reply.test/new');
   const snapshot = await (await request.get(owned.path)).json();
   const incoming = snapshot.posts.find(post => post.no === reply);
   expect(incoming).toBeTruthy();
-  expect(incoming.html).toContain(serverLink('https://reply.test/new'));
-  incoming.html = incoming.html.replace(serverLink('https://reply.test/new'), 'https://reply.test/new');
-  await page.route(`**${owned.path}`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(snapshot) }));
+  expect(incoming.html).toContain('Dynamic https://reply.test/new');
+  expect(incoming.html).not.toContain('href="https://reply.test/new"');
   await update(page);
   await expect(status(page)).toHaveText('1 new post');
   await expect(page.locator(`#m${reply} ${generated}`)).toHaveAttribute('href', '/derefer?url=https%3A%2F%2Freply.test%2Fnew');
@@ -215,24 +207,24 @@ test('updater raw replies, quote previews and bounded postMessage fixtures linki
     window.dispatchEvent(new StorageEvent('storage', { key: '4chan-settings' }));
   });
   await expect(page.locator(generated)).toHaveCount(0);
-  expect(await page.evaluate(({ id, quoted }) => {
+  expect(await page.evaluate(({ internal, quoted }) => {
     const currentQuote = document.querySelector(`#m${quoted} .quotelink`);
-    const currentExternal = document.querySelector(`#m${id} a[href="https://initial.test/path"]`);
+    const currentExternal = document.querySelector(`#m${quoted} a[href="${internal}"]`);
     return {
       quote: currentQuote === window.serverQuote && currentQuote?.isConnected && currentQuote.getAttribute('href'),
       external: currentExternal === window.serverExternal && currentExternal?.isConnected && currentExternal.getAttribute('href'),
     };
-  }, { id: owned.id, quoted })).toEqual({ quote: `/demo/post/${owned.id}`, external: 'https://initial.test/path' });
+  }, { internal, quoted })).toEqual({ quote: `/demo/post/${owned.id}`, external: internal });
 });
 
 test('persisted mixed-case URLs keep server anchors while the browser links uppercase text in initial HTML and updater replies', async ({ page, request }) => {
   const password = 'owned-linkification-mixed-password';
-  const lower = 'https://lower.test/path';
+  const lower = 'https://www.4chan.org/faq';
   const upper = 'HTTPS://UPPER.TEST/Path?Q=One';
   const comment = `Existing ${lower} then ${upper}`;
-  const write = form => request.post('/demo/post', {
+  const write = form => withPostingHistory(() => request.post('/demo/post', {
     headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password },
-  });
+  }));
   const created = await write({ resto: '0', sub: 'Persisted mixed linkification', com: comment });
   expect(created.status()).toBe(303);
   const id = created.headers().location.match(/thread\/(\d+)/)[1];
@@ -293,8 +285,10 @@ test('persisted mixed-case URLs keep server anchors while the browser links uppe
     expect(storedReply).toContain(upper);
     expect(storedReply).not.toContain(`/derefer?url=${encodeURIComponent(upper)}`);
   } finally {
-    await request.post('/demo/delete', {
-      headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+    await withDeletionQuota(async () => {
+      await request.post('/demo/delete', {
+        headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+      });
     });
   }
 });
@@ -307,10 +301,10 @@ test('mobile default remains usable when settings storage reads are unavailable'
       value() { throw new DOMException('Unavailable', 'SecurityError'); },
     });
   });
-  await serveInitialUrlAsText(page, owned);
   await page.goto(owned.url);
   await expect(page.locator(`#m${owned.id} ${generated}`)).toHaveCount(1);
   const dialog = await openWatcherSettings(page);
+  await openNativeSettingsCategory(dialog, 'Miscellaneous');
   await expect(dialog.getByLabel('Linkify URLs', { exact: true })).toBeChecked();
 });
 

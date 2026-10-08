@@ -1,12 +1,16 @@
 use askama::Template;
 use board_domain::comment_markup::Tag;
 use board_domain::word_break::WordPart;
-use board_domain::{Line, Token, parse_post_comment};
+use board_domain::{Line, Token};
 use board_store::{Board, Post, Thread};
+#[path = "views/catalog_identity.rs"]
+mod catalog_identity;
 #[path = "views/file_label.rs"]
 mod file_label;
 #[path = "views/mobile_label.rs"]
 mod mobile_label;
+#[path = "views/spoilers.rs"]
+pub mod spoilers;
 
 #[derive(Template)]
 #[template(path = "home.html")]
@@ -17,6 +21,7 @@ pub struct Home {
 #[derive(Template)]
 #[template(path = "board.html")]
 pub struct BoardPage {
+    pub spoiler_thumbnail: String,
     pub navigation_boards: Vec<Board>,
     pub quote: String,
     pub catalog_hidden: Vec<ThreadView>,
@@ -48,6 +53,9 @@ pub struct UploadForm {
 }
 
 impl BoardPage {
+    pub fn catalog_spoiler_thumbnail(&self) -> String {
+        spoilers::catalog_thumbnail(&self.board)
+    }
     pub fn navigation(&self) -> Vec<&Board> {
         board_navigation(&self.navigation_boards, &self.board)
     }
@@ -75,10 +83,18 @@ impl BoardPage {
 pub struct ArchivePage {
     pub navigation_boards: Vec<Board>,
     pub board: Board,
-    pub entries: Vec<board_store::ArchiveEntry>,
+    pub entries: Vec<crate::archive::Row>,
 }
 
 impl ArchivePage {
+    pub fn count_label(&self) -> String {
+        let count = self.entries.len();
+        if count >= 1000 {
+            format!("{},{:03}", count / 1000, count % 1000)
+        } else {
+            count.to_string()
+        }
+    }
     pub fn navigation(&self) -> Vec<&Board> {
         board_navigation(&self.navigation_boards, &self.board)
     }
@@ -90,11 +106,16 @@ fn board_navigation<'a>(boards: &'a [Board], current: &'a Board) -> Vec<&'a Boar
         links.truncate(99);
         links.push(current);
     }
-    links.sort_by(|left, right| left.slug.cmp(&right.slug));
+    links.sort_by(|left, right| {
+        (left.source_order, &left.slug).cmp(&(right.source_order, &right.slug))
+    });
     links
 }
 
 pub struct ThreadView {
+    /// Original active-board SQL position, before catalog sorting or filtering.
+    /// This is public ordering metadata, not the private staff rank value.
+    pub catalog_position: Option<usize>,
     pub catalog_last_reply: Option<board_store::CatalogReply>,
     pub tail_size: usize,
     pub latest_reply_id: Option<i64>,
@@ -104,6 +125,20 @@ pub struct ThreadView {
     pub image_replies: i64,
 }
 impl ThreadView {
+    pub fn catalog_reply_badge(&self) -> Option<catalog_identity::Badge<'_>> {
+        catalog_identity::badge(self.catalog_last_reply.as_ref()?.capcode.as_deref(), true)
+    }
+
+    pub fn catalog_reply_identity_visible(&self, board: &Board) -> bool {
+        board_domain::capcode::catalog_identity_visible(
+            self.catalog_last_reply
+                .as_ref()
+                .and_then(|reply| reply.capcode.as_deref()),
+            board.forced_anon,
+            board.meta_board,
+        )
+    }
+
     pub fn bump_limited(&self, board: &Board) -> bool {
         board_domain::bump::limited(
             self.thread.sticky,
@@ -138,6 +173,7 @@ pub struct PostView {
 #[derive(Template)]
 #[template(path = "post_fragment.html")]
 pub struct PostFragment<'a> {
+    pub spoiler_thumbnail: &'a str,
     pub item: &'a PostView,
     pub view: &'a ThreadView,
     pub board: &'a Board,
@@ -146,6 +182,42 @@ pub struct PostFragment<'a> {
 }
 
 impl PostView {
+    pub fn reply_href(&self, board: &Board) -> askama::Result<String> {
+        let context =
+            crate::semantic_thread::context(self, board).map_err(|_| askama::Error::Fmt)?;
+        Ok(crate::semantic_thread::href(
+            &board.slug,
+            self.post.thread_id,
+            &context,
+        ))
+    }
+
+    pub fn catalog_identity_visible(&self, board: &Board) -> bool {
+        board_domain::capcode::catalog_identity_visible(
+            self.post.capcode.as_deref(),
+            board.forced_anon,
+            board.meta_board,
+        )
+    }
+
+    pub fn catalog_badge(&self) -> Option<catalog_identity::Badge<'_>> {
+        catalog_identity::badge(self.post.capcode.as_deref(), false)
+    }
+
+    pub fn catalog_country_class(&self, board: &Board) -> Option<String> {
+        catalog_identity::country_class(
+            self.post.capcode.as_deref(),
+            self.post.country.as_deref(),
+            board.country_flags,
+            !board.board_flags.is_empty(),
+            self.post.board_flag.as_deref(),
+        )
+    }
+
+    pub fn filter_name(&self) -> String {
+        board_domain::source_html_entities(&self.post.name)
+    }
+
     pub fn file_label(&self, filename: &str) -> file_label::FileLabel {
         file_label::label(filename, self.post.id == self.post.thread_id)
     }
@@ -168,13 +240,23 @@ impl PostView {
             .as_deref()
             .and_then(board_domain::capcode::Capcode::parse)
     }
-    pub fn flag(&self) -> Option<(String, &str)> {
-        if let (Some(code), Some(name)) = (&self.post.board_flag, &self.post.flag_name)
-            && board_domain::country::board_flag(code).is_some()
+    pub fn flag(&self, board: &Board) -> Option<(String, &str)> {
+        if !board.board_flags.is_empty()
+            && let Some(code) = &self.post.board_flag
+            && let Some(flag) = board_domain::board_flags::flag(&board.board_flag_type, code)
         {
-            return Some((format!("bfl bfl-{}", code.to_ascii_lowercase()), name));
+            let scope = if board.board_flag_type == "pol" {
+                String::new()
+            } else {
+                format!(" bfl-type-{}", board.board_flag_type)
+            };
+            return Some((
+                format!("bfl bfl-{}{scope}", code.to_ascii_lowercase()),
+                flag.display,
+            ));
         }
-        if let (Some(code), Some(name)) = (&self.post.country, &self.post.country_name)
+        if board.country_flags
+            && let (Some(code), Some(name)) = (&self.post.country, &self.post.country_name)
             && board_domain::country::country_code(code)
         {
             return Some((format!("flag flag-{}", code.to_ascii_lowercase()), name));
@@ -182,8 +264,24 @@ impl PostView {
         None
     }
 
+    pub fn fortune_class(&self) -> Option<&'static str> {
+        self.post
+            .fortune_color
+            .as_deref()
+            .and_then(board_domain::posting_randomizers::fortune_class)
+    }
+
     pub fn catalog_teaser(&self, board: &Board) -> crate::catalog::teaser::Prepared {
-        crate::catalog::teaser::prepare(&self.lines, &board.slug, board.into())
+        crate::catalog::teaser::prepare_with_randomizers(
+            &self.lines,
+            &board.slug,
+            crate::catalog::teaser::Policy::for_post(board, self.post.comment_format),
+            self.post.dice_result.as_deref(),
+            self.post
+                .fortune_text
+                .as_deref()
+                .zip(self.post.fortune_color.as_deref()),
+        )
     }
 
     pub fn catalog_search_text(&self, teaser: &crate::catalog::teaser::Prepared) -> String {
@@ -201,7 +299,7 @@ impl PostView {
         )
     }
     pub fn new(post: Post) -> Self {
-        let lines = parse_post_comment(&post.comment, post.comment_format);
+        let lines = post.formatted_lines();
         let now = post
             .created_at
             .with_timezone(&chrono_tz::America::New_York)
@@ -244,20 +342,45 @@ mod catalog_tests {
 pub struct Comment<'a> {
     pub lines: &'a [Line],
     pub board: &'a str,
+    pub dice_result: Option<&'a str>,
+    pub fortune_text: Option<&'a str>,
+    pub fortune_color: Option<&'a str>,
 }
 
 #[cfg(test)]
 mod comment_tests {
     use super::*;
+    use board_domain::parse_post_comment;
     use board_domain::{CommentSpacing, parse_comment, prepare_post_comment};
 
     fn render(input: &str, format: i16) -> String {
         Comment {
             lines: &parse_post_comment(input, format),
             board: "test",
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
         }
         .render()
         .unwrap()
+    }
+
+    #[test]
+    fn retained_randomizer_metadata_uses_fixed_markup_and_escaped_text() {
+        let lines = parse_post_comment("ordinary <text>", 0);
+        let html = Comment {
+            lines: &lines,
+            board: "test",
+            dice_result: Some("Rolled <1>"),
+            fortune_text: Some("<script>alert(1)</script>"),
+            fortune_color: Some("#00cbb0"),
+        }
+        .render()
+        .unwrap();
+        assert_eq!(
+            html,
+            r#"<b>Rolled &#60;1&#62;<br><br></b>ordinary &#60;text&#62;<span class="fortune" style="color:#00cbb0"><br><br><b>Your fortune: &#60;script&#62;alert(1)&#60;/script&#62;</b></span>"#
+        );
     }
 
     #[test]
@@ -403,6 +526,9 @@ mod comment_tests {
         let html = Comment {
             lines: &lines,
             board: "test",
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
         }
         .render()
         .unwrap();
@@ -427,6 +553,9 @@ mod comment_tests {
             let html = Comment {
                 lines: &lines,
                 board: "test",
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
             }
             .render()
             .unwrap();
@@ -462,6 +591,9 @@ mod comment_tests {
                 let html = Comment {
                     lines: &lines,
                     board: "test",
+                    dice_result: None,
+                    fortune_text: None,
+                    fortune_color: None,
                 }
                 .render()
                 .unwrap();

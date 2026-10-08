@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
   test(`text-only native form at ${viewport.width}px keeps subject validation and hides uploads`, async ({ page }, info) => {

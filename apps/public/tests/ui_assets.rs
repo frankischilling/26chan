@@ -103,6 +103,10 @@ async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
         .collect();
     let navigation: serde_json::Value =
         serde_json::from_str(include_str!("../../../docs/public-navigation-assets.json")).unwrap();
+    let spoilers: serde_json::Value =
+        serde_json::from_str(include_str!("../../../docs/custom-spoiler-assets.json")).unwrap();
+    let board_flags: serde_json::Value =
+        serde_json::from_str(include_str!("../../../docs/source-board-flag-assets.json")).unwrap();
     for origin in ["http://127.0.0.1:3000", "https://board.example"] {
         let pool = sqlx::postgres::PgPoolOptions::new()
             .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
@@ -134,6 +138,24 @@ async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
             }
         }
         sources.push(';');
+        let mut expected_sources: std::collections::BTreeSet<String> = sources
+            .split_ascii_whitespace()
+            .skip(1)
+            .map(|source| source.trim_end_matches(';').to_owned())
+            .collect();
+        for asset in spoilers["assets"].as_array().unwrap() {
+            expected_sources.insert(format!(
+                "{origin}/static/catalog/{}",
+                asset["name"].as_str().unwrap()
+            ));
+        }
+        for kind in ["pol", "mlp", "lgbt"] {
+            for asset in board_flags[kind].as_array().unwrap() {
+                if let Some(path) = asset["release_path"].as_str() {
+                    expected_sources.insert(format!("{origin}{path}"));
+                }
+            }
+        }
         for (path, asset) in &assets {
             // Each route contract gets a fresh request budget. Do not relax the
             // production write limit to accommodate this growing asset table.
@@ -165,7 +187,19 @@ async fn catalog_assets_are_fixed_bytes_with_narrow_csp_and_no_write_route() {
                 let csp = response.headers()["content-security-policy"]
                     .to_str()
                     .unwrap();
-                assert!(csp.contains(&sources));
+                let actual_sources: std::collections::BTreeSet<String> = csp
+                    .split(';')
+                    .map(str::trim)
+                    .find(|directive| directive.starts_with("img-src "))
+                    .unwrap()
+                    .split_ascii_whitespace()
+                    .skip(1)
+                    .map(str::to_owned)
+                    .collect();
+                assert_eq!(
+                    actual_sources, expected_sources,
+                    "{path}: image authority differs"
+                );
                 assert!(!csp.contains("img-src 'self'"));
                 assert!(csp.contains("script-src 'none'"));
                 let bytes = response.into_body().collect().await.unwrap().to_bytes();
@@ -779,6 +813,83 @@ async fn catalog_and_page_controllers_are_bounded_fixed_code_and_absent_from_the
                     .unwrap();
                 assert_eq!(response.status(), StatusCode::NOT_FOUND);
             }
+        }
+    }
+}
+
+#[tokio::test]
+async fn deletion_page_module_is_bounded_fixed_code_and_absent_from_the_api_listener() {
+    let path = "/static/native-post-deletion.v1.js";
+    let expected = include_bytes!("../static/native-post-deletion.v1.js");
+    assert!(expected.len() <= 16_384);
+    assert!(std::str::from_utf8(expected).is_ok());
+    for origin in ["http://127.0.0.1:3000", "https://board.example"] {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+            .unwrap();
+        let (app, api) = board_public::routers(pool, origin.into(), origin.starts_with("https:"));
+        for method in ["GET", "HEAD", "POST", "PUT", "DELETE"] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(path)
+                        .header("origin", origin)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            if matches!(method, "GET" | "HEAD") {
+                assert_eq!(response.status(), StatusCode::OK);
+                assert_eq!(
+                    response.headers()["content-type"],
+                    "text/javascript; charset=utf-8"
+                );
+                assert_eq!(
+                    response.headers()["cache-control"],
+                    "public, max-age=0, must-revalidate"
+                );
+                assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+                assert!(response.headers().get("set-cookie").is_none());
+                assert!(
+                    response
+                        .headers()
+                        .get("access-control-allow-origin")
+                        .is_none()
+                );
+                let csp = response.headers()["content-security-policy"]
+                    .to_str()
+                    .unwrap();
+                for directive in [
+                    "default-src 'none';",
+                    "script-src 'none';",
+                    "connect-src 'none';",
+                    "worker-src 'none';",
+                ] {
+                    assert!(csp.contains(directive));
+                }
+                let bytes = response.into_body().collect().await.unwrap().to_bytes();
+                if method == "GET" {
+                    assert_eq!(bytes.as_ref(), expected);
+                } else {
+                    assert!(bytes.is_empty());
+                }
+            } else {
+                assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+            }
+        }
+        for (router, target) in [
+            (api, path),
+            (app.clone(), "/static/native-post-deletion.js"),
+            (app, "/static/native-post-deletion.v2.js"),
+        ] {
+            let response = router
+                .oneshot(Request::get(target).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
         }
     }
 }

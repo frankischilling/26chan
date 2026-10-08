@@ -193,7 +193,7 @@ export function mountNativeThreadUpdater({ board, thread, worksafe, mediaOrigin,
       checkPostTreeIds(additions.map(post => post.tree), document);
       const fragment = document.createDocumentFragment();
       for (const post of additions) {
-        const element = buildPostTree(post.tree, document);
+        const element = buildPostTree(post.tree, document, { board });
         inserted.push(element);
         fragment.append(element);
       }

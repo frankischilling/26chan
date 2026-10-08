@@ -1,0 +1,164 @@
+# Report checkpoint CI corrections
+
+The [6fbed3e run](https://github.com/frankischilling/26chan/actions/runs/37468696466)
+failed. Its evidence must not be replaced by the fully passing preceding
+[f988a7a run](https://github.com/frankischilling/26chan/actions/runs/37460684026).
+
+## Migration fixture permissions
+
+The media job reached the new report-admission upgrade exercise and stopped at
+line 33, before its assertions. The script creates a private SQL file as root
+under umask 077, then asked a postgres-owned psql process to open that pathname.
+The second generated readiness file had the same ownership mismatch.
+
+Both calls now use `-f - < file`: the parent shell opens its private file before
+switching the child user. File permissions are unchanged. The adapted local
+exercise passes populated/fresh upgrades, historical preservation and current
+dump/restore. That local environment does not reproduce the hosted user switch;
+the original privileged CI harness still needs exact-head qualification.
+
+## Attachment authority inventory
+
+Linux passed preceding Rust targets, then stopped in `post_media` at its exact
+attachment-owner function allowlist. Migration 0094 adds the staff-only
+`staff_delete_post_attachment` wrapper, so the previous ten-function set was
+stale.
+
+The corrected test enumerates the reviewed functions and derives the expected
+count from that set. It retains owner, SECURITY DEFINER, fixed search path and
+PUBLIC-denial checks. A separate assertion requires the new wrapper to be
+executable by staff, denied to public/auth roles, and not grantable to others.
+It does not permit arbitrary new functions.
+
+A broader local run also exposed a race in the archive-secret lock fixture:
+the queued archiver could commit before its intermediate visibility assertion
+following the rejected deletion. An explicit savepoint now keeps the original
+secret lock until the test deliberately releases it. The required `55P03`,
+pre-commit authority preservation and eventual retirement assertions remain.
+
+## Windows image connection failure
+
+Theme shard 1 passed 486 cases and failed the spoiler-image decode prerequisite
+in `tests/themes/file-states.spec.js`. The trace recorded
+`/static/catalog/spoiler.png` failing before HTTP with `net::ERR_NO_BUFFER_SPACE`.
+The same asset returned 200 and 1,115 PNG bytes about 0.6 seconds earlier.
+
+The retained NetLog links request 65834 through stream 65837 and connection job
+65838 to socket 65839 at `127.0.0.1:3000`. Its TCP connect attempt returned Windows
+error 10055 at 2026-10-06 13:18:06.385 UTC, followed by net error -176. This proves
+a connection-setup failure for that request. It does not prove global port,
+memory or nonpaged-pool exhaustion, or establish the underlying Windows cause.
+
+The failed worker's diagnostic was retained. A later `discarded-success` message
+belongs to the replacement successful worker. Main Windows visual assertions
+passed; its final aggregate step failed because the required shard failed.
+Assertions, image prerequisites, screenshot baselines, tolerances and retries
+remain unchanged.
+
+## Metadata-only diagnostic enrichment
+
+AFD inventory schema 2 adds the provider GUID and deduplicated opcode, task,
+validated log name and exact hexadecimal keyword metadata. Signed keyword
+values retain all 64 bits rather than passing through JSON numbers. Numeric
+channel ID and the raw event-descriptor keyword mask are unavailable through the
+current collector and remain explicitly absent. Completeness does not guess
+those values.
+
+Capture remains unavailable. No ETW session, raw event collection, pointer
+extraction, native decoder or additional system privilege is enabled. Existing
+input/output caps, cleanup and original test exit-code handling remain. The 25
+focused Node cases pass locally; PowerShell and hosted Windows behavior require
+the next exact-head CI run.
+
+## Anonymous upgrade ordering
+
+The legacy anonymous-session exercise also applied every later migration before
+0065. Replaying that script from 4fe5003 reproduced a missing
+`post_secrets.anonymous_sessions` error at migration 0095. The corrected exercise
+first verifies the populated 0064-to-0065 transition, then applies later
+migrations in order and checks current runtime behavior. Its report fixture uses
+the restricted admission API, and its complete dump uses the owned-cluster
+administrator rather than expanding the migrator's private-table grants.
+The adapted local exercise passes history, role-denial, rollback, capacity,
+bounded-cleanup and restored-ownership checks.
+
+
+## Session-report checkpoint prerequisites
+
+At ea9a7b4, all four Windows theme shards and the main Windows job passed.
+Linux reached the report-popup group with 14 passing cases and one Escape
+failure: the popup closed during keydown before Playwright received its keyup
+acknowledgement. The test now requires a trusted Escape event, popup closure,
+an open parent, and a connected browser before accepting that specific
+closed-target error. Other errors remain failures. Browser verification of
+this correction is pending the next exact-head run.
+
+The media job failed its complete dump because the non-inheriting migrator
+cannot read the dedicated-owner report-admission tables. Both restore exercises
+now dump through their already verified disposable-cluster administrator;
+runtime grants are unchanged. Private files are opened before switching users,
+and private report membership, admission policy, reports and audit history are
+compared through silent fingerprints.
+
+Both adapted local restore exercises passed with migration 0097. The local
+adapter used an owned TCP PostgreSQL cluster and the current unprivileged user;
+it does not qualify native root-to-postgres switching or Windows execution.
+The attachment exercise verified seven attachments, fourteen files, exact JSON
+bytes, URL forms, deletion/archive visibility, one-use receipts, interrupted
+cleanup, numbering and unchanged source state.
+
+A wider local run also found a transient empty media claim in the attachment
+fixture. Its unchanged isolated rerun passed. The fixture now waits on its exact
+queued job with a bounded row lock, verifies state, attempt count, input size and
+expiry, then explicitly releases the lock before the single `SKIP LOCKED` claim.
+This establishes the idle-queue precondition without retries or production queue
+changes. The exact source of the transient lock has not been established.
+
+## Post-menu browser contract after popup completion
+
+At b860089, main Windows, all four Windows theme shards and media/operations
+passed. Linux passed the dedicated report-popup group, then failed the older
+thread-watcher menu test: it still expected the inline report input to receive
+focus after the menu action opened the registered popup.
+
+That test now checks the actual popup URL and target, counts POSTs across the
+opener and popup, submits the real form, and verifies persisted reply hiding.
+It then uses the real Unhide menu before the original cookie-authorized deletion
+checks. Production menu behavior is unchanged. Its syntax is checked locally;
+actual browser execution still requires the next exact-head run.
+
+## Held-navigation observation in categorical tests
+
+At 78438c4, Windows, all theme shards and media/operations passed. Linux passed
+19 popup cases and failed the two categorical response-hold cases. Each had
+already verified committed report metadata, then tried to inspect the popup's
+old form while its real POST navigation was deliberately held. Playwright waited
+for that navigation instead of providing the assumed old DOM.
+
+The corrected test observes the opener during that interval: committed metadata
+must exist while both posts remain visible and hide storage is unchanged. It
+then forwards the original response unchanged and checks success, hiding and the
+close boundary. No production code or ordering assertion was removed. The
+pending-navigation popup DOM was never part of that commit-before-hide contract.
+Syntax is checked locally; the corrected browser cases require the next run.
+
+## Dynamically inserted post-menu report flow
+
+At e67a25a, all Windows jobs and media/operations passed. Linux passed the
+21-case popup/menu group and the 13-case thread-watcher/catalog-transport group,
+then failed the native-updater test's old inline-report focus expectation.
+The dynamically inserted post's menu correctly opened a popup.
+
+The updated test exercises that popup's canonical target and real form, verifies
+zero writes from selection and exactly one successful POST, observes reply-only
+hiding, then makes a fresh GET that must reject the committed duplicate. It
+retains the updater's document, draft, focus, escaping and event assertions.
+An audit found no other post-menu tests that still assumed inline submission;
+explicit fallback-form and unsent-draft tests keep their separate contracts.
+This change has a local syntax check; real browser qualification is pending.
+
+The later connection-setup failure and bounded descriptor follow-up are recorded
+in [Windows socket diagnostics](windows-socket-diagnostics.md).
+
+The later quota-fixture teardown correction is recorded in
+[Fixture teardown and parent locks](fixture-teardown-locks.md).

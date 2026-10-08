@@ -1,3 +1,5 @@
+import { isCommentElement } from './native-wordfilter-markup.js';
+
 // One instance belongs to the page and is injected into every content reader.
 // A class or data attribute never grants ownership of a comment projection.
 export function createCommentProjection() {
@@ -11,6 +13,7 @@ export function createCommentProjection() {
     }
     return null;
   }
+  const sourceText = node => textSources.get(node)?.() ?? node.data;
   const within = node => owner(node) !== null;
   const queryAll = (root, selector) => Array.from(root?.querySelectorAll(selector) ?? []).filter(node => !within(node));
   const query = (root, selector) => queryAll(root, selector)[0] ?? null;
@@ -21,7 +24,6 @@ export function createCommentProjection() {
   }
   const escape = value => value.replace(/[&<>"\u00a0]/g,
     ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\u00a0': '&nbsp;' })[ch]);
-  const tags = new Set(['SPAN', 'S', 'PRE', 'BR', 'WBR', 'A']);
 
   function html(message) {
     let nodes = 0, size = 0;
@@ -35,12 +37,12 @@ export function createCommentProjection() {
       if (has(node)) return;
       if (++nodes > 32001 || depth > 32) throw new RangeError('comment-nodes');
       if (node.nodeType === 3) {
-        if (node.data.length > 65536) throw new RangeError('comment-text');
+        if (sourceText(node).length > 65536) throw new RangeError('comment-text');
         // Quotes are not escaped by the browser's text-node serialization.
-        emit(escape(node.data).replace(/&quot;/g, '"')); return;
+        emit(escape(sourceText(node)).replace(/&quot;/g, '"')); return;
       }
       if (node.nodeType !== 1 || node.namespaceURI !== 'http://www.w3.org/1999/xhtml'
-        || !tags.has(node.tagName) || node.attributes.length > 64) throw new TypeError('comment-node');
+        || !isCommentElement(node, attributes(node)) || node.attributes.length > 64) throw new TypeError('comment-node');
       emit(`<${node.localName}`);
       for (const { name, value } of attributes(node)) {
         if (name.length > 128 || value.length > 65536) throw new RangeError('comment-attribute');
@@ -59,8 +61,9 @@ export function createCommentProjection() {
     const output = [];
     function visit(node, depth) {
       if (!node || has(node)) return;
+      if (node.nodeType === 1 && node.namespaceURI !== 'http://www.w3.org/1999/xhtml') throw new TypeError('comment-node');
       if (++nodes > 32768 || depth > 32) throw new RangeError('comment-nodes');
-      const value = node.nodeType === 3 ? node.data : node.nodeName === 'BR' ? lineBreak : null;
+      const value = node.nodeType === 3 ? sourceText(node) : node.nodeName === 'BR' ? lineBreak : null;
       if (value !== null) {
         size += value.length;
         if (size > 262144) throw new RangeError('comment-text');
@@ -78,6 +81,7 @@ export function createCommentProjection() {
     function copy(node) {
       if (has(node)) return null;
       const result = node.cloneNode(false);
+      if (node.nodeType === 3) result.data = sourceText(node);
       if (node.nodeType === 1 && annotations.has(node)) {
         for (const { name } of Array.from(result.attributes)) result.removeAttribute(name);
         for (const { name, value } of attributes(node)) result.setAttribute(name, value);
@@ -97,7 +101,7 @@ export function createCommentProjection() {
     return [...change.addedNodes, ...change.removedNodes].some(node => !has(node));
   }
   return { has, owner, within, query, queryAll, html, text, clone, originalMutation, attributes,
-    sourceText(node) { return textSources.get(node)?.() ?? node.data; },
+    sourceText, isTrackedText: node => textSources.has(node),
     trackText(node, read) {
       if (!node || node.nodeType !== 3 || textSources.has(node) || typeof read !== 'function') throw new TypeError('text-owner');
       textSources.set(node, read);

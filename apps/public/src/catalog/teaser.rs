@@ -8,6 +8,7 @@ pub struct Policy {
     pub text_only: bool,
     pub sjis: bool,
     pub truncate: bool,
+    pub source_links: bool,
 }
 
 impl From<&board_store::Board> for Policy {
@@ -16,6 +17,16 @@ impl From<&board_store::Board> for Policy {
             text_only: board.text_only,
             sjis: board.comment_sjis_spacing,
             truncate: board.slug == "b",
+            source_links: false,
+        }
+    }
+}
+
+impl Policy {
+    pub fn for_post(board: &board_store::Board, format: i16) -> Self {
+        Self {
+            source_links: matches!(format, 104..=111 | 120..=127),
+            ..board.into()
         }
     }
 }
@@ -25,7 +36,40 @@ pub struct Prepared {
     pub serialized: String,
 }
 
+/// Reconstruct the source's saved comment representation for text projections.
+/// The return value is data and never grants permission to bypass HTML escaping.
+pub(crate) fn stored_comment(lines: &[Line], board: &str, format: i16) -> String {
+    let mut result = String::new();
+    for (index, line) in lines.iter().enumerate() {
+        if index > 0 {
+            result.push_str("<br>");
+        }
+        if line.green {
+            result.push_str("<span class=\"quote\">");
+        }
+        result.push_str(&serialize(
+            &line.tokens,
+            board,
+            matches!(format, 104..=111 | 120..=127),
+        ));
+        if line.green {
+            result.push_str("</span>");
+        }
+    }
+    result
+}
+
 pub fn prepare(lines: &[Line], board: &str, policy: Policy) -> Prepared {
+    prepare_with_randomizers(lines, board, policy, None, None)
+}
+
+pub fn prepare_with_randomizers(
+    lines: &[Line],
+    board: &str,
+    policy: Policy,
+    dice: Option<&str>,
+    fortune: Option<(&str, &str)>,
+) -> Prepared {
     let mut tokens = Vec::new();
     let mut previous_break = false;
     for (index, line) in lines.iter().enumerate() {
@@ -38,7 +82,18 @@ pub fn prepare(lines: &[Line], board: &str, policy: Policy) -> Prepared {
         if line.green {
             tokens.push(Token::OpenQuote);
         }
-        tokens.extend(line.tokens.iter().cloned());
+        tokens.extend(line.tokens.iter().cloned().map(|token| {
+            if policy.source_links {
+                match token {
+                    Token::Quote(id) => Token::Text(format!(">>{id}")),
+                    Token::CrossQuote(board, id) => Token::Text(format!(">>>/{board}/{id}")),
+                    Token::PostQuote(quote) => Token::Text(quote.label().into()),
+                    token => token,
+                }
+            } else {
+                token
+            }
+        }));
         if line.green {
             tokens.push(Token::CloseQuote);
         }
@@ -46,17 +101,43 @@ pub fn prepare(lines: &[Line], board: &str, policy: Policy) -> Prepared {
             previous_break = false;
         }
     }
+    let separator = if policy.text_only { "\n" } else { " " };
+    if let Some(dice) = dice {
+        let mut prefix = vec![
+            Token::GeneratedBold(true),
+            Token::Text(format!("{dice}{separator}")),
+            Token::GeneratedBold(false),
+        ];
+        prefix.append(&mut tokens);
+        tokens = prefix;
+    }
+    if let Some((text, color)) = fortune
+        && board_domain::posting_randomizers::fortune_class(color).is_some()
+    {
+        tokens.extend([
+            Token::GeneratedFortune(true, color.into()),
+            Token::Text(separator.into()),
+            Token::GeneratedBold(true),
+            Token::Text(format!("Your fortune: {text}")),
+            Token::GeneratedBold(false),
+            Token::GeneratedFortune(false, color.into()),
+        ]);
+    }
     if policy.sjis {
         tokens = replace_sjis(tokens);
     }
-    let truncated = policy.truncate && serialize(&tokens, board).chars().count() > 300;
+    let truncated = policy.truncate
+        && serialize(&tokens, board, policy.source_links)
+            .chars()
+            .count()
+            > 300;
     if !policy.truncate || truncated {
         tokens = strip(tokens);
     }
     if truncated {
         tokens = truncate(tokens);
     }
-    let serialized = serialize(&tokens, board);
+    let serialized = serialize(&tokens, board, policy.source_links);
     Prepared {
         lines: vec![Line {
             green: false,
@@ -73,10 +154,10 @@ fn closes_span(token: &Token) -> bool {
             | Token::CloseMarkup(
                 Tag::Sjis | Tag::Bold | Tag::Italic | Tag::Red | Tag::Green | Tag::Blue
             )
-    )
+    ) || matches!(token, Token::FilteredDelimiter(delimiter) if delimiter.closes_span())
 }
 
-fn replace_sjis(tokens: Vec<Token>) -> Vec<Token> {
+pub(crate) fn replace_sjis(tokens: Vec<Token>) -> Vec<Token> {
     // The source regex ends at the first closing span, even across other tag
     // kinds, and its dot does not cross a literal LF. Precompute those stops.
     let mut endings = vec![None; tokens.len()];
@@ -96,7 +177,8 @@ fn replace_sjis(tokens: Vec<Token>) -> Vec<Token> {
         if index < skip {
             continue;
         }
-        if matches!(token, Token::OpenMarkup(Tag::Sjis))
+        if (matches!(token, Token::OpenMarkup(Tag::Sjis))
+            || matches!(&token, Token::FilteredDelimiter(delimiter) if delimiter.is_sjis()))
             && let Some(end) = endings[index]
         {
             result.push(Token::Text("[SJIS]".into()));
@@ -108,15 +190,24 @@ fn replace_sjis(tokens: Vec<Token>) -> Vec<Token> {
     result
 }
 
-fn strip(tokens: Vec<Token>) -> Vec<Token> {
+pub(crate) fn strip(tokens: Vec<Token>) -> Vec<Token> {
     let mut result = Vec::new();
     for token in tokens {
         match token {
             Token::Text(_) | Token::OpenMarkup(Tag::Spoiler) | Token::CloseMarkup(Tag::Spoiler) => {
                 result.push(token)
             }
+            Token::ChangedEntity(_) => result.push(token),
+            Token::FilteredDelimiter(delimiter) if delimiter.element_name() == "s" => {
+                result.push(if delimiter.opening() {
+                    Token::OpenMarkup(Tag::Spoiler)
+                } else {
+                    Token::CloseMarkup(Tag::Spoiler)
+                });
+            }
+            Token::FilteredDelimiter(_) => {}
             Token::Spoiler(text) | Token::Link(text) => result.push(Token::Text(text)),
-            Token::WrappedLink(_, parts) => {
+            Token::WrappedLink(_, parts) | Token::ServerLink(_, parts) => {
                 for part in parts {
                     if let WordPart::Text(text) = part {
                         result.push(Token::Text(text));
@@ -125,11 +216,14 @@ fn strip(tokens: Vec<Token>) -> Vec<Token> {
             }
             Token::Quote(id) => result.push(Token::Text(format!(">>{id}"))),
             Token::CrossQuote(board, id) => result.push(Token::Text(format!(">>>/{board}/{id}"))),
+            Token::PostQuote(quote) => result.push(Token::Text(quote.label().into())),
+            Token::StaticQuote(quote, _) => result.push(Token::Text(quote.label())),
             Token::WordBreak
             | Token::OpenMarkup(_)
             | Token::CloseMarkup(_)
             | Token::OpenQuote
             | Token::CloseQuote => {}
+            Token::GeneratedBold(_) | Token::GeneratedFortune(_, _) => {}
         }
     }
     result
@@ -176,6 +270,16 @@ fn truncate(tokens: Vec<Token>) -> Vec<Token> {
                 spoilers += if open { 1 } else { -1 };
                 result.push(token);
             }
+            Token::ChangedEntity(entity) => {
+                let width = entity.spelling().chars().count();
+                if width > remaining {
+                    // Source removes every incomplete trailing entity,
+                    // including the finite spellings changed by /test/.
+                    break;
+                }
+                remaining -= width;
+                result.push(Token::ChangedEntity(entity));
+            }
             _ => unreachable!("truncation follows tag stripping"),
         }
     }
@@ -204,13 +308,23 @@ fn markup(tag: Tag, open: bool) -> &'static str {
     }
 }
 
-fn serialize(tokens: &[Token], board: &str) -> String {
+pub(crate) fn serialize(tokens: &[Token], board: &str, source_links: bool) -> String {
     let mut result = String::new();
     for token in tokens {
         match token {
             Token::Text(text) => result.push_str(&source_html_entities(text)),
             Token::Quote(id) => result.push_str(&format!("<a class=\"quotelink\" href=\"/{}/post/{id}\">&gt;&gt;{id}</a>", source_html_entities(board))),
             Token::CrossQuote(target, id) => result.push_str(&format!("<a class=\"quotelink\" href=\"/{}/post/{id}\">&gt;&gt;&gt;/{}/{id}</a>", source_html_entities(target), source_html_entities(target))),
+            Token::PostQuote(quote) => result.push_str(&source_html_entities(quote.label())),
+            Token::StaticQuote(quote, parts) => {
+                if source_links {
+                    result.push_str(&format!("<a href=\"{}\" class=\"quotelink\"{}>", source_html_entities(&quote.source_href()), if quote.opens_new_tab() { " target=\"_blank\"" } else { "" }));
+                } else {
+                    result.push_str(&format!("<a class=\"quotelink\" href=\"{}\"{}>", source_html_entities(&quote.href()), if quote.opens_new_tab() { " target=\"_blank\" rel=\"noopener noreferrer\"" } else { "" }));
+                }
+                for part in parts { match part { WordPart::Text(text) => result.push_str(&source_html_entities(text)), WordPart::Break => result.push_str("<wbr>") } }
+                result.push_str("</a>");
+            }
             Token::Spoiler(text) => result.push_str(&format!("<span class=\"spoiler\" tabindex=\"0\" aria-label=\"Spoiler; focus to reveal\">{}</span>", source_html_entities(text))),
             Token::Link(url) => result.push_str(&format!("<a href=\"{}\" rel=\"nofollow noreferrer noopener\">{}</a>", source_html_entities(url), source_html_entities(url))),
             Token::WrappedLink(url, parts) => {
@@ -218,11 +332,21 @@ fn serialize(tokens: &[Token], board: &str) -> String {
                 for part in parts { match part { WordPart::Text(text) => result.push_str(&source_html_entities(text)), WordPart::Break => result.push_str("<wbr>") } }
                 result.push_str("</a>");
             }
+            Token::ServerLink(link, parts) => {
+                result.push_str(&format!("<a href=\"{}\" target=\"_blank\"{}>", source_html_entities(link.href()), if source_links { "" } else { " rel=\"nofollow noreferrer noopener\"" }));
+                for part in parts { match part { WordPart::Text(text) => result.push_str(&source_html_entities(text)), WordPart::Break => result.push_str("<wbr>") } }
+                result.push_str("</a>");
+            }
             Token::WordBreak => result.push_str("<wbr>"),
             Token::OpenMarkup(tag) => result.push_str(markup(*tag, true)),
             Token::CloseMarkup(tag) => result.push_str(markup(*tag, false)),
+            Token::FilteredDelimiter(delimiter) => result.push_str(&delimiter.source_projection()),
+            Token::ChangedEntity(entity) => result.push_str(entity.spelling()),
             Token::OpenQuote => result.push_str("<span class=\"quote\">"),
             Token::CloseQuote => result.push_str("</span>"),
+            Token::GeneratedBold(open) => result.push_str(if *open { "<b>" } else { "</b>" }),
+            Token::GeneratedFortune(true, color) => result.push_str(&format!("<span class=\"fortune\" style=\"color:{color}\">")),
+            Token::GeneratedFortune(false, _) => result.push_str("</span>"),
         }
     }
     result
@@ -232,7 +356,121 @@ fn serialize(tokens: &[Token], board: &str) -> String {
 mod tests {
     use super::*;
     use board_domain::parse_post_comment;
+
+    #[test]
+    fn filtered_teasers_match_the_independently_extracted_source() {
+        use board_domain::wordfilter::{LeetRolls, Profile};
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/wordfilter-posting-reference.json"
+        ))
+        .unwrap();
+        let markup = board_domain::comment_markup::MarkupPolicy {
+            spoilers: true,
+            code: true,
+            sjis: true,
+            op: true,
+        };
+        for (name, profile) in [
+            ("global", Profile::Global),
+            ("ck", Profile::Basic),
+            ("asp", Profile::Asp),
+            ("v", Profile::Video),
+            ("test", Profile::Test),
+        ] {
+            for case in fixture["profiles"][name].as_array().unwrap() {
+                let rolls = if profile == Profile::Test {
+                    Some(
+                        LeetRolls::from_choices(
+                            case["rolls"][0].as_u64().unwrap() as u8,
+                            case["rolls"][1].as_u64().unwrap() as u8,
+                        )
+                        .unwrap(),
+                    )
+                } else {
+                    None
+                };
+                let mut saved = board_domain::wordfiltered_comment::prepare(
+                    case["admission_input"].as_str().unwrap(),
+                    markup,
+                    profile,
+                    rolls,
+                )
+                .unwrap();
+                saved.freeze_format("g");
+                let lines = board_domain::filtered_formatting::lines(&saved, "g");
+                for (truncate, field) in [(false, "teaser_full"), (true, "teaser")] {
+                    assert_eq!(
+                        prepare(
+                            &lines,
+                            "g",
+                            Policy {
+                                sjis: true,
+                                source_links: true,
+                                truncate,
+                                ..Policy::default()
+                            }
+                        )
+                        .serialized,
+                        case[field].as_str().unwrap(),
+                        "{name} {rolls:?} {} {field}",
+                        case["input"]
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn generated_randomizers_follow_source_teaser_stripping_and_truncation() {
+        let reference: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/randomizer-reference.json"
+        ))
+        .unwrap();
+        for case in reference["teaser_cases"].as_array().unwrap() {
+            let lines = vec![Line {
+                green: false,
+                tokens: vec![Token::Text(case["comment"].as_str().unwrap().into())],
+            }];
+            let prepared = prepare_with_randomizers(
+                &lines,
+                "b",
+                Policy {
+                    truncate: case["truncate"].as_bool().unwrap(),
+                    ..Default::default()
+                },
+                case["dice"].as_str(),
+                case["fortune"].as_str().zip(case["color"].as_str()),
+            );
+            assert_eq!(prepared.serialized, case["teaser"], "{case}");
+        }
+    }
     use proptest::prelude::*;
+
+    #[test]
+    fn source_catalog_serialization_matches_the_original_php_transformations() {
+        let reference: serde_json::Value =
+            serde_json::from_str(include_str!("../../../../fixtures/format-reference.json"))
+                .unwrap();
+        for case in reference["teaser_cases"].as_array().unwrap() {
+            let input = case["input"].as_str().unwrap();
+            let lines = board_domain::parse_post_comment_on_board(
+                input,
+                case["format"].as_i64().unwrap() as i16,
+                "g",
+            );
+            let policy = Policy {
+                text_only: case["text_only"].as_bool().unwrap(),
+                sjis: true,
+                truncate: case["truncate"].as_bool().unwrap(),
+                source_links: true,
+            };
+            assert_eq!(
+                prepare(&lines, "g", policy).serialized,
+                case["teaser"].as_str().unwrap(),
+                "{case}"
+            );
+        }
+    }
 
     fn prepared(input: &str, format: i16, policy: Policy) -> Prepared {
         prepare(&parse_post_comment(input, format), "b", policy)

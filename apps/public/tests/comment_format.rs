@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -47,11 +50,11 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     let mut ids = Vec::new();
     for mask in 0i16..8 {
         set_policy(&owner, &slug, mask).await;
-        let id = board_store::create_post(&public, &slug, 0, &post())
+        let id = posting_fixture::create_post(&public, &slug, 0, &post())
             .await
             .unwrap();
         let saved = board_store::find_post(&public, &slug, id).await.unwrap();
-        assert_eq!(saved.comment_format, 40 + mask);
+        assert_eq!(saved.comment_format, 104 + mask);
         assert_eq!(saved.comment, post().comment);
         ids.push(id);
     }
@@ -73,7 +76,8 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     assert_eq!(before, after);
 
     // Reads use the saved stamp after all current board flags have been reset.
-    let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let (app, api) =
+        posting_fixture::routers(public.clone(), &slug, "http://127.0.0.1:3000".into(), false);
     for (mask, id) in ids.iter().enumerate() {
         let expected = if mask & 1 != 0 {
             "<s>Owned text</s>"
@@ -143,7 +147,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         ),
     ] {
         set_policy(&owner, &slug, mask).await;
-        let id = board_store::create_post(
+        let id = posting_fixture::create_post(
             &public,
             &slug,
             0,
@@ -156,7 +160,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .unwrap();
         set_policy(&owner, &slug, 0).await;
         let saved = board_store::find_post(&public, &slug, id).await.unwrap();
-        assert_eq!(saved.comment_format, 40 + mask);
+        assert_eq!(saved.comment_format, 104 + mask);
         let body = get(&api, &format!("/{slug}/thread/{id}.json")).await;
         let json: serde_json::Value = serde_json::from_str(&body).unwrap();
         if expected.is_empty() {
@@ -208,25 +212,81 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .fetch_one(&public)
             .await
             .unwrap(),
-        47
+        111
     );
 
-    // The trigger runs with the narrowly privileged attachment owner too.
-    // This authorized direct insertion is rolled back, not a substitute for
-    // the existing approved-capability attachment integration test.
+    // A standalone role switch is not an attachment capability invocation.
+    // Keep its fail-closed boundary explicit, including absence of a saved row.
     set_policy(&owner, &slug, 7).await;
-    let mut attachment = owner.begin().await.unwrap();
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
-        .fetch_one(&mut *attachment)
+        .fetch_one(&owner)
+        .await
+        .unwrap();
+    let mut standalone = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_attachment_owner")
+        .execute(&mut *standalone)
+        .await
+        .unwrap();
+    let denied = sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES ($1,$2,$3,'Anonymous','','Owned attachment-role stamp')")
+        .bind(id).bind(&slug).bind(ids[0]).execute(&mut *standalone).await.unwrap_err();
+    let denied = denied.as_database_error().unwrap();
+    assert_eq!(denied.code().as_deref(), Some("23514"));
+    assert_eq!(
+        denied.message(),
+        "Posting history registration is unavailable."
+    );
+    standalone.rollback().await.unwrap();
+    assert!(
+        !sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM content.posts WHERE id=$1)")
+            .bind(id)
+            .fetch_one(&owner)
+            .await
+            .unwrap()
+    );
+
+    // This rollback-only definer models the attachment owner's INSERT while
+    // retaining its operator invoker and a real trusted posting actor. Neither
+    // the function nor its temporary schema grant is ever committed or exposed.
+    // This does not replace post_media.rs's approved-capability stamp coverage.
+    assert!(slug.bytes().all(|byte| byte.is_ascii_alphanumeric()));
+    let function = format!("content.owned_attachment_stamp_{slug}");
+    let mut attachment = owner.begin().await.unwrap();
+    sqlx::query("GRANT CREATE ON SCHEMA content TO board_attachment_owner")
+        .execute(&mut *attachment)
         .await
         .unwrap();
     sqlx::query("SET LOCAL ROLE board_attachment_owner")
         .execute(&mut *attachment)
         .await
         .unwrap();
-    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES ($1,$2,$3,'Anonymous','','Owned attachment-role stamp')")
-        .bind(id).bind(&slug).bind(ids[0]).execute(&mut *attachment).await.unwrap();
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+        "CREATE FUNCTION {function}(p_id bigint,p_board text,p_thread bigint) RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$ INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES(p_id,p_board,p_thread,'Anonymous','','Owned attachment-role stamp') $$; REVOKE ALL ON FUNCTION {function}(bigint,text,bigint) FROM PUBLIC; GRANT EXECUTE ON FUNCTION {function}(bigint,text,bigint) TO board_migrator;"
+    ))).execute(&mut *attachment).await.unwrap();
     sqlx::query("RESET ROLE")
+        .execute(&mut *attachment)
+        .await
+        .unwrap();
+    sqlx::query("REVOKE CREATE ON SCHEMA content FROM board_attachment_owner")
+        .execute(&mut *attachment)
+        .await
+        .unwrap();
+    let actor = posting_fixture::key(&slug).public_posting_rate_identity(posting_fixture::peer());
+    let encoded: String = actor
+        .as_bytes()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    sqlx::query("SELECT set_config('board.posting_actor',$1,true)")
+        .bind(encoded)
+        .execute(&mut *attachment)
+        .await
+        .unwrap();
+    sqlx::query("SELECT stripe FROM post_secrets.posting_actor_gates WHERE stripe=(get_byte($1::bytea,0)*256+get_byte($1::bytea,1))%4096 FOR UPDATE")
+        .bind(actor.as_bytes().as_slice()).execute(&mut *attachment).await.unwrap();
+    sqlx::query(sqlx::AssertSqlSafe(format!("SELECT {function}($1,$2,$3)")))
+        .bind(id)
+        .bind(&slug)
+        .bind(ids[0])
         .execute(&mut *attachment)
         .await
         .unwrap();
@@ -236,8 +296,17 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .fetch_one(&mut *attachment)
             .await
             .unwrap(),
-        47
+        111
     );
+    let recorded: Vec<u8> = sqlx::query_scalar(
+        "SELECT actor_hash FROM post_secrets.posting_history WHERE board=$1 AND post_id=$2",
+    )
+    .bind(&slug)
+    .bind(id)
+    .fetch_one(&mut *attachment)
+    .await
+    .unwrap();
+    assert_eq!(recorded.as_slice(), actor.as_bytes());
     attachment.rollback().await.unwrap();
     assert!(
         !sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM content.posts WHERE id=$1)")
@@ -260,7 +329,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         let task_pool = public.clone();
         let task_slug = slug.clone();
         let insertion = tokio::spawn(async move {
-            board_store::create_post(&task_pool, &task_slug, 0, &post()).await
+            posting_fixture::create_post(&task_pool, &task_slug, 0, &post()).await
         });
         let mut witnessed = false;
         for _ in 0..100 {
@@ -288,7 +357,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .await
                 .unwrap()
                 .comment_format,
-            40 + after
+            104 + after
         );
     }
 }
@@ -314,7 +383,9 @@ async fn new_posts_stamp_locked_markup_policy_without_changing_earlier_posts() {
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Markup policy','Owned fixture',1000,100,100,100,10)")
+    // Retain each policy case's OP for rendering comparisons on this owned
+    // board without exhausting the unrelated per-actor thread quota.
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_thread_limit) VALUES(0,0,0,$1,'Markup policy','Owned fixture',1000,100,100,100,10,100)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;

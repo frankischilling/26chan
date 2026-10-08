@@ -1,5 +1,15 @@
 use board_media_guest::decode_png;
 
+#[test]
+fn valid_chunk_framing_with_bad_header_crc_reaches_decoder_rejection() {
+    let mut input = png(1, 1, png::ColorType::Rgb, &[255, 0, 0]);
+    assert!(decode_png(&input).is_ok());
+    assert_eq!(&input[12..16], b"IHDR");
+    assert_eq!(u32::from_be_bytes(input[8..12].try_into().unwrap()), 13);
+    input[29] ^= 1;
+    assert!(decode_png(&input).is_err());
+}
+
 fn png(width: u32, height: u32, color: png::ColorType, pixels: &[u8]) -> Vec<u8> {
     let mut bytes = Vec::new();
     {

@@ -1,3 +1,4 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -11,13 +12,15 @@ const test = base.extend({
     });
     const remove = async id => {
       expect(posts.has(id)).toBe(true);
-      expect((await write('delete', { no: id })).status()).toBe(303);
+      await withDeletionQuota(async () => {
+        expect((await write('delete', { no: id })).status()).toBe(303);
+      });
       threads.delete(id);
       posts.delete(id);
     };
     await use({
       async thread(label) {
-        const response = await write('post', { resto: '0', sub: label, com: 'Owned lifecycle fixture' });
+        const response = await withPostingHistory(() => write('post', { resto: '0', sub: label, com: 'Owned lifecycle fixture' }));
         expect(response.status()).toBe(303);
         const id = response.headers().location.match(/thread\/(\d+)/)[1];
         threads.add(id);
@@ -26,7 +29,7 @@ const test = base.extend({
       },
       async reply(thread) {
         expect(threads.has(thread)).toBe(true);
-        const response = await write('post', { resto: thread, com: 'Owned unread reply' });
+        const response = await withPostingHistory(() => write('post', { resto: thread, com: 'Owned unread reply' }));
         expect(response.status()).toBe(303);
         const id = response.headers().location.match(/#p(\d+)/)[1];
         posts.add(id);

@@ -1,4 +1,7 @@
 #![cfg(feature = "database-tests")]
+
+#[path = "support/posting.rs"]
+mod posting_fixture;
 use axum::{
     body::Body,
     http::{HeaderMap, Request, StatusCode},
@@ -74,8 +77,15 @@ async fn exercise(multipart: bool) {
             .map(|b| format!("{b:02x}"))
             .collect::<String>()
     );
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Posting JSON','Owned synthetic response fixture',100,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
-    let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    // Retain accepted OPs across both route and content-negotiation matrices
+    // on this owned board without exhausting the unrelated actor quota.
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_thread_limit) VALUES(0,0,0,$1,'Posting JSON','Owned synthetic response fixture',100,100,100,100,10,100)").bind(&board).execute(&owner).await.unwrap();
+    let (app, api) = posting_fixture::routers(
+        public.clone(),
+        &board,
+        "http://127.0.0.1:3000".into(),
+        false,
+    );
     let fields = "name=Anonymous&sub=JSON+thread&com=Line+one%0D%0ALine+two&password=owned-json-password&track=1&awt=1&email=sageNONOKOSaGe";
     let (headers, posted) = json(
         app.clone()
@@ -99,7 +109,14 @@ async fn exercise(multipart: bool) {
         .iter()
         .map(|c| c.to_str().unwrap())
         .collect();
-    assert_eq!(cookies.len(), 4);
+    assert_eq!(cookies.len(), 5);
+    let anonymous = cookies
+        .iter()
+        .filter(|cookie| cookie.starts_with("board-anon="))
+        .copied()
+        .collect::<Vec<_>>();
+    assert_eq!(anonymous.len(), 1);
+    assert!(anonymous[0].contains("Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict"));
     let preferences: Vec<_> = cookies
         .iter()
         .copied()
@@ -108,8 +125,8 @@ async fn exercise(multipart: bool) {
     assert_eq!(
         preferences,
         [
-            "4chan_name=Anonymous; Path=/; Max-Age=31536000; SameSite=Strict",
-            "options=sageNONOKOSaGe; Path=/; Max-Age=31536000; SameSite=Strict",
+            "4chan_name=Anonymous; Path=/; Max-Age=604800; SameSite=Strict",
+            "options=sageNONOKOSaGe; Path=/; Max-Age=604800; SameSite=Strict",
         ]
     );
     assert!(

@@ -14,7 +14,7 @@ for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', '
       await page.locator('#qrCom').fill('Selected fold'); await page.locator('#qrCom').selectText();
       await page.locator('#qrCom').press('Control+s');
       await expect(page.locator('#qrCom')).toHaveValue('[spoiler]Selected fold[/spoiler]');
-      await page.locator('#qr-pwd').fill('owned-synthetic-password');
+      await expect(page.locator('#qr-pwd')).toHaveValue('');
       const bounds = await dialog.boundingBox();
       expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
       expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
@@ -43,7 +43,7 @@ test('Quick Reply drag uses bounded coordinates and thread navigation exposes th
 
 test('Quick Reply renders errors as text, aborts without retry and ignores late completions after close', async ({ page }) => {
   await page.goto('/demo/'); await page.locator(':is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible').first().click();
-  await page.locator('#qrCom').fill('Owned draft'); await page.locator('#qr-pwd').fill('owned-password');
+  await page.locator('#qrCom').fill('Owned draft'); await expect(page.locator('#qr-pwd')).toHaveValue('');
   let calls = 0;
   await page.route('**/demo/imgboard.php', async route => {
     calls++; await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ error: '<img src=x onerror=alert(1)> rejected' }) });
@@ -132,7 +132,7 @@ test('inline Quick Reply upload reaches approval through bounded status checks a
   await expect(qr.locator('[name=upload_capability]')).toHaveValue(receipt.upload_capability);
   await expect(qr.locator('[name=spoiler]')).toBeEnabled();
   await qr.locator('[name=spoiler]').check();
-  await qr.locator('#qr-pwd').fill('owned-password');
+  await expect(qr.locator('#qr-pwd')).toHaveValue('');
   await qr.locator('input[type=submit]').click();
   await expect.poll(() => posted !== undefined).toBe(true);
   const text = posted.toString('utf8');
@@ -256,7 +256,7 @@ test('approved inline authority survives a server posting error and is retired a
   const qr = page.locator('#quickReply');
   await qr.locator('#qrFile').setInputFiles({ name: 'approved.png', mimeType: 'image/png', buffer: Buffer.from([3]) });
   await expect(qr.locator('[name=upload_id]')).toHaveValue(receipt.upload_id, { timeout: 6_000 });
-  await qr.locator('#qr-pwd').fill('owned-password');
+  await expect(qr.locator('#qr-pwd')).toHaveValue('');
   await qr.locator('input[type=submit]').click();
   await expect(qr.locator('#qrError')).toHaveText('Comment required.');
   await expect(qr.locator('[name=upload_id]')).toHaveValue(receipt.upload_id);
@@ -333,7 +333,7 @@ test('posting freezes inline attachment replacement and cancellation', async ({ 
   await page.locator('.open-qr-link').click();
   await page.locator('#qrFile').setInputFiles({ name: 'posting.png', mimeType: 'image/png', buffer: Buffer.from([1]) });
   await expect(page.locator('#quickReply [name=upload_id]')).toHaveValue(receipt.upload_id);
-  await page.locator('#qr-pwd').fill('owned-password');
+  await expect(page.locator('#qr-pwd')).toHaveValue('');
   await page.locator('#quickReply input[type=submit]').click();
   await expect.poll(() => !!pending).toBe(true);
   await expect(page.getByRole('button', { name: 'Cancel file', exact: true })).toBeDisabled();
@@ -352,7 +352,7 @@ test('an approved Quick Reply consumes both editors capability fields and reopen
   const native = page.locator('form.postEditor').first();
   await page.getByRole('link', { name: 'Post a Reply', exact: true }).click();
   const qr = page.locator('#quickReply'); await expect(qr.locator('[name=upload_id]')).toHaveValue('1'.repeat(32));
-  await page.locator('#qr-pwd').fill('owned-password'); await qr.locator('[name=spoiler]').check();
+  await expect(page.locator('#qr-pwd')).toHaveValue(''); await qr.locator('[name=spoiler]').check();
   await page.route('**/demo/imgboard.php', route => route.fulfill({ contentType: 'application/json', body: '{"tid":1000001,"pid":1000002}' }));
   await qr.locator('input[type=submit]').click();
   await expect(qr.locator('[name=upload_id], [name=upload_capability], [name=spoiler]')).toHaveCount(0);
@@ -383,7 +383,7 @@ test('source length advice is debounced, typed, cancelable and does not hide ser
   await page.clock.runFor(500); await expect(error).toHaveText(`Error: Comment too long (${bytes}/${limit}).`);
   await comment.evaluate(node => { node.dispatchEvent(new Event('cut')); node.value = 'Short'; });
   await page.clock.runFor(500); await expect(error).toBeHidden();
-  await page.locator('#qr-pwd').fill('owned-password');
+  await expect(page.locator('#qr-pwd')).toHaveValue('');
   await page.route('**/demo/imgboard.php', route => route.fulfill({ contentType: 'application/json', body: '{"error":"Server rule rejected this post"}' }));
   await page.locator('#quickReply input[type=submit]').click(); await expect(error).toHaveText('Server rule rejected this post');
   await comment.press('ArrowRight'); await page.clock.runFor(500); await expect(error).toHaveText('Server rule rejected this post');

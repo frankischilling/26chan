@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 
 // Project captures document the implemented states. They are not, by themselves,
 // evidence of pixel parity with a captured public reference page.

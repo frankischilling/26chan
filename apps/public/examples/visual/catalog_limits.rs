@@ -58,11 +58,13 @@ fn render(
     .map(|(index, (lifetime, visible, images, subject))| {
         let id = 1_000_400 + index as i64;
         views::ThreadView {
+            catalog_position: None,
             catalog_last_reply: (visible > 0).then(|| board_store::CatalogReply {
                 thread_id: id,
                 id: id + visible as i64,
                 name: "Synthetic reply author".into(),
                 trip: None,
+                capcode: None,
                 poster_id: None,
                 created_at: time("2026-09-08T12:05:00Z"),
             }),
@@ -86,17 +88,22 @@ fn render(
                 archive_expires_at: None,
             },
             posts: vec![views::PostView::new(Post {
+                image_spoiler: false,
                 comment_format: 0,
+                staff_authorized_limits: false,
+                wordfilter_payload: None,
                 id,
                 board: board.slug.clone(),
                 thread_id: id,
                 name: "Anonymous".into(),
                 trip: None,
                 poster_id: None,
+                json_op_poster_id: None,
                 capcode: None,
                 country: None,
                 country_name: None,
                 board_flag: None,
+                board_flag_type: "pol".into(),
                 flag_name: None,
                 subject: if text_only && index == 4 {
                     "<script>literal & subject</script>".into()
@@ -104,6 +111,9 @@ fn render(
                     subject.into()
                 },
                 comment: "Synthetic counter fixture.".into(),
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
                 created_at: time("2026-09-08T12:00:00Z"),
                 deleted: false,
                 attachment: None,
@@ -114,6 +124,7 @@ fn render(
     })
     .collect();
     views::BoardPage {
+        spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),

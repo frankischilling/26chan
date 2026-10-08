@@ -6,6 +6,12 @@ Built with Axum, Askama, PostgreSQL and SQLx. The application supports text boar
 
 Development is ongoing. The explicit isolated development profile supports public uploads, processing status, persisted attachments, thumbnails and file deletion. Production uploads remain disabled pending qualification. A separate WebAuthn staff application handles report review, staff-badged text posting and moderation. This is not a production-ready release. See the [compatibility matrix](docs/compatibility.md) for supported behavior and known differences.
 
+Migrations install [all original board definitions](docs/original-board-inventory.md),
+with configured catalogs, archives, formatting, IDs and flags. Public database
+credentials cannot read or write private `/j/` content. Special board workflows
+and the remaining source features are tracked in
+[#191](https://github.com/frankischilling/26chan/issues/191).
+
 A [disposable Firecracker media profile](docs/firecracker.md) runs Rust PNG, [JPEG](docs/jpeg-media.md) and [single-frame GIF](docs/gif-media.md) decoders inside a per-job guest and validates bounded output. All published files are normalized PNGs; original uploads are never downloadable. [Publication commands](docs/media-approval.md) provide durable lease-fenced approval, interrupted-output reconciliation and a restricted reader. [HTTP intake](docs/media-intake.md) connects uploads to authenticated dispatch. Production host and storage qualification remain unfinished.
 
 [Native image controls](docs/native-image-controls.md) add inline expansion, screen fitting, hover previews and image display preferences to approved attachments. They share the existing settings and quote ownership rules, with finite full-image loading and an explicit media-origin boundary.
@@ -44,11 +50,12 @@ Requirements:
 
 - Rust installed through rustup; `rust-toolchain.toml` selects Rust 1.94.0.
 - PostgreSQL 16 and its command-line tools.
+- ICU 74.2 and PCRE2, supplied by maintained Ubuntu 24.04 packages for development and deployment.
 - Node.js 24 or newer and npm for browser tests.
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y git build-essential pkg-config postgresql-16 postgresql-client-16 openssl perl python3 nginx-light
+sudo apt-get install -y git build-essential pkg-config postgresql-16 postgresql-client-16 openssl perl python3 nginx-light libicu-dev libpcre2-dev
 
 git clone https://github.com/frankischilling/26chan.git
 cd 26chan
@@ -75,7 +82,7 @@ cargo run -p board-public --locked
 
 Open `http://127.0.0.1:3000/`. `/demo/` contains sample posts, and `/test/` accepts new threads.
 
-The setup script creates a separate disposable database on port 55432 and generates credentials under the ignored `.local/` directory. It refuses to overwrite an existing setup. Database files live under `/tmp`, so this setup is unsuitable for durable storage. See [operations](docs/operations.md) for database lifecycle and backup instructions.
+The setup script creates a separate disposable database on port 55432 and generates credentials and a fresh development `POSTER_ID_KEY` in the ignored `.local/database.env` and `.local/database.ps1` files. Staff setup copies that validated key into `STAFF_POSTER_ID_KEY` in the private `.local/staff.env` and `.local/staff.ps1` files; load the staff file when starting the staff server. Reloading these files preserves the same development identity key across server restarts. The scripts refuse to overwrite an existing setup. Database files live under `/tmp`, so this setup is unsuitable for durable storage. See [operations](docs/operations.md) for database lifecycle and backup instructions.
 
 For browser JSON clients on a separate origin, enable the optional [read-only API listener](docs/api.md) with `API_ORIGIN` and `API_BIND_ADDR`. It permits CORS from the configured board origin and shares the public process's database and resource limits.
 
@@ -98,10 +105,12 @@ source .local/media-reader.env
 source .local/intake.env
 source .local/monitor.env
 source .local/staff.env
+export APP_ENV=development
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo build --workspace --examples --bins --locked
 cargo test --workspace --all-features --locked
+cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked
 npm ci --ignore-scripts
 npx playwright install --with-deps chromium
 npm run test:images-core
@@ -119,6 +128,7 @@ Database tests require the migrated, seeded development database and fail if it 
 Screenshot baselines currently target Windows and the pinned Chromium 151.0.7922.34. Linux runs browser behavior tests. To compare screenshots on Windows without a database, install the Rust and Node prerequisites, then run from the checkout in PowerShell:
 
 ```powershell
+./scripts/install-windows-icu.ps1
 npm ci --ignore-scripts
 npx playwright install chromium
 cargo build -p board-public --example visual-fixtures --locked
@@ -132,6 +142,7 @@ Inspect screenshot differences before changing baselines. These snapshots use sy
 ## Documentation
 
 - [Compatibility matrix and exceptions](docs/compatibility.md)
+- [Ordinary posting cooldowns and deployment requirements](docs/source-posting-cooldowns.md)
 - [Read-only API origin and browser contract](docs/api.md)
 - [Architecture and trust boundaries](docs/architecture.md)
 - [Deployment and operations](docs/operations.md)

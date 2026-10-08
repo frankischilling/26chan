@@ -1,12 +1,13 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
 const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-thread-stats-password';
-    const write = form => request.post('/demo/post', {
+    const write = form => withPostingHistory(() => request.post('/demo/post', {
       headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password },
-    });
+    }));
     const created = await write({ resto: '0', sub: 'Owned thread stats', com: 'Original post' });
     expect(created.status()).toBe(303);
     const id = created.headers().location.match(/thread\/(\d+)/)[1];
@@ -22,7 +23,7 @@ const test = base.extend({
       await reply('First owned stats reply');
       await reply('Second owned stats reply');
       await use({ id, url: `/demo/thread/${id}`, stats: `/_watch/demo/thread/${id}/stats` });
-    } finally { await remove(id); }
+    } finally { await withDeletionQuota(async () => { await remove(id); }); }
   },
 });
 

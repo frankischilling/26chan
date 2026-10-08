@@ -18,10 +18,13 @@ when it removes a true bump-limit field.
 
 The supplied `admin.php:3518-3630` restricts thread options to existing,
 nonarchived OPs and protects permaage changes with manager/developer authority.
-This app currently has moderator and admin roles, not the complete original
-role hierarchy. Both can set or clear permasage; only admin can set **or clear**
-permaage. This is an explicit restrictive mapping, not a claim of role parity.
-The server checks that distinction independently of which buttons it renders.
+The app has all four source ranks. Moderators and higher ranks can set or clear
+permasage. Managers and administrators can set or clear permaage, as can
+moderators whose developer flag has global scope. A board-only developer flag
+does not grant that global permission, and the flag never raises a janitor's
+rank. The server checks these rules independently of rendered buttons.
+[Staff thread options](staff-thread-options.md) records the original predicate,
+Undead controls and independently executed source cases.
 
 Changes use the existing staff origin, CSRF, current session and recent-sign-in
 checks. The store locks the board and thread, rejects archived/deleted/missing
@@ -29,11 +32,12 @@ targets, changes the selected flag and modification timestamp, and inserts its
 audit action in the same transaction. A flag change does not itself bump the
 thread. Public database credentials cannot insert or update either column;
 the staff login still cannot read staff identity records. The SQL staff login
-is shared by both staff roles, so the admin-only distinction is enforced in the
-authenticated application, not by separate per-user SQL identities.
+serves authenticated accounts at different ranks; current account and board
+permissions are enforced in the application.
 
-The report queue shows both states, permasage forms, and admin-only permaage
-forms. They work without JavaScript. This does not implement the entire
+The report queue shows both states and the forms allowed by current authority.
+Thread-option controls are hidden on archived reports. They work without
+JavaScript. This does not implement the entire
 original staff interface or its report/category/role policies.
 
 ## Upgrade and rollback
@@ -76,6 +80,7 @@ persisted permasage, role-change session revocation, admin no-JavaScript flag
 forms, public cache/indicator checks, and the exact audit sequence. The existing
 stale-session probes use the new session's CSRF value after reauthentication.
 
+The following qualification applies to the tested tree in PR #117.
 All 18 domain tests, 35 public library tests and public/domain/store Clippy
 pass. All 118 theme, 39 media/interaction and ten public-state cases pass
 without snapshot updates. Local staff

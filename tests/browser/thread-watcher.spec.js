@@ -1,3 +1,4 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { saveWatcherSettings } from './helpers/watcher-settings.js';
 
@@ -6,8 +7,8 @@ const test = base.extend({
   createThread: async ({ request }, use) => {
     const created = [];
     await use(async (board, label) => {
-      const response = await request.post(`/${board}/post`, { headers: { Origin: origin },
-        form: { resto: '0', sub: label, com: 'Synthetic watcher fixture', password: 'watcher-test-password' }, maxRedirects: 0 });
+      const response = await withPostingHistory(() => request.post(`/${board}/post`, { headers: { Origin: origin },
+        form: { resto: '0', sub: label, com: 'Synthetic watcher fixture', password: 'watcher-test-password' }, maxRedirects: 0 }));
       expect(response.status()).toBe(303);
       const id = response.headers().location.match(/thread\/(\d+)/)[1];
       created.push({ board, id });
@@ -15,12 +16,22 @@ const test = base.extend({
     });
     // Delete only IDs created by this test, through the ordinary password gate.
     // Teardown also runs after an assertion failure; other threads are untouched.
+    const cleanupFailures = [];
     for (const { board, id } of created) {
-      const deleted = await request.post(`/${board}/delete`, { headers: { Origin: origin },
-        form: { no: id, password: 'watcher-test-password' }, maxRedirects: 0 });
-      expect(deleted.status()).toBe(303);
-      expect((await request.get(`/${board}/thread/${id}.json`)).status()).toBe(404);
+      try {
+        await withDeletionQuota(async () => {
+          const deleted = await request.post(`/${board}/delete`, { headers: { Origin: origin },
+            form: { no: id, password: 'watcher-test-password' }, maxRedirects: 0 });
+          expect(deleted.status()).toBe(303);
+          expect((await request.get(`/${board}/thread/${id}.json`)).status()).toBe(404);
+        });
+      } catch (error) {
+        // A failed cleanup must not leave the remaining owned threads behind.
+        cleanupFailures.push(error);
+      }
     }
+    if (cleanupFailures.length === 1) throw cleanupFailures[0];
+    if (cleanupFailures.length > 1) throw new AggregateError(cleanupFailures, 'Owned watcher thread cleanup failed');
   },
 });
 async function enable(page, path, options) {
@@ -31,17 +42,17 @@ async function enable(page, path, options) {
 
 test('owned thread API refresh, cross-tab watch state and read acknowledgement work on two boards', async ({ page, context, request, createThread }) => {
   const a = await createThread('demo', 'Watch a paper model');
-  const b = await createThread('test', 'Watch another board');
+  const b = await createThread('fixture', 'Watch another board');
   await enable(page, '/demo/catalog?q=');
   await page.getByRole('button', { name: `Watch thread ${a}`, exact: true }).click();
   await expect(page.locator(`#watch-${a}-demo`)).toContainText('Watch a paper model');
   const other = await context.newPage();
-  await other.goto('/test/catalog?q=');
+  await other.goto('/fixture/catalog?q=');
   await expect(other.locator('#threadWatcher')).toBeVisible();
   await other.getByRole('button', { name: `Watch thread ${b}`, exact: true }).click();
-  await expect(page.locator(`#watch-${b}-test`)).toBeVisible();
-  const reply = await request.post('/demo/post', { headers: { Origin: origin },
-    form: { resto: a, com: 'A new reply for the watcher', password: 'watcher-test-password' }, maxRedirects: 0 });
+  await expect(page.locator(`#watch-${b}-fixture`)).toBeVisible();
+  const reply = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin },
+    form: { resto: a, com: 'A new reply for the watcher', password: 'watcher-test-password' }, maxRedirects: 0 }));
   expect(reply.status()).toBe(303);
   const id = reply.headers().location.match(/#p(\d+)/)[1];
   const fetched = page.waitForResponse(response => response.url().endsWith(`/_watch/demo/thread/${a}.json`));
@@ -112,8 +123,8 @@ test('mobile native update inserts actual replies without navigation and retains
   });
   await page.goto(`/demo/thread/${id}`);
   await page.getByRole('button', { name: `Watch thread ${id}`, exact: true }).first().click();
-  const response = await request.post('/demo/post', { headers: { Origin: origin },
-    form: { resto: id, com: 'Reply fetched by native mobile refresh', password: 'watcher-test-password' }, maxRedirects: 0 });
+  const response = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin },
+    form: { resto: id, com: 'Reply fetched by native mobile refresh', password: 'watcher-test-password' }, maxRedirects: 0 }));
   expect(response.status()).toBe(303);
   const reply = response.headers().location.match(/#p(\d+)/)[1];
   await expect(page.locator(`#p${reply}`)).toHaveCount(0);
@@ -197,39 +208,85 @@ test('board post menus watch persisted threads and synchronize an open menu acro
   await expect(trigger).toBeFocused();
 });
 
-test('post menus select the actual report and password-gated deletion forms without submitting on selection', async ({ page, request, createThread }) => {
+test('post menus report through the actual popup and cancel native deletion before cookie-authorized fallback submission', async ({ page, context, request, createThread }) => {
   const id = await createThread('demo', 'Post action menu fixture');
-  const replyResponse = await request.post('/demo/post', { headers: { Origin: origin },
-    form: { resto: id, com: 'Reply selected through the native menu', password: 'watcher-test-password' }, maxRedirects: 0 });
+  const replyResponse = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin },
+    form: { resto: id, com: 'Reply selected through the native menu', password: 'watcher-test-password' }, maxRedirects: 0 }));
   expect(replyResponse.status()).toBe(303);
   const reply = replyResponse.headers().location.match(/#p(\d+)/)[1];
+  await page.context().addCookies((await request.storageState()).cookies);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/demo/thread/${id}`);
   const trigger = page.getByRole('button', { name: `Post menu for post ${reply}`, exact: true });
   let writes = 0;
-  page.on('request', request => { if (request.method() === 'POST') writes++; });
+  // Include the report popup as well as the opener in the no-write assertion.
+  context.on('request', request => { if (request.method() === 'POST') writes++; });
   await trigger.click();
   await expect(page.locator('#post-menu [data-cmd="watch"]')).toHaveCount(0);
+  const opened = page.waitForEvent('popup');
   await page.getByRole('menuitem', { name: 'Report post', exact: true }).click();
-  await expect(page.locator(`#report${reply}`)).toBeFocused();
+  const popup = await opened;
+  await popup.waitForLoadState();
+  await expect(popup).toHaveURL(`${origin}/demo/imgboard.php?mode=report&no=${reply}`);
+  await expect(popup.locator('#report-form')).toHaveAttribute('action', '/demo/report');
+  await expect(popup.locator('#report-form input[name="no"]')).toHaveValue(reply);
+  await expect(popup.locator('#reason')).toBeVisible();
+  await expect(page.locator('#post-menu')).toHaveCount(0);
+  await expect(page).toHaveURL(`${origin}/demo/thread/${id}`);
   expect(writes).toBe(0);
-  await page.locator(`#report${reply}`).fill('Owned post-menu report fixture');
-  const reported = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/report'));
-  await page.locator(`#p${reply} form[action="/demo/report"] button`).click();
+  // Keep the success page available for assertions before its native close timer.
+  await popup.clock.install();
+  await popup.clock.pauseAt(new Date(Date.now() + 1000));
+  await popup.locator('#reason').fill('Owned post-menu report fixture');
+  const reported = popup.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/report'));
+  await popup.locator('#report-submit').click();
   expect((await reported).status()).toBe(200);
-  await expect(page.getByRole('heading', { name: 'Report received', exact: true })).toBeVisible();
-  await expect(page.getByRole('status')).toHaveText('Your report was saved.');
-  await page.goto(`/demo/thread/${id}`);
-  await trigger.click();
-  await page.getByRole('menuitem', { name: 'Delete post', exact: true }).click();
-  await expect(page.locator(`#delete${reply}`)).toBeFocused();
+  await expect(popup.locator('#report-popup-context')).toHaveAttribute('data-result', 'success');
+  await expect(popup.locator('#report-popup-context')).toHaveAttribute('data-post', reply);
+  await expect(popup.getByRole('heading', { name: 'Report received', exact: true })).toBeVisible();
+  await expect(popup.getByText('Your report was saved.', { exact: true })).toBeVisible();
   expect(writes).toBe(1);
-  await page.locator(`#delete${reply}`).fill('watcher-test-password');
-  const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/delete'));
-  await page.locator(`#p${reply} form[action="/demo/delete"] button`).click();
-  expect((await deleted).status()).toBe(303);
-  const thread = await (await request.get(`/demo/thread/${id}.json`)).json();
-  expect(thread.posts.some(post => String(post.no) === reply)).toBe(false);
+  // Successful registered reports persist a hide. Restore visibility through
+  // the real menu before exercising deletion, without bypassing report authority.
+  await expect(page.locator(`#m${reply}`)).toBeHidden();
+  await expect(page.locator(`#m${id}`)).toBeVisible();
+  const closed = popup.waitForEvent('close');
+  await popup.locator('#report-popup-close').click();
+  await closed;
+  await page.goto(`/demo/thread/${id}`);
+  await expect(page.locator(`#m${reply}`)).toBeHidden();
+  await trigger.click();
+  await page.getByRole('menuitem', { name: 'Unhide post', exact: true }).click();
+  await expect(page.locator(`#m${reply}`)).toBeVisible();
+  await trigger.click();
+  const confirmation = page.waitForEvent('dialog');
+  const clicked = page.getByRole('menuitem', { name: 'Delete post', exact: true }).click();
+  const dialog = await confirmation, message = dialog.message(), type = dialog.type();
+  await dialog.dismiss();
+  await clicked;
+  expect(type).toBe('confirm');
+  expect(message).toBe('Delete post?');
+  await expect(page.locator('#post-menu')).toHaveCount(0);
+  await expect(page.locator(`#pc${reply}`)).not.toHaveClass(/\bdeleted\b/);
+  await expect(page.locator(`#p${reply} details.postActions`)).not.toHaveAttribute('open');
+  await expect(page).toHaveURL(`${origin}/demo/thread/${id}`);
+  const remaining = await request.get(`/demo/thread/${id}.json`);
+  expect(remaining.status()).toBe(200);
+  expect((await remaining.json()).posts.some(post => String(post.no) === reply)).toBe(true);
+  expect(writes).toBe(1);
+  // The mobile menu uses native confirmation; the legacy form remains a
+  // separate, explicitly opened path with its real redirect and persistence checks.
+  await page.locator(`#p${reply}`).getByText('Delete or report', { exact: true }).click();
+  await expect(page.locator(`#delete${reply}`)).toHaveValue('');
+  await withDeletionQuota(async () => {
+    const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/delete'));
+    await page.locator(`#p${reply} form[action="/demo/delete"] button`).click();
+    const response = await deleted;
+    expect(response.status()).toBe(303);
+    await response.finished();
+    const thread = await (await request.get(`/demo/thread/${id}.json`)).json();
+    expect(thread.posts.some(post => String(post.no) === reply)).toBe(false);
+  });
 });
 
 test('post menus close on outside activation, Escape and viewport changes and honor global disabling', async ({ page, context, createThread }) => {

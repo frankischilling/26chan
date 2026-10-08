@@ -133,6 +133,7 @@ fn encode(
     }
     let omitted = replies - (posts.len() - 1);
     let view = ThreadView {
+        catalog_position: None,
         catalog_last_reply: None,
         tail_size,
         latest_reply_id: posts
@@ -140,11 +141,28 @@ fn encode(
             .filter(|post| post.id != thread.id)
             .map(|post| post.id),
         thread,
-        posts: posts.into_iter().map(PostView::new).collect(),
+        posts: Vec::new(),
         omitted,
         image_replies: images as i64,
     };
-    let rendered = render_posts(&view, &board, media_origin, limit)?;
+    // Decode and format one bounded post at a time. A large saved thread must
+    // not allocate all token vectors before the output writer enforces its cap.
+    let spoiler_thumbnail = crate::views::spoilers::choose_thumbnail(&board);
+    let mut rendered = Vec::with_capacity(posts.len());
+    let mut remaining = limit;
+    for post in posts {
+        let item = PostView::new(post);
+        let result = render_post(
+            &item,
+            &view,
+            &board,
+            media_origin,
+            &spoiler_thumbnail,
+            remaining,
+        )?;
+        remaining -= result.html.len();
+        rendered.push(result);
+    }
     let result = Snapshot {
         version: 2,
         board: board.slug,
@@ -165,33 +183,54 @@ pub(crate) fn render_posts(
     view: &ThreadView,
     board: &board_store::Board,
     media_origin: &str,
+    spoiler_thumbnail: &str,
     limit: usize,
 ) -> Result<Vec<RenderedPost>, AppError> {
     let mut rendered = Vec::with_capacity(view.posts.len());
     let mut remaining = limit;
     for item in &view.posts {
-        let mut output = LimitedOutput::new(remaining);
-        PostFragment {
+        let result = render_post(
             item,
             view,
             board,
             media_origin,
-            catalog: false,
-        }
-        .render_into(&mut output)
-        .map_err(|_| unavailable())?;
-        remaining -= output.bytes.len();
-        rendered.push(RenderedPost {
-            no: item.post.id.to_string(),
-            file_deleted: item
-                .post
-                .attachment
-                .as_ref()
-                .is_some_and(|file| file.file_deleted),
-            html: String::from_utf8(output.bytes).map_err(|_| unavailable())?,
-        });
+            spoiler_thumbnail,
+            remaining,
+        )?;
+        remaining -= result.html.len();
+        rendered.push(result);
     }
     Ok(rendered)
+}
+
+fn render_post(
+    item: &PostView,
+    view: &ThreadView,
+    board: &board_store::Board,
+    media_origin: &str,
+    spoiler_thumbnail: &str,
+    limit: usize,
+) -> Result<RenderedPost, AppError> {
+    let mut output = LimitedOutput::new(limit);
+    PostFragment {
+        spoiler_thumbnail,
+        item,
+        view,
+        board,
+        media_origin,
+        catalog: false,
+    }
+    .render_into(&mut output)
+    .map_err(|_| unavailable())?;
+    Ok(RenderedPost {
+        no: item.post.id.to_string(),
+        file_deleted: item
+            .post
+            .attachment
+            .as_ref()
+            .is_some_and(|file| file.file_deleted),
+        html: String::from_utf8(output.bytes).map_err(|_| unavailable())?,
+    })
 }
 
 impl RenderedPost {
@@ -223,6 +262,7 @@ fn encode_preview(
     }
     let item = PostView::new(post);
     let view = ThreadView {
+        catalog_position: None,
         catalog_last_reply: None,
         tail_size: 0,
         latest_reply_id: None,
@@ -233,6 +273,7 @@ fn encode_preview(
     };
     let mut output = LimitedOutput::new(limit);
     PostFragment {
+        spoiler_thumbnail: &crate::views::spoilers::choose_thumbnail(&board),
         item: &item,
         view: &view,
         board: &board,
@@ -330,14 +371,19 @@ async fn selected(
         .ok()
         .filter(|id| *id > 0 && id.to_string() == key)
         .ok_or(AppError(StatusCode::NOT_FOUND, "Thread not found."))?;
-    let snapshot = board_store::thread_snapshot_selection(&state.pool, &board, id, tail).await?;
+    let limit = state.limits.response_limit(MAX_BYTES);
+    let read_limit = limit
+        .saturating_mul(2)
+        .min(board_store::MAX_THREAD_READ_BYTES);
+    let snapshot =
+        board_store::thread_snapshot_selection_bounded(&state.pool, &board, id, tail, read_limit)
+            .await?;
     let modified = snapshot.thread.http_modified_at;
     let media_origin = state
         .media
         .as_ref()
         .map(|media| media.settings.origin.as_string())
         .unwrap_or_default();
-    let limit = state.limits.response_limit(MAX_BYTES);
     let bytes = encode(
         snapshot,
         &media_origin,
@@ -374,37 +420,189 @@ mod tests {
         Ok(encoded.chunks().flatten().copied().collect())
     }
 
+    #[test]
+    fn op_reply_context_is_shared_by_board_pages_and_fragments_only() {
+        for (subject, comment, dice, staff_only, expected) in [
+            ("Hello World 123", "ignored", None, false, "hello-world-123"),
+            ("", "First line\nSecond line", None, false, "first-line"),
+            ("", "ordinary comment", Some("Roll: 4"), false, "roll-4"),
+            ("", "", None, false, ""),
+            ("Private subject", "private comment", None, true, ""),
+            ("bad\tcontext", "ignored", None, false, ""),
+        ] {
+            let mut snapshot = fixture();
+            snapshot.board.staff_only = staff_only;
+            snapshot.posts[0].subject = subject.into();
+            snapshot.posts[0].comment = comment.into();
+            snapshot.posts[0].dice_result = dice.map(str::to_owned);
+            let id = snapshot.thread.id;
+            let base = format!("/test/thread/{id}");
+            let href = if expected.is_empty() {
+                base.clone()
+            } else {
+                format!("{base}/{expected}")
+            };
+            let view = ThreadView {
+                catalog_position: None,
+                catalog_last_reply: None,
+                tail_size: 0,
+                latest_reply_id: None,
+                thread: snapshot.thread,
+                posts: snapshot.posts.into_iter().map(PostView::new).collect(),
+                omitted: 3,
+                image_replies: 0,
+            };
+            let fragment = PostFragment {
+                spoiler_thumbnail: "/static/catalog/spoiler.png",
+                item: &view.posts[0],
+                view: &view,
+                board: &snapshot.board,
+                media_origin: "",
+                catalog: false,
+            }
+            .render()
+            .unwrap();
+            let page = crate::views::BoardPage {
+                spoiler_thumbnail: "/static/catalog/spoiler.png".into(),
+                navigation_boards: vec![],
+                quote: String::new(),
+                catalog_hidden: vec![],
+                board: snapshot.board,
+                threads: vec![view],
+                parent: 0,
+                previous: String::new(),
+                next: String::new(),
+                catalog: false,
+                catalog_options: crate::catalog::Options::default(),
+                media_origin: String::new(),
+            }
+            .render()
+            .unwrap();
+            assert!(page.contains(&format!(
+                "3 posts omitted. <a href=\"{base}\">View thread</a>"
+            )));
+            for html in [page, fragment] {
+                assert!(
+                    html.contains(&format!("[<a href=\"{href}\">Reply</a>]")),
+                    "{subject:?}: {html}"
+                );
+                assert_eq!(html.matches(&format!("href=\"{base}#p{id}\"")).count(), 2);
+                assert_eq!(
+                    html.matches(&format!("href=\"{base}?quote={id}#reply\""))
+                        .count(),
+                    2
+                );
+                assert!(!html.contains(&format!("{href}/")));
+            }
+        }
+    }
+
+    #[test]
+    fn posting_forms_render_the_current_ordinary_cooldown_policy() {
+        for (reply, image) in [(0, 0), (15, 30), (90, 120), (86400, 86400)] {
+            let mut board = fixture().board;
+            board.posting_reply_seconds = reply;
+            board.posting_image_seconds = image;
+            let upload = crate::views::UploadPage {
+                board: board.clone(),
+                form: crate::views::UploadForm {
+                    upload_id: "1".repeat(32),
+                    upload_capability: "2".repeat(64),
+                    resto: 42,
+                },
+                ready: true,
+                message: "Approved",
+            }
+            .render()
+            .unwrap();
+            let page = crate::views::BoardPage {
+                spoiler_thumbnail: "spoiler.png".into(),
+                navigation_boards: vec![],
+                quote: String::new(),
+                catalog_hidden: vec![],
+                board,
+                threads: vec![],
+                parent: 0,
+                previous: String::new(),
+                next: String::new(),
+                catalog: false,
+                catalog_options: crate::catalog::Options::default(),
+                media_origin: String::new(),
+            }
+            .render()
+            .unwrap();
+            for html in [page, upload] {
+                assert_eq!(
+                    html.matches(&format!("data-posting-reply-seconds=\"{reply}\""))
+                        .count(),
+                    1
+                );
+                assert_eq!(
+                    html.matches(&format!("data-posting-image-seconds=\"{image}\""))
+                        .count(),
+                    1
+                );
+                assert!(!html.contains("window.cooldowns"));
+            }
+        }
+    }
+
     fn fixture() -> ThreadSnapshot {
         let now = chrono::DateTime::from_timestamp(1_767_225_600, 0).unwrap();
         let id = i64::MAX - 1;
         let board = Board {
+            source_order: 1000,
+            catalog_enabled: true,
+            json_enabled: true,
+            staff_only: false,
+            meta_board: false,
+            upload_board: false,
+            rss_enabled: true,
             slug: "test".into(),
             title: "Test".into(),
             description: String::new(),
             max_comment_chars: 16_000,
+            max_authorized_comment_chars: 10000,
             comment_code_spacing: true,
             comment_sjis_spacing: false,
+            math_tags: false,
             comment_max_lines: 100,
             comment_spoiler_cleanup: true,
+            custom_spoiler_count: 0,
+            spoiler_thumbnail_assets: vec!["spoiler.png".into()],
             require_subject: false,
             op_markup: false,
             forced_anon: false,
+            strip_tripcode: false,
             user_ids: false,
             country_flags: false,
             board_flags: vec![],
+            board_flag_type: "pol".into(),
             text_only: false,
             reply_limit: 1000,
             bump_limit: 300,
             permasage_hours: 0,
+            posting_reply_seconds: 0,
+            posting_image_seconds: 0,
+            posting_thread_seconds: 0,
+            user_thread_limit: 5,
+            user_thread_period_hours: 24,
             op_bump_limit: true,
             op_bump_initial_seconds: 900,
             op_bump_repeat_seconds: 300,
             thread_limit: 10,
+            expire_neglected: true,
             threads_per_page: 10,
             worksafe: true,
             archive_retention_seconds: 0,
             archive_limit: 0,
             image_limit: 100,
+            dice_roll: false,
+            fortune_trip: false,
+            robot9000: false,
+            robot9000_state_limit: 100000,
+            word_filter_enabled: false,
+            word_filter_profile: 0,
         };
         let thread = Thread {
             id,
@@ -426,20 +624,28 @@ mod tests {
         let posts = [id, id + 1]
             .into_iter()
             .map(|no| Post {
+                image_spoiler: false,
                 comment_format: 0,
+                staff_authorized_limits: false,
+                wordfilter_payload: None,
                 id: no,
                 board: board.slug.clone(),
                 thread_id: id,
                 name: "<img src=x onerror=alert(1)>".into(),
                 trip: None,
                 poster_id: None,
+                json_op_poster_id: None,
                 capcode: None,
                 country: None,
                 country_name: None,
                 board_flag: None,
+                board_flag_type: "pol".into(),
                 flag_name: None,
                 subject: "<script>subject</script>".into(),
                 comment: "<script>alert(1)</script>\n>>9223372036854775806".into(),
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
                 created_at: now,
                 deleted: false,
                 attachment: None,
@@ -523,6 +729,9 @@ mod tests {
                 let expected = crate::views::Comment {
                     lines: &board_domain::parse_post_comment(&snapshot.post.comment, format),
                     board: "test",
+                    dice_result: None,
+                    fortune_text: None,
+                    fortune_color: None,
                 }
                 .render()
                 .unwrap();
@@ -608,6 +817,23 @@ mod tests {
     }
 
     #[test]
+    fn randomizer_projection_uses_csp_safe_fortune_palette_and_retained_dice() {
+        let mut snapshot = fixture();
+        snapshot.posts[1].dice_result = Some("Rolled 6, 6 = 12 (2d6)".into());
+        snapshot.posts[1].fortune_text = Some("Outlook good".into());
+        snapshot.posts[1].fortune_color = Some("#00cbb0".into());
+        let value: serde_json::Value =
+            serde_json::from_slice(&encode(snapshot, "", MAX_BYTES).unwrap()).unwrap();
+        let html = value["posts"][1]["html"].as_str().unwrap();
+        assert!(html.contains("<b>Rolled 6, 6 = 12 (2d6)<br><br></b>"));
+        assert!(html.contains(
+            r#"<span class="fortune fortune-10"><br><br><b>Your fortune: Outlook good</b></span>"#
+        ));
+        assert!(!html.contains("style="));
+        assert!(!html.contains("#00cbb0"));
+    }
+
+    #[test]
     fn snapshot_uses_each_post_stamp_not_current_board_policy() {
         for format in [0, 8, 9, 15] {
             let mut snapshot = fixture();
@@ -617,6 +843,9 @@ mod tests {
             let expected = crate::views::Comment {
                 lines: &board_domain::parse_post_comment(&snapshot.posts[1].comment, format),
                 board: "test",
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
             }
             .render()
             .unwrap();
@@ -668,6 +897,98 @@ mod tests {
             );
             assert!(!html.contains("private-asset-id"));
             assert!(!html.contains("not-a-public-hash-field"));
+        }
+    }
+
+    #[test]
+    fn custom_spoilers_match_each_source_html_choice_catalog_suffix_and_shared_snapshot_choice() {
+        let reference: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/custom-spoilers.json")).unwrap();
+        for row in reference["boards"].as_array().unwrap() {
+            let mut snapshot = fixture();
+            snapshot.board.slug = row["board"].as_str().unwrap().into();
+            snapshot.board.custom_spoiler_count = row["count"].as_i64().unwrap() as i32;
+            snapshot.board.comment_spoiler_cleanup = row["enabled"].as_bool().unwrap();
+            snapshot.board.spoiler_thumbnail_assets = row["source_html_urls"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|url| url.as_str().unwrap().rsplit('/').next().unwrap().to_owned())
+                .collect();
+            snapshot.thread.board = snapshot.board.slug.clone();
+            for post in &mut snapshot.posts {
+                post.board = snapshot.board.slug.clone();
+                let mut file = attachment();
+                file.post_id = post.id;
+                file.tim = post.id;
+                file.spoiler = true;
+                post.attachment = Some(file);
+            }
+            snapshot.images = 1;
+            let expected_catalog = if snapshot.board.comment_spoiler_cleanup
+                && snapshot.board.custom_spoiler_count > 0
+            {
+                format!(
+                    "/static/catalog/spoiler-{}{}.png",
+                    snapshot.board.slug, snapshot.board.custom_spoiler_count
+                )
+            } else {
+                "/static/catalog/spoiler.png".to_owned()
+            };
+            assert_eq!(
+                crate::views::spoilers::catalog_thumbnail(&snapshot.board),
+                expected_catalog
+            );
+            // Exercise every source choice through the same post and page templates.
+            let view = ThreadView {
+                catalog_position: None,
+                catalog_last_reply: None,
+                tail_size: 0,
+                latest_reply_id: None,
+                thread: snapshot.thread.clone(),
+                posts: Vec::new(),
+                omitted: 0,
+                image_replies: 1,
+            };
+            let item = PostView::new(snapshot.posts[0].clone());
+            for (index, name) in snapshot.board.spoiler_thumbnail_assets.iter().enumerate() {
+                let choice = crate::views::spoilers::thumbnail_at(&snapshot.board, index);
+                assert_eq!(choice, format!("/static/catalog/{name}"));
+                let html = PostFragment {
+                    spoiler_thumbnail: &choice,
+                    item: &item,
+                    view: &view,
+                    board: &snapshot.board,
+                    media_origin: "https://media.example",
+                    catalog: false,
+                }
+                .render()
+                .unwrap();
+                assert!(html.contains(&format!("src=\"{choice}\"")));
+                assert_eq!(
+                    html.contains("data-custom-spoiler="),
+                    snapshot.board.comment_spoiler_cleanup
+                        && snapshot.board.custom_spoiler_count > 0
+                );
+            }
+            let choices = snapshot.board.spoiler_thumbnail_assets.clone();
+            let value: serde_json::Value = serde_json::from_slice(
+                &encode(snapshot, "https://media.example", MAX_BYTES).unwrap(),
+            )
+            .unwrap();
+            let mut selected = None;
+            for post in value["posts"].as_array().unwrap() {
+                let html = post["html"].as_str().unwrap();
+                let name = choices
+                    .iter()
+                    .find(|name| html.contains(&format!("src=\"/static/catalog/{name}\"")))
+                    .unwrap();
+                if let Some(first) = &selected {
+                    assert_eq!(first, name);
+                } else {
+                    selected = Some(name.clone());
+                }
+            }
         }
     }
 

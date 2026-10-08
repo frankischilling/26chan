@@ -1,0 +1,406 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import test from 'node:test';
+
+const moduleUrl = pathToFileURL(path.resolve('tests/browser/helpers/deletion-quota-fixture.js')).href;
+
+function fixture(source, environment = {}) {
+  const directory = mkdtempSync(path.join(tmpdir(), 'quota-helper-unit-'));
+  const examples = path.join(directory, 'debug/examples');
+  const log = path.join(directory, 'commands');
+  mkdirSync(examples, { recursive: true });
+  // This stand-in verifies only orchestration. Rust tests qualify database ownership.
+  const executable = path.join(examples, 'deletion-quota-fixture');
+  writeFileSync(executable, `#!${process.execPath}\nconst fs = require('node:fs');\nfs.appendFileSync(${JSON.stringify(log)}, process.argv[2] + '\\n');\nif (fs.existsSync(${JSON.stringify(directory)} + '/fail-' + process.argv[2])) process.exit(1);\nif (process.argv[2] === 'catalog-enable' || process.argv[2] === 'catalog-disable') console.log(JSON.stringify({revision:7,ruleId:9001,illegalId:31}));\nif (process.argv[2] === 'catalog-inspect') console.log(JSON.stringify({reportCount:1,categories:[{revision:7,id:9001,kind:1,baseWeight:1.25,title:'Synthetic board rule'}]}));\n`);
+  chmodSync(executable, 0o700);
+  try {
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+      import assert from 'node:assert/strict';
+      import { readFileSync, existsSync, chmodSync, writeFileSync, rmSync } from 'node:fs';
+      import { prepareDeletionQuotaRun, initializeDeletionQuotaRun, teardownDeletionQuotaRun, withDeletionQuota, withPostingHistory, withReportCatalog } from ${JSON.stringify(moduleUrl)};
+      ${source}
+    `], {
+      encoding: 'utf8', timeout: 10_000,
+      env: {
+        PATH: process.env.PATH, APP_ENV: 'development', CARGO_TARGET_DIR: directory,
+        MIGRATION_DATABASE_URL: 'postgres://board_migrator:synthetic@127.0.0.1/imageboard',
+        ...environment,
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return { commands: readFileSync(log, { encoding: 'utf8', flag: 'a+' }).trim().split('\n').filter(Boolean), output: result.stdout };
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+}
+
+test('one exclusive fresh manifest survives repeat config evaluations and retires exactly once', () => {
+  const { commands } = fixture(`
+    const run = initializeDeletionQuotaRun();
+    assert.equal(initializeDeletionQuotaRun(), run);
+    assert.notEqual(run.key, process.env.POSTER_ID_KEY);
+    const filename = process.env.BROWSER_DELETION_QUOTA_MANIFEST;
+    assert.notEqual(filename, '/untrusted/inherited/run.json');
+    const manifest = JSON.parse(readFileSync(filename));
+    assert.equal(manifest.key, run.key);
+    assert.equal(manifest.marker, run.marker);
+    teardownDeletionQuotaRun();
+    assert.equal(existsSync(filename), false);
+    teardownDeletionQuotaRun();
+  `, { POSTER_ID_KEY: 'a'.repeat(64), BROWSER_DELETION_QUOTA_MANIFEST: '/untrusted/inherited/run.json' });
+  assert.deepEqual(commands, ['init', 'finish']);
+});
+
+test('concurrent groups serialize and a failed callback does not strand the next group', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    try {
+      const sequence = [];
+      await Promise.all([
+        withDeletionQuota(async () => { sequence.push('first'); await new Promise(r => setTimeout(r, 20)); sequence.push('last'); }),
+        withDeletionQuota(async () => { sequence.push('second'); }),
+      ]);
+      assert.deepEqual(sequence, ['first', 'last', 'second']);
+      await assert.rejects(withDeletionQuota(async () => { throw new Error('owned failure'); }), /owned failure/);
+      await withDeletionQuota(async () => {});
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init', 'reset', 'check', 'reset', 'check', 'reset', 'check', 'reset', 'check', 'finish']);
+});
+
+test('nested groups fail before any nested reset', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    try { await withDeletionQuota(async () => {
+      await assert.rejects(withDeletionQuota(async () => {}), /Nested deletion quota/);
+    }); } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init', 'reset', 'check', 'finish']);
+});
+
+test('rejects production, remote, wrong identity and missing worker manifest without launching authority', () => {
+  for (const environment of [
+    { APP_ENV: 'production' },
+    { MIGRATION_DATABASE_URL: 'postgres://board_migrator:x@remote.example/imageboard' },
+    { MIGRATION_DATABASE_URL: 'postgres://board_public:x@127.0.0.1/imageboard' },
+    { MIGRATION_DATABASE_URL: 'postgres://board_migrator:x@127.0.0.1/imageboard?options=unsafe' },
+    { TEST_WORKER_INDEX: '0' },
+  ]) {
+    const { commands } = fixture('assert.throws(() => initializeDeletionQuotaRun());', environment);
+    assert.deepEqual(commands, []);
+  }
+});
+
+test('missing and insecure manifests reject groups without resetting quota', () => {
+  const { commands } = fixture(`
+    await assert.rejects(withDeletionQuota(async () => {}), /manifest is missing/);
+    initializeDeletionQuotaRun();
+    const filename = process.env.BROWSER_DELETION_QUOTA_MANIFEST;
+    chmodSync(filename, 0o644);
+    await assert.rejects(withDeletionQuota(async () => {}), /Private owned/);
+    chmodSync(filename, 0o600);
+    teardownDeletionQuotaRun();
+  `);
+  assert.deepEqual(commands, ['init', 'finish']);
+});
+
+test('visual-only callback does not need a manifest or database', () => {
+  const { commands } = fixture(`assert.equal(await withDeletionQuota(async () => 42), 42);`, {
+    VISUAL_FIXTURE_SERVER: '1', MIGRATION_DATABASE_URL: '',
+  });
+  assert.deepEqual(commands, []);
+});
+
+test('setup rejects parallel workers and retry overrides', async () => {
+  const { default: setup } = await import('./helpers/deletion-quota-setup.js');
+  for (const config of [
+    { workers: 2, projects: [{ retries: 0 }] },
+    { workers: 1, fullyParallel: true, projects: [{ retries: 0 }] },
+    { workers: 1, projects: [{ retries: 1 }] },
+    { workers: 1, projects: [{ retries: 0, fullyParallel: true }] },
+  ]) assert.throws(() => setup(config), /one serial worker and zero retries/);
+});
+
+test('a worker reuses the current manifest without creating a second actor or retiring the owner', () => {
+  const { commands } = fixture(`
+    import { spawnSync } from 'node:child_process';
+    const run = initializeDeletionQuotaRun();
+    try {
+      const worker = spawnSync(process.execPath, ['--input-type=module', '-e', ${JSON.stringify(`
+        import assert from 'node:assert/strict';
+        import { initializeDeletionQuotaRun, teardownDeletionQuotaRun } from ${JSON.stringify(moduleUrl)};
+        const run = initializeDeletionQuotaRun();
+        assert.notEqual(run.owner_pid, process.pid);
+        assert.throws(() => teardownDeletionQuotaRun(), /Only the owning runner/);
+      `)}], { env: { ...process.env, TEST_WORKER_INDEX: '0' }, encoding: 'utf8' });
+      assert.equal(worker.status, 0, worker.stderr);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init', 'finish']);
+});
+
+test('missing prebuilt authority gives a bounded build instruction and removes its manifest', () => {
+  const { commands } = fixture(`
+    process.env.CARGO_TARGET_DIR += '/missing';
+    assert.throws(() => initializeDeletionQuotaRun(), /not built; run cargo build/);
+    assert.equal(process.env.BROWSER_DELETION_QUOTA_MANIFEST, undefined);
+  `);
+  assert.deepEqual(commands, []);
+});
+
+test('config preparation is memory-only and keeps the identical fresh key across module evaluations', () => {
+  const { commands } = fixture(`
+    const prepared = prepareDeletionQuotaRun();
+    assert.notEqual(prepared.key, process.env.POSTER_ID_KEY);
+    assert.equal(process.env.BROWSER_DELETION_QUOTA_MANIFEST, undefined);
+    const reevaluated = await import(${JSON.stringify(`${moduleUrl}?separate-config-evaluation`)});
+    assert.equal(reevaluated.prepareDeletionQuotaRun(), prepared);
+    const { publicConfig } = await import(${JSON.stringify(pathToFileURL(path.resolve('playwright.public-base.js')).href)});
+    const config = publicConfig();
+    assert.equal(config.webServer.env.POSTER_ID_KEY, prepared.key);
+    assert.equal(config.metadata, undefined);
+    for (const key of ['STAFF_TRIPCODE_KEY', 'STAFF_POSTER_ID_KEY', 'STAFF_COUNTRY_DATABASE', 'STAFF_PROXY_SOCKET', 'STAFF_PROXY_UID', 'MEDIA_INTAKE_TOKEN']) {
+      assert.equal(config.webServer.env[key], '');
+    }
+    // Neither listing nor a failed web-server startup reaches global setup.
+    assert.equal(process.env.BROWSER_DELETION_QUOTA_MANIFEST, undefined);
+    teardownDeletionQuotaRun();
+  `, { POSTER_ID_KEY: 'b'.repeat(64), BROWSER_DELETION_QUOTA_MANIFEST: '/untrusted/inherited.json' });
+  assert.deepEqual(commands, []);
+});
+
+test('validated setup initializes exactly the key prepared for the already-started server', () => {
+  const { commands } = fixture(`
+    const run = prepareDeletionQuotaRun();
+    assert.equal(process.env.BROWSER_DELETION_QUOTA_MANIFEST, undefined);
+    const { default: setup } = await import(${JSON.stringify(pathToFileURL(path.resolve('tests/browser/helpers/deletion-quota-setup.js')).href)});
+    assert.throws(() => setup({ workers: 2, projects: [{ retries: 0 }] }), /serial worker/);
+    assert.equal(process.env.BROWSER_DELETION_QUOTA_MANIFEST, undefined);
+    setup({ workers: 1, fullyParallel: false, projects: [{ retries: 0, fullyParallel: false }] });
+    try {
+      const manifest = JSON.parse(readFileSync(process.env.BROWSER_DELETION_QUOTA_MANIFEST));
+      assert.equal(manifest.key, run.key);
+      assert.equal(manifest.marker, run.marker);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init', 'finish']);
+});
+
+test('failed retirement retains exact manifest and path until a confirmed successful retry', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    const filename = process.env.BROWSER_DELETION_QUOTA_MANIFEST;
+    const before = readFileSync(filename, 'utf8');
+    const fail = process.env.CARGO_TARGET_DIR + '/fail-finish';
+    writeFileSync(fail, 'synthetic failure');
+    assert.throws(() => teardownDeletionQuotaRun(), /finish failed/);
+    assert.equal(process.env.BROWSER_DELETION_QUOTA_MANIFEST, filename);
+    assert.equal(readFileSync(filename, 'utf8'), before);
+    rmSync(fail);
+    teardownDeletionQuotaRun();
+    assert.equal(existsSync(filename), false);
+    assert.equal(process.env.BROWSER_DELETION_QUOTA_MANIFEST, undefined);
+  `);
+  assert.deepEqual(commands, ['init', 'finish', 'finish']);
+});
+
+test('callback and check failures both survive and the serial queue is released', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    const fail = process.env.CARGO_TARGET_DIR + '/fail-check';
+    writeFileSync(fail, 'synthetic failure');
+    try {
+      const primary = new Error('primary callback failure');
+      await assert.rejects(withDeletionQuota(async () => { throw primary; }), error => {
+        assert.ok(error instanceof AggregateError);
+        assert.equal(error.errors.length, 2);
+        assert.equal(error.errors[0], primary);
+        assert.match(error.errors[1].message, /check failed/);
+        return true;
+      });
+      rmSync(fail);
+      assert.equal(await withDeletionQuota(async () => 17), 17);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init', 'reset', 'check', 'reset', 'check', 'finish']);
+});
+
+test('an uncertain init retains its proof, refuses blind re-init, and permits exact retirement', () => {
+  const { commands } = fixture(`
+    const fail = process.env.CARGO_TARGET_DIR + '/fail-init';
+    writeFileSync(fail, 'simulate committed init with lost acknowledgement');
+    assert.throws(() => initializeDeletionQuotaRun(), /init failed/);
+    const filename = process.env.BROWSER_DELETION_QUOTA_MANIFEST;
+    assert.ok(filename);
+    const proof = readFileSync(filename, 'utf8');
+    assert.throws(() => initializeDeletionQuotaRun(), /initialization outcome is uncertain/);
+    assert.equal(process.env.BROWSER_DELETION_QUOTA_MANIFEST, filename);
+    assert.equal(readFileSync(filename, 'utf8'), proof);
+    rmSync(fail);
+    teardownDeletionQuotaRun();
+    assert.equal(existsSync(filename), false);
+    assert.equal(process.env.BROWSER_DELETION_QUOTA_MANIFEST, undefined);
+  `);
+  assert.deepEqual(commands, ['init', 'finish']);
+});
+
+
+test('posting scopes serialize independently, retain identity, and never reset deletion quota', () => {
+  const { commands } = fixture(`
+    const run = initializeDeletionQuotaRun();
+    const proof = readFileSync(process.env.BROWSER_DELETION_QUOTA_MANIFEST, 'utf8');
+    try {
+      const sequence = [];
+      await Promise.all([
+        withPostingHistory(async () => { sequence.push('first'); await new Promise(r => setTimeout(r, 20)); sequence.push('last'); }),
+        withPostingHistory(async () => { sequence.push('second'); }),
+      ]);
+      assert.deepEqual(sequence, ['first', 'last', 'second']);
+      await assert.rejects(withPostingHistory(async () => { throw new Error('posting failure'); }), /posting failure/);
+      await withDeletionQuota(async () => {
+        assert.equal(await withPostingHistory(async () => 17), 17);
+      });
+      assert.equal(prepareDeletionQuotaRun(), run);
+      assert.equal(readFileSync(process.env.BROWSER_DELETION_QUOTA_MANIFEST, 'utf8'), proof);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init', 'reset-posting', 'reset-posting', 'reset-posting', 'reset', 'reset-posting', 'check', 'finish']);
+});
+
+test('posting scopes reject nesting and invalid manifests before touching history', () => {
+  const { commands } = fixture(`
+    await assert.rejects(withPostingHistory(async () => {}), /manifest is missing/);
+    initializeDeletionQuotaRun();
+    const filename = process.env.BROWSER_DELETION_QUOTA_MANIFEST;
+    try {
+      chmodSync(filename, 0o644);
+      await assert.rejects(withPostingHistory(async () => {}), /Private owned/);
+      chmodSync(filename, 0o600);
+      await withPostingHistory(async () => {
+        await assert.rejects(withPostingHistory(async () => {}), /Nested posting history/);
+      });
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init', 'reset-posting', 'finish']);
+});
+
+test('failed posting reset never runs or retries the action and releases its queue', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    const fail = process.env.CARGO_TARGET_DIR + '/fail-reset-posting';
+    try {
+      writeFileSync(fail, 'synthetic failure');
+      let called = false;
+      await assert.rejects(withPostingHistory(async () => { called = true; }), /reset-posting failed/);
+      assert.equal(called, false);
+      rmSync(fail);
+      await withPostingHistory(async () => { called = true; });
+      assert.equal(called, true);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init', 'reset-posting', 'reset-posting', 'finish']);
+});
+
+test('visual-only posting scope needs no manifest and returns the callback result', () => {
+  const { commands } = fixture(`assert.equal(await withPostingHistory(async () => 23), 23);`, {
+    VISUAL_FIXTURE_SERVER: '1', MIGRATION_DATABASE_URL: '',
+  });
+  assert.deepEqual(commands, []);
+});
+
+
+test('catalog preparation is lazy, scopes queue and expose only synthetic metadata', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    try {
+      const order = [];
+      const first = withReportCatalog(async catalog => {
+        assert.equal(catalog.revision, 7);
+        assert.equal(catalog.ruleId, 9001);
+        assert.equal(catalog.illegalId, 31);
+        assert.equal(catalog.marker, prepareDeletionQuotaRun().marker);
+        const result = await catalog.inspect({op:1, target:'2'});
+        assert.deepEqual(result, {reportCount:1,categories:[{revision:7,id:9001,kind:1,baseWeight:1.25,title:'Synthetic board rule'}]});
+        order.push('first');
+        await new Promise(r => setTimeout(r, 20));
+        order.push('last');
+        await catalog.disable();
+        return 9;
+      });
+      const second = withReportCatalog(async () => { order.push('second'); });
+      assert.equal(await first, 9);
+      await second;
+      assert.deepEqual(order, ['first','last','second']);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init','catalog-enable','catalog-inspect','catalog-disable','catalog-disable','catalog-enable','catalog-disable','finish']);
+});
+
+test('catalog rejects fake backends, missing or insecure manifests and nesting', () => {
+  assert.deepEqual(fixture(`await assert.rejects(withReportCatalog(async () => {}), /real backend/);`, {VISUAL_FIXTURE_SERVER:'1'}).commands, []);
+  const { commands } = fixture(`
+    await assert.rejects(withReportCatalog(async () => {}), /manifest is missing/);
+    initializeDeletionQuotaRun();
+    const filename = process.env.BROWSER_DELETION_QUOTA_MANIFEST;
+    try {
+      chmodSync(filename, 0o644);
+      await assert.rejects(withReportCatalog(async () => {}), /Private owned/);
+      chmodSync(filename, 0o600);
+      let escaped;
+      await withReportCatalog(async catalog => {
+        escaped = catalog;
+        await assert.rejects(withReportCatalog(async () => {}), /Nested report catalog/);
+        const copy = await import(${JSON.stringify(`${moduleUrl}?catalog-copy`)});
+        await assert.rejects(copy.withReportCatalog(async () => {}), /Nested report catalog/);
+        for (const target of [0, -1, 1.5, '1; DROP TABLE', '9223372036854775808', {}, Number.MAX_SAFE_INTEGER+1]) {
+          await assert.rejects(catalog.inspect({op:1,target}), /Positive owned receipt/);
+        }
+      });
+      await assert.rejects(escaped.disable(), /scope has ended/);
+      await assert.rejects(escaped.inspect({op:1,target:2}), /scope has ended/);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init','catalog-enable','catalog-disable','finish']);
+});
+
+test('catalog callback and cleanup errors aggregate, retaining proof and releasing queue', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    const filename = process.env.BROWSER_DELETION_QUOTA_MANIFEST;
+    const proof = readFileSync(filename,'utf8');
+    const fail = process.env.CARGO_TARGET_DIR + '/fail-catalog-disable';
+    writeFileSync(fail, 'synthetic failure');
+    try {
+      const primary = new Error('callback failed');
+      await assert.rejects(withReportCatalog(async () => { throw primary; }), error => {
+        assert.ok(error instanceof AggregateError);
+        assert.equal(error.errors[0], primary);
+        assert.match(error.errors[1].message, /catalog-disable failed/);
+        return true;
+      });
+      assert.equal(readFileSync(filename,'utf8'), proof);
+      rmSync(fail);
+      await withReportCatalog(async () => {});
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init','catalog-enable','catalog-disable','catalog-enable','catalog-disable','finish']);
+});
+
+test('uncertain catalog enable attempts exact cleanup without rerunning the callback', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    const fail = process.env.CARGO_TARGET_DIR + '/fail-catalog-enable';
+    writeFileSync(fail,'lost acknowledgement');
+    let called = false;
+    try {
+      await assert.rejects(withReportCatalog(async () => { called = true; }), /catalog-enable failed/);
+      assert.equal(called,false);
+      rmSync(fail);
+      await withReportCatalog(async () => { called = true; });
+      assert.equal(called,true);
+    } finally { teardownDeletionQuotaRun(); }
+  `);
+  assert.deepEqual(commands, ['init','catalog-enable','catalog-disable','catalog-enable','catalog-disable','finish']);
+});

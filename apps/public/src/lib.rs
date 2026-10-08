@@ -1,27 +1,45 @@
 #![forbid(unsafe_code)]
 
+mod anonymous_session;
 mod api;
 mod api_http;
+pub mod archive;
 pub mod catalog;
 mod derefer;
 mod handlers;
 mod intake;
 mod legacy_form;
+mod legacy_get;
 mod legacy_report;
 mod native_board_snapshot;
 mod native_thread_stats;
 mod native_updater_snapshot;
 mod output;
+mod polls;
 mod post_preferences;
 mod post_receipts;
 mod posting_form;
 mod posting_response;
+mod rss;
+mod search;
 mod security;
+mod semantic_thread;
 pub mod themes;
 pub mod transport;
 mod ui_assets;
 mod uploads;
-mod views;
+// The screenshot fixture imports the production renderer and its projections.
+pub mod views;
+
+/// Opt-in browser fixture using the actual renderer and response policy.
+#[cfg(feature = "browser-tests")]
+pub fn math_fixture_response(
+    page: &views::BoardPage,
+    origin: &str,
+) -> Result<axum::response::Response, String> {
+    security::math_fixture_response(page, origin)
+}
+
 use axum::{
     Router,
     extract::DefaultBodyLimit,
@@ -232,6 +250,8 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
             state.limits.clone(),
         ))
         .merge(ui_assets::routes())
+        .merge(search::routes())
+        .merge(polls::routes())
         .route("/", get(handlers::home))
         .route("/derefer", get(derefer::get))
         .route("/healthz", get(|| async { "ok" }))
@@ -264,11 +284,12 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
         .route("/{board}", get(handlers::board_redirect))
         .route("/{board}/", get(handlers::board_index))
         .route("/{board}/thread/{key}", get(handlers::thread))
+        .route("/{board}/thread/{key}/{context}", get(semantic_thread::get))
         .route("/{board}/post/{id}", get(handlers::quote))
         .route("/{board}/post", post(handlers::post))
         .route(
             "/{board}/imgboard.php",
-            get(legacy_report::get).post(legacy_form::submit),
+            get(legacy_get::get).post(legacy_form::submit),
         )
         .route("/{board}/delete", post(handlers::delete))
         .route("/{board}/report", post(handlers::report));

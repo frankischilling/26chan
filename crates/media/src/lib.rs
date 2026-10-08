@@ -10,13 +10,14 @@ mod output;
 mod promotion;
 mod publication;
 mod quarantine;
+pub mod source_digest;
 
 pub use block::{OUTPUT_DISK_BYTES, write_input_disk};
 pub use id::ObjectId;
 pub use output::{EncodedOutput, ValidatedOutput};
 pub use promotion::{Promoter, Promotion};
 pub use publication::{ApprovedFiles, PublicationGuard, PublicationStore};
-pub use quarantine::Quarantine;
+pub use quarantine::{InputSnapshot, Quarantine};
 
 pub const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
 pub const MAX_DIMENSION: u32 = 1024;

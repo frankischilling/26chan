@@ -42,6 +42,7 @@ fn page(slug: &str, sorted: bool) -> String {
     .into_iter()
     .map(
         |(id, subject, comment, name, trip, capcode, filename, replies)| views::ThreadView {
+            catalog_position: None,
             catalog_last_reply: None,
             tail_size: 0,
             latest_reply_id: None,
@@ -63,20 +64,28 @@ fn page(slug: &str, sorted: bool) -> String {
                 archive_expires_at: None,
             },
             posts: vec![views::PostView::new(Post {
+                image_spoiler: false,
                 comment_format: 0,
+                staff_authorized_limits: false,
+                wordfilter_payload: None,
                 id,
                 board: board.slug.clone(),
                 thread_id: id,
                 name: name.into(),
                 trip: trip.map(str::to_owned),
                 poster_id: None,
+                json_op_poster_id: None,
                 capcode: capcode.map(str::to_owned),
                 country: None,
                 country_name: None,
                 board_flag: None,
+                board_flag_type: "pol".into(),
                 flag_name: None,
                 subject: subject.into(),
                 comment: comment.into(),
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
                 created_at: time("2026-09-08T12:00:00Z"),
                 deleted: false,
                 attachment: filename.map(|filename| PostAttachment {
@@ -103,6 +112,7 @@ fn page(slug: &str, sorted: bool) -> String {
         threads.sort_by_key(|view| std::cmp::Reverse(view.thread.id));
     }
     views::BoardPage {
+        spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),

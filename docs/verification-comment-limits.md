@@ -27,8 +27,11 @@ Current persisted boundary fixtures use U+20BB7 (`𠮷`), a retained four-byte
 character. Separate tests require emoji-only text rejection without an approved
 attachment and enforce the raw count even when cleanup would shorten it.
 The earlier checkpoint below records its own scope and historical results; its
-emoji-acceptance statement is not the current posting contract. The handler's
-ambient mbstring encoding and deployed media/staff boundaries remain unresolved.
+emoji-acceptance statement is not the current posting contract. The later
+[authorized posting limits](verification-authorized-post-limits.md) cover
+rank-specific fields, larger staff comments and their posting-only form
+envelope. The handler's deployed mbstring encoding and remaining media/staff
+workflows remain unresolved.
 
 ## Earlier character-limit checkpoint
 

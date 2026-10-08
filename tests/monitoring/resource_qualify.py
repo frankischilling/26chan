@@ -212,7 +212,7 @@ def qualify(root, binary, binary_directory, lifecycle_state):
             policy = work / 'receiver.json'
             write_policy(policy, credentials['receiver'])
             receiver = cleanup.enter_context(Receiver(pki['cert'], pki['key'], policy))
-            metrics_port, prom_port, alert_port = (auth.port() for _ in range(3))
+            metrics_port, prom_port, alert_port = auth.ports(3)
             if len({metrics_port, prom_port, alert_port, receiver.port}) != 4:
                 raise AssertionError('Owned resource qualification port collision')
             address = '127.0.0.1:' + str(metrics_port)

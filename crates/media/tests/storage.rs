@@ -238,3 +238,47 @@ proptest::proptest! {
         proptest::prop_assert_eq!(value.parse::<ObjectId>().is_ok(), expected);
     }
 }
+
+#[tokio::test]
+async fn snapshot_keeps_open_inode_then_freezes_bytes_despite_replacement_and_mutation() {
+    use board_media::InputSnapshot;
+    let root = tempfile::tempdir().unwrap();
+    let quarantine = Quarantine::new(root.path()).unwrap();
+    let id = ObjectId::generate().unwrap();
+    quarantine.receive(id, b"abc".as_slice()).await.unwrap();
+    let file = quarantine.open_input(id, 3).unwrap();
+    let path = root.path().join(format!("{id}.input"));
+    let old = root.path().join("old-input");
+    std::fs::rename(&path, &old).unwrap();
+    std::fs::write(&path, b"replacement").unwrap();
+    let snapshot = InputSnapshot::read(file, 3).await.unwrap();
+    let hash = *snapshot.raw_sha256();
+    std::fs::write(&old, b"mutated old inode").unwrap();
+    std::fs::write(&path, b"mutated new inode").unwrap();
+    assert_eq!(snapshot.bytes(), b"abc");
+    assert_eq!(snapshot.raw_sha256(), &hash);
+}
+
+#[tokio::test]
+async fn snapshot_rechecks_open_file_type_and_length() {
+    use board_media::InputSnapshot;
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("input");
+    std::fs::write(&path, b"abc").unwrap();
+    for length in [0, 2, 4, MAX_INPUT_BYTES + 1] {
+        assert!(
+            InputSnapshot::read(std::fs::File::open(&path).unwrap(), length)
+                .await
+                .is_err()
+        );
+    }
+    let file = std::fs::File::open(&path).unwrap();
+    std::fs::write(&path, b"ab").unwrap();
+    assert!(InputSnapshot::read(file, 3).await.is_err());
+    #[cfg(unix)]
+    assert!(
+        InputSnapshot::read(std::fs::File::open(root.path()).unwrap(), 3)
+            .await
+            .is_err()
+    );
+}

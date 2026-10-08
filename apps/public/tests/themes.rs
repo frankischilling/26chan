@@ -178,7 +178,7 @@ fn request(theme: &str, origin: Option<&str>, fetch: Option<&str>) -> Request<Bo
     }
     request
         .body(Body::from(format!(
-            "theme={theme}&return_to=%2Ftest%2Fthread%2F123"
+            "theme={theme}&return_to=%2Ffixture%2Fthread%2F123"
         )))
         .unwrap()
 }
@@ -281,7 +281,7 @@ async fn persisted_styles_are_private_finite_and_have_no_database_dependency() {
                 .await
                 .unwrap();
             assert_eq!(response.status(), StatusCode::SEE_OTHER);
-            assert_eq!(response.headers()["location"], "/test/thread/123");
+            assert_eq!(response.headers()["location"], "/fixture/thread/123");
             assert_eq!(response.headers()["cache-control"], "private, no-store");
             let cookie = response.headers()["set-cookie"]
                 .to_str()
@@ -300,7 +300,7 @@ async fn persisted_styles_are_private_finite_and_have_no_database_dependency() {
                         .header("cookie", value)
                         .header(
                             "referer",
-                            "https://board.example/test/catalog?ignored=secret",
+                            "https://board.example/fixture/catalog?ignored=secret",
                         )
                         .body(Body::empty())
                         .unwrap(),
@@ -317,7 +317,7 @@ async fn persisted_styles_are_private_finite_and_have_no_database_dependency() {
             assert!(response.headers().get("set-cookie").is_none());
             let page = body(response).await;
             assert!(page.contains(&format!("value=\"{theme}\" selected")));
-            assert!(page.contains("name=\"return_to\" value=\"/test/catalog\""));
+            assert!(page.contains("name=\"return_to\" value=\"/fixture/catalog\""));
             assert!(!page.contains("ignored=secret"));
             let response = app
                 .clone()
@@ -433,10 +433,10 @@ async fn style_updates_reject_cross_origin_unknown_fields_and_oversized_bodies()
 async fn references_cannot_redirect_or_import_themes_from_other_origins() {
     let app = app(false);
     for referer in [
-        "https://other.example/test/",
-        "https://board.example@other.example/test/",
-        "https://board.example/test/upload/status",
-        "https://board.example/test/%2fother",
+        "https://other.example/fixture/",
+        "https://board.example@other.example/fixture/",
+        "https://board.example/fixture/upload/status",
+        "https://board.example/fixture/%2fother",
     ] {
         let response = app
             .clone()

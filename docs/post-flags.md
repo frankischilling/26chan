@@ -12,6 +12,8 @@ defines the conditional post fields `country`, `country_name`, `board_flag` and
 The public extension renders `bfl bfl-{code}` or `flag flag-{code}` spans with
 escaped names as titles. [The reference record](public-country-flags-reference.json)
 pins the stylesheets, sprites, dictionary and observed select order.
+[The source flag inventory](source-board-flags.md) records all four supplied
+tables, their separate menu/post labels and the current rendering policy.
 No external posting experiment or production user-content fixture was used.
 
 ## Configuration
@@ -74,7 +76,7 @@ a public choice, not a person's identity or physical location.
 No new raw peer address is saved for this feature. `CF-IPCountry`, forwarding
 headers and posted country/name fields cannot select geographic labels. Public
 SQL credentials cannot change the board policy or update saved flag columns.
-The attachment owner gains SELECT on the two public board switches only;
+The attachment owner gains SELECT on the public board switches and flag type;
 staff authentication, private poster contexts and deployment grants are unchanged.
 
 ## Qualification

@@ -27,29 +27,132 @@ pub struct Identity {
     pub trip: Option<String>,
 }
 
+pub const MAX_DISPLAY_NAME_BYTES: usize = 255;
+
 pub fn prepare(raw: &str, key: Option<&SecureKey>) -> Result<Identity, crate::ValidationError> {
-    if raw.len() > crate::MAX_PUBLIC_FIELD_BYTES || raw.chars().any(char::is_control) {
+    prepare_with_spacing(
+        raw,
+        key,
+        crate::CommentSpacing::for_board("g", false, false),
+    )
+}
+
+pub fn prepare_with_spacing(
+    raw: &str,
+    key: Option<&SecureKey>,
+    spacing: crate::CommentSpacing<'_>,
+) -> Result<Identity, crate::ValidationError> {
+    prepare_for_board(raw, key, spacing, false)
+}
+
+pub fn prepare_for_board(
+    raw: &str,
+    key: Option<&SecureKey>,
+    spacing: crate::CommentSpacing<'_>,
+    strip_tripcode: bool,
+) -> Result<Identity, crate::ValidationError> {
+    prepare_for_board_with_limits(
+        raw,
+        key,
+        spacing,
+        strip_tripcode,
+        crate::PostLimits::ordinary(crate::MAX_COMMENT_CHARS),
+    )
+}
+
+pub fn prepare_for_board_with_limits(
+    raw: &str,
+    key: Option<&SecureKey>,
+    spacing: crate::CommentSpacing<'_>,
+    strip_tripcode: bool,
+    limits: crate::PostLimits,
+) -> Result<Identity, crate::ValidationError> {
+    if raw.len() > limits.field_bytes()
+        || raw
+            .chars()
+            .any(|ch| ch.is_control() && !matches!(ch, '\r' | '\n' | '\t'))
+    {
         return Err(crate::ValidationError("Invalid name."));
     }
-    let (name, password) = raw
-        .split_once('#')
-        .map_or((raw, None), |(name, password)| (name, Some(password)));
-    let name = if name.trim().is_empty() {
-        "Anonymous"
-    } else {
-        name.trim()
+
+    // Source cleans the whole field before conversion, including private input.
+    let mut field: String = raw
+        .chars()
+        .filter(|&ch| {
+            !crate::comment_spacing::zero_width(ch)
+                && !crate::comment_unicode::emoticon(ch, spacing.sjis)
+        })
+        .collect();
+    if field.chars().all(|ch| matches!(ch, ' ' | '|' | '\u{3000}')) {
+        field.clear();
     }
-    .to_string();
-    let trip = match password {
-        None => None,
-        Some(password) if password.starts_with('#') => {
-            let key = key.ok_or(crate::ValidationError("Secure tripcodes are unavailable."))?;
-            let signing = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, &key.0);
-            let signature = ring::hmac::sign(&signing, &password.as_bytes()[1..]);
-            Some(format!("!!{}", &STANDARD.encode(signature.as_ref())[..11]))
+    field.retain(|ch| !matches!(ch, '\r' | '\n'));
+
+    let display = field.split('#').next().unwrap_or("");
+    let normalized: String = display
+        .chars()
+        .filter(|ch| !matches!(*ch, '\u{2318}' | '\u{ff03}' | '\u{fe5f}'))
+        .map(crate::comment_ascii::similar_to_ascii)
+        .collect();
+    let mut name = crate::comment_spacing::sanitize_spacing(&normalized, spacing);
+    name.retain(|ch| ch as u32 <= 0x3134f);
+    if name
+        .bytes()
+        .all(|byte| matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | 11 | 12))
+    {
+        name.clear();
+    }
+    name.retain(|ch| ch != '!');
+
+    let mut encoded = crate::trip_cp932::encode(&field);
+    while encoded.last() == Some(&b'#') {
+        encoded.pop();
+    }
+    let escaped = crate::trip_cp932::escape_compat(&encoded);
+    let mut parts = escaped.splitn(3, |&byte| byte == b'#');
+    parts.next();
+    let normal = parts.next();
+    let secure = parts.next();
+    let trip = if strip_tripcode {
+        None
+    } else {
+        match (normal, secure) {
+            (_, Some(password)) if !password.is_empty() => {
+                let key = key.ok_or(crate::ValidationError("Secure tripcodes are unavailable."))?;
+                // Keep secure secrets in UTF-8 so unmappable CP932 characters cannot
+                // collapse distinct modern credentials into the same key preimage.
+                let password = field
+                    .trim_end_matches('#')
+                    .splitn(3, '#')
+                    .nth(2)
+                    .ok_or(crate::ValidationError("Invalid name."))?;
+                let password = crate::trip_cp932::escape_compat(password.as_bytes());
+                let signing = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, &key.0);
+                let signature = ring::hmac::sign(&signing, &password);
+                Some(format!("!!{}", &STANDARD.encode(signature.as_ref())[..11]))
+            }
+            (Some(password), _) if !password.is_empty() => {
+                Some(format!("!{}", legacy_trip_bytes(password)))
+            }
+            _ => None,
         }
-        Some(password) => Some(format!("!{}", legacy_trip(password))),
     };
+
+    // Source's second bound includes escaped text and its generated trip wrapper.
+    let wrapper = if !strip_tripcode && normal.is_some() {
+        "</span>".len()
+            + trip
+                .as_ref()
+                .map_or(0, |trip| " <span class=\"postertrip\">".len() + trip.len())
+    } else {
+        0
+    };
+    if crate::source_html_entities(&name).len() + wrapper > MAX_DISPLAY_NAME_BYTES {
+        return Err(crate::ValidationError("Name or subject is too long."));
+    }
+    if name.is_empty() && (strip_tripcode || normal.is_none()) {
+        name = "Anonymous".into();
+    }
     Ok(Identity { name, trip })
 }
 
@@ -146,21 +249,22 @@ fn salt_byte(value: u8) -> u8 {
     }
 }
 
+#[cfg(test)]
 fn legacy_trip(password: &str) -> String {
-    // Released Fourchan generator escapes these characters before DES admission.
-    let escaped = password
-        .replace('&', "&amp;")
-        .replace('"', "&quot;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;");
+    legacy_trip_bytes(&crate::trip_cp932::escape_compat(
+        &crate::trip_cp932::encode(password),
+    ))
+}
+
+fn legacy_trip_bytes(escaped: &[u8]) -> String {
     let mut key = [0u8; 8];
     for (slot, byte) in key
         .iter_mut()
-        .zip(escaped.bytes().take_while(|byte| *byte != 0))
+        .zip(escaped.iter().copied().take_while(|byte| *byte != 0))
     {
         *slot = byte.wrapping_shl(1);
     }
-    let raw_salt = match escaped.as_bytes() {
+    let raw_salt = match escaped {
         [] | [_] => [b'H', b'.'],
         [_, second] => [*second, b'H'],
         [_, second, third, ..] => [*second, *third],
@@ -232,9 +336,9 @@ mod tests {
             prepare("Another#password", None).unwrap().trip,
             identity.trip
         );
-        assert_eq!(prepare("#password", None).unwrap().name, "Anonymous");
+        assert_eq!(prepare("#password", None).unwrap().name, "");
         assert_eq!(prepare(" Anonymous ", None).unwrap().trip, None);
-        assert_eq!(prepare("#", None).unwrap().trip.as_ref().unwrap().len(), 11);
+        assert_eq!(prepare("#", None).unwrap().trip, None);
         assert_eq!(
             prepare("#a", None).unwrap().trip.as_ref().unwrap().len(),
             11
@@ -266,8 +370,8 @@ mod tests {
 
     #[test]
     fn legacy_hash_matches_independent_libxcrypt_vectors() {
-        // Generated with Ubuntu libcrypt.so.1, using the documented salt mapping
-        // and escaping before calling crypt. UTF-8 is this deployment's policy.
+        // ASCII vectors generated with Ubuntu libcrypt.so.1, independently of
+        // the Rust DES implementation. CP932 vectors are qualified separately.
         for (password, expected) in [
             ("", "jPpg5.obl6"),
             ("a", "ZnBI2EKkq."),
@@ -295,7 +399,6 @@ mod tests {
             ("a~b", ".9dz0SmY.c"),
             ("a!b", "kaOTmOZZBw"),
             ("#password", "VhXEJkFkS."),
-            ("ééé", "ChTUUq.jWY"),
         ] {
             assert_eq!(legacy_trip(password), expected, "{password:?}");
         }
@@ -303,12 +406,7 @@ mod tests {
 
     #[test]
     fn bounded_names_and_keys_reject_controls_and_never_echo_secret_errors() {
-        for raw in [
-            "User#\nsecret",
-            "User#\0secret",
-            "User#\tsecret",
-            "User\u{7f}",
-        ] {
+        for raw in ["User#\0secret", "User\u{7f}", "User\u{000b}"] {
             assert_eq!(prepare(raw, None).err().unwrap().0, "Invalid name.");
         }
         assert!(prepare(&"n".repeat(crate::MAX_PUBLIC_FIELD_BYTES), None).is_ok());
@@ -322,9 +420,137 @@ mod tests {
                 .is_none()
         );
         assert_eq!(prepare("  User #password", None).unwrap().name, "User");
+        assert_eq!(
+            prepare("User#\nsecret", None).unwrap().trip,
+            prepare("User#secret", None).unwrap().trip
+        );
         for value in ["", "untrusted-secret", &"a".repeat(63), &"a".repeat(65)] {
             assert!(SecureKey::parse(value).is_err());
         }
+    }
+
+    #[test]
+    fn public_names_and_parser_branches_match_selected_source_bodies() {
+        check_source_names(
+            include_str!("../tests/fixtures/public-name.json"),
+            crate::PostLimits::ordinary(crate::MAX_COMMENT_CHARS),
+            469,
+        );
+    }
+
+    #[test]
+    fn authorized_names_keep_raw_and_finished_bounds_from_selected_source_bodies() {
+        check_source_names(
+            include_str!("../tests/fixtures/staff-name.json"),
+            crate::PostLimits::authorized(10_000).unwrap(),
+            553,
+        );
+    }
+
+    fn check_source_names(source: &str, limits: crate::PostLimits, expected: usize) {
+        let fixture: serde_json::Value = serde_json::from_str(source).unwrap();
+        let key = SecureKey::parse(&"1".repeat(64)).unwrap();
+        let mut count = 0;
+        for group in fixture["groups"].as_array().unwrap() {
+            let spacing = crate::CommentSpacing::for_board(
+                group["board"].as_str().unwrap(),
+                group["code"].as_bool().unwrap(),
+                group["sjis"].as_bool().unwrap(),
+            );
+            for case in group["cases"].as_array().unwrap() {
+                count += 1;
+                let result = prepare_for_board_with_limits(
+                    case["input"].as_str().unwrap(),
+                    Some(&key),
+                    spacing,
+                    group["strip"].as_bool().unwrap(),
+                    limits,
+                );
+                if case["outcome"] == "too_long" {
+                    assert!(result.is_err(), "{}", case["input"]);
+                } else {
+                    let identity = result.unwrap();
+                    assert_eq!(
+                        identity.name,
+                        case["name"].as_str().unwrap(),
+                        "{}",
+                        case["input"]
+                    );
+                    assert_eq!(
+                        crate::source_html_entities(&identity.name),
+                        case["name_html"].as_str().unwrap()
+                    );
+                    assert_eq!(
+                        identity.trip.as_deref(),
+                        case["modern_trip"].as_str(),
+                        "{}",
+                        case["input"]
+                    );
+                }
+            }
+        }
+        assert_eq!(count, expected);
+    }
+
+    #[test]
+    fn legacy_des_hash_matches_cp932_reference_vectors() {
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/trip-encoding.json")).unwrap();
+        let vectors = fixture["vectors"].as_array().unwrap();
+        assert_eq!(vectors.len(), 48);
+        for vector in vectors {
+            if vector["trip"].is_null() {
+                assert_eq!(vector["input"], "");
+                assert_eq!(prepare("Name#", None).unwrap().trip, None);
+                continue;
+            }
+            assert_eq!(
+                legacy_trip(vector["input"].as_str().unwrap()),
+                vector["trip"].as_str().unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn modern_secure_trips_keep_unicode_secrets_distinct_and_source_delimiters() {
+        let key = SecureKey::parse(&"1".repeat(64)).unwrap();
+        assert_ne!(
+            prepare("User##é", Some(&key)).unwrap().trip,
+            prepare("User##€", Some(&key)).unwrap().trip
+        );
+        assert_eq!(
+            prepare("User##password", Some(&key)).unwrap().trip,
+            prepare("User#ignored#password", Some(&key)).unwrap().trip
+        );
+        assert_eq!(
+            prepare("User#password###", None).unwrap().trip,
+            prepare("User#password", None).unwrap().trip
+        );
+        assert_eq!(prepare("User##", None).unwrap().trip, None);
+    }
+
+    #[test]
+    fn suppressed_trips_skip_keys_and_wrappers_but_keep_input_and_display_bounds() {
+        let spacing = crate::CommentSpacing::for_board("b", false, false);
+        for (raw, name) in [
+            ("#password", "Anonymous"),
+            ("#かみ", "Anonymous"),
+            ("Name#password", "Name"),
+            ("Name##owned-private-secret", "Name"),
+            ("Name#ignored#owned-private-secret", "Name"),
+        ] {
+            let identity = prepare_for_board(raw, None, spacing, true).unwrap();
+            assert_eq!(identity.name, name);
+            assert_eq!(identity.trip, None);
+        }
+        let name = format!("{}#password", "\"".repeat(37));
+        assert!(prepare_for_board(&name, None, spacing, false).is_err());
+        let identity = prepare_for_board(&name, None, spacing, true).unwrap();
+        assert_eq!(identity.name, "\"".repeat(37));
+        assert_eq!(identity.trip, None);
+        assert!(prepare_for_board(&"n".repeat(101), None, spacing, true).is_err());
+        assert!(prepare_for_board(&"\"".repeat(43), None, spacing, true).is_err());
+        assert!(prepare_for_board("Name#\0private", None, spacing, true).is_err());
     }
 
     proptest::proptest! {
@@ -335,8 +561,8 @@ mod tests {
             let key = SecureKey::parse(&"1".repeat(64)).unwrap();
             if let Ok(identity) = prepare(&raw, Some(&key)) {
                 proptest::prop_assert!(raw.len() <= crate::MAX_PUBLIC_FIELD_BYTES);
-                proptest::prop_assert!(!raw.chars().any(char::is_control));
-                proptest::prop_assert!(!identity.name.contains('#'));
+                proptest::prop_assert!(!raw.chars().any(|ch| ch.is_control() && !matches!(ch, '\r' | '\n' | '\t')));
+                proptest::prop_assert!(identity.name.len() <= MAX_DISPLAY_NAME_BYTES);
                 if let Some(trip) = identity.trip {
                     proptest::prop_assert!(matches!(trip.len(), 11 | 13));
                     proptest::prop_assert!(trip.starts_with('!'));

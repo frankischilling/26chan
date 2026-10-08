@@ -4,7 +4,13 @@ import { readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 
 const source = await readFile(new URL('../../apps/public/static/native-layout.v1.js', import.meta.url), 'utf8');
-const imageSource = await readFile(new URL('../../apps/public/client/native-images.js', import.meta.url), 'utf8');
+const spoilerAssets = await readFile(new URL('../../apps/public/client/native-spoiler-assets.js', import.meta.url), 'utf8');
+const assetUrl = `data:text/javascript;base64,${Buffer.from(spoilerAssets).toString('base64')}`;
+const spoilerCache = (await readFile(new URL('../../apps/public/client/native-spoilers.js', import.meta.url), 'utf8'))
+  .replace('./native-spoiler-assets.js', assetUrl);
+const imageSource = (await readFile(new URL('../../apps/public/client/native-images.js', import.meta.url), 'utf8'))
+  .replace('./native-spoiler-assets.js', assetUrl)
+  .replace('./native-spoilers.js', `data:text/javascript;base64,${Buffer.from(spoilerCache).toString('base64')}`);
 const origin = 'https://layout.example';
 let browser;
 
@@ -195,8 +201,10 @@ test('BFCache recomputes on persisted restore and teardown restores only owned s
   await page.evaluate(() => {
     localStorage.setItem('4chan-settings', JSON.stringify({ compactThreads: true, darkTheme: true }));
     document.dispatchEvent(new CustomEvent('4chanSettingsSaved'));
+    // Teardown must run in the same browser task to cancel the pending theme
+    // notification. Separate evaluate calls permit it to settle between them.
+    window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false }));
   });
-  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false })));
   assert.equal((await state(page)).layout, 'host-state');
   assert.equal((await state(page)).href, '/static/theme.css?worksafe=true');
   assert.deepEqual((await state(page)).themeChanges, ['tomorrow', 'photon']);

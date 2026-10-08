@@ -15,9 +15,21 @@ before migration 0040. The [private poster-count notes](private-poster-counts.md
 cover its restricted function owner, key continuity, historical omission and
 rollback behavior. Fresh `deploy/roles.sql` already creates this NOLOGIN owner.
 
+Existing installations also need `deploy/posting-cooldown-role.sql` before
+migration 0087; fresh role bootstrap includes its restricted NOLOGIN owner.
+Stop public and staff writers for this upgrade and deploy matching binaries.
+The [ordinary posting cooldown notes](source-posting-cooldowns.md) cover the
+insert-only history trigger, bounded capacity, history lifecycle and unsafe
+old-writer rollback. Public `POSTER_ID_KEY` and staff `STAFF_POSTER_ID_KEY`
+must contain the same stable private key material.
+
 Migration 0041 keeps [country and board flags](post-flags.md) disabled on existing
 boards. Geographic boards need an operator-owned country database loaded through
 `COUNTRY_DATABASE`; data updates take effect after a public-service restart.
+
+Migration 0055 adds [source dice and fortune options](source-posting-randomizers.md).
+It enables them only on the boards recorded by the pinned source snapshot.
+Synthetic boards stay disabled unless an operator changes their board row.
 
 Migration 0008 also requires `board_media_read` to exist. The staging role template creates it as NOLOGIN with bounded database timeouts; it gains only the approved-asset view grant when migrations run. Keep it disabled until a media serving deployment is qualified. The development reader bootstrap creates a separate login only in the verified disposable cluster. `scripts/test-role-bootstrap.sh` applies the role template and every migration in an isolated Unix-socket-only cluster, then checks the reader's grants and disabled login.
 
@@ -35,7 +47,7 @@ content/staff reads and media writes with healthy controls. It rejects
 production startup. Follow the reader notes for explicit shared-publication
 permissions, health semantics, resource limits and remaining deployment work.
 
-In the public application, `/healthz` checks process availability and `/readyz` performs a content query, returning 503 on unavailable storage. Neither endpoint runs migrations. Public JSON logs record startup and generic database failures; handlers do not log post text, deletion passwords, URLs, IPs or raw SQL errors. The public candidate unit disables core dumps. Native dependencies and reverse-proxy logs need their own review.
+In the public application, `/healthz` checks process availability and `/readyz` requires the configured `POSTER_ID_KEY` needed for all posting and public deletion, queries content, and checks posting admission functions and the private insert trigger. Missing identity or unavailable schema/storage fails readiness. An omitted key still allows read-only startup/routes, but does not claim full readiness. Keep the private key stable across replicas and restarts; see [configuration](poster-ids.md#configuration-and-persistence). Every posting write separately requires a verified transport peer, even on boards without displayed IDs. Staff readiness likewise requires its poster key and posting schema. Neither endpoint runs migrations. Public JSON logs record startup and generic database failures; handlers do not log post text, deletion passwords, URLs, IPs or raw SQL errors. The public candidate unit disables core dumps. Native dependencies and reverse-proxy logs need their own review.
 
 The following table describes public limits. [Staff notes](staff.md) record the separate staff limits and readiness checks of both its authentication and moderation stores; [media notes](media.md) record intake and queue bounds.
 
@@ -88,6 +100,12 @@ host. Staff, media and metrics retain their separate transport policies.
 
 ## Backup and recovery
 
+[Archive deletion-password retirement](archive-deletion-secrets.md) removes
+OP/reply hashes on new archive transitions from migration 0091 onward.
+Already-archived hashes remain unchanged. A current restore preserves that
+exact state; older backups may still contain retired hashes. Neither migration
+nor restore cleanses those older copies or establishes physical erasure.
+
 [Migration 0025](source-posting-times.md) preserves historical posting clocks
 and adds an independent HTTP change clock. Apply it before the binary; retain
 it on binary rollback. Synchronize application/database hosts. The restore
@@ -138,6 +156,35 @@ Retention policy affects public visibility and does not physically erase retaine
 base tables or backups. The actual upgrade exercise is recorded in
 [archive verification](verification-thread-archives.md).
 
+Apply migration 0093 before deploying the matching
+[report eligibility and popup handlers](source-report-popup.md). It adds the
+board report switch with the source default enabled and `/j/` disabled, preserves
+existing report rows and needs no new bootstrap role. It grants no category or
+report-read authority. Older report handlers can bypass the new target policy;
+a binary-only rollback is not policy-equivalent.
+
+Both public and staff readiness now require migration 0094. On existing
+installations, the bootstrap administrator first runs
+`deploy/report-admission-role.sql` once. Stop old writers, apply through 0094 and
+follow [report admission rollout](source-report-admission.md#rollout-and-checks)
+and [posting deployment](source-posting-cooldowns.md#deployment) before starting
+matching services. Migration 0094 revokes direct public report insertion, so old
+public binaries cannot continue reporting after the upgrade. Its private
+membership cap does not bound the retained report history. Migrations 0091 and
+0092 need no new bootstrap role. The [active OP quota](source-user-thread-quotas.md) has an independent
+per-IP maximum and period; its password/Pass identity branches remain unfinished.
+Matching services now also require migrations 0095 through 0097 for
+[forward automatic-session identity](automatic-admission-identity.md). Stop
+writers before applying them; no additional role bootstrap is needed. Existing
+history stays unassigned and direct registration cannot adopt old rows. Public
+report writes require full session context; the old IP-only mutation is
+staff-only. Report eligibility and limits are rechecked after session-lock waits.
+
+Operator archive transitions require Read Committed isolation. Lock affected
+boards in slug order before secret updates/deletions or archive writes; an
+out-of-order operation can fail with `55P03` and require a transaction retry.
+See [archive transaction rules](archive-deletion-secrets.md#authority-and-concurrency).
+
 Build release artifacts from a reviewed commit with the lockfile. Run migrations using the operator identity before starting compatible application code. Migrations are forward-only; rollback of destructive schema changes requires a reviewed compensating migration or restoration. Do not assume replacing a binary reverses a migration. No release automation or production deploy has run.
 
 For migration 0007, stop public and staff serving, take a backup, apply the operator migration, and start binaries that use `max_comment_chars` and the expanded parser bound. The migration requires UTF8 encoding and preserves existing numeric board settings and post text. It renames the board column and replaces the global comment constraint. Old public binaries expect the old column, and old renderers truncate longer comments; do not roll back only the binaries. Review proxy form-body limits alongside the 256 KiB application limit. `scripts/test-comment-migration.sh` exercises the historical upgrade and encoding guard in separate disposable databases. See [comment verification](verification-comment-limits.md).
@@ -145,3 +192,22 @@ For migration 0007, stop public and staff serving, take a backup, apply the oper
 Rotate database credentials through the operator channel, restart affected pools and revoke the old credential. Staff authenticator revocation and recovery use the separate operator workflow described in [staff operations](staff.md); normal staff runtime credentials cannot change account roles. Rotate release and backup credentials outside web services. Re-run permission and recovery tests after grant changes.
 
 If the public process is compromised, isolate it, revoke its database credential, preserve restricted forensic evidence and rebuild from a trusted artifact. Review content mutations and report spam; public compromise can expose retained deleted text and password hashes. Do not assume staff identities were exposed solely because they share the server: verify actual grants and evidence. If future media workers are compromised, stop promotion/intake, destroy guest workspaces, preserve bounded forensic records and patch the guest/host stack before resuming. The planned worker must not have credentials to revoke from application or staff databases in the first place.
+
+
+### Optional categorical reports
+
+Migration 0098 stores bounded private catalog revisions; 0099 adds explicit
+activation and categorical admission. Importing never activates a revision.
+Stop old writers, migrate, and start matching public/staff binaries before
+activation. The operator CLI supports validation, import, activation and
+deactivation through the migration login. See [category configuration and
+rollout](source-report-categories.md). Production category definitions are not
+seeded. Configured base weights do not supply source-equivalent queue priority.
+
+
+Migration 0100 adds [forward report-group archive handling](report-group-lifetimes.md).
+It installs no historical counters. Unknown groups remain conservative; imports
+and retained report history are never used to invent past classifications.
+Privileged bulk maintenance must pre-lock every affected board in canonical
+order before writing membership, then revalidate its target set. AFTER-trigger
+checks do not protect earlier foreign-key or tuple waits.

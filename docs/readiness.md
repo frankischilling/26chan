@@ -6,17 +6,55 @@ launch requirement and does not block local rewrite completion. Local parity
 remains incomplete where the compatibility inventory below records missing
 features or reference comparisons.
 
+The consolidated work adds [guarded first-run Settings behavior](native-settings-categories.md),
+[native filter Help](native-filter-help.md), and
+[bounded ordinary report-group clearing](report-group-clear.md). Their local
+checks, exact-head hosted results and remaining source gaps are recorded separately;
+they do not establish overall completion. Group clearing requires captured effective
+weights and does not work for the default unknown-weight free-text path.
+
+[Public poll browsing](public-polls.md) adds operator-published catalogues,
+options and results with no runtime write access. The archive lacks the poll
+controller and voting contract, so voting remains explicitly unavailable.
+
+The [staff attachment boundary](staff-post-attachments.md) has a published 0110
+backend for proof-bound ordinary and badged posts. Its 0111 continuation adds
+development-only upload, status and cancellation routes with native receipt
+forms and a separate intake credential. All 18 local HTTP cases pass.
+[Build 37660811577](https://github.com/frankischilling/26chan/actions/runs/37660811577)
+passed for commit `28cdc0a`, including the script-disabled browser invocation.
+Production media remains disabled, and source presentation parity is unproven.
+
+[Private PNG source provenance](source-media-digests.md) binds async receipts
+to an immutable dispatched input snapshot while leaving output digests and
+public/staff reads unchanged. It adds no duplicate-image admission and no
+JPEG/GIF source digest. The runtime and 0112 migration passed local
+qualification, including populated upgrades, rollback and restricted-role checks.
+The completed PNG checkpoint `fd519c8` passed
+[hosted build/test](https://github.com/frankischilling/26chan/actions/runs/37684199590),
+monitoring and advisory checks. This includes the corrected native dispatch
+failure and live-VM cancellation fixtures.
+
+[Board math display](native-math.md) adds source-enabled inline/block equations
+and a separate Quick Reply preview using a bounded local renderer. Stored and
+API comments retain literal tags. Source, engine, policy and header checks are
+local evidence; actual browser qualification and historical visual parity
+remain unproven.
+
 The working board includes development attachments, private isolated media
 processing, a separate staff application, archives, six referenced theme
 palettes and cross-board quotes. `scripts/check-launch-readiness.sh` checks
 production launch requirements and intentionally fails while they remain
 unqualified. Its result does not decide local rewrite parity.
 
-The September 15, 2026 inventory reconciles earlier checkpoint descriptions with
-merged work. The [active reference boundary](compatibility.md#active-reference-boundary)
-excludes source-only claims from the supplied leaked checkout as compatibility
-evidence. Preserve existing implementation while collecting permitted evidence;
-missing evidence is not a reason to invent a replacement server policy.
+The [active reference boundary](compatibility.md#active-reference-boundary)
+is the supplied original checkout. The October 1 requirement covers all 80
+listed boards, two additional configurations and every source feature.
+[The tracker](https://github.com/frankischilling/26chan/issues/191) records the
+remaining public, staff, media, configuration and site workflows.
+[Board installation](original-board-inventory.md) and
+[server comment links](server-comment-links.md) add checked behavior toward
+that target. Their tests do not establish complete layout or feature parity.
 
 The September 27 image-control batch adds expansion, screen fitting, hover,
 transparent-preview backgrounds, spoiler reveal and thumbnail hiding for
@@ -51,8 +89,10 @@ by application requests and database changes.
 
 The same batch adds [posting identities](post-identities.md), including normal
 tripcodes, deployment-keyed secure trips, persisted API fields, escaped staff
-previews and native trip filters. Forced-anonymous boards discard both name
-and trip. [Poster IDs](poster-ids.md) add optional thread-scoped labels, public
+previews and native trip filters. Forced-anonymous boards discard ordinary
+names and trips. [Source staff identities](staff-capcodes.md) retain the
+administrator's posting exception and the catalog's separate two-badge rule.
+[Poster IDs](poster-ids.md) add optional thread-scoped labels, public
 JSON fields, escaped staff previews and default-on ID colors. The secure hash is a documented security replacement; original
 Unicode encoding and remaining parser edge cases need permitted evidence.
 [Posting preferences](post-preferences.md) also restore the remembered display

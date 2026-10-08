@@ -1,7 +1,7 @@
 import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
-const catalog = '/test/catalog';
+const catalog = '/fixture/catalog';
 const key = 'catalog-settings';
 const lockName = 'paperboard-thread-watcher';
 const initial = { orderby: 'alt', large: false, extended: true };

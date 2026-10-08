@@ -1,10 +1,64 @@
 use crate::{MAX_INPUT_BYTES, MediaError, ObjectId};
+use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
 };
 use tokio::io::{AsyncRead, AsyncReadExt};
+
+/// One bounded, immutable snapshot of the already-open private intake file.
+/// Both provenance and transport must consume these same bytes, never reopen
+/// the pathname. The hash is integrity metadata, not a decoder admission check.
+pub struct InputSnapshot {
+    bytes: Box<[u8]>,
+    raw_sha256: [u8; 32],
+}
+
+impl InputSnapshot {
+    pub async fn read(file: File, recorded_bytes: u64) -> Result<Self, MediaError> {
+        if !(1..=MAX_INPUT_BYTES).contains(&recorded_bytes) {
+            return Err(MediaError::InputLengthMismatch);
+        }
+        let mut file = tokio::fs::File::from_std(file);
+        let metadata = file.metadata().await?;
+        if !metadata.is_file() || metadata.len() != recorded_bytes {
+            return Err(MediaError::InputLengthMismatch);
+        }
+        Self::read_bounded(&mut file, recorded_bytes).await
+    }
+
+    // Kept private: production snapshots can only originate from a checked file.
+    async fn read_bounded<R: AsyncRead + Unpin>(
+        mut file: R,
+        recorded_bytes: u64,
+    ) -> Result<Self, MediaError> {
+        let length =
+            usize::try_from(recorded_bytes).map_err(|_| MediaError::InputLengthMismatch)?;
+        let mut bytes = vec![0; length].into_boxed_slice();
+        file.read_exact(&mut bytes).await.map_err(|error| {
+            if error.kind() == io::ErrorKind::UnexpectedEof {
+                MediaError::InputLengthMismatch
+            } else {
+                error.into()
+            }
+        })?;
+        let mut lookahead = [0];
+        if file.read(&mut lookahead).await? != 0 {
+            return Err(MediaError::InputLengthMismatch);
+        }
+        let raw_sha256 = Sha256::digest(&bytes).into();
+        Ok(Self { bytes, raw_sha256 })
+    }
+
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn raw_sha256(&self) -> &[u8; 32] {
+        &self.raw_sha256
+    }
+}
 
 /// Private storage under an operator-controlled directory. The root and all
 /// parents must remain inaccessible to workers. Path checks are not a boundary
@@ -145,5 +199,113 @@ impl Drop for PartialFile {
         // Drop cannot return an error. Queue reconciliation handles remnants if
         // an operator changes permissions or the filesystem refuses removal.
         let _ = fs::remove_file(&self.path);
+    }
+}
+
+#[cfg(test)]
+mod snapshot_tests {
+    use super::*;
+
+    use std::{
+        future::Future,
+        pin::Pin,
+        sync::{
+            Arc,
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+        },
+        task::{Context, Poll},
+    };
+    use tokio::io::ReadBuf;
+
+    struct StalledReader {
+        remaining: usize,
+        consumed: Arc<AtomicUsize>,
+        dropped: Arc<AtomicBool>,
+    }
+
+    impl AsyncRead for StalledReader {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            _: &mut Context<'_>,
+            buffer: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            assert!(
+                buffer.remaining() <= 3,
+                "fixed snapshot allocation or one-byte EOF probe"
+            );
+            if self.remaining == 0 {
+                return Poll::Pending;
+            }
+            let count = self.remaining.min(buffer.remaining());
+            buffer.put_slice(&b"abc"[..count]);
+            self.remaining -= count;
+            self.consumed.fetch_add(count, Ordering::SeqCst);
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl Drop for StalledReader {
+        fn drop(&mut self) {
+            self.dropped.store(true, Ordering::SeqCst);
+        }
+    }
+
+    #[tokio::test]
+    async fn cancelling_stalled_snapshot_drops_reader_without_completing_snapshot() {
+        // Exercise both a partial read and a stalled final EOF probe through
+        // the same private helper used by checked regular-file snapshots.
+        // This tests future ownership, not physical cancellation of Tokio's
+        // internal filesystem operations.
+        for available in [1, 3] {
+            let consumed = Arc::new(AtomicUsize::new(0));
+            let dropped = Arc::new(AtomicBool::new(false));
+            let completed = Arc::new(AtomicBool::new(false));
+            let reader = StalledReader {
+                remaining: available,
+                consumed: consumed.clone(),
+                dropped: dropped.clone(),
+            };
+            let reached_completion = completed.clone();
+            let mut future = Box::pin(async move {
+                let result = InputSnapshot::read_bounded(reader, 3).await;
+                reached_completion.store(true, Ordering::SeqCst);
+                result
+            });
+            assert!(
+                future
+                    .as_mut()
+                    .poll(&mut Context::from_waker(std::task::Waker::noop()))
+                    .is_pending()
+            );
+            assert_eq!(consumed.load(Ordering::SeqCst), available);
+            assert!(!dropped.load(Ordering::SeqCst));
+            drop(future);
+            assert!(dropped.load(Ordering::SeqCst));
+            tokio::task::yield_now().await;
+            assert!(!completed.load(Ordering::SeqCst));
+            assert_eq!(consumed.load(Ordering::SeqCst), available);
+        }
+    }
+
+    #[tokio::test]
+    async fn snapshot_exact_read_requires_eof_and_rejects_truncation_or_excess() {
+        for bytes in [b"ab".as_slice(), b"abcd".as_slice()] {
+            assert!(matches!(
+                InputSnapshot::read_bounded(bytes, 3).await,
+                Err(MediaError::InputLengthMismatch)
+            ));
+        }
+        let snapshot = InputSnapshot::read_bounded(b"abc".as_slice(), 3)
+            .await
+            .unwrap();
+        assert_eq!(snapshot.bytes(), b"abc");
+        assert_eq!(
+            snapshot.raw_sha256(),
+            &[
+                0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae,
+                0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61,
+                0xf2, 0x00, 0x15, 0xad,
+            ]
+        );
     }
 }

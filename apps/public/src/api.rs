@@ -11,12 +11,13 @@ use axum::{
 };
 use board_store::{Board, Post, Thread};
 use chrono::{DateTime, Utc};
+use serde::{Serialize, Serializer, ser::SerializeMap};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 fn response(
     limits: &crate::security::Limits,
-    value: Value,
+    value: impl Serialize,
     modified: Option<DateTime<Utc>>,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
@@ -84,17 +85,44 @@ pub(crate) fn bytes_response(
     Ok(response)
 }
 
+struct OrderedFlags(Vec<(&'static str, &'static str)>);
+impl Serialize for OrderedFlags {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for (code, label) in &self.0 {
+            map.serialize_entry(code, label)?;
+        }
+        map.end()
+    }
+}
+#[derive(Serialize)]
+struct BoardMetadata {
+    #[serde(flatten)]
+    value: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    board_flags: Option<OrderedFlags>,
+}
+#[derive(Serialize)]
+struct BoardDirectory {
+    boards: Vec<BoardMetadata>,
+}
 pub async fn boards(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    let boards: Vec<_> = board_store::boards(&state.pool).await?.into_iter().map(|board| {
+    let mut directory = board_store::boards(&state.pool).await?;
+    directory.sort_by(|a, b| a.slug.cmp(&b.slug));
+    let boards: Vec<_> = directory.into_iter().filter(|board| board.json_enabled).map(|board| {
         let mut value = json!({
         "board": board.slug, "title": board.title, "ws_board": i32::from(board.worksafe),
         "per_page": board.threads_per_page, "pages": (board.thread_limit + board.threads_per_page - 1) / board.threads_per_page,
         "max_filesize": 0, "max_webm_filesize": 0, "max_webm_duration": 0,
         "max_comment_chars": board.max_comment_chars, "bump_limit": board.bump_limit, "image_limit": 0,
-        "cooldowns": { "threads": 0, "replies": 0, "images": 0 },
+        "cooldowns": {
+            "threads": board.posting_thread_seconds,
+            "replies": board.posting_reply_seconds,
+            "images": board.posting_image_seconds
+        },
         "meta_description": board.description, "text_only": 1
         });
         if board.archive_retention_seconds > 0 {
@@ -104,12 +132,17 @@ pub async fn boards(
             value["require_subject"] = json!(1);
         }
         if board.user_ids { value["user_ids"] = json!(1); }
+        if board.math_tags { value["math_tags"] = json!(1); }
         if board.country_flags { value["country_flags"] = json!(1); }
-        if !board.board_flags.is_empty() {
-            value["board_flags"] = json!(board.flag_options().into_iter().collect::<std::collections::BTreeMap<_, _>>());
-        }
+        let flags = (!board.board_flags.is_empty()).then(|| OrderedFlags(board.flag_options()));
         if board.forced_anon {
             value["forced_anon"] = json!(1);
+        }
+        if board.comment_spoiler_cleanup {
+            value["spoilers"] = json!(1);
+            if board.custom_spoiler_count > 0 {
+                value["custom_spoilers"] = json!(board.custom_spoiler_count);
+            }
         }
         if state.media.is_some() && board.image_limit > 0 {
             if !board.text_only {
@@ -117,11 +150,10 @@ pub async fn boards(
             }
             value["max_filesize"] = json!(8_388_608);
             value["image_limit"] = json!(board.image_limit);
-            value["spoilers"] = json!(1);
         }
-        value
+        BoardMetadata { value, board_flags: flags }
     }).collect();
-    response(&state.limits, json!({"boards": boards}), None, &headers)
+    response(&state.limits, BoardDirectory { boards }, None, &headers)
 }
 
 fn post_json(
@@ -136,27 +168,46 @@ fn post_json(
     let comment = Comment {
         lines: &post.lines,
         board: &board.slug,
+        dice_result: post.post.dice_result.as_deref(),
+        fortune_text: post.post.fortune_text.as_deref(),
+        fortune_color: post.post.fortune_color.as_deref(),
     }
     .render()?;
     let op = post.post.id == thread.id;
     let mut value = json!({ "no": post.post.id, "resto": if op { 0 } else { thread.id },
-        "now": post.now, "time": post.post.created_at.timestamp(), "name": post.post.name });
-    if let Some(id) = &post.post.poster_id {
+        "now": post.now, "time": post.post.created_at.timestamp() });
+    let identity = board_domain::capcode::json_identity(
+        &post.post.name,
+        post.post.trip.as_deref(),
+        post.post.capcode.as_deref(),
+        board.forced_anon,
+        board.meta_board,
+    );
+    if let Some(name) = identity.name {
+        value["name"] = json!(board_domain::source_html_entities(name));
+    }
+    if let Some(id) = json_poster_id(&post.post, op, thread.archived_at.is_some()) {
         value["id"] = json!(id);
     }
-    if let Some(trip) = &post.post.trip {
+    if let Some(trip) = identity.trip {
         value["trip"] = json!(trip);
     }
     if let Some(capcode) = &post.post.capcode {
         value["capcode"] = json!(capcode);
     }
-    if let (Some(code), Some(name)) = (&post.post.country, &post.post.country_name) {
-        value["country"] = json!(code);
-        value["country_name"] = json!(name);
-    }
-    if let (Some(code), Some(name)) = (&post.post.board_flag, &post.post.flag_name) {
-        value["board_flag"] = json!(code);
-        value["flag_name"] = json!(name);
+    if post.post.capcode.is_none() {
+        if !board.board_flags.is_empty()
+            && let Some(code) = &post.post.board_flag
+            && let Some(flag) = board_domain::board_flags::flag(&board.board_flag_type, code)
+        {
+            value["board_flag"] = json!(code);
+            value["flag_name"] = json!(flag.display);
+        } else if board.country_flags
+            && let (Some(code), Some(name)) = (&post.post.country, &post.post.country_name)
+        {
+            value["country"] = json!(code);
+            value["country_name"] = json!(name);
+        }
     }
     if !comment.is_empty() {
         value["com"] = json!(comment);
@@ -165,12 +216,18 @@ fn post_json(
         value["sub"] = json!(board_domain::source_html_entities(&post.post.subject));
     }
     if op {
+        if board.comment_spoiler_cleanup {
+            value["custom_spoiler"] = json!(board.custom_spoiler_count);
+        }
         value["replies"] = json!(replies);
         value["images"] = json!(images);
         if let Some(count) = unique_ips {
             value["unique_ips"] = json!(count);
         }
-        value["semantic_url"] = json!(semantic_url(&post.post.subject));
+        let context = crate::semantic_thread::context(&post, board)?;
+        if !context.is_empty() {
+            value["semantic_url"] = json!(context);
+        }
         if thread.sticky {
             value["sticky"] = json!(1);
         }
@@ -199,6 +256,9 @@ fn post_json(
             value["imagelimit"] = json!(1);
         }
     }
+    if post.post.image_spoiler {
+        value["spoiler"] = json!(1);
+    }
     if let Some(file) = post.post.attachment {
         if file.file_deleted {
             value["filedeleted"] = json!(1);
@@ -221,24 +281,22 @@ fn post_json(
                 value["tn_w"] = json!(width);
                 value["tn_h"] = json!(height);
             }
-            if file.spoiler {
-                value["spoiler"] = json!(1);
-            }
         }
     }
     Ok(value)
 }
 
-fn semantic_url(subject: &str) -> String {
-    subject
-        .to_ascii_lowercase()
-        .split(|c: char| !c.is_ascii_alphanumeric())
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join("-")
-        .chars()
-        .take(80)
-        .collect()
+fn json_poster_id(post: &board_store::Post, op: bool, archived: bool) -> Option<&str> {
+    if archived || post.poster_id.is_none() {
+        return None;
+    }
+    if op && post.capcode.is_none() {
+        post.json_op_poster_id
+            .as_deref()
+            .or_else(|| post.poster_id.as_deref().filter(|id| *id != "Heaven"))
+    } else {
+        post.poster_id.as_deref()
+    }
 }
 
 // A read-only alias lets browser CSP allow watcher requests by path without
@@ -282,6 +340,17 @@ pub async fn thread_selection(
         tail_size,
         tail_id,
     } = board_store::thread_snapshot_selection(&state.pool, slug, id, tail).await?;
+    require_json(&board, false)?;
+    let capcode_replies = if board.meta_board && !tail {
+        badge_reply_groups(
+            posts
+                .iter()
+                .filter(|post| post.id != thread.id)
+                .filter_map(|post| post.capcode.as_deref().map(|capcode| (post.id, capcode))),
+        )?
+    } else {
+        None
+    };
     let mut posts: Vec<Value> = posts
         .into_iter()
         .map(|post| post_json(post, &thread, &board, replies, images, unique_ips))
@@ -292,7 +361,13 @@ pub async fn thread_selection(
             "bumplimit": i32::from(board_domain::bump::limited(thread.sticky, thread.permaage, replies as u64, board.bump_limit as u32)),
             "imagelimit": i32::from(board_domain::image_limit::json_limited(thread.sticky, thread.permaage, thread.undead, images as u64, board.image_limit as u32)),
             "tail_size": tail_size, "tail_id": tail_id});
-        for key in ["sticky", "closed", "archived", "unique_ips"] {
+        for key in [
+            "sticky",
+            "closed",
+            "archived",
+            "unique_ips",
+            "custom_spoiler",
+        ] {
             if let Some(value) = original.get(key) {
                 op[key] = value.clone();
             }
@@ -300,6 +375,9 @@ pub async fn thread_selection(
         posts[0] = op;
     } else if tail_size > 0 {
         posts[0]["tail_size"] = json!(tail_size);
+    }
+    if let Some(groups) = capcode_replies {
+        posts[0]["capcode_replies"] = groups;
     }
     response(
         &state.limits,
@@ -315,6 +393,7 @@ pub async fn archive(
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
     let snapshot = board_store::archive_snapshot(&state.pool, slug).await?;
+    require_json(&snapshot.board, false)?;
     let ids: Vec<_> = snapshot.entries.into_iter().map(|entry| entry.id).collect();
     response(&state.limits, json!(ids), None, headers)
 }
@@ -330,7 +409,17 @@ fn preview_thread(
     let replies = checked_reply_count(preview.visible_posts)?;
     let images = usize::try_from(preview.visible_images)
         .map_err(|_| AppError(StatusCode::SERVICE_UNAVAILABLE, "Invalid image count."))?;
-    posts
+    let capcode_replies = if board.meta_board {
+        badge_reply_groups(
+            preview
+                .capcode_replies
+                .iter()
+                .map(|(id, badge)| (*id, badge.as_str())),
+        )?
+    } else {
+        None
+    };
+    let mut posts: Vec<_> = posts
         .into_iter()
         .map(|post| {
             post_json(
@@ -342,7 +431,23 @@ fn preview_thread(
                 preview.unique_ips,
             )
         })
-        .collect()
+        .collect::<Result<_, _>>()?;
+    if let Some(groups) = capcode_replies {
+        posts[0]["capcode_replies"] = groups;
+    }
+    Ok(posts)
+}
+
+fn badge_reply_groups<'a>(
+    replies: impl IntoIterator<Item = (i64, &'a str)>,
+) -> Result<Option<Value>, AppError> {
+    let groups = board_domain::capcode::capcode_reply_groups(replies).map_err(|_| {
+        AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Badge reply groups exceed the thread limit.",
+        )
+    })?;
+    Ok((!groups.is_empty()).then(|| json!(groups)))
 }
 
 fn checked_reply_count(total: i64) -> Result<usize, AppError> {
@@ -361,6 +466,7 @@ pub async fn thread_list(
         board_store::board_snapshot(&state.pool, slug, board_store::BoardSelection::All, None)
             .await?;
     let board = snapshot.board;
+    require_json(&board, false)?;
     let threads = snapshot.threads;
     let mut pages = Vec::new();
     for (index, chunk) in threads.chunks(board.threads_per_page as usize).enumerate() {
@@ -385,9 +491,10 @@ pub async fn catalog(
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
     let snapshot =
-        board_store::board_snapshot(&state.pool, slug, board_store::BoardSelection::All, Some(5))
+        board_store::json_board_snapshot(&state.pool, slug, board_store::BoardSelection::All, 5)
             .await?;
     let board = snapshot.board;
+    require_json(&board, true)?;
     let mut pages = Vec::new();
     let mut threads = snapshot.threads.into_iter().peekable();
     while threads.peek().is_some() {
@@ -417,14 +524,15 @@ pub async fn index(
     page: i64,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
-    let snapshot = board_store::board_snapshot(
+    let snapshot = board_store::json_board_snapshot(
         &state.pool,
         slug,
         board_store::BoardSelection::Page(page),
-        Some(5),
+        5,
     )
     .await?;
     let board = snapshot.board;
+    require_json(&board, false)?;
     let mut entries = Vec::new();
     for preview in snapshot.threads {
         let mut posts = match preview_thread(&board, preview) {
@@ -447,6 +555,86 @@ pub async fn index(
         entries.push(json!({"posts": posts}));
     }
     response(&state.limits, json!({"threads": entries}), None, headers)
+}
+
+fn require_json(board: &Board, catalog: bool) -> Result<(), AppError> {
+    if !board.json_enabled || (catalog && !board.catalog_enabled) {
+        return Err(AppError(StatusCode::NOT_FOUND, "JSON resource not found."));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod poster_id_projection_tests {
+    use super::json_poster_id;
+    use serde_json::Value;
+
+    #[test]
+    fn id_projection_matches_every_independent_source_case() {
+        let display: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/poster-id-display-reference.json"
+        ))
+        .unwrap();
+        let reference: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/poster-id-json-reference.json"
+        ))
+        .unwrap();
+        let cases = reference["cases"].as_array().unwrap();
+        assert_eq!(cases.len(), 448);
+        for case in cases {
+            let row = &display["cases"][case["display_case"].as_u64().unwrap() as usize];
+            let ordinary = row["capcode"] == "none";
+            let op = case["op"].as_bool().unwrap();
+            let archived = case["archived"].as_bool().unwrap();
+            let saved = row["expected"].as_str().map(str::to_owned);
+            let post = board_store::Post {
+                id: if op { 42 } else { 43 },
+                board: "test".into(),
+                thread_id: 42,
+                name: "Owned source ID".into(),
+                trip: None,
+                json_op_poster_id: (ordinary && op && saved.is_some()).then(|| "Ab12+/CD".into()),
+                poster_id: saved,
+                capcode: (!ordinary).then(|| row["capcode"].as_str().unwrap().into()),
+                country: None,
+                country_name: None,
+                board_flag: None,
+                board_flag_type: "pol".into(),
+                flag_name: None,
+                subject: String::new(),
+                comment: String::new(),
+                image_spoiler: false,
+                comment_format: 0,
+                staff_authorized_limits: false,
+                wordfilter_payload: None,
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
+                created_at: chrono::DateTime::from_timestamp(1, 0).unwrap(),
+                deleted: false,
+                attachment: None,
+            };
+            assert_eq!(
+                json_poster_id(&post, op, archived),
+                case["expected"].as_str(),
+                "{row}: {case}"
+            );
+            if ordinary && op && row["expected"] == reference["network_label_stub"] {
+                let mut historical = post.clone();
+                historical.json_op_poster_id = None;
+                assert_eq!(
+                    json_poster_id(&historical, op, archived),
+                    case["expected"].as_str()
+                );
+            }
+            if ordinary && op && row["expected"] == "Heaven" {
+                let mut historical = post.clone();
+                historical.json_op_poster_id = None;
+                assert_eq!(json_poster_id(&historical, op, archived), None);
+                assert_eq!(historical.poster_id.as_deref(), Some("Heaven"));
+            }
+        }
+    }
 }
 
 #[cfg(test)]

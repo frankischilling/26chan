@@ -1,4 +1,5 @@
-import { watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
+import { openNativeSettingsCategory, watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test, expect } from '@playwright/test';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -16,10 +17,10 @@ function fixture(command, board) {
 }
 
 async function createThread(request, board, index) {
-  const response = await request.post(`/${board}/post`, {
+  const response = await withPostingHistory(() => request.post(`/${board}/post`, {
     headers: { Origin: origin }, maxRedirects: 0,
     form: { resto: '0', password, com: `Owned depager thread ${index}.`, sub: `Depager ${index}` },
-  });
+  }));
   expect(response.status()).toBe(303);
   return response.headers().location.split('#p')[1];
 }
@@ -59,12 +60,13 @@ test('real board bootstrap drives desktop All, cancellation, mobile Load More an
     await expect(cancel).toBeHidden();
 
     await watcherSettingsOpener(page).first().click();
+    await openNativeSettingsCategory(page.getByRole('dialog', { name: 'Settings', exact: true }), 'Navigation');
     await expect(page.getByLabel('Always use infinite scroll', { exact: true })).not.toBeChecked();
     await page.getByRole('button', { name: 'Close settings', exact: true }).click();
 
     await page.locator('#togglePostFormLink a').click();
     const postForm = page.locator('form.postEditor');
-    await postForm.getByLabel('Deletion password', { exact: true }).fill('preserve-board-draft');
+    await postForm.locator('#com').fill('preserve-board-draft');
     await page.evaluate(() => {
       window.ownedDepagerOriginals = [...document.querySelectorAll('.board > .thread')];
       window.ownedNext = document.querySelector('nav.pages a[rel="next"]');
@@ -75,7 +77,7 @@ test('real board bootstrap drives desktop All, cancellation, mobile Load More an
     await expect(status).toHaveText(pageOne.next_page === null ? ' Done.' : '');
     expect(snapshots.map(entry => entry.url)).toEqual([`${origin}/_watch/${board}/page/1`]);
     expect(snapshots[0].headers.cookie).toBeUndefined();
-    await expect(postForm.getByLabel('Deletion password', { exact: true })).toHaveValue('preserve-board-draft');
+    await expect(postForm.locator('#com')).toHaveValue('preserve-board-draft');
     expect(await page.evaluate(() => ownedDepagerOriginals.every(node => node.isConnected && document.getElementById(node.id) === node))).toBe(true);
     expect(await page.evaluate(() => document.querySelector('nav.pages a[rel="next"]') === ownedNext)).toBe(true);
 
@@ -151,13 +153,7 @@ test('real board bootstrap drives desktop All, cancellation, mobile Load More an
     await expect(page.locator('#depage')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('#depage')).toBeDisabled();
   } finally {
-    try { for (const thread of threads.reverse()) {
-      const response = await request.post(`/${board}/delete`, {
-        headers: { Origin: origin }, maxRedirects: 0,
-        form: { no: thread, password },
-      });
-      expect([303, 404]).toContain(response.status());
-    } } finally { fixture('cleanup', board); }
+    fixture('cleanup', board);
   }
 });
 
@@ -186,12 +182,6 @@ test('no-next and script-free board indexes keep ordinary pagination as the fall
       await expect(noScript.locator('nav.pages a[rel="next"]')).toHaveAttribute('href', `/${board}/1`);
     } finally { await context.close(); }
   } finally {
-    try { for (const thread of threads.reverse()) {
-      const response = await request.post(`/${board}/delete`, {
-        headers: { Origin: origin }, maxRedirects: 0,
-        form: { no: thread, password },
-      });
-      expect([303, 404]).toContain(response.status());
-    } } finally { fixture('cleanup', board); }
+    fixture('cleanup', board);
   }
 });

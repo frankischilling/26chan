@@ -1,21 +1,75 @@
-//! Fixed-endpoint authenticated transport. Never decodes media or follows URLs.
+//! Public configuration and response policy around the shared bounded transport.
 use crate::handlers::AppError;
-use axum::{
-    body::{Body, to_bytes},
-    http::{Method, Request, StatusCode},
-};
+use axum::{body::Body, http::StatusCode};
 use board_config::PublicMediaSettings;
-use serde::Deserialize;
-use std::time::Duration;
+use board_intake_client::IntakeError;
+pub use board_intake_client::{Reservation, Status};
 
 #[derive(Clone)]
 pub struct IntakeClient {
     pub settings: PublicMediaSettings,
 }
 
+pub fn unavailable() -> AppError {
+    map_error(IntakeError::Unavailable)
+}
+
+fn map_error(error: IntakeError) -> AppError {
+    match error {
+        IntakeError::Unavailable => AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Media intake is unavailable. Try again later.",
+        ),
+        IntakeError::NotFound => {
+            AppError(StatusCode::NOT_FOUND, "Upload is unavailable or expired.")
+        }
+        IntakeError::Conflict => AppError(
+            StatusCode::CONFLICT,
+            "Upload is not available in its current state.",
+        ),
+        IntakeError::PayloadTooLarge => AppError(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "The file exceeds the 8 MiB upload limit.",
+        ),
+        IntakeError::Rejected => {
+            AppError(StatusCode::UNPROCESSABLE_ENTITY, "The upload was rejected.")
+        }
+    }
+}
+
+impl IntakeClient {
+    fn transport(&self) -> Result<board_intake_client::IntakeClient, AppError> {
+        board_intake_client::IntakeClient::new(self.settings.intake, self.settings.token.clone())
+            .map_err(map_error)
+    }
+
+    pub async fn ready(&self) -> Result<(), AppError> {
+        self.transport()?.ready().await.map_err(map_error)
+    }
+
+    pub async fn reserve(&self, filename: &str) -> Result<Reservation, AppError> {
+        self.transport()?.reserve(filename).await.map_err(map_error)
+    }
+
+    pub async fn upload(&self, id: &str, capability: &str, body: Body) -> Result<(), AppError> {
+        self.transport()?
+            .upload(id, capability, body)
+            .await
+            .map_err(map_error)
+    }
+
+    pub async fn status(&self, id: &str, capability: &str) -> Result<Status, AppError> {
+        self.transport()?
+            .status(id, capability)
+            .await
+            .map_err(map_error)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     async fn fixture(response: Vec<u8>) -> (IntakeClient, tokio::task::JoinHandle<()>) {
@@ -115,214 +169,5 @@ mod tests {
                 .await
                 .is_err()
         );
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Reservation {
-    pub id: String,
-    pub capability: String,
-    state: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Status {
-    pub id: String,
-    pub state: String,
-    pub input_bytes: Option<u64>,
-    pub output_id: Option<String>,
-}
-
-pub fn valid_hex(value: &str, length: usize) -> bool {
-    value.len() == length
-        && value
-            .bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-}
-pub fn unavailable() -> AppError {
-    AppError(
-        StatusCode::SERVICE_UNAVAILABLE,
-        "Media intake is unavailable. Try again later.",
-    )
-}
-
-impl IntakeClient {
-    async fn request(
-        &self,
-        method: Method,
-        path: &str,
-        capability: Option<&str>,
-        body: Body,
-    ) -> Result<Vec<u8>, AppError> {
-        let mut request = Request::builder()
-            .method(method.clone())
-            .uri(path)
-            .header("host", self.settings.intake.to_string())
-            .header("authorization", format!("Bearer {}", self.settings.token));
-        if method == Method::POST {
-            request = request.header("content-type", "application/json");
-        }
-        if method == Method::PUT {
-            request = request.header("content-type", "application/octet-stream");
-        }
-        if let Some(capability) = capability {
-            request = request.header("upload-capability", capability);
-        }
-        let request = request.body(body).map_err(|_| unavailable())?;
-        let exchange = async {
-            let socket = tokio::time::timeout(
-                Duration::from_secs(2),
-                tokio::net::TcpStream::connect(self.settings.intake),
-            )
-            .await
-            .map_err(|_| unavailable())?
-            .map_err(|_| unavailable())?;
-            let (mut sender, connection) = hyper::client::conn::http1::Builder::new()
-                .max_buf_size(16_384)
-                .handshake(hyper_util::rt::TokioIo::new(socket))
-                .await
-                .map_err(|_| unavailable())?;
-            let response = async {
-                let response = sender
-                    .send_request(request)
-                    .await
-                    .map_err(|_| unavailable())?;
-                let status = response.status();
-                if !status.is_success() {
-                    return Err(match status {
-                        StatusCode::NOT_FOUND => {
-                            AppError(StatusCode::NOT_FOUND, "Upload is unavailable or expired.")
-                        }
-                        StatusCode::CONFLICT => AppError(
-                            StatusCode::CONFLICT,
-                            "Upload is not available in its current state.",
-                        ),
-                        StatusCode::PAYLOAD_TOO_LARGE => {
-                            AppError(status, "The file exceeds the 8 MiB upload limit.")
-                        }
-                        StatusCode::UNPROCESSABLE_ENTITY | StatusCode::BAD_REQUEST => {
-                            AppError(StatusCode::UNPROCESSABLE_ENTITY, "The upload was rejected.")
-                        }
-                        _ => unavailable(),
-                    });
-                }
-                if response
-                    .headers()
-                    .get("content-type")
-                    .is_none_or(|h| h != "application/json")
-                {
-                    return Err(unavailable());
-                }
-                let body = to_bytes(Body::new(response.into_body()), 4096)
-                    .await
-                    .map_err(|_| unavailable())?;
-                Ok(body.to_vec())
-            };
-            // Drive the connection and bounded response together. Cancellation
-            // drops the socket; there is no detached client task or retry.
-            tokio::pin!(connection);
-            tokio::pin!(response);
-            tokio::select! {
-                biased;
-                result = &mut response => result,
-                _ = &mut connection => response.await,
-            }
-        };
-        tokio::time::timeout(Duration::from_secs(18), exchange)
-            .await
-            .map_err(|_| unavailable())?
-    }
-
-    pub async fn ready(&self) -> Result<(), AppError> {
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct Ready {
-            status: String,
-        }
-        let body = self
-            .request(Method::GET, "/readyz", None, Body::empty())
-            .await?;
-        let ready: Ready = serde_json::from_slice(&body).map_err(|_| unavailable())?;
-        if ready.status != "ok" {
-            return Err(unavailable());
-        }
-        Ok(())
-    }
-
-    pub async fn reserve(&self, filename: &str) -> Result<Reservation, AppError> {
-        let body = serde_json::to_vec(&serde_json::json!({"filename":filename}))
-            .map_err(|_| unavailable())?;
-        let body = self
-            .request(Method::POST, "/v1/reservations", None, Body::from(body))
-            .await?;
-        let value: Reservation = serde_json::from_slice(&body).map_err(|_| unavailable())?;
-        if !valid_hex(&value.id, 32)
-            || !valid_hex(&value.capability, 64)
-            || value.state != "receiving"
-        {
-            return Err(unavailable());
-        }
-        Ok(value)
-    }
-
-    pub async fn upload(&self, id: &str, capability: &str, body: Body) -> Result<(), AppError> {
-        if !valid_hex(id, 32) || !valid_hex(capability, 64) {
-            return Err(AppError(
-                StatusCode::NOT_FOUND,
-                "Upload is unavailable or expired.",
-            ));
-        }
-        let body = self
-            .request(
-                Method::PUT,
-                &format!("/v1/uploads/{id}"),
-                Some(capability),
-                body,
-            )
-            .await?;
-        let status: Status = serde_json::from_slice(&body).map_err(|_| unavailable())?;
-        if status.id != id
-            || status.state != "queued"
-            || status
-                .input_bytes
-                .is_none_or(|b| !(1..=8_388_608).contains(&b))
-            || status.output_id.is_some()
-        {
-            return Err(unavailable());
-        }
-        Ok(())
-    }
-
-    pub async fn status(&self, id: &str, capability: &str) -> Result<Status, AppError> {
-        if !valid_hex(id, 32) || !valid_hex(capability, 64) {
-            return Err(AppError(
-                StatusCode::NOT_FOUND,
-                "Upload is unavailable or expired.",
-            ));
-        }
-        let body = self
-            .request(
-                Method::GET,
-                &format!("/v1/uploads/{id}"),
-                Some(capability),
-                Body::empty(),
-            )
-            .await?;
-        let value: Status = serde_json::from_slice(&body).map_err(|_| unavailable())?;
-        if value.id != id
-            || !matches!(
-                value.state.as_str(),
-                "receiving" | "uploading" | "queued" | "processing" | "published" | "failed"
-            )
-            || value
-                .output_id
-                .as_ref()
-                .is_some_and(|id| !valid_hex(id, 32))
-        {
-            return Err(unavailable());
-        }
-        Ok(value)
     }
 }

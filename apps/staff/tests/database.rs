@@ -147,6 +147,7 @@ async fn moderation_persists_with_audit_and_rejects_cross_board_or_stale_authori
         role: "moderator".into(),
         csrf_hash: vec![],
         recent: true,
+        permissions: board_staff::access::Permissions::all_boards(),
     };
     for action in ["close", "reopen", "sticky", "unsticky"] {
         moderate(&staff, &session, &board, id, action)

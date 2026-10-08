@@ -1,7 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
+
+// Independent reference rows may span CI shards; the suite still uses one worker.
+test.describe.configure({ mode: 'parallel' });
 
 const reference = JSON.parse(await readFile(new URL('../../docs/public-page-chrome-reference.json', import.meta.url)));
 for (const [id, properties] of Object.entries(reference.component_styles)) {

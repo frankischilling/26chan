@@ -37,11 +37,7 @@ fn single<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     Some(value)
 }
 
-fn authorized(headers: &HeaderMap, token: &str) -> bool {
-    let Some(value) = single(headers, "authorization").and_then(|v| v.strip_prefix("Bearer "))
-    else {
-        return false;
-    };
+fn constant_time_match(value: &str, token: &str) -> bool {
     value.len() == token.len()
         && value
             .bytes()
@@ -50,15 +46,34 @@ fn authorized(headers: &HeaderMap, token: &str) -> bool {
             == 0
 }
 
+fn authorized(headers: &HeaderMap, access: &Access) -> bool {
+    let Some(value) = single(headers, "authorization")
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .filter(|v| valid_token(v))
+    else {
+        return false;
+    };
+    // Evaluate both configured slots without a success-dependent short circuit.
+    let public = constant_time_match(value, &access.token);
+    let staff = access
+        .staff_token
+        .as_deref()
+        .is_some_and(|token| constant_time_match(value, token));
+    public | staff
+}
+
 pub(crate) async fn protect(
     State(access): State<Access>,
     request: Request,
     next: Next,
 ) -> Response {
-    let mut response = if !authorized(request.headers(), &access.token) {
+    let mut response = if !authorized(request.headers(), &access) {
         error(StatusCode::UNAUTHORIZED)
     } else if request.headers().contains_key(header::ORIGIN)
-        || request.headers().contains_key("sec-fetch-site")
+        || request
+            .headers()
+            .keys()
+            .any(|name| name.as_str().starts_with("sec-fetch-"))
     {
         error(StatusCode::FORBIDDEN)
     } else if let Ok(permit) = access.requests.try_acquire_owned() {

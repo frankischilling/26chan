@@ -1,9 +1,11 @@
+import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
+import { ownedDeletionMarker, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
 test('persisted text catalogs restore GET-excluded rows and sort live without navigation', async ({ browser, request }) => {
   const origin = 'http://127.0.0.1:3000', password = 'owned-text-catalog-password';
-  const marker = `TextCatalog${Date.now()}`;
+  const marker = ownedDeletionMarker();
   const created = [];
   const noScript = await browser.newContext({ javaScriptEnabled: false });
   const liveContext = await browser.newContext();
@@ -11,13 +13,13 @@ test('persisted text catalogs restore GET-excluded rows and sort live without na
   const server = await noScript.newPage(), live = await liveContext.newPage();
   try {
     for (const subject of ['Alpha <script> & literal', 'Bravo', 'Crane']) {
-      const response = await request.post('/news/post', { headers: { Origin: origin }, maxRedirects: 0,
-        form: { sub: `${marker} ${subject}`, com: `${marker} comment\n\nsecond line`, password } });
+      const response = await withPostingHistory(() => request.post('/news/post', { headers: { Origin: origin }, maxRedirects: 0,
+        form: { sub: `${marker} ${subject}`, com: `${marker} comment\n\nsecond line`, password } }));
       expect(response.status()).toBe(303);
       created.push(/#p(\d+)$/.exec(response.headers().location)[1]);
     }
-    const reply = await request.post('/news/post', { headers: { Origin: origin }, maxRedirects: 0,
-      form: { resto: created[0], com: 'Owned text catalog reply', password } });
+    const reply = await withPostingHistory(() => request.post('/news/post', { headers: { Origin: origin }, maxRedirects: 0,
+      form: { resto: created[0], com: 'Owned text catalog reply', password } }));
     expect(reply.status()).toBe(303);
     const path = `${origin}/news/catalog?q=${encodeURIComponent(`${marker} Alpha`)}`;
     await server.goto(path);
@@ -62,7 +64,7 @@ test('persisted text catalogs restore GET-excluded rows and sort live without na
     }
   } finally {
     try {
-      for (const id of created) expect((await request.post('/news/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+      cleanupDeletionFixtures(created.map((id, index) => ({ board: 'news', id, marker: `${marker} ${['Alpha <script> & literal', 'Bravo', 'Crane'][index]}` })));
     } finally { await noScript.close(); await liveContext.close(); }
   }
 });

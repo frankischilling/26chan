@@ -1,6 +1,7 @@
 //! Release-owned public UI bytes, never upload storage or a filesystem server.
 use axum::{Router, http::header, routing::get};
 
+pub(crate) const REPORT_POPUP_PATH: &str = "/static/report-popup.v1.js";
 pub(crate) const CATALOG_SCRIPT_PATH: &str = "/static/catalog-preferences.v1.js";
 pub(crate) const CATALOG_FILTER_PATH: &str = "/static/catalog-filters.v1.js";
 pub(crate) const CATALOG_FILTER_CORE_PATH: &str = "/static/catalog-filter-core.v1.js";
@@ -13,6 +14,7 @@ pub(crate) const WATCHER_POSITION_PATH: &str = "/static/watcher-position.v1.js";
 pub(crate) const NATIVE_FILTER_PATH: &str = "/static/native-filter.v1.js";
 pub(crate) const NATIVE_QUICK_REPLY_PATH: &str = "/static/native-quick-reply.v1.js";
 pub(crate) const NATIVE_BACKLINKS_PATH: &str = "/static/native-backlinks.v1.js";
+pub(crate) const NATIVE_POST_DELETION_PATH: &str = "/static/native-post-deletion.v1.js";
 pub(crate) const NATIVE_IMAGES_PATH: &str = "/static/native-images.v1.js";
 pub(crate) const NATIVE_DISPLAY_PATH: &str = "/static/native-display.v1.js";
 pub(crate) const NATIVE_POST_TOOLTIPS_PATH: &str = "/static/native-post-tooltips.v1.js";
@@ -24,9 +26,221 @@ pub(crate) const NATIVE_LAYOUT_PATH: &str = "/static/native-layout.v1.js";
 pub(crate) const NATIVE_EMBEDS_PATH: &str = "/static/native-embeds.v1.js";
 pub(crate) const NATIVE_CUSTOM_CSS_PATH: &str = "/static/native-custom-css.v1.js";
 pub(crate) const NATIVE_SETTINGS_TRANSFER_PATH: &str = "/static/native-settings-transfer.v1.js";
+pub(crate) const NATIVE_MATH_PATH: &str = "/static/native-math.v1.js";
+pub(crate) const NATIVE_MATH_WORKER_PATH: &str = "/static/native-math-worker.v1.js";
 pub(crate) const UPDATER_SOUND_PATH: &str = "/static/notifications/beep.ogg";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
+    (
+        "/static/catalog/spoiler-a1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-a1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-co1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-co1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-co2.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-co2.png"),
+    ),
+    (
+        "/static/catalog/spoiler-co3.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-co3.png"),
+    ),
+    (
+        "/static/catalog/spoiler-co4.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-co4.png"),
+    ),
+    (
+        "/static/catalog/spoiler-co5.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-co5.png"),
+    ),
+    (
+        "/static/catalog/spoiler-jp1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-jp1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-lit1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-lit1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-m1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-m1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-m2.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-m2.png"),
+    ),
+    (
+        "/static/catalog/spoiler-m3.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-m3.png"),
+    ),
+    (
+        "/static/catalog/spoiler-m4.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-m4.png"),
+    ),
+    (
+        "/static/catalog/spoiler-mlp1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-mlp1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-s4s1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-s4s1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-s4s2.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-s4s2.png"),
+    ),
+    (
+        "/static/catalog/spoiler-s4s3.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-s4s3.png"),
+    ),
+    (
+        "/static/catalog/spoiler-s4s4.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-s4s4.png"),
+    ),
+    (
+        "/static/catalog/spoiler-s4s5.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-s4s5.png"),
+    ),
+    (
+        "/static/catalog/spoiler-s4s6.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-s4s6.png"),
+    ),
+    (
+        "/static/catalog/spoiler-tg1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-tg1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-tg2.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-tg2.png"),
+    ),
+    (
+        "/static/catalog/spoiler-tv1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-tv1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-tv2.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-tv2.png"),
+    ),
+    (
+        "/static/catalog/spoiler-tv3.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-tv3.png"),
+    ),
+    (
+        "/static/catalog/spoiler-tv4.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-tv4.png"),
+    ),
+    (
+        "/static/catalog/spoiler-tv5.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-tv5.png"),
+    ),
+    (
+        "/static/catalog/spoiler-v1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-v1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vg1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vg1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vmg1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vmg1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vmg2.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vmg2.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vmg3.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vmg3.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vp1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vp1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vr1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vr1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vr2.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vr2.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vrpg1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vrpg1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vrpg2.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vrpg2.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vrpg3.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vrpg3.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vst.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vst.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vst1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vst1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vt1.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vt1.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vt2.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vt2.png"),
+    ),
+    (
+        "/static/catalog/spoiler-vt3.png",
+        "image/png",
+        include_bytes!("../static/catalog/spoiler-vt3.png"),
+    ),
     (
         "/static/flags/flags.css",
         "text/css",
@@ -41,6 +255,21 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         "/static/flags/board-flags.2.png",
         "image/png",
         include_bytes!("../static/flags/board-flags.2.png"),
+    ),
+    (
+        "/static/flags/board-types.css",
+        "text/css; charset=utf-8",
+        include_bytes!("../static/flags/board-types.css"),
+    ),
+    (
+        "/static/flags/mlp-flags.3.png",
+        "image/png",
+        include_bytes!("../static/flags/mlp-flags.3.png"),
+    ),
+    (
+        "/static/flags/lgbt-flags.1.png",
+        "image/png",
+        include_bytes!("../static/flags/lgbt-flags.1.png"),
     ),
     (
         "/static/identity/modicon.gif",
@@ -171,6 +400,11 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         "/static/derefer.css",
         "text/css; charset=utf-8",
         include_bytes!("../static/derefer.css"),
+    ),
+    (
+        "/static/updating-index.v1.css",
+        "text/css; charset=utf-8",
+        include_bytes!("../static/updating-index.v1.css"),
     ),
     (
         "/static/catalog/filedeleted-res.gif",
@@ -628,6 +862,18 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
     }
     for (path, bytes) in [
         (
+            NATIVE_MATH_PATH,
+            include_bytes!("../static/native-math.v1.js").as_slice(),
+        ),
+        (
+            NATIVE_MATH_WORKER_PATH,
+            include_bytes!("../static/native-math-worker.v1.js").as_slice(),
+        ),
+        (
+            REPORT_POPUP_PATH,
+            include_bytes!("../static/report-popup.v1.js").as_slice(),
+        ),
+        (
             CATALOG_FILTER_PATH,
             include_bytes!("../static/catalog-filters.v1.js").as_slice(),
         ),
@@ -682,6 +928,10 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         (
             NATIVE_IMAGES_PATH,
             include_bytes!("../static/native-images.v1.js").as_slice(),
+        ),
+        (
+            NATIVE_POST_DELETION_PATH,
+            include_bytes!("../static/native-post-deletion.v1.js").as_slice(),
         ),
         (
             NATIVE_BACKLINKS_PATH,
@@ -741,6 +991,10 @@ pub(crate) fn image_sources(origin: &str) -> String {
         .iter()
         .filter(|(_, mime, _)| mime.starts_with("image/"))
         .map(|(path, _, _)| format!("{origin}{path}"))
+        .chain([
+            format!("{origin}/static/catalog/spoiler-news1.png"),
+            format!("{origin}/static/catalog/spoiler-vm1.png"),
+        ])
         .collect::<Vec<_>>()
         .join(" ")
 }

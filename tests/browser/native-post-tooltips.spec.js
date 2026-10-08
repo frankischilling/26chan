@@ -1,3 +1,4 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -5,15 +6,17 @@ const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-tooltip-password';
     const name = '<img src="/owned-tooltip-attack"> & Owned full name';
-    const response = await request.post('/demo/post', { headers: { Origin: origin, Connection: 'close' },
-      maxRedirects: 0, form: { resto: '0', name, password, com: 'Owned tooltip OP', sub: 'Owned tooltip subject' } });
+    const response = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin, Connection: 'close' },
+      maxRedirects: 0, form: { resto: '0', name, password, com: 'Owned tooltip OP', sub: 'Owned tooltip subject' } }));
     expect(response.status()).toBe(303);
     const no = response.headers().location.match(/#p(\d+)$/)[1];
     try { await use({ no, name, url: `/demo/thread/${no}` }); }
     finally {
-      const deleted = await request.post('/demo/delete', { headers: { Origin: origin, Connection: 'close' },
-        maxRedirects: 0, form: { no, password } });
-      expect(deleted.status()).toBe(303);
+      await withDeletionQuota(async () => {
+        const deleted = await request.post('/demo/delete', { headers: { Origin: origin, Connection: 'close' },
+          maxRedirects: 0, form: { no, password } });
+        expect(deleted.status()).toBe(303);
+      });
     }
   },
 });

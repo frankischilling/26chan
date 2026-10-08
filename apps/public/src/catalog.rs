@@ -112,18 +112,22 @@ impl Options {
                         .iter()
                         .find(|post| post.id == preview.thread.id)
                         .is_some_and(|post| {
-                            query.matches(&search_fields::from_post(
-                                &post.subject,
-                                &post.comment,
-                                post.comment_format,
-                                &snapshot.board,
-                            )) || post.attachment.as_ref().is_some_and(|file| {
-                                !file.file_deleted && query.matches(&file.filename)
-                            })
+                            query.matches(&search_fields::from_post(post, &snapshot.board))
+                                || post.attachment.as_ref().is_some_and(|file| {
+                                    !file.file_deleted && query.matches(&file.filename)
+                                })
                         })
                 });
             snapshot.threads = visible;
             hidden = excluded;
+        }
+        // The source catalog's `b` is the original active-board position. The
+        // SQL snapshot already includes sticky rank, which is deliberately not
+        // exposed on the shared public Thread. Stable filtering preserves it.
+        // Source log_cache uses this order for both image and text catalogs;
+        // only the other text-only sort modes omit the sticky-first bucket.
+        if self.order == Order::Bump {
+            return hidden;
         }
         snapshot.threads.sort_by(|a, b| {
             (b.thread.sticky && !snapshot.board.text_only)

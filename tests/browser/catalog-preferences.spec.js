@@ -1,7 +1,7 @@
 import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
-const catalog = '/test/catalog';
+const catalog = '/fixture/catalog';
 const key = 'catalog-settings';
 const saved = { orderby: 'r', large: true, extended: false };
 const stored = page => page.evaluate(key => JSON.parse(localStorage.getItem(key)), key);
@@ -103,8 +103,10 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
   expect(await page.evaluate(() => window.alternateExecuted)).toBe(true);
   expect(alternateRequests).toBe(1);
   const script = page.waitForResponse(response => response.url().endsWith('/static/catalog-preferences.v1.js'));
+  const deletionScript = page.waitForResponse(response => response.url().endsWith('/static/native-post-deletion.v1.js'));
   const response = await page.goto(catalog);
   expect((await script).status()).toBe(200);
+  expect((await deletionScript).status()).toBe(200);
   const pageScripts = [
     'http://127.0.0.1:3000/static/thread-watcher.v1.js',
     'http://127.0.0.1:3000/static/thread-watcher-core.v1.js',
@@ -126,6 +128,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
     'http://127.0.0.1:3000/static/native-settings-transfer.v1.js',
     'http://127.0.0.1:3000/static/native-quick-reply.v1.js',
     'http://127.0.0.1:3000/static/page-chrome.v1.js',
+    'http://127.0.0.1:3000/static/native-post-deletion.v1.js',
   ];
   expect(response.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual([
     'http://127.0.0.1:3000/static/catalog-preferences.v1.js',
@@ -146,7 +149,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
   expect(alternateRequests).toBe(1);
   await page.locator('#size-ctrl').selectOption('large');
   await expect(page.locator('#threads')).toHaveClass('catalog extended-large');
-  const index = await page.goto('/test/');
+  const index = await page.goto('/fixture/');
   expect(index.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual(pageScripts);
   expect(await page.locator('script').evaluateAll(nodes => nodes.map(node => ({
     src: node.getAttribute('src'), type: node.type,

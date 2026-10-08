@@ -1,4 +1,8 @@
 use axum::{body::Body, http::Request};
+
+#[cfg(feature = "database-tests")]
+#[path = "support/posting.rs"]
+mod posting;
 use http_body_util::BodyExt;
 use tower::ServiceExt;
 
@@ -39,7 +43,7 @@ async fn snapshot_path_is_read_only_strict_and_absent_from_the_api_listener() {
             "9223372036854775808-tail.json",
         ] {
             assert_eq!(
-                request(app, "GET", &format!("/test/thread/{key}"), String::new())
+                request(app, "GET", &format!("/fixture/thread/{key}"), String::new())
                     .await
                     .status(),
                 404
@@ -51,7 +55,7 @@ async fn snapshot_path_is_read_only_strict_and_absent_from_the_api_listener() {
             request(
                 &web,
                 method,
-                "/_watch/test/thread/1/posts-tail",
+                "/_watch/fixture/thread/1/posts-tail",
                 String::new()
             )
             .await
@@ -63,7 +67,7 @@ async fn snapshot_path_is_read_only_strict_and_absent_from_the_api_listener() {
         request(
             &web,
             "GET",
-            "/_watch/test/thread/01/posts-tail",
+            "/_watch/fixture/thread/01/posts-tail",
             String::new()
         )
         .await
@@ -74,7 +78,7 @@ async fn snapshot_path_is_read_only_strict_and_absent_from_the_api_listener() {
         request(
             &web,
             "GET",
-            "/_watch/test/thread/1/posts-tail?after=0",
+            "/_watch/fixture/thread/1/posts-tail?after=0",
             String::new()
         )
         .await
@@ -82,7 +86,13 @@ async fn snapshot_path_is_read_only_strict_and_absent_from_the_api_listener() {
         400
     );
     for method in ["POST", "PUT", "PATCH", "DELETE"] {
-        let response = request(&web, method, "/_watch/test/thread/1/posts", String::new()).await;
+        let response = request(
+            &web,
+            method,
+            "/_watch/fixture/thread/1/posts",
+            String::new(),
+        )
+        .await;
         assert_eq!(response.status(), 405, "{method}");
         assert!(response.headers().get("set-cookie").is_none());
     }
@@ -98,7 +108,7 @@ async fn snapshot_path_is_read_only_strict_and_absent_from_the_api_listener() {
         let response = request(
             &web,
             "GET",
-            &format!("/_watch/test/thread/{key}/posts"),
+            &format!("/_watch/fixture/thread/{key}/posts"),
             String::new(),
         )
         .await;
@@ -107,12 +117,12 @@ async fn snapshot_path_is_read_only_strict_and_absent_from_the_api_listener() {
     let response = request(
         &web,
         "GET",
-        "/_watch/test/thread/1/posts?after=0",
+        "/_watch/fixture/thread/1/posts?after=0",
         String::new(),
     )
     .await;
     assert_eq!(response.status(), 400);
-    let response = request(&api, "GET", "/_watch/test/thread/1/posts", String::new()).await;
+    let response = request(&api, "GET", "/_watch/fixture/thread/1/posts", String::new()).await;
     assert_eq!(response.status(), 404);
     assert!(response.headers().get("set-cookie").is_none());
     assert!(
@@ -135,7 +145,7 @@ async fn owned_posts_match_ssr_and_follow_reply_and_thread_deletion() {
     )
     .await
     .unwrap();
-    let app = board_public::router(pool.clone(), ORIGIN.into(), false);
+    let app = posting::routers(pool.clone(), "fixture", ORIGIN.into(), false).0;
     let password = "owned-updater-snapshot-password";
     let mut ids: Vec<String> = Vec::new();
     for resto in ["0".to_owned(), String::new()] {
@@ -144,7 +154,7 @@ async fn owned_posts_match_ssr_and_follow_reply_and_thread_deletion() {
         } else {
             resto
         };
-        let response = request(&app, "POST", "/test/post", format!("resto={parent}&name=Snapshot&sub=Shared%20markup&com=%3Cscript%3Ealert%281%29%3C%2Fscript%3E&password={password}")).await;
+        let response = request(&app, "POST", "/fixture/post", format!("resto={parent}&name=Snapshot&sub=Shared%20markup&com=%3Cscript%3Ealert%281%29%3C%2Fscript%3E&password={password}")).await;
         assert_eq!(response.status(), 303);
         let location = response.headers()["location"].to_str().unwrap();
         let id = location
@@ -154,7 +164,7 @@ async fn owned_posts_match_ssr_and_follow_reply_and_thread_deletion() {
             .to_owned();
         ids.push(id);
     }
-    let path = format!("/_watch/test/thread/{}/posts", ids[0]);
+    let path = format!("/_watch/fixture/thread/{}/posts", ids[0]);
     for method in ["GET", "HEAD"] {
         let response = request(&app, method, &path, String::new()).await;
         assert_eq!(response.status(), 200);
@@ -189,7 +199,7 @@ async fn owned_posts_match_ssr_and_follow_reply_and_thread_deletion() {
         let response = request(
             &app,
             "GET",
-            &format!("/test/thread/{}", ids[0]),
+            &format!("/fixture/thread/{}", ids[0]),
             String::new(),
         )
         .await;
@@ -220,7 +230,7 @@ async fn owned_posts_match_ssr_and_follow_reply_and_thread_deletion() {
         let response = request(
             &app,
             "POST",
-            "/test/delete",
+            "/fixture/delete",
             format!("no={id}&password={password}"),
         )
         .await;

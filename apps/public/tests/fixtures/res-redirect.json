@@ -1,0 +1,264 @@
+{
+  "reference": "operator-supplied 4chan-old checkout",
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+    "config/global_config.ini": "8bebeedec119b30559cba4fdccfef416653294cf62118d10288434be99a3034d"
+  },
+  "selected_sha256": {
+    "protocol": "f1945297f50c2f9b999e6cc9ac0b043f5ea96c3933584afb5a7aa65e1b289e6b",
+    "target_and_status": "036051cfbddb900e2c8096a0331202bf2d630784079a162e216d91d72cdcce99"
+  },
+  "extractor_php": "8.4.26",
+  "scope": "public resredir protocol and target/header/status selection only, with synthetic lookup results represented as exact decimal strings; no PHP input coercion, SQL lookup, deletion redirect, private board authorization or original error rendering",
+  "boundary_stubs": [
+    "fixed public g board, empty configured PHP_EXT2, and synthetic domain resolver",
+    "synthetic post/parent lookup results; no database functions selected",
+    "two header calls and one status call replaced by recorders",
+    "source error call replaced by caught MissingTarget exception",
+    "bounded captured meta-refresh output; no process exit"
+  ],
+  "rewrite_adaptations": [
+    "local same-origin Location instead of absolute Referer-derived scheme/domain",
+    "strict canonical positive signed-64-bit query parsing, outside this source fixture",
+    "existing public visibility and private-board protections remain authoritative"
+  ],
+  "cases": [
+    {
+      "kind": "op",
+      "post": "42",
+      "parent": "0",
+      "referer": "",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: https://boards.4chan.org/g/thread/42#p42"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=https://boards.4chan.org/g/thread/42#p42\">"
+    },
+    {
+      "kind": "op",
+      "post": "42",
+      "parent": "0",
+      "referer": "https://boards.4chan.org/g/",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: https://boards.4chan.org/g/thread/42#p42"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=https://boards.4chan.org/g/thread/42#p42\">"
+    },
+    {
+      "kind": "op",
+      "post": "42",
+      "parent": "0",
+      "referer": "http://boards.4chan.org/g/",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: http://boards.4chan.org/g/thread/42#p42"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=http://boards.4chan.org/g/thread/42#p42\">"
+    },
+    {
+      "kind": "op",
+      "post": "42",
+      "parent": "0",
+      "referer": "http://example.invalid/path?next=HTTPS",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: https://boards.4chan.org/g/thread/42#p42"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=https://boards.4chan.org/g/thread/42#p42\">"
+    },
+    {
+      "kind": "reply",
+      "post": "43",
+      "parent": "42",
+      "referer": "",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: https://boards.4chan.org/g/thread/42#p43"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=https://boards.4chan.org/g/thread/42#p43\">"
+    },
+    {
+      "kind": "reply",
+      "post": "43",
+      "parent": "42",
+      "referer": "https://boards.4chan.org/g/",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: https://boards.4chan.org/g/thread/42#p43"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=https://boards.4chan.org/g/thread/42#p43\">"
+    },
+    {
+      "kind": "reply",
+      "post": "43",
+      "parent": "42",
+      "referer": "http://boards.4chan.org/g/",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: http://boards.4chan.org/g/thread/42#p43"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=http://boards.4chan.org/g/thread/42#p43\">"
+    },
+    {
+      "kind": "reply",
+      "post": "43",
+      "parent": "42",
+      "referer": "http://example.invalid/path?next=HTTPS",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: https://boards.4chan.org/g/thread/42#p43"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=https://boards.4chan.org/g/thread/42#p43\">"
+    },
+    {
+      "kind": "large_op",
+      "post": "9007199254740993",
+      "parent": "0",
+      "referer": "",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: https://boards.4chan.org/g/thread/9007199254740993#p9007199254740993"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=https://boards.4chan.org/g/thread/9007199254740993#p9007199254740993\">"
+    },
+    {
+      "kind": "large_op",
+      "post": "9007199254740993",
+      "parent": "0",
+      "referer": "https://boards.4chan.org/g/",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: https://boards.4chan.org/g/thread/9007199254740993#p9007199254740993"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=https://boards.4chan.org/g/thread/9007199254740993#p9007199254740993\">"
+    },
+    {
+      "kind": "large_op",
+      "post": "9007199254740993",
+      "parent": "0",
+      "referer": "http://boards.4chan.org/g/",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: http://boards.4chan.org/g/thread/9007199254740993#p9007199254740993"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=http://boards.4chan.org/g/thread/9007199254740993#p9007199254740993\">"
+    },
+    {
+      "kind": "large_op",
+      "post": "9007199254740993",
+      "parent": "0",
+      "referer": "http://example.invalid/path?next=HTTPS",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: https://boards.4chan.org/g/thread/9007199254740993#p9007199254740993"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=https://boards.4chan.org/g/thread/9007199254740993#p9007199254740993\">"
+    },
+    {
+      "kind": "large_reply",
+      "post": "9223372036854775807",
+      "parent": "9007199254740993",
+      "referer": "",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: https://boards.4chan.org/g/thread/9007199254740993#p9223372036854775807"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=https://boards.4chan.org/g/thread/9007199254740993#p9223372036854775807\">"
+    },
+    {
+      "kind": "large_reply",
+      "post": "9223372036854775807",
+      "parent": "9007199254740993",
+      "referer": "https://boards.4chan.org/g/",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: https://boards.4chan.org/g/thread/9007199254740993#p9223372036854775807"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=https://boards.4chan.org/g/thread/9007199254740993#p9223372036854775807\">"
+    },
+    {
+      "kind": "large_reply",
+      "post": "9223372036854775807",
+      "parent": "9007199254740993",
+      "referer": "http://boards.4chan.org/g/",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: http://boards.4chan.org/g/thread/9007199254740993#p9223372036854775807"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=http://boards.4chan.org/g/thread/9007199254740993#p9223372036854775807\">"
+    },
+    {
+      "kind": "large_reply",
+      "post": "9223372036854775807",
+      "parent": "9007199254740993",
+      "referer": "http://example.invalid/path?next=HTTPS",
+      "status": 301,
+      "headers": [
+        "Cache-Control: public, max-age=2",
+        "Location: https://boards.4chan.org/g/thread/9007199254740993#p9223372036854775807"
+      ],
+      "body": "<meta http-equiv=\"refresh\" content=\"0;URL=https://boards.4chan.org/g/thread/9007199254740993#p9223372036854775807\">"
+    },
+    {
+      "kind": "missing",
+      "post": "0",
+      "parent": "0",
+      "referer": "",
+      "status": 404,
+      "headers": [
+        "Cache-Control: public, max-age=2"
+      ],
+      "body": ""
+    },
+    {
+      "kind": "missing",
+      "post": "0",
+      "parent": "0",
+      "referer": "https://boards.4chan.org/g/",
+      "status": 404,
+      "headers": [
+        "Cache-Control: public, max-age=2"
+      ],
+      "body": ""
+    },
+    {
+      "kind": "missing",
+      "post": "0",
+      "parent": "0",
+      "referer": "http://boards.4chan.org/g/",
+      "status": 404,
+      "headers": [
+        "Cache-Control: public, max-age=2"
+      ],
+      "body": ""
+    },
+    {
+      "kind": "missing",
+      "post": "0",
+      "parent": "0",
+      "referer": "http://example.invalid/path?next=HTTPS",
+      "status": 404,
+      "headers": [
+        "Cache-Control: public, max-age=2"
+      ],
+      "body": ""
+    }
+  ]
+}

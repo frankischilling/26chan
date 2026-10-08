@@ -1,3 +1,4 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
 
 test.use({ trace: 'off' });
@@ -11,54 +12,58 @@ for (const javaScriptEnabled of [false, true]) {
     const password = 'owned-legacy-browser-password';
     let id;
     try {
-      const created = await context.request.post(`${origin}/test/imgboard.php`, {
+      const created = await withPostingHistory(() => context.request.post(`${origin}/fixture/imgboard.php`, {
         headers: { Origin: origin }, maxRedirects: 0,
         form: { mode: 'regist', sub: 'Owned legacy action', com: 'Synthetic legacy route browser check.', pwd: password },
-      });
+      }));
       expect(created.status()).toBe(303);
       id = /#p(\d+)$/.exec(created.headers().location)[1];
 
-      await page.goto(`${origin}/test/imgboard.php?mode=report&no=${id}`);
+      await page.goto(`${origin}/fixture/imgboard.php?mode=report&no=${id}`);
       await expect(page.getByRole('heading', { name: `Report post No.${id}`, exact: true })).toBeVisible();
-      await expect(page.getByRole('link', { name: 'Return to post' })).toHaveAttribute('href', `/test/thread/${id}#p${id}`);
+      await expect(page.getByRole('link', { name: 'Return to post' })).toHaveAttribute('href', `/fixture/thread/${id}#p${id}`);
       await page.getByLabel('Report reason', { exact: true }).fill('Owned report with <script>literal markup</script>.');
       await page.getByRole('button', { name: 'Report post', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Report received', exact: true })).toBeVisible();
-      expect((await context.request.get(`${origin}/test/thread/${id}.json`)).status()).toBe(200);
+      expect((await context.request.get(`${origin}/fixture/thread/${id}.json`)).status()).toBe(200);
 
-      if (javaScriptEnabled) {
-        await page.goto(`${origin}/test/thread/${id}`);
-        // The released client sends FormData. Keep the project's explicit
-        // deletion password while exercising the browser's real Origin/CSP.
-        const deleted = await page.evaluate(async ({ id, password }) => {
-          const body = new FormData();
-          body.append('mode', 'usrdel'); body.append(id, 'delete'); body.append('pwd', password);
-          const response = await fetch('/test/imgboard.php', { method: 'POST', body, credentials: 'same-origin' });
-          return { status: response.status, body: await response.text() };
-        }, { id, password });
-        expect(deleted.status).toBe(200);
-        expect(deleted.body).toContain('Updating index');
-        expect(deleted.body).not.toContain(password);
-      } else {
-        const deleted = await context.request.post(`${origin}/test/imgboard.php`, {
-          headers: { Origin: origin }, maxRedirects: 0,
-          form: { mode: 'usrdel', [id]: 'delete', pwd: password },
-        });
-        expect(deleted.status()).toBe(200);
-        expect(await deleted.text()).toContain('Updating index');
-      }
-      expect((await context.request.get(`${origin}/test/thread/${id}.json`)).status()).toBe(404);
-      const gone = await page.goto(`${origin}/test/imgboard.php?mode=report&no=${id}`);
+      await withDeletionQuota(async () => {
+        if (javaScriptEnabled) {
+          await page.goto(`${origin}/fixture/thread/${id}`);
+          // The released client sends FormData. Keep the project's explicit
+          // deletion password while exercising the browser's real Origin/CSP.
+          const deleted = await page.evaluate(async ({ id, password }) => {
+            const body = new FormData();
+            body.append('mode', 'usrdel'); body.append(id, 'delete'); body.append('pwd', password);
+            const response = await fetch('/fixture/imgboard.php', { method: 'POST', body, credentials: 'same-origin' });
+            return { status: response.status, body: await response.text() };
+          }, { id, password });
+          expect(deleted.status).toBe(200);
+          expect(deleted.body).toContain('Updating index');
+          expect(deleted.body).not.toContain(password);
+        } else {
+          const deleted = await context.request.post(`${origin}/fixture/imgboard.php`, {
+            headers: { Origin: origin }, maxRedirects: 0,
+            form: { mode: 'usrdel', [id]: 'delete', pwd: password },
+          });
+          expect(deleted.status()).toBe(200);
+          expect(await deleted.text()).toContain('Updating index');
+        }
+        expect((await context.request.get(`${origin}/fixture/thread/${id}.json`)).status()).toBe(404);
+      });
+      const gone = await page.goto(`${origin}/fixture/imgboard.php?mode=report&no=${id}`);
       expect(gone.status()).toBe(404);
       await expect(page.getByRole('button', { name: 'Report post', exact: true })).toHaveCount(0);
       id = null;
     } finally {
       try {
         if (id) {
-          const deleted = await context.request.post(`${origin}/test/delete`, {
-            headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+          await withDeletionQuota(async () => {
+            const deleted = await context.request.post(`${origin}/fixture/delete`, {
+              headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+            });
+            expect([303, 404]).toContain(deleted.status());
           });
-          expect([303, 404]).toContain(deleted.status());
         }
       } finally { await context.close(); }
     }

@@ -1,5 +1,6 @@
 import { defineConfig } from '@playwright/test';
-import base from './playwright.config.js';
+import { publicConfig } from './playwright.public-base.js';
+const base = publicConfig({ visual: true });
 
 export default defineConfig({
   ...base,

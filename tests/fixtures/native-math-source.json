@@ -1,0 +1,81 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "js/core.js": "a9ab67bea1f51fcdaaac1a879098a4d5888622008bf7f26f1fe18861ea52aab5",
+    "js/extension.js": "05b3b34f68377a44c071e4f74f629d2700fef61e064dcd2e836b161ee9ee0c31",
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+    "config/global_config.ini": "8bebeedec119b30559cba4fdccfef416653294cf62118d10288434be99a3034d",
+    "config/boards/sci.config.ini": "53cd956f750a4a8923c4d7f7c61d48e432cd4b528346627041816b8c3743de18",
+    "config/boards/test.config.ini": "72f1ddef8a63944bfb40e5d2e368c8ffeb42bef4c18b02a04d3638186a98b683"
+  },
+  "snippets": {
+    "core": {
+      "file": "js/core.js",
+      "byte_start": 40372,
+      "byte_end": 42205,
+      "sha256": "a50a068f8b8618a84080fbc05db35dc081de46e34ca5a7ac944e73d54ef19b62",
+      "text": "function pageHasMath() {\r\n  var i, el, nodes;\r\n  \r\n  nodes = document.getElementsByClassName('postMessage');\r\n  \r\n  for (i = 0; el = nodes[i]; ++i) {\r\n    if (/\\[(?:eqn|math)\\]|\"math\">/.test(el.innerHTML)) {\r\n      return true;\r\n    }\r\n  }\r\n  \r\n  return false;\r\n}\r\n\r\nfunction cleanWbr(el) {\r\n  var i, nodes, n;\r\n  \r\n  nodes = el.getElementsByTagName('wbr');\r\n  \r\n  for (i = nodes.length - 1; n = nodes[i]; i--) {\r\n    n.parentNode.removeChild(n);\r\n  }\r\n}\r\n\r\nfunction parseMath() {\r\n  var i, el, nodes;\r\n  \r\n  nodes = document.getElementsByClassName('postMessage');\r\n  \r\n  for (i = 0; el = nodes[i]; ++i) {\r\n    if (/\\[(?:eqn|math)\\]/.test(el.innerHTML)) {\r\n      cleanWbr(el);\r\n    }\r\n  }\r\n  \r\n  MathJax.Hub.Queue(['Typeset', MathJax.Hub, nodes]);\r\n}\r\n\r\nfunction loadMathJax() {\r\n  var head, script;\r\n  \r\n  head = document.getElementsByTagName('head')[0];\r\n  \r\n  script = document.createElement('script');\r\n  script.type = 'text/x-mathjax-config';\r\n  script.text = \"MathJax.Hub.Config({\\\r\nextensions: ['Safe.js'],\\\r\ntex2jax: { processRefs: false, processEnvironments: false, preview: 'none', inlineMath: [['[math]','[/math]']], displayMath: [['[eqn]','[/eqn]']] },\\\r\nSafe: { allow: { URLs: 'none', classes: 'none', cssIDs: 'none', styles: 'none', fontsize: 'none', require: 'none' } },\\\r\ndisplayAlign: 'left', messageStyle: 'none', skipStartupTypeset: true,\\\r\n'CHTML-preview': { disabled: true }, MathMenu: { showRenderer: false, showLocale: false },\\\r\nTeX: { Macros: { color: '{}', newcommand: '{}', renewcommand: '{}', newenvironment: '{}', renewenvironment: '{}', def: '{}', let: '{}'}}});\";\r\n  head.appendChild(script);  \r\n  \r\n  script = document.createElement('script');\r\n  script.src = '//cdn.mathjax.org/mathjax/2.6-latest/MathJax.js?config=TeX-AMS_HTML-full';\r\n  script.onload = parseMath;\r\n  head.appendChild(script);\r\n}\r\n\r\n"
+    },
+    "startup": {
+      "file": "js/core.js",
+      "byte_start": 42525,
+      "byte_end": 42596,
+      "sha256": "ba18a4474a950afb7d343a53d24ce8feea9cb42fcf15c341c13c86728aeaffc4",
+      "text": "  if (window.math_tags && pageHasMath()) {\r\n    loadMathJax();\r\n  }\r\n\r\n"
+    },
+    "dynamic": {
+      "file": "js/extension.js",
+      "byte_start": 28616,
+      "byte_end": 29607,
+      "sha256": "db6d97599ba7a1f77c95833ce9ed61728e05cd376e66a5b02572d07d58d87191",
+      "text": "  if (offset) {\r\n    if (Parser.prettify) {\r\n      for (i = j; i < limit; ++i) {\r\n        Parser.parseMarkup(posts[i]);\r\n      }\r\n    }\r\n    if (window.math_tags) {\r\n      if (window.MathJax) {\r\n        for (i = j; i < limit; ++i) {\r\n          if (Parser.postHasMath(posts[i])) {\r\n            window.cleanWbr(posts[i]);\r\n          }\r\n          MathJax.Hub.Queue(['Typeset', MathJax.Hub, posts[i]]);\r\n        }\r\n      }\r\n      else {\r\n        for (i = j; i < limit; ++i) {\r\n          if (Parser.postHasMath(posts[i])) {\r\n            window.loadMathJax();\r\n          }\r\n        }\r\n      }\r\n    }\r\n  }\r\n  \r\n  UA.dispatchEvent('4chanParsingDone', { threadId: tid, offset: j, limit: limit });\r\n};\r\n\r\nParser.postHasMath = function(el) {\r\n  return /\\[(?:eqn|math)\\]/.test(el.innerHTML);\r\n};\r\n\r\nParser.parseMathOne = function(node) {\r\n  if (window.MathJax) {\r\n    MathJax.Hub.Queue(['Typeset', MathJax.Hub, node]);\r\n  }\r\n  else if (Parser.postHasMath(node)) {\r\n    window.loadMathJax();\r\n  }\r\n};\r\n\r\n"
+    },
+    "preview": {
+      "file": "js/extension.js",
+      "byte_start": 93133,
+      "byte_end": 94768,
+      "sha256": "bb5257b7e084ed4413911845479361f0e5b9ee6a72c6312de350c821bd898235",
+      "text": "QR.openTeXPreview = function() {\r\n  var el;\r\n  \r\n  QR.closeTeXPreview();\r\n  \r\n  if (!window.MathJax) {\r\n    window.loadMathJax();\r\n  }\r\n  \r\n  el = document.createElement('div');\r\n  el.id = 'tex-preview-cnt';\r\n  el.className = 'UIPanel';\r\n  el.setAttribute('data-cmd', 'close-tex-preview');\r\n  el.innerHTML = '\\\r\n<div class=\"extPanel reply\"><div class=\"panelHeader\"><span class=\"tex-logo\">T<sub>e</sub>X</span> Preview\\\r\n<span class=\"panelCtrl\"><img alt=\"Close\" title=\"Close\" class=\"pointer\" data-cmd=\"close-tex-preview\" src=\"'\r\n+ Main.icons.cross + '\"></span></div><div id=\"tex-protip\">Use [math][/math] tags for inline, and [eqn][/eqn] tags for block equations.</div><textarea id=\"input-tex-preview\"></textarea>\\\r\n<div id=\"output-tex-preview\"></div></div>';\r\n  \r\n  document.body.appendChild(el);\r\n  \r\n  el = $.id('input-tex-preview');\r\n  $.on(el, 'keyup', QR.onTeXChanged);\r\n};\r\n\r\nQR.closeTeXPreview = function() {\r\n  var el;\r\n  \r\n  if (el = $.id('input-tex-preview')) {\r\n    $.off(el, 'keyup', QR.onTeXChanged);\r\n    \r\n    el = $.id('tex-preview-cnt');\r\n    el.parentNode.removeChild(el);\r\n  }\r\n};\r\n\r\nQR.onTeXChanged = function() {\r\n  clearTimeout(QR.timeoutTeX);\r\n  QR.timeoutTeX = setTimeout(QR.processTeX, 50);\r\n};\r\n\r\nQR.processTeX = function() {\r\n  var src, dest;\r\n\r\n  if (QR.processingTeX || !window.MathJax || !(src = $.id('input-tex-preview'))) {\r\n    return;\r\n  }\r\n  \r\n  dest = $.id('output-tex-preview');\r\n  \r\n  dest.textContent = src.value;\r\n  \r\n  QR.processingTeX = true;\r\n  \r\n  MathJax.Hub.Queue(['Typeset', MathJax.Hub, dest], ['onTeXReady', QR]);\r\n};\r\n\r\nQR.onTeXReady = function() {\r\n  QR.processingTeX = false;\r\n};\r\n\r\n"
+    },
+    "server_parser": {
+      "file": "imgboard.php",
+      "byte_start": 14067,
+      "byte_end": 14274,
+      "sha256": "45f36fb2ed22976d9ede869cfd9151132c8742f5bcb8fdc08876de21dd86967e",
+      "text": "function jsmath_parse( $com )\r\n{\r\n\t$com = parse_bbcode_one( $com, \"math\", '<span class=\"math\">', '</span>' );\r\n\t$com = parse_bbcode_one( $com, \"eqn\", '<div class=\"math\">', '</div>' );\r\n\r\n\treturn $com;\r\n}\r\n\r\n"
+    },
+    "server_disabled_call": {
+      "file": "imgboard.php",
+      "byte_start": 169193,
+      "byte_end": 169263,
+      "sha256": "44fbcf54cefc993d0daed5b350c445a3084856b17cfa7bd43633fbe056052db0",
+      "text": "  /*\r\n\tif( JSMATH == 1 ) {\r\n\t\t$com = jsmath_parse( $com );\r\n\t}\r\n  */\r\n"
+    },
+    "page_policy": {
+      "file": "imgboard.php",
+      "byte_start": 101952,
+      "byte_end": 102021,
+      "sha256": "4eefe4420fc377ce9b4d5176b20faf23a4c4f21c1833619894491d95665b11f2",
+      "text": "  if (JSMATH) {\r\n    $scriptjs .= 'var math_tags = true;';\r\n  }\r\n  \r\n"
+    },
+    "api_policy": {
+      "file": "imgboard.php",
+      "byte_start": 235943,
+      "byte_end": 235997,
+      "sha256": "24454272a04629f25051c58a32511fa861b340ca210e4e333669d3983c02b71c",
+      "text": "  if (JSMATH) {\r\n    $arr['math_tags'] = 1;\r\n  }\r\n  \r\n"
+    }
+  },
+  "policies": {
+    "config/global_config.ini": [
+      "JSMATH = no"
+    ],
+    "config/boards/sci.config.ini": [
+      "JSMATH = yes"
+    ],
+    "config/boards/test.config.ini": [
+      ";JSMATH = yes"
+    ]
+  },
+  "scope": "Legacy detection, delimiters, safety settings, policy and lifecycle. Not a MathJax renderer oracle."
+}

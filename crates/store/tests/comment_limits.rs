@@ -1,4 +1,5 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
 use board_store::{NewPost, StoreError};
 use sqlx::Executor;
@@ -31,23 +32,23 @@ async fn public_posts_use_board_character_limits_and_database_global_limits() {
     let migration = sqlx::PgPool::connect(&migration_url).await.unwrap();
     let slug = fixture_board();
 
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Comment limits','Disposable limit fixture',4,100,100,100,10)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Comment limits','Disposable limit fixture',4,100,100,100,10,0,0,0)")
         .bind(&slug)
         .execute(&migration)
         .await
         .unwrap();
 
-    let thread = board_store::create_post(&public, &slug, 0, &post("é".repeat(4)))
+    let thread = support::create_post(&public, &slug, 0, &post("é".repeat(4)))
         .await
         .unwrap();
-    board_store::create_post(&public, &slug, thread, &post("𠮷".repeat(4)))
+    support::create_post(&public, &slug, thread, &post("𠮷".repeat(4)))
         .await
         .unwrap();
-    board_store::create_post(&public, &slug, thread, &post("e\u{301}".repeat(2)))
+    support::create_post(&public, &slug, thread, &post("e\u{301}".repeat(2)))
         .await
         .unwrap();
     for raw in ["é\r\n𠮷\r", "é\r𠮷\n", "é\n𠮷\n"] {
-        let id = board_store::create_post(&public, &slug, thread, &post(raw.into()))
+        let id = support::create_post(&public, &slug, thread, &post(raw.into()))
             .await
             .unwrap();
         assert_eq!(
@@ -62,11 +63,11 @@ async fn public_posts_use_board_character_limits_and_database_global_limits() {
         .await
         .unwrap();
     assert!(matches!(
-        board_store::create_post(&public, &slug, thread, &post("é".repeat(5))).await,
+        support::create_post(&public, &slug, thread, &post("é".repeat(5))).await,
         Err(StoreError::Invalid(_))
     ));
     assert!(matches!(
-        board_store::create_post(&public, &slug, thread, &post("é\r\n𠮷\rb".into())).await,
+        support::create_post(&public, &slug, thread, &post("é\r\n𠮷\rb".into())).await,
         Err(StoreError::Invalid(_))
     ));
     assert_eq!(
@@ -82,7 +83,7 @@ async fn public_posts_use_board_character_limits_and_database_global_limits() {
         .await
         .unwrap();
     let full_comment = "𠮷".repeat(16_000);
-    let full_id = board_store::create_post(&public, &slug, thread, &post(full_comment.clone()))
+    let full_id = support::create_post(&public, &slug, thread, &post(full_comment.clone()))
         .await
         .unwrap();
     assert_eq!(

@@ -1,3 +1,5 @@
+#[path = "support/posting.rs"]
+mod posting_fixture;
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -27,10 +29,10 @@ async fn preview_route_has_strict_ids_no_queries_or_writes_and_no_api_listener_r
     let pool = sqlx::postgres::PgPoolOptions::new()
         .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
         .unwrap();
-    let (web, api) = board_public::routers(pool, ORIGIN.into(), false);
+    let (web, api) = posting_fixture::routers(pool, "fixture", ORIGIN.into(), false);
     for key in ["0", "-1", "+1", "01", "1.json", "9223372036854775808"] {
         assert_eq!(
-            request(&web, "GET", &format!("/_watch/test/post/{key}"), None)
+            request(&web, "GET", &format!("/_watch/fixture/post/{key}"), None)
                 .await
                 .status(),
             404,
@@ -53,19 +55,19 @@ async fn preview_route_has_strict_ids_no_queries_or_writes_and_no_api_listener_r
         "?url=https://example.org",
     ] {
         assert_eq!(
-            request(&web, "GET", &format!("/_watch/test/post/1{query}"), None)
+            request(&web, "GET", &format!("/_watch/fixture/post/1{query}"), None)
                 .await
                 .status(),
             400
         );
     }
     for method in ["POST", "PUT", "PATCH", "DELETE"] {
-        let response = request(&web, method, "/_watch/test/post/1", None).await;
+        let response = request(&web, method, "/_watch/fixture/post/1", None).await;
         assert_eq!(response.status(), 405, "{method}");
         assert!(response.headers().get("set-cookie").is_none());
     }
     for method in ["GET", "HEAD"] {
-        let response = request(&api, method, "/_watch/test/post/1", None).await;
+        let response = request(&api, method, "/_watch/fixture/post/1", None).await;
         assert_eq!(response.status(), 404);
         assert!(response.headers().get("set-cookie").is_none());
         assert!(to_bytes(response.into_body(), 4096).await.is_ok());
@@ -174,7 +176,7 @@ mod database {
     }
 
     async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-        let (web, api) = board_public::routers(public.clone(), ORIGIN.into(), false);
+        let (web, api) = posting_fixture::routers(public.clone(), &slug, ORIGIN.into(), false);
         let draft = NewPost {
             name: "Owned <name>".into(),
             subject: "Owned <subject>".into(),
@@ -182,13 +184,13 @@ mod database {
             deletion_hash: "private-preview-fixture-hash".into(),
             sage: false,
         };
-        let thread = board_store::create_post(&public, &slug, 0, &draft)
+        let thread = posting_fixture::create_post(&public, &slug, 0, &draft)
             .await
             .unwrap();
-        let reply = board_store::create_post(&public, &slug, thread, &draft)
+        let reply = posting_fixture::create_post(&public, &slug, thread, &draft)
             .await
             .unwrap();
-        let sibling = board_store::create_post(&public, &slug, thread, &draft)
+        let sibling = posting_fixture::create_post(&public, &slug, thread, &draft)
             .await
             .unwrap();
         coherent_during_commit(&owner, &slug, thread).await;
@@ -348,7 +350,7 @@ mod database {
         let mut random = [0_u8; 5];
         OsRng.fill_bytes(&mut random);
         let slug: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,archive_limit) VALUES($1,'Quote previews','Owned preview fixture',4000,100,50,10,10,3600,10)")
+        sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,archive_limit) VALUES(0,0,0,$1,'Quote previews','Owned preview fixture',4000,100,50,10,10,3600,10)")
             .bind(&slug).execute(&owner).await.unwrap();
         let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
         public.close().await;

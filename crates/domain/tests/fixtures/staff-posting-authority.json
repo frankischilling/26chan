@@ -1,0 +1,1607 @@
+{
+  "reference": "operator-supplied 4chan-old checkout",
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+    "lib/auth.php": "98138062957155f859c6c2650613117290feeb386c6deb3a1097f5b62cbb6019"
+  },
+  "scope": "Robot9000 applicability and the early authenticated CAPTCHA/range-ban bypass; other admission rules excluded",
+  "boundary_stubs": [
+    "synthetic janitor-or-higher result",
+    "synthetic local-auth result",
+    "configured Robot9000 switch"
+  ],
+  "php": "8.3.6",
+  "robot_cases": [
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": false,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "BYPASS_R9K",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k ",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": " bypass_r9k",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "bypass_r9k sage",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "capcode_mod",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": false,
+      "options_field": "sage",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "none",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "BYPASS_R9K",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k ",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": " bypass_r9k",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "bypass_r9k sage",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "capcode_mod",
+      "capcode": "founder",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "none",
+      "applies": true
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "mod",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "admin",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "admin_highlight",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "manager",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "developer",
+      "applies": false
+    },
+    {
+      "enabled": true,
+      "janitor_or_higher": true,
+      "options_field": "sage",
+      "capcode": "founder",
+      "applies": false
+    }
+  ],
+  "bypass_cases": [
+    {
+      "local_auth": false,
+      "janitor_or_higher": false,
+      "bypass": false
+    },
+    {
+      "local_auth": false,
+      "janitor_or_higher": true,
+      "bypass": true
+    },
+    {
+      "local_auth": true,
+      "janitor_or_higher": false,
+      "bypass": true
+    },
+    {
+      "local_auth": true,
+      "janitor_or_higher": true,
+      "bypass": true
+    }
+  ]
+}

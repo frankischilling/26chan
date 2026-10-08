@@ -1,0 +1,1285 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "json.php": "18ccc5ea60fdfff5aaebd4648288e2970fab5329bd23d121edf359da3ab93868"
+  },
+  "php": "8.3.6",
+  "identity_cases": [
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "none",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "none",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "none",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "mod",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "mod",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "mod",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin_highlight",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin_highlight",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin_highlight",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "manager",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "manager",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "manager",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "developer",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "developer",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "developer",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "founder",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "founder",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "founder",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin_hl",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin_hl",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "admin_hl",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "unknown",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "unknown",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": false,
+      "capcode": "unknown",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "none",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "none",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "none",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "mod",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "mod",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "mod",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin_highlight",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin_highlight",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin_highlight",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "manager",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "manager",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "manager",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "developer",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "developer",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "developer",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "founder",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "founder",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "founder",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin_hl",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin_hl",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "admin_hl",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "unknown",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "unknown",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": false,
+      "meta_board": true,
+      "capcode": "unknown",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "none",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "none",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "none",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "mod",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "mod",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "mod",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin_highlight",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin_highlight",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin_highlight",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "manager",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "manager",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "manager",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "developer",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "developer",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "developer",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "founder",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "founder",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "founder",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin_hl",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin_hl",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "admin_hl",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "unknown",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "unknown",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": false,
+      "capcode": "unknown",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "none",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "none",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "none",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "mod",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "mod",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "mod",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin_highlight",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin_highlight",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin_highlight",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "manager",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "manager",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "manager",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "developer",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "developer",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "developer",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "founder",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "founder",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "founder",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin_hl",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Owned &amp; &quot;"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin_hl",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Owned",
+        "trip": "!ozOtJW9BFA"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "admin_hl",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "trip": "!!abcdefghijk"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "unknown",
+      "name": "Owned &amp; &quot;",
+      "trip": null,
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "unknown",
+      "name": "Owned",
+      "trip": "!ozOtJW9BFA",
+      "expected": {
+        "name": "Anonymous"
+      }
+    },
+    {
+      "forced_anonymous": true,
+      "meta_board": true,
+      "capcode": "unknown",
+      "name": "",
+      "trip": "!!abcdefghijk",
+      "expected": {
+        "name": "Anonymous"
+      }
+    }
+  ],
+  "reply_cases": [
+    {
+      "rows": [],
+      "expected": null
+    },
+    {
+      "rows": [
+        {
+          "id": 1001,
+          "capcode": "none"
+        }
+      ],
+      "expected": null
+    },
+    {
+      "rows": [
+        {
+          "id": 1001,
+          "capcode": "mod"
+        }
+      ],
+      "expected": {
+        "mod": [
+          1001
+        ]
+      }
+    },
+    {
+      "rows": [
+        {
+          "id": 1001,
+          "capcode": "admin_highlight"
+        },
+        {
+          "id": 1002,
+          "capcode": "admin"
+        },
+        {
+          "id": 1003,
+          "capcode": "mod"
+        },
+        {
+          "id": 1004,
+          "capcode": "developer"
+        },
+        {
+          "id": 1005,
+          "capcode": "manager"
+        },
+        {
+          "id": 1006,
+          "capcode": "founder"
+        }
+      ],
+      "expected": {
+        "admin": [
+          1001,
+          1002
+        ],
+        "developer": [
+          1004
+        ],
+        "mod": [
+          1003
+        ],
+        "manager": [
+          1005
+        ],
+        "founder": [
+          1006
+        ]
+      }
+    },
+    {
+      "rows": [
+        {
+          "id": 1001,
+          "capcode": "mod"
+        },
+        {
+          "id": 1002,
+          "capcode": "mod"
+        },
+        {
+          "id": 1003,
+          "capcode": "none"
+        },
+        {
+          "id": 1004,
+          "capcode": "admin_highlight"
+        }
+      ],
+      "expected": {
+        "admin": [
+          1004
+        ],
+        "mod": [
+          1001,
+          1002
+        ]
+      }
+    },
+    {
+      "rows": [
+        {
+          "id": 1001,
+          "capcode": "founder"
+        },
+        {
+          "id": 1002,
+          "capcode": "developer"
+        },
+        {
+          "id": 1003,
+          "capcode": "manager"
+        },
+        {
+          "id": 1004,
+          "capcode": "admin"
+        }
+      ],
+      "expected": {
+        "admin": [
+          1004
+        ],
+        "developer": [
+          1002
+        ],
+        "founder": [
+          1001
+        ],
+        "manager": [
+          1003
+        ]
+      }
+    },
+    {
+      "rows": [
+        {
+          "id": 1001,
+          "capcode": "unknown"
+        },
+        {
+          "id": 1002,
+          "capcode": "admin_hl"
+        }
+      ],
+      "expected": {
+        "unknown": [
+          1001
+        ],
+        "admin_hl": [
+          1002
+        ]
+      }
+    },
+    {
+      "rows": [
+        {
+          "id": 1001,
+          "capcode": "mod"
+        },
+        {
+          "id": 1002,
+          "capcode": null
+        },
+        {
+          "id": 1003,
+          "capcode": "developer"
+        }
+      ],
+      "expected": {
+        "developer": [
+          1003
+        ],
+        "mod": [
+          1001
+        ]
+      }
+    }
+  ]
+}

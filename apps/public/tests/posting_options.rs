@@ -6,6 +6,14 @@ use rand_core::{OsRng, RngCore};
 use sqlx::PgPool;
 use tower::ServiceExt;
 
+fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
+    use rand_core::RngCore;
+    let mut bytes = [0u8; 32];
+    rand_core::OsRng.fill_bytes(&mut bytes);
+    let encoded: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
+}
+
 async fn submit(
     app: &axum::Router,
     path: &str,
@@ -13,6 +21,13 @@ async fn submit(
     option: &str,
     comment: &str,
 ) -> axum::response::Response {
+    // Option-controlled bump behavior belongs to an ordinary non-OP reply.
+    // Keep both fixture actors stable; same-peer OP behavior is covered separately.
+    let peer = if parent == 0 {
+        [192, 0, 2, 16]
+    } else {
+        [192, 0, 2, 17]
+    };
     let fields = url::form_urlencoded::Serializer::new(String::new())
         .append_pair("resto", &parent.to_string())
         .append_pair("email", option)
@@ -23,6 +38,9 @@ async fn submit(
         .oneshot(
             Request::builder()
                 .method("POST")
+                .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                    peer, 45000,
+                ))))
                 .uri(path)
                 .header("origin", "http://127.0.0.1:3000")
                 .header("content-type", "application/x-www-form-urlencoded")
@@ -34,7 +52,7 @@ async fn submit(
 }
 
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-    // This expanded fixture submits 54 writes from one synthetic peer.
+    // This expanded fixture submits 54 writes across two stable synthetic peers.
     // Keep a bounded test budget; http_limits.rs tests production defaults
     // and actual peer throttling independently.
     let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
@@ -42,12 +60,18 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         _ => None,
     })
     .unwrap();
-    let (app, _) = board_public::routers_with_limits(
+    let (app, _) = board_public::routers_with_options(
         public.clone(),
-        "http://127.0.0.1:3000".into(),
-        false,
-        None,
-        limits,
+        board_public::PublicRouterOptions {
+            origin: "http://127.0.0.1:3000".into(),
+            production: false,
+            media: None,
+            limits,
+            proxy_uid: None,
+            tripcode_key: None,
+            poster_id_key: Some(fixture_key()),
+            country_database: None,
+        },
     );
     let mut failures = Vec::new();
     let mut first_thread = None;
@@ -226,6 +250,10 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .oneshot(
                 Request::builder()
                     .method("POST")
+                    .extension(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                        [192, 0, 2, 17],
+                        45000,
+                    ))))
                     .uri(format!("/{slug}/imgboard.php"))
                     .header("origin", "http://127.0.0.1:3000")
                     .header("content-type", "application/x-www-form-urlencoded")
@@ -284,7 +312,9 @@ async fn documented_options_preserve_posts_redirects_and_bump_rules() {
     let mut random = [0_u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Posting options','Owned posting fixture',1000,100,50,100,10)")
+    // Retain all option/route OP controls on this owned board while testing
+    // redirects and bump rules independently of the actor thread quota.
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Posting options','Owned posting fixture',1000,100,50,100,10,0,0,0,100)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;

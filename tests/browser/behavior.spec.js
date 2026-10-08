@@ -1,3 +1,4 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { fillCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
@@ -9,26 +10,38 @@ const watcherAssets = JSON.parse(await readFile(new URL('../../docs/public-watch
 const updaterAssets = JSON.parse(await readFile(new URL('../../docs/public-updater-assets.json', import.meta.url), 'utf8'));
 const navigationAssets = JSON.parse(await readFile(new URL('../../docs/public-navigation-assets.json', import.meta.url), 'utf8'));
 const flagAssets = JSON.parse(await readFile(new URL('../../docs/public-country-flags-reference.json', import.meta.url), 'utf8'));
+const sourceFlagAssets = JSON.parse(await readFile(new URL('../../docs/source-board-flag-assets.json', import.meta.url), 'utf8'));
+const spoilerAssets = JSON.parse(await readFile(new URL('../../docs/custom-spoiler-assets.json', import.meta.url), 'utf8'));
 const capcodeAssets = JSON.parse(await readFile(new URL('../../docs/public-capcode-reference.json', import.meta.url), 'utf8'));
 const filterAssets = JSON.parse(await readFile(new URL('../../docs/public-catalog-filter-assets.json', import.meta.url), 'utf8'));
+const boardReference = JSON.parse(await readFile(new URL('../../fixtures/board-reference.json', import.meta.url), 'utf8'));
 const releaseImages = [
+  // The generic spoiler is already in the catalog manifest below.
+  ...spoilerAssets.assets.filter(asset => asset.status === 200 && asset.name !== 'spoiler.png').map(asset => ({
+    path: `/static/catalog/${asset.name}`, dimensions: [asset.width, asset.height],
+  })),
   ...flagAssets.assets.filter(asset => asset.mime.startsWith('image/')).map(asset => ({ ...asset, path: `${flagAssets.local_base}${asset.name}` })),
+  ...[['mlp', [144, 160]], ['lgbt', [112, 88]]].map(([kind, dimensions]) => ({
+    path: sourceFlagAssets[kind].find(asset => asset.role === 'sprite').release_path, dimensions,
+  })),
   ...capcodeAssets.assets.map(asset => ({ ...asset, path: `${capcodeAssets.local_base}${asset.name}` })),
   ...navigationAssets.files.map(asset => ({ path: asset.path.replace('apps/public', ''), dimensions: [asset.width, asset.height] })),
   ...[uiAssets, watcherAssets, updaterAssets].flatMap(manifest =>
     manifest.assets.map(asset => ({ ...asset, path: `${manifest.local_base}${asset.name}` }))),
   ...filterAssets.assets.map(asset => ({ ...asset, path: `${filterAssets.local_base}${asset.name}`, dimensions: [asset.width, asset.height] })),
 ];
+const unavailableImages = spoilerAssets.assets.filter(asset => asset.status !== 200)
+  .map(asset => `/static/catalog/${asset.name}`);
 
 const apiOrigin = 'http://127.0.0.1:3003';
 
 test('same-origin JSON posting returns persisted IDs and receipts without navigation', async ({ browser }) => {
   const context = await browser.newContext(), page = await context.newPage();
   const origin = 'http://127.0.0.1:3000', password = 'owned-json-browser-password';
-  const client = `${origin}/test/__owned-post-json-client`;
+  const client = `${origin}/fixture/__owned-post-json-client`;
   let thread;
   try {
-    await page.goto(`${origin}/test/`);
+    await page.goto(`${origin}/fixture/`);
     await saveWatcherSettings(page, { threadWatcher: true, threadAutoWatcher: true });
     // Only this owned client document is synthetic. Posting and subsequent
     // reads/deletion use the real server; production CSP is not changed here.
@@ -39,17 +52,17 @@ test('same-origin JSON posting returns persisted IDs and receipts without naviga
     }));
     await page.goto(client);
     async function submit(route, form) {
-      return page.evaluate(async ({ route, form }) => {
+      return withPostingHistory(() => page.evaluate(async ({ route, form }) => {
         const body = new FormData();
         for (const [name, value] of Object.entries(form)) body.append(name, value);
         body.append('upfile', new File([], '', { type: 'application/octet-stream' }));
-        const response = await fetch(`/test/${route}`, {
+        const response = await fetch(`/fixture/${route}`, {
           method: 'POST', credentials: 'same-origin', redirect: 'error',
           headers: { Accept: 'application/json' }, body,
         });
         return { status: response.status, type: response.headers.get('content-type'),
           cache: response.headers.get('cache-control'), value: await response.json() };
-      }, { route, form: { ...form, pwd: password, mode: 'regist', track: '1', awt: '1' } });
+      }, { route, form: { ...form, pwd: password, mode: 'regist', track: '1', awt: '1' } }));
     }
     const op = await submit('post', { com: 'Owned JSON thread\r\nSecond line', sub: 'JSON browser thread', email: 'nonoko' });
     expect(op.status).toBe(200); expect(op.type).toBe('application/json'); expect(op.cache).toBe('no-store');
@@ -64,30 +77,32 @@ test('same-origin JSON posting returns persisted IDs and receipts without naviga
     await expect(page).toHaveURL(client);
     const receipts = (await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt');
     expect(receipts.map(cookie => cookie.name).sort()).toEqual(['4chan_awt', `board-posted-${thread}`, `board-posted-${ownReply}`].sort());
-    expect(receipts.every(cookie => cookie.path === '/test/' && cookie.sameSite === 'Strict')).toBe(true);
+    expect(receipts.every(cookie => cookie.path === '/fixture/' && cookie.sameSite === 'Strict')).toBe(true);
     const denied = await submit('post', { resto: thread, com: '' });
     expect(denied.status).toBe(200); expect(Object.keys(denied.value)).toEqual(['error']);
     expect(denied.value.error).toBe('Error: No text entered.');
     expect((await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt')).toEqual(receipts);
-    const data = await (await context.request.get(`${origin}/test/thread/${thread}.json`)).json();
+    const data = await (await context.request.get(`${origin}/fixture/thread/${thread}.json`)).json();
     expect(data.posts.map(post => String(post.no))).toEqual([thread, ownReply]);
     expect(data.posts[0].com).toBe('Owned JSON thread<br>Second line');
-    await page.goto(`${origin}/test/thread/${thread}`);
+    await page.goto(`${origin}/fixture/thread/${thread}`);
     await expect(page.locator(`#m${ownReply} .quotelink`)).toHaveText(`>>${thread} (You) (OP)`);
-    await expect(page.locator(`#m${ownReply} .quotelink`)).toHaveAttribute('href', `/test/post/${thread}`);
-    await expect(page.locator(`#watch-${thread}-test`)).toContainText('JSON browser thread');
+    await expect(page.locator(`#m${ownReply} .quotelink`)).toHaveAttribute('href', `/fixture/post/${thread}`);
+    await expect(page.locator(`#watch-${thread}-fixture`)).toContainText('JSON browser thread');
     for (const id of [thread, ownReply]) {
       await expect.poll(() => page.evaluate(({ thread, id }) =>
-        JSON.parse(localStorage.getItem(`4chan-track-test-${thread}`) || '{}')[`>>${id}`], { thread, id })).toBe(1);
+        JSON.parse(localStorage.getItem(`4chan-track-fixture-${thread}`) || '{}')[`>>${id}`], { thread, id })).toBe(1);
     }
     expect((await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-') || cookie.name === '4chan_awt')).toEqual([]);
   } finally {
     try {
       if (thread) {
-        const deleted = await context.request.post(`${origin}/test/delete`, {
-          headers: { Origin: origin }, form: { no: thread, password }, maxRedirects: 0,
+        await withDeletionQuota(async () => {
+          const deleted = await context.request.post(`${origin}/fixture/delete`, {
+            headers: { Origin: origin }, form: { no: thread, password }, maxRedirects: 0,
+          });
+          expect(deleted.status()).toBe(303);
         });
-        expect(deleted.status()).toBe(303);
       }
     } finally { await context.close(); }
   }
@@ -99,36 +114,39 @@ test('native posting fields accept 100 input bytes and reject over-limit names a
   const name = '😀'.repeat(25), subject = '<&'.repeat(50), password = 'owned-field-browser-password';
   let id;
   async function fill(who, title) {
-    await page.goto(`${origin}/test/`);
+    await page.goto(`${origin}/fixture/`);
     await expect(page.locator('#name')).not.toHaveAttribute('maxlength');
     await expect(page.locator('#sub')).not.toHaveAttribute('maxlength');
     await page.locator('#name').fill(who);
     await page.locator('#sub').fill(title);
     await page.locator('#com').fill('Owned synthetic public field test');
-    await page.locator('#password').fill(password);
+    await expect(page.locator('#postPassword')).toHaveValue('');
   }
   try {
     await fill(name, subject);
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
-    await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
+    await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
     id = /#p(\d+)$/.exec(page.url())[1];
-    await expect(page.locator(`#pi${id} .name`)).toHaveText(name);
+    // Source removes these emoticons after the independent raw 100-byte bound.
+    await expect(page.locator(`#pi${id} .name`)).toHaveText('Anonymous');
     await expect(page.locator(`#pi${id} .subject`)).toHaveText(subject);
     await expect(page.locator(`#pi${id} .subject > *`)).toHaveCount(0);
-    const data = await (await context.request.get(`${origin}/test/thread/${id}.json`)).json();
-    expect(data.posts[0].name).toBe(name);
+    const data = await (await context.request.get(`${origin}/fixture/thread/${id}.json`)).json();
+    expect(data.posts[0].name).toBe('Anonymous');
     expect(data.posts[0].sub).toBe('&lt;&amp;'.repeat(50));
     for (const [who, title] of [[`${name}x`, subject], [name, `${subject}x`]]) {
       await fill(who, title);
-      const rejected = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      const rejected = page.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       expect((await rejected).status()).toBe(422);
       await expect(page.locator('body')).toContainText('Name or subject is too long.');
     }
   } finally {
     if (id) {
-      const deleted = await context.request.post(`${origin}/test/delete`, { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } });
-      expect(deleted.status()).toBe(303);
+      await withDeletionQuota(async () => {
+        const deleted = await context.request.post(`${origin}/fixture/delete`, { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } });
+        expect(deleted.status()).toBe(303);
+      });
     }
     await context.close();
   }
@@ -142,12 +160,12 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
   const password = 'catalog-browser-password';
   const threads = [];
   async function post(parent, subject, sage = false) {
-    await page.goto(`${origin}/test/${parent ? `thread/${parent}` : ''}`);
+    await page.goto(`${origin}/fixture/${parent ? `thread/${parent}` : ''}`);
     if (!parent) await page.locator('#sub').fill(subject);
     await page.locator('#com').fill(`${marker} synthetic <script>fold</script>`);
-    await page.locator('#password').fill(password);
+    await expect(page.locator('#postPassword')).toHaveValue('');
     if (sage) await page.locator('#email').fill('sage');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/thread\/\d+#p\d+$/);
     const id = /#p(\d+)$/.exec(page.url())[1];
     if (!parent) threads.push(id);
@@ -162,7 +180,7 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
     // peer supplies the bump, without bypassing the source OP cooldown.
     const otherPeerReply = await new Promise((resolve, reject) => {
       const body = new URLSearchParams({ resto: b, com: `${marker} other peer`, pwd: password }).toString();
-      const request = httpRequest(`${origin}/test/imgboard.php`, {
+      const request = httpRequest(`${origin}/fixture/imgboard.php`, {
         method: 'POST', localAddress: '127.0.0.2', timeout: 5000,
         headers: { Origin: origin, Accept: 'application/json',
           'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) },
@@ -183,7 +201,7 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
     expect(otherPeerReply.status).toBe(200);
     expect(JSON.parse(otherPeerReply.body).tid).toBe(Number(b));
     const lastAReply = await post(a, '', true);
-    await page.goto(`${origin}/test/catalog`);
+    await page.goto(`${origin}/fixture/catalog`);
     const controls = page.getByRole('form', { name: 'Catalog controls' });
     await controls.getByLabel('Search', { exact: true }).fill(marker);
     for (const [order, expected] of [['alt',[b,c,a]], ['absdate',[a,b,c]], ['date',[c,b,a]], ['r',[a,b,c]]]) {
@@ -210,13 +228,13 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
     await expect(page.locator('#ctrl script')).toHaveCount(0);
     await expect(controls.getByLabel('Search', { exact: true })).toHaveValue('(?=unsupported)<script>');
     await controls.getByRole('link', { name: 'Reset', exact: true }).click();
-    await expect(page).toHaveURL(`${origin}/test/catalog`);
+    await expect(page).toHaveURL(`${origin}/fixture/catalog`);
     await expect(controls.getByLabel('Search', { exact: true })).toHaveValue('');
     await expect(page.locator('#threads')).toHaveClass('catalog extended-small');
     const liveContext = await browser.newContext();
     try {
       const live = await liveContext.newPage();
-      await live.goto(`${origin}/test/catalog?q=${encodeURIComponent(`${marker} Alpha [.*]`)}`);
+      await live.goto(`${origin}/fixture/catalog?q=${encodeURIComponent(`${marker} Alpha [.*]`)}`);
       let navigations = 0;
       live.on('request', request => { if (request.isNavigationRequest() && request.frame() === live.mainFrame()) navigations += 1; });
       await live.evaluate(() => { window.originalCards = Array.from(document.querySelectorAll('.catalog .thread')); });
@@ -239,17 +257,23 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
       expect(await live.evaluate(() => window.originalCards.every(node => document.getElementById(node.id) === node))).toBe(true);
       expect(navigations).toBe(0);
 
-      await page.goto(`${origin}/test/thread/${a}`);
+      await page.goto(`${origin}/fixture/thread/${a}`);
       const actions = page.locator(`#p${lastAReply} .postActions`);
       await actions.getByText('Delete or report', { exact: true }).click();
-      await actions.getByLabel('Deletion password', { exact: true }).fill(password);
-      await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+      await expect(actions.locator('input[name=password]')).toHaveValue('');
+      await withDeletionQuota(async () => {
+        const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/fixture/delete'));
+        await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+        const response = await deleted;
+        expect(response.status()).toBe(303);
+        await response.finished();
+      });
       await live.reload();
       await expect(live.locator(`#meta-${a} b`).first()).toHaveText('1');
       for (const [order, expected] of [['absdate',[b,a,c]], ['r',[a,b,c]]]) {
         await live.locator('#order-ctrl').selectOption(order);
         expect(await ids()).toEqual(expected);
-        await page.goto(`${origin}/test/catalog?order=${order}&q=${encodeURIComponent(marker)}`);
+        await page.goto(`${origin}/fixture/catalog?order=${order}&q=${encodeURIComponent(marker)}`);
         const serverIds = await page.locator('.catalog .thread').evaluateAll(nodes => nodes.map(node => node.id.replace('thread-', '')));
         expect(await ids()).toEqual(serverIds);
       }
@@ -257,11 +281,17 @@ test('catalog controls sort persisted sage replies with and without JavaScript',
     } finally { await liveContext.close(); }
   } finally {
     for (const id of threads) {
-      await page.goto(`${origin}/test/thread/${id}`);
+      await page.goto(`${origin}/fixture/thread/${id}`);
       const actions = page.locator(`#p${id} .postActions`);
       await actions.getByText('Delete or report', { exact: true }).click();
-      await actions.getByLabel('Deletion password', { exact: true }).fill(password);
-      await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+      await expect(actions.locator('input[name=password]')).toHaveValue('');
+      await withDeletionQuota(async () => {
+        const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/fixture/delete'));
+        await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+        const response = await deleted;
+        expect(response.status()).toBe(303);
+        await response.finished();
+      });
     }
     await context.close();
   }
@@ -276,8 +306,8 @@ test('cross-board quotes navigate persisted replies and respect deletion without
   async function post(path, comment) {
     await page.goto(`${origin}${path}`);
     await page.locator('#com').fill(comment);
-    await page.locator('#password').fill(password);
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page.locator('#postPassword')).toHaveValue('');
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/thread\/\d+#p\d+$/);
     return /#p(\d+)$/.exec(page.url())[1];
   }
@@ -285,14 +315,14 @@ test('cross-board quotes navigate persisted replies and respect deletion without
     const target = await post('/demo/', 'Owned cross-board target');
     threads.push(['demo', target]);
     const reply = await post(`/demo/thread/${target}`, 'Owned target reply');
-    const source = await post('/test/', `See >>>/demo/${reply}.\n<script>window.quoteHostile = true</script>\n>>>/../42\n[spoiler]>>>/demo/${reply}[/spoiler]`);
-    threads.push(['test', source]);
-    const sourceUrl = `${origin}/test/thread/${source}`;
-    const local = await post(`/test/thread/${source}`, `Local >>>/test/${source} and >>>/demo/${reply}.\n[spoiler]>>>/test/${source}[/spoiler]`);
-    const localLink = page.locator(`#m${local} a.quotelink[href="/test/post/${source}"]`).first();
+    const source = await post('/fixture/', `See >>>/demo/${reply}.\n<script>window.quoteHostile = true</script>\n>>>/../42\n[spoiler]>>>/demo/${reply}[/spoiler]`);
+    threads.push(['fixture', source]);
+    const sourceUrl = `${origin}/fixture/thread/${source}`;
+    const local = await post(`/fixture/thread/${source}`, `Local >>>/fixture/${source} and >>>/demo/${reply}.\n[spoiler]>>>/fixture/${source}[/spoiler]`);
+    const localLink = page.locator(`#m${local} a.quotelink[href="/fixture/post/${source}"]`).first();
     await expect(localLink).toHaveText(`>>${source}`);
     await expect(page.locator(`#m${local} s`)).toHaveText(`>>${source}`);
-    await expect(page.locator(`#m${local} s a`)).toHaveAttribute('href', `/test/post/${source}`);
+    await expect(page.locator(`#m${local} s a`)).toHaveAttribute('href', `/fixture/post/${source}`);
     await localLink.click();
     await expect(page).toHaveURL(`${sourceUrl}#p${source}`);
     await expect(page.locator(`#m${source} a.quotelink`)).toHaveCount(2);
@@ -302,22 +332,24 @@ test('cross-board quotes navigate persisted replies and respect deletion without
     await expect(page.locator(`#m${source} script`)).toHaveCount(0);
     await expect(page.locator(`#m${source} s a`)).toHaveAttribute('href', `/demo/post/${reply}`);
     await page.reload();
-    const json = await (await context.request.get(`${origin}/test/thread/${source}.json`)).json();
+    const json = await (await context.request.get(`${origin}/fixture/thread/${source}.json`)).json();
     expect(json.posts[0].com).toContain(`<a class="quotelink" href="/demo/post/${reply}">&gt;&gt;&gt;/demo/${reply}</a>`);
     expect(json.posts[0].com).not.toContain('<script>');
-    expect(json.posts.find(post => String(post.no) === local).com).toContain(`<a class="quotelink" href="/test/post/${source}">&gt;&gt;${source}</a>`);
+    expect(json.posts.find(post => String(post.no) === local).com).toContain(`<a class="quotelink" href="/fixture/post/${source}">&gt;&gt;${source}</a>`);
     const redirect = await context.request.get(`${origin}/demo/post/${reply}`, { maxRedirects: 0 });
     expect(redirect.status()).toBe(303);
     expect(redirect.headers().location).toBe(`/demo/thread/${target}#p${reply}`);
-    expect((await context.request.get(`${origin}/test/post/${reply}`)).status()).toBe(404);
+    expect((await context.request.get(`${origin}/fixture/post/${reply}`)).status()).toBe(404);
     expect((await context.request.get(`${origin}/missing/post/${reply}`)).status()).toBe(404);
     await link.click();
     await expect(page).toHaveURL(`${origin}/demo/thread/${target}#p${reply}`);
     await expect(page.locator(`#p${reply}`)).toBeVisible();
     await page.locator(`#p${reply} summary`).click();
-    await page.locator(`#delete${reply}`).fill(password);
-    await page.locator(`#p${reply}`).getByRole('button', { name: 'Delete post', exact: true }).click();
-    expect((await context.request.get(`${origin}/demo/post/${reply}`)).status()).toBe(404);
+    await expect(page.locator(`#delete${reply}`)).toHaveValue('');
+    await withDeletionQuota(async () => {
+      await page.locator(`#p${reply}`).getByRole('button', { name: 'Delete post', exact: true }).click();
+      expect((await context.request.get(`${origin}/demo/post/${reply}`)).status()).toBe(404);
+    });
     await page.goto(sourceUrl);
     await expect(link).toHaveCount(1);
     const navigation = page.waitForResponse(response => response.url() === `${origin}/demo/post/${reply}`);
@@ -327,10 +359,12 @@ test('cross-board quotes navigate persisted replies and respect deletion without
   } finally {
     try {
       for (const [board, no] of threads.reverse()) {
-        const deleted = await context.request.post(`${origin}/${board}/delete`, {
-          headers: { origin }, form: { no, password }, maxRedirects: 0,
+        await withDeletionQuota(async () => {
+          const deleted = await context.request.post(`${origin}/${board}/delete`, {
+            headers: { origin }, form: { no, password }, maxRedirects: 0,
+          });
+          expect(deleted.status()).toBe(303);
         });
-        expect(deleted.status()).toBe(303);
       }
     } finally { await context.close(); }
   }
@@ -341,7 +375,12 @@ test('release UI images have a narrow CSP with a healthy denied-origin control',
   const origin = new URL(page.url()).origin;
   const policy = response.headers()['content-security-policy'];
   const sources = policy.split(';').map(part => part.trim()).find(part => part.startsWith('img-src '));
-  expect(sources).toBe(`img-src ${origin}/static/themes/fade.png ${origin}/static/themes/fade-blue.png ${releaseImages.map(asset => `${origin}${asset.path}`).join(' ')}`);
+  // The two source names remain permitted but have no replacement artwork.
+  // Keep them explicit so newly missing assets cannot silently leave this check.
+  expect(unavailableImages).toEqual(['/static/catalog/spoiler-news1.png', '/static/catalog/spoiler-vm1.png']);
+  expect(spoilerAssets.assets.filter(asset => asset.status !== 200).every(asset => asset.available === false)).toBe(true);
+  const imagePaths = [...releaseImages.map(asset => asset.path), ...unavailableImages];
+  expect(sources).toBe(`img-src ${origin}/static/themes/fade.png ${origin}/static/themes/fade-blue.png ${imagePaths.map(path => `${origin}${path}`).join(' ')}`);
   for (const asset of releaseImages) {
     const dimensions = await page.evaluate(src => new Promise(resolve => {
       const image = new Image();
@@ -349,7 +388,10 @@ test('release UI images have a narrow CSP with a healthy denied-origin control',
       image.onerror = () => resolve(null);
       image.src = src;
     }), `${origin}${asset.path}`);
-    expect(dimensions).toEqual(asset.dimensions);
+    expect(dimensions, asset.path).toEqual(asset.dimensions);
+  }
+  for (const path of unavailableImages) {
+    expect((await page.request.get(`${origin}${path}`)).status(), path).toBe(404);
   }
   const allowed = `${origin}/static/themes/fade-blue.png`;
   const denied = new URL(allowed);
@@ -361,7 +403,7 @@ test('release UI images have a narrow CSP with a healthy denied-origin control',
   expect(healthy.headers()['content-type']).toBe('image/png');
   expect(await healthy.body()).toEqual(await positive.body());
   const unlisted = `${origin}/static/watcher/unknown.png`;
-  const outcome = await page.evaluate(async ({ allowed, denied, unlisted }) => {
+  const outcome = await page.evaluate(async ({ allowed, denied, unlisted, unavailable }) => {
     const violations = [];
     document.addEventListener('securitypolicyviolation', event => violations.push({ uri: event.blockedURI, directive: event.effectiveDirective }));
     const load = src => new Promise(resolve => {
@@ -373,12 +415,17 @@ test('release UI images have a narrow CSP with a healthy denied-origin control',
     const positive = await load(allowed);
     const negative = await load(denied);
     const unknown = await load(unlisted);
+    const missing = await Promise.all(unavailable.map(load));
     await new Promise(resolve => setTimeout(resolve, 50));
-    return { positive, negative, unknown, violations };
-  }, { allowed, denied: denied.href, unlisted });
+    return { positive, negative, unknown, missing, violations };
+  }, { allowed, denied: denied.href, unlisted, unavailable: unavailableImages.map(path => `${origin}${path}`) });
   expect(outcome.positive).toEqual([1, 200]);
   expect(outcome.negative).toBeNull();
   expect(outcome.unknown).toBeNull();
+  expect(outcome.missing).toEqual([null, null]);
+  for (const path of unavailableImages) {
+    expect(outcome.violations).not.toContainEqual({ uri: `${origin}${path}`, directive: 'img-src' });
+  }
   expect(outcome.violations).toContainEqual({ uri: denied.href, directive: 'img-src' });
   expect(outcome.violations).toContainEqual({ uri: unlisted, directive: 'img-src' });
 });
@@ -483,14 +530,14 @@ test('API listener rejects posting and browser preflights cannot grant write acc
 });
 
 test('posting, replying, reporting, and password deletion persist through reload', async ({ page }) => {
-  await page.goto('/test/');
+  await page.goto('/fixture/');
   await expect(page.locator('#postForm')).toBeHidden();
   await page.locator('#togglePostFormLink a').click();
   await page.locator('#sub').fill('A synthetic browser thread');
   await page.locator('#com').fill('>hello\n<script>window.hostile = true</script>\n[spoiler]a hidden fold[/spoiler]');
-  await page.locator('#password').fill('browser-password-123');
-  await page.getByRole('button', { name: 'Post', exact: true }).click();
-  await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+  await expect(page.locator('#postPassword')).toHaveValue('');
+  await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
+  await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
   const originalUrl = page.url();
   const op = /#p(\d+)$/.exec(originalUrl)[1];
   await page.reload();
@@ -499,8 +546,8 @@ test('posting, replying, reporting, and password deletion persist through reload
   await expect(page.locator(`#m${op} script`)).toHaveCount(0);
   await page.locator('#togglePostFormLink a').click();
   await page.locator('#com').fill(`>>${op}\nA persisted reply.`);
-  await page.locator('#password').fill('browser-reply-password');
-  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await expect(page.locator('#postPassword')).toHaveValue('');
+  await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
   await expect(page.locator('.replyContainer')).toHaveCount(1);
   await page.locator('.replyContainer .quotelink').click();
   await expect(page).toHaveURL(new RegExp(`#p${op}$`));
@@ -510,31 +557,35 @@ test('posting, replying, reporting, and password deletion persist through reload
   await expect(page.getByRole('heading', { name: 'Report received' })).toBeVisible();
   await page.goto(originalUrl);
   await page.locator(`#p${op} summary`).click();
-  await page.locator(`#delete${op}`).fill('browser-password-123');
-  await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();
-  await expect(page).toHaveURL(/\/test\/$/);
-  const deleted = await page.request.get(`/test/thread/${op}.json`);
-  expect(deleted.status()).toBe(404);
+  await expect(page.locator(`#delete${op}`)).toHaveValue('');
+  await withDeletionQuota(async () => {
+    await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();
+    await expect(page).toHaveURL(/\/fixture\/$/);
+    const deleted = await page.request.get(`/fixture/thread/${op}.json`);
+    expect(deleted.status()).toBe(404);
+  });
 });
 
 test('mobile native form controls retain a draft and submit a persisted reply', async ({ page, request }) => {
   const origin = 'http://127.0.0.1:3000', password = 'owned-mobile-form-password';
-  const response = await request.post('/test/post', { headers: { Origin: origin }, maxRedirects: 0,
-    form: { com: 'Owned mobile form thread', password } });
+  const response = await withPostingHistory(() => request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
+    form: { com: 'Owned mobile form thread', password } }));
   expect(response.status()).toBe(303); const id = /#p(\d+)$/.exec(response.headers().location)[1];
   try {
     await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ quickReply: false })));
-    await page.setViewportSize({ width: 390, height: 900 }); await page.goto(`/test/thread/${id}`);
+    await page.setViewportSize({ width: 390, height: 900 }); await page.goto(`/fixture/thread/${id}`);
     await expect(page.locator('#postForm')).toBeHidden(); await page.locator('#mpostform a').click();
-    await page.locator('#com').fill('Persisted mobile form reply'); await page.locator('#password').fill(password);
+    await page.locator('#com').fill('Persisted mobile form reply'); await expect(page.locator('#postPassword')).toHaveValue('');
     await page.locator('#mpostform a').click(); await expect(page.locator('#postForm')).toBeHidden();
     await page.locator('.postFormBottom a').click(); await expect(page.locator('#com')).toHaveValue('Persisted mobile form reply');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page.locator('.replyContainer .postMessage')).toHaveText('Persisted mobile form reply');
-    const posts = (await (await request.get(`/test/thread/${id}.json`)).json()).posts;
+    const posts = (await (await request.get(`/fixture/thread/${id}.json`)).json()).posts;
     expect(posts).toHaveLength(2); expect(posts[1].com).toBe('Persisted mobile form reply');
   } finally {
-    expect((await request.post('/test/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+    await withDeletionQuota(async () => {
+      expect((await request.post('/fixture/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } })).status()).toBe(303);
+    });
   }
 });
 
@@ -545,26 +596,26 @@ test('documented board-return options work with JavaScript disabled', async ({ b
   const password = 'posting-options-browser-password';
   let op;
   try {
-    await page.goto(`${origin}/test/`);
+    await page.goto(`${origin}/fixture/`);
     await page.locator('#com').fill('Owned posting-options browser thread');
-    await page.locator('#password').fill(password);
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
-    await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+    await expect(page.locator('#postPassword')).toHaveValue('');
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
+    await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
     op = /#p(\d+)$/.exec(page.url())[1];
-    const thread = `${origin}/test/thread/${op}`;
+    const thread = `${origin}/fixture/thread/${op}`;
     for (const option of ['nonoko', 'nonokosage', 'NONOKO', 'sageNONOKOSaGe']) {
       await page.goto(thread);
       await page.getByLabel('Options', { exact: true }).fill(option);
       const comment = `A persisted ${option} browser reply`;
       await page.locator('#com').fill(comment);
-      await page.locator('#password').fill(password);
+      await expect(page.locator('#postPassword')).toHaveValue('');
       const [response] = await Promise.all([
         page.waitForResponse(response => response.request().method() === 'POST'
-          && new URL(response.url()).pathname === '/test/imgboard.php'),
-        page.getByRole('button', { name: 'Post', exact: true }).click(),
+          && new URL(response.url()).pathname === '/fixture/imgboard.php'),
+        withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click()),
       ]);
       expect(response.status()).toBe(303);
-      await expect(page).toHaveURL(`${origin}/test/`);
+      await expect(page).toHaveURL(`${origin}/fixture/`);
       await page.reload();
       await expect(page.locator(`#t${op}`).getByText(comment, { exact: true })).toBeVisible();
       await page.goto(thread);
@@ -573,10 +624,12 @@ test('documented board-return options work with JavaScript disabled', async ({ b
   } finally {
     try {
       if (op) {
-        const deleted = await context.request.post(`${origin}/test/delete`, {
-          headers: { origin }, form: { no: op, password }, maxRedirects: 0,
+        await withDeletionQuota(async () => {
+          const deleted = await context.request.post(`${origin}/fixture/delete`, {
+            headers: { origin }, form: { no: op, password }, maxRedirects: 0,
+          });
+          expect(deleted.status()).toBe(303);
         });
-        expect(deleted.status()).toBe(303);
       }
     } finally {
       await context.close();
@@ -589,31 +642,33 @@ test('source subject cleanup preserves expanded text and reply subjects without 
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage(); let op;
   try {
-    await page.goto(`${origin}/test/`);
+    await page.goto(`${origin}/fixture/`);
     const raw = `A${'\t'.repeat(98)}B`, expanded = `A${' '.repeat(392)}B`;
     await page.locator('#sub').fill(raw); await page.locator('#com').fill('Owned expanded subject');
-    await page.locator('#password').fill(password); await page.getByRole('button', { name: 'Post', exact: true }).click();
-    await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/); op = /#p(\d+)$/.exec(page.url())[1];
+    await expect(page.locator('#postPassword')).toHaveValue(''); await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
+    await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/); op = /#p(\d+)$/.exec(page.url())[1];
     await expect(page.locator(`#pi${op} .subject`)).toHaveJSProperty('textContent', expanded);
-    const response = await context.request.post(`${origin}/test/imgboard.php`, {
+    const response = await withPostingHistory(() => context.request.post(`${origin}/fixture/imgboard.php`, {
       headers: { Origin: origin, Accept: 'application/json' },
       form: { resto: op, sub: 'Ｚ##ⓦ <b>😀', com: 'Owned subject reply', pwd: password },
-    });
+    }));
     expect(response.status()).toBe(200); const reply = await response.json(); expect(reply.error).toBeUndefined();
     await page.reload();
     await expect(page.locator(`#m${reply.pid}`)).toHaveText('Owned subject reply');
     await expect(page.locator(`#pi${reply.pid} .subject`)).toHaveCount(0);
-    const data = await (await context.request.get(`${origin}/test/thread/${op}.json`)).json();
+    const data = await (await context.request.get(`${origin}/fixture/thread/${op}.json`)).json();
     expect(data.posts[0].sub).toBe(expanded);
     expect(data.posts.find(post => post.no === reply.pid).sub).toBe('aw &lt;b&gt;');
-    await page.goto(`${origin}/test/catalog`);
+    await page.goto(`${origin}/fixture/catalog`);
     const card = page.locator(`#thread-${op}`);
     await expect(card.locator('.teaser b')).toHaveJSProperty('textContent', expanded);
     await expect(card.locator('.catalogThumb')).toHaveAttribute('data-search-text', `<b>${expanded}</b>: Owned expanded subject`);
   } finally {
-    try { if (op) expect((await context.request.post(`${origin}/test/delete`, {
-      headers: { Origin: origin }, form: { no: op, password }, maxRedirects: 0,
-    })).status()).toBe(303); } finally { await context.close(); }
+    try { if (op) await withDeletionQuota(async () => {
+      expect((await context.request.post(`${origin}/fixture/delete`, {
+        headers: { Origin: origin }, form: { no: op, password }, maxRedirects: 0,
+      })).status()).toBe(303);
+    }); } finally { await context.close(); }
   }
 });
 
@@ -622,19 +677,19 @@ test('source spoiler cleanup and line admission work with JavaScript disabled', 
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage(); let op;
   try {
-    await page.goto(`${origin}/test/`);
+    await page.goto(`${origin}/fixture/`);
     await page.locator('#com').fill('a[spoiler]b[/spoiler]c');
-    await page.locator('#password').fill(password);
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
-    await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+    await expect(page.locator('#postPassword')).toHaveValue('');
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
+    await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
     op = /#p(\d+)$/.exec(page.url())[1];
     await expect(page.locator(`#m${op}`)).toHaveText('abc');
     await expect(page.locator(`#m${op} .spoiler`)).toHaveCount(0);
-    const threadUrl = `${origin}/test/thread/${op}`, jsonUrl = `${threadUrl}.json`;
+    const threadUrl = `${origin}/fixture/thread/${op}`, jsonUrl = `${threadUrl}.json`;
     const accepted = Array.from({ length: 101 }, (_, index) => `line${index}`).join('\n');
-    await page.locator('#com').fill(accepted); await page.locator('#password').fill(password);
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
-    await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+    await page.locator('#com').fill(accepted); await expect(page.locator('#postPassword')).toHaveValue('');
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
+    await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
     const reply = /#p(\d+)$/.exec(page.url())[1]; expect(reply).not.toBe(op);
     await expect(page.locator(`#m${reply} br`)).toHaveCount(100);
     const before = await context.request.get(jsonUrl), snapshot = await before.json();
@@ -644,9 +699,9 @@ test('source spoiler cleanup and line admission work with JavaScript disabled', 
       ['x\n'.repeat(7) + 'end', 'Error: Our system thinks your post is spam.'],
     ]) {
       await page.goto(threadUrl);
-      await page.locator('#com').fill(raw); await page.locator('#password').fill(password);
-      const denied = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await page.locator('#com').fill(raw); await expect(page.locator('#postPassword')).toHaveValue('');
+      const denied = page.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       expect((await denied).status()).toBe(422);
       await expect(page.locator('body')).toContainText(message);
       const after = await context.request.get(jsonUrl);
@@ -654,9 +709,11 @@ test('source spoiler cleanup and line admission work with JavaScript disabled', 
     }
   } finally {
     try {
-      if (op) expect((await context.request.post(`${origin}/test/delete`, {
-        headers: { origin }, form: { no: op, password }, maxRedirects: 0,
-      })).status()).toBe(303);
+      if (op) await withDeletionQuota(async () => {
+        expect((await context.request.post(`${origin}/fixture/delete`, {
+          headers: { origin }, form: { no: op, password }, maxRedirects: 0,
+        })).status()).toBe(303);
+      });
     } finally { await context.close(); }
   }
 });
@@ -668,21 +725,25 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   await expect(page.getByRole('heading', { name: '/demo/ - Paper craft' })).toBeVisible();
   await page.locator('#t1000001').getByRole('link', { name: 'Reply', exact: true }).click();
   await expect(page.locator('#postForm')).toBeVisible();
-  await page.goto('http://127.0.0.1:3000/test/');
+  await page.goto('http://127.0.0.1:3000/fixture/');
   const listing = await (await page.request.get('http://127.0.0.1:3000/boards.json')).json();
-  const limit = listing.boards.find(board => board.board === 'test').max_comment_chars;
+  expect(listing.boards.find(board => board.board === 'test').max_comment_chars)
+    .toBe(boardReference.boards.find(board => board.slug === 'test').max_comment_chars);
+  // Exercise the advertised boundary on the owned board, whose immediate
+  // cleanup is independent of imported source filters and deletion-age policy.
+  const limit = listing.boards.find(board => board.board === 'fixture').max_comment_chars;
   expect(limit).toBe(4000);
   const comment = '𠮷'.repeat(limit);
   const wrapped = count => `${'𠮷'.repeat(35)}<wbr>`.repeat(Math.floor(count / 35)) + '𠮷'.repeat(count % 35);
   await expect(page.locator('#postHelp')).toContainText(`${limit} characters`);
   await expect(page.locator('#com')).not.toHaveAttribute('maxlength');
   await page.locator('#com').fill(comment);
-  await page.locator('#password').fill('no-javascript-password');
-  await page.getByRole('button', { name: 'Post', exact: true }).click();
-  await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+  await expect(page.locator('#postPassword')).toHaveValue('');
+  await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
+  await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
   const op = /#p(\d+)$/.exec(page.url())[1];
   const threadUrl = page.url();
-  const jsonUrl = `http://127.0.0.1:3000/test/thread/${op}.json`;
+  const jsonUrl = `http://127.0.0.1:3000/fixture/thread/${op}.json`;
   await page.reload();
   await expect(page.locator(`#m${op}`)).toHaveText(comment);
   const before = await page.request.get(jsonUrl);
@@ -691,9 +752,9 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   await expect(page.locator(`#m${op} wbr`)).toHaveCount(Math.floor(limit / 35));
   expect(beforeJson.posts[0].replies).toBe(0);
   await page.locator('#com').fill(`${comment}a`);
-  await page.locator('#password').fill('no-javascript-password');
-  const denied = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await expect(page.locator('#postPassword')).toHaveValue('');
+  const denied = page.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
+  await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
   expect((await denied).status()).toBe(422);
   const after = await page.request.get(jsonUrl);
   expect(await after.json()).toEqual(beforeJson);
@@ -703,9 +764,9 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   for (const raw of ['😀', `${'😀'.repeat(limit)}X`]) {
     await page.goto(threadUrl);
     await page.locator('#com').fill(raw);
-    await page.locator('#password').fill('no-javascript-password');
-    const rejected = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page.locator('#postPassword')).toHaveValue('');
+    const rejected = page.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
+    await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     expect((await rejected).status()).toBe(422);
     const unchanged = await page.request.get(jsonUrl);
     expect(await unchanged.json()).toEqual(beforeJson);
@@ -714,28 +775,30 @@ test('advertised Unicode posting limit works with JavaScript disabled', async ({
   await page.goto(threadUrl);
   const multiline = `${'𠮷'.repeat(limit - 2)}\nX`;
   await page.locator('#com').fill(multiline);
-  await page.locator('#password').fill('no-javascript-password');
-  const submitted = page.waitForRequest(request => request.url().endsWith('/test/imgboard.php') && request.method() === 'POST');
-  await page.getByRole('button', { name: 'Post', exact: true }).click();
+  await expect(page.locator('#postPassword')).toHaveValue('');
+  const submitted = page.waitForRequest(request => request.url().endsWith('/fixture/imgboard.php') && request.method() === 'POST');
+  await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
   const submission = await submitted;
   expect(submission.headers()['content-type']).toMatch(/^multipart\/form-data; boundary=/);
   const fields = await new Response(submission.postDataBuffer(), {
     headers: { 'Content-Type': submission.headers()['content-type'] },
   }).formData();
   expect(fields.get('mode')).toBe('regist');
-  expect(fields.get('pwd')).toBe('no-javascript-password');
+  expect(fields.get('pwd')).toBe('');
   expect(fields.get('com')).toBe(multiline.replace('\n', '\r\n'));
-  await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+  await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
   const reply = /#p(\d+)$/.exec(page.url())[1];
   expect(reply).not.toBe(op);
   await expect(page.locator(`#m${reply} br`)).toHaveCount(1);
   const multilineJson = await (await page.request.get(jsonUrl)).json();
   expect(multilineJson.posts.find(post => String(post.no) === reply).com).toBe(`${wrapped(limit - 2)}<br>X`);
   await page.locator(`#p${op} summary`).click();
-  await page.locator(`#delete${op}`).fill('no-javascript-password');
-  await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();
-  await expect(page).toHaveURL(/\/test\/$/);
-  expect((await page.request.get(`/test/thread/${op}.json`)).status()).toBe(404);
+  await expect(page.locator(`#delete${op}`)).toHaveValue('');
+  await withDeletionQuota(async () => {
+    await page.locator(`#p${op}`).getByRole('button', { name: 'Delete post', exact: true }).click();
+    await expect(page).toHaveURL(/\/fixture\/$/);
+    expect((await page.request.get(`/fixture/thread/${op}.json`)).status()).toBe(404);
+  });
   await context.close();
 });
 
@@ -745,34 +808,36 @@ for (const javaScriptEnabled of [false, true]) {
     const context = await browser.newContext({ javaScriptEnabled });
     const page = await context.newPage(); let op;
     try {
-      await page.goto(`${origin}/test/`);
+      await page.goto(`${origin}/fixture/`);
       if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
       await expect(page.locator('#com')).not.toHaveAttribute('required');
       await page.locator('#sub').fill('Owned subject-only thread');
-      await page.locator('#password').fill(password);
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
-      await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+      await expect(page.locator('#postPassword')).toHaveValue('');
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
+      await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
       op = /#p(\d+)$/.exec(page.url())[1];
       await expect(page.locator(`#m${op}`)).toBeEmpty();
       await expect(page.locator(`#p${op} .subject`).first()).toHaveText('Owned subject-only thread');
-      const jsonUrl = `${origin}/test/thread/${op}.json`;
+      const jsonUrl = `${origin}/fixture/thread/${op}.json`;
       const before = await context.request.get(jsonUrl), snapshot = await before.json();
       expect(snapshot.posts[0].sub).toBe('Owned subject-only thread');
       expect(snapshot.posts[0]).not.toHaveProperty('com');
       if (javaScriptEnabled) await page.locator('#togglePostFormLink a').click();
       await page.locator('#com').fill('[spoiler] \n[/spoiler]');
-      await page.locator('#password').fill(password);
-      const denied = page.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
-      await page.getByRole('button', { name: 'Post', exact: true }).click();
+      await expect(page.locator('#postPassword')).toHaveValue('');
+      const denied = page.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
+      await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
       expect((await denied).status()).toBe(422);
       await expect(page.locator('body')).toContainText('Error: No text entered.');
       const after = await context.request.get(jsonUrl);
       expect(await after.json()).toEqual(snapshot); expect(after.headers().etag).toBe(before.headers().etag);
     } finally {
       try {
-        if (op) expect((await context.request.post(`${origin}/test/delete`, {
-          headers: { origin }, form: { no: op, password }, maxRedirects: 0,
-        })).status()).toBe(303);
+        if (op) await withDeletionQuota(async () => {
+          expect((await context.request.post(`${origin}/fixture/delete`, {
+            headers: { origin }, form: { no: op, password }, maxRedirects: 0,
+          })).status()).toBe(303);
+        });
       } finally { await context.close(); }
     }
   });

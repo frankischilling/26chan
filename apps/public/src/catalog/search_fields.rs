@@ -1,5 +1,3 @@
-use board_domain::parse_post_comment;
-
 // Preserve source tab expansion while bounding independent synthetic inputs.
 const SUBJECT_SCALARS: usize = board_domain::MAX_SUBJECT_BYTES;
 
@@ -31,18 +29,17 @@ pub(crate) fn compose(subject: &str, teaser: &str) -> String {
     output
 }
 
-pub(crate) fn from_post(
-    subject: &str,
-    comment: &str,
-    format: i16,
-    board: &board_store::Board,
-) -> String {
+pub(crate) fn from_post(post: &board_store::Post, board: &board_store::Board) -> String {
     compose(
-        subject,
-        &super::teaser::prepare(
-            &parse_post_comment(comment, format),
+        &post.subject,
+        &super::teaser::prepare_with_randomizers(
+            &post.formatted_lines(),
             &board.slug,
-            board.into(),
+            super::teaser::Policy::for_post(board, post.comment_format),
+            post.dice_result.as_deref(),
+            post.fortune_text
+                .as_deref()
+                .zip(post.fortune_color.as_deref()),
         )
         .serialized,
     )
@@ -53,6 +50,7 @@ mod tests {
     use super::*;
     use crate::catalog::filter::Filter;
     use board_domain::parse_comment;
+    use board_domain::parse_post_comment;
     use proptest::prelude::*;
     use serde::Deserialize;
 
@@ -146,6 +144,24 @@ mod tests {
             format!("<b>{expanded}</b>: body")
         );
         assert!(Filter::new("B</b>").matches(&from_raw(&expanded, "body")));
+    }
+
+    #[test]
+    fn retained_randomizers_are_searchable_without_trusting_markup() {
+        assert_eq!(
+            compose(
+                "<subject>",
+                &super::super::teaser::prepare_with_randomizers(
+                    &parse_comment("ordinary"),
+                    "test",
+                    Default::default(),
+                    Some("Rolled 6, 6 = 12 (2d6)"),
+                    Some(("<Outlook good>", "#7fec11")),
+                )
+                .serialized,
+            ),
+            "<b>&lt;subject&gt;</b>: Rolled 6, 6 = 12 (2d6) ordinary Your fortune: &lt;Outlook good&gt;"
+        );
     }
 
     #[test]

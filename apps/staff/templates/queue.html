@@ -1,18 +1,19 @@
 {% import "formatting.html" as fmt %}
 {% macro action(csrf, board, target, action, label) %}<form method="post" action="/moderate"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="target" value="{{ target }}"><button name="action" value="{{ action }}">{{ label }}</button></form>{% endmacro %}
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Staff reports</title><link rel="stylesheet" href="/comment-markup.css"></head><body><main>
-<h1>Report queue</h1><p>Showing the latest 100 reports, open reports first. Removed content remains visible here for review.</p>
-<p><a href="/post">Post with staff badge</a></p>
+<h1>Report queue</h1><form method="get" action="/reports/cleared"><label>Cleared history board <input name="board" required maxlength="16" pattern="[a-z0-9]+"></label><button>View cleared reports</button></form><p>Showing the latest 100 reports, open reports first. Removed content remains visible here for review.</p>
+{% if discussion || can_post %}<p>{% if discussion %}<a href="/j/">Staff discussion</a>{% endif %}{% if can_post %}{% if discussion %} · {% endif %}<a href="/post">Post</a>{% endif %}</p>{% endif %}
 <p><a href="/">Sign in again</a> to refresh authentication before sensitive changes.</p>
 {% if !recent %}<p>Authentication is older than ten minutes. Sign in again to moderate.</p>{% endif %}
 <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sign out</button></form>
 {% for preview in reports %}{% let r = preview.report %}
 <article id="report-{{ r.id }}"><h2>Report {{ r.id }}: /{{ r.board }}/ post {{ r.post_id }}</h2>
-<p>State: <strong>{{ r.state }}</strong>. Thread {{ r.thread_id }}; closed: {{ r.closed }}, sticky: {{ r.sticky }}, permasage: {{ r.permasage }}, permaage: {{ r.permaage }}, removed: {{ r.deleted }}.</p>
-<p>Reason: {{ r.reason }}</p><h3>{{ r.subject }}</h3><p>Posted by {{ r.name }}{% if let Some(capcode) = preview.capcode() %} <strong>## {{ capcode.label() }}</strong>{% else %}{% if let Some(trip) = r.trip %} <span class="postertrip">{{ trip }}</span>{% endif %}{% if let Some(id) = r.poster_id %} <span class="posteruid">(ID: {{ id }})</span>{% endif %}{% if let Some(flag) = preview.flag() %} ({{ flag.0 }}: {{ flag.1 }}){% endif %}{% endif %}</p><blockquote>{% call fmt::comment(preview.lines.as_slice()) %}{% endcall %}</blockquote>
+<p>State: <strong>{{ r.state }}</strong>. Thread {{ r.thread_id }}; closed: {{ r.closed }}, sticky: {{ r.sticky }}, permasage: {{ r.permasage }}, permaage: {{ r.permaage }}, undead: {{ r.undead }}, archived: {{ r.archived }}, removed: {{ r.deleted }}.</p>
+{% if let Some(category_id) = r.category_id %}<p>Category: {{ category_id }} ({{ r.category_kind_label() }}){% if !r.reason.is_empty() %}: {{ r.reason }}{% endif %}</p>{% else %}<p>Reason: {{ r.reason }}</p>{% endif %}<h3>{{ r.subject }}</h3><p>Posted by {{ r.name }}{% if let Some(capcode) = preview.capcode() %}{% if let Some(trip) = r.trip %} <span class="postertrip">{{ trip }}</span>{% endif %} <strong>## {{ capcode.label() }}</strong>{% else %}{% if let Some(trip) = r.trip %} <span class="postertrip">{{ trip }}</span>{% endif %}{% if let Some(id) = r.poster_id %} <span class="posteruid">(ID: {{ id }})</span>{% endif %}{% if let Some(flag) = preview.flag() %} ({{ flag.0 }}: {{ flag.1 }}){% endif %}{% endif %}</p><blockquote>{% call fmt::comment(preview.lines.as_slice()) %}{% endcall %}</blockquote>
 {% if let Some(a) = r.attachment %}
 <section aria-label="Attachment"><p>File: {{ a.filename }} ({{ a.bytes }} bytes, {{ a.width }} × {{ a.height }}). Spoiler: {{ a.spoiler }}.</p>
 {% if a.available %}
+{% if r.archived %}{% if let Some(md5) = a.file_md5() %}<details><summary>File MD5</summary><p>Approved normalized file MD5: <code>{{ md5 }}</code></p></details>{% endif %}{% endif %}
 <a href="{{ media_origin }}/{{ r.board }}/{{ a.tim }}.png" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% if a.spoiler %}Open spoiler image{% else %}Open normalized image{% endif %}</a>
 {% if !a.spoiler %}{% if let Some(width) = a.thumbnail_width %}{% if let Some(height) = a.thumbnail_height %}
 <p><img src="{{ media_origin }}/{{ r.board }}/{{ a.tim }}s.jpg" width="{{ width }}" height="{{ height }}" alt="Attachment thumbnail" loading="lazy" referrerpolicy="no-referrer"></p>
@@ -22,13 +23,24 @@
 </section>
 {% endif %}
 {% if !r.deleted %}
+{% if r.spoilers_enabled %}
+{% if r.image_spoiler %}{% call action(csrf,r.board,r.post_id,"unspoiler","Remove image spoiler") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.post_id,"spoiler","Spoiler image") %}{% endcall %}{% endif %}
+{% endif %}
+{% if moderator && !r.archived %}
+{% if r.archives_enabled && !r.sticky %}{% call action(csrf,r.board,r.thread_id,"force-archive","Archive thread") %}{% endcall %}{% endif %}
+<p><a href="/thread-options?board={{ r.board }}&amp;target={{ r.thread_id }}">Thread Options</a></p>
 {% if r.closed %}{% call action(csrf,r.board,r.thread_id,"reopen","Reopen thread") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"close","Close thread") %}{% endcall %}{% endif %}
 {% if r.sticky %}{% call action(csrf,r.board,r.thread_id,"unsticky","Unsticky thread") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"sticky","Sticky thread") %}{% endcall %}{% endif %}
 {% if r.permasage %}{% call action(csrf,r.board,r.thread_id,"unpermasage","Disable permasage") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"permasage","Enable permasage") %}{% endcall %}{% endif %}
-{% if admin %}{% if r.permaage %}{% call action(csrf,r.board,r.thread_id,"unpermaage","Disable permaage") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"permaage","Enable permaage") %}{% endcall %}{% endif %}{% endif %}
+{% if can_permaage %}{% if r.permaage %}{% call action(csrf,r.board,r.thread_id,"unpermaage","Disable permaage") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"permaage","Enable permaage") %}{% endcall %}{% endif %}{% endif %}
+{% if r.undead %}{% call action(csrf,r.board,r.thread_id,"unundead","Disable Undead") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"undead","Enable Undead") %}{% endcall %}{% endif %}
+{% endif %}
 {% call action(csrf,r.board,r.post_id,"remove-post","Remove post") %}{% endcall %}
 {% call action(csrf,r.board,r.thread_id,"remove-thread","Remove thread") %}{% endcall %}
 {% endif %}
 {% call action(csrf,r.board,r.id,"resolve","Resolve report") %}{% endcall %}{% call action(csrf,r.board,r.id,"dismiss","Dismiss report") %}{% endcall %}
+<form method="post" action="/report-group-clear"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ r.board }}"><input type="hidden" name="post_id" value="{{ r.post_id }}"><button>Clear report group</button></form>
+<p><a href="/reports/cleared?board={{ r.board }}">Cleared report history for /{{ r.board }}/</a></p>
+{% if can_clear_reporter %}<form method="post" action="/reporter-clear"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ r.board }}"><input type="hidden" name="report_id" value="{{ r.id }}"><button>Clear reporter's reports</button></form>{% endif %}
 </article>{% else %}<p>No reports.</p>{% endfor %}
 </main></body></html>

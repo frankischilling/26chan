@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 
 const themes = [
   ['yotsuba', 'rgb(255, 255, 238)', 'rgb(128, 0, 0)', 'rgb(240, 224, 214)', 'rgb(204, 17, 5)', 'rgb(17, 119, 67)', false],
@@ -28,6 +28,10 @@ for (const [device, viewport] of [['desktop', { width: 1280, height: 900 }], ['m
       await expect(page.locator('.name').first()).toHaveCSS('color', device === 'mobile' ? 'rgb(17, 119, 67)' : name);
       expect(await page.locator('html').evaluate(node => getComputedStyle(node).fontFamily.includes('Times New Roman'))).toBe(serif);
       expect(await page.locator('.postMessage').allTextContents()).toEqual(content);
+      await expect(page.locator('#postPassword')).toHaveAttribute('type', 'hidden');
+      await expect(page.locator('#postPassword')).toHaveAttribute('name', 'pwd');
+      await expect(page.locator('#postPassword')).toHaveValue('');
+      await expect(page.locator('#postPassword')).toBeHidden();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (device === 'mobile') {
         await expect(page.locator('.sideArrows')).toBeHidden();

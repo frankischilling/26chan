@@ -386,3 +386,49 @@ export class WatcherRefresh {
     }
   }
 }
+
+export const REPORT_POPUP_LIMITS = /* @__PURE__ */ Object.freeze({ entries: 16, ageMs: 10 * 60 * 1000, closeMs: 3000 });
+
+export function reportURL(origin, board, id) {
+  if (typeof id !== 'string' || postId(id) !== id || typeof board !== 'string' || !/^[a-z0-9]{1,10}$/.test(board)) return null;
+  try {
+    const base = new URL(origin);
+    if (!['http:', 'https:'].includes(base.protocol) || base.origin !== origin) return null;
+    return `${origin}/${board}/imgboard.php?mode=report&no=${id}`;
+  } catch { return null; }
+}
+
+// Only windows opened by this page can acknowledge a report. The original DOM
+// target is kept by the caller, so replacing a post cannot inherit authority.
+export function createReportRegistry({ origin, current, complete, now = Date.now }) {
+  const pending = new Map();
+  function prune() {
+    const time = now();
+    for (const [source, entry] of pending) {
+      let closed = true;
+      try { closed = source.closed; } catch { /* Inaccessible windows are stale. */ }
+      if (closed || time < entry.at || time - entry.at >= REPORT_POPUP_LIMITS.ageMs) pending.delete(source);
+    }
+  }
+  return {
+    register(source, board, id, target) {
+      prune();
+      if (!source || !reportURL(origin, board, id)) return false;
+      if (pending.size >= REPORT_POPUP_LIMITS.entries) pending.delete(pending.keys().next().value);
+      pending.set(source, { board, id, target, at: now() });
+      return true;
+    },
+    receive(event) {
+      prune();
+      if (event.origin !== origin || typeof event.data !== 'string') return false;
+      const entry = pending.get(event.source);
+      if (!entry || event.data !== `done-report-${entry.id}-${entry.board}`) return false;
+      pending.delete(event.source); // Consume before callbacks, including a stale target.
+      if (!current(entry)) return false;
+      complete(entry);
+      return true;
+    },
+    clear() { pending.clear(); },
+    get size() { prune(); return pending.size; },
+  };
+}

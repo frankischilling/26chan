@@ -11,7 +11,7 @@ sha2 = "0.10"
 md-5 = { version = "=0.11.0", default-features = false }
 tempfile = "=3.27.0"
 thiserror.workspace = true
-tokio = { workspace = true, features = ["io-util"] }
+tokio = { workspace = true, features = ["fs", "io-util"] }
 
 [dev-dependencies]
 proptest.workspace = true

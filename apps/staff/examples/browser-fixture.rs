@@ -71,18 +71,71 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 json!({"thread":thread,"post":post,"report":report,"tim":tim,"mediaRoot":media_root})
             );
         }
+        "ordinary-policy" => {
+            let changed=sqlx::query("UPDATE content.boards SET text_only=true,user_ids=true,country_flags=true,board_flags=ARRAY['AC'],op_markup=true,dice_roll=true,fortune_trip=true,deletion_known_min_seconds=0,deletion_unknown_min_seconds=0 WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
+                .bind(board).execute(&pool).await?.rows_affected();
+            if changed != 1 {
+                return Err("Owned ordinary fixture board is missing".into());
+            }
+        }
+        "ordinary-inspect" => {
+            let summary:serde_json::Value=sqlx::query_scalar("SELECT jsonb_build_object('posts',(SELECT count(*) FROM content.posts WHERE board=$1),'deleted',(SELECT count(*) FROM content.posts WHERE board=$1 AND deleted),'deletion',(SELECT count(*) FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)),'contexts',(SELECT count(*) FROM post_secrets.poster_contexts WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)),'op_peers',(SELECT count(*) FROM post_secrets.op_peers WHERE thread_id IN(SELECT id FROM content.threads WHERE board=$1)),'op_replies',(SELECT count(*) FROM post_secrets.op_replies WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)),'proofs',(SELECT count(*) FROM post_secrets.staff_post_intents WHERE board=$1),'audit',(SELECT count(*) FROM content.moderation_audit WHERE board=$1 AND action='staff-post'))")
+                .bind(board).fetch_one(&pool).await?;
+            println!("{summary}");
+        }
+        "force-anon" => {
+            let changed = sqlx::query("UPDATE content.boards SET forced_anon=true WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
+                .bind(board).execute(&pool).await?.rows_affected();
+            if changed != 1 {
+                return Err("Owned synthetic board is missing".into());
+            }
+        }
         "bump-limit" => {
             sqlx::query("UPDATE content.boards SET bump_limit=1 WHERE slug=$1")
                 .bind(board)
                 .execute(&pool)
                 .await?;
         }
+        "image-limit" => {
+            let changed=sqlx::query("UPDATE content.boards SET image_limit=1 WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
+                .bind(board).execute(&pool).await?.rows_affected();
+            if changed != 1 {
+                return Err("Owned image-limit fixture board is missing".into());
+            }
+        }
+        "authorized-limit" => {
+            use std::io::Read;
+            let mut input = String::new();
+            std::io::stdin().take(6).read_to_string(&mut input)?;
+            if input.is_empty()
+                || input.len() > 5
+                || !input.bytes().all(|byte| byte.is_ascii_digit())
+            {
+                return Err("Invalid synthetic staff limit".into());
+            }
+            let maximum: i32 = input.parse()?;
+            if !(1..=50000).contains(&maximum) {
+                return Err("Invalid synthetic staff limit".into());
+            }
+            let changed = sqlx::query(
+                "UPDATE content.boards SET max_authorized_comment_chars=$2 WHERE slug=$1",
+            )
+            .bind(board)
+            .bind(maximum)
+            .execute(&pool)
+            .await?
+            .rows_affected();
+            if changed != 1 {
+                return Err("Owned fixture board is missing".into());
+            }
+        }
         "inspect" => {
-            let states: Vec<(bool, bool, bool)> =
-                sqlx::query_as("SELECT closed,sticky,deleted FROM content.threads WHERE board=$1")
-                    .bind(board)
-                    .fetch_all(&pool)
-                    .await?;
+            let states: Vec<(bool, bool, bool)> = sqlx::query_as(
+                "SELECT closed,sticky,deleted FROM content.threads WHERE board=$1 ORDER BY id",
+            )
+            .bind(board)
+            .fetch_all(&pool)
+            .await?;
             let audit: Vec<String> = sqlx::query_scalar(
                 "SELECT action FROM content.moderation_audit WHERE board=$1 ORDER BY id",
             )
@@ -97,14 +150,34 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             .fetch_all(&pool)
             .await?;
             let sessions:i64=sqlx::query_scalar("SELECT count(*) FROM staff_identity.sessions s JOIN staff_identity.accounts a ON a.id=s.account_id WHERE a.username=$1").bind(board).fetch_one(&pool).await?;
+            let thread_options:Vec<(bool,bool,String,String)>=sqlx::query_as("SELECT permaage,undead,bumped_at::text,modified_at::text FROM content.threads WHERE board=$1 ORDER BY id")
+                .bind(board).fetch_all(&pool).await?;
             println!(
                 "{}",
-                json!({"states":states,"bumpFlags":bump_flags,"audit":audit,"credentials":credentials,"sessions":sessions})
+                json!({"states":states,"bumpFlags":bump_flags,"threadOptions":thread_options,"audit":audit,"credentials":credentials,"sessions":sessions})
             );
         }
-        "spoiler" => {
-            sqlx::query("UPDATE content.post_media SET spoiler=true WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)")
-                .bind(board).execute(&pool).await?;
+        "spoiler-policy" => {
+            let changed=sqlx::query("UPDATE content.boards SET comment_spoiler_cleanup=true WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
+                .bind(board).execute(&pool).await?.rows_affected();
+            if changed != 1 {
+                return Err("Owned spoiler fixture board is missing".into());
+            }
+        }
+        "public-spoiler-policy" => {
+            use std::io::Read;
+            let mut input = String::new();
+            std::io::stdin().take(4).read_to_string(&mut input)?;
+            let enabled = match input.as_str() {
+                "on" => true,
+                "off" => false,
+                _ => return Err("Invalid owned spoiler policy".into()),
+            };
+            let changed=sqlx::query("UPDATE content.boards SET image_limit=100,comment_spoiler_cleanup=$2 WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
+                .bind(board).bind(enabled).execute(&pool).await?.rows_affected();
+            if changed != 1 {
+                return Err("Owned public spoiler fixture board is missing".into());
+            }
         }
         "stale" => {
             sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '11 minutes' WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&pool).await?;
@@ -157,6 +230,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             sqlx::query("DELETE FROM media.assets WHERE id IN (SELECT m.asset_id FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.board=$1)")
                 .bind(board).execute(&mut *tx).await?;
             sqlx::query("DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)")
+                .bind(board).execute(&mut *tx).await?;
+            sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)")
                 .bind(board).execute(&mut *tx).await?;
             sqlx::query("DELETE FROM content.posts WHERE board=$1")
                 .bind(board)

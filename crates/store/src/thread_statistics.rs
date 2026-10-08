@@ -35,7 +35,8 @@ pub async fn thread_statistics(
                 CASE WHEN t.archived_at IS NOT NULL THEN NULL ELSE
                   1 + (SELECT count(*) FROM content.visible_threads earlier
                     WHERE earlier.board=t.board AND NOT earlier.deleted AND earlier.archived_at IS NULL
-                      AND (earlier.sticky,earlier.bumped_at,earlier.id) > (t.sticky,t.bumped_at,t.id)) / b.threads_per_page
+                      AND (earlier.sticky,CASE WHEN earlier.sticky THEN earlier.sticky_rank ELSE 0 END,earlier.bumped_at,earlier.id)
+                        > (t.sticky,CASE WHEN t.sticky THEN t.sticky_rank ELSE 0 END,t.bumped_at,t.id)) / b.threads_per_page
                 END AS page
          FROM content.visible_threads t JOIN content.boards b ON b.slug=t.board
          CROSS JOIN LATERAL (

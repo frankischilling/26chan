@@ -5,6 +5,10 @@ clear that selection, or click another ID to switch. Keyboard users can focus
 the label and press Enter or Space. New replies inherit the current selection.
 Quote-preview and inline copies do not create additional post counts.
 
+Ordinary labels accept the eight-character network alphabet and the exact
+source sage label `Heaven`. Both share the same highlighting and count
+behavior. Staff badge groups retain their separate controls.
+
 On a thread page, hovering or focusing an ID for 500 milliseconds shows the
 number of loaded posts with that label. Index pages offer the count after the
 thread is expanded. The count includes loaded hidden posts and omits unloaded

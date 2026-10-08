@@ -1,8 +1,17 @@
 #![forbid(unsafe_code)]
+pub mod access;
+mod audit_snapshot;
 pub mod auth;
 pub mod config;
+mod discussion;
 mod handlers;
+mod latest;
+mod posting_password;
+mod report_group_clear;
+mod reporter_clear;
 pub mod store;
+mod thread_options;
+mod uploads;
 mod views;
 use axum::{
     Router,
@@ -13,6 +22,7 @@ use axum::{
     routing::{get, post},
 };
 pub use config::{Config, valid_origin};
+pub use handlers::StaffRequestPeer;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::sync::Arc;
 use webauthn_rs::prelude::*;
@@ -27,12 +37,15 @@ pub struct AppState {
 pub struct Limits {
     pub permits: Arc<tokio::sync::Semaphore>,
     pub attempts: std::sync::Mutex<(std::time::Instant, u32)>,
+    pub response_output: board_http::ResponseBudget,
 }
 impl Default for Limits {
     fn default() -> Self {
         Self {
             permits: Arc::new(tokio::sync::Semaphore::new(16)),
             attempts: std::sync::Mutex::new((std::time::Instant::now(), 0)),
+            response_output: board_http::ResponseBudget::new(64 * 1024 * 1024)
+                .expect("fixed staff output budget"),
         }
     }
 }
@@ -46,6 +59,14 @@ pub enum AppError {
     Recent,
     #[error("Invalid request")]
     Invalid,
+    #[error("Invalid request")]
+    Form(StatusCode),
+    #[error("{0}")]
+    Posting(String),
+    #[error("Report group cannot be cleared because report weights are unavailable.")]
+    ReportGroupWeights,
+    #[error("Report group is already cleared.")]
+    ReportGroupAlreadyCleared,
     #[error("Object unavailable")]
     NotFound,
     #[error("Service unavailable")]
@@ -60,7 +81,9 @@ impl IntoResponse for AppError {
         let code = match self {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Forbidden | Self::Recent => StatusCode::FORBIDDEN,
-            Self::Invalid => StatusCode::BAD_REQUEST,
+            Self::Invalid | Self::Posting(_) => StatusCode::BAD_REQUEST,
+            Self::Form(status) => status,
+            Self::ReportGroupWeights | Self::ReportGroupAlreadyCleared => StatusCode::CONFLICT,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Capacity => StatusCode::TOO_MANY_REQUESTS,
             _ => StatusCode::SERVICE_UNAVAILABLE,
@@ -121,16 +144,66 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(handlers::landing))
         .route("/staff.js", get(handlers::javascript))
+        .route("/post-limits.js", get(handlers::post_limits_javascript))
         .route("/comment-markup.css", get(handlers::comment_css))
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
-        .route("/post", get(handlers::posting).post(handlers::post_message))
+        .route("/reports/cleared", get(report_group_clear::history))
+        .route(
+            "/report-group-clear",
+            post(report_group_clear::submit).layer(DefaultBodyLimit::max(4096)),
+        )
+        .route("/latest.php", get(latest::latest))
+        .route("/j", get(discussion::index))
+        .route("/j/", get(discussion::index))
+        .route("/j/index.php", get(discussion::index))
+        .route("/j/thread/{thread}", get(discussion::thread))
+        .route("/j/res/{thread}", get(discussion::legacy_thread))
+        .route("/j/post/{post}", get(discussion::post_link))
+        .route("/j/{page}", get(discussion::page))
+        .route("/discussion.css", get(discussion::stylesheet))
+        .route("/j/latest.php", get(latest::latest))
+        .route("/imgboard.php", get(latest::legacy))
+        .route(
+            "/j/imgboard.php",
+            get(latest::legacy)
+                .post(discussion::submit)
+                .layer(DefaultBodyLimit::max(1_048_576)),
+        )
+        .route(
+            "/post",
+            get(handlers::posting)
+                .post(handlers::post_message)
+                .layer(DefaultBodyLimit::max(1_048_576)),
+        )
+        .route(
+            "/post/upload",
+            post(uploads::upload).layer(DefaultBodyLimit::max(uploads::MAX_MULTIPART_BYTES)),
+        )
+        .route(
+            "/post/upload/status",
+            post(uploads::status).layer(DefaultBodyLimit::max(4096)),
+        )
+        .route(
+            "/post/upload/cancel",
+            post(uploads::cancel).layer(DefaultBodyLimit::max(4096)),
+        )
         .route("/enroll/start", post(handlers::enroll_start))
         .route("/enroll/finish", post(handlers::enroll_finish))
         .route("/login/start", post(handlers::login_start))
         .route("/login/finish", post(handlers::login_finish))
         .route("/logout", post(handlers::logout))
         .route("/moderate", post(handlers::moderate))
+        .route(
+            "/reporter-clear",
+            post(reporter_clear::submit).layer(DefaultBodyLimit::max(4096)),
+        )
+        .route(
+            "/thread-options",
+            get(thread_options::show)
+                .post(thread_options::submit)
+                .layer(DefaultBodyLimit::max(4096)),
+        )
         .layer(DefaultBodyLimit::max(262144))
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -181,8 +254,58 @@ mod tests {
             role: "moderator".into(),
             csrf_hash: auth::hash(&t),
             recent: true,
+            permissions: access::Permissions::all_boards(),
         };
         assert!(auth::csrf(&s, &t).is_ok());
         assert!(auth::csrf(&s, &auth::token()).is_err());
+    }
+    #[tokio::test]
+    async fn form_rejection_preserves_status_without_echoing_decoder_input() {
+        use axum::{
+            Form,
+            body::{Body, to_bytes},
+            extract::FromRequest,
+            http::{Method, Request},
+        };
+        for (method, uri, content_type, expected) in [
+            (
+                Method::POST,
+                "/post",
+                "application/x-www-form-urlencoded",
+                StatusCode::UNPROCESSABLE_ENTITY,
+            ),
+            (
+                Method::POST,
+                "/post",
+                "text/plain",
+                StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            ),
+            (
+                Method::GET,
+                "/post?csrf=private-receipt&board=test&spoiler=private-decoder-value",
+                "application/x-www-form-urlencoded",
+                StatusCode::BAD_REQUEST,
+            ),
+        ] {
+            let request = Request::builder()
+                .method(method)
+                .uri(uri)
+                .header("content-type", content_type)
+                .body(Body::from(
+                    "csrf=private-receipt&board=test&spoiler=private-decoder-value",
+                ))
+                .unwrap();
+            let rejection = Form::<handlers::StaffMessage>::from_request(request, &())
+                .await
+                .err()
+                .expect("invalid form");
+            assert_eq!(rejection.status(), expected);
+            let response = AppError::Form(rejection.status()).into_response();
+            assert_eq!(response.status(), expected);
+            assert_eq!(
+                to_bytes(response.into_body(), 1024).await.unwrap().as_ref(),
+                b"Invalid request"
+            );
+        }
     }
 }

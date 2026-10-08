@@ -1,11 +1,12 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 
 const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-post-menu-event-password';
-    const write = form => request.post('/demo/post', {
+    const write = form => withPostingHistory(() => request.post('/demo/post', {
       headers: { Origin: 'http://127.0.0.1:3000' }, maxRedirects: 0, form: { ...form, password },
-    });
+    }));
     const response = await write({ resto: '0', sub: 'Owned menu event', com: 'Owned OP for menu events' });
     expect(response.status()).toBe(303);
     const id = response.headers().location.match(/thread\/(\d+)/)[1];
@@ -14,10 +15,12 @@ const test = base.extend({
       expect(response.status()).toBe(303);
       await use({ id, reply: response.headers().location.match(/#p(\d+)/)[1], url: `/demo/thread/${id}` });
     } finally {
-      const response = await request.post('/demo/delete', {
-        headers: { Origin: 'http://127.0.0.1:3000' }, maxRedirects: 0, form: { no: id, password },
+      await withDeletionQuota(async () => {
+        const response = await request.post('/demo/delete', {
+          headers: { Origin: 'http://127.0.0.1:3000' }, maxRedirects: 0, form: { no: id, password },
+        });
+        expect(response.status()).toBe(303);
       });
-      expect(response.status()).toBe(303);
     }
   },
 });

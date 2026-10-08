@@ -102,9 +102,9 @@ export function mountNativeThreadHiding({ board, threadId, settings, changed }) 
       return false;
     } finally { clearTimeout(timer); waiting.delete(controller); }
   }
-  async function toggle(id) {
+  async function setHidden(id, requested) {
     if (!index || !enabled() || !load() || !sections().some(section => section.id === `t${id}`)) return false;
-    const hidden = !entries.has(id);
+    const hidden = requested ?? !entries.has(id);
     const result = await mutate(() => {
       const next = changeHiddenThread(raw, id, hidden);
       if (next.status !== 'ok') { warn('Too many hidden threads, or invalid hidden thread settings.'); return false; }
@@ -117,6 +117,8 @@ export function mountNativeThreadHiding({ board, threadId, settings, changed }) 
     }
     return result;
   }
+  function toggle(id) { return setHidden(id); }
+  function hide(id) { return setHidden(id, true); }
   async function purge() {
     if (attempted || !enabled() || !valid || !index) return;
     attempted = true;
@@ -173,7 +175,7 @@ export function mountNativeThreadHiding({ board, threadId, settings, changed }) 
   document.addEventListener('4chanSettingsSaved', refresh);
   mobile.addEventListener('change', apply); density.addEventListener('change', apply);
   queueMicrotask(refresh);
-  return { toggle, clearHistory, refresh, enabled,
+  return { toggle, hide, clearHistory, refresh, enabled,
     isHidden: id => entries.has(id),
     setFiltered: ids => { ready = ids !== null; filtered = ids ?? new Set(); apply(); void initialize(); },
   };

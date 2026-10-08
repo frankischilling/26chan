@@ -15,10 +15,29 @@ type Shared = State<Arc<AppState>>;
 #[derive(Clone, Copy)]
 pub struct StaffRequestStart(pub chrono::DateTime<chrono::Utc>);
 
+#[derive(Clone, Copy)]
+pub struct StaffRequestPeer(Option<std::net::IpAddr>);
+
+impl StaffRequestPeer {
+    /// Canonical identity resolved by the listener and verified proxy policy.
+    /// An embedded router without a listener identity returns no peer.
+    pub fn ip(self) -> Option<std::net::IpAddr> {
+        self.0
+    }
+}
+
 pub async fn request_limits(State(state): Shared, mut request: Request, next: Next) -> Response {
     request
         .extensions_mut()
         .insert(StaffRequestStart(chrono::Utc::now()));
+    let peer = match board_http::proxy_peer::resolve(
+        &request,
+        state.config.proxy.as_ref().map(|proxy| proxy.uid()),
+    ) {
+        Ok(peer) => peer,
+        Err(status) => return status.into_response(),
+    };
+    request.extensions_mut().insert(StaffRequestPeer(peer));
     let Ok(permit) = state.limits.permits.clone().try_acquire_owned() else {
         return AppError::Capacity.into_response();
     };
@@ -41,7 +60,20 @@ async fn request_limits_inner(state: Arc<AppState>, request: Request, next: Next
         }
         rate.1 += 1;
     }
-    match tokio::time::timeout(std::time::Duration::from_secs(10), next.run(request)).await {
+    // Uploads have a bounded inner transfer deadline and cleanup allowance.
+    // Keep the ordinary staff deadline unchanged.
+    let seconds = if state.config.media.is_some()
+        && !state.config.production
+        && request.method() == axum::http::Method::POST
+        && matches!(
+            request.uri().path(),
+            "/post/upload" | "/post/upload/status" | "/post/upload/cancel"
+        ) {
+        40
+    } else {
+        10
+    };
+    match tokio::time::timeout(std::time::Duration::from_secs(seconds), next.run(request)).await {
         Ok(response) => response,
         Err(_) => AppError::Internal.into_response(),
     }
@@ -83,18 +115,286 @@ pub async fn javascript() -> impl IntoResponse {
         include_str!("../static/staff.js"),
     )
 }
+pub async fn post_limits_javascript() -> impl IntoResponse {
+    (
+        [("content-type", "text/javascript; charset=utf-8")],
+        include_str!("../static/post-limits.js"),
+    )
+}
+// Validate the restricted evidence APIs without invoking them or reading history.
+const OP_BUMP_CONTEXT_READY_SQL: &str = "SELECT NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('content.posting_op_bump_context(bytea,text,bigint)', 'board_posting_cooldown_owner', false),
+        ('content.staff_op_bump_context(text,bigint,text)', 'board_staff_post_owner', true)
+    ) AS required(signature, owner_name, staff_only)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+        WHERE p.oid=to_regprocedure(required.signature)
+          AND has_function_privilege(current_user,p.oid,'EXECUTE')
+          AND (NOT required.staff_only OR NOT has_function_privilege('board_public',p.oid,'EXECUTE'))
+          AND p.prosecdef AND p.provolatile='s'
+          AND r.rolname=required.owner_name
+          AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+          AND EXISTS (SELECT 1 FROM unnest(p.proconfig) AS config(value)
+              WHERE replace(config.value,' ','')='search_path=pg_catalog,pg_temp')
+          AND pg_catalog.pg_get_function_result(p.oid)='TABLE(own_reply boolean, latest_post_id bigint, latest_created_at timestamp with time zone)'
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+              WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+    )
+)";
+
+// Catalog-only quota contract: never invoke the decision API or read actors.
+const USER_THREAD_QUOTA_READY_SQL: &str = "SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_proc p
+    JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+    WHERE p.oid=to_regprocedure('content.check_user_thread_quota(bytea,text,bigint)')
+      AND has_function_privilege(current_user,p.oid,'EXECUTE')
+      AND has_function_privilege('board_public',p.oid,'EXECUTE')
+      AND has_function_privilege('board_staff',p.oid,'EXECUTE')
+      AND p.prosecdef AND p.provolatile='v'
+      AND r.rolname='board_posting_cooldown_owner'
+      AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+      AND EXISTS (SELECT 1 FROM unnest(p.proconfig) AS config(value)
+          WHERE replace(config.value,' ','')='search_path=pg_catalog,pg_temp')
+      AND pg_catalog.pg_get_function_result(p.oid)='TABLE(rejected boolean, user_thread_limit integer, user_thread_period_hours integer)'
+      AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+          WHERE a.privilege_type='EXECUTE' AND (a.grantee=0
+              OR a.grantee NOT IN (p.proowner,
+                  (SELECT oid FROM pg_catalog.pg_roles WHERE rolname='board_public'),
+                  (SELECT oid FROM pg_catalog.pg_roles WHERE rolname='board_staff'))))
+)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES ('user_thread_limit'),('user_thread_period_hours')) AS required(column_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_attribute a
+        WHERE a.attrelid=to_regclass('content.boards') AND a.attname=required.column_name
+          AND a.attnum>0 AND NOT a.attisdropped AND a.attnotnull
+          AND a.atttypid='integer'::regtype
+          AND has_column_privilege(current_user,a.attrelid,a.attnum,'SELECT')
+          AND has_column_privilege('board_posting_cooldown_owner',a.attrelid,a.attnum,'SELECT')
+    )
+)";
+
+// Require the staff-only file retirement wrapper and private admission owner.
+// This inspects catalog metadata only; readiness never submits a report.
+const REPORT_ADMISSION_READY_SQL: &str = "SELECT NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('content.check_report_admission(text,bigint,bytea)','board_report_admission_owner','void',true),
+        ('content.admit_report(text,bigint,text,bytea)','board_report_admission_owner','bigint',false),
+        ('content.staff_delete_post_attachment(text,bigint)','board_attachment_owner','void',false)
+    ) AS required(signature,owner_name,result_type,public_access)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+        WHERE p.oid=to_regprocedure(required.signature)
+          AND p.prosecdef AND p.provolatile='v'
+          AND r.rolname=required.owner_name
+          AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+          AND pg_catalog.pg_get_function_result(p.oid)=required.result_type
+          AND has_function_privilege(current_user,p.oid,'EXECUTE')
+          AND has_function_privilege('board_public',p.oid,'EXECUTE')=required.public_access
+          AND EXISTS (SELECT 1 FROM unnest(p.proconfig) AS config(value)
+              WHERE replace(config.value,' ','')='search_path=pg_catalog,pg_temp')
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+              WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+    )
+)
+AND NOT has_any_column_privilege('board_public','content.reports','INSERT')
+AND NOT has_sequence_privilege('board_public','content.reports_id_seq','USAGE,SELECT,UPDATE')
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES ('report_membership'),('report_admission_gate')) AS required(table_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+        JOIN pg_catalog.pg_roles r ON r.oid=c.relowner
+        WHERE n.nspname='post_secrets' AND c.relname=required.table_name
+          AND r.rolname='board_report_admission_owner'
+          AND NOT has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+          AND NOT has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+    )
+)";
+
+// Catalog-only: never read deletion hashes, invoke a trigger, or mutate content.
+const ARCHIVE_DELETION_SECRETS_READY_SQL: &str = r#"WITH relations AS (
+    SELECT c.oid,n.nspname,c.relname
+    FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE (n.nspname='post_secrets' AND c.relname='deletion')
+       OR (n.nspname='content' AND c.relname IN ('boards','threads','posts'))
+), owner_role AS (
+    SELECT r.oid FROM pg_catalog.pg_roles r
+    WHERE r.rolname='board_posting_cooldown_owner'
+      AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+)
+SELECT EXISTS (SELECT 1 FROM owner_role)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('post_secrets','deletion','deletion_archive_guard','guard_archived_deletion_secret',31,false),
+        ('content','threads','retire_archived_deletion_secrets','retire_archived_deletion_secrets',17,true)
+    ) AS required(schema_name,table_name,trigger_name,function_name,trigger_type,archive_transition)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_trigger t
+        JOIN relations c ON c.oid=t.tgrelid
+        JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid
+        JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+        JOIN owner_role r ON r.oid=p.proowner
+        WHERE c.nspname=required.schema_name AND c.relname=required.table_name
+          AND t.tgname=required.trigger_name AND t.tgtype=required.trigger_type
+          AND t.tgenabled='O' AND NOT t.tgisinternal
+          AND t.tgnargs=0 AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred
+          AND t.tgoldtable IS NULL AND t.tgnewtable IS NULL
+          AND n.nspname='post_secrets' AND p.proname=required.function_name
+          AND p.pronargs=0 AND p.prokind='f' AND p.prorettype='pg_catalog.trigger'::regtype
+          AND p.prosecdef AND p.provolatile='v'
+          AND EXISTS (SELECT 1 FROM unnest(p.proconfig) AS config(value)
+              WHERE replace(config.value,' ','')='search_path=pg_catalog,pg_temp')
+          AND NOT has_function_privilege(current_user,p.oid,'EXECUTE')
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles runtime
+              WHERE runtime.rolname IN ('board_public','board_staff','board_auth')
+                AND has_function_privilege(runtime.oid,p.oid,'EXECUTE'))
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+              WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+          AND CASE WHEN required.archive_transition THEN
+              t.tgqual IS NOT NULL
+              AND t.tgattr::text=(SELECT a.attnum::text FROM pg_catalog.pg_attribute a
+                  WHERE a.attrelid=c.oid AND a.attname='archived_at' AND NOT a.attisdropped)
+              AND translate(split_part(split_part(pg_catalog.pg_get_triggerdef(t.oid,false),' WHEN ',2),' EXECUTE ',1),' ()','')
+                  ='old.archived_atISNULLANDnew.archived_atISNOTNULL'
+          ELSE t.tgqual IS NULL AND t.tgattr::text='' END
+    )
+)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('post_secrets','deletion','post_id','SELECT'),
+        ('content','threads','id','UPDATE'),
+        ('content','threads','id','SELECT'),
+        ('content','threads','board','SELECT'),
+        ('content','threads','archived_at','SELECT'),
+        ('content','posts','id','SELECT'),
+        ('content','posts','board','SELECT'),
+        ('content','posts','thread_id','SELECT'),
+        ('content','boards','slug','SELECT'),
+        ('content','boards','staff_only','SELECT'),
+        ('content','boards','slug','UPDATE')
+    ) AS required(schema_name,table_name,column_name,privilege_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM relations c CROSS JOIN owner_role r
+        JOIN pg_catalog.pg_attribute a ON a.attname=required.column_name AND NOT a.attisdropped
+        WHERE c.nspname=required.schema_name AND c.relname=required.table_name AND a.attrelid=c.oid
+          AND has_column_privilege(r.oid,c.oid,a.attnum,required.privilege_name)
+    )
+)
+AND EXISTS (
+    SELECT 1 FROM relations c CROSS JOIN owner_role r
+    WHERE c.nspname='post_secrets' AND c.relname='deletion'
+      AND has_table_privilege(r.oid,c.oid,'DELETE')
+      AND NOT has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,TRUNCATE,REFERENCES,TRIGGER')
+      AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+          WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+            AND ((a.attname<>'post_id' AND has_column_privilege(r.oid,c.oid,a.attnum,'SELECT'))
+                OR has_column_privilege(r.oid,c.oid,a.attnum,'INSERT,UPDATE,REFERENCES')))
+)
+AND EXISTS (
+    SELECT 1 FROM relations c CROSS JOIN owner_role r
+    WHERE c.nspname='content' AND c.relname='threads'
+      AND NOT has_table_privilege(r.oid,c.oid,'UPDATE')
+      AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+          WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped AND a.attname<>'id'
+            AND has_column_privilege(r.oid,c.oid,a.attnum,'UPDATE'))
+)
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES ('content'),('post_secrets')) AS required(schema_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_namespace n CROSS JOIN owner_role r
+        WHERE n.nspname=required.schema_name AND has_schema_privilege(r.oid,n.oid,'USAGE')
+          AND NOT has_schema_privilege(r.oid,n.oid,'CREATE')
+    )
+)"#;
+
 pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
+    if state.config.poster_id_key.is_none() {
+        return Err(AppError::Internal);
+    }
     auth::check_identity(&state.auth, "board_auth").await?;
     auth::check_identity(&state.staff, "board_staff").await?;
     sqlx::query("SELECT token_hash,last_activity_at FROM staff_identity.sessions LIMIT 0")
         .execute(&state.auth)
         .await?;
-    sqlx::query("SELECT id FROM content.moderation_audit LIMIT 0")
+    sqlx::query("SELECT id,before_mask,after_mask,snapshot_version,snapshot_wordfiltered,snapshot_dice_result,snapshot_fortune_text,snapshot_fortune_color FROM content.moderation_audit LIMIT 0")
         .execute(&state.staff)
         .await?;
-    sqlx::query("SELECT post_id,available FROM content.staff_post_media LIMIT 0")
+    sqlx::query("SELECT sticky_rank FROM content.visible_threads LIMIT 0")
         .execute(&state.staff)
         .await?;
+    sqlx::query("SELECT post_id,available,md5 FROM content.staff_post_media LIMIT 0")
+        .execute(&state.staff)
+        .await?;
+    sqlx::query("SELECT posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards LIMIT 0")
+        .execute(&state.staff)
+        .await?;
+    let posting_history: bool = sqlx::query_scalar(
+        "SELECT coalesce(has_function_privilege(current_user, to_regprocedure('content.lock_posting_actor(bytea,boolean)'), 'EXECUTE'), false)
+         AND coalesce(has_function_privilege(current_user, to_regprocedure('content.check_staff_posting_cooldown(bytea,text,bigint)'), 'EXECUTE'), false)
+         AND coalesce(has_function_privilege(current_user, to_regprocedure('content.check_janitor_posting_cooldown(bytea,text,bigint,boolean,bigint)'), 'EXECUTE'), false)
+         AND to_regprocedure('content.record_posting_history(bytea,bigint)') IS NULL
+         AND EXISTS (
+             SELECT 1 FROM pg_catalog.pg_trigger t
+             JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid
+             JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+             WHERE t.tgrelid='content.posts'::regclass
+               AND t.tgname='record_inserted_posting_history'
+               AND t.tgtype=5 AND t.tgenabled='O' AND NOT t.tgisinternal
+               AND t.tgqual IS NULL AND t.tgnargs=0
+               AND p.oid=to_regprocedure('content.record_inserted_posting_history()')
+               AND p.prorettype='trigger'::regtype AND p.prosecdef
+               AND r.rolname='board_posting_cooldown_owner'
+               AND EXISTS (SELECT 1 FROM unnest(p.proconfig) AS config(value)
+                   WHERE replace(config.value,' ','')='search_path=pg_catalog,pg_temp')
+               AND NOT has_function_privilege(current_user,p.oid,'EXECUTE')
+         )",
+    )
+    .fetch_one(&state.staff)
+    .await?;
+    if !posting_history {
+        return Err(AppError::Internal);
+    }
+    let shared_report_admission: bool =
+        sqlx::query_scalar(board_store::report_admission::READINESS_SQL)
+            .fetch_one(&state.staff)
+            .await?;
+    if !shared_report_admission {
+        return Err(AppError::Internal);
+    }
+    let automatic_admission: bool =
+        sqlx::query_scalar(board_store::automatic_admission::READINESS_SQL)
+            .fetch_one(&state.staff)
+            .await?;
+    if !automatic_admission {
+        return Err(AppError::Internal);
+    }
+    let report_admission: bool = sqlx::query_scalar(REPORT_ADMISSION_READY_SQL)
+        .fetch_one(&state.staff)
+        .await?;
+    if !report_admission {
+        return Err(AppError::Internal);
+    }
+    let user_thread_quota: bool = sqlx::query_scalar(USER_THREAD_QUOTA_READY_SQL)
+        .fetch_one(&state.staff)
+        .await?;
+    if !user_thread_quota {
+        return Err(AppError::Internal);
+    }
+    let op_bump_context: bool = sqlx::query_scalar(OP_BUMP_CONTEXT_READY_SQL)
+        .fetch_one(&state.staff)
+        .await?;
+    if !op_bump_context {
+        return Err(AppError::Internal);
+    }
+    let archive_deletion_secrets: bool = sqlx::query_scalar(ARCHIVE_DELETION_SECRETS_READY_SQL)
+        .fetch_one(&state.staff)
+        .await?;
+    if !archive_deletion_secrets {
+        return Err(AppError::Internal);
+    }
     Ok("ready")
 }
 
@@ -128,7 +428,7 @@ fn set_cookie(
 fn ceremony_cookie(state: &AppState) -> String {
     format!("{}-ceremony", state.config.cookie_name())
 }
-fn csrf_cookie(state: &AppState) -> String {
+pub(crate) fn csrf_cookie(state: &AppState) -> String {
     format!("{}-csrf", state.config.cookie_name())
 }
 #[derive(sqlx::FromRow)]
@@ -186,7 +486,7 @@ pub async fn enroll_start(
         return Err(AppError::Unauthorized);
     }
     let invite = auth::hash(&input.invitation);
-    let account:Account=sqlx::query_as("SELECT a.id,a.username,a.user_handle FROM staff_identity.accounts a JOIN staff_identity.invitations i ON i.account_id=a.id WHERE i.token_hash=$1 AND i.expires_at>clock_timestamp() AND a.revoked_at IS NULL AND a.role IN ('moderator','admin')").bind(&invite).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
+    let account:Account=sqlx::query_as("SELECT a.id,a.username,a.user_handle FROM staff_identity.accounts a JOIN staff_identity.invitations i ON i.account_id=a.id WHERE i.token_hash=$1 AND i.expires_at>clock_timestamp() AND a.revoked_at IS NULL AND a.role IN ('janitor','moderator','manager','admin')").bind(&invite).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
     let existing: Vec<String> = sqlx::query_scalar(
         "SELECT credential::text FROM staff_identity.credentials WHERE account_id=$1",
     )
@@ -266,7 +566,7 @@ pub async fn login_start(
     if input.username.is_empty() || input.username.len() > 64 {
         return Err(AppError::Unauthorized);
     }
-    let account:Account=sqlx::query_as("SELECT id,username,user_handle FROM staff_identity.accounts WHERE username=$1 AND revoked_at IS NULL AND role IN ('moderator','admin')").bind(input.username).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
+    let account:Account=sqlx::query_as("SELECT id,username,user_handle FROM staff_identity.accounts WHERE username=$1 AND revoked_at IS NULL AND role IN ('janitor','moderator','manager','admin')").bind(input.username).fetch_optional(&state.auth).await?.ok_or(AppError::Unauthorized)?;
     let credentials: Vec<String> = sqlx::query_scalar(
         "SELECT credential::text FROM staff_identity.credentials WHERE account_id=$1",
     )
@@ -314,7 +614,7 @@ pub async fn login_finish(
         .bind(ceremony.account_id)
         .execute(&mut *tx)
         .await?;
-    let previous:String=sqlx::query_scalar("SELECT c.credential::text FROM staff_identity.credentials c JOIN staff_identity.accounts a ON a.id=c.account_id WHERE c.id=$1 AND a.id=$2 AND a.revoked_at IS NULL AND a.role IN ('moderator','admin')").bind(key_id).bind(ceremony.account_id).fetch_optional(&mut *tx).await?.ok_or(AppError::Unauthorized)?;
+    let previous:String=sqlx::query_scalar("SELECT c.credential::text FROM staff_identity.credentials c JOIN staff_identity.accounts a ON a.id=c.account_id WHERE c.id=$1 AND a.id=$2 AND a.revoked_at IS NULL AND a.role IN ('janitor','moderator','manager','admin')").bind(key_id).bind(ceremony.account_id).fetch_optional(&mut *tx).await?.ok_or(AppError::Unauthorized)?;
     let json: Value = serde_json::from_str(&previous).map_err(|_| AppError::Internal)?;
     let old_counter = json["cred"]["counter"].as_u64().ok_or(AppError::Internal)?;
     if (old_counter > 0 || result.counter() > 0) && u64::from(result.counter()) <= old_counter {
@@ -363,25 +663,34 @@ pub async fn login_finish(
     Ok(response)
 }
 pub async fn queue(State(state): Shared, headers: HeaderMap) -> Result<Html<String>, AppError> {
-    let session = auth::session(&state, &headers).await?;
+    let mut authority = auth::guard(&state, &headers).await?;
+    let session = &authority.session;
     let csrf = auth::cookie(&headers, &csrf_cookie(&state))?;
-    auth::csrf(&session, &csrf)?;
-    let reports = store::reports(&state.staff)
+    auth::csrf(session, &csrf)?;
+    let reports = store::reports(&state.staff, session)
         .await?
         .into_iter()
         .map(views::Preview::from)
         .collect();
-    Ok(Html(
-        views::Queue {
-            media_origin: state.config.media_origin.clone(),
-            reports,
-            csrf,
-            recent: session.recent,
-            admin: session.role == "admin",
-        }
-        .render()
-        .map_err(|_| AppError::Internal)?,
-    ))
+    let html = views::Queue {
+        media_origin: state.config.media_origin.clone(),
+        reports,
+        csrf,
+        recent: session.recent,
+        can_permaage: session.permissions.can_set_permaage(&session.role),
+        can_clear_reporter: session.permissions.can_clear_reporter(&session.role),
+        moderator: session.at_least(crate::access::Level::Moderator),
+        can_post: session.at_least(crate::access::Level::Moderator)
+            || (session.at_least(crate::access::Level::Janitor)
+                && state.config.poster_id_key.is_some()
+                && (!state.config.production || state.config.proxy.is_some())),
+        discussion: session.permissions.can_discuss(&session.role),
+    }
+    .render()
+    .map_err(|_| AppError::Internal)?;
+    authority.ensure_current(false).await?;
+    authority.finish().await?;
+    Ok(Html(html))
 }
 
 #[derive(Default, Deserialize)]
@@ -402,37 +711,132 @@ pub async fn posting(
     let session = auth::session(&state, &headers).await?;
     let csrf = auth::cookie(&headers, &csrf_cookie(&state))?;
     auth::csrf(&session, &csrf)?;
+    let view = posting_view(&state, &session, query, csrf, None).await?;
+    Ok(Html(view.render().map_err(|_| AppError::Internal)?))
+}
+
+pub(crate) async fn posting_view(
+    state: &AppState,
+    session: &auth::Session,
+    query: PostingQuery,
+    csrf: String,
+    receipt: Option<crate::uploads::Receipt>,
+) -> Result<views::Posting, AppError> {
+    if !session.at_least(crate::access::Level::Janitor)
+        || query.board == "j"
+        || (!query.board.is_empty() && !session.permissions.allows(&query.board))
+    {
+        return Err(AppError::Forbidden);
+    }
     if query.thread < 0
         || query.posted.is_some_and(|id| id <= 0)
         || (!query.board.is_empty() && board_domain::BoardSlug::parse(&query.board).is_err())
     {
         return Err(AppError::Invalid);
     }
-    let boards: Vec<(String, String)> =
-        sqlx::query_as("SELECT slug,title FROM content.boards ORDER BY slug LIMIT 1000")
+    let boards: Vec<(String, String, i32, String, String)> =
+        sqlx::query_as("SELECT slug,title,CASE WHEN $3 THEN max_authorized_comment_chars ELSE max_comment_chars END,board_flag_type,array_to_string(board_flags,' ') FROM content.boards WHERE NOT staff_only AND ('all'=ANY($1) OR slug=ANY($1)) AND NOT slug=ANY($2) ORDER BY slug LIMIT 1000")
+            .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards)
+            .bind(session.at_least(crate::access::Level::Moderator))
             .fetch_all(&state.staff)
             .await?;
     if let Some(id) = query.posted {
-        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id AND t.board=p.board WHERE p.board=$1 AND p.thread_id=$2 AND p.id=$3 AND p.capcode IS NOT NULL AND NOT p.deleted)")
-            .bind(&query.board).bind(query.thread).bind(id).fetch_one(&state.staff).await?;
+        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id AND t.board=p.board WHERE p.board=$1 AND p.thread_id=$2 AND p.id=$3 AND NOT p.deleted AND EXISTS(SELECT 1 FROM content.moderation_audit a WHERE a.board=p.board AND a.target_id=p.id AND a.account_id=$4 AND a.action='staff-post'))")
+            .bind(&query.board).bind(query.thread).bind(id).bind(session.account_id).fetch_one(&state.staff).await?;
         if !exists {
             return Err(AppError::NotFound);
         }
     }
-    let label: String = sqlx::query_scalar("SELECT coalesce(public_capcode,CASE role WHEN 'admin' THEN 'admin' ELSE 'mod' END) FROM staff_identity.accounts WHERE id=$1")
+    let label: String = sqlx::query_scalar("SELECT coalesce(public_capcode,CASE role WHEN 'admin' THEN 'admin' WHEN 'manager' THEN 'manager' ELSE 'mod' END) FROM staff_identity.accounts WHERE id=$1")
         .bind(session.account_id).fetch_one(&state.auth).await?;
-    Ok(Html(
-        views::Posting {
-            public_origin: state.config.public_origin.clone(),
-            boards,
-            query,
-            csrf,
-            recent: session.recent,
-            admin: label == "admin",
-        }
-        .render()
-        .map_err(|_| AppError::Internal)?,
-    ))
+    let level = crate::access::Level::parse(&session.role).ok_or(AppError::Unauthorized)?;
+    use board_domain::capcode::Capcode;
+    let eligible: Vec<_> = [
+        Capcode::Moderator,
+        Capcode::Administrator,
+        Capcode::HighlightedAdministrator,
+        Capcode::Manager,
+        Capcode::Developer,
+        Capcode::Founder,
+    ]
+    .into_iter()
+    .filter(|badge| {
+        level.public_capcode(badge.source_option(), &session.permissions) == Ok(Some(*badge))
+    })
+    .collect();
+    let ordinary_ready = state.config.poster_id_key.is_some()
+        && (!state.config.production || state.config.proxy.is_some());
+    let selected_badge = Capcode::parse(&label)
+        .filter(|badge| eligible.contains(badge))
+        .or_else(|| eligible.first().copied())
+        .map(|badge| badge.as_str().to_owned())
+        .or_else(|| ordinary_ready.then(|| "none".to_owned()))
+        .ok_or(AppError::Forbidden)?;
+    let badges = eligible
+        .into_iter()
+        .map(|badge| {
+            (
+                badge.as_str().to_owned(),
+                if badge.highlighted() {
+                    "Admin (highlighted)"
+                } else {
+                    badge.label()
+                }
+                .to_owned(),
+            )
+        })
+        .collect();
+    let comment_max_units = boards
+        .iter()
+        .find(|board| board.0 == query.board)
+        .or_else(|| boards.first())
+        .map_or(20_000, |board| board.2 as usize * 2);
+    let selected_board = boards
+        .iter()
+        .find(|board| board.0 == query.board)
+        .or_else(|| boards.first());
+    let flags = selected_board.map_or_else(Vec::new, |board| {
+        board_domain::board_flags::flags(&board.3)
+            .iter()
+            .filter(|flag| {
+                board
+                    .4
+                    .split_ascii_whitespace()
+                    .any(|code| code == flag.code)
+            })
+            .map(|flag| (flag.code.to_owned(), flag.selector.to_owned()))
+            .collect()
+    });
+    let flag_catalog = ["pol", "mlp", "lgbt", "test"]
+        .into_iter()
+        .flat_map(|kind| {
+            board_domain::board_flags::flags(kind)
+                .iter()
+                .map(move |flag| {
+                    (
+                        kind.to_owned(),
+                        flag.code.to_owned(),
+                        flag.selector.to_owned(),
+                    )
+                })
+        })
+        .collect();
+    Ok(views::Posting {
+        upload_enabled: state.config.media.is_some() && !state.config.production,
+        receipt,
+        public_origin: state.config.public_origin.clone(),
+        boards,
+        comment_max_units,
+        query,
+        csrf,
+        recent: session.recent,
+        admin: level == crate::access::Level::Admin && selected_badge == "admin",
+        badges,
+        selected_badge,
+        ordinary_ready,
+        flags,
+        flag_catalog,
+    })
 }
 
 #[derive(Deserialize)]
@@ -452,17 +856,37 @@ pub struct StaffMessage {
     pub sage: bool,
     #[serde(default)]
     pub highlight: bool,
+    #[serde(default)]
+    pub badge: String,
+    #[serde(default)]
+    pub options: String,
+    #[serde(default)]
+    pub flag: String,
+    #[serde(default)]
+    pub password: String,
+    pub upload_id: Option<String>,
+    pub upload_capability: Option<String>,
+    #[serde(default)]
+    pub spoiler: bool,
 }
 
 pub async fn post_message(
     State(state): Shared,
     headers: HeaderMap,
     Extension(start): Extension<StaffRequestStart>,
-    Form(input): Form<StaffMessage>,
+    Extension(peer): Extension<StaffRequestPeer>,
+    input: Result<Form<StaffMessage>, axum::extract::rejection::FormRejection>,
 ) -> Result<Redirect, AppError> {
+    let Form(input) = input.map_err(|error| AppError::Form(error.status()))?;
     let request_start = start.0;
     auth::origin(&headers, &state.config.origin)?;
     let session = auth::session(&state, &headers).await?;
+    if !session.at_least(crate::access::Level::Janitor)
+        || input.board == "j"
+        || !session.permissions.allows(&input.board)
+    {
+        return Err(AppError::Forbidden);
+    }
     auth::csrf(&session, &input.csrf)?;
     if !session.recent {
         return Err(AppError::Recent);
@@ -470,44 +894,184 @@ pub async fn post_message(
     if input.thread < 0 || board_domain::BoardSlug::parse(&input.board).is_err() {
         return Err(AppError::Invalid);
     }
+    let attachment = crate::uploads::attachment(&state, &session, &input).await?;
+    use board_domain::capcode::Capcode;
+    let level = crate::access::Level::parse(&session.role).ok_or(AppError::Unauthorized)?;
+    let default_badge;
+    let selected = if input.badge.is_empty() {
+        default_badge = sqlx::query_scalar::<_,String>("SELECT coalesce(public_capcode,CASE role WHEN 'admin' THEN 'admin' WHEN 'manager' THEN 'manager' ELSE 'mod' END) FROM staff_identity.accounts WHERE id=$1")
+            .bind(session.account_id).fetch_one(&state.auth).await?;
+        &default_badge
+    } else {
+        &input.badge
+    };
+    if level == crate::access::Level::Janitor && selected != "none" {
+        return Err(AppError::Forbidden);
+    }
+    let mut raw_options = input.options.clone();
+    if input.sage {
+        raw_options.push_str("sage");
+    }
+    let source = level
+        .posting_options(&raw_options, &session.permissions)
+        .map_err(|error| AppError::Posting(error.0.into()))?;
+    let mut badge = if selected == "none" {
+        source.capcode
+    } else {
+        if !input.options.is_empty() || !input.flag.is_empty() || !input.password.is_empty() {
+            return Err(AppError::Invalid);
+        }
+        Some(Capcode::parse(selected).ok_or(AppError::Invalid)?)
+    };
+    if input.highlight {
+        if level != crate::access::Level::Admin
+            || !matches!(
+                badge,
+                Some(Capcode::Administrator | Capcode::HighlightedAdministrator)
+            )
+        {
+            return Err(AppError::Unauthorized);
+        }
+        badge = Some(Capcode::HighlightedAdministrator);
+    }
+    if let Some(badge) = badge
+        && level.public_capcode(badge.source_option(), &session.permissions) != Ok(Some(badge))
+    {
+        return Err(AppError::Unauthorized);
+    }
     let token = auth::cookie(&headers, state.config.cookie_name())?;
     let session_hash = auth::hash(&token);
     let csrf_hash = auth::hash(&input.csrf);
     let ticket_hash: [u8; 32] = auth::hash(&auth::token())
         .try_into()
         .map_err(|_| AppError::Internal)?;
-    let id = board_store::create_staff_post(
-        &state.staff,
-        &input.board,
-        input.thread,
-        &board_store::NewPost {
-            name: input.name,
-            subject: input.subject,
-            comment: input.comment,
-            deletion_hash: String::new(),
-            sage: input.sage,
-        },
-        request_start,
-        board_store::StaffPostAuthority {
-            auth_pool: &state.auth,
-            session_hash: &session_hash,
-            csrf_hash: &csrf_hash,
-            ticket_hash: &ticket_hash,
-            idle_seconds: state.config.idle_timeout.as_secs() as i32,
-            highlight: input.highlight,
-        },
-    )
-    .await
-    .map_err(|error| match error {
+    let authority = board_store::StaffPostAuthority {
+        auth_pool: &state.auth,
+        session_hash: &session_hash,
+        csrf_hash: &csrf_hash,
+        ticket_hash: &ticket_hash,
+        idle_seconds: state.config.idle_timeout.as_secs() as i32,
+        highlight: false,
+        authorized_limits: level >= crate::access::Level::Moderator,
+        raw_name_nonempty: !input.name.is_empty(),
+        identity: Some(board_store::StaffPostIdentity {
+            capcode: badge,
+            name_allowed: if selected == "none" {
+                source.name_allowed
+            } else {
+                level.allows_capcode_name(&session.permissions)
+            },
+            administrator: level == crate::access::Level::Admin,
+            tripcode_key: state.config.tripcode_key.as_deref(),
+        }),
+    };
+    let mut post = board_store::NewPost {
+        name: input.name,
+        subject: input.subject,
+        comment: input.comment,
+        deletion_hash: String::new(),
+        sage: source.sage,
+    };
+    if (state.config.production && state.config.proxy.is_none()) || peer.ip().is_none() {
+        return Err(AppError::Internal);
+    }
+    let key = state
+        .config
+        .poster_id_key
+        .as_deref()
+        .ok_or(AppError::Internal)?;
+    let result = if badge.is_none() {
+        let op_hash = if input.thread > 0 {
+            board_store::staff_op_deletion_hash(&state.staff, &input.board, input.thread)
+                .await
+                .map_err(|_| AppError::Internal)?
+        } else {
+            None
+        };
+        let (hash, proof) = crate::posting_password::prepare(input.password, op_hash).await?;
+        post.deletion_hash = hash;
+        board_store::create_ordinary_staff_post_with_attachment(
+            &state.staff,
+            &input.board,
+            input.thread,
+            board_store::StaffPostContent {
+                post: &post,
+                attachment: attachment.as_ref(),
+            },
+            board_store::PostingContext {
+                request_start,
+                peer: peer.ip(),
+                op_password_proof: proof,
+            },
+            board_store::PostMetadata {
+                spoiler: input.spoiler,
+                keys: board_store::PostIdentityKeys {
+                    tripcode: state.config.tripcode_key.as_deref(),
+                    poster_id: Some(key),
+                },
+                country_database: state.config.country_database.as_deref(),
+                flag: &input.flag,
+                options: &raw_options,
+            },
+            authority,
+        )
+        .await
+    } else {
+        board_store::create_staff_post_with_attachment_and_context_and_keys(
+            &state.staff,
+            &input.board,
+            input.thread,
+            board_store::StaffPostContent {
+                post: &post,
+                attachment: attachment.as_ref(),
+            },
+            board_store::PostingContext {
+                request_start,
+                peer: peer.ip(),
+                op_password_proof: None,
+            },
+            board_store::PostIdentityKeys {
+                tripcode: state.config.tripcode_key.as_deref(),
+                poster_id: Some(key),
+            },
+            authority,
+        )
+        .await
+    };
+    let result = match result {
+        Err(board_store::StoreError::ContentQuiet { post }) => {
+            return Ok(Redirect::to(&if input.thread > 0 {
+                format!(
+                    "{}/{}/thread/{}#p{post}",
+                    state.config.public_origin, input.board, input.thread
+                )
+            } else {
+                format!("{}/{}/", state.config.public_origin, input.board)
+            }));
+        }
+        other => other,
+    };
+    let id = result.map_err(|error| match error {
         board_store::StoreError::AuthorizationChanged => AppError::Unauthorized,
-        board_store::StoreError::Invalid(_) | board_store::StoreError::Conflict(_) => {
-            AppError::Invalid
+        board_store::StoreError::Invalid(message) | board_store::StoreError::Conflict(message) => {
+            AppError::Posting(message.into())
         }
         board_store::StoreError::NotFound => AppError::NotFound,
+        board_store::StoreError::ContentRejected(message)
+        | board_store::StoreError::Robot9000Rejected(message) => AppError::Posting(message),
+        board_store::StoreError::PostingCooldownRejected(rejection) => {
+            AppError::Posting(rejection.source_message())
+        }
         board_store::StoreError::Database(error) => AppError::Database(error),
         _ => AppError::Internal,
     })?;
     let thread = if input.thread == 0 { id } else { input.thread };
+    if source.return_to_board {
+        return Ok(Redirect::to(&format!(
+            "{}/{}/",
+            state.config.public_origin, input.board
+        )));
+    }
     Ok(Redirect::to(&format!(
         "/post?board={}&thread={thread}&posted={id}",
         input.board
@@ -529,16 +1093,20 @@ pub async fn moderate(
     Form(input): Form<Mutation>,
 ) -> Result<Redirect, AppError> {
     auth::origin(&headers, &state.config.origin)?;
-    let session = auth::session(&state, &headers).await?;
-    auth::csrf(&session, &input.csrf)?;
-    store::moderate(
+    let mut authority = auth::guard(&state, &headers).await?;
+    let session = &authority.session;
+    auth::csrf(session, &input.csrf)?;
+    let transaction = store::prepare_moderation(
         &state.staff,
-        &session,
+        session,
         &input.board,
         input.target,
         &input.action,
     )
     .await?;
+    authority.ensure_current(true).await?;
+    transaction.commit().await?;
+    authority.finish().await?;
     Ok(Redirect::to("/reports"))
 }
 pub async fn logout(
@@ -558,4 +1126,265 @@ pub async fn logout(
     set_cookie(&mut response, &state, state.config.cookie_name(), "", 0)?;
     set_cookie(&mut response, &state, &csrf_cookie(&state), "", 0)?;
     Ok(response)
+}
+
+#[cfg(test)]
+mod readiness_tests {
+
+    #[test]
+    fn staff_attachment_readiness_checks_catalogs_without_consuming_proofs() {
+        let sql = crate::auth::STAFF_ATTACHMENT_READY_SQL;
+        for required in [
+            "content.check_attachment_upload(text,text)",
+            "content.cancel_attachment_upload(text,text)",
+            "issue_source_attachment_post_authority",
+            "issue_ordinary_attachment_post_authority",
+            "consume_staff_post_authority_without_attachment",
+            "consume_staff_attachment_receipt",
+            "lock_staff_attachment_receipt(text,bigint,text,bytea)",
+            "staff_attachment_handoffs",
+            "reject_orphan_staff_attachment",
+            "attach_staff_post_receipt",
+            "t.tgtype=5",
+            "t.tgdeferrable=required.deferred",
+            "t.tginitdeferred=required.deferred",
+            "t.tgqual IS NULL",
+            "t.tgnargs=0",
+            "t.tgenabled='O'",
+            "NOT t.tgisinternal",
+            "search_path=pg_catalog, pg_temp",
+            "pg_catalog.aclexplode",
+            "a.is_grantable",
+            "has_any_column_privilege",
+            "board_staff_post_owner",
+            "board_attachment_owner",
+            "attachment_capability_hash",
+            "NOT a.attnotnull",
+        ] {
+            assert!(sql.contains(required), "{required}");
+        }
+        for forbidden in [
+            "FROM post_secrets.",
+            "JOIN post_secrets.",
+            "FROM staff_identity.",
+            "JOIN staff_identity.",
+            "INSERT INTO",
+            "DELETE FROM",
+            "SELECT content.consume_",
+        ] {
+            assert!(!sql.contains(forbidden), "{forbidden}");
+        }
+    }
+
+    #[test]
+    fn automatic_admission_readiness_uses_shared_catalog_contract() {
+        let sql = board_store::automatic_admission::READINESS_SQL;
+        for required in [
+            "resolve_automatic_identity",
+            "lookup_automatic_identity",
+            "17 16 20 16",
+            "17 20",
+            "17 25 20 17 16 20",
+            "TABLE(automatic_identity uuid, source_new boolean)",
+            "TABLE(rejected boolean, user_thread_limit integer, user_thread_period_hours integer)",
+            "registration_xid",
+            "pg_current_xact_id()",
+            "i.indisunique",
+            "NOT a.attnotnull",
+            "p.prosecdef",
+            "search_path=pg_catalog,pg_temp",
+            "pg_has_role(runtime.oid,owners.oid,'MEMBER')",
+            "has_column_privilege",
+            "pg_catalog.aclexplode",
+        ] {
+            assert!(sql.contains(required), "{required}");
+        }
+        for forbidden in [
+            "FROM post_secrets.",
+            "JOIN post_secrets.",
+            "FROM content.",
+            "JOIN content.",
+            "to_regprocedure('post_secrets.",
+            "INSERT INTO",
+            "UPDATE post_secrets.",
+            "DELETE FROM",
+            "SELECT content.check_user_thread_quota",
+            "has_sequence_privilege",
+        ] {
+            assert!(!sql.contains(forbidden), "{forbidden}");
+        }
+    }
+    use super::{
+        ARCHIVE_DELETION_SECRETS_READY_SQL, OP_BUMP_CONTEXT_READY_SQL, REPORT_ADMISSION_READY_SQL,
+        USER_THREAD_QUOTA_READY_SQL,
+    };
+
+    #[test]
+    fn report_admission_readiness_is_catalog_only_and_requires_staff_wrapper() {
+        for required in [
+            "content.staff_delete_post_attachment(text,bigint)",
+            "content.admit_report(text,bigint,text,bytea)",
+            "board_report_admission_owner",
+            "search_path=pg_catalog,pg_temp",
+            "NOT has_any_column_privilege('board_public','content.reports','INSERT')",
+            "('report_membership'),('report_admission_gate')",
+            "r.rolcanlogin OR r.rolsuper",
+        ] {
+            assert!(REPORT_ADMISSION_READY_SQL.contains(required), "{required}");
+        }
+        for forbidden in [
+            "FROM content.",
+            "FROM post_secrets.",
+            "SELECT content.admit_report",
+            "INSERT INTO",
+            "DELETE FROM",
+        ] {
+            assert!(
+                !REPORT_ADMISSION_READY_SQL.contains(forbidden),
+                "{forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn user_thread_quota_readiness_checks_only_restricted_catalog_contracts() {
+        for contract in [
+            "to_regprocedure('content.check_user_thread_quota(bytea,text,bigint)')",
+            "has_function_privilege(current_user,p.oid,'EXECUTE')",
+            "has_function_privilege('board_public',p.oid,'EXECUTE')",
+            "has_function_privilege('board_staff',p.oid,'EXECUTE')",
+            "p.prosecdef AND p.provolatile='v'",
+            "r.rolname='board_posting_cooldown_owner'",
+            "NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)",
+            "search_path=pg_catalog,pg_temp",
+            "TABLE(rejected boolean, user_thread_limit integer, user_thread_period_hours integer)",
+            "coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))",
+            "a.grantee=0",
+            "a.grantee NOT IN (p.proowner,",
+            "('user_thread_limit'),('user_thread_period_hours')",
+            "a.attrelid=to_regclass('content.boards')",
+            "a.attnum>0 AND NOT a.attisdropped AND a.attnotnull",
+            "a.atttypid='integer'::regtype",
+            "has_column_privilege('board_posting_cooldown_owner',a.attrelid,a.attnum,'SELECT')",
+        ] {
+            assert!(USER_THREAD_QUOTA_READY_SQL.contains(contract), "{contract}");
+        }
+        assert!(USER_THREAD_QUOTA_READY_SQL.starts_with("SELECT EXISTS ("));
+        for forbidden in [
+            "FROM content.",
+            "FROM post_secrets.",
+            "JOIN content.",
+            "JOIN post_secrets.",
+            "actor_hash",
+            "INSERT INTO",
+            "DELETE FROM",
+            "UPDATE content.",
+            "SELECT content.check_user_thread_quota",
+        ] {
+            assert!(
+                !USER_THREAD_QUOTA_READY_SQL.contains(forbidden),
+                "{forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn archive_secret_readiness_requires_exact_trigger_metadata() {
+        for contract in [
+            "('post_secrets','deletion','deletion_archive_guard','guard_archived_deletion_secret',31,false)",
+            "('content','threads','retire_archived_deletion_secrets','retire_archived_deletion_secrets',17,true)",
+            "t.tgenabled='O' AND NOT t.tgisinternal",
+            "t.tgnargs=0 AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred",
+            "t.tgoldtable IS NULL AND t.tgnewtable IS NULL",
+            "n.nspname='post_secrets' AND p.proname=required.function_name",
+            "p.pronargs=0 AND p.prokind='f' AND p.prorettype='pg_catalog.trigger'::regtype",
+            "p.prosecdef AND p.provolatile='v'",
+            "r.rolname='board_posting_cooldown_owner'",
+            "NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)",
+            "search_path=pg_catalog,pg_temp",
+            "NOT has_function_privilege(current_user,p.oid,'EXECUTE')",
+            "runtime.rolname IN ('board_public','board_staff','board_auth')",
+            "a.grantee=0 AND a.privilege_type='EXECUTE'",
+            "t.tgattr::text=(SELECT a.attnum::text",
+            "a.attname='archived_at' AND NOT a.attisdropped",
+            "old.archived_atISNULLANDnew.archived_atISNOTNULL",
+            "ELSE t.tgqual IS NULL AND t.tgattr::text='' END",
+        ] {
+            assert!(
+                ARCHIVE_DELETION_SECRETS_READY_SQL.contains(contract),
+                "{contract}"
+            );
+        }
+    }
+
+    #[test]
+    fn archive_secret_readiness_requires_narrow_owner_privileges_without_probes() {
+        for contract in [
+            "SELECT EXISTS (SELECT 1 FROM owner_role)",
+            "WHERE NOT EXISTS (",
+            "('post_secrets','deletion','post_id','SELECT')",
+            "('content','threads','id','UPDATE')",
+            "('content','threads','archived_at','SELECT')",
+            "('content','posts','thread_id','SELECT')",
+            "('content','boards','staff_only','SELECT')",
+            "('content','boards','slug','UPDATE')",
+            "has_table_privilege(r.oid,c.oid,'DELETE')",
+            "NOT has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,TRUNCATE,REFERENCES,TRIGGER')",
+            "a.attname<>'post_id' AND has_column_privilege(r.oid,c.oid,a.attnum,'SELECT')",
+            "has_column_privilege(r.oid,c.oid,a.attnum,'INSERT,UPDATE,REFERENCES')",
+            "NOT has_table_privilege(r.oid,c.oid,'UPDATE')",
+            "a.attname<>'id'",
+            "has_schema_privilege(r.oid,n.oid,'USAGE')",
+            "NOT has_schema_privilege(r.oid,n.oid,'CREATE')",
+        ] {
+            assert!(
+                ARCHIVE_DELETION_SECRETS_READY_SQL.contains(contract),
+                "{contract}"
+            );
+        }
+        for forbidden in [
+            "FROM content.",
+            "FROM post_secrets.",
+            "JOIN content.",
+            "JOIN post_secrets.",
+            "password_hash",
+            "guard_archived_deletion_secret()",
+            "retire_archived_deletion_secrets()",
+            "to_regprocedure(",
+            "INSERT INTO",
+            "DELETE FROM",
+            "UPDATE content.",
+            "UPDATE post_secrets.",
+        ] {
+            assert!(
+                !ARCHIVE_DELETION_SECRETS_READY_SQL.contains(forbidden),
+                "{forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn op_bump_readiness_requires_both_exact_restricted_apis() {
+        for contract in [
+            "('content.posting_op_bump_context(bytea,text,bigint)', 'board_posting_cooldown_owner', false)",
+            "('content.staff_op_bump_context(text,bigint,text)', 'board_staff_post_owner', true)",
+            "p.oid=to_regprocedure(required.signature)",
+            "has_function_privilege(current_user,p.oid,'EXECUTE')",
+            "NOT required.staff_only OR NOT has_function_privilege('board_public',p.oid,'EXECUTE')",
+            "p.prosecdef AND p.provolatile='s'",
+            "r.rolname=required.owner_name",
+            "NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)",
+            "search_path=pg_catalog,pg_temp",
+            "TABLE(own_reply boolean, latest_post_id bigint, latest_created_at timestamp with time zone)",
+            "coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))",
+            "a.grantee=0 AND a.privilege_type='EXECUTE'",
+        ] {
+            assert!(OP_BUMP_CONTEXT_READY_SQL.contains(contract), "{contract}");
+        }
+        // Missing or drifted rows fail closed instead of being omitted by a join.
+        assert!(OP_BUMP_CONTEXT_READY_SQL.starts_with("SELECT NOT EXISTS ("));
+        assert!(OP_BUMP_CONTEXT_READY_SQL.contains("WHERE NOT EXISTS ("));
+        assert!(!OP_BUMP_CONTEXT_READY_SQL.contains("post_secrets"));
+        assert!(!OP_BUMP_CONTEXT_READY_SQL.contains("FROM content."));
+    }
 }

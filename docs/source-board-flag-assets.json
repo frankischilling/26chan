@@ -1,0 +1,886 @@
+{
+  "pol": [
+    {
+      "url": "https://s.4cdn.org/image/flags/pol/flags.2.css",
+      "collected_at": "2026-10-04T00:37:03.663558+00:00",
+      "status": 200,
+      "bytes": 1383,
+      "sha256": "da45280dbce885abc0bc05ea1f065cd28a0e42ae4c5e78ade187c51735c8fd79",
+      "geometry": {
+        "ac": {
+          "width": "16px",
+          "height": "11px",
+          "position": "0px 0px"
+        },
+        "an": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-16px 0px"
+        },
+        "bl": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-32px 0px"
+        },
+        "cf": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-48px 0px"
+        },
+        "cm": {
+          "width": "16px",
+          "height": "12px",
+          "position": "-64px 0px"
+        },
+        "ct": {
+          "width": "16px",
+          "height": "11px",
+          "position": "0px -12px"
+        },
+        "dm": {
+          "width": "16px",
+          "height": "12px",
+          "position": "-16px -12px"
+        },
+        "eu": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-32px -12px"
+        },
+        "fc": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-48px -12px"
+        },
+        "gn": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-64px -12px"
+        },
+        "gy": {
+          "width": "16px",
+          "height": "12px",
+          "position": "0px -24px"
+        },
+        "jh": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-16px -24px"
+        },
+        "kn": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-32px -24px"
+        },
+        "mf": {
+          "width": "16px",
+          "height": "12px",
+          "position": "-48px -24px"
+        },
+        "mz": {
+          "width": "11px",
+          "height": "11px",
+          "position": "-64px -24px"
+        },
+        "nb": {
+          "width": "16px",
+          "height": "11px",
+          "position": "0px -36px"
+        },
+        "nt": {
+          "width": "16px",
+          "height": "12px",
+          "position": "-16px -36px"
+        },
+        "nz": {
+          "width": "16px",
+          "height": "12px",
+          "position": "-32px -36px"
+        },
+        "pc": {
+          "width": "16px",
+          "height": "12px",
+          "position": "-48px -36px"
+        },
+        "pr": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-64px -36px"
+        },
+        "re": {
+          "width": "16px",
+          "height": "11px",
+          "position": "0px -48px"
+        },
+        "tm": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-16px -48px"
+        },
+        "tr": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-32px -48px"
+        },
+        "un": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-48px -48px"
+        },
+        "wp": {
+          "width": "16px",
+          "height": "12px",
+          "position": "-64px -48px"
+        }
+      }
+    },
+    {
+      "url": "https://s.4cdn.org/image/flags/pol/flags.png?2",
+      "collected_at": "2026-10-04T00:37:03.846684+00:00",
+      "status": 200,
+      "bytes": 4294,
+      "sha256": "9113004702a9760757de6ef36aadbe4b4ff3caa62c91e4377ddce6c952703296",
+      "release_path": "/static/flags/board-flags.2.png"
+    }
+  ],
+  "mlp": [
+    {
+      "url": "https://s.4cdn.org/image/flags/mlp/flags.3.css",
+      "collected_at": "2026-10-04T00:37:03.664450+00:00",
+      "status": 200,
+      "bytes": 4008,
+      "sha256": "1e47da8f24118c54795e79891c7641fcacf6a0d946b62bef5513763dcee65f91",
+      "role": "source-css",
+      "geometry": {
+        "4cc": {
+          "width": "16px",
+          "height": "16px",
+          "position": "0px 0px"
+        },
+        "ab": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-16px 0px"
+        },
+        "ada": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-32px 0px"
+        },
+        "aj": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-48px 0px"
+        },
+        "an": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-64px 0px"
+        },
+        "anf": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-80px 0px"
+        },
+        "apb": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-96px 0px"
+        },
+        "au": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-112px 0px"
+        },
+        "bb": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-128px 0px"
+        },
+        "bm": {
+          "width": "16px",
+          "height": "16px",
+          "position": "0px -16px"
+        },
+        "bp": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-16px -16px"
+        },
+        "bs": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-32px -16px"
+        },
+        "cb": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-48px -16px"
+        },
+        "cg": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-64px -16px"
+        },
+        "che": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-80px -16px"
+        },
+        "cl": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-96px -16px"
+        },
+        "co": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-112px -16px"
+        },
+        "day": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-128px -16px"
+        },
+        "dd": {
+          "width": "16px",
+          "height": "16px",
+          "position": "0px -32px"
+        },
+        "der": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-16px -32px"
+        },
+        "dis": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-32px -32px"
+        },
+        "dt": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-48px -32px"
+        },
+        "eqa": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-64px -32px"
+        },
+        "eqf": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-80px -32px"
+        },
+        "eqi": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-96px -32px"
+        },
+        "eqp": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-112px -32px"
+        },
+        "eqr": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-128px -32px"
+        },
+        "eqs": {
+          "width": "16px",
+          "height": "16px",
+          "position": "0px -48px"
+        },
+        "eqt": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-16px -48px"
+        },
+        "era": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-32px -48px"
+        },
+        "fau": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-48px -48px"
+        },
+        "fl": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-64px -48px"
+        },
+        "fle": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-80px -48px"
+        },
+        "gi": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-96px -48px"
+        },
+        "ht": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-112px -48px"
+        },
+        "iz": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-128px -48px"
+        },
+        "li": {
+          "width": "16px",
+          "height": "16px",
+          "position": "0px -64px"
+        },
+        "lt": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-16px -64px"
+        },
+        "ly": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-32px -64px"
+        },
+        "ma": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-48px -64px"
+        },
+        "mau": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-64px -64px"
+        },
+        "min": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-80px -64px"
+        },
+        "ni": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-96px -64px"
+        },
+        "nur": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-112px -64px"
+        },
+        "oct": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-128px -64px"
+        },
+        "par": {
+          "width": "16px",
+          "height": "16px",
+          "position": "0px -80px"
+        },
+        "pc": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-16px -80px"
+        },
+        "pce": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-32px -80px"
+        },
+        "pi": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-48px -80px"
+        },
+        "plu": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-64px -80px"
+        },
+        "pm": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-80px -80px"
+        },
+        "pp": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-96px -80px"
+        },
+        "qc": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-112px -80px"
+        },
+        "rar": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-128px -80px"
+        },
+        "rd": {
+          "width": "16px",
+          "height": "16px",
+          "position": "0px -96px"
+        },
+        "rlu": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-16px -96px"
+        },
+        "s1l": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-32px -96px"
+        },
+        "sco": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-48px -96px"
+        },
+        "shi": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-64px -96px"
+        },
+        "sil": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-80px -96px"
+        },
+        "son": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-96px -96px"
+        },
+        "sp": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-112px -96px"
+        },
+        "spi": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-128px -96px"
+        },
+        "spt": {
+          "width": "16px",
+          "height": "16px",
+          "position": "0px -112px"
+        },
+        "ss": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-16px -112px"
+        },
+        "sta": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-32px -112px"
+        },
+        "stl": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-48px -112px"
+        },
+        "sun": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-64px -112px"
+        },
+        "sus": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-80px -112px"
+        },
+        "swb": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-96px -112px"
+        },
+        "tfa": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-112px -112px"
+        },
+        "tfo": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-128px -112px"
+        },
+        "tfp": {
+          "width": "16px",
+          "height": "16px",
+          "position": "0px -128px"
+        },
+        "tfs": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-16px -128px"
+        },
+        "tft": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-32px -128px"
+        },
+        "tfv": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-48px -128px"
+        },
+        "tp": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-64px -128px"
+        },
+        "ts": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-80px -128px"
+        },
+        "twi": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-96px -128px"
+        },
+        "tx": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-112px -128px"
+        },
+        "vs": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-128px -128px"
+        },
+        "ze": {
+          "width": "16px",
+          "height": "16px",
+          "position": "0px -144px"
+        },
+        "zs": {
+          "width": "16px",
+          "height": "16px",
+          "position": "-16px -144px"
+        }
+      }
+    },
+    {
+      "url": "https://s.4cdn.org/image/flags/mlp/flags.png?3",
+      "collected_at": "2026-10-04T00:37:03.849303+00:00",
+      "status": 200,
+      "bytes": 9752,
+      "sha256": "3ecd3247adbf30cbade8c2074b227d0b6b139a422875773755570b401f029b49",
+      "role": "sprite",
+      "release_path": "/static/flags/mlp-flags.3.png"
+    }
+  ],
+  "lgbt": [
+    {
+      "url": "https://s.4cdn.org/image/flags/lgbt/flags.1.css",
+      "collected_at": "2026-10-04T00:37:03.665088+00:00",
+      "status": 200,
+      "bytes": 2641,
+      "sha256": "0b651843c669283e99fdcc7aefa90834ef02797392b910d081483cc370ae55a5",
+      "role": "source-css",
+      "geometry": {
+        "aap": {
+          "width": "16px",
+          "height": "11px",
+          "position": "0px 0px"
+        },
+        "ace": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-16px 0px"
+        },
+        "ach": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-32px 0px"
+        },
+        "afb": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-48px 0px"
+        },
+        "agp": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-64px 0px"
+        },
+        "agr": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-80px 0px"
+        },
+        "all": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-96px 0px"
+        },
+        "aly": {
+          "width": "16px",
+          "height": "11px",
+          "position": "0px -11px"
+        },
+        "amb": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-16px -11px"
+        },
+        "and": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-32px -11px"
+        },
+        "aro": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-48px -11px"
+        },
+        "bch": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-64px -11px"
+        },
+        "bi": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-80px -11px"
+        },
+        "boy": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-96px -11px"
+        },
+        "br": {
+          "width": "16px",
+          "height": "11px",
+          "position": "0px -22px"
+        },
+        "chr": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-16px -22px"
+        },
+        "cis": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-32px -22px"
+        },
+        "dom": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-48px -22px"
+        },
+        "dro": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-64px -22px"
+        },
+        "dsx": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-80px -22px"
+        },
+        "fby": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-96px -22px"
+        },
+        "ffb": {
+          "width": "16px",
+          "height": "11px",
+          "position": "0px -33px"
+        },
+        "fr": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-16px -33px"
+        },
+        "gay": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-32px -33px"
+        },
+        "gfl": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-48px -33px"
+        },
+        "gqr": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-64px -33px"
+        },
+        "hfb": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-80px -33px"
+        },
+        "hon": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-96px -33px"
+        },
+        "hst": {
+          "width": "16px",
+          "height": "11px",
+          "position": "0px -44px"
+        },
+        "int": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-16px -44px"
+        },
+        "lab": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-32px -44px"
+        },
+        "les": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-48px -44px"
+        },
+        "mbt": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-64px -44px"
+        },
+        "mr": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-80px -44px"
+        },
+        "nb": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-96px -44px"
+        },
+        "og": {
+          "width": "16px",
+          "height": "11px",
+          "position": "0px -55px"
+        },
+        "pan": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-16px -55px"
+        },
+        "pbi": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-32px -55px"
+        },
+        "pg": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-48px -55px"
+        },
+        "ply": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-64px -55px"
+        },
+        "pnr": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-80px -55px"
+        },
+        "prg": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-96px -55px"
+        },
+        "qes": {
+          "width": "16px",
+          "height": "11px",
+          "position": "0px -66px"
+        },
+        "qr": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-16px -66px"
+        },
+        "rep": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-32px -66px"
+        },
+        "sph": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-48px -66px"
+        },
+        "str": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-64px -66px"
+        },
+        "sub": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-80px -66px"
+        },
+        "sw": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-96px -66px"
+        },
+        "tf": {
+          "width": "16px",
+          "height": "11px",
+          "position": "0px -77px"
+        },
+        "tkh": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-16px -77px"
+        },
+        "tma": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-32px -77px"
+        },
+        "tnk": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-48px -77px"
+        },
+        "trn": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-64px -77px"
+        },
+        "ukr": {
+          "width": "16px",
+          "height": "11px",
+          "position": "-80px -77px"
+        }
+      }
+    },
+    {
+      "url": "https://s.4cdn.org/image/flags/lgbt/flags.png",
+      "collected_at": "2026-10-04T00:37:03.955210+00:00",
+      "status": 200,
+      "bytes": 3215,
+      "sha256": "1011791d297a7368b91731314223996e58aa8b0286c5abdf75d0ea6272dbf62a",
+      "role": "sprite",
+      "release_path": "/static/flags/lgbt-flags.1.png"
+    }
+  ],
+  "test": [
+    {
+      "url": "https://s.4cdn.org/image/flags/test/flags.1.css",
+      "collected_at": "2026-10-04T00:37:03.688392+00:00",
+      "status": 404
+    }
+  ],
+  "boundary": "Retrieved public UI assets, not historical pixel proof. Source CSS is scoped and its URLs are replaced with fixed local routes. The test stylesheet was unavailable."
+}

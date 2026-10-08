@@ -1,8 +1,11 @@
-# Legacy deletion and report routes
+# Legacy post actions and lookups
 
-`/{board}/imgboard.php` now accepts password-authorized deletion and opens a
+`/{board}/imgboard.php` accepts authorized deletion and opens a
 report form for a visible post. Posting through this route continues to use the
 existing transaction, field validation and HTML/JSON response selection.
+[Legacy `res` post lookups](legacy-post-lookups.md) resolve OPs and replies to
+local canonical thread anchors without report or session side effects. Bare GET
+shows the source two-second index-navigation notice, without rebuilding data.
 
 ## Public reference
 
@@ -16,17 +19,23 @@ request with `mode=report` and `no`. The extension recognizes `Updating index`
 in a successful deletion response. No live external write or report was sent.
 
 The reference does not establish the server's authorization, report categories,
-captcha policy or complete success-page appearance. This implementation retains
-the project's explicit deletion password and free-text report reason. Same-origin
-routes replace the original separate posting domain. Archived deletion and bulk
-deletion are outside this adapter's supported contract.
+captcha policy or complete success-page appearance. The rewrite supports automatic anonymous ownership and optional recovery
+passwords. Free-text reporting remains available when the explicitly imported
+[category mode](source-report-categories.md) is inactive. Same-origin
+routes replace the original separate posting domain. Public archived deletion is
+rejected by the [source eligibility gates](source-public-deletion.md). Multiple
+selected posts follow the source request order and partial-success behavior.
+
+[Mobile menu deletion](native-post-deletion.md) uses this route in place, with
+explicit confirmation, bounded completion and stale-target protection.
 
 ## Request and authorization rules
 
 Deletion accepts either URL-encoded fields or bounded text-only multipart. It
-requires one canonical positive signed-64-bit post ID and one `pwd` or `password`
-field. IDs retain their exact decimal value, including values above JavaScript's
-safe-integer range. `onlyimgdel=on` selects the existing file-only transaction.
+requires at least one canonical positive signed-64-bit selected post ID. An
+optional `pwd` or `password` field supplies recovery credentials; the anonymous
+cookie can authorize the request without it. IDs retain their exact decimal
+value, including values above JavaScript's safe-integer range. `onlyimgdel=on` selects the existing file-only transaction.
 Duplicate, conflicting, unknown or incomplete deletion fields are rejected.
 An optional query `mode` must agree with a body `mode` when both are present.
 
@@ -69,10 +78,37 @@ Successful legacy deletion returns bounded, escaped, script-free HTML with the
 public client's success marker and a return link. The existing `/delete` route
 keeps its redirect response. Neither route reflects the password.
 
-The GET report route validates its query and visible board/post before rendering
-an accessible form. Submission uses the existing `/report` transaction and staff
-queue. Missing or removed posts return 404. The form requires no JavaScript and
-inherits the normal CSP, framing and response-size policies.
+The GET report route validates its query and applies the shared
+[source report eligibility gates](source-report-popup.md) before rendering an
+accessible form. Free-text submission uses the modern `/report` transaction; categorical forms
+use the validated legacy POST adapter. Both feed the private staff queue. Missing or removed
+posts return 404. The form requires no JavaScript and uses the dedicated exact-path
+report-script CSP, denied framing and shared response-size budget. The linked
+contract records popup completion, cancellation and normal-tab behavior.
+
+## Multiple selections
+
+Numeric fields whose value is `delete` are processed in submitted order, as in
+`imgboard.php:7513–7519,7576–7582`. Each successful item commits independently.
+A later ownership, policy or storage failure stops the request without undoing
+an earlier deletion. File-only requests use the same selection order and gates.
+
+The server captures the request/session context once for the batch. The session's
+network-age clock cannot cross into the known-user category merely because an
+earlier item waited. Each item still rereads and locks its current authority and
+policy. Its minimum post-age check uses the current server clock.
+
+For an accessible board, a missing single target returns the source's bounded
+`Updating index` success page without a mutation. A missing target in a multiple
+selection stops with the source old-post error. Earlier successful items remain
+committed. Unknown/private boards keep their denial response, and missing
+credentials or attachments on an existing post are not treated as missing posts.
+The modern `/delete` endpoint retains its existing missing-target response.
+
+The 20-field streamed form limit also bounds batch work. Canonical IDs, duplicate
+field rejection, the body limit and Origin checks remain security restrictions.
+A form with no selection is rejected. Original deletion action counters and full-page
+multi-selection controls remain separate work.
 
 ## Verification
 

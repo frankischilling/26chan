@@ -1,6 +1,5 @@
 use crate::{
-    MAX_COMMENT_BYTES, MAX_COMMENT_CHARS, ValidationError, normalize_comment,
-    validate_post_with_attachment,
+    PostLimits, ValidationError, normalize_comment_with_limits, validate_post_with_limits,
 };
 
 /// Source comment sanitation policy, independent of markup rendering support.
@@ -61,8 +60,26 @@ pub fn prepare_post_comment(
     has_attachment: bool,
     spacing: CommentSpacing<'_>,
 ) -> Result<String, ValidationError> {
-    validate_post_with_attachment(name, subject, comment, max_chars, has_attachment)?;
-    let normalized = normalize_comment(comment)?;
+    prepare_post_comment_with_limits(
+        name,
+        subject,
+        comment,
+        PostLimits::ordinary(max_chars),
+        has_attachment,
+        spacing,
+    )
+}
+
+pub fn prepare_post_comment_with_limits(
+    name: &str,
+    subject: &str,
+    comment: &str,
+    limits: PostLimits,
+    has_attachment: bool,
+    spacing: CommentSpacing<'_>,
+) -> Result<String, ValidationError> {
+    validate_post_with_limits(name, subject, comment, limits, has_attachment)?;
+    let normalized = normalize_comment_with_limits(comment, limits)?;
     let normalized = crate::comment_unicode::before_spacing(&normalized, spacing);
     let normalized = if spacing.spoiler_cleanup {
         crate::comment_lines::remove_intra_spoilers(&normalized)
@@ -75,7 +92,7 @@ pub fn prepare_post_comment(
     // Source strip_private_unicode runs after trim, so removal can expose
     // spaces at the edges. Do not trim those a second time.
     text.retain(|ch| ch as u32 <= 0x3134f);
-    if crate::comment_lines::repeated_lines(&text) {
+    if limits.ordinary_checks() && crate::comment_lines::repeated_lines(&text) {
         return Err(ValidationError(
             "Error: Our system thinks your post is spam.",
         ));
@@ -85,14 +102,16 @@ pub fn prepare_post_comment(
     } else {
         collapse_blank_lines(&text)
     };
-    if text.bytes().filter(|&byte| byte == b'\n').count() > spacing.max_lines {
+    if limits.ordinary_checks()
+        && text.bytes().filter(|&byte| byte == b'\n').count() > spacing.max_lines
+    {
         return Err(ValidationError("Error: Too many lines."));
     }
     // Tab expansion can exceed the independent database storage ceiling even
     // though the pre-cleanup board budget passed. Reject before any mutation.
     if (!has_attachment && text.trim().is_empty())
-        || text.len() > MAX_COMMENT_BYTES
-        || text.chars().count() > MAX_COMMENT_CHARS
+        || text.len() > limits.prepared_bytes()
+        || text.chars().count() > limits.prepared_chars()
     {
         return Err(ValidationError(
             "Enter a comment within this board's character limit.",

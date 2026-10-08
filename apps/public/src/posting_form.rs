@@ -105,10 +105,12 @@ pub(crate) async fn normalize_multipart<S: Send + Sync>(
     {
         let name = field.name().unwrap_or("").to_owned();
         let deletion_field = legacy
-            && (name == "onlyimgdel"
-                || (!name.is_empty()
-                    && name.len() <= 19
-                    && name.bytes().all(|byte| byte.is_ascii_digit())));
+            && (matches!(
+                name.as_str(),
+                "onlyimgdel" | "board" | "no" | "cat" | "cat_id" | "revision"
+            ) || (!name.is_empty()
+                && name.len() <= 19
+                && name.bytes().all(|byte| byte.is_ascii_digit())));
         if (!TEXT_FIELDS.contains(&name.as_str()) && name != "upfile" && !deletion_field)
             || !names.insert(name.clone())
             || names.len() > MAX_FORM_FIELDS
@@ -177,6 +179,14 @@ pub fn checkbox<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<boo
         "" | "false" => Ok(false),
         _ => Err(serde::de::Error::custom("invalid checkbox value")),
     }
+}
+
+pub fn spoiler_checkbox<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<bool, D::Error> {
+    use serde::Deserialize;
+    let value = String::deserialize(deserializer)?;
+    Ok(!value.is_empty() && value != "0")
 }
 
 #[derive(serde::Deserialize)]
@@ -273,7 +283,7 @@ mod tests {
             ("name", b"invalid\xffutf8".as_slice(), None),
             ("name", b"file-in-text".as_slice(), Some("text.txt")),
             ("admin", b"not-authority".as_slice(), None),
-            ("spoiler", b"yes".as_slice(), None),
+            ("textonly", b"yes".as_slice(), None),
             ("upfile", b"".as_slice(), Some("")),
         ] {
             let mut fields = valid.to_vec();

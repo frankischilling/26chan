@@ -1,17 +1,22 @@
-import { watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
+import { openWatcherSettings } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
 const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-auto-updater-password';
-    const write = form => request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password } });
+    const write = form => withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password } }));
     const response = await write({ resto: '0', sub: 'Owned auto updater', com: 'Original post' });
     expect(response.status()).toBe(303);
     const id = response.headers().location.match(/thread\/(\d+)/)[1];
     try { await use({ id, url: `/demo/thread/${id}`, path: `/_watch/demo/thread/${id}/posts`,
       reply: async com => { const response = await write({ resto: id, com }); expect(response.status()).toBe(303); return response.headers().location.match(/#p(\d+)/)[1]; } }); }
-    finally { await request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } }); }
+    finally {
+      await withDeletionQuota(async () => {
+        await request.post('/demo/delete', { headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password } });
+      });
+    }
   },
 });
 const auto = page => page.locator('.threadNav.desktop input[data-cmd="auto"]').first();
@@ -86,7 +91,7 @@ test('Auto persists for the current tab and thread, stops explicitly, and always
   await page.reload(); await expect(auto(page)).toBeChecked();
   await auto(page).uncheck(); await page.reload(); await expect(auto(page)).not.toBeChecked();
   expect(await page.evaluate(id => sessionStorage.getItem(`4chan-auto-${id}`), owned.id)).toBeNull();
-  await watcherSettingsOpener(other).click();
+  await openWatcherSettings(other);
   await expect(other.locator('#setting-threadUpdater')).toBeChecked();
   await expect(other.locator('#setting-alwaysAutoUpdate')).not.toBeChecked();
   await other.locator('#setting-alwaysAutoUpdate').check();

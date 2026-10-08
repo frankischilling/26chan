@@ -32,6 +32,60 @@ pub struct OutputVariants {
     pub thumbnail: OutputMetadata,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SourceProfile {
+    PngV1,
+}
+
+impl SourceProfile {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::PngV1 => "png-v1",
+        }
+    }
+}
+
+/// Private source identity measured from the sealed upload, not normalized output.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SourceProvenance {
+    pub input_sha256: String,
+    pub input_bytes: i64,
+    pub profile: SourceProfile,
+    pub retained_bytes: i64,
+    pub md5: [u8; 16],
+}
+
+impl SourceProvenance {
+    fn validate(&self) -> Result<(), StoreError> {
+        validate_hex(&self.input_sha256, 64)?;
+        if !(20..=8_388_608).contains(&self.input_bytes)
+            || !(20..=self.input_bytes).contains(&self.retained_bytes)
+        {
+            return Err(StoreError::Invalid("Invalid source provenance bounds."));
+        }
+        Ok(())
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct SourceRecord {
+    source_input_sha256: Option<String>,
+    source_input_bytes: Option<i64>,
+    source_profile: Option<String>,
+    source_retained_bytes: Option<i64>,
+    source_md5: Option<Vec<u8>>,
+}
+
+impl SourceRecord {
+    fn matches(&self, source: Option<&SourceProvenance>) -> bool {
+        self.source_input_sha256.as_deref() == source.map(|s| s.input_sha256.as_str())
+            && self.source_input_bytes == source.map(|s| s.input_bytes)
+            && self.source_profile.as_deref() == source.map(|s| s.profile.as_str())
+            && self.source_retained_bytes == source.map(|s| s.retained_bytes)
+            && self.source_md5.as_deref() == source.map(|s| s.md5.as_slice())
+    }
+}
+
 #[derive(sqlx::FromRow)]
 struct VariantRecord {
     md5: Option<String>,
@@ -103,9 +157,24 @@ impl MediaQueue {
         metadata: &OutputMetadata,
         variants: Option<&OutputVariants>,
     ) -> Result<Asset, StoreError> {
+        self.prepare_output_with_provenance(job_id, token, metadata, variants, None)
+            .await
+    }
+
+    pub async fn prepare_output_with_provenance(
+        &self,
+        job_id: &str,
+        token: &str,
+        metadata: &OutputMetadata,
+        variants: Option<&OutputVariants>,
+        provenance: Option<&SourceProvenance>,
+    ) -> Result<Asset, StoreError> {
         validate_hex(job_id, 32)?;
         validate_hex(token, 32)?;
         metadata.validate()?;
+        if let Some(provenance) = provenance {
+            provenance.validate()?;
+        }
         if let Some(variants) = variants {
             validate_hex(&variants.md5, 32)?;
             variants.thumbnail.validate()?;
@@ -127,8 +196,11 @@ impl MediaQueue {
         if let Some(reserved) = reserved {
             let stored: VariantRecord = sqlx::query_as("SELECT md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height FROM media.assets WHERE id=$1")
                 .bind(&reserved.asset.id).fetch_one(&mut *tx).await?;
+            let source: SourceRecord = sqlx::query_as("SELECT source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5 FROM media.assets WHERE id=$1")
+                .bind(&reserved.asset.id).fetch_one(&mut *tx).await?;
             if !metadata.matches(&reserved.asset)
                 || !stored.matches(variants)
+                || !source.matches(provenance)
                 || reserved.state == "deleting"
             {
                 return Err(unavailable());
@@ -139,10 +211,13 @@ impl MediaQueue {
             }
         }
         // The statement that inserts or reuses pending metadata rechecks the lease.
-        let asset = sqlx::query_as("INSERT INTO media.assets (id, job_id, lease_token, sha256, bytes, width, height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height) SELECT replace(gen_random_uuid()::text, '-', ''), id, lease_token, $3, $4, $5, $6,$7,$8,$9,$10,$11 FROM media.jobs WHERE id = $1 AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() ON CONFLICT (job_id, lease_token) DO UPDATE SET updated_at = media.assets.updated_at WHERE media.assets.state = 'pending' AND media.assets.sha256 = $3 AND media.assets.bytes = $4 AND media.assets.width = $5 AND media.assets.height = $6 AND (media.assets.md5,media.assets.thumbnail_sha256,media.assets.thumbnail_bytes,media.assets.thumbnail_width,media.assets.thumbnail_height) IS NOT DISTINCT FROM ($7,$8,$9,$10,$11) AND EXISTS (SELECT 1 FROM media.jobs WHERE id = $1 AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp()) RETURNING id, sha256, bytes, width, height")
+        let asset = sqlx::query_as("INSERT INTO media.assets (id, job_id, lease_token, sha256, bytes, width, height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5) SELECT replace(gen_random_uuid()::text, '-', ''), id, lease_token, $3, $4, $5, $6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16 FROM media.jobs WHERE id = $1 AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13) ON CONFLICT (job_id, lease_token) DO UPDATE SET updated_at = media.assets.updated_at WHERE media.assets.state = 'pending' AND media.assets.sha256 = $3 AND media.assets.bytes = $4 AND media.assets.width = $5 AND media.assets.height = $6 AND (media.assets.md5,media.assets.thumbnail_sha256,media.assets.thumbnail_bytes,media.assets.thumbnail_width,media.assets.thumbnail_height) IS NOT DISTINCT FROM ($7,$8,$9,$10,$11) AND (media.assets.source_input_sha256,media.assets.source_input_bytes,media.assets.source_profile,media.assets.source_retained_bytes,media.assets.source_md5) IS NOT DISTINCT FROM ($12,$13,$14,$15,$16) AND EXISTS (SELECT 1 FROM media.jobs WHERE id = $1 AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13)) RETURNING id, sha256, bytes, width, height")
             .bind(job_id).bind(token).bind(&metadata.sha256).bind(metadata.bytes).bind(metadata.width).bind(metadata.height)
             .bind(variants.map(|v| &v.md5)).bind(variants.map(|v| &v.thumbnail.sha256))
             .bind(variants.map(|v| v.thumbnail.bytes)).bind(variants.map(|v| v.thumbnail.width)).bind(variants.map(|v| v.thumbnail.height))
+            .bind(provenance.map(|s| &s.input_sha256)).bind(provenance.map(|s| s.input_bytes))
+            .bind(provenance.map(|s| s.profile.as_str())).bind(provenance.map(|s| s.retained_bytes))
+            .bind(provenance.map(|s| s.md5.as_slice()))
             .fetch_optional(&mut *tx).await?.ok_or_else(unavailable)?;
         tx.commit().await?;
         Ok(asset)

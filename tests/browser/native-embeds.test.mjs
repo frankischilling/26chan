@@ -78,7 +78,7 @@ test('provider parsers accept finite canonical URLs and build only CSP-approved 
   assert.equal(embedTarget(`https://youtu.be/${yt}`).provider, 'youtube');
   assert.equal(embedTarget('https://soundcloud.com/forss/flickermood').provider, 'soundcloud');
   assert.equal(embedTarget('https://example.test/video'), null);
-  assert.deepEqual(EMBED_LIMITS, { nodes: 32768, links: 4096, frames: 8, depth: 32 });
+  assert.deepEqual(EMBED_LIMITS, { nodes: 32768, links: 4096, frames: 8, depth: 32, characters: 192000 });
 });
 
 test('native embeds are click-only, projection-owned and cleared across disable, hiding and BFCache', async t => {
@@ -213,6 +213,42 @@ test('native embeds are click-only, projection-owned and cleared across disable,
       } finally { await context.close(); }
     });
 
+    await t.test('raw provider text preserves soft breaks, projection text and click-only controls', async () => {
+      const { context, page, providerRequests, errors } = await setup({ embedSoundCloud: true });
+      try {
+        const source = await page.evaluate(id => {
+          const message = document.querySelector('#m1');
+          message.replaceChildren(document.createTextNode('https://www.youtube.com/watch?v='),
+            document.createElement('wbr'), document.createTextNode(`${id}&t=90s`),
+            document.createElement('br'), document.createTextNode('https://soundcloud.com/forss/flickermood'));
+          return message.textContent;
+        }, yt);
+        await page.waitForFunction(() => document.querySelectorAll('#m1 .nativeEmbedControls').length === 2);
+        assert.equal(await page.locator('#m1 > span:not([class])').count(), 2);
+        assert.equal(await page.locator('#m1 > span:not([class]) wbr').count(), 1);
+        assert.equal(await page.evaluate(() => projection.text(document.querySelector('#m1'))), source);
+        assert.deepEqual(providerRequests, []);
+        await page.evaluate(() => { config.disableAll = true; embeds.refresh(); });
+        assert.equal(await page.locator('#m1 > span').count(), 0);
+        assert.equal(await page.locator('#m1').textContent(), source);
+        assert.equal(await page.locator('#m1 wbr').count(), 1);
+        await page.evaluate(() => { config.disableAll = false; embeds = mountEmbeds({ characters: 30 }); });
+        assert.equal(await page.locator('#m1 span,iframe').count(), 0);
+        assert.equal(await page.locator('#m1').textContent(), source);
+        const large = await page.evaluate(id => {
+          const message = document.querySelector('#m1');
+          const url = `https://youtu.be/${id}`;
+          message.replaceChildren(document.createTextNode('x'.repeat(65530 - url.length) + ' ' + url));
+          embeds = mountEmbeds();
+          return message.innerHTML;
+        }, yt);
+        assert.equal(large.length, 65531);
+        assert.equal(await page.locator('#m1 span,iframe').count(), 0);
+        assert.equal(await page.locator('#m1').evaluate(node => node.innerHTML), large);
+        assert.deepEqual(providerRequests, []); assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
     await t.test('native-linkified derefer anchors qualify only when label and destination agree', async () => {
       const { context, page, providerRequests, errors } = await setup();
       try {
@@ -222,15 +258,20 @@ test('native embeds are click-only, projection-owned and cleared across disable,
           good.id = 'linked-good'; good.className = 'linkified'; good.dataset.nativeLinkified = 'true';
           good.href = `/derefer?url=${encodeURIComponent(`https://youtu.be/${id}`)}`;
           good.textContent = `https://youtu.be/${id}`;
+          const encoded = document.createElement('a');
+          encoded.id = 'linked-encoded'; encoded.className = 'linkified'; encoded.dataset.nativeLinkified = 'true';
+          encoded.href = `/derefer?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}&amp;t=90s`)}`;
+          encoded.textContent = `https://www.youtube.com/watch?v=${id}&t=90s`;
           const bad = document.createElement('a');
           bad.id = 'linked-bad'; bad.className = 'linkified'; bad.dataset.nativeLinkified = 'true';
           bad.href = `/derefer?url=${encodeURIComponent(`https://youtu.be/${id}`)}`;
           bad.textContent = `https://www.youtube.com/watch?v=${id}`;
-          message.append(document.createTextNode(' '), good, document.createTextNode(' '), bad);
+          message.append(document.createTextNode(' '), good, document.createTextNode(' '), bad, document.createTextNode(' '), encoded);
         }, yt);
         await page.waitForFunction(() => document.querySelector('#linked-good + .nativeEmbedControls'));
         assert.equal(await page.locator('#linked-good + .nativeEmbedControls').count(), 1);
         assert.equal(await page.locator('#linked-bad + .nativeEmbedControls').count(), 0);
+        assert.equal(await page.locator('#linked-encoded + .nativeEmbedControls').count(), 1);
         assert.deepEqual(providerRequests, []); assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });

@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-use board_staff::auth;
+use board_staff::{access::Level, auth};
 use sqlx::PgPool;
 use std::{
     io::Write,
@@ -21,6 +21,28 @@ fn name_valid(name: &str) -> bool {
         && name
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+}
+
+fn permission_list(value: &str, flags: bool) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    if value == "-" {
+        return Ok(Vec::new());
+    }
+    let mut values = value.split(',').map(str::to_owned).collect::<Vec<_>>();
+    let limit = if flags { 32 } else { 10 };
+    if values.len() > 128
+        || values.iter().any(|value| {
+            value.is_empty()
+                || value.len() > limit
+                || !value.bytes().all(|byte| {
+                    byte.is_ascii_lowercase() || byte.is_ascii_digit() || (flags && byte == b'_')
+                })
+        })
+    {
+        return Err("Invalid permission list".into());
+    }
+    values.sort_unstable();
+    values.dedup();
+    Ok(values)
 }
 fn private_file(path: &Path) -> Result<std::fs::File, Box<dyn std::error::Error>> {
     let parent = path
@@ -107,28 +129,41 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     if args.is_empty()
         || !matches!(
             args[0].as_str(),
-            "provision" | "recover" | "revoke" | "role" | "capcode"
+            "provision" | "recover" | "revoke" | "role" | "capcode" | "scope" | "flags"
         )
     {
         eprintln!(
-            "Usage: staff-operator provision NAME moderator|admin NEW_PRIVATE_DIR/invitation.txt | recover NAME NEW_PRIVATE_DIR/invitation.txt | revoke NAME | role NAME moderator|admin | capcode NAME default|mod|admin|manager|developer|founder"
+            "Usage: staff-operator provision NAME janitor|moderator|manager|admin NEW_PRIVATE_DIR/invitation.txt | recover NAME NEW_PRIVATE_DIR/invitation.txt | revoke NAME | role NAME janitor|moderator|manager|admin | capcode NAME default|mod|admin|manager|developer|founder | scope NAME ALLOW_CSV DENY_CSV | flags NAME FLAG_CSV. Use - for an empty list."
         );
         return Err("Invalid arguments".into());
     }
     let command = &args[0];
     let expected = match command.as_str() {
-        "provision" => 4,
-        "recover" | "role" | "capcode" => 3,
+        "provision" | "scope" => 4,
+        "recover" | "role" | "capcode" | "flags" => 3,
         _ => 2,
     };
     if args.len() != expected || !name_valid(&args[1]) {
         return Err("Invalid arguments".into());
     }
-    if matches!(command.as_str(), "role" | "provision")
-        && !matches!(args[2].as_str(), "moderator" | "admin")
-    {
-        return Err("Invalid role".into());
-    }
+    let role = if matches!(command.as_str(), "role" | "provision") {
+        Some(Level::parse(&args[2]).ok_or("Invalid role")?)
+    } else {
+        None
+    };
+    let scope = if command == "scope" {
+        Some((
+            permission_list(&args[2], false)?,
+            permission_list(&args[3], false)?,
+        ))
+    } else {
+        None
+    };
+    let flags = if command == "flags" {
+        Some(permission_list(&args[2], true)?)
+    } else {
+        None
+    };
     if command == "capcode"
         && !matches!(
             args[2].as_str(),
@@ -146,7 +181,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let mut tx = pool.begin().await?;
     let id: i64 = if command == "provision" {
-        sqlx::query_scalar("INSERT INTO staff_identity.accounts(role,username,user_handle) VALUES ($1,$2,$3) RETURNING id").bind(&args[2]).bind(&args[1]).bind(uuid::Uuid::new_v4().to_string()).fetch_one(&mut *tx).await?
+        let role = role.ok_or("Role required")?;
+        let allow: Vec<&str> = if role == Level::Janitor {
+            vec!["janitor"]
+        } else {
+            vec!["all"]
+        };
+        sqlx::query_scalar("INSERT INTO staff_identity.accounts(role,username,user_handle,allow_boards) VALUES ($1,$2,$3,$4) RETURNING id").bind(role.role()).bind(&args[1]).bind(uuid::Uuid::new_v4().to_string()).bind(allow).fetch_one(&mut *tx).await?
     } else {
         sqlx::query_scalar("SELECT id FROM staff_identity.accounts WHERE username=$1 FOR UPDATE")
             .bind(&args[1])
@@ -166,7 +207,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     if command == "role" {
         sqlx::query("UPDATE staff_identity.accounts SET role=$2,public_capcode=NULL WHERE id=$1")
             .bind(id)
-            .bind(&args[2])
+            .bind(role.ok_or("Role required")?.role())
             .execute(&mut *tx)
             .await?;
         sqlx::query("DELETE FROM staff_identity.sessions WHERE account_id=$1")
@@ -182,6 +223,29 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .bind(&args[2])
         .execute(&mut *tx)
         .await?;
+        sqlx::query("DELETE FROM staff_identity.sessions WHERE account_id=$1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+    }
+    if let Some((allow, deny)) = scope {
+        sqlx::query(
+            "UPDATE staff_identity.accounts SET allow_boards=$2,deny_boards=$3 WHERE id=$1",
+        )
+        .bind(id)
+        .bind(allow)
+        .bind(deny)
+        .execute(&mut *tx)
+        .await?;
+    }
+    if let Some(flags) = flags {
+        sqlx::query("UPDATE staff_identity.accounts SET flags=$2 WHERE id=$1")
+            .bind(id)
+            .bind(flags)
+            .execute(&mut *tx)
+            .await?;
+    }
+    if matches!(command.as_str(), "scope" | "flags") {
         sqlx::query("DELETE FROM staff_identity.sessions WHERE account_id=$1")
             .bind(id)
             .execute(&mut *tx)
@@ -207,4 +271,46 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     println!("Staff operator change committed.");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::permission_list;
+
+    #[test]
+    fn operator_scope_lists_are_explicit_bounded_and_canonical() {
+        assert_eq!(permission_list("g,a,g", false).unwrap(), ["a", "g"]);
+        assert!(permission_list("-", false).unwrap().is_empty());
+        assert_eq!(
+            permission_list("all,noboard", false).unwrap(),
+            ["all", "noboard"]
+        );
+        for value in [
+            "",
+            "g,",
+            ",g",
+            "g,,a",
+            " g",
+            "G",
+            "../j",
+            "toolongboard",
+            "g\nall",
+            "g;all",
+        ] {
+            assert!(permission_list(value, false).is_err(), "{value:?}");
+        }
+        assert!(permission_list(&["g"; 129].join(","), false).is_err());
+    }
+
+    #[test]
+    fn flag_names_do_not_expand_board_names_or_accept_arbitrary_syntax() {
+        assert_eq!(
+            permission_list("developer,show_tool", true).unwrap(),
+            ["developer", "show_tool"]
+        );
+        assert!(permission_list("show_tool", false).is_err());
+        assert!(permission_list(&"x".repeat(33), true).is_err());
+        assert!(permission_list("developer<script>", true).is_err());
+        assert!(permission_list("-", true).unwrap().is_empty());
+    }
 }

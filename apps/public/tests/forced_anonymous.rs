@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -126,15 +129,16 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         (name == "PUBLIC_WRITES_PER_MINUTE").then(|| "1000".into())
     })
     .unwrap();
-    let (_, app, api) = board_public::observed_routers_with_limits(
+    let (_, app, api) = posting_fixture::observed_routers_with_limits(
         public.clone(),
+        &slug,
         "http://127.0.0.1:3000".into(),
         false,
         true,
         None,
         limits,
     );
-    let old = board_store::create_post(&public, &slug, 0, &draft())
+    let old = posting_fixture::create_post(&public, &slug, 0, &draft())
         .await
         .unwrap();
     let mut previous_etag = None;
@@ -213,7 +217,11 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .unwrap();
                 assert_eq!(
                     json["posts"][0]["name"],
-                    if enabled { "Anonymous" } else { "Owned <name>" }
+                    if enabled {
+                        "Anonymous"
+                    } else {
+                        "Owned &lt;name&gt;"
+                    }
                 );
                 assert_eq!(
                     json["posts"][0]
@@ -320,7 +328,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             ..draft()
         };
         assert!(matches!(
-            board_store::create_post(&public, &slug, 0, &post).await,
+            posting_fixture::create_post(&public, &slug, 0, &post).await,
             Err(board_store::StoreError::Invalid(_))
         ));
     }
@@ -348,7 +356,9 @@ async fn forced_anonymous_clears_new_identity_before_admission_and_preserves_his
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Forced anonymous','Owned fixture',4000,200,150,100,10)").bind(&slug).execute(&owner).await.unwrap();
+    // Retain the identity-policy matrix's OPs on this owned board without
+    // exhausting the unrelated per-actor thread quota.
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_thread_limit) VALUES(0,0,0,$1,'Forced anonymous','Owned fixture',4000,200,150,100,10,100)").bind(&slug).execute(&owner).await.unwrap();
     let outcome = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

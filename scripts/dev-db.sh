@@ -4,7 +4,7 @@ set -euo pipefail
 # Existing clusters are not changed. A second invocation refuses to overwrite state.
 cd "$(dirname "$0")/.."
 [[ $(id -u) = 0 ]] || { echo 'Run with sudo in a disposable development environment.' >&2; exit 1; }
-[[ ! -e .local/database.env ]] || { echo '.local/database.env already exists; use the existing cluster.' >&2; exit 1; }
+[[ ! -e .local/database.env && ! -e .local/database.ps1 ]] || { echo 'Development credentials already exist; use the existing cluster.' >&2; exit 1; }
 pg_bin=/usr/lib/postgresql/16/bin
 [[ -x "$pg_bin/initdb" ]] || { echo 'Install PostgreSQL 16 first.' >&2; exit 1; }
 mkdir -p .local
@@ -13,6 +13,7 @@ chown postgres:postgres "$cluster"
 admin_password=$(openssl rand -hex 24)
 public_password=$(openssl rand -hex 24)
 migration_password=$(openssl rand -hex 24)
+poster_id_key=$(openssl rand -hex 32)
 password_file=$(mktemp)
 chmod 600 "$password_file"
 printf '%s\n' "$admin_password" > "$password_file"
@@ -30,10 +31,11 @@ REVOKE ALL ON DATABASE imageboard FROM PUBLIC;
 GRANT CONNECT ON DATABASE imageboard TO board_public, board_migrator;
 SQL
 umask 077
-printf 'export MIGRATION_DATABASE_URL=%q\nexport TEST_PUBLIC_DATABASE_URL=%q\nexport DATABASE_URL=%q\nexport BOARD_TEST_CLUSTER=%q\n' \
+set -o noclobber
+printf 'export MIGRATION_DATABASE_URL=%q\nexport TEST_PUBLIC_DATABASE_URL=%q\nexport DATABASE_URL=%q\nexport BOARD_TEST_CLUSTER=%q\nexport POSTER_ID_KEY=%q\n' \
   "postgres://board_migrator:$migration_password@127.0.0.1:55432/imageboard" \
   "postgres://board_public:$public_password@127.0.0.1:55432/imageboard" \
-  "postgres://board_public:$public_password@127.0.0.1:55432/imageboard" "$cluster" > .local/database.env
-printf '\044env:MIGRATION_DATABASE_URL = '\''postgres://board_migrator:%s@127.0.0.1:55432/imageboard'\''\n\044env:TEST_PUBLIC_DATABASE_URL = '\''postgres://board_public:%s@127.0.0.1:55432/imageboard'\''\n\044env:DATABASE_URL = \044env:TEST_PUBLIC_DATABASE_URL\n' "$migration_password" "$public_password" > .local/database.ps1
+  "postgres://board_public:$public_password@127.0.0.1:55432/imageboard" "$cluster" "$poster_id_key" > .local/database.env
+printf '\044env:MIGRATION_DATABASE_URL = '\''postgres://board_migrator:%s@127.0.0.1:55432/imageboard'\''\n\044env:TEST_PUBLIC_DATABASE_URL = '\''postgres://board_public:%s@127.0.0.1:55432/imageboard'\''\n\044env:DATABASE_URL = \044env:TEST_PUBLIC_DATABASE_URL\n\044env:POSTER_ID_KEY = '\''%s'\''\n' "$migration_password" "$public_password" "$poster_id_key" > .local/database.ps1
 printf '%s\n' "$cluster" > .local/cluster-path
 echo 'Disposable database started on 127.0.0.1:55432. Credentials are in ignored .local files.'

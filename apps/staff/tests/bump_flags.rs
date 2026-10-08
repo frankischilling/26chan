@@ -9,6 +9,7 @@ async fn exercise(owner: PgPool, staff: PgPool, slug: String, id: i64, reply: i6
         role: "moderator".into(),
         csrf_hash: vec![],
         recent: true,
+        permissions: board_staff::access::Permissions::all_boards(),
     };
     for action in ["permaage", "unpermaage"] {
         assert!(matches!(
@@ -19,7 +20,7 @@ async fn exercise(owner: PgPool, staff: PgPool, slug: String, id: i64, reply: i6
     let mut expected = Vec::new();
     for (action, role, permasage, permaage) in [
         ("permasage", "moderator", true, false),
-        ("permaage", "admin", true, true),
+        ("permaage", "manager", true, true),
         ("unpermasage", "moderator", false, true),
         ("unpermaage", "admin", false, false),
     ] {
@@ -47,7 +48,7 @@ async fn exercise(owner: PgPool, staff: PgPool, slug: String, id: i64, reply: i6
         assert_eq!((after.0, after.1), (permasage, permaage));
         assert_eq!(after.2, before.0, "changing a flag does not itself bump");
         assert!(after.3 > before.1);
-        let reports = board_staff::store::reports(&staff).await.unwrap();
+        let reports = board_staff::store::reports(&staff, &session).await.unwrap();
         let report = reports.iter().find(|r| r.board == slug).unwrap();
         assert_eq!((report.permasage, report.permaage), (permasage, permaage));
         let audit: Vec<String> = sqlx::query_scalar(
@@ -65,7 +66,14 @@ async fn exercise(owner: PgPool, staff: PgPool, slug: String, id: i64, reply: i6
             .fetch_one(&owner)
             .await
             .unwrap();
-    for action in ["permasage", "unpermasage", "permaage", "unpermaage"] {
+    for action in [
+        "permasage",
+        "unpermasage",
+        "permaage",
+        "unpermaage",
+        "undead",
+        "unundead",
+    ] {
         session.role = "admin".into();
         session.recent = false;
         assert!(matches!(
@@ -93,7 +101,14 @@ async fn exercise(owner: PgPool, staff: PgPool, slug: String, id: i64, reply: i6
         ));
     }
     sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1").bind(id).execute(&owner).await.unwrap();
-    for action in ["permasage", "unpermasage", "permaage", "unpermaage"] {
+    for action in [
+        "permasage",
+        "unpermasage",
+        "permaage",
+        "unpermaage",
+        "undead",
+        "unundead",
+    ] {
         assert!(matches!(
             moderate(&staff, &session, &slug, id, action).await,
             Err(AppError::Invalid)
@@ -104,7 +119,14 @@ async fn exercise(owner: PgPool, staff: PgPool, slug: String, id: i64, reply: i6
         .execute(&owner)
         .await
         .unwrap();
-    for action in ["permasage", "unpermasage", "permaage", "unpermaage"] {
+    for action in [
+        "permasage",
+        "unpermasage",
+        "permaage",
+        "unpermaage",
+        "undead",
+        "unundead",
+    ] {
         assert!(matches!(
             moderate(&staff, &session, &slug, id, action).await,
             Err(AppError::NotFound)

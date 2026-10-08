@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { createHash } from 'node:crypto';
 import { useUpdaterTail } from '../../apps/public/client/native-updater-tail.js';
-import { parseUpdaterSnapshot, updaterUrl, UPDATER_LIMITS } from '../../apps/public/client/native-updater-snapshot.js';
+import { parseUpdaterSnapshot, parseQuotePreviewSnapshot, parseBoardPageSnapshot, validatePostTree, updaterUrl, UPDATER_LIMITS } from '../../apps/public/client/native-updater-snapshot.js';
 import { NativeUpdaterTransport } from '../../apps/public/client/native-updater-transport.js';
 import { mobileHeaderLabel } from '../../apps/public/client/native-post-numbers.js';
 
@@ -15,6 +15,52 @@ function snapshot(inside) {
     replies: 1, images: 0, posts: [context.thread, '9007199254740993'].map(no => ({ no, file_deleted: false, html: html(no, inside) })) };
 }
 function parse(s, c = context) { return parseUpdaterSnapshot(JSON.stringify(s), c); }
+
+test('automatic deletion fields remain empty and bound to their own post and action', () => {
+  const positive = snapshot(), no = positive.posts[1].no;
+  for (const post of positive.posts) {
+    post.html = post.html.replace(`<label for="delete${post.no}">Deletion password</label>`, '')
+      .replace('type="password" minlength="8" maxlength="128" autocomplete="off" required', 'type="hidden"');
+  }
+  assert.equal(parse(positive).status, 'ok');
+  for (const [from, to] of [
+    [`id="delete${no}"`, `id="delete${context.thread}"`],
+    ['name="password" type="hidden"', 'name="password" type="hidden" value=""'],
+    ['name="password" type="hidden"', 'name="password" type="hidden" value="private-capability"'],
+    ['name="password" type="hidden"', 'name="anonymous_capability" type="hidden"'],
+    ['name="password" type="hidden"', 'name="password" type="text"'],
+    ['action="/demo/delete"', 'action="/demo/report"'],
+  ]) {
+    const candidate = structuredClone(positive);
+    candidate.posts[1].html = candidate.posts[1].html.replace(from, to);
+    assert.notEqual(candidate.posts[1].html, positive.posts[1].html);
+    assert.equal(parse(candidate).status, 'invalid-snapshot', to);
+  }
+});
+
+test('source board, catalog search and rules links survive the bounded recipe without opening other routes', () => {
+  for (const href of ['/po/', '/g/catalog', '/g/catalog#s=a+b%2Fc%2Cd-e', '/rules#g3', '/rules#unknown4']) {
+    const inside = `<a class="quotelink" href="${href}">&gt;&gt;&gt;/g/catalog</a>`;
+    assert.equal(parse(snapshot(inside)).status, 'ok', href);
+  }
+  for (const href of ['//evil.example/g/catalog', '/g/catalog?admin=1', '/g/catalog#s=%2F..%2F',
+    '/g/catalog#s=a%20b', '/g/catalog#s=a%2fb', '/rules#../admin', '/g/../admin', '/admin',
+    '/g/catalog#s=a b', 'javascript:alert(1)']) {
+    const inside = `<a class="quotelink" href="${href}">owned</a>`;
+    assert.equal(parse(snapshot(inside)).status, 'invalid-snapshot', href);
+  }
+});
+
+test('fortune palette classes and dice markup survive the finite updater recipe without inline style authority', () => {
+  const inside = '<b>Rolled 6, 6 = 12 (2d6)<br><br></b>ordinary'
+    + '<span class="fortune fortune-10"><br><br><b>Your fortune: Outlook good</b></span>';
+  assert.equal(parse(snapshot(inside)).status, 'ok');
+  for (const hostile of [
+    inside.replace('fortune-10', 'fortune-owned'),
+    inside.replace('class="fortune fortune-10"', 'class="fortune fortune-10" style="color:#00cbb0"'),
+    inside.replace('fortune fortune-10', 'fortune fortune-10 quote'),
+  ]) assert.equal(parse(snapshot(hostile)).status, 'invalid-snapshot', hostile);
+});
 
 const capcodes = [
   ['Mod', 'capcodeMod', 'id_mod', 'Highlight posts by Moderators', 'modicon', 'This user is a board Moderator.'],
@@ -68,6 +114,38 @@ test('staff badges admit only complete pinned header recipes and fixed icon fetc
   assert.equal(parse(duplicated).status, 'invalid-snapshot');
 });
 
+test('staff badges retain only prepared trip hashes in their own bounded name block', () => {
+  for (const def of capcodes) for (const trip of ['!ozOtJW9BFA', '!!ABCDEFGHIJK']) {
+    const positive = capcodeSnapshot(def);
+    const hash = `<span class="postertrip">${trip}</span>`;
+    positive.posts[1].html = positive.posts[1].html.replace('</span> <strong', `</span> ${hash} <strong`);
+    assert.equal(parse(positive).status, 'ok', `${def[0]} ${trip}`);
+    for (const [from, to] of [
+      [hash, `<span class="postertrip">${trip}x</span>`],
+      [hash, '<span class="postertrip">private-password</span>'],
+      [hash, `<span class="postertrip" title="extra">${trip}</span>`],
+      [hash, `<span class="postertrip"><span>${trip}</span></span>`],
+      [hash, `${hash} ${hash}`],
+      ['</blockquote>', `${hash}</blockquote>`],
+    ]) {
+      const candidate = structuredClone(positive);
+      candidate.posts[1].html = candidate.posts[1].html.replace(from, to);
+      assert.notEqual(candidate.posts[1].html, positive.posts[1].html);
+      assert.equal(parse(candidate).status, 'invalid-snapshot', to);
+    }
+    const moved = structuredClone(positive);
+    moved.posts[1].html = moved.posts[1].html.replace(` ${hash}`, '').replace('</blockquote>', `${hash}</blockquote>`);
+    assert.equal(parse(moved).status, 'invalid-snapshot');
+    const limit = 255 - new TextEncoder().encode(`</span> <span class="postertrip">${trip}`).length;
+    for (const [name, expected] of [['n'.repeat(limit), 'ok'], ['n'.repeat(limit + 1), 'invalid-snapshot'],
+      ['&amp;'.repeat(Math.floor(limit / 5)), 'ok'], ['&amp;'.repeat(Math.floor(limit / 5) + 1), 'invalid-snapshot']]) {
+      const candidate = structuredClone(positive);
+      candidate.posts[1].html = candidate.posts[1].html.replace('Owned &lt;staff&gt;', name);
+      assert.equal(parse(candidate).status, expected, `${trip}: ${name.length}`);
+    }
+  }
+});
+
 test('post numbers bind both links, labels and titles to their own post header', () => {
   const positive = snapshot(), no = positive.posts[1].no;
   const permalink = `/demo/thread/${context.thread}#p${no}`;
@@ -118,6 +196,64 @@ function pairedHeaderSnapshot(def = null, highlighted = false) {
   }
   return value;
 }
+
+test('paired staff trip headers survive updater, preview and board-page validation', () => {
+  for (const def of capcodes) for (const trip of ['!ozOtJW9BFA', '!!ABCDEFGHIJK']) {
+    const value = pairedHeaderSnapshot(def);
+    for (const post of value.posts) post.html = post.html.replaceAll('</span> <strong',
+      `</span> <span class="postertrip">${trip}</span> <strong`);
+    const result = parse(value);
+    assert.equal(result.status, 'ok');
+    for (const post of result.snapshot.posts) assert.doesNotThrow(() => validatePostTree(post.tree, context, post.no));
+    assert.equal(parseQuotePreviewSnapshot(JSON.stringify({ version: 1, board: context.board,
+      thread: context.thread, post: value.posts[0] }), { ...context, post: context.thread }).status, 'ok');
+    assert.equal(parseBoardPageSnapshot(JSON.stringify({ version: 1, board: context.board, page: 0, next_page: null,
+      threads: [{ thread: context.thread, closed: false, sticky: false, archived: false, replies: 1,
+        images: 0, omitted: 0, posts: value.posts }] }), { ...context, page: 0 }).status, 'ok');
+    const mismatched = structuredClone(value);
+    mismatched.posts[1].html = mismatched.posts[1].html.replace(trip, trip === '!ozOtJW9BFA' ? '!0123456789' : '!!01234567890');
+    assert.equal(parse(mismatched).status, 'invalid-snapshot');
+  }
+});
+
+test('authorized names and subjects survive worker parsing and live tree validation within saved UTF-8 bounds', () => {
+  const escape = text => text.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character]);
+  function candidate(name, subject) {
+    const value = pairedHeaderSnapshot(capcodes[0]);
+    const label = (text, css) => {
+      const mobile = mobileHeaderLabel(text);
+      return `<span class="${css}"${mobile.shortened ? ` title="${escape(text)}"` : ''}>${escape(mobile.text)}</span>`;
+    };
+    for (const post of value.posts) {
+      post.html = post.html.replace('<span class="name">Owned &lt;staff&gt;</span>', label(name, 'name'))
+        .replace('<span class="name">Owned &lt;staff&gt;</span>', `<span class="name">${escape(name)}</span>`);
+      if (post.no === context.thread) post.html = post.html.replace('<span class="subject">Owned mobile subject</span>', label(subject, 'subject'))
+        .replace('<span class="subject">Owned mobile subject</span>', `<span class="subject">${escape(subject)}</span>`);
+    }
+    return value;
+  }
+  for (const [name, subject] of [
+    ['Owned <staff>' + 'n'.repeat(220), 's'.repeat(255)],
+    ['n'.repeat(255), ' '.repeat(1014)],
+    ['é'.repeat(127) + 'a', ' '.repeat(1020)],
+    ['&'.repeat(51), 'é'.repeat(510)],
+  ]) {
+    const value = candidate(name, subject), result = parse(value);
+    assert.equal(result.status, 'ok');
+    for (const post of result.snapshot.posts) assert.doesNotThrow(() => validatePostTree(post.tree, context, post.no));
+    const preview = { version: 1, board: context.board, thread: context.thread, post: value.posts[0] };
+    assert.equal(parseQuotePreviewSnapshot(JSON.stringify(preview), { ...context, post: context.thread }).status, 'ok');
+    const page = { version: 1, board: context.board, page: 0, next_page: null, threads: [{
+      thread: context.thread, closed: false, sticky: false, archived: false, replies: 1,
+      images: 0, omitted: 0, posts: value.posts,
+    }] };
+    assert.equal(parseBoardPageSnapshot(JSON.stringify(page), { ...context, page: 0 }).status, 'ok');
+  }
+  for (const [name, subject] of [
+    ['n'.repeat(256), 'owned'], ['é'.repeat(128), 'owned'],
+    ['owned', ' '.repeat(1021)], ['owned', 'é'.repeat(511)],
+  ]) assert.equal(parse(candidate(name, subject)).status, 'invalid-snapshot');
+});
 
 test('paired mobile headers bind identity, subject, timestamp and both number targets to the desktop recipe', () => {
   assert.equal(parse(pairedHeaderSnapshot()).status, 'ok');

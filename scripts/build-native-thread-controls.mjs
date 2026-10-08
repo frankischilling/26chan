@@ -28,6 +28,7 @@ for (const path of Object.keys(result.metafile.inputs)) assert.ok([
   'apps/public/client/native-updater-tail.js', 'apps/public/client/native-tracked-quotes.js',
   'apps/public/client/native-depager-transport.js',
   'apps/public/client/native-depager.js',
+  'apps/public/client/native-spoiler-assets.js', 'apps/public/client/native-spoilers.js',
   'apps/public/static/thread-watcher-core.v1.js',
 ].includes(path), `Unexpected expansion source: ${path}`);
 const bytes = result.outputFiles[0].contents;

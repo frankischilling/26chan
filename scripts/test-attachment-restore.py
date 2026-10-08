@@ -38,8 +38,9 @@ def main():
     os.umask(0o077)
     windows = os.name == 'nt'
     executable_suffix = '.exe' if windows else ''
-    fixture = REPO / ('target/debug/examples/attachment_restore' + executable_suffix)
-    migrator = REPO / ('target/debug/board-migrate' + executable_suffix)
+    target = Path(os.environ.get('CARGO_TARGET_DIR', REPO / 'target'))
+    fixture = target / ('debug/examples/attachment_restore' + executable_suffix)
+    migrator = target / ('debug/board-migrate' + executable_suffix)
     assert fixture.is_file() and migrator.is_file(), 'Build the restore example and board-migrate first'
     if windows:
         owner_root = REPO / '.local/intake-postgres'
@@ -118,11 +119,27 @@ def main():
             for table, order in tables.items():
                 statement = f"SELECT coalesce(md5(string_agg(row_to_json(r)::text,'' ORDER BY {order})), '') FROM {table} r"
                 values.append(run([psql, '-XAt', '-v', 'ON_ERROR_STOP=1', '-c', statement], role_env('MIGRATION_DATABASE_URL', database), 'data fingerprint'))
+            # Dedicated NOLOGIN owners deliberately grant no inherited SELECT
+            # to the migrator. Compare their private state and retained history
+            # only through this exercise's verified owned-cluster bootstrap.
+            # Keep digests in memory; never write report/actor data to logs.
+            for table in ('post_secrets.report_membership', 'post_secrets.report_admission_gate',
+                          'content.reports', 'content.moderation_audit'):
+                statement = f"SELECT coalesce(md5(string_agg(row_to_json(r)::text,'' ORDER BY row_to_json(r)::text)), '') FROM {table} r"
+                values.append(admin(statement, database))
             return values
 
         before = fingerprint(source)
-        run([pg_bin / ('pg_dump' + executable_suffix), '--format=custom', '--file', backup_root / 'database.dump'],
-            role_env('MIGRATION_DATABASE_URL', source), 'database dump', root / 'dump.log')
+        # A complete archive includes dedicated-owner private tables. The
+        # parent opens the 0600 archive before Linux drops to postgres; Windows
+        # retains the owned cluster's private ACLs. Do not grant path access to
+        # the child or weaken the migrator's privileges to make a dump work.
+        with (backup_root / 'database.dump').open('wb') as stream:
+            result = subprocess.run([*admin_prefix, str(pg_bin / ('pg_dump' + executable_suffix)), '--format=custom'],
+                                    stdout=stream, stderr=subprocess.PIPE,
+                                    env={**admin_env, 'PGDATABASE': source}, timeout=60)
+        (root / 'dump.log').write_bytes(result.stderr)
+        assert result.returncode == 0, 'Database dump failed; inspect private dump.log'
 
         def copy_outputs(start, destination):
             destination.mkdir(mode=0o700)
@@ -144,7 +161,7 @@ def main():
                                     capture_output=True, timeout=60)
         (root / 'restore.log').write_bytes(result.stdout + result.stderr)
         assert result.returncode == 0, 'Atomic restore failed; inspect private restore.log'
-        assert fingerprint(restored) == before, 'Restored attachment, job, capability, clock or migration data differs'
+        assert fingerprint(restored) == before, 'Restored attachment, job, capability, clock, migration or report history data differs'
         copy_outputs(backup_root / 'objects', restore_root / 'objects')
         shutil.copyfile(backup_root / 'manifest.json', restore_root / 'manifest.json')
         # Negative controls use only the restored copy. The same verification

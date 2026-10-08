@@ -165,6 +165,30 @@ test('index tooltips require an expanded thread and omit incomplete bounded coun
   });
 });
 
+test('source Heaven labels highlight and count loaded posts while near matches remain inert', async () => {
+  await fixture(true, async page => {
+    await page.evaluate(() => {
+      for (const no of [1, 2]) document.querySelector(`#p${no} .hand`).textContent = 'Heaven';
+      document.querySelector('#p3 .hand').textContent = 'Heaven\n';
+    });
+    const first = page.locator('#p1 .hand'), tip = page.locator('#native-poster-id-tip');
+    await expect(first).toHaveAttribute('role', 'button');
+    await expect(page.locator('#p3 .hand')).not.toHaveAttribute('role', 'button');
+    await first.click();
+    await expect(page.locator('#p1')).toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p2')).toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p3')).not.toHaveClass(/poster-id-highlight/);
+    await first.focus();
+    await expect(tip).toHaveText('2 posts by this ID');
+    await page.evaluate(html => document.getElementById('t1').insertAdjacentHTML('beforeend', html), post(4, 'Heaven'));
+    await expect(page.locator('#p4')).toHaveClass(/poster-id-highlight/);
+    await expect(tip).toHaveText('3 posts by this ID');
+    await first.press('Enter');
+    await expect(page.locator('#p2')).not.toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p4')).not.toHaveClass(/poster-id-highlight/);
+  });
+});
+
 test('staff labels highlight their finite groups without ID tooltips or preview controls', async () => {
   await fixture(true, async page => {
     await page.evaluate(html => document.getElementById('t1').insertAdjacentHTML('beforeend', html),

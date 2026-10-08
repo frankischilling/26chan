@@ -28,26 +28,34 @@ async fn pool(key: &str) -> PgPool {
 async fn legacy_backfill_preserves_originals_fences_output_and_commits_cache_metadata() {
     let owner = pool("MIGRATION_DATABASE_URL").await;
     let board = ObjectId::generate().unwrap().to_string()[..10].to_owned();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Legacy media fixture','Synthetic',2000,100,100,100,10)")
-        .bind(&board).execute(&owner).await.unwrap();
+    let destination_board = ObjectId::generate().unwrap().to_string()[..10].to_owned();
+    for board in [&board, &destination_board] {
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Legacy media fixture','Synthetic',2000,100,100,100,10,0,0,0)")
+        .bind(board).execute(&owner).await.unwrap();
+    }
     let ids = Arc::new(Mutex::new(Vec::<String>::new()));
     let task_ids = ids.clone();
     let task_owner = owner.clone();
     let task_board = board.clone();
-    let result =
-        tokio::spawn(async move { exercise(&task_owner, &task_board, &task_ids).await }).await;
-    for query in [
-        "DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",
-        "DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",
-        "DELETE FROM content.posts WHERE board=$1",
-        "DELETE FROM content.threads WHERE board=$1",
-        "DELETE FROM content.boards WHERE slug=$1",
-    ] {
-        sqlx::query(query)
-            .bind(&board)
-            .execute(&owner)
-            .await
-            .unwrap();
+    let task_destination_board = destination_board.clone();
+    let result = tokio::spawn(async move {
+        exercise(&task_owner, &task_board, &task_destination_board, &task_ids).await
+    })
+    .await;
+    for board in [&board, &destination_board] {
+        for query in [
+            "DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",
+            "DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",
+            "DELETE FROM content.posts WHERE board=$1",
+            "DELETE FROM content.threads WHERE board=$1",
+            "DELETE FROM content.boards WHERE slug=$1",
+        ] {
+            sqlx::query(query)
+                .bind(board)
+                .execute(&owner)
+                .await
+                .unwrap();
+        }
     }
     let ids = ids.lock().unwrap().clone();
     sqlx::query("DELETE FROM media.assets WHERE id=ANY($1)")
@@ -96,7 +104,7 @@ async fn insert_legacy(
     (id, post)
 }
 
-async fn exercise(owner: &PgPool, board: &str, ids: &Mutex<Vec<String>>) {
+async fn exercise(owner: &PgPool, board: &str, destination_board: &str, ids: &Mutex<Vec<String>>) {
     let admin = LegacyMediaStore::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -265,6 +273,9 @@ async fn exercise(owner: &PgPool, board: &str, ids: &Mutex<Vec<String>>) {
     let (dispatched, _) = insert_legacy(owner, board, &store, &output, ids).await;
     cli_dispatch(temp.path(), &root, &dispatched, frame(50)).await;
     posting_during_upgrade(owner, board, &store, &files, &output, ids).await;
+    for destination in [destination_board, board] {
+        ownership_during_upgrade(owner, board, destination, &store, &files, &output, ids).await;
+    }
     assert!(
         admin
             .get(&dispatched)
@@ -274,6 +285,167 @@ async fn exercise(owner: &PgPool, board: &str, ids: &Mutex<Vec<String>>) {
             .unwrap()
             .is_some()
     );
+}
+
+async fn ownership_during_upgrade(
+    owner: &PgPool,
+    source_board: &str,
+    destination_board: &str,
+    store: &PublicationStore,
+    files: &ApprovedFiles,
+    output: &ValidatedOutput,
+    ids: &Mutex<Vec<String>>,
+) {
+    let (id, source_post) = insert_legacy(owner, source_board, store, output, ids).await;
+    let destination_post: i64 =
+        sqlx::query_scalar("INSERT INTO content.threads(board) VALUES ($1) RETURNING id")
+            .bind(destination_board)
+            .fetch_one(owner)
+            .await
+            .unwrap();
+    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES ($1,$2,$1,'Synthetic','','Relocation target')")
+        .bind(destination_post).bind(destination_board).execute(owner).await.unwrap();
+    let admin = LegacyMediaStore::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let reader = MediaReader::connect(&std::env::var("MEDIA_READ_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let guard = store.try_lock().unwrap();
+    let before = admin.get(&id).await.unwrap();
+    assert!(before.variants().unwrap().is_none());
+    let original = files
+        .read(
+            id.parse().unwrap(),
+            &before.asset.sha256,
+            before.asset.bytes as u64,
+        )
+        .unwrap();
+    let identifiers: (String, String, i64) =
+        sqlx::query_as("SELECT job_id,asset_id,tim FROM content.post_media WHERE post_id=$1")
+            .bind(source_post)
+            .fetch_one(owner)
+            .await
+            .unwrap();
+    let has_job: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM media.jobs WHERE id=$1)")
+        .bind(&identifiers.0)
+        .fetch_one(owner)
+        .await
+        .unwrap();
+    assert!(!has_job, "The legacy asset must outlive its queue job");
+    let prior: Vec<(i64, String, String)> = sqlx::query_as("SELECT id,modified_at::text,http_modified_at::text FROM content.threads WHERE id=ANY($1) ORDER BY id")
+        .bind(vec![source_post, destination_post]).fetch_all(owner).await.unwrap();
+
+    assert_eq!(prior.len(), 2);
+
+    // Fixture-only relocation locks both owners before changing the attachment.
+    let mut relocation = owner.begin().await.unwrap();
+    let fixture_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *relocation)
+        .await
+        .unwrap();
+    sqlx::query("SELECT slug FROM content.boards WHERE slug=ANY($1) ORDER BY slug FOR UPDATE")
+        .bind(vec![source_board, destination_board])
+        .fetch_all(&mut *relocation)
+        .await
+        .unwrap();
+    sqlx::query("SELECT id FROM content.threads WHERE id=ANY($1) ORDER BY board,id FOR UPDATE")
+        .bind(vec![source_post, destination_post])
+        .fetch_all(&mut *relocation)
+        .await
+        .unwrap();
+    sqlx::query("SELECT id FROM media.assets WHERE id=$1 FOR UPDATE")
+        .bind(&id)
+        .fetch_one(&mut *relocation)
+        .await
+        .unwrap();
+    let relocated =
+        sqlx::query("UPDATE content.post_media SET post_id=$1 WHERE post_id=$2 AND asset_id=$3")
+            .bind(destination_post)
+            .bind(source_post)
+            .bind(&id)
+            .execute(&mut *relocation)
+            .await
+            .unwrap();
+
+    assert_eq!(relocated.rows_affected(), 1);
+    let upgrade = complete_backfill(&admin, &guard, files, &before, output);
+    let coordinate = async {
+        let mut waited = false;
+        for _ in 0..100 {
+            waited = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename='board_migrator' AND pid<>$1 AND $1=ANY(pg_blocking_pids(pid)) AND query='SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE')")
+                .bind(fixture_pid).fetch_one(owner).await.unwrap();
+            if waited {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        relocation.commit().await.unwrap();
+        waited
+    };
+    let (upgraded, waited) = tokio::join!(upgrade, coordinate);
+    assert!(
+        waited,
+        "Backfill must read the old owner and wait on the fixture's board lock"
+    );
+    upgraded.unwrap();
+
+    let after: Vec<(i64, String, String)> = sqlx::query_as("SELECT id,modified_at::text,http_modified_at::text FROM content.threads WHERE id=ANY($1) ORDER BY id")
+        .bind(vec![source_post, destination_post]).fetch_all(owner).await.unwrap();
+    assert_eq!(after.len(), 2);
+    for (prior, after) in prior.iter().zip(&after) {
+        assert_eq!(prior.0, after.0);
+        if prior.0 == source_post {
+            assert_eq!(
+                prior, after,
+                "The old owner's cache timestamps must not change"
+            );
+        } else {
+            assert_ne!(
+                prior.1, after.1,
+                "The verified owner must receive the manifest timestamp"
+            );
+            assert_ne!(prior.2, after.2);
+        }
+    }
+    let timestamped: bool = sqlx::query_scalar("SELECT t.modified_at>=a.updated_at FROM content.threads t JOIN content.posts p ON p.thread_id=t.id JOIN content.post_media m ON m.post_id=p.id JOIN media.assets a ON a.id=m.asset_id WHERE p.id=$1")
+        .bind(destination_post).fetch_one(owner).await.unwrap();
+    assert!(timestamped);
+    let retained: (String, String, i64) =
+        sqlx::query_as("SELECT job_id,asset_id,tim FROM content.post_media WHERE post_id=$1")
+            .bind(destination_post)
+            .fetch_one(owner)
+            .await
+            .unwrap();
+    assert_eq!(identifiers, retained);
+    let current = admin.get(&id).await.unwrap();
+    assert_eq!(current.asset, before.asset);
+    let variants = current.variants().unwrap().unwrap();
+    assert_eq!(variants.md5, output.encode().unwrap().md5());
+    assert_eq!(
+        (variants.thumbnail.width, variants.thumbnail.height),
+        (250, 150)
+    );
+    assert_eq!(
+        files
+            .read(
+                id.parse().unwrap(),
+                &current.asset.sha256,
+                current.asset.bytes as u64
+            )
+            .unwrap(),
+        original
+    );
+    let thumbnail = reader.get_thumbnail(&id).await.unwrap();
+    assert_eq!(thumbnail.sha256, variants.thumbnail.sha256);
+    let readable = files
+        .read_thumbnail(
+            id.parse().unwrap(),
+            &thumbnail.sha256,
+            thumbnail.bytes as u64,
+        )
+        .unwrap();
+    assert_eq!(readable.len() as i64, variants.thumbnail.bytes);
 }
 
 async fn blocked(owner: &PgPool, role: &str) -> bool {
@@ -362,8 +534,21 @@ async fn posting_during_upgrade(
         .await
         .unwrap();
     let posting_board = board.to_string();
+    // Observe an actual peer on an owned fixture socket. Neither this identity
+    // nor the fresh private key can overlap an unrelated posting workflow.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let client = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    let (_accepted, peer) = listener.accept().unwrap();
+    assert_eq!(peer, client.local_addr().unwrap());
+    assert!(peer.ip().is_loopback());
+    let key = board_domain::poster_id::PosterIdKey::parse(&format!(
+        "{}{}",
+        ObjectId::generate().unwrap(),
+        ObjectId::generate().unwrap()
+    ))
+    .unwrap();
     let posting = tokio::spawn(async move {
-        board_store::create_post_with_attachment(
+        board_store::create_post_with_identity_keys(
             &public,
             &posting_board,
             0,
@@ -378,6 +563,15 @@ async fn posting_during_upgrade(
                 upload,
                 spoiler: false,
             }),
+            board_store::PostingContext {
+                request_start: chrono::Utc::now(),
+                peer: Some(peer.ip()),
+                op_password_proof: None,
+            },
+            board_store::PostIdentityKeys {
+                tripcode: None,
+                poster_id: Some(&key),
+            },
         )
         .await
     });

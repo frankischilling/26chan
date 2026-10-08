@@ -124,10 +124,10 @@ export function mountNativeReplyHiding({ board, settings, changed }) {
     } finally { clearTimeout(timer); waiting.delete(controller); }
   }
   function isHidden(id) { return !disabled() && valid && effects.has(reply(id)); }
-  function toggle(id) {
+  function setHidden(id, requested) {
     if (!reply(id) || disabled()) return Promise.resolve(false);
     // Preserve the requested action while waiting, rather than toggling a newer tab's edit.
-    const hide = !isHidden(id);
+    const hide = requested ?? !isHidden(id);
     return mutate(() => {
       if (!reply(id)) return false;
       const next = renewHiddenReplies(entries, new Set());
@@ -135,6 +135,8 @@ export function mountNativeReplyHiding({ board, settings, changed }) {
       return save(next, { id, hide });
     });
   }
+  function toggle(id) { return setHidden(id); }
+  function hide(id) { return setHidden(id, true); }
   function renewVisited() {
     if (renewed || !ready || !valid || disabled()) return;
     renewed = true;
@@ -165,5 +167,5 @@ export function mountNativeReplyHiding({ board, settings, changed }) {
   }).observe(root, { childList: true, subtree: true });
   load(); apply();
   renewVisited();
-  return { refresh, isHidden, toggle, setFiltered };
+  return { refresh, isHidden, toggle, hide, setFiltered };
 }

@@ -139,3 +139,13 @@ path/status pairs and 16 failed path/error-code pairs, plus finite computed
 root/body/hover colors and an admitted hex page-color variable. They exclude
 queries, fragments, headers, bodies, cookies and storage. No dependency,
 media admission, worker authority, retry, timeout or pixel tolerance changes.
+
+## Deleted media
+
+Confirmed [mobile deletion](native-post-deletion.md) retires the exact validated
+file URL for the page lifetime. Original and copied media cannot expand, hover,
+or open through filename and thumbnail links after retirement. Pending images
+are released; unrelated files retain their controls. The set holds at most
+20,001 URLs. If it fills, enhancement fails closed with refresh guidance rather
+than dropping old retirement records. Server-side file revocation remains the
+authority after navigation or reload.

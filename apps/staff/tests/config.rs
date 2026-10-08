@@ -137,3 +137,104 @@ fn staff_metrics_failure_does_not_connect_stores_or_leave_staff_serving() {
         );
     }
 }
+
+#[test]
+fn staff_upload_is_default_off_and_accepts_only_an_explicit_isolated_development_profile() {
+    use board_staff::config::parse_staff_media;
+    assert!(
+        parse_staff_media(None, None, None, false)
+            .unwrap()
+            .is_none()
+    );
+    let token = "b".repeat(64);
+    assert!(
+        parse_staff_media(
+            Some("isolated-development"),
+            Some("127.0.0.1:3004"),
+            Some(&token),
+            false
+        )
+        .unwrap()
+        .is_some()
+    );
+    for (profile, address, secret, production) in [
+        (None, Some("127.0.0.1:3004"), Some(token.as_str()), false),
+        (
+            Some("isolated-development"),
+            None,
+            Some(token.as_str()),
+            false,
+        ),
+        (
+            Some("isolated-development"),
+            Some("127.0.0.1:3004"),
+            None,
+            false,
+        ),
+        (
+            Some("production"),
+            Some("127.0.0.1:3004"),
+            Some(token.as_str()),
+            false,
+        ),
+        (
+            Some("isolated-development"),
+            Some("127.0.0.1:3004"),
+            Some(token.as_str()),
+            true,
+        ),
+        (
+            Some("isolated-development"),
+            Some("192.0.2.1:3004"),
+            Some(token.as_str()),
+            false,
+        ),
+        (
+            Some("isolated-development"),
+            Some("127.0.0.1:0"),
+            Some(token.as_str()),
+            false,
+        ),
+        (
+            Some("isolated-development"),
+            Some("localhost:3004"),
+            Some(token.as_str()),
+            false,
+        ),
+        (
+            Some("isolated-development"),
+            Some("http://127.0.0.1:3004"),
+            Some(token.as_str()),
+            false,
+        ),
+        (
+            Some("isolated-development"),
+            Some("127.0.0.1:3004"),
+            Some("secret"),
+            false,
+        ),
+    ] {
+        let error = match parse_staff_media(profile, address, secret, production) {
+            Err(error) => error,
+            Ok(_) => panic!("unsafe staff media configuration accepted"),
+        };
+        assert!(!error.contains(&token));
+        assert!(!error.contains("192.0.2.1"));
+    }
+    for token in [
+        "A".repeat(64),
+        "b".repeat(63),
+        "b".repeat(65),
+        format!("{}\n", "b".repeat(64)),
+    ] {
+        assert!(
+            parse_staff_media(
+                Some("isolated-development"),
+                Some("127.0.0.1:3004"),
+                Some(&token),
+                false
+            )
+            .is_err()
+        );
+    }
+}

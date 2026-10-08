@@ -5,6 +5,9 @@ They qualify the implemented text-post slice. They do not establish original
 private authentication behavior, physical authenticator protection, staff
 attachment posting or production launch readiness.
 
+This is the original text-post checkpoint. Later [staff identity checks](verification-staff-identity.md)
+cover source badge permissions, name preparation, prepared trips and migration 0071.
+
 ## Database and HTTP checks
 
 Fresh bootstrap applied all 42 migrations in a disposable Unix-socket cluster,

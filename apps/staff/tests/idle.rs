@@ -43,6 +43,10 @@ async fn fixture() -> Fixture {
     Fixture {
         state: Arc::new(AppState {
             config: Config {
+                media: None,
+                proxy: None,
+                poster_id_key: None,
+                country_database: None,
                 origin: "http://localhost:3001".into(),
                 public_origin: "http://localhost:3000".into(),
                 media_origin: "http://127.0.0.1:3002".into(),
@@ -51,6 +55,7 @@ async fn fixture() -> Fixture {
                 auth_database: String::new(),
                 staff_database: String::new(),
                 idle_timeout: Duration::from_secs(60),
+                tripcode_key: None,
             },
             auth: auth_pool,
             staff: pool("STAFF_DATABASE_URL").await,

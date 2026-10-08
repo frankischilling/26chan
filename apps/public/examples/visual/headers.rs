@@ -21,20 +21,28 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
     for (index, capcode) in capcodes.into_iter().enumerate() {
         let id = 1_001_001 + index as i64 * 10;
         let post = Post {
+            image_spoiler: false,
             comment_format: 0,
+            staff_authorized_limits: false,
+            wordfilter_payload: None,
             id,
             board: "demo".into(),
             thread_id: id,
             name: "Owned staff".into(),
             trip: None,
             poster_id: None,
+            json_op_poster_id: None,
             capcode: Some(capcode.into()),
             country: None,
             country_name: None,
             board_flag: None,
+            board_flag_type: "pol".into(),
             flag_name: None,
             subject: "Owned header subject".into(),
             comment: "Owned synthetic header text".into(),
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
             created_at: time("2026-09-08T12:00:00Z"),
             deleted: false,
             attachment: None,
@@ -45,6 +53,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
             ..post.clone()
         };
         threads.push(views::ThreadView {
+            catalog_position: None,
             catalog_last_reply: None,
             tail_size: 0,
             latest_reply_id: Some(id + 1),
@@ -73,6 +82,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
     let mut board = board();
     board.worksafe = worksafe;
     views::BoardPage {
+        spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),

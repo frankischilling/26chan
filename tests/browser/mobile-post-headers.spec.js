@@ -1,3 +1,4 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { mobileHeaderLabel } from '../../apps/public/client/native-post-numbers.js';
 
@@ -7,8 +8,8 @@ const test = base.extend({
     const password = 'owned-mobile-header-password';
     const name = '<'.repeat(10), subject = 'A'.repeat(31);
     const write = async form => {
-      const response = await request.post('/demo/post', { headers: { Origin: origin, Connection: 'close' },
-        maxRedirects: 0, form: { name, password, ...form } });
+      const response = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin, Connection: 'close' },
+        maxRedirects: 0, form: { name, password, ...form } }));
       expect(response.status()).toBe(303); expect(response.headers().connection).toBe('close');
       return response.headers().location.match(/#p(\d+)$/)[1];
     };
@@ -17,9 +18,11 @@ const test = base.extend({
       const reply = await write({ resto: id, com: `>>${id}\nOwned mobile header reply` });
       await use({ id, reply, name, subject, url: `/demo/thread/${id}`, replyTo: form => write({ resto: id, ...form }) });
     } finally {
-      const response = await request.post('/demo/delete', { headers: { Origin: origin, Connection: 'close' },
-        maxRedirects: 0, form: { no: id, password } });
-      expect(response.status()).toBe(303); expect(response.headers().connection).toBe('close');
+      await withDeletionQuota(async () => {
+        const response = await request.post('/demo/delete', { headers: { Origin: origin, Connection: 'close' },
+          maxRedirects: 0, form: { no: id, password } });
+        expect(response.status()).toBe(303); expect(response.headers().connection).toBe('close');
+      });
     }
   },
 });
@@ -46,11 +49,11 @@ test('persisted script-free mobile headers escape shortened labels and keep nati
     await expect(page.locator('#com')).toBeVisible(); await expect(page.locator('#com')).toHaveValue(`>>${owned.reply}\n`);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.locator('#com').fill(`>>${owned.reply}\nOwned script-free mobile submission`);
-    await page.locator('#password').fill('owned-mobile-header-password');
-    await page.locator('form.postEditor button[type=submit]').click();
+    await expect(page.locator('#postPassword')).toHaveValue('');
+    await withPostingHistory(() => page.locator('form.postEditor button[type=submit]').click());
     await expect(page.locator('.postMessage').filter({ hasText: 'Owned script-free mobile submission' })).toHaveCount(1);
     const data = await (await request.get(`${owned.url}.json`)).json();
-    expect(data.posts).toHaveLength(3); expect(data.posts[0].name).toBe(owned.name);
+    expect(data.posts).toHaveLength(3); expect(data.posts[0].name).toBe('&lt;'.repeat(10));
   } finally { await context.close(); }
 });
 

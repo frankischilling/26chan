@@ -1,0 +1,115 @@
+{
+  "reference": "operator-supplied 4chan-old checkout",
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+    "config/global_strings.ini": "3b3b60083db74fb1693af6f0824cccd6ec3ca446242474008cf9be474c65cd17"
+  },
+  "selected_sha256": {
+    "updating_index": "87fad5c0d12b37c1f584f3e79d41c936d93a2dad0defa4917c353826f4d5d39d"
+  },
+  "source_message": "Updating index...",
+  "extractor_php": "8.4.26",
+  "scope": "only original updating_index function echo/protocol logic and extracted global message; no endpoint, auth, database, rebuild, HTTP status or cache-header execution",
+  "boundary_stubs": [
+    "two fixed synthetic board/domain mappings replacing L::d",
+    "explicit Referer values including empty string, not missing-key diagnostics",
+    "bounded output capture; no source code rewritten"
+  ],
+  "static_only_observation": "updating_index contains no status/header/rebuild calls; the default endpoint and its HTTP/privacy/cache behavior were not dynamically exercised",
+  "rewrite_adaptations": [
+    "same-origin local board target, never Referer-derived scheme/domain",
+    "private no-store response policy is infrastructure, not source body evidence",
+    "external CSP-safe CSS replaces source inline table styling"
+  ],
+  "cases": [
+    {
+      "board": "g",
+      "referer": "",
+      "body": "<!doctype html><head><meta http-equiv=\"refresh\" content=\"2;URL=http://boards.4chan.org/g/\"><title>Updating index...</title></head><body><table style=\"font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;\"><td><strong>Updating index...</strong></td></table>",
+      "domain_stub": "4chan.org",
+      "refresh_seconds": 2,
+      "target": "http://boards.4chan.org/g/",
+      "title": "Updating index...",
+      "style": "font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;",
+      "text": "Updating index..."
+    },
+    {
+      "board": "g",
+      "referer": "http://example.invalid/",
+      "body": "<!doctype html><head><meta http-equiv=\"refresh\" content=\"2;URL=http://boards.4chan.org/g/\"><title>Updating index...</title></head><body><table style=\"font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;\"><td><strong>Updating index...</strong></td></table>",
+      "domain_stub": "4chan.org",
+      "refresh_seconds": 2,
+      "target": "http://boards.4chan.org/g/",
+      "title": "Updating index...",
+      "style": "font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;",
+      "text": "Updating index..."
+    },
+    {
+      "board": "g",
+      "referer": "https://example.invalid/",
+      "body": "<!doctype html><head><meta http-equiv=\"refresh\" content=\"2;URL=https://boards.4chan.org/g/\"><title>Updating index...</title></head><body><table style=\"font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;\"><td><strong>Updating index...</strong></td></table>",
+      "domain_stub": "4chan.org",
+      "refresh_seconds": 2,
+      "target": "https://boards.4chan.org/g/",
+      "title": "Updating index...",
+      "style": "font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;",
+      "text": "Updating index..."
+    },
+    {
+      "board": "g",
+      "referer": "http://example.invalid/?next=HTTPS",
+      "body": "<!doctype html><head><meta http-equiv=\"refresh\" content=\"2;URL=https://boards.4chan.org/g/\"><title>Updating index...</title></head><body><table style=\"font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;\"><td><strong>Updating index...</strong></td></table>",
+      "domain_stub": "4chan.org",
+      "refresh_seconds": 2,
+      "target": "https://boards.4chan.org/g/",
+      "title": "Updating index...",
+      "style": "font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;",
+      "text": "Updating index..."
+    },
+    {
+      "board": "po",
+      "referer": "",
+      "body": "<!doctype html><head><meta http-equiv=\"refresh\" content=\"2;URL=http://boards.4channel.org/po/\"><title>Updating index...</title></head><body><table style=\"font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;\"><td><strong>Updating index...</strong></td></table>",
+      "domain_stub": "4channel.org",
+      "refresh_seconds": 2,
+      "target": "http://boards.4channel.org/po/",
+      "title": "Updating index...",
+      "style": "font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;",
+      "text": "Updating index..."
+    },
+    {
+      "board": "po",
+      "referer": "http://example.invalid/",
+      "body": "<!doctype html><head><meta http-equiv=\"refresh\" content=\"2;URL=http://boards.4channel.org/po/\"><title>Updating index...</title></head><body><table style=\"font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;\"><td><strong>Updating index...</strong></td></table>",
+      "domain_stub": "4channel.org",
+      "refresh_seconds": 2,
+      "target": "http://boards.4channel.org/po/",
+      "title": "Updating index...",
+      "style": "font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;",
+      "text": "Updating index..."
+    },
+    {
+      "board": "po",
+      "referer": "https://example.invalid/",
+      "body": "<!doctype html><head><meta http-equiv=\"refresh\" content=\"2;URL=https://boards.4channel.org/po/\"><title>Updating index...</title></head><body><table style=\"font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;\"><td><strong>Updating index...</strong></td></table>",
+      "domain_stub": "4channel.org",
+      "refresh_seconds": 2,
+      "target": "https://boards.4channel.org/po/",
+      "title": "Updating index...",
+      "style": "font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;",
+      "text": "Updating index..."
+    },
+    {
+      "board": "po",
+      "referer": "http://example.invalid/?next=HTTPS",
+      "body": "<!doctype html><head><meta http-equiv=\"refresh\" content=\"2;URL=https://boards.4channel.org/po/\"><title>Updating index...</title></head><body><table style=\"font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;\"><td><strong>Updating index...</strong></td></table>",
+      "domain_stub": "4channel.org",
+      "refresh_seconds": 2,
+      "target": "https://boards.4channel.org/po/",
+      "title": "Updating index...",
+      "style": "font-family:times,serif;font-size:36pt;text-align:center;width:100%;height:300px;",
+      "text": "Updating index..."
+    }
+  ]
+}

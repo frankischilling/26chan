@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import secrets
 import socket
 import ssl
 import subprocess
@@ -117,6 +118,7 @@ def main():
                           f'include {root}/site.conf; }}\n')
         environment = {'PATH': os.environ['PATH'], 'APP_ENV': 'development',
                        'DATABASE_URL': os.environ['TEST_PUBLIC_DATABASE_URL'],
+                       'POSTER_ID_KEY': secrets.token_hex(32),  # One fresh identity for this owned run.
                        'PUBLIC_ORIGIN': origin, 'MEDIA_ENABLED': 'false',
                        'BIND_ADDR': f'127.0.0.1:{unused_port}',
                        'API_ORIGIN': f'http://127.0.0.1:{api_port}',

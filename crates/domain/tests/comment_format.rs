@@ -4,7 +4,7 @@ use board_domain::comment_markup::MarkupPolicy;
 fn only_known_post_format_versions_grant_source_markup() {
     for value in i16::MIN..=i16::MAX {
         let policy = MarkupPolicy::from_post_format(value);
-        if matches!(value, 8..=15 | 24..=31 | 40..=47 | 56..=63) {
+        if matches!(value, 8..=15 | 24..=31 | 40..=47 | 56..=63 | 104..=111 | 120..=127) {
             let policy = policy.unwrap();
             assert_eq!(policy.spoilers, value & 1 != 0);
             assert_eq!(policy.code, value & 2 != 0);

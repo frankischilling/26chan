@@ -50,12 +50,24 @@ pub(crate) struct RequestStart(pub chrono::DateTime<chrono::Utc>);
 #[derive(Clone, Copy)]
 pub(crate) struct RequestPeer(pub Option<IpAddr>);
 
+// Only a successfully rendered, enabled board page may grant math resources.
+#[derive(Clone, Copy)]
+struct MathPage;
+
+pub(crate) fn math_page(mut response: Response, enabled: bool) -> Response {
+    if enabled && response.status().is_success() {
+        response.extensions_mut().insert(MathPage);
+    }
+    response
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum InteractivePage {
     Board,
     Catalog,
     Upload,
     Archive,
+    Search,
 }
 
 pub async fn protect(State(state): State<AppState>, mut request: Request, next: Next) -> Response {
@@ -93,7 +105,11 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
         .trim_start_matches('/')
         .split('/')
         .collect();
+    let search_page = matches!(parts.as_slice(), ["globalsearch.php"]);
+    // Polls are read-only pages, never generic board pages with script authority.
+    let poll_path = parts.first() == Some(&"polls");
     let board_page = match parts.as_slice() {
+        ["polls", ..] => false,
         [board, ""] => !board.is_empty(),
         [board, page] => {
             !board.is_empty()
@@ -102,14 +118,18 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
                     || page.parse::<u16>().is_ok_and(|page| page < 1000))
         }
         [board, "thread", id] => !board.is_empty() && id.parse::<i64>().is_ok_and(|id| id > 0),
+        [_, "thread", _, _] => crate::semantic_thread::is_path(request.uri().path()),
         _ => false,
     };
-    let upload_page = *request.method() == Method::POST
+    let upload_page = !poll_path
+        && *request.method() == Method::POST
         && matches!(parts.as_slice(), [_, "upload"] | [_, "upload", "status"]);
-    let page = if board_page && matches!(*request.method(), Method::GET | Method::HEAD) {
-        Some(if parts.last() == Some(&"archive") {
+    let page = if search_page && matches!(*request.method(), Method::GET | Method::HEAD) {
+        Some(InteractivePage::Search)
+    } else if board_page && matches!(*request.method(), Method::GET | Method::HEAD) {
+        Some(if matches!(parts.as_slice(), [_, "archive"]) {
             InteractivePage::Archive
-        } else if parts.last() == Some(&"catalog") {
+        } else if matches!(parts.as_slice(), [_, "catalog"]) {
             InteractivePage::Catalog
         } else {
             InteractivePage::Board
@@ -192,14 +212,29 @@ fn headers(
     page: Option<InteractivePage>,
     posting: Option<&str>,
 ) -> Response {
-    let interactive = page.is_some()
+    let report_shell = response
+        .extensions()
+        .get::<crate::legacy_report::ReportShell>()
+        .is_some()
+        && response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.starts_with("text/html"));
+    let interactive = !report_shell
+        && page.is_some()
         && response.status().is_success()
         && response
             .headers()
             .get("content-type")
             .and_then(|value| value.to_str().ok())
             .is_some_and(|value| value.starts_with("text/html"));
-    let script = if interactive {
+    let math = interactive
+        && page == Some(InteractivePage::Board)
+        && response.extensions().get::<MathPage>().is_some();
+    let script = if report_shell {
+        format!("{}{}", state.origin, crate::ui_assets::REPORT_POPUP_PATH)
+    } else if interactive {
         let watcher = format!(
             "{}{} {}{}",
             state.origin,
@@ -207,7 +242,9 @@ fn headers(
             state.origin,
             crate::ui_assets::WATCHER_CORE_PATH
         );
-        if page == Some(InteractivePage::Archive) {
+        if page == Some(InteractivePage::Search) {
+            format!("{}{}", state.origin, crate::search::SCRIPT_PATH)
+        } else if page == Some(InteractivePage::Archive) {
             format!("{}{}", state.origin, crate::ui_assets::PAGE_CHROME_PATH)
         } else if page == Some(InteractivePage::Catalog) {
             format!(
@@ -225,7 +262,12 @@ fn headers(
     } else {
         "'none'".into()
     };
-    let script = if interactive && page != Some(InteractivePage::Archive) {
+    let full_board_page = interactive
+        && matches!(
+            page,
+            Some(InteractivePage::Board | InteractivePage::Catalog | InteractivePage::Upload)
+        );
+    let script = if full_board_page {
         format!(
             "{script} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}{} {}/static/native-quick-reply.v1.js",
             state.origin,
@@ -265,7 +307,7 @@ fn headers(
     } else {
         script
     };
-    let script = if interactive && page != Some(InteractivePage::Archive) {
+    let script = if full_board_page {
         format!(
             "{script} {}{}",
             state.origin,
@@ -274,7 +316,27 @@ fn headers(
     } else {
         script
     };
-    let connect = if interactive && page != Some(InteractivePage::Archive) {
+    let script = if full_board_page {
+        format!(
+            "{script} {}{}",
+            state.origin,
+            crate::ui_assets::NATIVE_POST_DELETION_PATH
+        )
+    } else {
+        script
+    };
+    let script = if math {
+        format!(
+            "{script} {}{}",
+            state.origin,
+            crate::ui_assets::NATIVE_MATH_PATH
+        )
+    } else {
+        script
+    };
+    let connect = if interactive && page == Some(InteractivePage::Search) {
+        format!("{}/search/api", state.origin)
+    } else if full_board_page {
         match posting {
             Some(posting) if page == Some(InteractivePage::Board) && state.media.is_some() => {
                 // Only this board's bounded public upload workflow is available
@@ -291,7 +353,7 @@ fn headers(
     } else {
         "'none'".into()
     };
-    let worker = if interactive && page != Some(InteractivePage::Archive) {
+    let worker = if full_board_page {
         format!(
             "{}{} {}{}",
             state.origin,
@@ -302,7 +364,16 @@ fn headers(
     } else {
         "'none'".into()
     };
-    let sound = if interactive && page != Some(InteractivePage::Archive) {
+    let worker = if math {
+        format!(
+            "{worker} {}{}",
+            state.origin,
+            crate::ui_assets::NATIVE_MATH_WORKER_PATH
+        )
+    } else {
+        worker
+    };
+    let sound = if full_board_page {
         format!("{}{}", state.origin, crate::ui_assets::UPDATER_SOUND_PATH)
     } else {
         "'none'".into()
@@ -366,6 +437,45 @@ fn headers(
     response
 }
 
+// Explicitly opt-in synthetic renderer for browser qualification. Production
+// routers never expose a fixture endpoint or accept client-supplied authority.
+#[cfg(feature = "browser-tests")]
+pub(crate) fn math_fixture_response(
+    page: &crate::views::BoardPage,
+    origin: &str,
+) -> Result<Response, String> {
+    let url = url::Url::parse(origin).map_err(|error| error.to_string())?;
+    if !matches!(url.scheme(), "http" | "https") || url.origin().ascii_serialization() != origin {
+        return Err("An exact HTTP origin is required.".into());
+    }
+    let state = AppState {
+        pool: sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+            .map_err(|error| error.to_string())?,
+        origin: origin.into(),
+        production: false,
+        limits: std::sync::Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+        media: None,
+        proxy_uid: None,
+        poster_id_key: None,
+        tripcode_key: None,
+        country_database: None,
+    };
+    let response = crate::output::html(&state, page)
+        .map_err(|_| "Fixture rendering exceeded its budget.".to_owned())?;
+    let response = math_page(response, page.board.math_tags && !page.catalog);
+    Ok(headers(
+        response,
+        &state,
+        Some(if page.catalog {
+            InteractivePage::Catalog
+        } else {
+            InteractivePage::Board
+        }),
+        None,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -375,6 +485,173 @@ mod tests {
         atomic::{AtomicBool, Ordering},
     };
     use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn math_authority_requires_enabled_successful_board_html() {
+        let state = AppState {
+            pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+                .unwrap(),
+            origin: "https://board.example".into(),
+            production: true,
+            limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+            media: None,
+            proxy_uid: None,
+            poster_id_key: None,
+            tripcode_key: None,
+            country_database: None,
+        };
+        for marked in [false, true] {
+            for page in [
+                None,
+                Some(InteractivePage::Board),
+                Some(InteractivePage::Catalog),
+                Some(InteractivePage::Upload),
+                Some(InteractivePage::Search),
+                Some(InteractivePage::Archive),
+            ] {
+                for status in [
+                    StatusCode::OK,
+                    StatusCode::NOT_FOUND,
+                    StatusCode::BAD_REQUEST,
+                    StatusCode::NOT_MODIFIED,
+                    StatusCode::TEMPORARY_REDIRECT,
+                ] {
+                    for content_type in [
+                        "text/html; charset=utf-8",
+                        "application/json",
+                        "text/javascript; charset=utf-8",
+                    ] {
+                        let response = math_page(
+                            (status, [("content-type", content_type)], "owned fixture")
+                                .into_response(),
+                            marked,
+                        );
+                        let response = headers(response, &state, page, None);
+                        let policy = response.headers()["content-security-policy"]
+                            .to_str()
+                            .unwrap();
+                        let expected = marked
+                            && page == Some(InteractivePage::Board)
+                            && status == StatusCode::OK
+                            && content_type.starts_with("text/html");
+                        assert_eq!(
+                            policy.contains("https://board.example/static/native-math.v1.js"),
+                            expected
+                        );
+                        assert_eq!(
+                            policy
+                                .contains("https://board.example/static/native-math-worker.v1.js"),
+                            expected
+                        );
+                        assert_eq!(
+                            policy.contains(
+                                "https://board.example/static/native-post-deletion.v1.js"
+                            ),
+                            matches!(
+                                page,
+                                Some(
+                                    InteractivePage::Board
+                                        | InteractivePage::Catalog
+                                        | InteractivePage::Upload
+                                )
+                            ) && status == StatusCode::OK
+                                && content_type.starts_with("text/html")
+                        );
+                        assert!(
+                            !policy.contains("unsafe-inline") && !policy.contains("unsafe-eval")
+                        );
+                        assert!(!policy.contains("font-src") && !policy.contains("cdn."));
+                        if expected {
+                            let directive = |name: &str| {
+                                policy
+                                    .split(';')
+                                    .map(str::trim)
+                                    .find(|part| part.starts_with(&format!("{name} ")))
+                                    .unwrap()
+                            };
+                            assert!(
+                                directive("script-src")
+                                    .split_whitespace()
+                                    .any(|s| s == "https://board.example/static/native-math.v1.js")
+                            );
+                            assert!(!directive("script-src").contains("native-math-worker"));
+                            assert!(
+                                directive("worker-src").split_whitespace().any(|s| s
+                                    == "https://board.example/static/native-math-worker.v1.js")
+                            );
+                            assert!(!directive("connect-src").contains("native-math"));
+                            assert_eq!(directive("style-src"), "style-src 'self'");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn only_renderer_marked_report_html_gets_the_exact_popup_script_even_on_errors() {
+        let state = AppState {
+            pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+                .unwrap(),
+            origin: "https://board.example".into(),
+            production: true,
+            limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+            media: None,
+            proxy_uid: None,
+            poster_id_key: None,
+            tripcode_key: None,
+            country_database: None,
+        };
+        for status in [
+            StatusCode::BAD_REQUEST,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            StatusCode::SERVICE_UNAVAILABLE,
+        ] {
+            let response = headers(
+                crate::legacy_report::error(
+                    &state,
+                    "test",
+                    Some(17),
+                    crate::handlers::AppError(status, "Report failed."),
+                ),
+                &state,
+                // Even mistaken route classification must not broaden a marked shell.
+                Some(InteractivePage::Board),
+                Some("https://board.example/test/imgboard.php"),
+            );
+            assert_eq!(response.status(), status);
+            assert_eq!(response.headers()["cache-control"], "private, no-store");
+            assert_eq!(response.headers()["x-frame-options"], "DENY");
+            let csp = response.headers()["content-security-policy"]
+                .to_str()
+                .unwrap();
+            assert!(csp.contains("script-src https://board.example/static/report-popup.v1.js;"));
+            assert!(!csp.contains("native-"));
+            for directive in [
+                "script-src-attr",
+                "connect-src",
+                "worker-src",
+                "frame-src",
+                "frame-ancestors",
+            ] {
+                assert!(csp.contains(&format!("{directive} 'none';")));
+            }
+            assert!(csp.contains("form-action 'self';"));
+            let generic = headers(
+                crate::handlers::AppError(status, "Generic error.").into_response(),
+                &state,
+                None,
+                None,
+            );
+            let csp = generic.headers()["content-security-policy"]
+                .to_str()
+                .unwrap();
+            assert!(csp.contains("script-src 'none';"));
+            assert!(!csp.contains("report-popup"));
+        }
+    }
 
     #[tokio::test]
     async fn backlink_page_code_has_no_worker_or_additional_network_authority() {
@@ -398,8 +675,14 @@ mod tests {
                 Some(InteractivePage::Catalog),
                 Some(InteractivePage::Upload),
                 Some(InteractivePage::Archive),
+                Some(InteractivePage::Search),
             ] {
-                let full = page.is_some() && page != Some(InteractivePage::Archive);
+                let full = matches!(
+                    page,
+                    Some(
+                        InteractivePage::Board | InteractivePage::Catalog | InteractivePage::Upload
+                    )
+                );
                 let response = headers(
                     axum::response::Html("owned").into_response(),
                     &state,
@@ -468,7 +751,15 @@ mod tests {
                     directive("script-src")
                         .split_whitespace()
                         .any(|value| value == format!("{origin}/static/page-chrome.v1.js")),
-                    page.is_some()
+                    matches!(
+                        page,
+                        Some(
+                            InteractivePage::Board
+                                | InteractivePage::Catalog
+                                | InteractivePage::Upload
+                                | InteractivePage::Archive
+                        )
+                    )
                 );
                 if full {
                     assert_eq!(
@@ -489,6 +780,17 @@ mod tests {
                     for name in ["worker-src", "connect-src", "media-src", "frame-src"] {
                         assert_eq!(directive(name), format!("{name} 'none'"));
                     }
+                } else if page == Some(InteractivePage::Search) {
+                    assert_eq!(
+                        directive("script-src"),
+                        format!("script-src {origin}{}", crate::search::SCRIPT_PATH)
+                    );
+                    assert_eq!(
+                        directive("connect-src"),
+                        format!("connect-src {origin}/search/api")
+                    );
+                    assert_eq!(directive("worker-src"), "worker-src 'none'");
+                    assert_eq!(directive("media-src"), "media-src 'none'");
                 } else {
                     assert_eq!(directive("script-src"), "script-src 'none'");
                     assert_eq!(directive("worker-src"), "worker-src 'none'");
@@ -677,10 +979,31 @@ mod tests {
     async fn production_posting_without_transport_peer_rejects_forged_hints_before_database_access()
     {
         use http_body_util::BodyExt;
+        use rand_core::{OsRng, RngCore};
         let pool = sqlx::postgres::PgPoolOptions::new()
             .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
             .unwrap();
-        let app = crate::router(pool, "https://boards.example.com".into(), true);
+        pool.close().await;
+        let mut key_bytes = [0u8; 32];
+        OsRng.fill_bytes(&mut key_bytes);
+        let key_text: String = key_bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        // Configure the key so only the missing trusted transport peer can
+        // trigger the identity guard, before the closed pool is consulted.
+        let (app, _) = crate::routers_with_options(
+            pool,
+            crate::PublicRouterOptions {
+                origin: "https://boards.example.com".into(),
+                production: true,
+                media: None,
+                limits: board_config::PublicRequestLimits::default(),
+                proxy_uid: None,
+                poster_id_key: Some(Arc::new(
+                    board_domain::poster_id::PosterIdKey::parse(&key_text).unwrap(),
+                )),
+                tripcode_key: None,
+                country_database: None,
+            },
+        );
         let request = Request::post("/test/imgboard.php")
             .extension(RequestPeer(Some("192.0.2.1".parse().unwrap())))
             .header("origin", "https://boards.example.com")
@@ -695,7 +1018,7 @@ mod tests {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         assert_eq!(
             serde_json::from_slice::<serde_json::Value>(&body).unwrap()["error"],
-            "Posting transport identity is unavailable."
+            "Posting identity is unavailable."
         );
     }
 

@@ -1,3 +1,4 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
@@ -21,20 +22,20 @@ test('native field composition and queries match the shared serialized contract'
 
 test('release catalog search consumes the shared serialized field contract', async ({ page }) => {
   const origin = 'http://127.0.0.1:3000';
-  const response = await page.goto(origin + '/test/catalog?q=');
+  const response = await page.goto(origin + '/fixture/catalog?q=');
   expect(response).not.toBeNull();
   const csp = response.headers()['content-security-policy'];
   expect(csp).toBeTruthy();
   const attribute = value => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
   const cards = fields.composition_cases.map((entry, index) => {
     const id = index + 1;
-    return '<section class="thread" id="thread-' + id + '" data-thread-id="' + id + '" data-bumped="100" data-latest-reply="" data-replies="0" data-sticky="false"><a class="catalogThumb" href="/test/thread/' + id + '" data-search-text="' + attribute(entry.text) + '" data-search-file="' + attribute(entry.file ?? '') + '" data-has-file="' + (entry.file !== null) + '"></a><div class="teaser">fixture ' + id + '</div></section>';
+    return '<section class="thread" id="thread-' + id + '" data-thread-id="' + id + '" data-bumped="100" data-latest-reply="" data-replies="0" data-sticky="false"><a class="catalogThumb" href="/fixture/thread/' + id + '" data-search-text="' + attribute(entry.text) + '" data-search-file="' + attribute(entry.file ?? '') + '" data-has-file="' + (entry.file !== null) + '"></a><div class="teaser">fixture ' + id + '</div></section>';
   }).join('');
-  const html = '<!doctype html><form id="ctrl" action="/test/catalog" method="get"><select id="order-ctrl" name="order"><option value="alt">Bump</option></select><select id="size-ctrl" name="size"><option value="small">Small</option></select><select id="teaser-ctrl" name="teaser"><option value="on">On</option></select><input id="qf-box" name="q" type="search"><button type="submit">Apply</button><a id="catalog-reset" href="/test/catalog">Reset</a></form><div id="threads" class="catalog extended-small">' + cards + '</div><template id="catalogFiltered"></template><script type="module" src="/static/catalog-preferences.v1.js"></script>';
-  await page.route('**/test/catalog?field-contract=1', route => route.fulfill({
+  const html = '<!doctype html><form id="ctrl" action="/fixture/catalog" method="get"><select id="order-ctrl" name="order"><option value="alt">Bump</option></select><select id="size-ctrl" name="size"><option value="small">Small</option></select><select id="teaser-ctrl" name="teaser"><option value="on">On</option></select><input id="qf-box" name="q" type="search"><button type="submit">Apply</button><a id="catalog-reset" href="/fixture/catalog">Reset</a></form><div id="threads" class="catalog extended-small">' + cards + '</div><template id="catalogFiltered"></template><script type="module" src="/static/catalog-preferences.v1.js"></script>';
+  await page.route('**/fixture/catalog?field-contract=1', route => route.fulfill({
     headers: { 'content-security-policy': csp, 'content-type': 'text/html; charset=utf-8' }, body: html,
   }));
-  await page.goto(origin + '/test/catalog?field-contract=1');
+  await page.goto(origin + '/fixture/catalog?field-contract=1');
   for (const [index, entry] of fields.composition_cases.entries()) {
     const link = page.locator('#thread-' + (index + 1) + ' .catalogThumb');
     await expect(link).toHaveAttribute('data-search-text', entry.text);
@@ -69,19 +70,19 @@ test('server GET and release live search agree on escaped formatted fields from 
   const created = [];
   try {
     for (const entry of cases) {
-      await server.goto(`${origin}/test/`);
+      await server.goto(`${origin}/fixture/`);
       await server.locator('#sub').fill(entry.subject);
       await server.locator('#com').fill(entry.comment);
-      await server.locator('#password').fill(password);
-      const submitted = server.waitForResponse(response => response.url().endsWith('/test/imgboard.php') && response.request().method() === 'POST');
-      await server.getByRole('button', { name: 'Post', exact: true }).click();
+      await expect(server.locator('#postPassword')).toHaveValue('');
+      const submitted = server.waitForResponse(response => response.url().endsWith('/fixture/imgboard.php') && response.request().method() === 'POST');
+      await withPostingHistory(() => server.getByRole('button', { name: 'Post', exact: true }).click());
       const response = await submitted;
       expect(response.status(), `Native posting status; retry-after=${response.headers()['retry-after'] ?? 'absent'}`).toBe(303);
       await expect(server).toHaveURL(/\/thread\/\d+#p\d+$/);
       entry.id = /#p(\d+)$/.exec(server.url())[1];
       created.push(entry.id);
     }
-    await live.goto(`${origin}/test/catalog?q=${marker}`);
+    await live.goto(`${origin}/fixture/catalog?q=${marker}`);
     for (const entry of cases) {
       await expect(live.locator(`#thread-${entry.id} .catalogThumb`)).toHaveAttribute('data-search-text', entry.text);
     }
@@ -90,7 +91,7 @@ test('server GET and release live search agree on escaped formatted fields from 
     for (const entry of cases) {
       const query = `^${entry.text}$`;
       expect(Array.from(query).length).toBeLessThanOrEqual(128);
-      await server.goto(`${origin}/test/catalog?q=${encodeURIComponent(query)}`);
+      await server.goto(`${origin}/fixture/catalog?q=${encodeURIComponent(query)}`);
       await expect(server.locator('#threads > .thread')).toHaveCount(1);
       await expect(server.locator('#threads > .thread')).toHaveAttribute('id', `thread-${entry.id}`);
       await expect(server.locator(`#thread-${entry.id} .catalogThumb`)).toHaveAttribute('data-search-text', entry.text);
@@ -102,7 +103,7 @@ test('server GET and release live search agree on escaped formatted fields from 
       await expect(live.locator('#threads script')).toHaveCount(0);
     }
     for (const query of [`^${marker}`, `${marker} A&B`]) {
-      await server.goto(`${origin}/test/catalog?q=${encodeURIComponent(query)}`);
+      await server.goto(`${origin}/fixture/catalog?q=${encodeURIComponent(query)}`);
       await expect(server.locator('#threads > .thread')).toHaveCount(0);
       await fillCatalogSearch(live, query);
       await applyCatalogSearch(live);
@@ -114,11 +115,17 @@ test('server GET and release live search agree on escaped formatted fields from 
     expect(navigations).toBe(0);
   } finally {
     for (const id of created) {
-      await server.goto(`${origin}/test/thread/${id}`);
+      await server.goto(`${origin}/fixture/thread/${id}`);
       const actions = server.locator(`#p${id} .postActions`);
       await actions.getByText('Delete or report', { exact: true }).click();
-      await actions.getByLabel('Deletion password', { exact: true }).fill(password);
-      await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+      await expect(actions.locator('input[name=password]')).toHaveValue('');
+      await withDeletionQuota(async () => {
+        const deleted = server.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/fixture/delete'));
+        await actions.getByRole('button', { name: 'Delete post', exact: true }).click();
+        const response = await deleted;
+        expect(response.status()).toBe(303);
+        await response.finished();
+      });
     }
     await liveContext.close();
     await noScript.close();

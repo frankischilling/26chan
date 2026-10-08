@@ -1,3 +1,4 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
@@ -5,24 +6,26 @@ const key = '4chan-hide-t-demo', purgeKey = '4chan-purge-t-demo', lock = 'paperb
 const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-native-thread-hiding-password';
-    const response = await request.post('/demo/post', {
+    const response = await withPostingHistory(() => request.post('/demo/post', {
       headers: { Origin: 'http://127.0.0.1:3000' }, maxRedirects: 0,
       form: { resto: '0', sub: 'Owned native thread hiding', com: 'Owned thread hiding OP', password },
-    });
+    }));
     expect(response.status()).toBe(303);
     const id = response.headers().location.match(/thread\/(\d+)/)[1];
     try {
-      const reply = await request.post('/demo/post', {
+      const reply = await withPostingHistory(() => request.post('/demo/post', {
         headers: { Origin: 'http://127.0.0.1:3000' }, maxRedirects: 0,
         form: { resto: id, com: 'Owned thread hiding reply', password },
-      });
+      }));
       expect(reply.status()).toBe(303);
       await use({ id, reply: reply.headers().location.match(/#p(\d+)/)[1], url: `/demo/thread/${id}` });
     } finally {
-      const removed = await request.post('/demo/delete', {
-        headers: { Origin: 'http://127.0.0.1:3000' }, maxRedirects: 0, form: { no: id, password },
+      await withDeletionQuota(async () => {
+        const removed = await request.post('/demo/delete', {
+          headers: { Origin: 'http://127.0.0.1:3000' }, maxRedirects: 0, form: { no: id, password },
+        });
+        expect(removed.status()).toBe(303);
       });
-      expect(removed.status()).toBe(303);
     }
   },
 });

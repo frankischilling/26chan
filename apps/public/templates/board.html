@@ -7,7 +7,8 @@
 {% import "thread_navigation.html" as thread_navigation %}
 {% import "page_navigation.html" as page_navigation %}
 {% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
-{% block body_attributes %} data-worksafe="{{ board.worksafe }}" data-page-catalog="{{ catalog }}"{% if !catalog %} data-post-headers="true"{% endif %} class="publicPageChrome {% if board.worksafe %}ws{% else %}nws{% endif %}{% if catalog %} is_catalog{% endif %}{% if board.text_only %} text_only{% endif %}"{% endblock %}
+{% block alternate_feed %}{% if board.rss_enabled %}<link rel="alternate" title="RSS feed" href="/{{ board.slug }}/index.rss" type="application/rss+xml">{% endif %}{% endblock %}
+{% block body_attributes %}{% if board.math_tags && !catalog %} data-math-tags="1"{% endif %} data-worksafe="{{ board.worksafe }}" data-page-catalog="{{ catalog }}"{% if !catalog %} data-post-headers="true"{% endif %} class="publicPageChrome {% if board.worksafe %}ws{% else %}nws{% endif %}{% if catalog %} is_catalog{% endif %}{% if board.text_only %} text_only{% endif %}"{% endblock %}
 {% block favicon %}<link rel="shortcut icon" type="image/x-icon" href="/static/notifications/favicon{% if board.worksafe %}-ws{% endif %}.ico">{% endblock %}
 {% block theme_stylesheet %}<link rel="stylesheet" data-native-theme-stylesheet href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
@@ -20,7 +21,7 @@
 {% call thread_navigation::mobile(board.slug, parent, board.worksafe, false) %}{% endcall %}
 {% call thread_navigation::desktop(board.slug, false) %}{% endcall %}
 {% else %}
-<nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> / <a href="/{{ board.slug }}/catalog">Catalog</a>{% if board.archive_retention_seconds > 0 %} / <a href="/{{ board.slug }}/archive">Archive</a>{% endif %} ]</nav>
+<nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> {% if board.catalog_enabled %}/ <a href="/{{ board.slug }}/catalog">Catalog</a>{% endif %}{% if board.archive_retention_seconds > 0 %} / <a href="/{{ board.slug }}/archive">Archive</a>{% endif %} ]</nav>
 {% endif %}
 {% if archived() %}<p class="archiveNotice">This thread is archived and read-only.</p>{% endif %}
 {% if posting_allowed() %}
@@ -33,13 +34,13 @@
 <button type="submit">Upload file</button>
 </form>
 {% endif %}
-<form id="reply" name="post" action="/{{ board.slug }}/imgboard.php" method="post" enctype="multipart/form-data" class="postEditor" data-comment-limit="{{ board.max_comment_chars }}">
+<form id="reply" name="post" action="/{{ board.slug }}/imgboard.php" method="post" enctype="multipart/form-data" class="postEditor" data-comment-limit="{{ board.max_comment_chars }}" data-spoilers="{{ board.comment_spoiler_cleanup }}" data-posting-reply-seconds="{{ board.posting_reply_seconds }}" data-posting-image-seconds="{{ board.posting_image_seconds }}">
 <div id="mpostform" class="mobile" hidden><a href="#postForm" class="mobilePostFormToggle mobile hidden button" data-worksafe="{{ board.worksafe }}" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a></div>
 <div id="togglePostFormLink" class="desktop" hidden>[<a href="#postForm" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a>]</div>
 <h2>{% if parent == 0 %}Start a new thread{% else %}Post a reply{% endif %}</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
-{% call posting::fields(parent, false, board.text_only, board.forced_anon, board.flag_options(), quote) %}{% endcall %}
-<p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.reply_limit }} per thread. Save your deletion password. {% if media_origin.is_empty() || board.image_limit == 0 || board.text_only %}Media uploads are unavailable.{% else %}Use the upload form above to post with an image.{% endif %}</p>
+{% call posting::fields(parent, false, board.comment_spoiler_cleanup, board.text_only, board.forced_anon, board.country_flags, board.flag_options(), quote) %}{% endcall %}
+<p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.reply_limit }} per thread. {% if media_origin.is_empty() || board.image_limit == 0 || board.text_only %}Media uploads are unavailable.{% else %}Use the upload form above to post with an image.{% endif %}</p>
 </form>
 {% endif %}
 <hr>
@@ -52,7 +53,7 @@
 {% if threads.is_empty() %}<p class="empty">{% if !catalog_options.q.is_empty() %}No matching threads. <a href="/{{ board.slug }}/catalog">Show all threads</a>.{% else %}No threads yet. <a href="/{{ board.slug }}/#reply">Start the first thread</a>.{% endif %}</p>{% endif %}
 {% else %}
 {% for view in threads %}
-{% if catalog %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% else %}
+{% if catalog %}{% call catalog_cards::card(view, board, media_origin, catalog_options, self.catalog_spoiler_thumbnail()) %}{% endcall %}{% else %}
 <section class="thread" id="t{{ view.thread.id }}" data-sticky="{{ view.thread.sticky }}" data-closed="{{ view.thread.closed }}" data-archived="{{ view.thread.archived_at.is_some() }}" data-tail-size="{{ view.tail_size }}" aria-label="Thread {{ view.thread.id }}">
 {% for item in view.posts %}
 {% include "post_content.html" %}
@@ -73,7 +74,8 @@
 {% else %}
 <nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}" rel="prev">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}" rel="next">Next</a>{% endif %}</nav>
 {% endif %}
-{% if catalog %}<template id="catalogFiltered">{% if board.text_only %}<table><tbody>{% for view in catalog_hidden %}{% call catalog_text_rows::row(view, board) %}{% endcall %}{% endfor %}</tbody></table>{% else %}{% for view in catalog_hidden %}{% call catalog_cards::card(view, board, media_origin, catalog_options) %}{% endcall %}{% endfor %}{% endif %}</template>{% endif %}
-<div id="watcher-context" hidden data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}" data-worksafe="{{ board.worksafe }}" data-media-origin="{{ media_origin }}"></div>
+{% if catalog %}<template id="catalogFiltered">{% if board.text_only %}<table><tbody>{% for view in catalog_hidden %}{% call catalog_text_rows::row(view, board) %}{% endcall %}{% endfor %}</tbody></table>{% else %}{% for view in catalog_hidden %}{% call catalog_cards::card(view, board, media_origin, catalog_options, self.catalog_spoiler_thumbnail()) %}{% endcall %}{% endfor %}{% endif %}</template>{% endif %}
+<div id="watcher-context" hidden{% if board.math_tags && !catalog %} data-math-tags="1"{% endif %} data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}" data-worksafe="{{ board.worksafe }}" data-media-origin="{{ media_origin }}"></div>
+{% if board.math_tags && !catalog %}<script type="module" src="/static/native-math.v1.js"></script>{% endif %}
 <script type="module" src="/static/thread-watcher.v1.js"></script>
 {% endblock %}

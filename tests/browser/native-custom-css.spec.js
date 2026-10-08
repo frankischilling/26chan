@@ -1,4 +1,5 @@
-import { watcherSettingsOpener } from './helpers/watcher-settings.js';
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
+import { openNativeSettingsCategory, watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test as base, expect } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:3000';
@@ -7,9 +8,9 @@ const safeCSS = '.reply { background-color: #123456; padding-left: 8px; }';
 const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-native-custom-css-password';
-    const write = form => request.post('/demo/post', {
+    const write = form => withPostingHistory(() => request.post('/demo/post', {
       headers: { Origin: origin }, maxRedirects: 0, form: { ...form, password },
-    });
+    }));
     const created = await write({ resto: '0', sub: 'Owned custom CSS', com: 'Original custom CSS post' });
     expect(created.status()).toBe(303);
     const id = created.headers().location.match(/thread\/(\d+)/)[1];
@@ -19,10 +20,12 @@ const test = base.extend({
     expect(reply).toBeTruthy();
     try { await use({ id, reply, url: `/demo/thread/${id}` }); }
     finally {
-      const removed = await request.post('/demo/delete', {
-        headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+      await withDeletionQuota(async () => {
+        const removed = await request.post('/demo/delete', {
+          headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+        });
+        expect(removed.status()).toBe(303);
       });
-      expect(removed.status()).toBe(303);
     }
   },
 });
@@ -31,8 +34,7 @@ async function openSettings(page) {
   await watcherSettingsOpener(page).click();
   const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
   await expect(dialog).toBeVisible();
-  const expand = dialog.locator('#settings-expand-all');
-  if (await expand.count()) await expand.click();
+  await openNativeSettingsCategory(dialog, 'Miscellaneous');
   return dialog;
 }
 

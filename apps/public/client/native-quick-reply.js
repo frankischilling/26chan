@@ -3,13 +3,15 @@ import { cancelQuickReplyUpload, checkQuickReplyUpload, commentLengthWarning, qu
   uploadQuickReplyFile } from './native-quick-reply-transport.js';
 import { mountNativePostForm } from './native-post-form.js';
 import { quickReplyPosition } from './native-quick-reply-position.js';
-import { restorePostPreferences } from './native-post-preferences.js';
+import { restorePostPreferences, mountBoardFlagPreference } from './native-post-preferences.js';
 import { postNumberReply } from './native-post-numbers.js';
+import { createQuickReplyCooldown } from './native-quick-reply-cooldown.js';
 
-export function mountNativeQuickReply({ board, thread, settings, savePosition, committed }) {
+export function mountNativeQuickReply({ board, thread, settings, savePosition, committed, math }) {
   const source = document.querySelector('form.postEditor');
   if (!/^[a-z0-9]{1,10}$/.test(board)) return null;
   restorePostPreferences(source);
+  mountBoardFlagPreference(source?.elements.namedItem('flag'), board);
   const uploadSource = document.querySelector(`form.postForm[action="/${board}/upload"]`);
   const uploadSourceInput = uploadSource?.querySelector('input[type=file][name=upfile]');
   const approvedThread = source?.elements.namedItem('upload_id') ? postId(source.elements.resto?.value) : null;
@@ -17,6 +19,21 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   let busy = false, commentTimer, uploadInput, uploadStatus, uploadCheck, uploadCancel, uploadSpoiler;
   let uploadReceipt = null, uploadOwned = false, uploadBusy = false, uploadController, uploadTimer;
   let uploadName = '', uploadPhase = 'empty', uploadCanCheck = false, uploadPolls = 0, uploadEpoch = 0, postingAttachment = false;
+  let armedDraft = null, storage;
+  try { storage = window.localStorage; } catch { /* Posting works without storage. */ }
+  const draft = () => JSON.stringify([current, uploadEpoch, ...new FormData(form).entries()].map(value =>
+    Array.isArray(value) ? [value[0], typeof value[1] === 'string' ? value[1]
+      : value[1].name ? [value[1].name, value[1].size, value[1].lastModified] : null] : value));
+  const cooldown = createQuickReplyCooldown({ board, storage,
+    replySeconds: source?.dataset.postingReplySeconds, imageSeconds: source?.dataset.postingImageSeconds,
+    changed: state => { if (submit && !busy) submit.value = state.label; },
+    expired: () => {
+      const previous = armedDraft; armedDraft = null;
+      if (dialog && previous?.form === form && previous.value === draft()) void send(true);
+    },
+  });
+  const cancelAuto = () => { armedDraft = null; cooldown.disarm(); };
+  const hasImage = () => !!(form?.elements.namedItem('upload_id')?.value || uploadInput?.files?.length || uploadPhase !== 'empty');
   const pollDelays = [1000, 2000, 4000];
   const disabled = () => settings().disableAll === true || settings().quickReply === false;
   const section = id => document.getElementById(`t${id}`);
@@ -48,7 +65,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     for (const button of source.querySelectorAll('button[type=submit], button:not([type])')) button.textContent = 'Post';
     const help = source.querySelector('#postHelp'); if (help) help.textContent = uncertain
       ? 'The image posting result is uncertain. Check the thread before posting again. Further replies require a comment.'
-      : 'The approved image was posted. Further replies require a comment. Save your deletion password.';
+      : 'The approved image was posted. Further replies require a comment.';
   }
   function removeInlineCapability() {
     form?.querySelectorAll('[data-qr-upload-capability]').forEach(input => input.remove());
@@ -82,7 +99,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     uploadCancel.disabled = busy;
     uploadCheck.disabled = busy;
     uploadInput.disabled = uploadBusy || busy;
-    uploadSpoiler.disabled = busy || state !== 'approved';
+    if (uploadSpoiler) uploadSpoiler.disabled = busy || state !== 'approved';
     sync();
   }
   function resetInlineUpload() {
@@ -104,6 +121,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     uploadPhase = 'empty'; uploadCanCheck = false; removeInlineCapability(); renderUpload();
   }
   function close() {
+    cancelAuto(); cooldown.stop(); math?.closePreview();
     if (!dialog) return;
     if (postingAttachment) retireAmbiguousAttachment(); else bestEffortCancel();
     epoch++; controller?.abort(); controller = null; busy = false;
@@ -125,7 +143,9 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     if (entry) entry.hidden = disabled() || closed(thread) || mobile();
     if (!dialog) return;
     const locked = closed(current);
+    if (locked) cancelAuto();
     submit.disabled = uploadBusy || (uploadOwned && uploadReceipt?.state !== 'approved') || (locked && !busy);
+    if (!busy) cooldown.refresh(hasImage());
     if (locked) message('This thread is closed.');
     else if (error.textContent === 'This thread is closed.') message('');
   }
@@ -133,6 +153,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     if (!source || disabled() || !postId(id) || closed(id) || busy) return false;
     if (dialog) {
       if (current !== id) {
+        cancelAuto();
         if (uploadOwned || uploadBusy) {
           void cancelInlineUpload().then(ok => { if (ok && dialog) open(id, quote, selected, quoting); });
           return true;
@@ -149,6 +170,11 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     dialog.dataset.trackpos = 'QR-position';
     dialog.setAttribute('aria-labelledby', 'qrHeader');
     const header = node('div', undefined, 'drag postblock'); header.id = 'qrHeader';
+    if (math) {
+      const tex = node('button', 'TeX', 'desktop pointer left tex-logo'); tex.type = 'button';
+      tex.setAttribute('aria-label', 'Preview TeX equations'); tex.dataset.cmd = 'open-tex-preview';
+      tex.addEventListener('click', () => math.openPreview()); header.append(tex);
+    }
     const title = node('span', 'Reply to Thread No.'); const number = node('span', id); number.id = 'qrTid'; title.append(number);
     const dismiss = node('button', '\u00d7', 'extButton'); dismiss.id = 'qrClose'; dismiss.type = 'button';
     dismiss.setAttribute('aria-label', 'Close Quick Reply'); dismiss.addEventListener('click', close); header.append(title, dismiss);
@@ -180,29 +206,33 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
         const option = node('option', original.textContent); option.value = original.value;
         flag.append(option);
       }
-      flag.value = sourceFlag.value; row.append(flag); fields.append(row);
+      flag.value = sourceFlag.value; mountBoardFlagPreference(flag, board); row.append(flag); fields.append(row);
     }
     comment = field('com', 'Comment', 'textarea'); comment.rows = 4;
-    const password = field('pwd', 'Deletion password', 'password'); password.minLength = 8; password.maxLength = 128;
-    password.required = true; password.autocomplete = 'new-password'; password.value = source.elements.pwd?.value ?? '';
+    const password = node('input'); password.type = 'hidden'; password.name = 'pwd'; password.id = 'qr-pwd';
+    password.value = source.elements.pwd?.value ?? ''; form.append(password);
     // Approved capabilities are available only on the isolated upload result page.
     for (const key of ['upload_id', 'upload_capability']) {
       const value = source.elements.namedItem(key)?.value;
       if (value) { const input = node('input'); input.type = 'hidden'; input.name = key; input.value = value; form.append(input); }
     }
-    if (source.elements.namedItem('upload_id')) {
+    if (source.elements.namedItem('upload_id') && source.elements.namedItem('spoiler')) {
       const row = node('div', undefined, 'qr-approved-image'), label = node('label'), spoiler = node('input'); spoiler.type = 'checkbox'; spoiler.name = 'spoiler'; spoiler.value = 'on';
       label.append(spoiler, 'Spoiler?'); row.append(label); fields.append(row);
-    } else if (uploadSourceInput) {
+    } else if (!source.elements.namedItem('upload_id') && uploadSourceInput) {
       const row = node('div', undefined, 'qr-file-row');
       uploadInput = node('input'); uploadInput.type = 'file'; uploadInput.id = 'qrFile'; uploadInput.name = 'upfile';
       uploadInput.size = 19; uploadInput.accept = uploadSourceInput.accept; uploadInput.title = 'Choose one file; choose again to replace it. Shift-click to remove the current file.';
-      const spoilerLabel = node('label'); uploadSpoiler = node('input'); uploadSpoiler.type = 'checkbox'; uploadSpoiler.name = 'spoiler';
-      uploadSpoiler.value = 'on'; uploadSpoiler.disabled = true; const spoiler = node('span'); spoiler.id = 'qrSpoiler'; spoilerLabel.append(uploadSpoiler, 'Spoiler?'); spoiler.append(spoilerLabel);
+      const spoiler = source.dataset.spoilers === 'true' ? node('span') : null;
+      if (spoiler) {
+        const spoilerLabel = node('label'); uploadSpoiler = node('input'); uploadSpoiler.type = 'checkbox'; uploadSpoiler.name = 'spoiler';
+        uploadSpoiler.value = 'on'; uploadSpoiler.disabled = true; spoiler.id = 'qrSpoiler'; spoilerLabel.append(uploadSpoiler, 'Spoiler?'); spoiler.append(spoilerLabel);
+      }
       uploadStatus = node('span', '', 'qr-file-status'); uploadStatus.id = 'qrUploadStatus'; uploadStatus.setAttribute('role', 'status');
       uploadCheck = node('button', 'Check status'); uploadCheck.type = 'button'; uploadCheck.hidden = true;
       uploadCancel = node('button', 'Cancel file'); uploadCancel.type = 'button'; uploadCancel.hidden = true;
-      row.append(uploadInput, spoiler, uploadStatus, uploadCheck, uploadCancel); fields.append(row);
+      row.append(uploadInput); if (spoiler) row.append(spoiler);
+      row.append(uploadStatus, uploadCheck, uploadCancel); fields.append(row);
       uploadInput.addEventListener('click', event => { if (event.shiftKey) { event.preventDefault(); void cancelInlineUpload(); } });
       uploadInput.addEventListener('change', () => { const file = uploadInput.files?.[0]; if (file) void selectUpload(file); });
       uploadCheck.addEventListener('click', () => { void checkUpload(false); });
@@ -219,9 +249,14 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     dialog.append(header, form, error); document.body.append(dialog); dialog.show();
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     form.addEventListener('submit', event => { event.preventDefault(); void send(); });
+    submit.addEventListener('click', event => {
+      if (event.shiftKey) { event.preventDefault(); void send(true); }
+    });
+    for (const type of ['input', 'change']) form.addEventListener(type, () => { cancelAuto(); sync(); });
     const onEdit = event => {
       if (event.key === 'Escape' && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) { event.preventDefault(); close(); return; }
       else if (event.ctrlKey && event.key?.toLowerCase() === 's') {
+        cancelAuto();
         event.preventDefault(); event.stopPropagation();
         const start = comment.selectionStart, end = comment.selectionEnd, empty = comment.value.length === 0;
         const value = `[spoiler]${comment.value.slice(start, end)}[/spoiler]`;
@@ -245,6 +280,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     return true;
   }
   function insert(id, selected) {
+    cancelAuto();
     const result = quoteInsertion(comment.value, comment.selectionStart, comment.selectionEnd, id, selected.slice(0, 65536));
     comment.value = result.value; comment.setSelectionRange(result.caret, result.caret);
     if (result.caret === comment.value.length) comment.scrollTop = comment.scrollHeight;
@@ -255,10 +291,15 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     if (closed(id)) { alert('This thread is closed'); return false; }
     return open(id, post, selected, true);
   }
-  async function send() {
+  async function send(force = false) {
     if (busy) { controller?.abort(); return; }
     if (uploadBusy || (uploadOwned && uploadReceipt?.state !== 'approved')) return;
     if (!dialog || disabled() || closed(current) || !form.reportValidity()) return;
+    if (!force && cooldown.refresh(hasImage())) {
+      armedDraft = cooldown.toggle() ? { form, value: draft() } : null;
+      return;
+    }
+    cancelAuto(); cooldown.stop();
     message(''); busy = true; submit.value = 'Sending';
     const active = ++epoch, id = current; controller = new AbortController();
     const fields = Object.fromEntries(new FormData(form));
@@ -268,6 +309,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       const result = await sendQuickReply({ board, thread: id, fields, signal: controller.signal });
       if (active !== epoch || disabled()) return;
       if (result.error) { postingAttachment = false; message(result.error); return; }
+      cooldown.success();
       if (source.elements.namedItem('upload_id')) {
         // Both editors refer to the same one-use approval. Once committed,
         // neither reopening QR nor submitting the ordinary form can reuse it.
@@ -288,7 +330,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
         postingAttachment = false;
         message(failure instanceof Error ? failure.message : 'Connection error. Check the thread before retrying.');
       }
-    } finally { if (active === epoch) { busy = false; controller = null; submit.value = 'Post'; renderUpload(); sync(); } }
+    } finally { if (active === epoch) { busy = false; controller = null; renderUpload(); sync(); } }
   }
   function scheduleUploadCheck() {
     clearTimeout(uploadTimer);
@@ -322,6 +364,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   async function cancelInlineUpload() {
     if (busy) return false;
     if (disabled()) { close(); return false; }
+    cancelAuto();
     if (!uploadOwned && !uploadBusy) return true;
     stopUploadRequest();
     if (!uploadReceipt) { resetInlineUpload(); message(''); return true; }
@@ -340,6 +383,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     if (busy) return;
     if (disabled()) { close(); return; }
     if (!dialog || !postId(current)) return;
+    cancelAuto();
     if (uploadReceipt && !await cancelInlineUpload()) return;
     else if (uploadBusy) { stopUploadRequest(); uploadEpoch++; }
     const active = ++uploadEpoch, id = current; uploadName = file.name; uploadPhase = 'uploading'; uploadCanCheck = false; uploadPolls = 0;
@@ -367,6 +411,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     event.preventDefault(); quote(target.thread, event.ctrlKey ? null : target.post, getSelection()?.toString() ?? '');
   });
   window.addEventListener('pagehide', close); window.addEventListener('resize', () => { place(position); sync(); });
+  window.addEventListener('storage', event => cooldown.storageEvent(event));
   document.addEventListener('4chanThreadUpdated', sync);
   document.addEventListener('boardThreadStateChanged', sync);
   mountNativePostForm({ source, thread, openQuickReply: () => {

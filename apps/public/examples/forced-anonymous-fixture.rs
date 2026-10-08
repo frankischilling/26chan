@@ -30,7 +30,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut tx = pool.begin().await?;
     match args[0].as_str() {
         "setup" => {
-            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,forced_anon) VALUES($1,'Forced anonymous','Owned forced-anonymous browser fixture',4000,20,10,10,10,true)").bind(slug).execute(&mut *tx).await?;
+            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,forced_anon,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Forced anonymous','Owned forced-anonymous browser fixture',4000,20,10,10,10,true,0,0,0)").bind(slug).execute(&mut *tx).await?;
         }
         "cleanup" => {
             let owned:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.boards WHERE slug=$1 AND description='Owned forced-anonymous browser fixture')").bind(slug).fetch_one(&mut *tx).await?;

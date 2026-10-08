@@ -1,0 +1,2133 @@
+{
+    "reference": "operator-supplied 4chan-old checkout",
+    "functions": [
+        "normalize_ascii",
+        "strip_zerowidth",
+        "normalize_text",
+        "spam_filter_post_trip"
+    ],
+    "files": {
+        "lib/postfilter.php": "d0037219f34fdc54b85ca696095415209531d5350652dea5ec86e508f75d5207"
+    },
+    "extractor_php": "8.3.6",
+    "extractor_pcre": "10.42 2022-12-11",
+    "extractor_icu": "74.2",
+    "boundary_stubs": [
+        "moderator decision",
+        "terminal error"
+    ],
+    "cases": [
+        {
+            "name": "Anonymous",
+            "trip": "",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "ep8pui8vw2",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "ep8pui8vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "lollicon",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "lollicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "LOL1C0M",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "LOL1C0M",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "prefixlolliconsuffix",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "prefixlolliconsuffix",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "l||1c|n",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "l||1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "||||c||",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "||||c||",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "l0l1c0m",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "l0l1c0m",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "lollcon",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "lollcon",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "lollicxn",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "lollicxn",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "lol1c|n",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "lol1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "lollicon\n",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "lollicon\n",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "löllicon",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "löllicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "quoted&#039;",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "Anonymous",
+            "trip": "quoted&#039;",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot",
+            "trip": "Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "ep8pui8vw2",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "ep8pui8vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "lollicon",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "lollicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "LOL1C0M",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot",
+            "trip": "LOL1C0M",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot",
+            "trip": "prefixlolliconsuffix",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "prefixlolliconsuffix",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "l||1c|n",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot",
+            "trip": "l||1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot",
+            "trip": "||||c||",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot",
+            "trip": "||||c||",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot",
+            "trip": "l0l1c0m",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot",
+            "trip": "l0l1c0m",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot",
+            "trip": "lollcon",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot",
+            "trip": "lollcon",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot",
+            "trip": "lollicxn",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "lollicxn",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "lol1c|n",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot",
+            "trip": "lol1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot",
+            "trip": "lollicon\n",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "lollicon\n",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "löllicon",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "löllicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "quoted&#039;",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot",
+            "trip": "quoted&#039;",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "MOOT",
+            "trip": "Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "ep8pui8vw2",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "ep8pui8vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "lollicon",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "lollicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "LOL1C0M",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "MOOT",
+            "trip": "LOL1C0M",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "MOOT",
+            "trip": "prefixlolliconsuffix",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "prefixlolliconsuffix",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "l||1c|n",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "MOOT",
+            "trip": "l||1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "MOOT",
+            "trip": "||||c||",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "MOOT",
+            "trip": "||||c||",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "MOOT",
+            "trip": "l0l1c0m",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "MOOT",
+            "trip": "l0l1c0m",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "MOOT",
+            "trip": "lollcon",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "MOOT",
+            "trip": "lollcon",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "MOOT",
+            "trip": "lollicxn",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "lollicxn",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "lol1c|n",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "MOOT",
+            "trip": "lol1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "MOOT",
+            "trip": "lollicon\n",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "lollicon\n",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "löllicon",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "löllicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "quoted&#039;",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "MOOT",
+            "trip": "quoted&#039;",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mo ot",
+            "trip": "Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "ep8pui8vw2",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "ep8pui8vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "lollicon",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "lollicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "LOL1C0M",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "mo ot",
+            "trip": "LOL1C0M",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "mo ot",
+            "trip": "prefixlolliconsuffix",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "prefixlolliconsuffix",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "l||1c|n",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "mo ot",
+            "trip": "l||1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "mo ot",
+            "trip": "||||c||",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "mo ot",
+            "trip": "||||c||",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "mo ot",
+            "trip": "l0l1c0m",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "mo ot",
+            "trip": "l0l1c0m",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "mo ot",
+            "trip": "lollcon",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "mo ot",
+            "trip": "lollcon",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "mo ot",
+            "trip": "lollicxn",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "lollicxn",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "lol1c|n",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "mo ot",
+            "trip": "lol1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "mo ot",
+            "trip": "lollicon\n",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "lollicon\n",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "löllicon",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "löllicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "quoted&#039;",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "mo ot",
+            "trip": "quoted&#039;",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "ep8pui8vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "ep8pui8vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "lollicon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "lollicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "LOL1C0M",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "LOL1C0M",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "prefixlolliconsuffix",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "prefixlolliconsuffix",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "l||1c|n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "l||1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "||||c||",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "||||c||",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "l0l1c0m",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "l0l1c0m",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "lollcon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "lollcon",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "lollicxn",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "lollicxn",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "lol1c|n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "lol1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "lollicon\n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "lollicon\n",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "löllicon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "löllicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "quoted&#039;",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot Ep8pui8Vw2",
+            "trip": "quoted&#039;",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "ep8pui8vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "ep8pui8vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "lollicon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "lollicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "LOL1C0M",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "LOL1C0M",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "prefixlolliconsuffix",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "prefixlolliconsuffix",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "l||1c|n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "l||1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "||||c||",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "||||c||",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "l0l1c0m",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "l0l1c0m",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "lollcon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "lollcon",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "lollicxn",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "lollicxn",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "lol1c|n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "lol1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "lollicon\n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "lollicon\n",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "löllicon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "löllicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "quoted&#039;",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "mοоt Ep8pui8Vw2",
+            "trip": "quoted&#039;",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "ep8pui8vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "ep8pui8vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "lollicon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "lollicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "LOL1C0M",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "LOL1C0M",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "prefixlolliconsuffix",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "prefixlolliconsuffix",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "l||1c|n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "l||1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "||||c||",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "||||c||",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "l0l1c0m",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "l0l1c0m",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "lollcon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "lollcon",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "lollicxn",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "lollicxn",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "lol1c|n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "lol1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "lollicon\n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "lollicon\n",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "löllicon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "löllicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "quoted&#039;",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot</span> <span class=\"postertrip\">!Ep8pui8Vw2",
+            "trip": "quoted&#039;",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "ep8pui8vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "ep8pui8vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "lollicon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "lollicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "LOL1C0M",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "LOL1C0M",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "prefixlolliconsuffix",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "prefixlolliconsuffix",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "l||1c|n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "l||1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "||||c||",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "||||c||",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "l0l1c0m",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "l0l1c0m",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "lollcon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "lollcon",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "lollicxn",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "lollicxn",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "lol1c|n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "lol1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "lollicon\n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "lollicon\n",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "löllicon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "löllicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "quoted&#039;",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot &lt;Ep8pui8Vw2&gt;",
+            "trip": "quoted&#039;",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "ep8pui8vw2",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "ep8pui8vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "lollicon",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "lollicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "LOL1C0M",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "LOL1C0M",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "prefixlolliconsuffix",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "prefixlolliconsuffix",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "l||1c|n",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "l||1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "||||c||",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "||||c||",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "l0l1c0m",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "l0l1c0m",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "lollcon",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "lollcon",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "lollicxn",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "lollicxn",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "lol1c|n",
+            "moderator": false,
+            "outcome": "banned"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "lol1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "lollicon\n",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "lollicon\n",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "löllicon",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "löllicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "quoted&#039;",
+            "moderator": false,
+            "outcome": "allow"
+        },
+        {
+            "name": "ep8pui8vw2",
+            "trip": "quoted&#039;",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "ep8pui8vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "ep8pui8vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "lollicon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "lollicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "LOL1C0M",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "LOL1C0M",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "prefixlolliconsuffix",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "prefixlolliconsuffix",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "l||1c|n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "l||1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "||||c||",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "||||c||",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "l0l1c0m",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "l0l1c0m",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "lollcon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "lollcon",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "lollicxn",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "lollicxn",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "lol1c|n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "lol1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "lollicon\n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "lollicon\n",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "löllicon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "löllicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "quoted&#039;",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "ＭＯＯＴＥｐ８ｐｕｉ８Ｖｗ２",
+            "trip": "quoted&#039;",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "ep8pui8vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "ep8pui8vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "!Ep8pui8Vw2",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "lollicon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "lollicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "LOL1C0M",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "LOL1C0M",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "prefixlolliconsuffix",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "prefixlolliconsuffix",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "l||1c|n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "l||1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "||||c||",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "||||c||",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "l0l1c0m",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "l0l1c0m",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "lollcon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "lollcon",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "lollicxn",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "lollicxn",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "lol1c|n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "lol1c|n",
+            "moderator": true,
+            "outcome": "banned"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "lollicon\n",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "lollicon\n",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "löllicon",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "löllicon",
+            "moderator": true,
+            "outcome": "allow"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "quoted&#039;",
+            "moderator": false,
+            "outcome": "upload"
+        },
+        {
+            "name": "moot​Ep8pui8Vw2",
+            "trip": "quoted&#039;",
+            "moderator": true,
+            "outcome": "allow"
+        }
+    ]
+}

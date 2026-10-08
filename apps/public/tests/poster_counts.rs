@@ -9,7 +9,17 @@ use serde_json::Value;
 use std::{net::SocketAddr, sync::Arc};
 use tower::ServiceExt;
 
-fn options(key: Option<&str>) -> board_public::PublicRouterOptions {
+fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
+    use rand_core::RngCore;
+    let mut bytes = [0u8; 32];
+    rand_core::OsRng.fill_bytes(&mut bytes);
+    let encoded: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
+}
+
+fn options(
+    key: Option<Arc<board_domain::poster_id::PosterIdKey>>,
+) -> board_public::PublicRouterOptions {
     board_public::PublicRouterOptions {
         country_database: None,
         origin: "https://boards.example.com".into(),
@@ -18,8 +28,7 @@ fn options(key: Option<&str>) -> board_public::PublicRouterOptions {
         limits: board_config::PublicRequestLimits::default(),
         proxy_uid: None,
         tripcode_key: None,
-        poster_id_key: key
-            .map(|value| Arc::new(board_domain::poster_id::PosterIdKey::parse(value).unwrap())),
+        poster_id_key: key,
     }
 }
 async fn post(app: &Router, board: &str, parent: i64, peer: &str) -> i64 {
@@ -83,7 +92,7 @@ async fn complete_private_contexts_supply_counts_and_incomplete_or_archived_hist
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,json_tail_size) VALUES($1,'Owned counters','Synthetic fixture',1000,100,100,100,10,3600,1)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned counters','Synthetic fixture',1000,100,100,100,10,3600,1,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let outcome = tokio::spawn(exercise(owner.clone(), public.clone(), board.clone())).await;
     for query in [
@@ -105,10 +114,10 @@ async fn complete_private_contexts_supply_counts_and_incomplete_or_archived_hist
 
 async fn exercise(owner: sqlx::PgPool, public: sqlx::PgPool, board: String) {
     let (app, api) =
-        board_public::routers_with_options(public.clone(), options(Some(&"1".repeat(64))));
+        board_public::routers_with_options(public.clone(), options(Some(fixture_key())));
     let no_key = board_public::routers_with_options(public.clone(), options(None)).0;
     let rotated =
-        board_public::routers_with_options(public.clone(), options(Some(&"2".repeat(64)))).0;
+        board_public::routers_with_options(public.clone(), options(Some(fixture_key()))).0;
     let thread = post(&app, &board, 0, "192.0.2.10:9000").await;
     assert_eq!(count(&public, &board, thread).await, Some(1));
     let (_, fingerprint_bytes): (i64, i32) = sqlx::query_as("SELECT post_id,octet_length(fingerprint) FROM post_secrets.poster_contexts WHERE post_id=$1")
@@ -152,7 +161,25 @@ async fn exercise(owner: sqlx::PgPool, public: sqlx::PgPool, board: String) {
         .unwrap(),
         0
     );
-    let gap = post(&no_key, &board, thread, "192.0.2.12:9000").await;
+    let missing_key = no_key
+        .clone()
+        .oneshot(post_request(&board, thread, Some("192.0.2.12:9000")))
+        .await
+        .unwrap();
+    assert_eq!(missing_key.status(), 503);
+    let unavailable: Value =
+        serde_json::from_slice(&to_bytes(missing_key.into_body(), 8192).await.unwrap()).unwrap();
+    assert_eq!(unavailable["error"], "Posting identity is unavailable.");
+    assert_eq!(count(&public, &board, thread).await, Some(1));
+    // Model a legacy post without a captured context through the owner fixture,
+    // while every live submission supplies the mandatory posting identity.
+    let gap = post(&app, &board, thread, "192.0.2.12:9000").await;
+    sqlx::query("DELETE FROM post_secrets.poster_contexts WHERE post_id=$1 AND thread_id=$2")
+        .bind(gap)
+        .bind(thread)
+        .execute(&owner)
+        .await
+        .unwrap();
     assert_eq!(count(&public, &board, thread).await, None);
     assert!(
         get(&api, &format!("/{board}/thread/{thread}.json")).await["posts"][0]
@@ -176,7 +203,12 @@ async fn exercise(owner: sqlx::PgPool, public: sqlx::PgPool, board: String) {
         .unwrap();
     assert_eq!(unverified.status(), 503);
     assert_eq!(count(&public, &board, thread).await, Some(1));
-    let historical = post(&no_key, &board, 0, "192.0.2.10:9000").await;
+    let historical = post(&app, &board, 0, "192.0.2.10:9000").await;
+    sqlx::query("DELETE FROM post_secrets.poster_contexts WHERE post_id=$1 AND thread_id=$1")
+        .bind(historical)
+        .execute(&owner)
+        .await
+        .unwrap();
     post(&app, &board, historical, "192.0.2.10:9000").await;
     assert_eq!(count(&public, &board, historical).await, None);
     for (fingerprint, epoch) in [

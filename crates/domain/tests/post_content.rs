@@ -8,6 +8,53 @@ const MISSING_OP: &str = "Error: New threads require a subject or comment.";
 const MISSING_REPLY: &str = "Error: No text entered.";
 
 #[test]
+fn existing_internal_markers_are_removed_once_before_final_markup_admission() {
+    let spacing = CommentSpacing::for_board("g", true, true).with_line_rules(100, true);
+    let content = prepare_post_content(
+        "",
+        "",
+        "[co~?rep?~de]soy fam CUCK[/code]",
+        1000,
+        false,
+        spacing,
+        OP,
+    )
+    .unwrap();
+    assert_eq!(content.comment, "[code]soy fam CUCK[/code]");
+    let content =
+        prepare_post_content("", "", "~?re~?rep?~p?~fam", 1000, false, spacing, OP).unwrap();
+    assert_eq!(content.comment, "~?rep?~fam");
+    for kind in [OP, PostKind::Reply] {
+        let error = prepare_post_content(
+            "",
+            "",
+            "~?rep?~[spoiler] [/spoiler]~?erep?~",
+            1000,
+            false,
+            spacing,
+            kind,
+        )
+        .err()
+        .unwrap();
+        assert_eq!(
+            error.0,
+            if matches!(kind, PostKind::Reply) {
+                MISSING_REPLY
+            } else {
+                MISSING_OP
+            }
+        );
+    }
+    assert_eq!(
+        prepare_post_content("", "", "~?rep?~ok", 2, false, spacing, OP)
+            .err()
+            .unwrap()
+            .0,
+        "Enter a comment within this board's character limit."
+    );
+}
+
+#[test]
 fn final_content_admission_distinguishes_op_subjects_replies_and_attachments() {
     let spacing = CommentSpacing::for_board("test", false, false).with_line_rules(100, true);
     for raw in [

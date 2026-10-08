@@ -32,9 +32,10 @@ async fn archived_threads_cannot_be_reopened_but_removal_is_audited() {
             role: "moderator".into(),
             csrf_hash: vec![],
             recent: true,
+            permissions: board_staff::access::Permissions::all_boards(),
         };
         assert!(
-            board_staff::store::reports(&test_staff)
+            board_staff::store::reports(&test_staff, &session)
                 .await
                 .unwrap()
                 .iter()

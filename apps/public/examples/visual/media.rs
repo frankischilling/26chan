@@ -53,21 +53,25 @@ impl Fixture {
                 .read_thumbnail(id, thumbnail.sha256(), thumbnail.len())
                 .unwrap();
             let tim = 1_000_201 + index as i64;
-            media = media
-                .route(
-                    &format!("/img/{tim}.png"),
-                    get(move || {
-                        let bytes = bytes.clone();
-                        async move { ([("content-type", "image/png")], bytes) }
-                    }),
-                )
-                .route(
-                    &format!("/img/{tim}s.jpg"),
-                    get(move || {
-                        let thumb = thumb.clone();
-                        async move { ([("content-type", "image/png")], thumb) }
-                    }),
-                );
+            for slug in ["img", "m", "news", "vm", "vst", "s4s"] {
+                let bytes = bytes.clone();
+                let thumb = thumb.clone();
+                media = media
+                    .route(
+                        &format!("/{slug}/{tim}.png"),
+                        get(move || {
+                            let bytes = bytes.clone();
+                            async move { ([("content-type", "image/png")], bytes) }
+                        }),
+                    )
+                    .route(
+                        &format!("/{slug}/{tim}s.jpg"),
+                        get(move || {
+                            let thumb = thumb.clone();
+                            async move { ([("content-type", "image/png")], thumb) }
+                        }),
+                    );
+            }
             files.push(PostAttachment {
                 post_id: tim,
                 asset_id: id.to_string(),
@@ -101,19 +105,51 @@ impl Fixture {
         (Self { files }, media)
     }
 
-    fn page(&self, kind: &str, options: catalog::Options) -> String {
+    fn page(&self, kind: &str, options: catalog::Options, source_board: Option<&str>) -> String {
         let catalog = kind == "catalog";
         let separate_threads = catalog || kind == "file-states";
         let archived = kind == "archived";
         let closed = kind == "closed" || kind == "closed-board";
-        let board = board_store::Board {
+        let mut board = board_store::Board {
+            source_order: 1000,
+            catalog_enabled: true,
+            json_enabled: true,
+            staff_only: false,
+            meta_board: false,
+            upload_board: false,
+            rss_enabled: true,
             slug: "img".into(),
             title: "Paper image fixtures".into(),
             description: "Synthetic folds, thumbnails and file states.".into(),
             image_limit: 10,
+            posting_reply_seconds: 0,
+            posting_image_seconds: 0,
+            posting_thread_seconds: 0,
+            comment_spoiler_cleanup: true,
+            custom_spoiler_count: 0,
+            spoiler_thumbnail_assets: vec!["spoiler.png".into()],
             archive_retention_seconds: 3600,
             ..board()
         };
+        if let Some(slug) = source_board {
+            let reference: serde_json::Value =
+                serde_json::from_str(include_str!("../../tests/fixtures/custom-spoilers.json"))
+                    .unwrap();
+            let row = reference["boards"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["board"] == slug)
+                .unwrap();
+            board.slug = slug.into();
+            board.custom_spoiler_count = row["count"].as_i64().unwrap() as i32;
+            board.spoiler_thumbnail_assets = row["source_html_urls"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|url| url.as_str().unwrap().rsplit('/').next().unwrap().to_owned())
+                .collect();
+        }
         let thread = Thread {
             id: 1_000_201,
             board: board.slug.clone(),
@@ -132,19 +168,26 @@ impl Fixture {
             archive_expires_at: archived.then(|| time("2026-09-08T14:00:00Z")),
         };
         let posts: Vec<_> = self.files.iter().enumerate().map(|(index, file)| views::PostView::new(Post {
+            image_spoiler: file.spoiler,
             comment_format: 0,
+            staff_authorized_limits: false,
+            wordfilter_payload: None,
             id: file.post_id,
             board: board.slug.clone(),
             thread_id: if separate_threads { file.post_id } else { thread.id },
             name: "Anonymous".into(),
             trip: None,
-            poster_id: None, capcode: None,
+            poster_id: None, json_op_poster_id: None, capcode: None,
             country: None,
             country_name: None,
             board_flag: None,
+            board_flag_type: "pol".into(),
             flag_name: None,
             subject: ["Landscape fold", "Portrait fold", "Small fold", "Legacy full-image preview", "Spoiler fold", "Removed file"][index].into(),
             comment: "Synthetic paper fold.\n>the original bytes stay unchanged\n[spoiler]A hidden crease.[/spoiler]".into(),
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
             created_at: thread.created_at,
             deleted: false,
             attachment: Some(file.clone()),
@@ -153,6 +196,7 @@ impl Fixture {
             posts
                 .into_iter()
                 .map(|post| views::ThreadView {
+                    catalog_position: None,
                     catalog_last_reply: None,
                     tail_size: 0,
                     latest_reply_id: None,
@@ -170,6 +214,7 @@ impl Fixture {
                 .collect()
         } else {
             vec![views::ThreadView {
+                catalog_position: None,
                 catalog_last_reply: None,
                 tail_size: 0,
                 latest_reply_id: posts
@@ -184,6 +229,7 @@ impl Fixture {
             }]
         };
         views::BoardPage {
+            spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
             navigation_boards: crate::navigation_boards(),
             quote: String::new(),
             catalog_hidden: Vec::new(),
@@ -224,10 +270,34 @@ impl Fixture {
                         Html(fixture.page(
                             kind,
                             catalog::Options::parse(&uri).expect("valid fixture options"),
+                            None,
                         ))
                     }
                 }),
             );
+        }
+        for slug in ["m", "news", "vm", "vst", "s4s"] {
+            for kind in ["board", "catalog"] {
+                let path = if kind == "catalog" {
+                    format!("/{slug}/catalog")
+                } else {
+                    format!("/{slug}/")
+                };
+                let fixture = self.clone();
+                app = app.route(
+                    &path,
+                    get(move |uri: axum::http::Uri| {
+                        let fixture = fixture.clone();
+                        async move {
+                            Html(fixture.page(
+                                kind,
+                                catalog::Options::parse(&uri).unwrap(),
+                                Some(slug),
+                            ))
+                        }
+                    }),
+                );
+            }
         }
         app
     }

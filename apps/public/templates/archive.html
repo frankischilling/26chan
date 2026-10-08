@@ -1,5 +1,7 @@
 {% extends "base.html" %}
+{% block alternate_feed %}{% if board.rss_enabled %}<link rel="alternate" title="RSS feed" href="/{{ board.slug }}/index.rss" type="application/rss+xml">{% endif %}{% endblock %}
 {% import "page_navigation.html" as page_navigation %}
+{% import "formatting.html" as formatting %}
 {% block body_attributes %} data-worksafe="{{ board.worksafe }}" data-page-catalog="false" class="publicPageChrome {% if board.worksafe %}ws{% else %}nws{% endif %}{% if board.text_only %} text_only{% endif %}"{% endblock %}
 {% block favicon %}<link rel="shortcut icon" type="image/x-icon" href="/static/notifications/favicon{% if board.worksafe %}-ws{% endif %}.ico">{% endblock %}
 {% block title %}/{{ board.slug }}/ - Archive{% endblock %}
@@ -9,11 +11,15 @@
 {% block page_footer %}{% call page_navigation::desktop(navigation(), false, board.worksafe, true) %}{% endcall %}<div id="absbot" class="absBotText"><div id="footer-links"><a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a> • <a href="/">All boards</a></div></div><div id="bottom"></div><script type="module" src="/static/page-chrome.v1.js"></script>{% endblock %}
 {% block content %}
 <div class="boardBanner"><div id="bannerCnt" class="title desktop"></div><div class="boardTitle" role="heading" aria-level="1">/{{ board.slug }}/ - Archive</div><div class="boardSubtitle">{{ board.title }}</div></div>
-<nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> / <a href="/{{ board.slug }}/catalog">Catalog</a> / <a href="/{{ board.slug }}/archive">Archive</a> ]</nav>
-<p>Archived threads are read-only and remain available for a limited time.</p>
-<ul class="archiveEntries">
-{% for entry in entries %}
-<li><a href="/{{ board.slug }}/thread/{{ entry.id }}">No.{{ entry.id }}{% if !entry.subject.is_empty() %} — {{ entry.subject }}{% endif %}</a> · Archived <time datetime="{{ entry.archived_at.to_rfc3339() }}">{{ entry.archived_at.format("%Y-%m-%d %H:%M UTC") }}</time></li>
-{% else %}<li>No archived threads.</li>{% endfor %}
-</ul>
+<nav aria-label="Board views">[ <a href="/{{ board.slug }}/">Index</a> {% if board.catalog_enabled %}/ <a href="/{{ board.slug }}/catalog">Catalog</a>{% endif %} / <a href="/{{ board.slug }}/archive">Archive</a> ]</nav>
+<h4 class="center">Displaying {{ self.count_label() }} expired thread{% if entries.len() != 1 %}s{% endif %} from the past 3 days</h4>
+<table id="arc-list" class="flashListing"><thead><tr>
+<td class="postblock">No.</td><td class="postblock">Excerpt</td><td class="postblock"></td>
+</tr></thead><tbody>
+{% for entry in entries %}<tr>
+<td>{{ entry.id }}</td>
+<td class="teaser-col">{% call formatting::comment(entry.lines.as_slice(), board.slug) %}{% endcall %}</td>
+<td>[<a class="quotelink" href="{{ entry.href }}">View</a>]</td>
+</tr>{% endfor %}
+</tbody></table>
 {% endblock %}

@@ -691,6 +691,12 @@ Primary tool references: [Playwright persistent profiles](https://playwright.dev
 
 ### Image post-menu actions
 
+The supplied source `extension.js:1678-1688` uses `img_url` for Yandex and `url`
+for Google and SauceNAO. Yandex also receives `rpt=imageview`. The shared builder
+now preserves those provider-specific keys for desktop, mobile and spoiler
+menus. Owned tests inspect exact URLs without visiting any search provider;
+this establishes the pinned URL contract, not current service availability.
+
 The pinned extension v1191 `PostMenu.open` supplies a desktop Image search submenu and flat mobile Google, Yandex and SauceNAO actions. The release builds those fixed HTTPS provider URLs with the full normalized public PNG as an encoded query parameter; rendering or opening the menu makes no provider request. Links open in a separate tab with `noopener noreferrer`. Only canonical HTTP(S) full-image paths for the current board are accepted, without URL credentials, query strings or fragments. The target comes from the file metadata link, which also exists for spoiler posts; no thumbnail, spoiler reveal or image request is needed to construct the menu. Desktop submenus support pointer use and ArrowRight/ArrowLeft/Escape navigation. Initial ArrowUp/ArrowDown focus and subsequent navigation skip hidden submenu items.
 
 On mobile, Delete file opens the existing deletion form, selects File only and focuses the deletion password. Delete post clears File only. Neither action submits the form or bypasses password validation. Removed files expose no file menu actions. The native Open original file label is deliberately Open normalized file: the existing media security boundary never publishes quarantined original bytes, so this action opens the full approved PNG rather than implying access to the original upload. Search providers also receive only that approved public URL, not an intake capability or quarantine path. This is a continuation of the documented normalized-media compatibility exception, not restored original-byte access.

@@ -1,4 +1,7 @@
 #![cfg(feature = "database-tests")]
+
+#[path = "support/posting.rs"]
+mod posting;
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -94,7 +97,7 @@ async fn real_intake_streaming_status_posting_and_file_deletion() {
             .await
             .unwrap();
     let filename = format!("<b>{board}</b>.png");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit) VALUES ($1,'Image test','Synthetic',2000,100,100,100,10,3)")
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Image test','Synthetic',2000,100,100,100,10,3,true,0,0,0)")
         .bind(&board).execute(&admin).await.unwrap();
     let root = tempfile::tempdir().unwrap();
     let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
@@ -126,15 +129,16 @@ async fn real_intake_streaming_status_posting_and_file_deletion() {
     )
     .unwrap();
     board_public::media_ready(&settings).await.unwrap();
-    // Expanded admission cases share one synthetic peer; production limits
-    // remain independently exercised by http_limits.rs.
+    // Production request limits remain independently exercised by http_limits.rs;
+    // these admission and authorization cases share one stable fixture peer.
     let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
-        "PUBLIC_WRITES_PER_MINUTE" => Some("60".into()),
+        "PUBLIC_WRITES_PER_MINUTE" => Some("1000".into()),
         _ => None,
     })
     .unwrap();
-    let app = board_public::routers_with_limits(
+    let app = posting::routers_with_limits(
         public.clone(),
+        &board,
         "http://127.0.0.1:3000".into(),
         false,
         Some(settings),
@@ -521,6 +525,14 @@ async fn exercise(
         StatusCode::FORBIDDEN
     );
     reader.get(&asset.id).await.unwrap();
+    // Age only this owned upload; preserve the board's public deletion policy.
+    sqlx::query(
+        "UPDATE content.posts SET created_at=clock_timestamp()-interval '601 seconds' WHERE id=$1",
+    )
+    .bind(thread)
+    .execute(admin)
+    .await
+    .unwrap();
     let deleted = app
         .clone()
         .oneshot(multipart_post_request(
@@ -846,7 +858,7 @@ async fn reject_text_only_reply_before_file_body(app: &Router, board: &str, admi
     let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
         .await
         .unwrap();
-    let thread = board_store::create_post(
+    let thread = posting::create_post(
         &public,
         board,
         0,
@@ -936,7 +948,7 @@ async fn image_admission_http(
         deletion_hash: "unused-owned-hash".into(),
         sage: false,
     };
-    let thread = board_store::create_post(&public, board, 0, &draft)
+    let thread = posting::create_post(&public, board, 0, &draft)
         .await
         .unwrap();
     for (index, (sticky, undead, permaage, accepted)) in [
@@ -1211,7 +1223,7 @@ async fn image_reply_contract(
                 .parse::<i64>()
                 .unwrap()
         } else {
-            board_store::create_post_with_attachment(
+            posting::create_post_with_attachment(
                 &public,
                 board,
                 thread,
@@ -1336,7 +1348,11 @@ async fn image_reply_contract(
     assert_eq!(stats["image_limited"], false);
     assert!(after["posts"][0].get("imagelimit").is_none());
     assert_eq!(after["posts"][1]["filedeleted"], 1);
-    for key in ["tim", "filename", "md5", "ext", "tn_w", "tn_h", "spoiler"] {
+    assert_eq!(
+        after["posts"][1]["spoiler"], 1,
+        "Source spoiler state survives file deletion"
+    );
+    for key in ["tim", "filename", "md5", "ext", "tn_w", "tn_h"] {
         assert!(after["posts"][1].get(key).is_none());
     }
     let (index, _) = json(app, &format!("/{board}/1.json")).await;
@@ -1445,11 +1461,11 @@ async fn image_reply_contract(
         deletion_hash: "synthetic-unused-hash".into(),
         sage: false,
     };
-    let text_thread = board_store::create_post(&public, board, 0, &text)
+    let text_thread = posting::create_post(&public, board, 0, &text)
         .await
         .unwrap();
     for _ in 0..2 {
-        board_store::create_post(&public, board, text_thread, &text)
+        posting::create_post(&public, board, text_thread, &text)
             .await
             .unwrap();
     }

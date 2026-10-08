@@ -20,7 +20,9 @@ jobs:
   rust-and-browser:
     runs-on: ubuntu-24.04
     # Privileged qualification runs independently below, with its own database.
-    timeout-minutes: 40
+    # The last green full suite took 59m45s before poll browser coverage.
+    # Leave startup/cache variance headroom; individual test deadlines stay bounded.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,7 +39,7 @@ jobs:
           test -f /etc/apt/sources.list.d/ubuntu.sources
           sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light libicu-dev libpcre2-dev
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -46,6 +48,8 @@ jobs:
           cache-on-failure: true
       - name: Start disposable database and migrate
         run: |
+          python3 scripts/test-dev-db-env.py
+          python3 scripts/test-dev-staff-db-env.py
           sudo bash scripts/test-role-bootstrap.sh
           sudo bash scripts/dev-db.sh
           sudo bash scripts/dev-media-db.sh
@@ -105,7 +109,7 @@ jobs:
           test -f /etc/apt/sources.list.d/ubuntu.sources
           sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl libicu-dev libpcre2-dev
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -142,6 +146,7 @@ jobs:
           python3 -m unittest discover -s tests/media -p test_runner.py
           python3 -m unittest discover -s tests/media -p test_identity_environment.py
           python3 -m unittest discover -s tests/media -p test_browser_diagnostics.py -v
+          python3 -m unittest discover -s tests/media -p test_public_upload_fixture.py -v
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin python3 scripts/media/provision-test.py /tmp/26chan-media-ci "$PWD/target/x86_64-unknown-linux-musl/debug"
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
@@ -225,10 +230,94 @@ jobs:
         run: sudo bash scripts/test-forced-anonymous-migration.sh
       - name: Upgrade tripcodes while preserving historical content and runtime grants
         run: sudo bash scripts/test-tripcode-migration.sh
+      - name: Upgrade source display names while preserving saved identities and runtime grants
+        run: sudo bash scripts/test-public-display-name-migration.sh
+      - name: Upgrade source trip suppression while preserving historical identities and policy authority
+        run: sudo bash scripts/test-trip-suppression-migration.sh
+      - name: Upgrade rank-specific posting limits while preserving history and ordinary proof bounds
+        run: sudo bash scripts/test-authorized-post-migration.sh
+      - name: Upgrade staff badge permissions and proof-bound tripcodes while preserving history and grants
+        run: sudo bash scripts/test-staff-identity-migration.sh
+      - name: Upgrade static staff IDs while preserving saved IDs, source proofs and runtime grants
+        run: sudo bash scripts/test-staff-poster-id-migration.sh
+      - name: Upgrade source sage IDs while preserving history and matching all display policies
+        run: sudo bash scripts/test-poster-id-heaven-migration.sh
+      - name: Upgrade ordinary OP JSON IDs without retaining addresses or changing history
+        run: sudo bash scripts/test-json-op-poster-id-migration.sh
+      - name: Upgrade restricted attachment owner access to source ID policy
+        run: sudo bash scripts/test-attachment-poster-id-policy-migration.sh
+      - name: Upgrade ordinary staff posting while preserving history and badge proofs
+        run: sudo bash scripts/test-ordinary-staff-post-migration.sh
+      - name: Upgrade staff spoiler controls while preserving subjects, files and privacy
+        run: sudo bash scripts/test-staff-spoiler-migration.sh
+      - name: Upgrade existing thread options with scoped staff Undead control
+        run: sudo bash scripts/test-staff-thread-options-migration.sh
+      - name: Upgrade public spoiler selection without rewriting history or granting state mutation
+        run: sudo bash scripts/test-public-spoiler-migration.sh
+      - name: Upgrade source custom spoiler counts while preserving history and runtime authority
+        run: sudo bash scripts/test-custom-spoiler-migration.sh
+      - name: Populated spoiler thumbnail policy migration
+        run: sudo bash scripts/test-spoiler-thumbnail-migration.sh
+      - name: Populated source flag policy migration
+        run: sudo bash scripts/test-source-board-flags-migration.sh
+      - name: Populated public deletion policy and runtime privilege migration
+        run: sudo bash scripts/test-public-deletion-migration.sh
+      - name: Populated source rollover ordering migration
+        run: sudo bash scripts/test-source-rollover-migration.sh
+      - name: Populated posting cooldown policy and private history migration
+        run: sudo bash scripts/test-posting-cooldown-migration.sh
+      - name: Populated staff posting timer and scoped proof cleanup migration
+        run: sudo bash scripts/test-staff-posting-cooldown-migration.sh
+      - name: Qualify proof-bound janitor posting timers on a populated upgrade
+        run: sudo bash scripts/test-janitor-posting-cooldown-migration.sh
+      - name: Qualify private OP bump context on fresh and populated upgrades
+        run: sudo bash scripts/check-private-op-bump-migration.sh
+      - name: Qualify prospective archive secret retirement and current dump restore
+        run: sudo bash scripts/test-archive-deletion-secret-migration.sh
+      - name: Qualify IP thread quotas on fresh and populated upgrades
+        run: sudo bash scripts/test-user-thread-quota-migration.sh
+      - name: Qualify additive report policy without rewriting history
+        run: sudo bash scripts/test-report-target-policy-migration.sh
+      - name: Upgrade private report admission without rewriting retained history
+        run: sudo bash scripts/test-report-admission-migration.sh
+      - name: Upgrade forward automatic identity and active-thread equality
+        run: sudo bash scripts/test-automatic-identity-migration.sh
+      - name: Upgrade session-aware report admission and restricted mutation APIs
+        run: sudo bash scripts/test-session-report-migration.sh
+      - name: Qualify private report catalog imports without changing runtime reporting
+        run: sudo bash scripts/test-report-catalog-migration.sh
+      - name: Qualify opt-in categorical reporting and current administrator dump restore
+        run: sudo bash scripts/test-categorical-report-migration.sh
+      - name: Upgrade forward report-group lifetimes and archive retirement without historical backfill
+        run: sudo bash scripts/test-report-group-migration.sh
+      - name: Upgrade private pre-report known observation without activity mutation
+        run: sudo bash scripts/test-report-known-migration.sh
+      - name: Upgrade private report weight evidence without historical backfill or clearance
+        run: sudo bash scripts/test-report-weight-migration.sh
+      - name: Upgrade grouped thread options and bounded sticky rank without rewriting history
+        run: sudo bash scripts/test-grouped-options-migration.sh
+      - name: Qualify additive staff digest visibility and administrator dump restore
+        run: sudo bash scripts/test-staff-file-digest-migration.sh
+      - name: Qualify private PNG provenance without changing retained output or read authority
+        run: sudo bash scripts/test-media-source-provenance-migration.sh
+      - name: Qualify nullable moderation snapshots without historical backfill or expanded authority
+        run: sudo bash scripts/test-audit-snapshot-migration.sh
+      - name: Qualify force archive audit upgrade without rewriting history or expanding authority
+        run: sudo bash scripts/test-force-archive-migration.sh
+      - name: Qualify reporter clear migration and restore with retained evidence and scoped authority
+        run: sudo bash scripts/test-reporter-clear-migration.sh
+      - name: Qualify bounded report group clearing, inherited state and administrator restore
+        run: sudo bash scripts/test-report-group-clear-migration.sh
+      - name: Qualify public poll projections, publication boundaries and administrator restore
+        run: sudo bash scripts/test-poll-read-migration.sh
+      - name: Qualify proof-bound staff attachments and retained text authorities
+        run: sudo bash scripts/test-staff-post-attachment-migration.sh
       - name: Upgrade existing content with scoped poster IDs
         run: sudo bash scripts/test-poster-id-migration.sh
       - name: Upgrade source word breaks while preserving historical rendering
         run: sudo bash scripts/test-word-break-migration.sh
+      - name: Upgrade source links and the complete board inventory without changing historical posts
+        run: sudo bash scripts/test-static-quote-migration.sh
       - name: Upgrade existing content for attachment-only posts
         run: sudo bash scripts/test-attachment-only-migration.sh
       - name: Upgrade existing threads from migration 0008
@@ -237,6 +326,8 @@ jobs:
         run: sudo bash scripts/test-media-approval-migration.sh
       - name: Upgrade existing media jobs to capability-scoped intake
         run: sudo bash scripts/test-media-intake-migration.sh
+      - name: Upgrade anonymous sessions without changing historical ownership
+        run: sudo bash scripts/test-anonymous-session-migration.sh
       - name: Restore disposable backup
         run: sudo bash scripts/restore-exercise.sh
       - name: Restore populated attachments and normalized files
@@ -300,6 +391,9 @@ jobs:
           test "$APPLICATION_RESULT" = success
           test "$QUALIFICATION_RESULT" = success
   visual-windows:
+    # Preserve the existing Windows check as a gate for every theme shard.
+    needs: [visual-windows-themes]
+    if: ${{ !cancelled() }}
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
@@ -315,26 +409,51 @@ jobs:
       - name: Install pinned Rust
         shell: pwsh
         run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Install pinned Unicode normalization runtime
+        shell: pwsh
+        run: ./scripts/install-windows-icu.ps1
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: windows-2025-${{ hashFiles('Cargo.toml') }}
           cache-bin: false
+          cache-all-crates: false
+          cache-workspace-crates: false
           cache-on-failure: true
       - name: Install browser dependencies
         shell: pwsh
         run: |
           npm ci --ignore-scripts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npx playwright install chromium
       - name: Build visual fixture before the server startup deadline
         shell: pwsh
         run: cargo build -p board-public --example visual-fixtures --locked
+      - name: Verify bounded AFD manifest descriptor decoding
+        shell: pwsh
+        run: ./scripts/windows-visual-afd-tdh.test.ps1
       - name: Verify public configuration budgets
         shell: pwsh
         run: cargo test -p board-config --locked
+      - name: Verify source admission projections and work bounds
+        shell: pwsh
+        run: |
+          cargo test -p board-domain admission_normalization --lib --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test -p board-domain content_admission --lib --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test -p board-domain name_trip_admission --lib --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test -p board-domain identity --lib --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test -p board-domain trip_cp932 --lib --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test tests/browser/owned-upload-response.test.mjs
       - name: Verify public TCP transport budgets
         shell: pwsh
         run: |
+          cargo test -p board-http --lib transport:: --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test -p board-public --lib transport:: --locked
       - name: Verify public startup and paired listeners
         shell: pwsh
@@ -344,6 +463,10 @@ jobs:
         run: |
           ./scripts/windows-visual-resources.ps1 -Phase before-browser
           npm run test:linkification-core
+      - name: Verify bounded local math and source projections
+        timeout-minutes: 5
+        shell: pwsh
+        run: npm run test:math
       - name: Verify quote-preview parsing and bounded DOM construction
         shell: pwsh
         run: npm run test:quote-preview-core
@@ -356,9 +479,17 @@ jobs:
       - name: Verify bounded image loading and display preferences
         shell: pwsh
         run: npm run test:images-core
+      - name: Verify bounded in-place deletion and lifecycle fences
+        timeout-minutes: 5
+        shell: pwsh
+        run: npm run test:native-post-deletion-core
       - name: Verify bounded file labels and mobile captions
         shell: pwsh
         run: npm run test:files-core
+      - name: Custom spoiler source and browser contracts
+        run: npm run test:custom-spoilers
+      - name: Source board flag sprite and browser contracts
+        run: npm run test:source-flags
       - name: Verify local dates and bounded board navigation
         shell: pwsh
         run: npm run test:display-core
@@ -395,6 +526,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:custom-css-core
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:settings-categories
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:settings-transfer-core
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:catalog-preference-locks-core
@@ -409,22 +542,22 @@ jobs:
       - name: Run attachment desktop and mobile visual fixtures
         shell: pwsh
         run: npm run test:media-visual
-      - name: Run referenced theme preferences and desktop/mobile visuals
+      - name: Verify bounded Chromium NetLog diagnostics
         shell: pwsh
-        env:
-          WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS: '1'
-        run: |
-          ./scripts/windows-visual-resources.ps1 -Phase before-themes
-          npm run test:themes
+        run: node --test tests/helpers/visual-netlog.test.mjs tests/helpers/windows-theme-shards.test.mjs tests/helpers/windows-theme-stderr-filter.test.mjs tests/helpers/windows-theme-stderr-launcher.test.mjs tests/browser/windows-visual-afd.test.mjs
       - name: Run public empty and error desktop/mobile states
         shell: pwsh
         run: npm run test:states
-      - name: Retain synthetic Windows visual failure images
+      - name: Retain synthetic Windows visual failure diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-visual-failure-images-${{ github.run_id }}-${{ github.run_attempt }}
-          path: test-results/**/*.png
+          path: |
+            test-results/**/*.png
+            test-results/**/trace.zip
+            test-results/**/error-context.md
+            test-results/**/netlogs/*.json
           if-no-files-found: ignore
           retention-days: 3
           compression-level: 0
@@ -433,3 +566,125 @@ jobs:
         if: always()
         shell: pwsh
         run: ./scripts/windows-visual-resources.ps1 -Phase after-visual
+      - name: Require every isolated Windows theme shard
+        if: always()
+        shell: pwsh
+        env:
+          THEMES_RESULT: ${{ needs.visual-windows-themes.result }}
+        run: |
+          if ($env:THEMES_RESULT -ne 'success') { throw "Windows theme shards did not all succeed: $env:THEMES_RESULT" }
+  visual-windows-themes:
+    # Measured isolation experiment: split three independent reference matrices
+    # across fresh runners, with one worker and no retries. Discovery caps each
+    # workload at 160 tests; the underlying Windows socket cause remains unknown.
+    runs-on: windows-2025
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.14.0'
+          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install pinned Rust
+        shell: pwsh
+        run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Install pinned Unicode normalization runtime
+        shell: pwsh
+        run: ./scripts/install-windows-icu.ps1
+      - name: Restore Rust dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Match the original job's key, including rust-cache's job suffix.
+          shared-key: windows-2025-${{ hashFiles('Cargo.toml') }}-visual-windows
+          cache-bin: false
+          cache-all-crates: false
+          cache-workspace-crates: false
+          # The original Windows job remains the only cache writer.
+          save-if: false
+      - name: Install browser dependencies
+        shell: pwsh
+        run: |
+          npm ci --ignore-scripts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx playwright install chromium
+      - name: Verify exact Windows theme shard coverage
+        shell: pwsh
+        run: node scripts/check-windows-theme-shards.mjs
+      - name: Build visual fixture before the server startup deadline
+        shell: pwsh
+        run: cargo build -p board-public --example visual-fixtures --locked
+      - name: Run referenced theme preferences and desktop/mobile visuals
+        shell: pwsh
+        env:
+          WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS: '1'
+          WINDOWS_VISUAL_NETLOG: '1'
+          THEME_SHARD: ${{ matrix.shard }}
+        run: |
+          ./scripts/windows-visual-resources.ps1 -Phase before-themes
+          ./scripts/windows-visual-afd.ps1 -Action Run
+          exit $LASTEXITCODE
+      - name: Clean owned private Windows AFD manifest inspection
+        if: always()
+        shell: pwsh
+        env:
+          THEME_SHARD: ${{ matrix.shard }}
+        run: ./scripts/windows-visual-afd.ps1 -Action Cleanup
+      - name: Retain synthetic Settings dialog screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-settings-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          # The owned theme fixture emits at most twelve desktop/mobile images.
+          path: test-results/**/*-monitoring.png
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false
+      - name: Retain synthetic Windows theme shard failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-themes-${{ matrix.shard }}-failure-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/**/*.png
+            test-results/**/trace.zip
+            test-results/**/error-context.md
+            test-results/**/netlogs/*.json
+            test-results/windows-afd/summary.json
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false
+      - name: Retain sanitized Windows transport stderr evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-transport-stderr-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/windows-themes-*/transport-stderr.json
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false
+      - name: Retain sanitized Windows AFD provider inventory
+        if: always() && matrix.shard == 1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-afd-provider-inventory-${{ github.run_id }}-${{ github.run_attempt }}
+          # Bounded schema metadata only; capture remains disabled.
+          path: test-results/windows-afd/summary.json
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false
+      - name: Record final Windows theme shard resource aggregates
+        if: always()
+        shell: pwsh
+        run: ./scripts/windows-visual-resources.ps1 -Phase after-themes

@@ -1,4 +1,7 @@
 #![cfg(feature = "database-tests")]
+
+#[path = "support/posting.rs"]
+mod posting_fixture;
 use axum::{
     body::Body,
     http::{HeaderMap, Request, StatusCode},
@@ -37,7 +40,7 @@ fn json(bytes: &[u8]) -> serde_json::Value {
     serde_json::from_slice(bytes).unwrap()
 }
 async fn add(pool: &sqlx::PgPool, slug: &str, parent: i64) -> i64 {
-    board_store::create_post(
+    posting_fixture::create_post(
         pool,
         slug,
         parent,
@@ -71,13 +74,14 @@ async fn persisted_tail_threshold_counts_cache_policy_and_privilege_boundaries()
             .unwrap()
             .subsec_nanos()
     );
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES ($1,'Owned tail contract','Synthetic tail HTTP fixture',4000,1000,300,100,10,2)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES (0,0,0,$1,'Owned tail contract','Synthetic tail HTTP fixture',4000,1000,300,100,10,2)").bind(&slug).execute(&owner).await.unwrap();
     let id = add(&public, &slug, 0).await;
     let mut ids = vec![id];
     for _ in 0..3 {
         ids.push(add(&public, &slug, id).await);
     }
-    let (web, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let (web, api) =
+        posting_fixture::routers(public.clone(), &slug, "http://127.0.0.1:3000".into(), false);
     let full = format!("/{slug}/thread/{id}.json");
     let tail = format!("/{slug}/thread/{id}-tail.json");
     let projection = format!("/_watch/{slug}/thread/{id}/posts-tail");
@@ -170,8 +174,8 @@ async fn persisted_tail_threshold_counts_cache_policy_and_privilege_boundaries()
             .contains("data-tail-size=\"2\"")
     );
 
-    // Both application identities exercise real denied writes; the operator can
-    // change policy, and even an unchanged thread timestamp cannot hide that change.
+    // Both runtimes are denied board-policy writes. Migration 79 gives staff
+    // the Undead thread control; public credentials still cannot change it.
     for pool in [&public, &staff] {
         let error = sqlx::query("UPDATE content.boards SET json_tail_size=1 WHERE slug=$1")
             .bind(&slug)
@@ -182,17 +186,49 @@ async fn persisted_tail_threshold_counts_cache_policy_and_privilege_boundaries()
             error.as_database_error().unwrap().code().as_deref(),
             Some("42501")
         );
-        let error = sqlx::query("UPDATE content.threads SET undead=true WHERE board=$1 AND id=$2")
+    }
+    let error = sqlx::query("UPDATE content.threads SET undead=true WHERE board=$1 AND id=$2")
+        .bind(&slug)
+        .bind(id)
+        .execute(&public)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.as_database_error().unwrap().code().as_deref(),
+        Some("42501")
+    );
+    let mut staff_change = staff.begin().await.unwrap();
+    assert_eq!(
+        sqlx::query("UPDATE content.threads SET undead=true WHERE board=$1 AND id=$2")
             .bind(&slug)
             .bind(id)
-            .execute(pool)
+            .execute(&mut *staff_change)
             .await
-            .unwrap_err();
-        assert_eq!(
-            error.as_database_error().unwrap().code().as_deref(),
-            Some("42501")
-        );
-    }
+            .unwrap()
+            .rows_affected(),
+        1
+    );
+    assert!(
+        sqlx::query_scalar::<_, bool>(
+            "SELECT undead FROM content.threads WHERE board=$1 AND id=$2"
+        )
+        .bind(&slug)
+        .bind(id)
+        .fetch_one(&mut *staff_change)
+        .await
+        .unwrap()
+    );
+    staff_change.rollback().await.unwrap();
+    assert!(
+        !sqlx::query_scalar::<_, bool>(
+            "SELECT undead FROM content.threads WHERE board=$1 AND id=$2"
+        )
+        .bind(&slug)
+        .bind(id)
+        .fetch_one(&public)
+        .await
+        .unwrap()
+    );
     for invalid in [-1, 501] {
         let error = sqlx::query("UPDATE content.boards SET json_tail_size=$2 WHERE slug=$1")
             .bind(&slug)

@@ -12,7 +12,7 @@ use tower::ServiceExt;
 
 fn comment() -> String {
     format!(
-        "[b]{}[/b]\n{}\n> {}\nhttps://example.org/{}\nleft{{{{w_br}}}}right <script>",
+        "[b]{}[/b]\n{}\n> {}\nhttps://example.org/{}\nleft{{{{w_br}}}}right <script>\n>>>/g/catalog >>>/po/ >>>/g/a+b",
         "x".repeat(70),
         "界".repeat(35),
         "q".repeat(35),
@@ -106,15 +106,35 @@ async fn get(app: &Router, path: &str) -> String {
     .unwrap()
 }
 
+fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
+    use rand_core::RngCore;
+    let mut bytes = [0u8; 32];
+    rand_core::OsRng.fill_bytes(&mut bytes);
+    let encoded: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
+}
+
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-    let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let (app, api) = board_public::routers_with_options(
+        public.clone(),
+        board_public::PublicRouterOptions {
+            origin: "http://127.0.0.1:3000".into(),
+            production: false,
+            media: None,
+            limits: board_config::PublicRequestLimits::default(),
+            proxy_uid: None,
+            tripcode_key: None,
+            poster_id_key: Some(fixture_key()),
+            country_database: None,
+        },
+    );
     let mut history = None;
     for mode in 0..8 {
         let op = submit(&app, &slug, 0, mode).await;
         let reply = submit(&app, &slug, op, mode).await;
         for id in [op, reply] {
             let saved = board_store::find_post(&public, &slug, id).await.unwrap();
-            assert_eq!(saved.comment_format, 63);
+            assert_eq!(saved.comment_format, 127);
             assert!(saved.comment.contains("{{w_br}}"));
             assert!(!saved.comment.contains("<wbr>"));
         }
@@ -123,14 +143,29 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         assert!(html.contains(&format!("{}<wbr>", "界".repeat(35))));
         assert!(html.contains("left<wbr>right &#60;script&#62;"));
         assert!(!html.contains("<script>"));
+        for destination in ["/g/catalog", "/po/", "/g/catalog#s=a+b"] {
+            assert!(html.contains(&format!("class=\"quotelink\" href=\"{destination}\"")));
+        }
         let destination = format!("https://example.org/{}", "a".repeat(70));
-        assert!(html.contains(&format!("href=\"{destination}\"")));
+        assert!(!html.contains(&format!("href=\"{destination}\"")));
+        assert!(html.contains(&format!(
+            "https://example.org/{}<wbr>{}<wbr>{}",
+            "a".repeat(15),
+            "a".repeat(35),
+            "a".repeat(20)
+        )));
         for router in [&app, &api] {
             let value: serde_json::Value =
                 serde_json::from_str(&get(router, &format!("/{slug}/thread/{op}.json")).await)
                     .unwrap();
             for post in value["posts"].as_array().unwrap() {
                 assert!(post["com"].as_str().unwrap().contains("<wbr>"));
+                assert!(
+                    post["com"]
+                        .as_str()
+                        .unwrap()
+                        .contains("href=\"/g/catalog#s=a+b\"")
+                );
                 assert!(post.get("comment_format").is_none());
             }
         }
@@ -147,14 +182,20 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     }
     let (op, html) = history.unwrap();
     sqlx::query("UPDATE content.boards SET op_markup=false,comment_spoiler_cleanup=false,comment_code_spacing=false,comment_sjis_spacing=false WHERE slug=$1").bind(&slug).execute(&owner).await.unwrap();
-    assert_eq!(get(&app, &format!("/{slug}/thread/{op}")).await, html);
+    // Saved comments retain their preparation policy; the current posting form
+    // advertises the changed spoiler policy to native Quick Reply.
+    assert_eq!(html.matches("data-spoilers=\"true\"").count(), 1);
+    assert_eq!(
+        get(&app, &format!("/{slug}/thread/{op}")).await,
+        html.replacen("data-spoilers=\"true\"", "data-spoilers=\"false\"", 1)
+    );
     let id = submit(&app, &slug, op, 0).await;
     assert_eq!(
         board_store::find_post(&public, &slug, id)
             .await
             .unwrap()
             .comment_format,
-        40
+        104
     );
     assert!(
         sqlx::query("UPDATE content.posts SET comment_format=8 WHERE id=$1")
@@ -179,7 +220,9 @@ async fn source_word_breaks_survive_posting_api_updater_and_policy_changes() {
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,comment_spoiler_cleanup,comment_code_spacing,comment_sjis_spacing) VALUES($1,'Word breaks','Owned fixture',4000,100,100,100,10,true,true,true,true)").bind(&slug).execute(&owner).await.unwrap();
+    // Retain all eight route/form OP controls on this owned board without
+    // letting the unrelated actor quota preempt word-break rendering checks.
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,comment_spoiler_cleanup,comment_code_spacing,comment_sjis_spacing,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Word breaks','Owned fixture',4000,100,100,100,10,true,true,true,true,0,0,0,100)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

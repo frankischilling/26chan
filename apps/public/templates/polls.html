@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Polls - Paperboard{% endblock %}
+{% block content %}
+<section class="pollPage" aria-labelledby="polls-title">
+<header><h1 id="polls-title">Polls</h1></header>
+<p>Voting is unavailable. You can browse published options and results.</p>
+<h2>Current polls</h2>
+<ul id="entries" class="pollCatalogue">
+{% for poll in polls %}<li><a href="/polls/{{ poll.id }}">{{ poll.title }}</a></li>
+{% else %}<li>No polls are available yet.</li>{% endfor %}
+</ul>
+</section>
+{% endblock %}
+{% block feature_notice %}Read-only polls.{% endblock %}

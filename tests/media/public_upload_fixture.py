@@ -1,4 +1,6 @@
 """Development public web unit connected to real intake, dispatch and reader."""
+import hashlib
+import hmac
 import http.client
 import grp
 import os
@@ -17,13 +19,19 @@ from test_vm import red_png
 
 def finish_browser(process, script):
     # Browser stderr can include one-use capabilities in page/response details.
-    # Emit only a fixed script name and its numeric source location on failure.
+    # Emit only a fixed script/location and an allowlisted HTTP response category.
     assert script in ('public-upload.mjs', 'quick-reply-upload.mjs')
     output, error = process.communicate(timeout=35)
     if process.returncode != 0:
         locations = re.findall(rb'/' + re.escape(script.encode()) + rb':([0-9]{1,6}):([0-9]{1,6})\b', error)
         location = ':' + ':'.join(value.decode('ascii') for value in locations[0]) if locations else ''
-        raise AssertionError('owned upload browser rejected at ' + script + location)
+        responses = re.findall(rb'^OWNED_UPLOAD_RESPONSE status=([1-5][0-9]{2}) type=(json|html|plain|other)\r?$', error, re.MULTILINE)
+        response = (' (HTTP ' + responses[0][0].decode('ascii') + ', ' + responses[0][1].decode('ascii') + ')') if responses else ''
+        classified = re.findall(rb'^OWNED_UPLOAD_RESPONSE status=([1-5][0-9]{2}) type=(json|html|plain|other) stage=(upload|post) failure=(http|json|body)\r?$', error, re.MULTILINE)
+        if classified:
+            status, category, stage, failure = (value.decode('ascii') for value in classified[-1])
+            response = f' (HTTP {status}, {category}, {stage}, {failure})'
+        raise AssertionError('owned upload browser rejected at ' + script + location + response)
     return output
 
 
@@ -38,6 +46,9 @@ class PublicUpload:
         self.f = fixture
         token = fixture.root.name.removeprefix('26chan-dispatch-')
         self.board = 'u' + secrets.token_hex(4)
+        self._owned_board = self.board
+        # Fresh synthetic server key, never inherited from an external environment.
+        self._poster_id_key = secrets.token_hex(32)
         self.unit = PublicUnit(token)
         self.installed = False
         self.created = False
@@ -67,6 +78,7 @@ class PublicUpload:
         assert not any(c in credential for c in '\n\r"\\')
         f.write(f.root / 'public.env',
                 f'APP_ENV=development\nMEDIA_ENABLED=true\nPUBLIC_MEDIA_PROFILE=isolated-development\n'
+                f'POSTER_ID_KEY={self._poster_id_key}\n'
                 f'DATABASE_URL="{credential}"\nBIND_ADDR=127.0.0.1:{self.port}\nPUBLIC_ORIGIN={self.origin}\n'
                 f'STAFF_ORIGIN=http://localhost:3001\nMEDIA_ORIGIN=http://127.0.0.1:{f.http_port}\n'
                 # These workflows share one loopback peer; retain enforcement
@@ -88,14 +100,53 @@ class PublicUpload:
         result = subprocess.run(['systemd-analyze', 'verify', '/run/systemd/system/' + self.unit.name],
                                 env=SAFE, capture_output=True, timeout=15)
         assert result.returncode == 0, 'public development unit verification failed'
-        sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit) VALUES ('{self.board}','Upload qualification','Synthetic PNG, JPEG and GIF',2000,100,100,100,10,3);")
-        self.created = True
+        self.create_board()
         systemctl('start', self.unit.name)
         wait_until(self.ready)
         status = pathlib.Path(f'/proc/{self.unit.pid}/status').read_text()
         ids = dict(line.split(':', 1) for line in status.splitlines() if ':' in line)
         assert set(map(int, ids['Uid'].split())) == {public.pw_uid}
         assert set(map(int, ids['Gid'].split())) == {edge.gr_gid}
+
+    def create_board(self):
+        assert self.board == self._owned_board
+        assert re.fullmatch(r'u[0-9a-f]{8}', self.board)
+        # This owned synthetic board qualifies media deletion and cleanup directly
+        # after posting. Source-board age eligibility is tested separately; retain
+        # the normal maximum age and all authentication/resource checks here.
+        # Zero ordinary timers belong only to this disposable media board.
+        sql(f"INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,deletion_known_min_seconds,deletion_unknown_min_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ('{self.board}','Upload qualification','Synthetic PNG, JPEG and GIF',2000,100,100,100,10,3,true,0,0,0,0,0);")
+        self.created = True
+
+    def _actor_hex(self):
+        # Match PosterIdKey::public_deletion_rate_identity exactly: domain,
+        # canonical IPv4 family byte, then the real loopback peer's four octets.
+        return hmac.new(bytes.fromhex(self._poster_id_key),
+                        b'26chan-public-deletion-rate-v1\0\x04\x7f\0\0\x01',
+                        hashlib.sha256).hexdigest()
+
+    def _posting_actor_hex(self):
+        # Distinct domain, same fresh fixture key and actual IPv4 loopback peer.
+        return hmac.new(bytes.fromhex(self._poster_id_key),
+                        b'26chan-public-posting-rate-v1\0\x04\x7f\0\0\x01',
+                        hashlib.sha256).hexdigest()
+
+    def reset_posting_history(self):
+        assert self.created and self.board == self._owned_board
+        assert re.fullmatch(r'u[0-9a-f]{8}', self.board)
+        assert sql(f"SELECT posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards WHERE slug='{self.board}';") == '0|0|0'
+        # Only the trusted supervisor can touch private admission state. Both
+        # full actor identity and owned board scope must match; no global reset.
+        for table in ('posting_history', 'posting_thread_actions'):
+            sql(f"DELETE FROM post_secrets.{table} WHERE actor_hash=decode('{self._posting_actor_hex()}','hex') AND board='{self.board}';")
+
+    def reset_deletion_quota(self):
+        assert self.created and self.board == self._owned_board
+        assert re.fullmatch(r'u[0-9a-f]{8}', self.board)
+        assert sql(f"SELECT deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds FROM content.boards WHERE slug='{self.board}';") == '0|0|1800'
+        # sql() runs only in this trusted owner harness. Neither its credential
+        # nor this operation is exposed to the public service/browser.
+        sql(f"DELETE FROM post_secrets.public_deletion_actors WHERE actor_hash=decode('{self._actor_hex()}','hex');")
 
     def ready(self):
         assert self.unit.poll() is None, 'public development startup rejected'
@@ -120,8 +171,13 @@ class PublicUpload:
             self.upload_one(suffix, data, javascript)
         self.upload_one('quick-reply.png', red_png(), True, quick_reply=True)
         self.upload_one('quick-reply-inline.png', red_png(), True, quick_reply='inline')
+        sql(f"UPDATE content.boards SET comment_spoiler_cleanup=false WHERE slug='{self.board}' AND title='Upload qualification';")
+        self.upload_one('quick-reply-disabled.png', red_png(), True, quick_reply=True, spoilers=False)
+        self.upload_one('quick-reply-inline-disabled.png', red_png(), True, quick_reply='inline', spoilers=False)
 
-    def upload_one(self, suffix, data, javascript=False, quick_reply=False):
+    def upload_one(self, suffix, data, javascript=False, quick_reply=False, spoilers=True):
+        self.reset_deletion_quota()
+        self.reset_posting_history()
         f = self.f
         # Browser runs as the checkout owner, not root or an application identity.
         # Its cleared environment has no database or service credentials.
@@ -142,6 +198,8 @@ class PublicUpload:
         script = 'public-upload.mjs'
         if quick_reply:
             script, flags = 'quick-reply-upload.mjs', (['--inline'] if quick_reply == 'inline' else [])
+            if not spoilers:
+                flags.append('--no-spoilers')
         process = f.launch([node, REPO / 'tests/browser' / script, self.origin, self.board, source, *flags],
                            browser_user, environment)
         self.browser = process
@@ -157,6 +215,10 @@ class PublicUpload:
         assert HEX.fullmatch(asset)
         f.clean_vm()
         output = finish_browser(process, script)
+        assert sql(f"SELECT cardinality(events) FROM post_secrets.public_deletion_actors WHERE actor_hash=decode('{self._actor_hex()}','hex');") == '1'
+        expected_posts = 3 if quick_reply else (2 if javascript else 1)
+        assert sql(f"SELECT count(*) FROM post_secrets.posting_history WHERE actor_hash=decode('{self._posting_actor_hex()}','hex') AND board='{self.board}';") == str(expected_posts)
+        assert sql(f"SELECT count(*) FROM post_secrets.posting_thread_actions WHERE actor_hash=decode('{self._posting_actor_hex()}','hex') AND board='{self.board}';") == '1'
         mode = b'JavaScript' if javascript else b'no-JavaScript'
         assert output.startswith(b'PASS ' + mode + b' upload, isolated approval, persisted posting')
         assert sql(f"SELECT count(*) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.board='{self.board}' AND m.asset_id='{asset}' AND m.file_deleted AND NOT p.deleted;") == '1'
@@ -178,8 +240,10 @@ class PublicUpload:
         if self.installed:
             self.f.stop(self.unit)
         if self.created:
+            self.reset_deletion_quota()
+            self.reset_posting_history()
             for filename in self.filenames:
-                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|static\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png)', filename)
+                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|static\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png|quick-reply-disabled\.png|quick-reply-inline-disabled\.png)', filename)
                 for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():
                     assert HEX.fullmatch(job)
                     if job not in self.f.ids:

@@ -1,4 +1,4 @@
-use crate::comment_markup::{MarkupPolicy, MarkupToken, Tag, parse_markup};
+use crate::comment_markup::{MarkupPolicy, MarkupToken, Tag};
 use url::Url;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -6,14 +6,39 @@ pub enum Token {
     Text(String),
     Quote(u64),
     CrossQuote(String, u64),
+    PostQuote(crate::post_quote::PostQuote),
+    StaticQuote(
+        crate::static_quote::StaticQuote,
+        Vec<crate::word_break::WordPart>,
+    ),
     Spoiler(String),
     Link(String),
     WrappedLink(String, Vec<crate::word_break::WordPart>),
+    ServerLink(
+        crate::server_link::ServerLink,
+        Vec<crate::word_break::WordPart>,
+    ),
     WordBreak,
     OpenMarkup(Tag),
     CloseMarkup(Tag),
+    FilteredDelimiter(crate::wordfiltered_comment::Delimiter),
+    ChangedEntity(crate::wordfiltered_comment::ChangedEntity),
     OpenQuote,
     CloseQuote,
+    /// Server-generated wrappers. User formatting never creates these tokens.
+    GeneratedBold(bool),
+    GeneratedFortune(bool, String),
+}
+
+impl Token {
+    pub fn fortune_class(&self) -> &str {
+        match self {
+            Self::GeneratedFortune(_, color) => {
+                crate::posting_randomizers::fortune_class(color).unwrap_or("fortune")
+            }
+            _ => "fortune",
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -22,13 +47,58 @@ pub struct Line {
     pub tokens: Vec<Token>,
 }
 
+/// Display text after formatting. Generated tags and word breaks contribute
+/// no characters; fixed invalid source tags retain their visible spelling.
+pub fn visible_text(token: &Token) -> std::borrow::Cow<'_, str> {
+    match token {
+        Token::Text(value) | Token::Spoiler(value) | Token::Link(value) => value.into(),
+        Token::Quote(id) => format!(">>{id}").into(),
+        Token::CrossQuote(board, id) => format!(">>>/{board}/{id}").into(),
+        Token::PostQuote(quote) => quote.label().into(),
+        Token::WrappedLink(_, parts)
+        | Token::ServerLink(_, parts)
+        | Token::StaticQuote(_, parts) => parts
+            .iter()
+            .filter_map(|part| match part {
+                crate::word_break::WordPart::Text(value) => Some(value.as_str()),
+                crate::word_break::WordPart::Break => None,
+            })
+            .collect::<String>()
+            .into(),
+        Token::ChangedEntity(entity) => entity.spelling().into(),
+        Token::FilteredDelimiter(delimiter)
+            if !delimiter.valid_element() && delimiter.opening() =>
+        {
+            delimiter.source_projection().into()
+        }
+        _ => "".into(),
+    }
+}
+
+pub fn plain_text(lines: &[Line]) -> String {
+    let mut text = String::new();
+    for (index, line) in lines.iter().enumerate() {
+        if index > 0 {
+            text.push('\n');
+        }
+        for token in &line.tokens {
+            text.push_str(&visible_text(token));
+        }
+    }
+    text
+}
+
 /// Nonrecursive grammar. HTML is always text; templates escape every text node.
 /// The posting boundary caps input at 16,000 Unicode scalar values. This parser
 /// also bounds work when called independently on malformed or oversized input.
 pub fn parse_comment(input: &str) -> Vec<Line> {
+    parse_comment_bounded(input, crate::MAX_COMMENT_CHARS)
+}
+
+fn parse_comment_bounded(input: &str, max_chars: usize) -> Vec<Line> {
     let end = input
         .char_indices()
-        .nth(crate::MAX_COMMENT_CHARS)
+        .nth(max_chars)
         .map_or(input.len(), |(index, _)| index);
     input[..end]
         .split('\n')
@@ -46,11 +116,42 @@ pub fn parse_comment(input: &str) -> Vec<Line> {
 /// policy stamped at insertion, never a board's mutable current settings.
 /// Unknown versions fail closed to escaped, bounded text and line breaks.
 pub fn parse_post_comment(input: &str, format: i16) -> Vec<Line> {
+    parse_post_comment_on_board(input, format, "")
+}
+
+pub fn parse_post_comment_on_board(input: &str, format: i16, board: &str) -> Vec<Line> {
+    parse_post_comment_on_board_with_limits(
+        input,
+        format,
+        board,
+        crate::PostLimits::ordinary(crate::MAX_COMMENT_CHARS),
+    )
+}
+
+pub fn parse_post_comment_on_board_with_limits(
+    input: &str,
+    format: i16,
+    board: &str,
+    limits: crate::PostLimits,
+) -> Vec<Line> {
     if format == 0 {
-        return parse_comment(input);
+        return parse_comment_bounded(input, limits.prepared_chars());
     }
     let policy = MarkupPolicy::from_post_format(format);
-    let markup = parse_markup(input, policy.unwrap_or_default());
+    let source_links = policy.is_some() && format & 64 != 0;
+    let bounded = input
+        .char_indices()
+        .nth(limits.prepared_chars())
+        .map_or(input, |(index, _)| &input[..index]);
+    let normalized = if source_links {
+        crate::server_link::normalize(bounded, board)
+    } else {
+        std::borrow::Cow::Borrowed(bounded)
+    };
+    let internal_links = crate::server_link::link_probe(&normalized);
+    let input = normalized.as_ref();
+    let markup =
+        crate::comment_markup::parse_markup_with_limits(input, policy.unwrap_or_default(), limits);
     let mut lines = vec![Line {
         green: false,
         tokens: Vec::new(),
@@ -88,13 +189,21 @@ pub fn parse_post_comment(input: &str, format: i16) -> Vec<Line> {
                     }
                     let input = if green { start } else { &text };
                     let tokens = if crate::word_break::enabled(format) {
-                        crate::word_break::tokenize(input)
+                        crate::word_break::tokenize_source(input, source_links, internal_links)
                     } else {
                         tokenize(input, false)
                     };
                     for token in tokens {
                         // A generated link ends the source's [^<]* quote span.
-                        if green && matches!(token, Token::Link(_) | Token::WrappedLink(_, _)) {
+                        if green
+                            && matches!(
+                                token,
+                                Token::Link(_)
+                                    | Token::WrappedLink(_, _)
+                                    | Token::ServerLink(_, _)
+                                    | Token::StaticQuote(_, _)
+                            )
+                        {
                             output.push(Token::CloseQuote);
                             green = false;
                         }
@@ -114,8 +223,44 @@ pub fn parse_post_comment(input: &str, format: i16) -> Vec<Line> {
     lines
 }
 
+/// Saved filter data is strictly decoded and never grants HTML authority.
+/// A corrupt/unknown encoding has one inert bounded failure representation.
+pub fn parse_saved_comment(
+    input: &str,
+    format: i16,
+    board: &str,
+    wordfilter: Option<&[u8]>,
+) -> Vec<Line> {
+    parse_saved_comment_with_limits(
+        input,
+        format,
+        board,
+        wordfilter,
+        crate::PostLimits::ordinary(crate::MAX_COMMENT_CHARS),
+    )
+}
+
+pub fn parse_saved_comment_with_limits(
+    input: &str,
+    format: i16,
+    board: &str,
+    wordfilter: Option<&[u8]>,
+    limits: crate::PostLimits,
+) -> Vec<Line> {
+    match wordfilter {
+        None => parse_post_comment_on_board_with_limits(input, format, board, limits),
+        Some(bytes) => match crate::wordfiltered_comment::PreparedComment::decode(bytes) {
+            Ok(prepared) => crate::filtered_formatting::lines(&prepared, board),
+            Err(_) => vec![Line {
+                green: false,
+                tokens: vec![Token::Text("[Comment unavailable]".into())],
+            }],
+        },
+    }
+}
+
 fn tokenize(line: &str, legacy_spoilers: bool) -> Vec<Token> {
-    tokenize_with(line, legacy_spoilers, true, true)
+    tokenize_with(line, legacy_spoilers, true, true, false, false)
 }
 
 pub(crate) fn tokenize_with(
@@ -123,9 +268,33 @@ pub(crate) fn tokenize_with(
     legacy_spoilers: bool,
     quotes: bool,
     links: bool,
+    static_quotes: bool,
+    source_quotes: bool,
 ) -> Vec<Token> {
+    tokenize_spanned(
+        line,
+        legacy_spoilers,
+        quotes,
+        links,
+        static_quotes,
+        source_quotes,
+    )
+    .into_iter()
+    .map(|(token, _)| token)
+    .collect()
+}
+
+pub(crate) fn tokenize_spanned(
+    line: &str,
+    legacy_spoilers: bool,
+    quotes: bool,
+    links: bool,
+    static_quotes: bool,
+    source_quotes: bool,
+) -> Vec<(Token, std::ops::Range<usize>)> {
     let mut tokens = Vec::new();
     let mut text = String::new();
+    let mut text_start = 0;
     let mut tail = line;
     while !tail.is_empty() {
         let mut found = None;
@@ -133,17 +302,52 @@ pub(crate) fn tokenize_with(
             if let Some(end) = rest.find("[/spoiler]") {
                 found = Some((Token::Spoiler(rest[..end].to_owned()), 9 + end + 10));
             }
+        } else if static_quotes
+            && let Some((quote, consumed)) = crate::static_quote::StaticQuote::parse(tail)
+        {
+            found = Some((Token::StaticQuote(quote, Vec::new()), consumed));
+        } else if quotes
+            && source_quotes
+            && let Some(consumed) = crate::static_quote::unresolved_post_reference_prefix(tail)
+        {
+            found = Some((Token::Text(tail[..consumed].into()), consumed));
         } else if quotes && let Some(rest) = tail.strip_prefix(">>>/") {
             if let Some(end) = rest.bytes().take(11).position(|byte| byte == b'/')
                 && let Ok(board) = crate::BoardSlug::parse(&rest[..end])
                 && let Some((id, digits)) = post_number(&rest[end + 1..])
             {
                 let consumed = 4 + board.as_str().len() + 1 + digits;
-                found = Some((Token::CrossQuote(board.as_str().into(), id), consumed));
+                found = Some((
+                    if source_quotes {
+                        Token::PostQuote(crate::post_quote::PostQuote {
+                            board: Some(board.as_str().into()),
+                            id,
+                            label: tail[..consumed].into(),
+                        })
+                    } else {
+                        Token::CrossQuote(board.as_str().into(), id)
+                    },
+                    consumed,
+                ));
             }
         } else if quotes && let Some(rest) = tail.strip_prefix(">>") {
             if let Some((id, len)) = post_number(rest) {
-                found = Some((Token::Quote(id), len + 2));
+                found = Some((
+                    if source_quotes {
+                        Token::PostQuote(crate::post_quote::PostQuote {
+                            board: None,
+                            id,
+                            label: tail[..len + 2].into(),
+                        })
+                    } else {
+                        Token::Quote(id)
+                    },
+                    len + 2,
+                ));
+            }
+        } else if links && static_quotes {
+            if let Some((link, len)) = crate::server_link::ServerLink::parse(tail) {
+                found = Some((Token::ServerLink(link, Vec::new()), len));
             }
         } else if links && (tail.starts_with("https://") || tail.starts_with("http://")) {
             let end = tail.find(char::is_whitespace).unwrap_or(tail.len());
@@ -157,11 +361,13 @@ pub(crate) fn tokenize_with(
             }
         }
         if let Some((token, len)) = found {
+            let offset = line.len() - tail.len();
             if !text.is_empty() {
-                tokens.push(Token::Text(std::mem::take(&mut text)));
+                tokens.push((Token::Text(std::mem::take(&mut text)), text_start..offset));
             }
-            tokens.push(token);
+            tokens.push((token, offset..offset + len));
             tail = &tail[len..];
+            text_start = offset + len;
         } else {
             let c = tail.chars().next().expect("nonempty tail");
             text.push(c);
@@ -169,7 +375,7 @@ pub(crate) fn tokenize_with(
         }
     }
     if !text.is_empty() {
-        tokens.push(Token::Text(text));
+        tokens.push((Token::Text(text), text_start..line.len()));
     }
     tokens
 }

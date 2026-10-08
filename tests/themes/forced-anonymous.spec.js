@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 
 for (const width of [1280, 390]) {
   test(`forced-anonymous source form hides identity fields at ${width}px`, async ({ page }, info) => {

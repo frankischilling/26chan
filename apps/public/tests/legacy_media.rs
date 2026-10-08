@@ -1,4 +1,7 @@
 #![cfg(feature = "database-tests")]
+
+#[path = "support/posting.rs"]
+mod posting;
 use axum::{Router, body::Body, http::Request, response::Response};
 use board_media::{ApprovedFiles, ObjectId, PublicationStore, Quarantine, ValidatedOutput};
 use board_store::legacy_media::LegacyMediaStore;
@@ -35,12 +38,12 @@ async fn legacy_manifest_upgrade_invalidates_public_and_api_dates_without_renumb
         .unwrap();
     let id = ObjectId::generate().unwrap().to_string();
     let board = id[..10].to_owned();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Legacy API test','Synthetic',2000,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Legacy API test','Synthetic',2000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
     let test_owner = owner.clone();
     let test_board = board.clone();
     let test_id = id.clone();
     let result = tokio::spawn(async move {
-        let post = board_store::create_post(&public, &test_board, 0, &board_store::NewPost {
+        let post = posting::create_post(&public, &test_board, 0, &board_store::NewPost {
             name: "Anonymous".into(), subject: "Legacy fixture".into(), comment: "Keep the post".into(), deletion_hash: "synthetic-unused".into(), sage: false,
         }).await.unwrap();
         let mut pixels = b"IBRGBA01".to_vec();

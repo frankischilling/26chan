@@ -1,0 +1,2732 @@
+{
+  "reference": "operator-supplied 4chan-old checkout",
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "admin.php": "4415d6684931efb93a9cc044bd69f770bd7bf1dc7b217e6f8cfffa0fe60418eb",
+    "reports/js/d8d9b0cdc33f3418/reportqueue-mod.js": "bcac85ef9d14eb9c2a9ace5e4c27718f92080f760939867d7c46293e0935435f"
+  },
+  "selected_sha256": {
+    "audit_helper": "08e17fbdcbab63049e2ac503d23c704c52f00099174cfab461fe4471ec9ccf3a"
+  },
+  "extractor_php": "8.4.26",
+  "scope": "only log_thread_opts_action; 32 old masks times four isolated actions with unchanged siblings; no endpoint, assignments, rank checks, archive checks, timestamp evaluation, database or rebuild execution",
+  "boundary_stubs": [
+    "synthetic old and prepared flags",
+    "fixed synthetic post metadata and actor",
+    "audit SQL recorder without database access"
+  ],
+  "cases": [
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 0,
+        "new_mask": 4
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 0,
+        "new_mask": 2
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 1,
+        "new_mask": 5
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 1,
+        "new_mask": 3
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 2,
+        "new_mask": 6
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 2,
+        "new_mask": 0
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 3,
+        "new_mask": 7
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 3,
+        "new_mask": 1
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 4,
+        "new_mask": 0
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 4,
+        "new_mask": 6
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 5,
+        "new_mask": 1
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 5,
+        "new_mask": 7
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 6,
+        "new_mask": 2
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 6,
+        "new_mask": 4
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 7,
+        "new_mask": 3
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 7,
+        "new_mask": 5
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 8,
+        "new_mask": 12
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 8,
+        "new_mask": 10
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 9,
+        "new_mask": 13
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 9,
+        "new_mask": 11
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 10,
+        "new_mask": 14
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 10,
+        "new_mask": 8
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 11,
+        "new_mask": 15
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 11,
+        "new_mask": 9
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 12,
+        "new_mask": 8
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 12,
+        "new_mask": 14
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 13,
+        "new_mask": 9
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 13,
+        "new_mask": 15
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 14,
+        "new_mask": 10
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 14,
+        "new_mask": 12
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 15,
+        "new_mask": 11
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 15,
+        "new_mask": 13
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 16,
+        "new_mask": 20
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 16,
+        "new_mask": 18
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 17,
+        "new_mask": 21
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 17,
+        "new_mask": 19
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 18,
+        "new_mask": 22
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 18,
+        "new_mask": 16
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 19,
+        "new_mask": 23
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 19,
+        "new_mask": 17
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 20,
+        "new_mask": 16
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 20,
+        "new_mask": 22
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 21,
+        "new_mask": 17
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 21,
+        "new_mask": 23
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 22,
+        "new_mask": 18
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 22,
+        "new_mask": 20
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 23,
+        "new_mask": 19
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 23,
+        "new_mask": 21
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 24,
+        "new_mask": 28
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 24,
+        "new_mask": 26
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 25,
+        "new_mask": 29
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 25,
+        "new_mask": 27
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 26,
+        "new_mask": 30
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 26,
+        "new_mask": 24
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 27,
+        "new_mask": 31
+      }
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 27,
+        "new_mask": 25
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 28,
+        "new_mask": 24
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 28,
+        "new_mask": 30
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 29,
+        "new_mask": 25
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 29,
+        "new_mask": 31
+      }
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 30,
+        "new_mask": 26
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 30,
+        "new_mask": 28
+      }
+    },
+    {
+      "action": "close",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "reopen",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 31,
+        "new_mask": 27
+      }
+    },
+    {
+      "action": "permasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "action": "unpermasage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": true,
+        "permasage": false,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 31,
+        "new_mask": 29
+      }
+    }
+  ],
+  "sparse_reportqueue_scope": "illustrative explicitly prepared sparse-request outcomes from reportqueue-mod.js:792-811 and adminopt:3521-3526,3549; NOT current isolated controls and NOT execution/qualification of request parsing or permissions",
+  "sparse_reportqueue_examples": [
+    {
+      "label": "already_permasage_no_siblings",
+      "old": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": false,
+      "audit": null
+    },
+    {
+      "label": "already_permasage_clears_sticky_closed_undead",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": false,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 23,
+        "new_mask": 2
+      }
+    },
+    {
+      "label": "already_permasage_preserves_protected_permaage",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": true,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 31,
+        "new_mask": 10
+      }
+    },
+    {
+      "label": "already_permasage_permitted_permaage_reset",
+      "old": {
+        "sticky": true,
+        "permasage": true,
+        "closed": true,
+        "permaage": true,
+        "undead": true
+      },
+      "prepared": {
+        "sticky": false,
+        "permasage": true,
+        "closed": false,
+        "permaage": false,
+        "undead": false
+      },
+      "logged": true,
+      "audit": {
+        "old_mask": 31,
+        "new_mask": 2
+      }
+    }
+  ]
+}

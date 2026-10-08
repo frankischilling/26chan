@@ -1,3 +1,5 @@
+#[path = "support/posting.rs"]
+mod posting_fixture;
 use axum::{
     Router,
     body::Body,
@@ -172,8 +174,9 @@ mod persisted {
     use sqlx::PgPool;
 
     async fn exercise(owner: PgPool, pool: PgPool, slug: String) {
-        let (normal, _) = board_public::routers_with_limits(
+        let (normal, _) = posting_fixture::routers_with_limits(
             pool.clone(),
+            &slug,
             ORIGIN.into(),
             false,
             None,
@@ -216,8 +219,9 @@ mod persisted {
         // Two real replies make the configured one-reply tail eligible. The
         // bounded numeric acknowledgement remains available with a one-byte
         // dynamic output ceiling after the write has committed.
-        let (write_only, _) = board_public::routers_with_limits(
+        let (write_only, _) = posting_fixture::routers_with_limits(
             pool.clone(),
+            &slug,
             ORIGIN.into(),
             false,
             None,
@@ -298,8 +302,9 @@ mod persisted {
             serde_json::json!({"error": "Response exceeds the available output budget. Try again later."})
         );
 
-        let (small_web, small_api) = board_public::routers_with_limits(
+        let (small_web, small_api) = posting_fixture::routers_with_limits(
             pool.clone(),
+            &slug,
             ORIGIN.into(),
             false,
             None,
@@ -340,8 +345,8 @@ mod persisted {
             );
         }
 
-        // A fixed confirmation must not turn an already committed report into
-        // an output-exhaustion error. It follows the bounded control-body path.
+        // Reserve the report shell before committing: exhausted output must
+        // not create report activity or return a success marker/cookie.
         let report = small_web
             .clone()
             .oneshot(
@@ -355,16 +360,23 @@ mod persisted {
             )
             .await
             .unwrap();
-        assert_eq!(report.status(), StatusCode::OK);
+        assert_eq!(report.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert!(report.headers().get("set-cookie").is_none());
         let confirmation = report.into_body().collect().await.unwrap().to_bytes();
+        let confirmation = std::str::from_utf8(&confirmation).unwrap();
         assert!(
-            std::str::from_utf8(&confirmation)
-                .unwrap()
-                .contains("Your report was saved.")
+            confirmation.contains("Response exceeds the available output budget. Try again later.")
         );
+        assert!(!confirmation.contains("Public reporting is unavailable."));
+        assert!(!confirmation.contains("Your report was saved."));
+        assert!(!confirmation.contains("Report received"));
+        assert!(!confirmation.contains("data-result=\"success\""));
         let reports: i64 = sqlx::query_scalar("SELECT count(*) FROM content.reports WHERE board=$1 AND post_id=$2 AND reason='Owned output budget report'")
             .bind(&slug).bind(thread).fetch_one(&owner).await.unwrap();
-        assert_eq!(reports, 1);
+        assert_eq!(reports, 0);
+        let activity: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board=$1 AND r.post_id=$2 AND r.reason='Owned output budget report'")
+            .bind(&slug).bind(thread).fetch_one(&owner).await.unwrap();
+        assert_eq!(activity, 0);
 
         let archive = format!("/{slug}/archive.json");
         let page = derefer("https://example.test/");
@@ -475,7 +487,7 @@ mod persisted {
         let mut random = [0_u8; 5];
         OsRng.fill_bytes(&mut random);
         let slug: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,archive_limit,json_tail_size) VALUES($1,'Output budgets','Owned output fixture',4000,100,50,10,10,3600,10,1)")
+        sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,archive_limit,json_tail_size) VALUES(0,0,0,$1,'Output budgets','Owned output fixture',4000,100,50,10,10,3600,10,1)")
             .bind(&slug).execute(&owner).await.unwrap();
         let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
         public.close().await;

@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -99,7 +102,8 @@ async fn accepted_id(response: axum::response::Response, index: usize) -> i64 {
 }
 
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-    let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
+    let (app, api) =
+        posting_fixture::routers(public.clone(), &slug, "http://127.0.0.1:3000".into(), false);
     for router in [&app, &api] {
         let mut previous_etag = String::new();
         for enabled in [false, true, false] {
@@ -159,7 +163,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             previous_etag = etag;
         }
     }
-    let historical = board_store::create_post(&public, &slug, 0, &post(""))
+    let historical = posting_fixture::create_post(&public, &slug, 0, &post(""))
         .await
         .unwrap();
     assert!(
@@ -234,9 +238,9 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         let pending = {
             let public = public.clone();
             let slug = slug.clone();
-            tokio::spawn(
-                async move { board_store::create_post(&public, &slug, 0, &post("##")).await },
-            )
+            tokio::spawn(async move {
+                posting_fixture::create_post(&public, &slug, 0, &post("##")).await
+            })
         };
         let observed = tokio::time::timeout(Duration::from_secs(5), async { loop {
             let waiting: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid)))").bind(pid).fetch_one(&owner).await.unwrap();
@@ -277,7 +281,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         let mut draft = post(&subject);
         draft.comment = comment;
         assert!(
-            matches!(board_store::create_post(&public, &slug, 0, &draft).await, Err(StoreError::Invalid(message)) if message == error)
+            matches!(posting_fixture::create_post(&public, &slug, 0, &draft).await, Err(StoreError::Invalid(message)) if message == error)
         );
     }
     assert_eq!(snapshot(&owner, &slug).await, before);
@@ -301,7 +305,9 @@ async fn required_subject_is_locked_operator_policy_for_new_threads_only() {
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Required subject','Owned fixture',1000,100,100,100,10)").bind(&slug).execute(&owner).await.unwrap();
+    // Keep the historical OP and every accepted route case on this owned board
+    // while testing subject policy independently of the actor thread quota.
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_thread_limit) VALUES(0,0,0,$1,'Required subject','Owned fixture',1000,100,100,100,10,100)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

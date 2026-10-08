@@ -7,14 +7,21 @@ let browser;
 before(async () => { browser = await chromium.launch({ headless: true }); });
 after(async () => { await browser?.close(); });
 const root = new URL('../../', import.meta.url);
-const source = await readFile(new URL('apps/public/client/native-images.js', root), 'utf8');
-const projection = await readFile(new URL('apps/public/client/native-comment-projection.js', root), 'utf8');
+const spoilerAssets = await readFile(new URL('apps/public/client/native-spoiler-assets.js', root), 'utf8');
+const assetUrl = `data:text/javascript;base64,${Buffer.from(spoilerAssets).toString('base64')}`;
+const spoilerCache = (await readFile(new URL('apps/public/client/native-spoilers.js', root), 'utf8')).replace('./native-spoiler-assets.js', assetUrl);
+const source = (await readFile(new URL('apps/public/client/native-images.js', root), 'utf8'))
+  .replace('./native-spoiler-assets.js', assetUrl)
+  .replace('./native-spoilers.js', `data:text/javascript;base64,${Buffer.from(spoilerCache).toString('base64')}`);
+const wordfilters = await readFile(new URL('apps/public/client/native-wordfilter-markup.js', root), 'utf8');
+const projection = (await readFile(new URL('apps/public/client/native-comment-projection.js', root), 'utf8'))
+  .replace('./native-wordfilter-markup.js', `data:text/javascript;base64,${Buffer.from(wordfilters).toString('base64')}`);
 const quotes = await readFile(new URL('apps/public/static/native-filter.v1.js', root), 'utf8');
 const css = await readFile(new URL('apps/public/static/board.css', root), 'utf8');
 // A transparent synthetic 1x1 PNG. All requests are intercepted in this context.
 const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64');
 
-async function fixture(t, { limits = {}, config = {}, count = 3 } = {}) {
+async function fixture(t, { limits = {}, config = {}, count = 3, preview = false } = {}) {
   const context = await browser.newContext();
   t.after(() => context.close());
   const page = await context.newPage();
@@ -29,7 +36,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3 } = {}) {
   });
   await page.goto('about:blank');
   await page.addStyleTag({ content: css });
-  await page.evaluate(async ({ source, projection, quotes, limits, config, count }) => {
+  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview }) => {
     const module = async text => {
       const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
       try { return await import(url); } finally { URL.revokeObjectURL(url); }
@@ -43,7 +50,8 @@ async function fixture(t, { limits = {}, config = {}, count = 3 } = {}) {
     }).join('') + '</main>';
     window.imageConfig = config; window.imageOwnership = ownership.createCommentProjection();
     window.imageController = images.mountNativeImages({ root: document.querySelector('.board'),
-      mediaOrigin: 'https://media.test', settings: () => window.imageConfig, projection: window.imageOwnership, limits });
+      mediaOrigin: 'https://media.test', settings: () => window.imageConfig, projection: window.imageOwnership, limits,
+      ...(preview ? { previewRoot: () => document.getElementById('quote-preview') } : {}) });
     window.clickImage = id => {
       const anchor = document.querySelector(`#f${id} a.fileThumb`);
       let intercepted;
@@ -52,7 +60,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3 } = {}) {
       anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
       return intercepted;
     };
-  }, { source, projection, quotes, limits, config, count });
+  }, { source, projection, quotes, limits, config, count, preview });
   await page.waitForFunction(() => [...document.querySelectorAll('.fileThumb img')].every(img => img.complete && img.naturalWidth > 0));
   return { page, requests, modes, held };
 }
@@ -142,7 +150,7 @@ test('hover errors and leaving the thumbnail remove their request and never gran
 
 test('spoiler filename reveal preserves the original caption and inert quote recipe through concealment', async t => {
   const { page } = await fixture(t);
-  const filename = 'Owned λ & <label>.png';
+  const filename = 'Owned Î» & <label>.png';
   await page.evaluate(filename => {
     const file = document.getElementById('f1'), caption = file.querySelector('p a');
     file.querySelector('a.fileThumb').remove();
@@ -173,9 +181,81 @@ test('spoiler filename reveal preserves the original caption and inert quote rec
   assert.equal(await page.locator('#f1 > p > a').isVisible(), true);
   assert.equal(await page.locator('#f1 > a.fileThumb').count(), 0);
   await page.evaluate(() => {
-    document.getElementById('f1').dataset.imageFilename = 'é'.repeat(128);
+    document.getElementById('f1').dataset.imageFilename = 'Ã©'.repeat(128);
     imageConfig = { revealSpoilers: true }; imageController.refresh();
   });
   assert.equal(await page.locator('#f1 > p > a').count(), 1);
   assert.equal(await page.locator('#f1 > a.fileThumb').count(), 0);
+});
+
+test('modern spoiler metadata survives local copying and the owned body popup reveals and cleans up', async t => {
+  const { page } = await fixture(t, { preview: true });
+  await page.evaluate(() => {
+    const file = document.getElementById('f1');
+    file.replaceChildren();
+    Object.assign(file.dataset, { imageSpoiler: 'true', imageFilename: 'Owned.png', thumbnailWidth: '10', thumbnailHeight: '10' });
+    const header = document.createElement('div'); header.id = 'fT1'; header.className = 'fileText'; header.title = 'Owned.png';
+    const label = document.createElement('a'); label.href = 'https://media.test/demo/1.png'; label.rel = 'noopener noreferrer'; label.textContent = 'Spoiler Image';
+    header.append('File: ', label, ' (1 KB, 10x10)');
+    const thumb = document.createElement('a'); thumb.className = 'fileThumb imgspoiler'; thumb.href = label.href; thumb.rel = label.rel;
+    const img = document.createElement('img'); img.setAttribute('src', '/static/catalog/spoiler.png'); img.alt = '1 KB'; img.width = img.height = 100; img.loading = 'lazy';
+    const caption = document.createElement('div'); caption.className = 'mFileInfo mobile'; caption.textContent = '1 KB PNG';
+    thumb.append(img, caption); file.append(header, thumb);
+    const context = { origin: 'https://boards.test', mediaOrigin: 'https://media.test', board: 'demo', thread: '1' };
+    const tree = quotes.localQuoteTree(document.getElementById('pc1'), context, '1', imageOwnership);
+    const popup = quotes.prepareQuotePost(tree, context, '1').build(document); popup.id = 'quote-preview'; popup.classList.add('preview'); document.body.append(popup);
+    imageConfig = { revealSpoilers: true }; imageController.refresh();
+    window.modernContext = context;
+  });
+  await page.waitForSelector('#quote-preview .nativeSpoilerRevealed');
+  assert.equal(await page.locator('#quote-preview .fileThumb:not(.imgspoiler) img').getAttribute('src'), 'https://media.test/demo/1s.jpg');
+  assert.equal(await page.locator('#quote-preview .fileText a').nth(1).innerText(), 'Owned.png');
+  assert.equal(await page.evaluate(() => JSON.stringify(quotes.localQuoteTree(document.getElementById('pc1'), modernContext, '1', imageOwnership)).includes('data-image-filename')), true);
+  await page.evaluate(() => { document.getElementById('quote-preview').remove(); imageController.refresh(); imageConfig = {}; imageController.refresh(); });
+  assert.equal(await page.locator('#f1 .fileThumb:not(.imgspoiler)').count(), 0);
+  assert.equal(await page.locator('#f1 .imgspoiler img').getAttribute('src'), '/static/catalog/spoiler.png');
+});
+
+test('retired exact file URLs close pending copies and prevent preview/inline reopening without blocking other images', async t => {
+  const { page, modes, held, requests } = await fixture(t, { preview: true, config: { imageHover: true } });
+  modes.set('/demo/1.png', 'hold');
+  await page.evaluate(() => {
+    const clone = document.getElementById('pc1').cloneNode(true); clone.id = 'quote-preview';
+    document.body.append(clone);
+    clone.querySelector('.fileThumb').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  });
+  await page.waitForSelector('#image-hover', { state: 'attached' });
+  assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/1.png')), true);
+  assert.equal(await page.locator('#image-hover,.expanded-thumb').count(), 0);
+  const before = requests.filter(url => url.endsWith('/1.png')).length;
+  assert.equal(await page.evaluate(() => {
+    const popup = document.getElementById('quote-preview');
+    popup.querySelector('.fileThumb').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    return clickImage(1);
+  }), true);
+  assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/1.png')), true);
+  assert.deepEqual(await page.evaluate(() => {
+    const popup = document.getElementById('quote-preview');
+    return [['.file p a', 'click'], ['.fileThumb', 'auxclick']].map(([selector, type]) => {
+      const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: type === 'auxclick' ? 1 : 0 });
+      popup.querySelector(selector).dispatchEvent(event); return event.defaultPrevented;
+    });
+  }), [true, true]);
+  for (const url of ['https://foreign.test/demo/2.png', 'https://media.test/demo/', 'https://media.test/demo/2.png?secret=x']) {
+    assert.equal(await page.evaluate(url => imageController.retire(url), url), false);
+  }
+  for (const route of held) await route.fulfill({ contentType: 'image/png', body: pixel }).catch(() => {});
+  assert.equal(await page.locator('#image-hover,.expanded-thumb').count(), 0);
+  assert.equal(requests.filter(url => url.endsWith('/1.png')).length, before);
+  assert.equal(await page.evaluate(() => clickImage(2)), true);
+  await page.waitForSelector('#f2 .expanded-thumb:not([hidden])');
+});
+
+test('retirement capacity never evicts a deleted URL or permits late media loads', async t => {
+  const { page } = await fixture(t, { limits: { retired: 1 } });
+  assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/1.png')), true);
+  assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/2.png')), false);
+  assert.match(await page.locator('.nativeImageFeedback').textContent(), /Refresh this page/);
+  for (const id of [1, 2, 3]) assert.equal(await page.evaluate(id => clickImage(id), id), true);
+  assert.equal(await page.locator('.expanded-thumb,#image-hover').count(), 0);
 });

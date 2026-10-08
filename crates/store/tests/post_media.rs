@@ -1,7 +1,8 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
 use board_store::{
-    NewPost, StoreError, create_post, create_post_with_attachment,
+    NewPost, StoreError,
     media::MediaQueue,
     media_assets::{MediaReader, OutputMetadata},
     media_intake::IntakeStore,
@@ -10,6 +11,7 @@ use board_store::{
 use sqlx::{Executor, PgPool};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use support::{create_post, create_post_with_attachment};
 
 struct Fixture {
     admin: PgPool,
@@ -33,6 +35,29 @@ fn post() -> NewPost {
 }
 
 impl Fixture {
+    // Direct SQL tests still enter with the same server-owned posting identity
+    // and lock order as the real writer, before any board, thread or job lock.
+    async fn prepare_direct_post(&self, connection: &mut sqlx::PgConnection, parent: i64) {
+        let key = support::key(&self.board);
+        let actor = key.public_posting_rate_identity(support::peer());
+        sqlx::query("SELECT content.lock_posting_actor($1,$2)")
+            .bind(actor.as_bytes().as_slice())
+            .bind(parent == 0)
+            .execute(&mut *connection)
+            .await
+            .unwrap();
+        let encoded: String = actor
+            .as_bytes()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        sqlx::query("SELECT set_config('board.posting_actor',$1,true)")
+            .bind(encoded)
+            .execute(connection)
+            .await
+            .unwrap();
+    }
+
     async fn reserve(&self) -> NewAttachment {
         let upload = self.intake.reserve("<synthetic & file>.png").await.unwrap();
         self.jobs.lock().unwrap().push(upload.id.clone());
@@ -55,6 +80,25 @@ impl Fixture {
             matches!(self.insert(0, a).await, Err(StoreError::Conflict(_))),
             "Queued input cannot attach"
         );
+        // The idle-queue assertion below requires prior operations to have
+        // committed or released their locks: claim intentionally skips locks.
+        // Wait on this exact fixture row, then release our own lock explicitly.
+        let mut ready = self.admin.begin().await.unwrap();
+        sqlx::query("SET LOCAL lock_timeout = '3s'")
+            .execute(&mut *ready)
+            .await
+            .unwrap();
+        let (state, attempts, input_bytes, unexpired): (String, i32, Option<i64>, bool) =
+            sqlx::query_as("SELECT state, attempts, input_bytes, expires_at > clock_timestamp() FROM media.jobs WHERE id=$1 FOR UPDATE")
+                .bind(&a.upload.id)
+                .fetch_one(&mut *ready)
+                .await
+                .unwrap();
+        assert_eq!(state, "queued");
+        assert_eq!(attempts, 0);
+        assert_eq!(input_bytes, Some(100));
+        assert!(unexpired, "Queued fixture must remain unexpired");
+        ready.commit().await.unwrap();
         let claim = self.queue.claim().await.unwrap().unwrap();
         assert_eq!(claim.id, a.upload.id, "Requires an idle disposable queue");
         let token = claim.lease_token.unwrap();
@@ -129,7 +173,9 @@ async fn run(attachment_only: bool) {
             .fetch_one(&admin)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Attachment test','Synthetic',2000,100,100,100,10)")
+    // Retain OPs across the attachment scenarios without letting an unrelated
+    // actor quota preempt their media admission and capability checks.
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES ($1,'Attachment test','Synthetic',2000,100,100,100,10,true,0,0,0,100)")
         .bind(&board).execute(&admin).await.unwrap();
     let jobs = Arc::new(Mutex::new(Vec::new()));
     let f = Fixture {
@@ -183,6 +229,7 @@ async fn run(attachment_only: bool) {
 }
 
 async fn exercise(f: &Fixture) {
+    direct_sql_spoiler_policy(f).await;
     for sql in [
         "SELECT * FROM media.jobs",
         "SELECT * FROM media.assets",
@@ -207,9 +254,101 @@ async fn exercise(f: &Fixture) {
     let role_safe: bool = sqlx::query_scalar("SELECT NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid) AND NOT has_schema_privilege(oid,'content','CREATE') AND NOT has_schema_privilege(oid,'staff_identity','USAGE') AND NOT has_schema_privilege(oid,'deployment','USAGE') AND NOT has_any_column_privilege(oid,'media.assets','INSERT,UPDATE,REFERENCES') AND NOT has_column_privilege(oid,'media.jobs','lease_token','SELECT,INSERT,UPDATE') AND NOT has_table_privilege(oid,'media.jobs','DELETE,TRUNCATE,TRIGGER') FROM pg_roles WHERE rolname='board_attachment_owner'")
         .fetch_one(&f.admin).await.unwrap();
     assert!(role_safe);
-    let functions_safe: bool = sqlx::query_scalar("SELECT count(*)=7 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_attachment_owner'")
-        .fetch_one(&f.admin).await.unwrap();
-    assert!(functions_safe);
+    let functions_safe: bool = sqlx::query_scalar(
+        "WITH required AS (SELECT ARRAY[
+            'content.insert_post_attachment(bigint,text,bigint,text,text,text,text,text,boolean)'::regprocedure,
+            'content.insert_post_attachment(bigint,text,bigint,text,text,text,text,text,boolean,timestamp with time zone)'::regprocedure,
+            'content.delete_post_attachment(text,bigint)'::regprocedure,
+            'content.staff_delete_post_attachment(text,bigint)'::regprocedure,
+            'content.check_attachment_upload(text,text)'::regprocedure,
+            'content.cancel_attachment_upload(text,text)'::regprocedure,
+            'content.next_media_number()'::regprocedure,
+            'content.require_attachment_for_empty_post()'::regprocedure,
+            'content.attachment_upload_filename(text,text)'::regprocedure,
+            'content.sync_image_spoiler()'::regprocedure,
+            'content.set_post_image_spoiler(text,bigint,boolean)'::regprocedure,
+            'content.lock_staff_attachment_receipt(text,bigint,text,bytea)'::regprocedure,
+            'content.consume_staff_attachment_receipt(bigint,text,bigint,text,bytea,boolean,boolean)'::regprocedure
+        ] AS functions)
+        SELECT count(*)=cardinality(required.functions)
+            AND bool_and(p.oid=ANY(required.functions) AND p.prosecdef
+                AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
+                AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0))
+        FROM required CROSS JOIN pg_proc p JOIN pg_roles r ON r.oid=p.proowner
+        WHERE r.rolname='board_attachment_owner' GROUP BY required.functions",
+    ).fetch_one(&f.admin).await.unwrap();
+    assert!(
+        functions_safe,
+        "Attachment owner must have exactly the reviewed function set"
+    );
+    // These two exact entry points bridge consumed staff proof to media.
+    // Only the proof owner may call them; runtimes cannot forge that handoff
+    // or select the moderator image-limit exemption themselves.
+    let staff_receipt_grants_safe: bool = sqlx::query_scalar(
+        "SELECT count(*)=2 AND bool_and(
+            has_function_privilege('board_staff_post_owner',p.oid,'EXECUTE')
+            AND NOT has_function_privilege('board_public',p.oid,'EXECUTE')
+            AND NOT has_function_privilege('board_staff',p.oid,'EXECUTE')
+            AND NOT has_function_privilege('board_auth',p.oid,'EXECUTE')
+            AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a
+                WHERE a.privilege_type='EXECUTE' AND a.grantee<>p.proowner
+                    AND (a.grantee<>(SELECT oid FROM pg_roles WHERE rolname='board_staff_post_owner')
+                        OR a.is_grantable)))
+        FROM pg_proc p WHERE p.oid=ANY(ARRAY[
+            'content.lock_staff_attachment_receipt(text,bigint,text,bytea)'::regprocedure,
+            'content.consume_staff_attachment_receipt(bigint,text,bigint,text,bytea,boolean,boolean)'::regprocedure])",
+    ).fetch_one(&f.admin).await.unwrap();
+    assert!(
+        staff_receipt_grants_safe,
+        "Only the staff proof owner may execute the reviewed receipt functions, without grant option"
+    );
+    let staff = PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let auth = PgPool::connect(&std::env::var("AUTH_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    for (connection, expected) in [
+        (&f.public, "board_public"),
+        (&staff, "board_staff"),
+        (&auth, "board_auth"),
+    ] {
+        let actual: String = sqlx::query_scalar("SELECT current_user::text")
+            .fetch_one(connection)
+            .await
+            .unwrap();
+        assert_eq!(actual, expected);
+        for sql in [
+            "SELECT content.lock_staff_attachment_receipt('',0,repeat('0',32),decode(repeat('0',64),'hex'))",
+            "SELECT content.consume_staff_attachment_receipt(0,'',0,repeat('0',32),decode(repeat('0',64),'hex'),false,true)",
+        ] {
+            let error = sqlx::query(sql).execute(connection).await.unwrap_err();
+            assert_eq!(
+                error.as_database_error().unwrap().code().as_deref(),
+                Some("42501"),
+                "{expected} must be denied the owner-only receipt function: {sql}"
+            );
+        }
+    }
+    staff_upload_controls(f, &staff, &auth).await;
+    staff.close().await;
+    auth.close().await;
+
+    // The report-retiring variant is a staff action, never another public
+    // file-deletion entry point. Existing public deletion keeps report history.
+    let staff_wrapper_safe: bool = sqlx::query_scalar(
+        "SELECT has_function_privilege('board_staff',p.oid,'EXECUTE')
+            AND NOT has_function_privilege('board_public',p.oid,'EXECUTE')
+            AND NOT has_function_privilege('board_auth',p.oid,'EXECUTE')
+            AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a
+                WHERE a.privilege_type='EXECUTE' AND a.grantee<>p.proowner
+                    AND (a.grantee<>(SELECT oid FROM pg_roles WHERE rolname='board_staff') OR a.is_grantable))
+        FROM pg_proc p WHERE p.oid='content.staff_delete_post_attachment(text,bigint)'::regprocedure",
+    ).fetch_one(&f.admin).await.unwrap();
+    assert!(
+        staff_wrapper_safe,
+        "Only staff may enter the report-retiring attachment wrapper"
+    );
 
     let a = f.reserve().await;
     let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
@@ -280,7 +419,7 @@ async fn exercise(f: &Fixture) {
             .await
             .unwrap()
             .name,
-        "😀".repeat(25)
+        "Anonymous"
     );
     assert_eq!(
         board_store::find_post(&f.public, &f.board, id)
@@ -332,6 +471,8 @@ async fn exercise(f: &Fixture) {
     let b = f.reserve().await;
     let b_asset = f.approve(&b).await;
     // A caller cannot use a new valid capability to replace another post's file.
+    let mut substitution = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut substitution, thread).await;
     let substituted = sqlx::query(
         "SELECT content.insert_post_attachment($1,$2,$3,'Anonymous','','replacement',$4,$5,false)",
     )
@@ -340,9 +481,10 @@ async fn exercise(f: &Fixture) {
     .bind(thread)
     .bind(&b.upload.id)
     .bind(&b.upload.capability)
-    .execute(&f.public)
+    .execute(&mut *substitution)
     .await
     .unwrap_err();
+    substitution.rollback().await.unwrap();
     assert_eq!(
         substituted.as_database_error().unwrap().code().as_deref(),
         Some("23505")
@@ -357,6 +499,7 @@ async fn exercise(f: &Fixture) {
     ] {
         let mut connection = f.public.acquire().await.unwrap();
         connection.execute(isolation).await.unwrap();
+        f.prepare_direct_post(&mut connection, thread).await;
         let rejected = sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,'Anonymous','','isolation',$4,$5,false)")
             .bind(id).bind(&f.board).bind(thread).bind(&b.upload.id).bind(&b.upload.capability)
             .execute(&mut *connection).await;
@@ -516,6 +659,8 @@ async fn exercise(f: &Fixture) {
     image_admission_flags(f).await;
     comment_spacing(f).await;
     tripcodes(f).await;
+    suppressed_trip_attachments(f).await;
+    source_prepared_names(f).await;
     poster_counts(f).await;
     final_content_admission(f).await;
     text_only_policy(f).await;
@@ -528,11 +673,85 @@ async fn exercise(f: &Fixture) {
     ));
 }
 
+async fn direct_sql_spoiler_policy(f: &Fixture) {
+    let old: (bool, i32) = sqlx::query_as(
+        "SELECT comment_spoiler_cleanup,image_limit FROM content.boards WHERE slug=$1",
+    )
+    .bind(&f.board)
+    .fetch_one(&f.admin)
+    .await
+    .unwrap();
+    sqlx::query(
+        "UPDATE content.boards SET comment_spoiler_cleanup=true,image_limit=100 WHERE slug=$1",
+    )
+    .bind(&f.board)
+    .execute(&f.admin)
+    .await
+    .unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    for enabled in [false, true] {
+        let receipt = f.reserve().await;
+        f.approve(&receipt).await;
+        sqlx::query("UPDATE content.boards SET comment_spoiler_cleanup=$2 WHERE slug=$1")
+            .bind(&f.board)
+            .bind(enabled)
+            .execute(&f.admin)
+            .await
+            .unwrap();
+        let mut tx = f.public.begin().await.unwrap();
+        f.prepare_direct_post(&mut tx, thread).await;
+        let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        // Bypass Rust normalization deliberately. Capability-scoped SQL must
+        // enforce SPOILERS itself even when its caller supplies true.
+        sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
+            .bind(id)
+            .bind(&f.board)
+            .bind(thread)
+            .bind("Owned SQL choice")
+            .bind("Owned SQL subject")
+            .bind("Owned SQL reply")
+            .bind(&receipt.upload.id)
+            .bind(&receipt.upload.capability)
+            .bind(true)
+            .bind(chrono::Utc::now())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+        assert_eq!(
+            attachment(&f.public, id).await.unwrap().unwrap().spoiler,
+            enabled
+        );
+        assert_eq!(
+            board_store::find_post(&f.public, &f.board, id)
+                .await
+                .unwrap()
+                .image_spoiler,
+            enabled
+        );
+    }
+    board_store::delete_post(&f.public, &f.board, thread)
+        .await
+        .unwrap();
+    sqlx::query(
+        "UPDATE content.boards SET comment_spoiler_cleanup=$2,image_limit=$3 WHERE slug=$1",
+    )
+    .bind(&f.board)
+    .bind(old.0)
+    .bind(old.1)
+    .execute(&f.admin)
+    .await
+    .unwrap();
+}
+
 async fn poster_counts(f: &Fixture) {
     // Approval probes use the fixture's ordinary posting context. Finish those
     // controls before enabling the ID policy for the keyed attachment writes.
     let mut uploads = Vec::new();
-    for _ in 0..3 {
+    for _ in 0..5 {
         let upload = f.reserve().await;
         f.approve(&upload).await;
         uploads.push(upload);
@@ -542,22 +761,37 @@ async fn poster_counts(f: &Fixture) {
         .execute(&f.admin)
         .await
         .unwrap();
-    let key = board_domain::poster_id::PosterIdKey::parse(&"1".repeat(64)).unwrap();
+    let key = support::key(&f.board);
     let countries = board_domain::country::CountryDatabase::from_bytes(
         include_bytes!("../../domain/tests/fixtures/GeoIP2-Country-Test.mmdb").to_vec(),
     )
     .unwrap();
     let mut thread = 0;
-    for ((peer, expected), upload) in [
-        ("192.0.2.10", 1),
-        ("::ffff:192.0.2.10", 1),
-        ("192.0.2.11", 2),
+    let display: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../fixtures/poster-id-display-reference.json"
+    ))
+    .unwrap();
+    assert_eq!(display["cases"].as_array().unwrap().len(), 112);
+    for ((peer, expected, sage, meta, no_heaven), upload) in [
+        ("192.0.2.10", 1, true, false, false),
+        ("::ffff:192.0.2.10", 1, false, false, false),
+        ("192.0.2.11", 2, true, false, false),
+        ("192.0.2.11", 2, true, false, true),
+        ("192.0.2.11", 2, true, true, false),
     ]
     .into_iter()
     .zip(uploads)
     {
         let mut draft = post();
         draft.name = "User#password".into();
+        draft.sage = sage;
+        sqlx::query("UPDATE content.boards SET meta_board=$2,poster_id_no_heaven=$3 WHERE slug=$1")
+            .bind(&f.board)
+            .bind(meta)
+            .bind(no_heaven)
+            .execute(&f.admin)
+            .await
+            .unwrap();
         if f.attachment_only {
             draft.comment.clear();
         }
@@ -566,7 +800,7 @@ async fn poster_counts(f: &Fixture) {
         } else {
             "0"
         };
-        let id = board_store::create_post_with_metadata(
+        let id = support::create_post_with_metadata(
             &f.public,
             &f.board,
             thread,
@@ -578,8 +812,10 @@ async fn poster_counts(f: &Fixture) {
                 op_password_proof: None,
             },
             board_store::PostMetadata {
+                spoiler: false,
                 country_database: Some(&countries),
                 flag,
+                options: "",
                 keys: board_store::PostIdentityKeys {
                     tripcode: None,
                     poster_id: Some(&key),
@@ -604,13 +840,31 @@ async fn poster_counts(f: &Fixture) {
             assert_eq!(saved.country_name.as_deref(), Some("Unknown"));
             assert!(saved.board_flag.is_none());
         }
+        let network = key.label(&f.board, thread, peer.parse().unwrap()).unwrap();
+        let source = display["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| {
+                case["enabled"] == true
+                    && case["capcode"] == "none"
+                    && case["sage"] == sage
+                    && case["meta_board"] == meta
+                    && case["no_heaven"] == no_heaven
+            })
+            .unwrap();
         assert_eq!(
             saved.poster_id.as_deref(),
-            Some(
-                key.label(&f.board, thread, peer.parse().unwrap())
-                    .unwrap()
-                    .as_str()
-            )
+            Some(if source["expected"] == "Heaven" {
+                "Heaven"
+            } else {
+                assert_eq!(source["expected"], display["network_label_stub"]);
+                network.as_str()
+            })
+        );
+        assert_eq!(
+            saved.json_op_poster_id.as_deref(),
+            (id == thread).then_some(network.as_str())
         );
         assert!(attachment(&f.public, id).await.unwrap().is_some());
         let count: Option<i32> = sqlx::query_scalar("SELECT content.unique_posters($1,$2)")
@@ -621,7 +875,7 @@ async fn poster_counts(f: &Fixture) {
             .unwrap();
         assert_eq!(count, Some(expected));
     }
-    sqlx::query("UPDATE content.boards SET user_ids=false,country_flags=false,board_flags='{}' WHERE slug=$1")
+    sqlx::query("UPDATE content.boards SET user_ids=false,country_flags=false,board_flags='{}',meta_board=false,poster_id_no_heaven=false WHERE slug=$1")
         .bind(&f.board)
         .execute(&f.admin)
         .await
@@ -663,6 +917,147 @@ async fn tripcodes(f: &Fixture) {
     assert_eq!(saved.trip, None);
     assert!(attachment(&f.public, id).await.unwrap().is_some());
     sqlx::query("UPDATE content.boards SET forced_anon=false WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+}
+
+async fn source_prepared_names(f: &Fixture) {
+    let previous: bool =
+        sqlx::query_scalar("SELECT comment_code_spacing FROM content.boards WHERE slug=$1")
+            .bind(&f.board)
+            .fetch_one(&f.public)
+            .await
+            .unwrap();
+    sqlx::query("UPDATE content.boards SET comment_code_spacing=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let source: serde_json::Value =
+        serde_json::from_str(include_str!("../../domain/tests/fixtures/public-name.json")).unwrap();
+    let expanded = format!("A{}B", "\t".repeat(63));
+    let policy = source["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|group| group["board"] == "g" && group["code"] == true)
+        .unwrap();
+    let spacing_case = policy["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["input"] == expanded)
+        .unwrap();
+    for (raw, name, trip) in [
+        ("#かみ", "", Some("!v/ClhaTjaY")),
+        (
+            expanded.as_str(),
+            spacing_case["name"].as_str().unwrap(),
+            None,
+        ),
+    ] {
+        let upload = f.reserve().await;
+        f.approve(&upload).await;
+        let mut draft = post();
+        if f.attachment_only {
+            draft.comment.clear();
+        }
+        let count_before: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+                .bind(&f.board)
+                .fetch_one(&f.public)
+                .await
+                .unwrap();
+        draft.name = "\"".repeat(43);
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+            Err(StoreError::Invalid("Name or subject is too long."))
+        ));
+        let count_after: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+                .bind(&f.board)
+                .fetch_one(&f.public)
+                .await
+                .unwrap();
+        assert_eq!(count_after, count_before);
+        // The same approved capability must survive the late name rejection.
+        draft.name = raw.into();
+        let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
+            .await
+            .unwrap();
+        let saved = board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap();
+        assert_eq!(saved.name, name);
+        assert_eq!(saved.trip.as_deref(), trip);
+        assert!(attachment(&f.public, id).await.unwrap().is_some());
+        assert!(matches!(
+            create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
+            Err(StoreError::Conflict(_))
+        ));
+    }
+    sqlx::query("UPDATE content.boards SET comment_code_spacing=$2 WHERE slug=$1")
+        .bind(&f.board)
+        .bind(previous)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+}
+
+async fn suppressed_trip_attachments(f: &Fixture) {
+    sqlx::query("UPDATE content.boards SET strip_tripcode=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let mut parent = 0;
+    for (raw, name) in [
+        ("Name#password", "Name"),
+        ("Name##owned-private-secret", "Name"),
+        ("#かみ", "Anonymous"),
+    ] {
+        let upload = f.reserve().await;
+        f.approve(&upload).await;
+        let mut draft = post();
+        draft.name = raw.into();
+        if f.attachment_only {
+            draft.comment.clear();
+        }
+        let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
+            .await
+            .unwrap();
+        parent = id;
+        let saved = board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap();
+        assert_eq!(saved.name, name);
+        assert_eq!(saved.trip, None);
+        assert!(attachment(&f.public, id).await.unwrap().is_some());
+    }
+    let direct = f.reserve().await;
+    f.approve(&direct).await;
+    let mut tx = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut tx, parent).await;
+    sqlx::query("SELECT set_config('board.post_trip','!ozOtJW9BFA',true)")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,'','','Owned direct suppressed identity',$4,$5,false,date_trunc('second',clock_timestamp()))")
+        .bind(id).bind(&f.board).bind(parent).bind(&direct.upload.id).bind(&direct.upload.capability)
+        .execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let saved = board_store::find_post(&f.public, &f.board, id)
+        .await
+        .unwrap();
+    assert_eq!((saved.name.as_str(), saved.trip), ("Anonymous", None));
+    assert!(attachment(&f.public, id).await.unwrap().is_some());
+    sqlx::query("UPDATE content.boards SET strip_tripcode=false WHERE slug=$1")
         .bind(&f.board)
         .execute(&f.admin)
         .await
@@ -744,13 +1139,16 @@ async fn forced_anonymous_attachment(f: &Fixture) {
         ("Anonymous", "")
     );
     assert!(attachment(&f.public, op).await.unwrap().is_some());
+    let mut direct = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut direct, op).await;
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
-        .fetch_one(&f.public)
+        .fetch_one(&mut *direct)
         .await
         .unwrap();
     sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,'Direct SQL name','Direct SQL subject','Owned SQL reply',$4,$5,false,date_trunc('second',clock_timestamp()))")
         .bind(id).bind(&f.board).bind(op).bind(&direct_upload.upload.id).bind(&direct_upload.upload.capability)
-        .execute(&f.public).await.unwrap();
+        .execute(&mut *direct).await.unwrap();
+    direct.commit().await.unwrap();
     let saved = board_store::find_post(&f.public, &f.board, id)
         .await
         .unwrap();
@@ -808,7 +1206,7 @@ async fn final_content_admission(f: &Fixture) {
         let saved = board_store::find_post(&f.public, &f.board, id)
             .await
             .unwrap();
-        assert_eq!(saved.comment_format, 47);
+        assert_eq!(saved.comment_format, 111);
         assert_eq!(
             attachment(&f.public, id).await.unwrap().unwrap().asset_id,
             asset
@@ -839,6 +1237,7 @@ async fn text_only_policy(f: &Fixture) {
     // A public caller cannot bypass the policy by invoking the scoped SQL
     // inserter directly. The invoker trigger rejects its real row insertion.
     let mut tx = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut tx, thread).await;
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *tx)
         .await
@@ -1054,7 +1453,7 @@ async fn comment_spacing(f: &Fixture) {
         let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
             .await
             .unwrap();
-        let stamped: bool = sqlx::query_scalar("SELECT p.comment_format = 40 + b.comment_spoiler_cleanup::integer + 2*b.comment_code_spacing::integer + 4*b.comment_sjis_spacing::integer FROM content.posts p JOIN content.boards b ON b.slug=p.board WHERE p.id=$1")
+        let stamped: bool = sqlx::query_scalar("SELECT p.comment_format = 104 + b.comment_spoiler_cleanup::integer + 2*b.comment_code_spacing::integer + 4*b.comment_sjis_spacing::integer FROM content.posts p JOIN content.boards b ON b.slug=p.board WHERE p.id=$1")
             .bind(id).fetch_one(&f.public).await.unwrap();
         assert!(stamped);
         assert_eq!(
@@ -1255,6 +1654,9 @@ async fn image_admission_flags(f: &Fixture) {
 }
 
 async fn posting_times(f: &Fixture) {
+    // Earlier media scenarios used wall-clock times; this independent case
+    // deliberately supplies historical request times for the same owned actor.
+    support::reset_posting_history(&f.admin, &f.board).await;
     use chrono::{DateTime, Timelike, Utc};
     let mut post = post();
     if f.attachment_only {
@@ -1263,7 +1665,7 @@ async fn posting_times(f: &Fixture) {
     let requested = DateTime::from_timestamp(1_700_000_000, 987_654_321).unwrap();
     let op = f.reserve().await;
     f.approve(&op).await;
-    let id = board_store::create_post_with_attachment_at(
+    let id = support::create_post_with_attachment_at(
         &f.public,
         &f.board,
         0,
@@ -1286,7 +1688,7 @@ async fn posting_times(f: &Fixture) {
     let reply = f.reserve().await;
     f.approve(&reply).await;
     let earlier = requested - chrono::Duration::seconds(100);
-    let rid = board_store::create_post_with_attachment_at(
+    let rid = support::create_post_with_attachment_at(
         &f.public,
         &f.board,
         id,
@@ -1318,6 +1720,7 @@ async fn posting_times(f: &Fixture) {
     f.approve(&legacy).await;
     for invalid in [None, Some("infinity"), Some("-infinity")] {
         let mut tx = f.public.begin().await.unwrap();
+        f.prepare_direct_post(&mut tx, id).await;
         let new_id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
             .fetch_one(&mut *tx)
             .await
@@ -1343,6 +1746,7 @@ async fn posting_times(f: &Fixture) {
         tx.rollback().await.unwrap();
     }
     let mut tx = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut tx, id).await;
     let before: DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
         .fetch_one(&mut *tx)
         .await
@@ -1386,7 +1790,7 @@ async fn posting_times(f: &Fixture) {
     .unwrap();
     assert!(
         matches!(
-            board_store::create_post_with_attachment_at(
+            support::create_post_with_attachment_at(
                 &f.public,
                 &f.board,
                 id,
@@ -1416,6 +1820,7 @@ async fn reject_unattached_empty_posts(f: &Fixture, thread: i64) {
     }
     for immediate in [false, true] {
         let mut tx = f.public.begin().await.unwrap();
+        f.prepare_direct_post(&mut tx, thread).await;
         let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
             .fetch_one(&mut *tx)
             .await
@@ -1736,6 +2141,7 @@ async fn retention(f: &Fixture) {
     let live = f.approve(&b).await;
     let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
     let mut posting = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut posting, thread).await;
     let number: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *posting)
         .await
@@ -1830,4 +2236,236 @@ async fn cancellation(f: &Fixture) {
         cancel_upload(&f.public, &expired.upload.id, &expired.upload.capability).await,
         Err(StoreError::NotFound)
     ));
+}
+
+// Exercise the actual restricted logins, not SET ROLE on the migration pool.
+async fn staff_upload_controls(f: &Fixture, staff: &PgPool, auth: &PgPool) {
+    use board_store::post_media::{cancel_upload, check_upload};
+    // The surrounding suite intentionally starts with the migration default
+    // image_limit=0 and tests that opt-in later. Enable only this fixture while
+    // exercising an actually consumed receipt, then restore its prior policy.
+    let old_image_limit: i32 =
+        sqlx::query_scalar("SELECT image_limit FROM content.boards WHERE slug=$1")
+            .bind(&f.board)
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
+    sqlx::query("UPDATE content.boards SET image_limit=100 WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let exact_grants: bool = sqlx::query_scalar(
+        "SELECT count(*)=2 AND bool_and(p.prosecdef
+            AND p.proowner=(SELECT oid FROM pg_roles WHERE rolname='board_attachment_owner')
+            AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
+            AND has_function_privilege('board_public',p.oid,'EXECUTE')
+            AND has_function_privilege('board_staff',p.oid,'EXECUTE')
+            AND NOT EXISTS(SELECT 1 FROM aclexplode(p.proacl) a
+                WHERE a.grantee<>p.proowner AND (a.is_grantable OR NOT EXISTS(
+                    SELECT 1 FROM pg_roles r WHERE r.oid=a.grantee AND r.rolname IN ('board_public','board_staff')))))
+         FROM pg_proc p WHERE p.oid=ANY(ARRAY[
+            'content.check_attachment_upload(text,text)'::regprocedure,
+            'content.cancel_attachment_upload(text,text)'::regprocedure])",
+    ).fetch_one(&f.admin).await.unwrap();
+    assert!(
+        exact_grants,
+        "Upload controls grant only public and staff EXECUTE"
+    );
+    for sql in [
+        "SELECT * FROM media.jobs",
+        "SELECT * FROM media.assets",
+        "SELECT * FROM media_intake.handles",
+        "SELECT * FROM content.post_media",
+        "UPDATE media.jobs SET state=state WHERE false",
+        "DELETE FROM media_intake.handles WHERE false",
+        "INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler) SELECT 0,'','','',1,1,1,false WHERE false",
+        "SET ROLE board_attachment_owner",
+        "SET ROLE board_media_intake_owner",
+        "SET ROLE board_staff_post_owner",
+        "SELECT content.insert_post_attachment(0,'',0,'','','',repeat('0',32),repeat('0',64),false)",
+    ] {
+        let error = sqlx::query(sql).execute(staff).await.unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("42501"),
+            "{sql}"
+        );
+    }
+    let a = f.reserve().await;
+    let asset = f.approve(&a).await;
+    for sql in [
+        "SELECT content.check_attachment_upload($1,$2)",
+        "SELECT content.cancel_attachment_upload($1,$2)",
+    ] {
+        let error = sqlx::query(sql)
+            .bind(&a.upload.id)
+            .bind(&a.upload.capability)
+            .execute(auth)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("42501")
+        );
+        for (job, capability) in [
+            (a.upload.id.as_str(), "0".repeat(64)),
+            ("bad-job", a.upload.capability.clone()),
+            (a.upload.id.as_str(), "bad-capability".to_owned()),
+        ] {
+            let error = sqlx::query(sql)
+                .bind(job)
+                .bind(capability)
+                .execute(staff)
+                .await
+                .unwrap_err();
+            assert_eq!(
+                error.as_database_error().unwrap().code().as_deref(),
+                Some("P0002")
+            );
+        }
+    }
+    check_upload(staff, &a.upload.id, &a.upload.capability)
+        .await
+        .unwrap();
+    check_upload(&f.public, &a.upload.id, &a.upload.capability)
+        .await
+        .unwrap();
+    for statement in [
+        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ",
+        "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE",
+    ] {
+        let mut tx = staff.begin().await.unwrap();
+        tx.execute(statement).await.unwrap();
+        let error = sqlx::query("SELECT content.cancel_attachment_upload($1,$2)")
+            .bind(&a.upload.id)
+            .bind(&a.upload.capability)
+            .execute(&mut *tx)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("22023")
+        );
+        tx.rollback().await.unwrap();
+    }
+    cancel_upload(staff, &a.upload.id, &a.upload.capability)
+        .await
+        .unwrap();
+    // Revocation deletes only the handle. Published output and worker state survive.
+    let preserved: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM media.jobs WHERE id=$1 AND state='published')
+            AND EXISTS(SELECT 1 FROM media.assets WHERE id=$2 AND state='approved')
+            AND NOT EXISTS(SELECT 1 FROM media_intake.handles WHERE job_id=$1)",
+    )
+    .bind(&a.upload.id)
+    .bind(&asset)
+    .fetch_one(&f.admin)
+    .await
+    .unwrap();
+    assert!(preserved);
+    for pool in [staff, &f.public] {
+        assert!(matches!(
+            check_upload(pool, &a.upload.id, &a.upload.capability).await,
+            Err(StoreError::NotFound)
+        ));
+        assert!(matches!(
+            cancel_upload(pool, &a.upload.id, &a.upload.capability).await,
+            Err(StoreError::NotFound)
+        ));
+    }
+    assert!(matches!(f.insert(0, &a).await, Err(StoreError::NotFound)));
+
+    // Cancellation never steals a live worker lease; its eventual output is
+    // still unusable as a receipt because only the bearer handle was revoked.
+    let processing = f.reserve().await;
+    f.intake
+        .begin_upload(&processing.upload.id, &processing.upload.capability)
+        .await
+        .unwrap();
+    f.intake
+        .finish_upload(&processing.upload.id, &processing.upload.capability, 100)
+        .await
+        .unwrap();
+    let claim = f.queue.claim().await.unwrap().unwrap();
+    assert_eq!(claim.id, processing.upload.id);
+    let lease = claim.lease_token.unwrap();
+    cancel_upload(staff, &processing.upload.id, &processing.upload.capability)
+        .await
+        .unwrap();
+    let lease_survives: bool = sqlx::query_scalar(
+        "SELECT state='processing' AND lease_token=$2 FROM media.jobs WHERE id=$1",
+    )
+    .bind(&processing.upload.id)
+    .bind(&lease)
+    .fetch_one(&f.admin)
+    .await
+    .unwrap();
+    assert!(lease_survives);
+    let output = f
+        .queue
+        .prepare_output(
+            &processing.upload.id,
+            &lease,
+            &OutputMetadata {
+                sha256: "b".repeat(64),
+                bytes: 123,
+                width: 10,
+                height: 20,
+            },
+        )
+        .await
+        .unwrap();
+    f.queue
+        .approve_output(&processing.upload.id, &lease, &output.id)
+        .await
+        .unwrap();
+    assert!(matches!(
+        check_upload(staff, &processing.upload.id, &processing.upload.capability).await,
+        Err(StoreError::NotFound)
+    ));
+    assert!(matches!(
+        f.insert(0, &processing).await,
+        Err(StoreError::NotFound)
+    ));
+
+    let used = f.reserve().await;
+    f.approve(&used).await;
+    let used_post = f.insert(0, &used).await.unwrap();
+    assert!(matches!(
+        check_upload(staff, &used.upload.id, &used.upload.capability).await,
+        Err(StoreError::Conflict(_))
+    ));
+    assert!(matches!(
+        cancel_upload(staff, &used.upload.id, &used.upload.capability).await,
+        Err(StoreError::Conflict(_))
+    ));
+
+    board_store::delete_post(&f.public, &f.board, used_post)
+        .await
+        .unwrap();
+
+    let expired = f.reserve().await;
+    f.approve(&expired).await;
+    sqlx::query(
+        "UPDATE media.jobs SET created_at=clock_timestamp()-interval '3 hours' WHERE id=$1",
+    )
+    .bind(&expired.upload.id)
+    .execute(&f.admin)
+    .await
+    .unwrap();
+    assert!(matches!(
+        check_upload(staff, &expired.upload.id, &expired.upload.capability).await,
+        Err(StoreError::NotFound)
+    ));
+    assert!(matches!(
+        cancel_upload(staff, &expired.upload.id, &expired.upload.capability).await,
+        Err(StoreError::NotFound)
+    ));
+    sqlx::query("UPDATE content.boards SET image_limit=$2 WHERE slug=$1")
+        .bind(&f.board)
+        .bind(old_image_limit)
+        .execute(&f.admin)
+        .await
+        .unwrap();
 }

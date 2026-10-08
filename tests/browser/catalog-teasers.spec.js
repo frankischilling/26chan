@@ -1,13 +1,16 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
+import { ownedDeletionMarker, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
 
 test('persisted catalog teasers use board policy in HTML, GET filtering and live search', async ({ browser }, info) => {
   const origin = 'http://127.0.0.1:3000', password = 'owned-catalog-teaser-password';
-  const title = `Teaser${Date.now()}`;
+  const title = ownedDeletionMarker();
   const cases = [
     { board: 'b', comment: 'x'.repeat(301), teaser: `${'x'.repeat(300)}…`, query: 'x…$' },
     { board: 'b', comment: 'y'.repeat(40), teaser: `${'y'.repeat(35)}<wbr>${'y'.repeat(5)}`, query: '<wbr>yyyyy$' },
-    { board: 'b', comment: '[spoiler] [/spoiler]', teaser: '', query: '</b>$' },
+    { board: 'b', comment: '[spoiler] [/spoiler]', teaser: '[spoiler] [/spoiler]', query: 'spoiler' },
+    { board: 'fixture', comment: '[spoiler] [/spoiler]', teaser: '', query: '</b>$' },
     { board: 'sjis', comment: '[sjis]wide  art\nnext[/sjis]after [spoiler]quiet[/spoiler] <script>owned</script>', teaser: '[SJIS]after <s>quiet</s> &lt;script&gt;owned&lt;/script&gt;', query: '[SJIS]after' },
     { board: 'news', comment: 'first\n\nsecond', teaser: 'first\nsecond', query: 'second$' },
   ];
@@ -20,8 +23,8 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
       await server.goto(`${origin}/${entry.board}/`);
       await server.locator('#sub').fill(title);
       await server.locator('#com').fill(entry.comment);
-      await server.locator('#password').fill(password);
-      await server.getByRole('button', { name: 'Post', exact: true }).click();
+      await expect(server.locator('#postPassword')).toHaveValue('');
+      await withPostingHistory(() => server.getByRole('button', { name: 'Post', exact: true }).click());
       await expect(server).toHaveURL(/\/thread\/\d+#p\d+$/);
       entry.id = /#p(\d+)$/.exec(server.url())[1];
       created.push(entry);
@@ -64,9 +67,15 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
     }
   } finally {
     try {
-      for (const { board, id } of created) {
-        const response = await noScript.request.post(`${origin}/${board}/delete`, { headers: { origin }, form: { no: id, password }, maxRedirects: 0 });
-        expect(response.status()).toBe(303);
+      try {
+        cleanupDeletionFixtures(created.filter(({ board }) => board !== 'fixture').map(entry => ({ ...entry, marker: title })));
+      } finally {
+        for (const { board, id } of created.filter(({ board }) => board === 'fixture')) {
+          await withDeletionQuota(async () => {
+            const response = await noScript.request.post(`${origin}/${board}/delete`, { headers: { origin }, form: { no: id, password }, maxRedirects: 0 });
+            expect(response.status()).toBe(303);
+          });
+        }
       }
     } finally { await noScript.close(); await liveContext.close(); }
   }

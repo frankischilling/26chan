@@ -1,5 +1,6 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
-import { openWatcherSettings } from './helpers/watcher-settings.js';
+import { openSettingControl, openNativeSettingsCategory, openWatcherSettings } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 // API contexts share Playwright's keep-alive agent. Finish fixture exchanges on
@@ -19,10 +20,10 @@ const test = base.extend({
     let last;
     async function write(board, resto, com, { tracked = false, subject = '' } = {}) {
       const client = tracked ? context.request : request;
-      const response = await client.post(`/${board}/post`, {
+      const response = await withPostingHistory(() => client.post(`/${board}/post`, {
         headers: fixtureHeaders, maxRedirects: 0,
         form: { resto, com, password, ...(resto === '0' ? { sub: subject } : {}), ...(tracked ? { track: '1' } : {}) },
-      });
+      }));
       expect(response.status(), `Owned inline fixture must persist through the real posting form${response.status() === 303 ? '' : `: ${await response.text()}`}`).toBe(303);
       expect(response.headers().connection, 'The fixture write must close its HTTP connection').toBe('close');
       const ids = response.headers().location?.match(/\/thread\/([0-9]+)#p([0-9]+)$/);
@@ -45,11 +46,13 @@ const test = base.extend({
       });
     } finally {
       for (const { board, id } of threads.reverse()) {
-        const response = await request.post(`/${board}/delete`, {
-          headers: fixtureHeaders, maxRedirects: 0, form: { no: id, password },
+        await withDeletionQuota(async () => {
+          const response = await request.post(`/${board}/delete`, {
+            headers: fixtureHeaders, maxRedirects: 0, form: { no: id, password },
+          });
+          expect(response.status(), 'Cleanup removes only this case\'s owned threads').toBe(303);
+          expect(response.headers().connection, 'Fixture cleanup must close its HTTP connection').toBe('close');
         });
-        expect(response.status(), 'Cleanup removes only this case\'s owned threads').toBe(303);
-        expect(response.headers().connection, 'Fixture cleanup must close its HTTP connection').toBe('close');
       }
     }
   },
@@ -81,8 +84,8 @@ async function initialize(page, url, settings = enabled, rules) {
 
 async function saveSettings(page, values) {
   const dialog = await openWatcherSettings(page);
-  await dialog.locator('#settings-expand-all').click();
-  for (const [key, value] of Object.entries(values)) await dialog.locator(`.menuOption[data-option="${key}"]`).setChecked(value);
+  await openNativeSettingsCategory(dialog, 'Quotes & Replying');
+  for (const [key, value] of Object.entries(values)) await (await openSettingControl(dialog, key)).setChecked(value);
   await Promise.all([page.waitForEvent('load'), dialog.getByRole('button', { name: 'Save Settings', exact: true }).click()]);
 }
 
@@ -116,7 +119,7 @@ test.describe('unmodified persisted inline quotes', () => {
     const target = post(owned), source = await owned.reply(`>>${owned.id}\nDefault inline source`);
     await initialize(page, owned.url, { quotePreview: false });
     const dialog = await openWatcherSettings(page);
-    await dialog.locator('#settings-expand-all').click();
+    await openNativeSettingsCategory(dialog, 'Quotes & Replying');
     await expect(dialog.getByLabel('Inline quote links', { exact: true })).not.toBeChecked();
     await dialog.getByRole('button', { name: 'Close settings', exact: true }).click();
     await originalQuote(page, source, target).click();
@@ -144,7 +147,7 @@ test.describe('unmodified persisted inline quotes', () => {
     const source = await owned.reply(`>>${target.id}\nLocal source`);
     await initialize(page, owned.url);
     await page.locator(`#p${target.id} .postActions > summary`).click();
-    await page.locator(`#delete${target.id}`).fill('owned-inline-private-value');
+    await page.locator(`#delete${target.id}`).evaluate(node => { node.value = 'owned-inline-private-value'; });
     await page.locator(`#report${target.id}`).fill('Owned unsent report value');
     await page.locator(`#p${target.id}`).evaluate(node => {
       window.inlineOriginalPost = node;
@@ -177,8 +180,8 @@ test.describe('unmodified persisted inline quotes', () => {
   });
 
   test('actual plain, greentext and spoiler sources place copies outside their rendered wrappers', async ({ page, owned }) => {
-    // Newly posted /test/ rows enable spoilers; /demo/ deliberately does not.
-    const thread = await owned.createThread('test', 'Owned placement target'), target = post(thread);
+    // Newly posted /fixture/ rows enable spoilers; /demo/ deliberately does not.
+    const thread = await owned.createThread('fixture', 'Owned placement target'), target = post(thread);
     const definitions = [
       { text: `>>${target.id}\nPlain source`, parent: 'BLOCKQUOTE', before: 'A' },
       { text: `>green source >>${target.id}`, parent: 'SPAN', before: 'SPAN' },
@@ -201,7 +204,7 @@ test.describe('unmodified persisted inline quotes', () => {
     }
   });
 
-  for (const board of ['demo', 'test']) {
+  for (const board of ['demo', 'fixture']) {
     test(`a persisted ${board === 'demo' ? 'same-board remote' : 'cross-board remote'} quote uses only the bounded one-post endpoint`, async ({ page, owned }) => {
       const remoteThread = await owned.createThread(board, 'Owned remote inline target');
       await remoteThread.reply('Unrequested sibling must stay outside the inline copy');
@@ -395,14 +398,14 @@ test.describe('unmodified persisted inline quotes', () => {
   });
 
   test('genuine mobile taps prioritize inline loading, preserve # navigation and retain preview fallback when disabled', async ({ browser, owned }) => {
-    const remote = post(await owned.createThread('test', 'Mobile remote inline priority'));
+    const remote = post(await owned.createThread('fixture', 'Mobile remote inline priority'));
     const source = await owned.reply(`${quoteText(remote)}\n${trailingLines}`);
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: mobileAgent, isMobile: true, hasTouch: true });
     try {
       const page = await context.newPage(), other = await context.newPage();
       await initialize(page, owned.url, { inlineQuotes: true, quotePreview: true });
       const dialog = await openWatcherSettings(page);
-      await dialog.locator('#settings-expand-all').click();
+      await openNativeSettingsCategory(dialog, 'Quotes & Replying');
       await expect(dialog.getByLabel('Inline quote links', { exact: true })).toHaveCount(0);
       await dialog.getByRole('button', { name: 'Close settings', exact: true }).click();
       const link = originalQuote(page, source, remote), requests = network(page);
@@ -611,7 +614,7 @@ async function expectAborted(page, path) {
 
 test.describe('held genuine responses and real cross-tab cancellation', () => {
   test('a pending remote inline shows loading and repeated activation sends one request', async ({ page, owned }) => {
-    const remote = post(await owned.createThread('test', 'Released inline loading target'));
+    const remote = post(await owned.createThread('fixture', 'Released inline loading target'));
     const source = await owned.reply(`${quoteText(remote)}\nLoading source`);
     await observeTransport(page);
     await initialize(page, owned.url);
@@ -636,7 +639,7 @@ test.describe('held genuine responses and real cross-tab cancellation', () => {
 
   for (const setting of ['inlineQuotes', 'disableAll']) {
     test(`a real ${setting} save cancels a pending inline and rejects its late response`, async ({ page, context, owned }) => {
-      const remote = post(await owned.createThread('test', 'Settings-cancelled inline target'));
+      const remote = post(await owned.createThread('fixture', 'Settings-cancelled inline target'));
       const source = await owned.reply(`${quoteText(remote)}\nCross-tab pending source`);
       await observeTransport(page);
       await initialize(page, owned.url);
@@ -667,7 +670,7 @@ test.describe('held genuine responses and real cross-tab cancellation', () => {
   }
 
   test('hiding the original source through a real filter cancels loading and allows a later healthy expansion', async ({ page, context, owned }) => {
-    const remote = post(await owned.createThread('test', 'Filtered source late target'));
+    const remote = post(await owned.createThread('fixture', 'Filtered source late target'));
     const source = await owned.reply(`${quoteText(remote)}\nHide pending inline source needle`);
     await observeTransport(page);
     await initialize(page, owned.url, { ...enabled, filter: true }, []);
@@ -694,7 +697,7 @@ test.describe('held genuine responses and real cross-tab cancellation', () => {
   });
 
   test('collapsing an outer local copy cancels its pending remote descendant and releases every owned effect', async ({ page, owned }) => {
-    const remote = post(await owned.createThread('test', 'Late descendant must not return'));
+    const remote = post(await owned.createThread('fixture', 'Late descendant must not return'));
     const middle = post(owned, await owned.reply(`${quoteText(remote)}\nLocal parent of remote request`));
     const source = await owned.reply(`>>${middle.id}\nOuter inline source`);
     await observeTransport(page);
@@ -721,7 +724,7 @@ test.describe('held genuine responses and real cross-tab cancellation', () => {
   });
 
   test('real page navigation retires a pending request and returning starts with fresh source ownership', async ({ page, owned }) => {
-    const remote = post(await owned.createThread('test', 'Page-exit inline target'));
+    const remote = post(await owned.createThread('fixture', 'Page-exit inline target'));
     const source = await owned.reply(`${quoteText(remote)}\nPage-exit source`);
     const abortLogKey = `owned-inline-page-exit-${remote.id}`;
     await observeTransport(page, abortLogKey);
@@ -842,14 +845,14 @@ test.describe('held real filter-worker timing during persisted updater work', ()
 
 test.describe('explicitly augmented DOM and substituted response controls', () => {
   test('a substituted HTTP failure stays visible until dismissed and a later activation loads the real post', async ({ page, owned }) => {
-    const remote = post(await owned.createThread('test', 'Recovered real inline post'));
+    const remote = post(await owned.createThread('fixture', 'Recovered real inline post'));
     const source = await owned.reply(`${quoteText(remote)}\nTransient inline failure source`);
     await initialize(page, owned.url);
     const pattern = `**${remote.path}`, requests = network(page), link = originalQuote(page, source, remote);
     await page.route(pattern, route => route.fulfill({ status: 503, body: 'Owned temporary failure' }), { times: 1 });
     await link.click();
     await expect(page.locator('.inlined')).toHaveText('Error: Quote could not be loaded.');
-    await expect(link).toHaveAttribute('href', `/test/post/${remote.id}`);
+    await expect(link).toHaveAttribute('href', `/fixture/post/${remote.id}`);
     await link.click();
     await expect(page.locator('.inlined')).toHaveCount(0);
     await link.click();
@@ -895,7 +898,7 @@ test.describe('explicitly augmented DOM and substituted response controls', () =
 
   for (const defect of ['unsafe resource', 'post identity', 'UTF-8 byte ceiling']) {
     test(`${defect} rejects the whole inline response before DOM/resource creation and permits a fresh retry`, async ({ page, request, owned }) => {
-      const remote = post(await owned.createThread('test', 'Healthy inline response after rejection'));
+      const remote = post(await owned.createThread('fixture', 'Healthy inline response after rejection'));
       const source = await owned.reply(`${quoteText(remote)}\nResponse-validation source`);
       const response = await request.get(remote.path, { headers: { Connection: 'close' } });
       expect(response.status()).toBe(200);
@@ -994,7 +997,7 @@ test.describe('finite admission with owned persisted posts', () => {
 
   test('the pending cap keeps one active request and bounded queued placeholders before navigation cancels them', async ({ page, owned }) => {
     await initialize(page, owned.url);
-    const limits = await inlineLimits(page), remote = post(await owned.createThread('test', 'Owned pending-cap target'));
+    const limits = await inlineLimits(page), remote = post(await owned.createThread('fixture', 'Owned pending-cap target'));
     const source = await owned.reply(Array.from({ length: limits.pending + 1 }, (_, index) => `${quoteText(remote)} Owned pending source ${index + 1}`).join('\n'));
     await page.reload();
     const requests = network(page), held = await holdResponse(page, remote.path);

@@ -1,16 +1,16 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect, chromium } from '@playwright/test';
 import { mkdtemp, mkdir, writeFile, readFile, realpath, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { saveWatcherSettings } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
-const password = 'owned-cookie-policy-password';
 const receiptName = name => name === '4chan_awt' || name.startsWith('board-posted-');
 
 test('real browser cookie rejection preserves posts and cannot defer rejected tracking receipts', async ({ request }) => {
   test.setTimeout(60000);
   const base = await realpath('.local');
-  const owned = new Set();
+  const owned = new Map();
   try {
     // Full Chromium is required: its Chrome profile honors this content setting.
     // The default headless-shell executable does not apply these preferences.
@@ -32,37 +32,42 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
         const blocked = [];
         cdp.on('Network.responseReceivedExtraInfo', event => {
           for (const cookie of event.blockedCookies) {
-            if (/^(board-posted-[0-9]+|4chan_awt|4chan_name|options)=/.test(cookie.cookieLine)) blocked.push(cookie);
+            if (/^(board-posted-[0-9]+|board-anon|4chan_awt|4chan_name|options)=/.test(cookie.cookieLine)) blocked.push(cookie);
           }
         });
         await cdp.send('Network.enable');
-        await page.goto('/test/');
+        await page.goto('/fixture/');
         await saveWatcherSettings(page, { threadWatcher: true, threadAutoWatcher: true }, { reload: false });
         await expect(page.locator('form.postEditor input[name=track]')).toHaveValue('1');
         await expect(page.locator('form.postEditor input[name=awt]')).toHaveValue('1');
         const post = async (parent, option = '') => {
           await page.locator('#togglePostFormLink a').click();
           await page.locator('#com').fill(`Owned cookie policy ${cookies}, parent ${parent}`);
-          await page.locator('#password').fill(password);
+          await expect(page.locator('#postPassword')).toHaveValue('');
           await page.locator('#name').fill('Owned cookie name#password');
           await page.locator('#email').fill(option);
           if (parent === '0') await page.locator('#sub').fill('Owned network cookie policy');
           const pending = page.waitForResponse(response => response.request().method() === 'POST'
-            && response.url() === `${origin}/test/imgboard.php`);
-          await page.getByRole('button', { name: 'Post', exact: true }).click();
+            && response.url() === `${origin}/fixture/imgboard.php`);
+          await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
           const response = await pending;
           expect(response.status()).toBe(303);
           if (parent === '0') {
             const location = await response.headerValue('location');
             const thread = location.match(/\/thread\/(\d+)/)?.[1];
-            expect(thread).toBeTruthy(); owned.add(thread);
+            expect(thread).toBeTruthy();
+            const anonymous = (await response.headersArray()).find(header => header.name.toLowerCase() === 'set-cookie' && header.value.startsWith('board-anon='));
+            expect(anonymous).toBeTruthy();
+            owned.set(thread, anonymous.value.split(';')[0]);
           }
           return (await response.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie').map(header => header.value);
         };
         const opHeaders = await post('0', 'sage');
-        await expect(page).toHaveURL(/\/test\/thread\/\d+#p\d+$/);
+        await expect(page).toHaveURL(/\/fixture\/thread\/\d+#p\d+$/);
         const thread = page.url().match(/thread\/(\d+)/)[1];
-        expect(opHeaders).toHaveLength(4);
+        expect(opHeaders).toHaveLength(5);
+        expect(opHeaders.filter(line => line.startsWith('board-anon=')).length).toBe(1);
+        expect(opHeaders.find(line => line.startsWith('board-anon='))).toContain('HttpOnly; SameSite=Strict');
         expect(opHeaders.some(line => line.startsWith('4chan_name=Owned%20cookie%20name;'))).toBe(true);
         expect(opHeaders.some(line => line.startsWith('options=sage;'))).toBe(true);
         expect(opHeaders.some(line => line.startsWith(`board-posted-${thread}=${thread}.1;`))).toBe(true);
@@ -70,20 +75,26 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
         const assertReceipts = async (headers, postId) => {
           if (cookies === 1) {
             await expect.poll(() => page.evaluate(({ thread, postId }) =>
-              JSON.parse(localStorage.getItem(`4chan-track-test-${thread}`))?.[`>>${postId}`], { thread, postId })).toBe(1);
-            await expect(page.locator(`#watch-${thread}-test`)).toBeVisible();
+              JSON.parse(localStorage.getItem(`4chan-track-fixture-${thread}`))?.[`>>${postId}`], { thread, postId })).toBe(1);
+            await expect(page.locator(`#watch-${thread}-fixture`)).toBeVisible();
             await expect(page.locator('#name')).toHaveValue('Owned cookie name');
             expect((await context.cookies()).some(cookie => cookie.name === '4chan_name'
               && cookie.value === 'Owned%20cookie%20name')).toBe(true);
+            expect((await context.cookies()).filter(cookie => cookie.name === 'board-anon')).toHaveLength(1);
             expect(blocked).toEqual([]);
           } else {
             for (const line of headers) {
               await expect.poll(() => blocked.some(cookie => cookie.cookieLine === line
                 && cookie.blockedReasons.includes('UserPreferences'))).toBe(true);
             }
-            await expect(page.locator(`#watch-${thread}-test`)).toHaveCount(0);
+            await expect(page.locator(`#watch-${thread}-fixture`)).toHaveCount(0);
             expect(await page.evaluate(() => document.cookie)).toBe('');
+            expect((await context.cookies()).filter(cookie => cookie.name === 'board-anon')).toEqual([]);
             await expect(page.locator('#name')).toHaveValue('');
+            await withDeletionQuota(async () => {
+              expect((await context.request.post('/fixture/delete', { headers: { Origin: origin }, form: { no: thread }, maxRedirects: 0 })).status()).toBe(403);
+              expect((await request.get(`/fixture/thread/${thread}.json`)).status()).toBe(200);
+            });
           }
           expect((await context.cookies()).filter(cookie => receiptName(cookie.name))).toEqual([]);
         };
@@ -93,15 +104,16 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
         if (cookies === 2) await saveWatcherSettings(page, { threadWatcher: true, threadAutoWatcher: true }, { reload: false });
         await expect(page.locator('form.postEditor input[name=track]')).toHaveValue('1');
         const replyHeaders = await post(thread, 'nonoko');
-        await expect(page).toHaveURL(`${origin}/test/`);
-        expect(replyHeaders).toHaveLength(3);
+        await expect(page).toHaveURL(`${origin}/fixture/`);
+        expect(replyHeaders).toHaveLength(4);
+        expect(replyHeaders.filter(line => line.startsWith('board-anon=')).length).toBe(1);
         const replyReceipt = replyHeaders.find(line => line.startsWith('board-posted-'));
         const reply = replyReceipt?.match(/^board-posted-(\d+)=/)?.[1];
         expect(reply).toBeTruthy();
         expect(replyReceipt.startsWith(`board-posted-${reply}=${thread}.0;`)).toBe(true);
         expect(replyHeaders.some(line => line.startsWith('options=nonoko;'))).toBe(true);
         await assertReceipts(replyHeaders, reply);
-        const jsonResponse = await request.get(`/test/thread/${thread}.json`);
+        const jsonResponse = await request.get(`/fixture/thread/${thread}.json`);
         expect(jsonResponse.status()).toBe(200);
         const posts = (await jsonResponse.json()).posts;
         expect(posts.map(post => String(post.no))).toEqual([thread, reply]);
@@ -115,10 +127,11 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
           await writeFile(preferences, JSON.stringify(restored));
           context = await launch();
           const restoredPage = context.pages()[0]; restoredPage.setDefaultTimeout(10000);
-          await restoredPage.goto(`/test/thread/${thread}`);
+          await restoredPage.goto(`/fixture/thread/${thread}`);
           await saveWatcherSettings(restoredPage, { threadWatcher: true, threadAutoWatcher: true });
-          expect(await restoredPage.evaluate(thread => localStorage.getItem(`4chan-track-test-${thread}`), thread)).toBe(null);
-          await expect(restoredPage.locator(`#watch-${thread}-test`)).toHaveCount(0);
+          expect(await restoredPage.evaluate(thread => localStorage.getItem(`4chan-track-fixture-${thread}`), thread)).toBe(null);
+          expect((await context.cookies()).filter(cookie => cookie.name === 'board-anon')).toEqual([]);
+          await expect(restoredPage.locator(`#watch-${thread}-fixture`)).toHaveCount(0);
           expect((await context.cookies()).filter(cookie => receiptName(cookie.name))).toEqual([]);
           await expect(restoredPage.locator('#name')).toHaveValue('');
           await expect(restoredPage.locator('#email')).toHaveValue('');
@@ -132,11 +145,15 @@ test('real browser cookie rejection preserves posts and cannot defer rejected tr
       }
     }
   } finally {
-    for (const id of owned) {
-      const deleted = await request.post('/test/delete', { headers: { Origin: origin },
-        form: { no: id, password }, maxRedirects: 0 });
-      expect(deleted.status()).toBe(303);
-      expect((await request.get(`/test/thread/${id}.json`)).status()).toBe(404);
+    for (const [id, cookie] of owned) {
+      // Only cleanup restores the capability returned for this synthetic OP.
+      // The rejected browser cookie remains unavailable in the assertions.
+      await withDeletionQuota(async () => {
+        const deleted = await request.post('/fixture/delete', { headers: { Origin: origin, Cookie: cookie },
+          form: { no: id }, maxRedirects: 0 });
+        expect(deleted.status()).toBe(303);
+        expect((await request.get(`/fixture/thread/${id}.json`)).status()).toBe(404);
+      });
     }
   }
 });

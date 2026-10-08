@@ -42,7 +42,7 @@ pub(crate) fn append(
         let value = url::form_urlencoded::byte_serialize(value.as_bytes())
             .collect::<String>()
             .replace('+', "%20");
-        let age = if value.is_empty() { 0 } else { 31_536_000 };
+        let age = if value.is_empty() { 0 } else { 604_800 };
         let secure = if production { "; Secure" } else { "" };
         let cookie = format!("{key}={value}; Path=/; Max-Age={age}; SameSite=Strict{secure}");
         output.append(
@@ -78,8 +78,8 @@ mod tests {
         assert_eq!(
             cookies,
             [
-                "4chan_name=%E5%90%8D%20%2B%20%3Cuser%3E; Path=/; Max-Age=31536000; SameSite=Strict; Secure",
-                "options=sage%20nonoko; Path=/; Max-Age=31536000; SameSite=Strict; Secure",
+                "4chan_name=%E5%90%8D%20%2B%20%3Cuser%3E; Path=/; Max-Age=604800; SameSite=Strict; Secure",
+                "options=sage%20nonoko; Path=/; Max-Age=604800; SameSite=Strict; Secure",
             ]
         );
         assert!(
@@ -111,7 +111,7 @@ mod tests {
         append(&mut output, &request, None, "sage", false);
         assert_eq!(
             values(&output),
-            ["options=sage; Path=/; Max-Age=31536000; SameSite=Strict"]
+            ["options=sage; Path=/; Max-Age=604800; SameSite=Strict"]
         );
     }
 

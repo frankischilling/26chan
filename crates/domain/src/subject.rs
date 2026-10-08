@@ -1,4 +1,4 @@
-use crate::{CommentSpacing, MAX_PUBLIC_FIELD_BYTES, ValidationError};
+use crate::{CommentSpacing, MAX_PUBLIC_FIELD_BYTES, PostLimits, ValidationError};
 
 // A raw public subject has at most 100 bytes; source tabs expand fourfold.
 pub const MAX_SUBJECT_BYTES: usize = MAX_PUBLIC_FIELD_BYTES * 4;
@@ -8,9 +8,15 @@ pub fn prepare_post_subject(
     raw: &str,
     spacing: CommentSpacing<'_>,
 ) -> Result<String, ValidationError> {
-    if raw.len() > MAX_PUBLIC_FIELD_BYTES {
-        return Err(ValidationError("Name or subject is too long."));
-    }
+    prepare_post_subject_with_limits(raw, spacing, PostLimits::ordinary(crate::MAX_COMMENT_CHARS))
+}
+
+pub fn prepare_post_subject_with_limits(
+    raw: &str,
+    spacing: CommentSpacing<'_>,
+    limits: PostLimits,
+) -> Result<String, ValidationError> {
+    limits.validate_field(raw)?;
     if raw
         .chars()
         .any(|ch| ch.is_control() && !matches!(ch, '\n' | '\r' | '\t'))
@@ -56,7 +62,7 @@ pub fn prepare_post_subject(
     let mut result = crate::comment_spacing::sanitize_spacing(&filtered, spacing);
     // Source removes CR/LF after trim, then private codepoints; do not trim again.
     result.retain(|ch| !matches!(ch, '\n' | '\r') && ch as u32 <= 0x3134f);
-    if result.len() > MAX_SUBJECT_BYTES {
+    if result.len() > limits.subject_bytes() {
         return Err(ValidationError("Name or subject is too long."));
     }
     Ok(result)

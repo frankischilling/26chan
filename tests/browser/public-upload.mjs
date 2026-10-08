@@ -18,7 +18,12 @@ const screenshots = process.env.PUBLIC_UPLOAD_SCREENSHOTS;
 if (screenshots) assert.ok(path.isAbsolute(screenshots));
 assert.equal(origin.hostname, '127.0.0.1');
 assert.equal(origin.protocol, 'http:');
-assert.match(board, /^[a-z0-9]{1,10}$/);
+assert.match(board, /^u[0-9a-f]{8}$/);
+// Private fixture identity and cleanup remain exclusively in the supervisor.
+for (const name of Object.keys(process.env)) {
+  assert.ok(!name.endsWith('DATABASE_URL') && !['POSTER_ID_KEY', 'PUBLIC_INTAKE_TOKEN'].includes(name),
+    'browser qualification must not inherit service credentials');
+}
 let browser;
 let cancelled = false;
 const cancel = () => {
@@ -79,7 +84,7 @@ try {
   await expect(page.locator('form.postEditor')).toHaveAttribute('action', `/${board}/imgboard.php`);
   await expect(page.locator('form.postEditor')).toHaveAttribute('enctype', 'multipart/form-data');
   await expect(page.locator('form.postEditor input[name=mode]')).toHaveValue('regist');
-  await expect(page.locator('#password')).toHaveAttribute('name', 'pwd');
+  await expect(page.locator('#postPassword')).toHaveAttribute('name', 'pwd');
   await expect(page.getByLabel('Comment', { exact: true })).toHaveAttribute('aria-describedby', 'postHelp');
   await expect(page.getByLabel('Comment', { exact: true })).not.toHaveAttribute('required');
   for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
@@ -92,7 +97,7 @@ try {
   if (!attachmentOnly) {
     await page.getByLabel('Comment', { exact: true }).fill(`A synthetic one-pixel image, posted ${javascript ? 'with' : 'without'} site JavaScript.`);
   }
-  await page.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
+  await expect(page.locator('#postPassword')).toHaveValue('');
   if (attachmentOnly) await page.getByLabel('Spoiler image', { exact: true }).check();
   const posted = page.waitForResponse(response => response.request().method() === 'POST'
     && new URL(response.url()).pathname === `/${board}/imgboard.php`);
@@ -106,9 +111,12 @@ try {
   const receiptHeaders = cookieHeaders.filter(header => /^(?:board-posted-[0-9]+|4chan_awt)=/.test(header.value));
   const preferences = cookieHeaders.filter(header => header.value.startsWith('4chan_name='));
   assert.deepEqual(preferences.map(header => header.value), [
-    '4chan_name=Synthetic%20browser; Path=/; Max-Age=31536000; SameSite=Strict',
+    '4chan_name=Synthetic%20browser; Path=/; Max-Age=604800; SameSite=Strict',
   ]);
-  assert.equal(cookieHeaders.length, receiptHeaders.length + preferences.length);
+  const anonymous = cookieHeaders.filter(header => header.value.startsWith('board-anon='));
+  assert.equal(anonymous.length, 1);
+  assert.ok(anonymous[0].value.includes('Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict'));
+  assert.equal(cookieHeaders.length, receiptHeaders.length + preferences.length + anonymous.length);
   if (javascript) {
     assert.equal(receiptHeaders.length, 2);
     assert.ok(receiptHeaders.some(header => header.value.startsWith(`board-posted-${thread}=${thread}.1;`)));
@@ -196,7 +204,7 @@ try {
     await expect(page.locator('form.postEditor input[name=awt]')).toHaveCount(0);
     await page.locator('#togglePostFormLink a').click();
     await page.locator('#com').fill('Owned reply to an approved upload');
-    await page.locator('#password').fill('synthetic-browser-password');
+    await expect(page.locator('#postPassword')).toHaveValue('');
     await page.locator('#email').fill('nonoko');
     const replied = page.waitForResponse(response => response.request().method() === 'POST'
       && new URL(response.url()).pathname === `/${board}/imgboard.php`);
@@ -208,9 +216,10 @@ try {
     assert.equal(replies.length, 2);
     const reply = String(replies.at(-1).no);
     const cookies = (await replyResponse.headersArray()).filter(header => header.name.toLowerCase() === 'set-cookie');
-    assert.equal(cookies.length, 3);
-    assert.ok(cookies.some(header => header.value === '4chan_name=Synthetic%20browser; Path=/; Max-Age=31536000; SameSite=Strict'));
-    assert.ok(cookies.some(header => header.value === 'options=nonoko; Path=/; Max-Age=31536000; SameSite=Strict'));
+    assert.equal(cookies.length, 4);
+    assert.equal(cookies.filter(header => header.value.startsWith('board-anon=')).length, 1);
+    assert.ok(cookies.some(header => header.value === '4chan_name=Synthetic%20browser; Path=/; Max-Age=604800; SameSite=Strict'));
+    assert.ok(cookies.some(header => header.value === 'options=nonoko; Path=/; Max-Age=604800; SameSite=Strict'));
     assert.ok(cookies.some(header => header.value.startsWith(`board-posted-${reply}=${thread}.0;`)));
     assert.ok(!cookies.some(header => header.value.startsWith('4chan_awt=')));
     await expect.poll(() => page.evaluate(({ board, thread, reply }) =>
@@ -221,25 +230,44 @@ try {
   }
   const deletion = page.locator(`#p${thread} form[action="/${board}/delete"]`);
   if (javascript) {
+    const checkImageSearchLinks = async mobile => {
+      for (const [name, host, pathname, imageKey] of [
+        ['Google', 'lens.google.com', '/uploadbyurl', 'url'],
+        ['Yandex', 'www.yandex.com', '/images/search', 'img_url'],
+        ['SauceNAO', 'saucenao.com', '/search.php', 'url'],
+      ]) {
+        const link = page.getByRole('menuitem', { name: mobile ? `Search image on ${name}` : name, exact: true });
+        const url = new URL(await link.getAttribute('href'));
+        assert.equal(url.protocol, 'https:');
+        assert.equal(url.hostname, host);
+        assert.equal(url.pathname, pathname);
+        assert.deepEqual([...url.searchParams], name === 'Yandex'
+          ? [['img_url', mediaUrl.href], ['rpt', 'imageview']]
+          : [[imageKey, mediaUrl.href]]);
+        await expect(link).toHaveAttribute('target', '_blank');
+        await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      }
+    };
     await page.getByRole('button', { name: `Post menu for post ${thread}`, exact: true }).click();
     await page.getByRole('menuitem', { name: 'Image search', exact: true }).press('ArrowRight');
-    for (const [name, host] of [['Google', 'lens.google.com'], ['Yandex', 'www.yandex.com'], ['SauceNAO', 'saucenao.com']]) {
-      const link = page.getByRole('menuitem', { name, exact: true });
-      const url = new URL(await link.getAttribute('href'));
-      assert.equal(url.hostname, host); assert.equal(url.searchParams.get('url'), mediaUrl.href);
-      await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-    }
+    await checkImageSearchLinks(false);
     await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: `Post menu for post ${thread}`, exact: true }).click();
     await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveAttribute('href', mediaUrl.href);
-    await page.getByRole('menuitem', { name: 'Delete file', exact: true }).click();
-    await expect(deletion.getByLabel('File only', { exact: true })).toBeChecked();
-    await expect(deletion.getByLabel('Deletion password', { exact: true })).toBeFocused();
-    assert.equal((await page.request.get(mediaUrl.href)).status(), 200, 'choosing Delete file must not submit deletion');
+    await checkImageSearchLinks(true);
+    const confirmation = page.waitForEvent('dialog');
+    const clicked = page.getByRole('menuitem', { name: 'Delete file', exact: true }).click();
+    const dialog = await confirmation, prompt = dialog.message(), kind = dialog.type();
+    await dialog.dismiss(); await clicked;
+    assert.equal(kind, 'confirm'); assert.equal(prompt, 'Delete file?');
+    await expect(deletion.getByLabel('File only', { exact: true })).not.toBeChecked();
+    await expect(page.locator(`#f${thread}`)).not.toHaveClass(/\bdeleted\b/);
+    assert.equal((await page.request.get(mediaUrl.href)).status(), 200, 'canceling Delete file must not submit deletion');
+    await page.locator(`#p${thread}`).getByText('Delete or report', { exact: true }).click();
     assert.equal(requests.some(url => /https:\/\/(lens\.google\.com|www\.yandex\.com|saucenao\.com)\//.test(url)), false);
   } else await page.locator(`#p${thread}`).getByText('Delete or report', { exact: true }).click();
-  await deletion.getByLabel('Deletion password', { exact: true }).fill('synthetic-browser-password');
+  await expect(deletion.locator('input[name=password]')).toHaveValue('');
   await deletion.getByLabel('File only', { exact: true }).check();
   await deletion.getByRole('button', { name: 'Delete post', exact: true }).click();
   assert.ok(Number.isSafeInteger(post.no) && post.no > 0);
@@ -260,6 +288,7 @@ try {
   const deleted = (await (await page.request.get(apiUrl.href)).json()).posts[0];
   if (attachmentOnly) assert.equal(deleted.com, undefined);
   assert.equal(deleted.filedeleted, 1);
+  assert.equal(deleted.spoiler, attachmentOnly ? 1 : undefined);
   for (const field of ['tim', 'md5', 'ext', 'fsize', 'tn_w', 'tn_h']) assert.equal(deleted[field], undefined);
   const deletedRequests = [];
   page.on('request', request => {
@@ -274,7 +303,11 @@ try {
   const placeholderBox = await placeholder.boundingBox();
   assert.deepEqual([placeholderBox.width, placeholderBox.height], [155, 53]);
   assert.equal(deletedRequests.length, 0, 'a deleted catalog file loads only the fixed UI asset');
-  const remainingCookies = (await context.cookies())
+  const savedCookies = await context.cookies();
+  const privateCookies = savedCookies.filter(cookie => cookie.name === 'board-anon');
+  assert.equal(privateCookies.length, 1);
+  assert.equal(privateCookies[0].httpOnly, true);
+  const remainingCookies = savedCookies.filter(cookie => cookie.name !== 'board-anon')
     .map(cookie => ({ name: cookie.name, value: cookie.value }))
     .sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
   assert.deepEqual(remainingCookies, [

@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 
+#[path = "support/posting.rs"]
+mod posting_fixture;
+
 use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use axum::{
     body::Body,
@@ -21,14 +24,24 @@ const ORIGIN: &str = "http://127.0.0.1:3000";
 const PASSWORD: &str = "owned-deletion-authorization-password";
 
 fn request(board: &str, id: i64, route: u8, file_only: bool) -> Request<Body> {
+    request_with_password(board, id, route, file_only, PASSWORD)
+}
+
+fn request_with_password(
+    board: &str,
+    id: i64,
+    route: u8,
+    file_only: bool,
+    password: &str,
+) -> Request<Body> {
     let id = id.to_string();
     let mut fields = if route == 0 {
-        vec![("no", id.as_str()), ("password", PASSWORD)]
+        vec![("no", id.as_str()), ("password", password)]
     } else {
         vec![
             ("mode", "usrdel"),
             (id.as_str(), "delete"),
-            ("pwd", PASSWORD),
+            ("pwd", password),
         ]
     };
     if file_only {
@@ -119,7 +132,7 @@ impl Fixture {
         } else {
             None
         };
-        board_store::create_post_with_attachment(
+        posting_fixture::create_post_with_attachment(
             &self.public,
             &self.board,
             parent,
@@ -136,14 +149,157 @@ impl Fixture {
         .unwrap()
     }
 
-    async fn exercise(&self) {
+    async fn eligibility(&self) {
+        use axum::body::to_bytes;
+        sqlx::query("UPDATE content.boards SET deletion_known_min_seconds=60,deletion_unknown_min_seconds=600,archive_retention_seconds=86400 WHERE slug=$1")
+            .bind(&self.board).execute(&self.owner).await.unwrap();
         let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
             "PUBLIC_WRITES_PER_MINUTE" => Some("60".into()),
             _ => None,
         })
         .unwrap();
-        let app = board_public::routers_with_limits(
+        let app = fixture_routers(
             self.public.clone(),
+            &self.board,
+            ORIGIN.into(),
+            false,
+            None,
+            limits,
+        )
+        .0;
+        for route in 0..3 {
+            for file_only in [false, true] {
+                let post = self.post(0, file_only).await;
+                for (age, deny_op, password, message) in [
+                    (
+                        0,
+                        false,
+                        PASSWORD,
+                        "Error: You must wait longer before deleting this post.",
+                    ),
+                    (0, false, "wrong-password", "Error: Password incorrect."),
+                    (
+                        1801,
+                        true,
+                        "wrong-password",
+                        "Error: You cannot delete a post this old.",
+                    ),
+                    (
+                        601,
+                        true,
+                        "wrong-password",
+                        "Error: You cannot delete this post.",
+                    ),
+                ] {
+                    sqlx::query("UPDATE content.posts SET created_at=clock_timestamp()-make_interval(secs=>$2) WHERE id=$1").bind(post).bind(age as f64).execute(&self.owner).await.unwrap();
+                    sqlx::query("UPDATE content.boards SET deletion_no_op=$2 WHERE slug=$1")
+                        .bind(&self.board)
+                        .bind(deny_op)
+                        .execute(&self.owner)
+                        .await
+                        .unwrap();
+                    let before: (bool, chrono::DateTime<chrono::Utc>) = sqlx::query_as(
+                        "SELECT deleted,modified_at FROM content.threads WHERE id=$1",
+                    )
+                    .bind(post)
+                    .fetch_one(&self.owner)
+                    .await
+                    .unwrap();
+                    let response = app
+                        .clone()
+                        .oneshot(request_with_password(
+                            &self.board,
+                            post,
+                            route,
+                            file_only,
+                            password,
+                        ))
+                        .await
+                        .unwrap();
+                    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+                    let body = String::from_utf8(
+                        to_bytes(response.into_body(), 65536)
+                            .await
+                            .unwrap()
+                            .to_vec(),
+                    )
+                    .unwrap();
+                    assert!(body.contains(message), "{body}");
+                    let after: (bool, chrono::DateTime<chrono::Utc>) = sqlx::query_as(
+                        "SELECT deleted,modified_at FROM content.threads WHERE id=$1",
+                    )
+                    .bind(post)
+                    .fetch_one(&self.owner)
+                    .await
+                    .unwrap();
+                    assert_eq!(before, after);
+                    if file_only {
+                        assert!(
+                            !board_store::post_media::attachment(&self.public, post)
+                                .await
+                                .unwrap()
+                                .unwrap()
+                                .file_deleted
+                        );
+                    }
+                }
+                sqlx::query("UPDATE content.boards SET deletion_no_op=false WHERE slug=$1")
+                    .bind(&self.board)
+                    .execute(&self.owner)
+                    .await
+                    .unwrap();
+                let response = app
+                    .clone()
+                    .oneshot(request(&self.board, post, route, file_only))
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    response.status(),
+                    if route == 0 {
+                        StatusCode::SEE_OTHER
+                    } else {
+                        StatusCode::OK
+                    }
+                );
+                if file_only {
+                    assert!(
+                        board_store::find_post(&self.public, &self.board, post)
+                            .await
+                            .is_ok()
+                    );
+                    assert!(
+                        board_store::post_media::attachment(&self.public, post)
+                            .await
+                            .unwrap()
+                            .unwrap()
+                            .file_deleted
+                    );
+                } else {
+                    assert!(matches!(
+                        board_store::find_post(&self.public, &self.board, post).await,
+                        Err(StoreError::NotFound)
+                    ));
+                }
+            }
+        }
+    }
+
+    async fn exercise(&self) {
+        // Rotated and revoked targets stay live throughout this matrix. Give
+        // its owned board enough OP capacity to test deletion authorization.
+        sqlx::query("UPDATE content.boards SET user_thread_limit=100 WHERE slug=$1")
+            .bind(&self.board)
+            .execute(&self.owner)
+            .await
+            .unwrap();
+        let limits = board_config::PublicRequestLimits::from_lookup(|key| match key {
+            "PUBLIC_WRITES_PER_MINUTE" => Some("60".into()),
+            _ => None,
+        })
+        .unwrap();
+        let app = fixture_routers(
+            self.public.clone(),
+            &self.board,
             ORIGIN.into(),
             false,
             None,
@@ -312,15 +468,58 @@ impl Fixture {
                 .execute(&mut *mutation)
                 .await
                 .unwrap();
-            let mut writer = self.owner.acquire().await.unwrap();
+            let authority_before: (i64, String) = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id=$1",
+            )
+            .bind(id)
+            .fetch_one(&mut *mutation)
+            .await
+            .unwrap();
+            // 0091 rejects tuple-first operator UPDATE and DELETE instead
+            // of permitting a secret -> board cycle with archive retirement.
+            let error = tokio::time::timeout(
+                Duration::from_secs(3),
+                sqlx::query(statement).bind(id).execute(&self.owner),
+            )
+            .await
+            .expect("Out-of-order credential mutation must fail without waiting")
+            .unwrap_err();
+            assert_eq!(
+                error
+                    .as_database_error()
+                    .and_then(|error| error.code())
+                    .as_deref(),
+                Some("55P03")
+            );
+            let unchanged: (i64, String) = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id=$1",
+            )
+            .bind(id)
+            .fetch_one(&mut *mutation)
+            .await
+            .unwrap();
+            assert_eq!(unchanged, authority_before);
+            let mut writer = self.owner.begin().await.unwrap();
             let writer_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
                 .fetch_one(&mut *writer)
                 .await
                 .unwrap();
-            let changing =
-                tokio::spawn(
-                    async move { sqlx::query(statement).bind(id).execute(&mut *writer).await },
-                );
+            let board = self.board.clone();
+            let changing = tokio::spawn(async move {
+                // Retry either mutation in a board-first transaction.
+                sqlx::query(
+                    "SELECT slug FROM content.boards WHERE slug=$1 ORDER BY slug FOR UPDATE",
+                )
+                .bind(&board)
+                .execute(&mut *writer)
+                .await?;
+                let changed = sqlx::query(statement)
+                    .bind(id)
+                    .execute(&mut *writer)
+                    .await?;
+                writer.commit().await?;
+                Ok::<_, sqlx::Error>(changed)
+            });
             tokio::time::timeout(Duration::from_secs(3), async {
                 loop {
                     assert!(
@@ -340,17 +539,17 @@ impl Fixture {
                 }
             })
             .await
-            .expect("The credential writer must reach the board lock without taking it explicitly");
-            let before: bool = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM post_secrets.deletion WHERE post_id=$1)",
+            .expect("The credential writer must actually wait for the held board lock");
+            let unchanged: (i64, String) = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id=$1",
             )
             .bind(id)
             .fetch_one(&mut *mutation)
             .await
             .unwrap();
-            assert!(
-                before,
-                "Authority must remain present while this mutation owns the board"
+            assert_eq!(
+                unchanged, authority_before,
+                "Authority must remain unchanged while this mutation owns the board"
             );
             mutation.commit().await.unwrap();
             assert_eq!(changing.await.unwrap().unwrap().rows_affected(), 1);
@@ -376,11 +575,19 @@ impl Fixture {
 
     async fn credential_reassignment_locks_both_boards(&self) {
         let next_board = format!("{}b", self.board);
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Credential reassignment','Owned fixture',200,100,100,100,10)")
+        sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Credential reassignment','Owned fixture',200,100,100,100,10)")
             .bind(&next_board).execute(&self.owner).await.unwrap();
         self.boards.lock().unwrap().push(next_board.clone());
+        posting_fixture::register_alias(&next_board, &self.board);
         let source = self.post(0, false).await;
-        let target = board_store::create_post(
+        posting_fixture::cleanup_actor_posting(
+            &self.owner,
+            &self.board,
+            &posting_fixture::key(&self.board),
+            posting_fixture::peer(),
+        )
+        .await;
+        let target = posting_fixture::create_post(
             &self.public,
             &next_board,
             0,
@@ -394,6 +601,13 @@ impl Fixture {
         )
         .await
         .unwrap();
+        posting_fixture::cleanup_actor_posting(
+            &self.owner,
+            &next_board,
+            &posting_fixture::key(&self.board),
+            posting_fixture::peer(),
+        )
+        .await;
         sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id=$1")
             .bind(target)
             .execute(&self.owner)
@@ -403,6 +617,19 @@ impl Fixture {
         // Hold the second board for both directions: it is first the target's
         // board and then the source's board. Either missing lock must fail.
         for (from, to) in [(source, target), (target, source)] {
+            let error = sqlx::query("UPDATE post_secrets.deletion SET post_id=$2 WHERE post_id=$1")
+                .bind(from)
+                .bind(to)
+                .execute(&self.public)
+                .await
+                .unwrap_err();
+            assert_eq!(
+                error
+                    .as_database_error()
+                    .and_then(|error| error.code())
+                    .as_deref(),
+                Some("42501")
+            );
             let mut mutation = self.public.begin().await.unwrap();
             let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
                 .fetch_one(&mut *mutation)
@@ -413,17 +640,55 @@ impl Fixture {
                 .execute(&mut *mutation)
                 .await
                 .unwrap();
-            let mut writer = self.owner.acquire().await.unwrap();
+            let authority_before: Vec<(i64, String)> = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id IN ($1,$2) ORDER BY post_id",
+            ).bind(source).bind(target).fetch_all(&mut *mutation).await.unwrap();
+            assert_eq!(authority_before, vec![(from, self.hash.clone())]);
+            let error = tokio::time::timeout(
+                Duration::from_secs(3),
+                sqlx::query("UPDATE post_secrets.deletion SET post_id=$2 WHERE post_id=$1")
+                    .bind(from)
+                    .bind(to)
+                    .execute(&self.owner),
+            )
+            .await
+            .expect("Out-of-order reassignment must fail without waiting")
+            .unwrap_err();
+            assert_eq!(
+                error
+                    .as_database_error()
+                    .and_then(|error| error.code())
+                    .as_deref(),
+                Some("55P03")
+            );
+            let unchanged: Vec<(i64, String)> = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id IN ($1,$2) ORDER BY post_id",
+            ).bind(source).bind(target).fetch_all(&mut *mutation).await.unwrap();
+            assert_eq!(unchanged, authority_before);
+
+            let mut writer = self.owner.begin().await.unwrap();
             let writer_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
                 .fetch_one(&mut *writer)
                 .await
                 .unwrap();
+            let boards = [self.board.clone(), next_board.clone()];
             let changing = tokio::spawn(async move {
-                sqlx::query("UPDATE post_secrets.deletion SET post_id=$2 WHERE post_id=$1")
-                    .bind(from)
-                    .bind(to)
-                    .execute(&mut *writer)
-                    .await
+                // Lock both OLD and NEW boards in canonical order before
+                // taking the secret tuple, in either reassignment direction.
+                sqlx::query(
+                    "SELECT slug FROM content.boards WHERE slug=ANY($1) ORDER BY slug FOR UPDATE",
+                )
+                .bind(&boards[..])
+                .execute(&mut *writer)
+                .await?;
+                let changed =
+                    sqlx::query("UPDATE post_secrets.deletion SET post_id=$2 WHERE post_id=$1")
+                        .bind(from)
+                        .bind(to)
+                        .execute(&mut *writer)
+                        .await?;
+                writer.commit().await?;
+                Ok::<_, sqlx::Error>(changed)
             });
             tokio::time::timeout(Duration::from_secs(3), async {
                 loop {
@@ -445,17 +710,24 @@ impl Fixture {
             })
             .await
             .expect("The credential reassignment must reach the held source or target board lock");
+            let unchanged: Vec<(i64, String)> = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id IN ($1,$2) ORDER BY post_id",
+            ).bind(source).bind(target).fetch_all(&mut *mutation).await.unwrap();
+            assert_eq!(
+                unchanged, authority_before,
+                "Queued board-first retry must leave both post ID and hash unchanged"
+            );
             mutation.commit().await.unwrap();
             assert_eq!(changing.await.unwrap().unwrap().rows_affected(), 1);
-            let saved: i64 = sqlx::query_scalar(
-                "SELECT post_id FROM post_secrets.deletion WHERE post_id IN ($1,$2)",
+            let saved: (i64, String) = sqlx::query_as(
+                "SELECT post_id,password_hash FROM post_secrets.deletion WHERE post_id IN ($1,$2)",
             )
             .bind(source)
             .bind(target)
             .fetch_one(&self.public)
             .await
             .unwrap();
-            assert_eq!(saved, to);
+            assert_eq!(saved, (to, self.hash.clone()));
             assert!(
                 board_store::find_post(&self.public, &self.board, source)
                     .await
@@ -485,7 +757,13 @@ async fn credential_reassignment_waits_for_source_and_target_board_mutations() {
     run(Scenario::Reassignment).await;
 }
 
+#[tokio::test]
+async fn source_eligibility_and_error_order_match_on_every_public_deletion_form() {
+    run(Scenario::Eligibility).await;
+}
+
 enum Scenario {
+    Eligibility,
     QueuedDeletion,
     CredentialMutation,
     Reassignment,
@@ -510,7 +788,7 @@ async fn run(scenario: Scenario) {
         .await
         .unwrap();
     let board = format!("da{seed:x}");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit) VALUES($1,'Deletion authorization','Owned fixtures',200,100,100,100,10,100)")
+    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES(0,0,0,$1,'Deletion authorization','Owned fixtures',200,100,100,100,10,100,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let jobs = Arc::new(Mutex::new(Vec::new()));
     let boards = Arc::new(Mutex::new(vec![board.clone()]));
@@ -533,6 +811,7 @@ async fn run(scenario: Scenario) {
     };
     let outcome = tokio::spawn(async move {
         match scenario {
+            Scenario::Eligibility => fixture.eligibility().await,
             Scenario::QueuedDeletion => fixture.exercise().await,
             Scenario::CredentialMutation => fixture.credential_changes_wait_for_mutations().await,
             Scenario::Reassignment => fixture.credential_reassignment_locks_both_boards().await,
@@ -569,4 +848,72 @@ async fn run(scenario: Scenario) {
     public.close().await;
     owner.close().await;
     outcome.unwrap();
+}
+
+// Fixture transport identities are isolated so unrelated authorization cases do
+// not consume each other's shared public deletion quota.
+fn fixture_peer() -> std::net::SocketAddr {
+    static NEXT: std::sync::OnceLock<std::sync::atomic::AtomicU64> = std::sync::OnceLock::new();
+    let nonce = NEXT
+        .get_or_init(|| {
+            std::sync::atomic::AtomicU64::new(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos() as u64,
+            )
+        })
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    std::net::SocketAddr::new(
+        std::net::IpAddr::V6(std::net::Ipv6Addr::new(
+            0x2001,
+            0xdb8,
+            1,
+            0,
+            (nonce >> 48) as u16,
+            (nonce >> 32) as u16,
+            (nonce >> 16) as u16,
+            nonce as u16,
+        )),
+        12345,
+    )
+}
+
+fn fixture_routers(
+    pool: sqlx::PgPool,
+    board: &str,
+    origin: String,
+    production: bool,
+    media: Option<board_config::PublicMediaSettings>,
+    limits: board_config::PublicRequestLimits,
+) -> (axum::Router, axum::Router) {
+    let (web, api) = board_public::routers_with_options(
+        pool,
+        board_public::PublicRouterOptions {
+            origin,
+            production,
+            media,
+            limits,
+            proxy_uid: None,
+            poster_id_key: Some(posting_fixture::key(board)),
+            tripcode_key: None,
+            country_database: None,
+        },
+    );
+
+    let transport = axum::middleware::from_fn(
+        move |mut request: axum::extract::Request, next: axum::middleware::Next| async move {
+            if request
+                .extensions()
+                .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+                .is_none()
+            {
+                request
+                    .extensions_mut()
+                    .insert(axum::extract::ConnectInfo(fixture_peer()));
+            }
+            next.run(request).await
+        },
+    );
+    (web.layer(transport.clone()), api.layer(transport))
 }

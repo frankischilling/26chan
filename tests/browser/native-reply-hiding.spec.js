@@ -1,3 +1,4 @@
+import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 
 const key = '4chan-hide-r-demo';
@@ -5,8 +6,8 @@ const lock = 'paperboard-reply-hiding-demo';
 const test = base.extend({
   owned: async ({ request }, use) => {
     const password = 'owned-reply-hiding-password';
-    const write = form => request.post('/demo/post', { headers: { Origin: 'http://127.0.0.1:3000' },
-      form: { ...form, password }, maxRedirects: 0 });
+    const write = form => withPostingHistory(() => request.post('/demo/post', { headers: { Origin: 'http://127.0.0.1:3000' },
+      form: { ...form, password }, maxRedirects: 0 }));
     const response = await write({ resto: '0', sub: 'Owned reply hiding', com: 'Owned visible OP' });
     expect(response.status()).toBe(303);
     const thread = response.headers().location.match(/thread\/(\d+)/)[1];
@@ -19,9 +20,11 @@ const test = base.extend({
       }
       await use({ thread, replies, url: `/demo/thread/${thread}` });
     } finally {
-      const removed = await request.post('/demo/delete', { headers: { Origin: 'http://127.0.0.1:3000' },
-        form: { no: thread, password }, maxRedirects: 0 });
-      expect(removed.status()).toBe(303);
+      await withDeletionQuota(async () => {
+        const removed = await request.post('/demo/delete', { headers: { Origin: 'http://127.0.0.1:3000' },
+          form: { no: thread, password }, maxRedirects: 0 });
+        expect(removed.status()).toBe(303);
+      });
     }
   },
 });

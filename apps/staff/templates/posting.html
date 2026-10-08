@@ -1,15 +1,45 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Staff posting</title></head><body><main>
 <h1>Staff posting</h1><p><a href="/reports">Report queue</a> | <a href="/">Sign in again</a></p>
+{% if receipt.is_none() %}<script src="/post-limits.js" defer></script>{% endif %}
 {% if let Some(id) = query.posted %}<p>Post {{ id }} created. <a href="{{ public_origin }}/{{ query.board }}/thread/{{ query.thread }}#p{{ id }}" rel="noopener noreferrer" referrerpolicy="no-referrer">Open public post</a></p>{% endif %}
-<p>Your operator-assigned staff badge appears on the post. Staff posts use moderation for removal.</p>
+<p>Posts with a badge use moderation for removal. Ordinary posts use their deletion password.</p>
 {% if recent %}
+{% if let Some(upload) = receipt %}
+<section aria-label="Upload status"><h2>Upload status</h2><p>{{ upload.message }}</p>
+<form method="post" action="/post/upload/status"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ query.board }}"><input type="hidden" name="thread" value="{{ query.thread }}"><input type="hidden" name="upload_id" value="{{ upload.upload_id }}"><input type="hidden" name="upload_capability" value="{{ upload.upload_capability }}"><button>Check status</button></form>
+<form method="post" action="/post/upload/cancel"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ query.board }}"><input type="hidden" name="thread" value="{{ query.thread }}"><input type="hidden" name="upload_id" value="{{ upload.upload_id }}"><input type="hidden" name="upload_capability" value="{{ upload.upload_capability }}"><button>Cancel upload</button></form>
+</section>
+{% else if upload_enabled %}
+<section aria-label="File upload"><h2>Upload a file</h2><p>Choose one file of at most 8 MiB. Check its status, then complete your post. This development upload receipt is a bearer capability and expires if unused.</p>
+<form method="post" action="/post/upload" enctype="multipart/form-data"><input type="hidden" name="csrf" value="{{ csrf }}">
+<p><label>Board <select name="board" required>{% for board in boards %}<option value="{{ board.0 }}"{% if board.0 == query.board %} selected{% endif %}>/{{ board.0 }}/: {{ board.1 }}</option>{% endfor %}</select></label></p>
+<p><label>Thread ID (0 starts a new thread) <input name="thread" type="number" min="0" value="{{ query.thread }}" required></label></p>
+<p><label>File <input type="file" name="upfile" required></label></p><button>Upload file</button></form></section>
+{% endif %}
+{% if self.can_submit() %}
 <form method="post" action="/post"><input type="hidden" name="csrf" value="{{ csrf }}">
-<p><label for="staff-board">Board</label> <select id="staff-board" name="board" required>{% for board in boards %}<option value="{{ board.0 }}"{% if board.0 == query.board %} selected{% endif %}>/{{ board.0 }}/: {{ board.1 }}</option>{% endfor %}</select></p>
+{% if let Some(upload) = receipt %}
+<input type="hidden" name="upload_id" value="{{ upload.upload_id }}"><input type="hidden" name="upload_capability" value="{{ upload.upload_capability }}">
+<input type="hidden" name="board" value="{{ query.board }}"><input type="hidden" name="thread" value="{{ query.thread }}">
+<p>Board: /{{ query.board }}/. Thread: {{ query.thread }}.</p>
+<p><label><input type="checkbox" name="spoiler" value="true">Spoiler image</label></p>
+{% else %}
+<p><label for="staff-board">Board</label> <select id="staff-board" name="board" required>{% for board in boards %}<option value="{{ board.0 }}" data-comment-limit="{{ board.2 }}" data-flag-type="{{ board.3 }}" data-flags="{{ board.4 }}"{% if board.0 == query.board %} selected{% endif %}>/{{ board.0 }}/: {{ board.1 }}</option>{% endfor %}</select></p>
 <p><label for="staff-thread">Thread ID (0 starts a new thread)</label> <input id="staff-thread" name="thread" type="number" min="0" value="{{ query.thread }}" required></p>
-<p><label for="staff-name">Name</label> <input id="staff-name" name="name" maxlength="100" placeholder="Anonymous" autocomplete="off"></p>
-<p><label for="staff-subject">Subject</label> <input id="staff-subject" name="subject" maxlength="100"></p>
-<p><label for="staff-comment">Comment</label><br><textarea id="staff-comment" name="comment" rows="8" cols="60" maxlength="16000"></textarea></p>
+{% endif %}
+<p><label for="staff-badge">Staff badge</label> <select id="staff-badge" name="badge" required>{% if ordinary_ready %}<option value="none"{% if selected_badge == "none" %} selected{% endif %}>None</option>{% endif %}{% for badge in badges %}<option value="{{ badge.0 }}"{% if badge.0 == selected_badge %} selected{% endif %}>{{ badge.1 }}</option>{% endfor %}</select></p>
+{% if ordinary_ready %}<fieldset><legend>Ordinary post</legend>
+<p><label for="staff-options">Options</label> <input id="staff-options" name="options" maxlength="100"></p>
+<p><label for="staff-flag">Flag</label> <select id="staff-flag" name="flag"><option value="">None</option>{% for flag in flags %}<option value="{{ flag.0 }}">{{ flag.1 }}</option>{% endfor %}</select></p>
+<template id="staff-flag-choices">{% for flag in flag_catalog %}<option value="{{ flag.1 }}" data-flag-type="{{ flag.0 }}">{{ flag.2 }}</option>{% endfor %}</template>
+<p><label for="staff-password">Deletion password</label> <input id="staff-password" name="password" type="password" minlength="8" maxlength="128" autocomplete="off"></p>
+<p>Choose None above to use these fields. The password must contain 8 to 128 bytes. Flags must be enabled on the selected board.</p>
+</fieldset>{% endif %}
+<p><label for="staff-name">Name</label> <input id="staff-name" name="name" maxlength="255" placeholder="Anonymous" autocomplete="off"></p>
+<p><label for="staff-subject">Subject</label> <input id="staff-subject" name="subject" maxlength="255"></p>
+<p><label for="staff-comment">Comment</label><br><textarea id="staff-comment" name="comment" rows="8" cols="60" maxlength="{{ comment_max_units }}"></textarea></p>
 <p><label><input type="checkbox" name="sage" value="true">Sage</label>{% if admin %} <label><input type="checkbox" name="highlight" value="true">Highlight administrator post</label>{% endif %}</p>
-<button>Post with staff badge</button></form>
+<button>Post</button></form>
+{% endif %}
 {% else %}<p>Sign in again before posting. Authentication must be less than ten minutes old.</p>{% endif %}
 </main></body></html>

@@ -2,11 +2,109 @@
 
 ## Active reference boundary
 
+The target is the supplied `4chan-old` checkout at revision
+`545b7812d1849f7958d914950c91fdbbe38f6b22`, as requested on October 1, 2026.
+Completion requires every board and feature in that snapshot, including
+desktop/mobile presentation and optional features. The
+[source-parity tracker](https://github.com/frankischilling/26chan/issues/191)
+lists the remaining work. Public release references below provide additional
+evidence; matching a newer public component alone does not establish snapshot parity.
+
+[Public poll browsing](public-polls.md) follows the supplied catalogue, options
+and results templates with bounded operator-published data. The missing voting
+controller and policy are not reconstructed from those templates; voting remains
+unavailable. This read-side foundation does not complete the polls workflow.
+
+[Board definitions](original-board-inventory.md) install the 80 listed boards
+and both additional configurations. Their existing supported policy fields,
+order and route availability are checked against the pinned fixture. `/j/`
+content is protected by database row policies. Specialized board workflows and
+the rest of the configuration model remain tracked separately.
+
+[Server links](server-comment-links.md) distinguish internal normalization and
+static board/catalog/rules links from optional browser URL linking. New saved
+formatter profiles preserve that distinction across HTML, JSON, staff previews,
+catalogs and native projections. Historical profiles retain their behavior.
+Synthetic fixtures run through the original PHP functions pin normalization,
+static links and catalog teaser serialization. Complete page comparisons and
+the remaining original formatting and media workflows are still required.
+
+[Public posting spoilers](public-post-spoilers.md) follows the imported board
+policy for ordinary posts, including forged scalar choices and posts without
+attachments. Upload forms and native Quick Reply use that policy. JSON retains
+saved spoiler state after file deletion. Original PHP cases, persisted handler
+comparisons and SQL policy/authority checks cover this continuation; custom
+spoiler assets and specialized media remain unfinished.
+
+[Staff image spoilers](staff-image-spoilers.md) implements scoped state changes
+under the original board policy, including unchanged requests, text targets
+and retained archives. An independent source endpoint fixture checks the
+transition, audit and rebuild rules. The report queue, public rendering and
+conditional JSON use the persisted state; the full staff extension, action
+log interface and remaining management actions are still unfinished.
+
+[Staff thread options](staff-thread-options.md) restores source Manager/global
+developer perma-age authority and moderator-or-higher Undead controls. Valid
+submissions advance modification time without bumping and audit only changes.
+Independent source cases cover permissions, assignments and audit masks;
+whole Thread Options presentation, grouped submissions and sticky ordering
+remain unfinished.
+
+[Global Search](public-search.md) now searches persisted public threads with
+source query parameters, grouped results, ordering and pagination. Public board
+visibility is enforced by the database. [RSS feeds](rss-feeds.md) use the source
+feed switches, item order and summary rules. [Staff access](staff.md) includes
+the source rank ordering, board allow/deny scope and
+[private discussion](private-staff-discussion.md); remaining staff actions are
+tracked separately. [Dice and fortunes](source-posting-randomizers.md) retain
+board-enabled results across public projections, with bounded numeric parsing
+and server-generated randomness. Each linked document records its scope and
+verification limits.
+
+[Robot9000](source-robot9000.md) now applies the active public text-originality
+and progressive mute rules with private state, atomic posting and capcoded
+staff bypass. Anonymous staff bypass and administrative cleanup remain part
+of the remaining staff workflow. The implementation retains active source
+normalization and expiry behavior with bounded storage and private actor keys.
+
+[Built-in wordfilters](source-wordfilters.md) apply the source board-file
+selection and ordered comment transformations during posting. Names and
+subjects retain their source field scope. Saved typed results retain Test
+random choices across pages, JSON, search, catalog, RSS and staff reads.
+Independent fixtures cover caller cleanup, fixed Unicode classes and all
+36 Test choice pairs. [Verification](verification-wordfilters.md) records the
+checks and resource bounds. [Configured content rules](content-admission.md)
+now apply bounded literal/regexp decisions and private transactional effects
+to public posting before final blank-content admission, while raw/line and
+required-subject checks remain earlier. Complete caller ordering and staff exceptions, private-list
+interfaces and classifiers remain open in #212.
+
+[Report eligibility and popup completion](source-report-popup.md) now share the
+source board, sticky-OP and capcode gates across form display and submission.
+The same-origin popup receiver binds completion to its opened window and target,
+with settings-aware hiding and a no-JavaScript fallback. Free-text reporting
+remains the default until an imported category catalog is explicitly activated.
+The opt-in path adds category selection and legacy POST dispatch; effective
+weights, CAPTCHA, Pass and illegal-report moderation authority remain incomplete. [Report admission](source-report-admission.md)
+matches IP or registered automatic-session identity for duplicate protection
+and strict rolling cooldown/hour/day checks. Its
+private membership survives anonymous-session cleanup and retires on proven
+deletion paths without erasing retained report or audit rows. Source password
+matching and historical counter replay remain gaps.
+[Forward group lifetimes](report-group-lifetimes.md) preserve partial-purge
+counters and apply archive retirement only to complete tracked groups.
+The [category selector and private catalog importer](source-report-categories.md)
+preserve source scope rules and immutable configured labels. Import alone never
+activates a catalog; operator activation is separate, and original production
+category definitions are still required.
+
+## Earlier public-reference checkpoints
+
 The [public page navigation, titles and footer](public-page-chrome.md) use
 sanitized public DOM observations and unchanged Core/extension replays on owned
 markup. The local board directory, mobile destinations, mode preference and
 shared Settings links are implemented. Six-theme component properties and hover
-colors have independent reference records. Global Search, information-page
+colors have independent reference records. Information-page
 destinations, banner images, complete menu styling and original-page placement
 remain unfinished.
 
@@ -41,20 +139,17 @@ adds filename tips, generic spoiler/deleted-file states, 40 filename/size vector
 20 released state cases and 216 style comparisons. Complete original-page
 comparisons remain outside this checked scope.
 
-The September 15, 2026 continuation uses the original brief's permitted-public-
-reference requirement. The supplied old checkout's remote identifies it as
-leaked source. The historical audit below is retained as a record of earlier
-work, but **source-only entries are not accepted compatibility evidence** for
-this continuation. Existing behavior remains project-defined unless a permitted
-public document or released asset independently establishes it. Historical tests
-still describe the local implementation; they do not certify original behavior.
+The September 15 continuation used public releases as its reference boundary.
+The October 1 source-parity requirement above governs current completion.
+Historical verification records describe their own scope and test environment.
 
 The [browser URL linker](source-linkification.md) has been independently checked
 against public extension v1191. Its optional settings and DOM lifecycle preserve
 the current server formatter. Official API examples contain external anchors,
-so the client reference alone cannot justify removing server-generated links or
-changing stored profiles. Remaining server normalization and static-link rules
-stay open in #165 and #6.
+so that client reference alone does not specify the server policy. The
+[current server formatter](server-comment-links.md) uses the supplied source
+functions and preserves historical profiles. Full reference qualification
+remains tracked in #6 and #191.
 
 The [native quote-preview slice](native-quote-previews.md) independently uses
 the same permitted public release for default-on hover, local highlighting,
@@ -119,7 +214,7 @@ client filename/size vectors and desktop/mobile file-style comparisons. The
 Rust header, mobile caption, tooltip, filters, menus and native projections share
 the approved-media boundary. Generic spoiler/deleted-file presentation now has
 20 formatter cases and 192 style comparisons, including both deleted-icon
-densities. Original downloads, board-specific custom spoilers, animated media
+densities. Original downloads, remaining custom spoiler artwork, animated media
 and complete original-page matching remain separate requirements.
 
 [Post-number navigation](post-number-navigation.md) follows the released
@@ -135,8 +230,13 @@ server-side name serialization remain unqualified.
 
 [Posting identities](post-identities.md) add the official FAQ's normal tripcode
 example and double-hash syntax, a conditional API trip field and escaped native
-headers. Secure hashing uses a deployment-owned HMAC key, with the replacement
-and unqualified original parser cases recorded explicitly. Production hosting
+headers. [Public-name preparation](verification-public-names.md) matches the
+supplied ordinary name cleanup, CP932 conversion, delimiter selection, escaped
+length bounds and trip-only JSON omission. [Trip suppression](verification-trip-suppression.md)
+imports the `/b/` and `/s4s/` overrides for ordinary new posts while preserving
+historical identities. Secure hashing uses a deployment-owned
+HMAC key; its UTF-8 secret policy is a backend security replacement. Staff name
+preparation and privileged exceptions remain unfinished. Production hosting
 is separate from the local rewrite completion criterion clarified on September
 29; remaining local behavior and appearance still require parity evidence.
 
@@ -167,18 +267,18 @@ The source audit covers every compatibility and exception ID below. Its old conf
 | I-005 | `/{board}/catalog.json`; documented `Catalog.md`; **source**: [original rules](#read-only-api) | Implemented OP + latest five replies, modification time | One response snapshot; concurrent-commit regression; M-007 normalized attachment metadata |
 | I-006 | `/{board}/archive.json`; documented `Archive.md`; **source**: [original rules](#archives-and-retention) | Implemented for enabled boards, with automatic rollover, read-only archived threads and expiry | Optional per-board retention/count policy; actual JSON/HTML/cache/CORS and lifecycle tests in [archive verification](verification-thread-archives.md) |
 | I-007 | Conditional JSON responses; documented API guidance; **source**: [original rules](#http-and-deployment) | ETag implemented everywhere; Last-Modified/If-Modified-Since on individual threads | Cache unit/integration tests; board and thread responses use one snapshot; board-only bump-limit changes invalidate thread body ETags; deletion invalidates list/catalog/index validators; same-second date requests conservatively revalidate |
-| I-008 | Public HTML routes and DOM IDs; project plus pinned navigation/menu/filter observations; **source**: [original rules](#layout-and-themes) | Board index, zero-based numbered HTML pages, thread/post navigation, catalog, `t/pc/p/pi/m` IDs and native filter controls | Board/catalog/thread snapshot regressions plus browser behavior and visual tests; [thread navigation reference](public-watcher-navigation-reference.json) covers Return/Catalog, top/bottom anchors, mobile refresh and watcher placement. [Post-menu watching](thread-watcher.md#board-and-thread-post-menu-watching) has persisted browser and six-theme desktop/mobile coverage. [Native filter editing and page effects](thread-watcher.md#native-filter-editor-and-page-effects) have owned persistence, conflict, cancellation, hostile-input and six-theme usability tests. Other native post-menu actions and full page placement remain unfinished; no claim these cover every client selector or establish full visual parity |
+| I-008 | Public HTML routes and DOM IDs; project plus pinned navigation/menu/filter observations; **source**: [original rules](#layout-and-themes) | Board index, zero-based numbered HTML pages, thread/post navigation, [bounded semantic thread aliases](semantic-thread-routes.md), catalog, `t/pc/p/pi/m` IDs and native filter controls | Board/catalog/thread snapshot regressions plus browser behavior and visual tests; [thread navigation reference](public-watcher-navigation-reference.json) covers Return/Catalog, top/bottom anchors, mobile refresh and watcher placement. [Post-menu watching](thread-watcher.md#board-and-thread-post-menu-watching) has persisted browser and six-theme desktop/mobile coverage. [Native filter editing and page effects](thread-watcher.md#native-filter-editor-and-page-effects) have owned persistence, conflict, cancellation, hostile-input and six-theme usability tests. Other native post-menu actions and full page placement remain unfinished; no claim these cover every client selector or establish full visual parity |
 | I-009 | Legacy-looking posting endpoint; project; **source**: [original rules](#posting-and-text) | Rust `/{board}/imgboard.php` and `/post` support multipart/URL-encoded text posting and exact Accept JSON responses | [Multipart fields and native submission](posting-multipart.md) implement `regist`/`post`, `pwd` and empty file parts through real transactions; [JSON response contract](posting-json.md) covers committed OP/reply IDs and error envelopes. Original single-request file handling, identity/captcha and complete Quick Reply flow remain E-010/E-011 work |
 | I-010 | CORS, redirects, status/header details; API README plus project decisions; **source**: [original rules](#http-and-deployment) | Optional JSON-only listener with board-origin CORS, GET/HEAD/OPTIONS and conditional headers; public routes retain 303 posting, 308 board slash and same-origin writes | `api_cors`, startup and real cross-origin Chromium tests; no credentialed CORS. Header exposure/error details and deployment-domain mapping are project-defined; see [API contract](api.md) |
-| B-010 | Tripcode syntax and normal example; official FAQ and pinned API thread/catalog schema | Normal and secure local pseudonyms, escaped headers and optional JSON trip fields implemented | [Posting identities](post-identities.md): independent hash vectors, bounded Unicode properties, transaction reuse/rollback, forced anonymity, real form/API/preview/browser and attachment tests. Secure hash is E-012; original Unicode/parser details remain unqualified |
+| B-010 | Tripcode syntax and normal example; official FAQ, pinned API and supplied name block | Ordinary public name preparation, CP932 normal trips, secure local pseudonyms, source board trip suppression, escaped headers and optional JSON identity fields implemented | [Posting identities](post-identities.md), [source-name checks](verification-public-names.md) and [suppression checks](verification-trip-suppression.md): independent source/conversion/hash vectors, bounded Unicode properties, transaction reuse/rollback, locked board policy, forced anonymity, real form/API/preview/browser and attachment tests. Secure hash is E-012 and suppressed secret exclusion is E-018; [source badged staff identities](verification-staff-identity.md) and [ordinary staff text identities](staff-posting-authority.md) are implemented. Ordinary staff attachments, anonymous activity integration, Pass/VIP behavior and other privileged exceptions remain unfinished |
 | B-012 | Optional poster IDs; pinned API `user_ids`/`id` fields, public extension v1191 IDColor/counts and core v1128 click controls | Thread-scoped saved labels, HTML/JSON/preview rendering, ID filters, default-on colors, click/keyboard highlights and loaded-post tooltips implemented | [Poster IDs](poster-ids.md), [native controls](native-poster-id-controls.md) and [private thread counts](private-poster-counts.md); independent hash vectors, persisted key/peer/scope and privilege tests, migration retention and browser lifecycle checks. Hash replacement is E-014; country flags are B-013 and [staff text badges](staff-capcodes.md) now have a persisted, scoped posting flow; staff attachments and full original-page qualification remain unfinished |
-| B-013 | Conditional country/board fields in pinned API documentation; released extension v1191 spans and observed public flag select | Saved per-post geography from an offline operator database or an allowed board choice; ordinary/multipart/Quick Reply posting, HTML and bounded native projections | [References, policy and tests](post-flags.md). IPv4/IPv6/mapped/unknown producer vectors, actual-role policy and mutation denials, attachment paths, script-free and native Chromium flows. Original private geolocation and capture rules are unknown; E-015 records the replacement and omission policy. Full rendered-page/mobile parity remains unfinished |
+| B-013 | Conditional country/board fields in pinned API documentation; released extension v1191 spans and observed public flag select | Saved per-post geography from an offline operator database or an allowed board choice; ordinary/multipart/Quick Reply posting, HTML and bounded native projections | [References, policy and tests](post-flags.md); [all 165 source choices and sprite rules](source-board-flags.md). IPv4/IPv6/mapped/unknown producer vectors, actual-role policy and mutation denials, attachment paths, script-free and native Chromium flows. Original private geolocation and capture rules are unknown; E-015 records the replacement and omission policy. Full rendered-page/mobile parity remains unfinished |
 | B-014 | Six `capcode` values in the pinned public API; public extension v1191 badge and highlight rendering | Staff text posting, persisted fields, fixed local icons, bounded native copies and group selection implemented; qualified in merged #185; desktop header continuation tracked separately | [Staff badges](staff-capcodes.md) and [verification](verification-staff-posting.md) cover actual role, HTTP, concurrency, asset and browser checks. The separate authentication proof and local namespace are E-016. Staff attachments, private original assignment and full-page/mobile visual comparisons remain unfinished |
 | B-015 | Public extension v1191 separates post permalinks and quote controls | Separate links in paired mobile/desktop headers, bound updater/preview recipes, live Quick Reply delegation and script-free quoted posting implemented | [Navigation](post-number-navigation.md), [72 desktop header facts](public-post-header-reference.json), [288 mobile property cases and label vectors](source-mobile-headers.md), and [desktop verification](verification-post-number-navigation.md). The form fallback is E-017; complete original-page matching remains unfinished |
 | B-001 | Persistent thread creation/replies; project; **source**: [original rules](#posting-and-text) | Implemented | Real PostgreSQL and browser tests; no copied posting internals |
 | B-002 | `sage`, current-count bumping and source cutoff; **source**: [original rules](#counts-bumping-and-admission) | Count/sticky/permaage/permasage, age and OP self-bump rules implemented, serialized per board | [Count rules](source-bump-rules.md), [flag controls](thread-bump-flags.md), [age cutoff](source-bump-age.md), [private OP matching](source-op-bumps.md) and [posting clocks](source-posting-times.md). Sticky/permasage override permaage, which overrides age and self-sage. Flags and age CI passed; OP and posting-clock changes await complete current-head CI. Source admission, other cooldowns and deletion/moderation timestamp details remain unfinished |
 | B-003 | Board settings and thread limits; project; **source**: [original rules](#counts-bumping-and-admission) | Unicode scalar comment limits, independent UTF-8 byte ceiling, [100-byte public name/subject limits](public-field-limits.md), active-thread cap, reply/bump limits | Domain/store/HTTP/browser tests; full boards displace oldest nonsticky threads; optional archives retain read-only threads, otherwise soft deletion; migration 0021 preserves historical fields and deletion |
-| B-004 | Deletion; project; **source**: [original rules](#deletion) | Argon2 password; OP deletion hides whole thread | Wrong credential/origin, absent store, persisted deletion tests; no staff identity involved |
+| B-004 | Deletion; project; **source**: [original rules](#deletion) | Automatic anonymous-cookie ownership with private hash-bound memberships; historical explicit-password recovery remains; OP deletion hides the whole thread | [Anonymous sessions](anonymous-sessions.md), forged-cookie/receipt and concurrent revocation checks. [Source eligibility gates](source-public-deletion.md) now cover age, board, archive and protected-post rules; [legacy batches](legacy-actions.md#multiple-selections) preserve request order; [mobile menu deletion](native-post-deletion.md) has in-place controls with hosted qualification pending; flood/erasure policy remains #214 |
 | B-009 | Required OP subjects; **source**: `imgboard.php:5400-5412` and active `/qst/`, `/vg/` settings | Implemented locked operator policy; current-head database/browser qualification pending | [Rule and migration evidence](source-required-subject.md): cleaned-byte emptiness, raw limits, rejection order, reply exemption, unchanged history and no receipt consumption; other text/image admission remains unfinished |
 | B-008 | Post-submit destination and `nonoko`/`nonokosage`; documented FAQ; **source**: [original rules](#posting-and-text) | Source raw-text parsing implemented for new threads and replies through both posting aliases | [Options rules and qualification](verification-posting-options.md): case-insensitive sage removal, exact remaining nonoko, 100-byte bounds, free-text controls and public capcode denial. Expanded persisted coverage awaits current-head CI; existing HTML 303 remains project behavior |
 | B-005 | Greentext, same-board/cross-board quotes and spoilers; documented FAQ syntax with project grammar; HTTP(S) links; **source**: [original rules](#formatting-and-quotes) | Nonrecursive typed nodes; cross-board slice merged in #55 after reviewed-head Linux/Windows and monitoring checks | [Cross-board quoting](cross-board-quotes.md); bounded properties, escaped public/JSON/staff rendering and actual no-JavaScript navigation/deletion test. Original server parser rules are source-known; matching those rules and the complete inline extension remains unverified |
@@ -194,7 +294,7 @@ The source audit covers every compatibility and exception ID below. Its old conf
 | V-001 | Desktop/mobile board, thread/form spacing and typography; partial observed theme and post-style evidence; **source**: [original rules](#layout-and-themes) | Referenced desktop post padding, comment spacing, thumbnail floats, reply arrows/borders and OP file order merged in #59 after complete checks; posting-field scope is V-004 | [Post-layout verification](public-post-layout.md), six computed-style browser cases and reviewed board/thread/theme captures; 1280x900 and 390x844, scale 1, locale en-US. Original templates and desktop/mobile CSS are source-known; full rendered-page geometry and client behavior remain unverified |
 | V-002 | Media thumbnails/spoilers, archives, loading/error/empty snapshots; source-known templates/CSS; original rendered-state comparison missing; **source**: [original rules](#layout-and-themes) | Partial project regression coverage: six archive, eight attachment and ten public empty/error baselines; empty/error slice merged in #57 after complete exact-head checks | [Media visual verification](verification-media-visuals.md) and [public-state verification](verification-public-states.md); JS-disabled desktop/mobile layouts, correct empty-catalog navigation and actual 404/503 error rendering. Post-layout capture changes are tracked in #58. Comprehensive original reference screenshots and loading states remain unavailable |
 | V-003 | Six named themes, base fonts/palettes, work-safe defaults and grouped persistence; observed public CSS/client metadata; **source**: [original rules](#layout-and-themes) | Merged in #53 after reviewed-head Linux/Windows, advisory and monitoring checks; 12 inspected theme baselines | [Theme reference and tests](public-themes.md); finite independent host-only cookies, no-JavaScript forms, private CSS, fixed local gradients and actual-browser CSP positive/negative control. Original selectors/style grouping are source-known; full matching and rendered-page comparison remain unverified; E-009 |
-| V-004 | Desktop posting-field geometry; observed public CSS/DOM with explicit local control differences; **source**: [original rules](#posting-and-text) | Shared normal/approved-image fields implement measured table spacing, widths, label styling and textarea geometry; merged in #61 after complete exact-head checks | [Form verification](public-posting-form.md); six style/mobile-editability cases, actual public/approved-image posting, and reviewed desktop/mobile captures. Script-free expanded form, password/options policy and mobile sizing remain local behavior; E-011 |
+| V-004 | Desktop posting-field geometry; observed public CSS/DOM with explicit local control differences; **source**: [original rules](#posting-and-text) | Shared normal/approved-image fields implement measured table spacing, widths, label styling and textarea geometry. The source's hidden password field now uses automatic anonymous ownership | [Form verification](public-posting-form.md) and [anonymous-session checks](verification-anonymous-sessions.md). Desktop toggle and noscript reveal are implemented. CAPTCHA, single-request file handling, complete page geometry and mobile sizing remain unfinished; E-011 |
 | V-005 | Default extended-small catalog cards; observed public v705 CSS and v1025 client structure; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Compact cards, bounded thumbnails opening threads, escaped subject/teaser and visible reply/image-reply counts; merged in #63 after complete exact-head checks | [Catalog verification](public-catalog-cards.md); six desktop/mobile style/navigation cases, real deletion and coherent snapshot counts, five reviewed captures. Controls are V-006 and fallback graphics are V-007; later menus/search fields are V-009. [Source teaser projection](source-catalog-teasers.md) implements breaks, spoilers, SJIS and the b truncation branch on the saved formatter; new qualification awaits CI. Link spelling, ambient encoding and complete text-only layout remain open |
 | V-006 | Catalog sort, size, teaser and quick-filter options; observed public controls/client and CSS; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Four sorts use visible snapshot state; small/large and teaser on/off modes plus search/reset work without JavaScript. Initial controls merged in #65; subsequent search behavior is V-009 | [Control verification](catalog-controls.md); actual-role deletion/sorting tests, concurrent-commit queries, persisted sage browser workflow, all-mode six-theme properties and six additional captures. GET submission/URL persistence and toolbar wrapping are explicit local behavior |
 | V-007 | Catalog no-file, deleted-file, generic spoiler and sticky/closed icons; observed public v1025 client and v705 CSS with pinned public images; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Seven fixed image routes and measured state geometry implemented; merged in #67 after all exact-head checks passed | [Asset verification](catalog-state-assets.md); GET/HEAD hashes, MIME/cache/CSP and denied writes, six-theme desktop/mobile geometry at scale 1/2, real browser positive/negative CSP controls, hidden-media non-fetching and nine reviewed captures. Board-specific spoilers, reveal preferences and full-page parity remain incomplete |
@@ -205,7 +305,7 @@ Later compatibility checkpoints:
 | ID | Scope and evidence | Status | Tests / exception |
 |---|---|---|---|
 | V-009 | Browser-local catalog display, search/session and pin/hide behavior; observed pinned public v1025 client; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Display persistence, in-place controls, bounded search operators/case handling, live/session search, thread menus and pin/hide state, and shared serialized search fields merged through #83 after exact-head checks | [Preferences](catalog-preferences.md), [in-place controls](catalog-inplace.md), [operators](catalog-search.md), [live search](catalog-live-search.md), [pin/hide #81](https://github.com/frankischilling/26chan/pull/81), and [search fields](catalog-search-fields.md). [Source teaser preparation](source-catalog-teasers.md) is shared by display and GET/live search, pending CI. Link/filename spelling, link-dependent b cutoffs, ambient encoding and full text-only layout remain open in #82; watchlist work is tracked in V-011; complete native options remain unfinished |
-| V-010 | Catalog spoiler-reveal preference; observed pinned public v1025 client; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Merged in #87 on September 13, 2026 | [Spoiler behavior and tests](catalog-spoilers.md); finite optional persistence, explicit no-JavaScript GET, visible-card-only client source changes and deletion precedence. Toolbar/URL extension and full-image fallback are documented differences; custom board spoiler selection is source-known; matching board-specific assets remains unfinished |
+| V-010 | Catalog spoiler-reveal preference; observed pinned public v1025 client; **source**: [original rules](#catalog-teasers-search-and-spoilers) | Merged in #87 on September 13, 2026 | [Spoiler behavior and tests](catalog-spoilers.md); finite optional persistence, explicit no-JavaScript GET, visible-card-only client source changes and deletion precedence. Toolbar/URL extension and full-image fallback are documented differences; [Source custom-spoiler metadata](custom-spoiler-metadata.md) restores board counts and OP projections; [source thumbnail policies and native caching](custom-spoiler-rendering.md) cover server choices, catalog suffixes and 43 collected UI images. Two spoiler images and test flag artwork remain unavailable; [the source flag inventory](source-board-flags.md) records all 165 definitions and available rendering |
 | M-008 | Attachment-only OP/reply and conditional comment representation; documented API field plus local posting policy; **source**: [original rules](#posting-and-text) | Merged in #85 after all six exact-head checks; ordinary text-only posts still require a comment | [Attachment-only contract](attachment-only-posts.md); atomic authorization, deferred empty-row guard, direct public-role rejection, 0018 upgrade, real HTTP/no-JavaScript and native PNG/JPEG flows. [New comment spacing](source-comment-spacing.md) permits whitespace-only image comments after cleanup and authorization, pending current-head qualification. Original image-only replies are permitted, but an ordinary OP still needs subject or comment; empty-OP admission remains a local difference. No production enablement |
 
 Text-only catalog tables and their GET/live search, sorting, pin/hide controls
@@ -249,21 +349,22 @@ Their existing defaults and bounded operator overrides are documented in
 
 | ID | Reference/old behavior | Replacement and reason | User impact and test |
 |---|---|---|---|
-| E-011 | Original template uses a desktop toggle-hidden post table, a noscript reveal, conditional external captcha, inline file/spoiler/text-only controls and OP/reply hidden fields; source-known; [source detail](#posting-and-text) | Expanded server-rendered fields retain the script-free CSP, explicit required deletion password and separate isolated-upload workflow | Core posting needs no script or external widget; labels and focus outlines remain available, and narrow screens use 16px fields. Actual posting/validation/browser checks cover this local flow. No equivalent captcha is implemented or claimed; production abuse protection and complete form behavior remain unresolved. |
+| E-011 | Original template uses a desktop toggle-hidden post table, a noscript reveal, conditional external captcha, inline file/spoiler/text-only controls and OP/reply hidden fields; source-known; [source detail](#posting-and-text) | Server-rendered forms retain script-free CSP and the separate isolated-upload workflow. The source hidden `pwd` now uses automatic anonymous ownership | Core posting requires no typed password or account. [Anonymous sessions](anonymous-sessions.md) records the cookie replacement and checks. Equivalent CAPTCHA, single-request file handling and complete form behavior remain unresolved |
 | E-009 | Original client selects ws_style/nws_style cookies and JavaScript stylesheets; category defaults and catalog selection are source-known; [source detail](#layout-and-themes) | Finite host-only HttpOnly preference cookies, same-origin server forms, private CSS and fixed local UI image paths: two gradients and the seven catalog assets in V-007 | Preserves the public script-free CSP and staff/media cookie separation. Style selection takes an extra page/apply action. HTTP and JavaScript-disabled browser tests verify independent groups, cookie flags, bounded inputs, origin checks, safe redirects and persistence; original control layout is not claimed. |
 | E-012 | Official FAQ documents normal and secure trip syntax; secure output depends on the original server secret | Safe bounded DES compatibility pseudonyms and deployment-owned HMAC-SHA256 secure trips | [Key policy and checks](post-identities.md). Original secure identities are not portable. New password suffixes are absent from saved public data and responses. Missing keys deny secure posting; malformed keys fail startup. Trips grant no deletion or staff authority. Historical names remain unchanged |
 | E-015 | Public API specifies geographic and board labels; released client prefers board flags, while private capture and provider behavior are unspecified | Operator-maintained offline MMDB lookups from verified peers; a board choice stores only that flag and omits the geographic pair | Avoids retaining geography behind another displayed choice and denies browser country hints. Original-provider accuracy is not claimed. [Operation and tests](post-flags.md) cover omission, both address families, ordinary/attachment/native posting and bounded rendering |
-| E-016 | Released client displays staff labels/icons and suppresses ordinary identity headers; permitted references do not specify private posting authentication | Separate WebAuthn staff origin and database roles, exact single-use posting authorization, no private trip suffix or network identity, and badge titles naming this board's staff | Staff use a separate text form and moderation for removal. Public input cannot obtain a badge; identity keys stay outside staff. [Operation and actual tests](staff-capcodes.md) describe proof expiry, row-lock rechecks, grants and the public namespace |
+| E-016 | Released client displays staff labels/icons and suppresses ordinary identity headers; permitted references do not specify private posting authentication | Separate WebAuthn staff origin and database roles, exact single-use posting authorization, prepared trip hashes, and badge titles naming this board's staff | Staff use a separate text form. Ordinary posts require a chosen deletion password of 8 to 128 bytes and support public password deletion; badge posts use moderation for removal. Public input cannot obtain a badge. Source rank/global flags control badge and name choices. Ordinary identity proofs bind the canonical peer and derived deletion hash inside the private schema; runtime roles receive scoped functions, not bulk peer or hash access. Staff keys stay excluded from unrelated runtimes and media jobs. [Badge operation](staff-capcodes.md) and [ordinary posting](staff-posting-authority.md) describe expiry, row-lock rechecks, grants and the public namespace |
 | E-017 | Released post digits use a JavaScript URL on the current thread and a #q fragment elsewhere | A bounded same-origin GET prefills the ordinary reply form; only a visible post in that thread is accepted | Fixed-script policy, finite titles/links and script-free posting are preserved. [Navigation and tests](post-number-navigation.md) distinguish this fallback from original-server behavior |
 | E-014 | Public API exposes eight-character poster labels; original server hashing and secret are unspecified by permitted references | HMAC-SHA256 over a versioned board/thread/canonical-peer context, with a separate private deployment key and eight base64 characters | Limits offline address guessing and cross-thread label reuse. Original IDs are not portable; rotation changes new labels. [Tests and policy](poster-ids.md) cover canonical peers, scope, unavailable identity and constrained persistence. This grants no account or staff authority |
-| E-013 | Released client restores `4chan_name` and `options` with JavaScript cookies | Host-only, bounded display preferences; private trip suffixes and capcode authentication attempts are excluded | [Posting preferences](post-preferences.md). Users enter trip passwords again after navigation. No deletion or staff credential is retained. Actual browser rejection leaves posting usable and cannot defer rejected preferences |
+| E-013 | Released client restores `4chan_name` and `options` with JavaScript cookies; supplied server writers use seven days | Host-only, bounded seven-day display preferences; private trip suffixes and capcode authentication attempts are excluded | [Posting preferences](post-preferences.md). Users enter trip passwords again after navigation. These display cookies retain no deletion or staff credential. Anonymous authority uses a separate HttpOnly cookie. Browser rejection leaves posting usable and cannot defer rejected preferences |
+| E-018 | The supplied handler leaves an unhashed second name field in its separate trip spam hook when `STRIP_TRIPCODE` skips hashing | Suppressed trips send an empty legacy-trip value to admission; private password suffixes are excluded | [Trip suppression](verification-trip-suppression.md). Raw private suffixes do not enter this hook or its logs; source checks against that unhashed secret are deliberately not reproduced |
 | E-001 | API formats are documented; source admission, cleanup and PDF/WebM/audio switches are board-dependent, not universal support for every listed extension; [source detail](#media) | Production uploads and all original-download paths remain disabled; the explicit development profile accepts bounded PNG/JPEG input and publishes only normalized PNGs | [JPEG policy and checks](jpeg-media.md): source metadata is discarded; EXIF orientation and ICC color management are not applied. Limits can reject otherwise viewable files. Other input formats and original downloads remain unsupported. Private development input expires through queue cleanup. Worker containment does not make downloaded files safe in every client parser. |
 | E-008 | Original source generates JPEG thumbnail URLs and hashes the accepted file after configured metadata/chunk cleanup, before base64 API MD5 serialization; [source detail](#media) | The legacy-looking thumbnail route serves normalized PNG with truthful `image/png` and `nosniff`; full-file metadata and MD5 describe the normalized PNG | Retains one encoder and avoids another privileged image parser. Clients that require JPEG bytes at that route are not compatible. Actual byte, MIME, checksum, validator and deletion checks run in the browser test. Unknown legacy manifests omit missing fields until the isolated offline upgrade reproduces their exact approved PNG; original-upload checksum parity is not claimed. |
 | E-010 | Original source posts a single multipart form with mode=regist and optional file; success is exact-Accept JSON tid/pid or an HTML meta-refresh flow; [source detail](#posting-and-text) | Development image posting uses upload, POST status check, then the normal post form after approval | Keeps pending drafts/passwords out of worker waits and commits no unapproved attachment. Extra user interaction and a two-hour receipt deadline are project security policy. Real no-JavaScript PNG/JPEG browser flows through the guest, publication, deletion and cleanup passed CI. |
 | E-002 | Ordinary original text is escaped; only an authorized HTML branch with allow_html and role/flag checks uses a purifier; [source detail](#formatting-and-quotes) | User text becomes typed formatting nodes; Askama escapes every text/attribute | HTML appears as text. Unicode and real-browser hostile-text tests. |
-| E-003 | Original cookie/password-based staff authentication, board-scoped roles and OTP hooks are source-known; deployed account/secret/recovery policy is not supplied; [source detail](#reports-and-staff) | Separate-origin staff WebAuthn with required user verification; operator-controlled invitations and recovery. Public author deletion still uses local Argon2 passwords | Staff requires a compatible authenticator and JavaScript. No password or recovery-code staff login. Virtual-authenticator and protected-schema tests; no hardware-attestation guarantee. |
+| E-003 | Original cookie/password-based staff authentication, board-scoped roles and OTP hooks are source-known; deployed account/secret/recovery policy is not supplied; [source detail](#reports-and-staff) | Separate-origin staff WebAuthn with required user verification; operator-controlled invitations and recovery. Public author deletion uses automatic anonymous ownership with historical Argon2 recovery | Staff requires a compatible authenticator and JavaScript. No password or recovery-code staff login. Virtual-authenticator and protected-schema tests; no hardware-attestation guarantee. |
 | E-004 | Pinned Threads API defines optional positive `unique_ips`; public v1191 displays Posters. Permitted references do not establish the private server algorithm | [Private poster counts](private-poster-counts.md) use full board/thread-scoped HMAC fingerprints for verified peers, including the OP. Only complete visible history from one key epoch supplies a count; historical, missing-context, mixed-key and archived threads omit it | No new raw-address retention or public fingerprint access. Deletion/archive removes contexts. Shared addresses count once, not people. Public writes can falsify their own capture if compromised, but runtime roles cannot read private contexts. Existing [OP matching](source-op-bumps.md) retains its separately documented address policy |
-| E-005 | Original handler normalizes CRLF/CR to LF, then checks mb_strlen without an explicit encoding before later cleanup; UTF-8 counts code points, but deployed mbstring encoding is missing; [source detail](#posting-and-text) | New comments normalize CRLF and lone CR to LF before counting Unicode scalars and insertion; at most 16,000 characters and 64,000 input UTF-8 bytes. Default/production boards advertise zero media capacity and `text_only: 1`; enabled development boards advertise the bounded upload size and configured image limit | `Ã©` and `ðŸ˜€` each count as one scalar; combining marks, emoji modifiers and joiners count separately. [Newline contract and coverage](verification-comment-limits.md#posting-newline-normalization) in #92. Later source cleanup and deployed encoding remain separate gaps. Existing stored comments are unchanged; this is still a partial settings contract. |
+| E-005 | Original handler normalizes CRLF/CR to LF, then checks mb_strlen without an explicit encoding before later cleanup; UTF-8 counts code points, but deployed mbstring encoding is missing; [source detail](#posting-and-text) | New comments normalize CRLF and lone CR to LF before counting Unicode scalars and insertion; ordinary comments allow at most 16,000 characters and 64,000 input UTF-8 bytes; current moderator-or-higher posts use the separately recorded [authorized bounds](verification-authorized-post-limits.md). Default/production boards advertise zero media capacity and `text_only: 1`; enabled development boards advertise the bounded upload size and configured image limit | `é` and `😀` each count as one scalar; combining marks, emoji modifiers and joiners count separately. [Newline contract and coverage](verification-comment-limits.md#posting-newline-normalization) in #92. Later source cleanup and deployed encoding remain separate gaps. Existing stored comments are unchanged; this is still a partial settings contract. |
 | E-006 | Original category/board cooldowns, duplicate checks, deletion timing/action thresholds, protected-thread rollover and MySQL/static-rebuild branches are source-known; external configuration and distributed/proxy behavior remain missing; [source detail](#counts-bumping-and-admission) | Defaults: 30 writes per peer per minute, 32 admitted public/API handlers and retained response bodies/data, 4 Argon2 operations, 128 shared public/API connections, 10-second HTTP header and 120-second absolute connection deadlines. Dynamic output has a 32 MiB response ceiling and 128 MiB shared block pool; [validated overrides and scope](public-request-limits.md). Active-thread rollover and all-pinned rejection follow B-003 | Handler or output exhaustion returns 503; excess connections close before HTTP parsing. Staff keeps its separate 16-request budget and 429. The absolute connection deadline can interrupt delivery after a committed write, so clients must not automatically replay it. These are project resource policies. Database/intermediate-model memory bounds and deployed host/proxy qualification remain open. |
 | E-007 | Original deletion hard-deletes board rows and unlinks assets, clears relevant reports, and may retain selected content in staff deletion logs; archives clear IP/password/email/Pass fields and expire by configured hours; backup/operational erasure policy is missing; [source detail](#archives-and-retention) | Deleted text remains in PostgreSQL but disappears from public routes; reports persist | Compromised public database credentials can read retained content. Operator retention/erasure policy is a launch prerequisite. |
 
@@ -342,6 +443,14 @@ Zero-media production boards in the rewrite remain deliberate replacements.
 
 ### Read-only API
 
+[Staff JSON projections](source-staff-json.md) implement source name/trip
+masking, badge reply groups including omitted replies, badged flag omission
+and archived ID omission. Migration 0072 separates `META_BOARD` from private
+access; all supplied board definitions leave meta presentation disabled.
+[Static staff IDs](source-staff-poster-ids.md) are saved from the validated
+badge on boards with IDs enabled and remain unchanged by later policy changes.
+Complete conditional fields and navigation contracts remain under #216.
+
 `json.php:13-164` serializes OP/reply thread data and the reduced last-five
 reply windows with omission counts. Tail JSON carries an OP summary,
 `tail_size` and `tail_id`, while full-thread output carries tail hints.
@@ -390,6 +499,13 @@ New public names and subjects follow the source's 100 input-byte limit.
 The shared form omits the source-absent `maxlength` attributes. See
 [field limits](public-field-limits.md) for migration 0021, retained historical
 subjects, database authority and the tested scope within B-003/V-004.
+
+The [authorized posting limits](verification-authorized-post-limits.md) restore
+255-byte raw name/email/subject fields and the source's larger comment budgets
+for moderators, managers and administrators. Janitors keep ordinary bounds.
+Finished escaped names still have a 255-byte limit. The existing public staff
+and private discussion routes use these limits; staff name preparation,
+privileged policy exceptions and attachment workflows remain incomplete.
 
 The dispatcher accepts `regist`/`post` on POST and calls `new_post`
 (`imgboard.php:10295-10300`). The handler uses the UserPwd session token
@@ -618,8 +734,23 @@ The HTML archive list (`imgboard.php:9253`) selects only the past
 three days, orders root descending, limits 3,000 entries and truncates
 summaries at 100. Public archive JSON instead lists archived IDs ascending.
 The 72-hour HTML window is not the full 276-hour global storage lifetime.
-The rewrite's fixed per-thread expiry, bounded archive-count policy, soft
-retention and all-pinned rejection remain separate documented behavior.
+The rewrite's HTML table now follows the source count/columns and 100-scalar
+excerpt branches, including the current SJIS preview switch. It renders typed
+nodes instead of raw short-comment HTML and preflights selected comment data
+against an 8 MiB read budget; see [archive rows and excerpts](thread-archives.md#archive-rows-and-excerpts)
+for the precise safety differences and pending visual review.
+The rewrite now excludes sticky and Undead threads from ordinary capacity and
+uses the source rollover-order policy, including the `/f/` override. Active
+rollover now skips `staff_only` boards, matching the `JANITOR_BOARD` early return
+in `imgboard.php:2819-2823`; the separate archive cleanup still runs. The private
+`/j/` board can therefore retain active threads past `thread_limit`. Fixed
+per-thread expiry, bounded archive-count policy and soft retention remain
+project choices; see [thread rollover and archives](thread-archives.md).
+Complete active snapshots retain their independent 1,000-thread resource
+ceiling and fail with `StoreError::ReadLimit` beyond it. The `/j/` UI instead
+uses staff-authorized numbered snapshots, bounded by `threads_per_page` and the
+configured page count; older retained threads remain available by authorized
+thread URL. Public readers still cannot access private boards.
 
 ### Media
 
@@ -798,8 +929,10 @@ Deletion reconciliation, if added locally, should be labeled an enhancement,
 not a missing original updater feature.
 
 Config/defaults (`8795-8848`) and Settings (`8968`) expose more than
-the implemented watcher subset, including Quotes, Monitoring, Filters/Post
-Hiding, Navigation, Images/Media and Miscellaneous categories. The native default table below
+the implemented control set. The [six source-ordered Settings categories](native-settings-categories.md)
+cover Quotes, Monitoring, Filters/Post Hiding, Navigation, Images/Media and
+Miscellaneous. Existing controls follow source mobile visibility; unsupported
+playback/transport controls and first-run persistence remain separate gaps. The native default table below
 records native boolean defaults and mobile overrides. Quick Reply, quote
 preview/backlinks, updater and thread hiding default true; watcher, shortcuts,
 sound and many optional features default false. Full settings and feature
@@ -814,6 +947,12 @@ of optional keybindings. Help lists both source shortcut groups; exact help
 geometry and the complete Quick Reply lifecycle are unfinished.
 
 ### Reports and staff
+
+[Ordinary report-group clearing](report-group-clear.md) implements a bounded,
+board-authorized transition and inherited clear state only where every active
+member has proven effective weight. Default free-text groups remain unqualified;
+complete weighting, cross-board unlock, orphan purge and abuse workflows are
+still open. The dedicated contract records those limits separately.
 
 `modes/report.php:307, 517-666` loads category definitions/scopes from
 database rows, validates post/category and stores a post snapshot, reporter
@@ -879,7 +1018,7 @@ Each ID has source detail above and a concrete remaining distinction.
 | B-001 | Original posting/identity/transformation flow is known; PostgreSQL persistence is a replacement. |
 | B-002 | Sage substring processing, current-count cutoff, sticky suppression, [persisted flags](thread-bump-flags.md) and [age suppression](source-bump-age.md) passed CI. [Private OP matching](source-op-bumps.md) and [posting clocks](source-posting-times.md) are implemented; their persistence/migration/restore qualification awaits complete current-head CI. Other cooldowns, deletion/moderation timestamp details and admission rules remain unfinished. |
 | B-003 | Board/category limits, image admission and protected-thread counting are known; local bounds differ. |
-| B-004 | Token/host/staff/automatic deletion branches are known; Argon2/soft deletion differ. |
+| B-004 | Automatic anonymous ownership is implemented; host/staff/batch/cooldown deletion policy and soft-deletion retention remain separate work. |
 | B-005 | Active escaping/markup/link/quote pipeline is known; bounded grammar does not imply matching. |
 | B-006 | Popup categories, weighted queue and clear inheritance are known; database rows/policy are missing. |
 | B-007 | Cookie/role/OTP mechanisms are known; WebAuthn and current production qualification remain separate. |
@@ -905,7 +1044,7 @@ Each ID has source detail above and a concrete remaining distinction.
 | V-011 | Watcher/menu/hiding/events/keys/updater/notifications/QR rules are known; unfinished features and live qualification remain. |
 | E-001 | Original supported formats are conditional; normalized PNG-only publication remains deliberate. |
 | E-002 | Ordinary escaping versus privileged purifier branch is explicit; all public typed escaping remains. |
-| E-003 | Original staff/public identity mechanisms are explicit; separate WebAuthn/Argon2 remain. |
+| E-003 | Original staff/public identity mechanisms are explicit; separate WebAuthn and opaque anonymous capabilities replace them, with historical Argon2 recovery retained. |
 | E-004 | Original visible-host unique count is known; omission remains explicit. |
 | E-005 | Newline-then-ambient-mb_strlen order is known; ambient deployment encoding and local differences remain. |
 | E-006 | Cooldown/delete/action/lock/rollover branches are known; distributed deployment and local budgets remain separate. |
@@ -930,6 +1069,10 @@ unspecified:
   abuse/admission outcomes; source UI alone is not captcha-service equivalence.
 - External media binary versions/behavior, missing board-specific image bytes
   and deployed original-file/media MIME/cache policies.
+- The external `team.4chan.org/stafflog` reader linked from
+  `lib/archives.php:116–160` is absent from the supplied checkout. Its permission,
+  filtering, pagination and presentation rules cannot be inferred from the
+  retained `actions_log` writers or schema alone.
 - Original full rendered desktop/mobile/state/loading reference, browser/fonts
   and external UI integrations, including third-party menu-ready subscribers.
 - API/CDN/proxy headers/status/cache/CORS/domain mapping, effective rebuild/

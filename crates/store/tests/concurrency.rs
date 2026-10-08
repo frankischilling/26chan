@@ -1,4 +1,5 @@
 #![cfg(feature = "database-tests")]
+mod support;
 use board_store::{NewPost, StoreError};
 
 #[tokio::test]
@@ -13,13 +14,27 @@ async fn thread_metadata_and_posts_stay_consistent_during_writes() {
         deletion_hash: "fixture-not-a-valid-password-hash".into(),
         sage: false,
     };
-    let id = board_store::create_post(&pool, "test", 0, &post)
+    let id = support::create_post(&pool, "fixture", 0, &post)
         .await
         .unwrap();
     let writer_pool = pool.clone();
+    let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let writer_key = support::key("fixture");
+    let writer_actor = writer_key.public_posting_rate_identity(support::peer());
     let writer = tokio::spawn(async move {
         for _ in 0..80 {
-            board_store::create_post(&writer_pool, "test", id, &post)
+            // Independent snapshot writes: keep imported policy unchanged and
+            // clear only this owned actor’s earlier fixture reply history.
+            sqlx::query(
+                "DELETE FROM post_secrets.posting_history WHERE actor_hash=$1 AND board='fixture'",
+            )
+            .bind(writer_actor.as_bytes().as_slice())
+            .execute(&owner)
+            .await
+            .unwrap();
+            support::create_post(&writer_pool, "fixture", id, &post)
                 .await
                 .unwrap();
         }
@@ -30,16 +45,18 @@ async fn thread_metadata_and_posts_stay_consistent_during_writes() {
             thread: metadata,
             posts,
             ..
-        } = board_store::thread_snapshot(&pool, "test", id)
+        } = board_store::thread_snapshot(&pool, "fixture", id)
             .await
             .unwrap();
-        assert_eq!(board.slug, "test");
+        assert_eq!(board.slug, "fixture");
         assert_eq!(metadata.reply_count as usize, posts.len() - 1);
     }
     writer.await.unwrap();
-    board_store::delete_post(&pool, "test", id).await.unwrap();
+    board_store::delete_post(&pool, "fixture", id)
+        .await
+        .unwrap();
     assert!(matches!(
-        board_store::thread_snapshot(&pool, "test", id).await,
+        board_store::thread_snapshot(&pool, "fixture", id).await,
         Err(StoreError::NotFound)
     ));
     pool.close().await;
@@ -57,22 +74,56 @@ async fn concurrent_replies_enforce_lifetime_limit_and_sage_does_not_bump() {
         deletion_hash: "fixture-not-a-valid-password-hash".into(),
         sage: false,
     };
-    let thread = board_store::create_post(&pool, "limit", 0, &post)
+    let thread = support::create_post(&pool, "limit", 0, &post)
         .await
         .unwrap();
     let before = board_store::thread(&pool, "limit", thread).await.unwrap();
     let mut sage = post.clone();
     sage.sage = true;
-    board_store::create_post(&pool, "limit", thread, &sage)
-        .await
-        .unwrap();
+    // A distinct reader ensures sage itself suppresses this bump, rather than
+    // accidentally passing because the source OP self-bump timer also applies.
+    support::create_post_with_context(
+        &pool,
+        "limit",
+        thread,
+        &sage,
+        None,
+        board_store::PostingContext {
+            request_start: chrono::Utc::now(),
+            peer: Some("192.0.2.202".parse().unwrap()),
+            op_password_proof: None,
+        },
+    )
+    .await
+    .unwrap();
     let after = board_store::thread(&pool, "limit", thread).await.unwrap();
     assert_eq!(before.bumped_at, after.bumped_at);
     let mut jobs = tokio::task::JoinSet::new();
     for _ in 0..8 {
         let pool = pool.clone();
         let post = post.clone();
-        jobs.spawn(async move { board_store::create_post(&pool, "limit", thread, &post).await });
+        // Each contending writer is an independent trusted actor. The test
+        // asserts the shared thread limit, not per-actor posting cooldowns.
+        let key = support::fresh_key();
+        jobs.spawn(async move {
+            board_store::create_post_with_identity_keys(
+                &pool,
+                "limit",
+                thread,
+                &post,
+                None,
+                board_store::PostingContext {
+                    request_start: chrono::Utc::now(),
+                    peer: Some(support::peer()),
+                    op_password_proof: None,
+                },
+                board_store::PostIdentityKeys {
+                    tripcode: None,
+                    poster_id: Some(&key),
+                },
+            )
+            .await
+        });
     }
     let mut accepted = 0;
     while let Some(result) = jobs.join_next().await {

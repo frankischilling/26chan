@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/visual-diagnostics.js';
 
 for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon']) {
   test(`${theme} renders stamped multiline spoilers, code and SJIS without interpreting text`, async ({ page, context }, info) => {

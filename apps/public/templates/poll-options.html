@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ poll.title }} - Polls - Paperboard{% endblock %}
+{% block content %}
+<section class="pollPage" aria-labelledby="poll-title">
+<header><h1 id="poll-title">{{ poll.title }}</h1></header>
+{% if !poll.description.is_empty() %}<p id="poll-desc" class="pollDescription">{{ poll.description }}</p>{% endif %}
+<p>Voting is unavailable. These options are read-only.</p>
+<h2>Options</h2>
+<ol id="entries" class="pollOptions">
+{% for option in poll.options %}<li>{{ option.caption }}</li>
+{% else %}<li>No options are available.</li>{% endfor %}
+</ol>
+<nav class="pollNavigation" aria-label="Poll navigation"><a href="/polls">Back to Polls</a><a href="/polls/results/{{ poll.id }}">View Results</a></nav>
+</section>
+{% endblock %}
+{% block feature_notice %}Read-only polls.{% endblock %}

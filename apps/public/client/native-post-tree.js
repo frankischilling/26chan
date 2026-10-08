@@ -1,10 +1,18 @@
+import { sourceSpoilerPath } from './native-spoilers.js';
+import { isSpoilerAssetPath } from './native-spoiler-assets.js';
+
 // Call only after the complete recipe and its live-page IDs have been checked.
-export function buildPostTree(tree, document) {
-  if (typeof tree === 'string') return document.createTextNode(tree);
-  const element = document.createElement(tree.tag);
-  for (const [key, value] of Object.entries(tree.attrs)) element.setAttribute(key, value);
-  for (const child of tree.children) element.append(buildPostTree(child, document));
-  return element;
+export function buildPostTree(tree, document, context) {
+  const path = context ? sourceSpoilerPath(document, context.board, Number(tree.attrs?.['data-custom-spoiler'] ?? 0)) : null;
+  function build(node) {
+    if (typeof node === 'string') return document.createTextNode(node);
+    const element = document.createElement(node.tag);
+    for (const [key, value] of Object.entries(node.attrs)) element.setAttribute(key,
+      key === 'src' && node.tag === 'img' && path && isSpoilerAssetPath(value) ? path : value);
+    for (const child of node.children) element.append(build(child));
+    return element;
+  }
+  return build(tree);
 }
 
 export function checkPostTreeIds(trees, document) {

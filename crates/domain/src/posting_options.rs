@@ -13,6 +13,18 @@ pub fn parse(value: &str) -> Result<PostingOptions, ValidationError> {
     if value.len() > MAX_PUBLIC_FIELD_BYTES {
         return Err(ValidationError("Options must contain at most 100 bytes."));
     }
+    let remainder = without_sage(value);
+    Ok(PostingOptions {
+        sage: remainder.len() != value.len(),
+        return_to_board: remainder.eq_ignore_ascii_case("nonoko"),
+        // This parser is for unauthenticated public posting only. The source
+        // clears the name on a capcode attempt and grants no capcode authority.
+        anonymous: remainder.starts_with("capcode_"),
+    })
+}
+
+/// Source removes every ASCII case-insensitive occurrence before other options.
+pub fn without_sage(value: &str) -> String {
     let lowered = value.to_ascii_lowercase();
     let mut remainder = String::with_capacity(value.len());
     let mut end = 0;
@@ -21,13 +33,7 @@ pub fn parse(value: &str) -> Result<PostingOptions, ValidationError> {
         end = index + 4;
     }
     remainder.push_str(&value[end..]);
-    Ok(PostingOptions {
-        sage: end != 0,
-        return_to_board: remainder.eq_ignore_ascii_case("nonoko"),
-        // This parser is for unauthenticated public posting only. The source
-        // clears the name on a capcode attempt and grants no capcode authority.
-        anonymous: remainder.starts_with("capcode_"),
-    })
+    remainder
 }
 
 #[cfg(test)]
