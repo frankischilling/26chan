@@ -224,5 +224,27 @@ class PublicUploadBoardTest(unittest.TestCase):
             fixture.drawing_upload.exercise.assert_called_once_with()
 
 
+class DrawingEditDiagnosticTest(unittest.TestCase):
+    def test_only_complete_fixed_drawing_diagnostics_are_reported(self):
+        from public_upload_fixture import finish_browser
+        good = 'cancel=403 ui=cancel-error editor=hidden cursor=hidden active=false'
+        for script, line, expected in [
+            ('drawing-upload.mjs', good, '(Edit ' + good + ')'),
+            ('drawing-upload.mjs', 'unavailable', '(Edit unavailable)'),
+            ('drawing-upload.mjs', good + ' secret-capability', None),
+            ('drawing-upload.mjs', good.replace('cancel-error', 'secret-capability'), None),
+            ('public-upload.mjs', good, None),
+        ]:
+            process = SimpleNamespace(returncode=1, communicate=lambda **_: (b'', ('OWNED_DRAWING_EDIT ' + line + '\n').encode()))
+            with self.subTest(script=script, line=line), self.assertRaises(AssertionError) as failure:
+                finish_browser(process, script)
+            message = str(failure.exception)
+            self.assertNotIn('secret-capability', message)
+            if expected:
+                self.assertIn(expected, message)
+            else:
+                self.assertNotIn('(Edit ', message)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -31,6 +31,9 @@ def finish_browser(process, script):
         if classified:
             status, category, stage, failure = (value.decode('ascii') for value in classified[-1])
             response = f' (HTTP {status}, {category}, {stage}, {failure})'
+        drawing = re.findall(rb'^OWNED_DRAWING_EDIT (cancel=(?:none|pending|failed|other|[1-5][0-9]{2}) ui=(?:empty|queued|canceling|checking|uploading|cancel-error|editor-error|other) editor=(?:absent|hidden|visible) cursor=(?:absent|hidden|visible) active=(?:true|false|other)|unavailable)\r?$', error, re.MULTILINE)
+        if drawing and script == 'drawing-upload.mjs':
+            response += ' (Edit ' + drawing[-1].decode('ascii') + ')'
         raise AssertionError('owned upload browser rejected at ' + script + location + response)
     return output
 
