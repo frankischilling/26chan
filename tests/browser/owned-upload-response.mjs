@@ -1,5 +1,17 @@
 // Keep browser protocol failures useful without publishing response contents,
 // locations, headers, cookies or one-use upload capabilities.
+export function assertOwnedThreadResponse(response, report = console.error) {
+  const status = response.status();
+  if (!Number.isInteger(status) || status < 100 || status > 599) throw new Error('Invalid owned response status.');
+  if (status === 303) return;
+  const contentType = response.headers()['content-type'] || '';
+  const type = contentType.startsWith('application/json') ? 'json'
+    : contentType.startsWith('text/html') ? 'html'
+      : contentType.startsWith('text/plain') ? 'plain' : 'other';
+  report(`OWNED_UPLOAD_RESPONSE status=${status} type=${type} stage=owner-thread failure=http`);
+  throw new Error('Owned thread response was not a creation redirect.');
+}
+
 export async function ownedUploadResponse(response, stage, report = console.error) {
   if (!['upload', 'post'].includes(stage)) throw new Error('Unknown owned response stage.');
   const status = response.status();

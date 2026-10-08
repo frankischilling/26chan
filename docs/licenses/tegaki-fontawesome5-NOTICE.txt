@@ -1,0 +1,21 @@
+Font Awesome Free icons used by the Tegaki icon font
+
+Tegaki 0.9.4 includes Font Awesome Free's spray-can and pen-fancy icons as
+custom Fontello glyphs named airbrush and pen. Their paths are rescaled from
+512 to 1,000 units and rounded by the upstream Tegaki font configuration.
+
+Copyright (c) Font Awesome
+
+Font Awesome Free by @fontawesome - https://fontawesome.com
+License: https://fontawesome.com/license/free
+SVG icon paths: CC BY 4.0 - https://creativecommons.org/licenses/by/4.0/
+Webfont glyphs: SIL OFL 1.1 - https://openfontlicense.org
+
+The upstream Tegaki configuration does not identify a Font Awesome release.
+The icons were checked against Font Awesome Free 5.7.2, commit
+1cf1062e0cfda5e9b5b2cac7844721b345e1a9c5:
+https://github.com/FortAwesome/Font-Awesome/tree/1cf1062e0cfda5e9b5b2cac7844721b345e1a9c5
+
+After rescaling, the spray-can and pen-fancy paths have the same SVG drawing
+operations, with maximum coordinate differences below 0.14 and 0.05 units,
+respectively. No glyph was changed by the 26chan asset extraction.

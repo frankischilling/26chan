@@ -1,0 +1,431 @@
+[
+  {
+    "id": "no_replay_time_only",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>",
+        "replay_path": null,
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "valid_replay_time",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment<br><br><small><b>Oekaki Post</b> (Time: 2m, Replay: <a href=\"javascript:oeReplay(1690000000000);\">View</a>)</small>",
+        "replay_path": "/inert-images/1690000000000.tgkr",
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": [
+        [
+          "is_uploaded_file",
+          "synthetic-upload"
+        ],
+        [
+          "fopen",
+          "synthetic-upload",
+          "rb"
+        ],
+        [
+          "move_uploaded_file",
+          "synthetic-upload",
+          "/inert-images/1690000000000.tgkr"
+        ],
+        [
+          "chmod",
+          "/inert-images/1690000000000.tgkr",
+          436
+        ]
+      ]
+    }
+  },
+  {
+    "id": "valid_replay_no_time",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment",
+        "replay_path": "/inert-images/1690000000000.tgkr",
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": [
+        [
+          "is_uploaded_file",
+          "synthetic-upload"
+        ],
+        [
+          "fopen",
+          "synthetic-upload",
+          "rb"
+        ],
+        [
+          "move_uploaded_file",
+          "synthetic-upload",
+          "/inert-images/1690000000000.tgkr"
+        ],
+        [
+          "chmod",
+          "/inert-images/1690000000000.tgkr",
+          436
+        ]
+      ]
+    }
+  },
+  {
+    "id": "valid_replay_invalid_time",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment",
+        "replay_path": "/inert-images/1690000000000.tgkr",
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": [
+        [
+          "is_uploaded_file",
+          "synthetic-upload"
+        ],
+        [
+          "fopen",
+          "synthetic-upload",
+          "rb"
+        ],
+        [
+          "move_uploaded_file",
+          "synthetic-upload",
+          "/inert-images/1690000000000.tgkr"
+        ],
+        [
+          "chmod",
+          "/inert-images/1690000000000.tgkr",
+          436
+        ]
+      ]
+    }
+  },
+  {
+    "id": "wrong_replay_filename_ignored",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>",
+        "replay_path": null,
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "wrong_image_basename_ignored",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>",
+        "replay_path": null,
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "painter_disabled",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment",
+        "replay_path": null,
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "replays_disabled_suppresses_annotation",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment",
+        "replay_path": null,
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "no_image_outer_guard",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment",
+        "replay_path": null,
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "malformed_replay_hard_error",
+    "result": {
+      "outcome": "source_error",
+      "symbol": "S_NOREC",
+      "warnings": [],
+      "calls": [
+        [
+          "is_uploaded_file",
+          "synthetic-upload"
+        ],
+        [
+          "fopen",
+          "synthetic-upload",
+          "rb"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "upload_error_hard_error",
+    "result": {
+      "outcome": "source_error",
+      "symbol": "S_FAILEDUPLOAD",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "unsupported_replay_silent_ignore",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>",
+        "replay_path": null,
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": [
+        [
+          "is_uploaded_file",
+          "synthetic-upload"
+        ],
+        [
+          "fopen",
+          "synthetic-upload",
+          "rb"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "oversize_declared_replay_silent_ignore",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>",
+        "replay_path": null,
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": [
+        [
+          "is_uploaded_file",
+          "synthetic-upload"
+        ],
+        [
+          "fopen",
+          "synthetic-upload",
+          "rb"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "replay_move_failure",
+    "result": {
+      "outcome": "source_error",
+      "symbol": "S_FAILEDUPLOAD",
+      "warnings": [],
+      "calls": [
+        [
+          "is_uploaded_file",
+          "synthetic-upload"
+        ],
+        [
+          "fopen",
+          "synthetic-upload",
+          "rb"
+        ],
+        [
+          "move_uploaded_file",
+          "synthetic-upload",
+          "/inert-images/1690000000000.tgkr"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "valid_source_suppresses_replay_link",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment<br><br><small><b>Oekaki Post</b> (Time: 2m, Source: &gt;&gt;200)</small>",
+        "replay_path": "/inert-images/1690000000000.tgkr",
+        "source_id": 200
+      },
+      "warnings": [],
+      "calls": [
+        [
+          "is_uploaded_file",
+          "synthetic-upload"
+        ],
+        [
+          "fopen",
+          "synthetic-upload",
+          "rb"
+        ],
+        [
+          "move_uploaded_file",
+          "synthetic-upload",
+          "/inert-images/1690000000000.tgkr"
+        ],
+        [
+          "chmod",
+          "/inert-images/1690000000000.tgkr",
+          436
+        ],
+        [
+          "mysql_board_call",
+          "SELECT no FROM `%s` WHERE no = 200 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+          "a"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "invalid_source_preserves_replay_link",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment<br><br><small><b>Oekaki Post</b> (Time: 2m, Replay: <a href=\"javascript:oeReplay(1690000000000);\">View</a>)</small>",
+        "replay_path": "/inert-images/1690000000000.tgkr",
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": [
+        [
+          "is_uploaded_file",
+          "synthetic-upload"
+        ],
+        [
+          "fopen",
+          "synthetic-upload",
+          "rb"
+        ],
+        [
+          "move_uploaded_file",
+          "synthetic-upload",
+          "/inert-images/1690000000000.tgkr"
+        ],
+        [
+          "chmod",
+          "/inert-images/1690000000000.tgkr",
+          436
+        ],
+        [
+          "mysql_board_call",
+          "SELECT no FROM `%s` WHERE no = 102 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+          "a"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "new_thread_ignores_source",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment<br><br><small><b>Oekaki Post</b> (Time: 2m, Replay: <a href=\"javascript:oeReplay(1690000000000);\">View</a>)</small>",
+        "replay_path": "/inert-images/1690000000000.tgkr",
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": [
+        [
+          "is_uploaded_file",
+          "synthetic-upload"
+        ],
+        [
+          "fopen",
+          "synthetic-upload",
+          "rb"
+        ],
+        [
+          "move_uploaded_file",
+          "synthetic-upload",
+          "/inert-images/1690000000000.tgkr"
+        ],
+        [
+          "chmod",
+          "/inert-images/1690000000000.tgkr",
+          436
+        ]
+      ]
+    }
+  },
+  {
+    "id": "source_without_time_not_queried",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment",
+        "replay_path": null,
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "source_annotation_without_replay",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment<br><br><small><b>Oekaki Post</b> (Time: 2m, Source: &gt;&gt;200)</small>",
+        "replay_path": null,
+        "source_id": 200
+      },
+      "warnings": [],
+      "calls": [
+        [
+          "mysql_board_call",
+          "SELECT no FROM `%s` WHERE no = 200 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+          "a"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "fractional_time_annotation",
+    "result": {
+      "outcome": "return",
+      "value": {
+        "comment": "Synthetic comment<br><br><small><b>Oekaki Post</b> (Time: 59s)</small>",
+        "replay_path": null,
+        "source_id": null
+      },
+      "warnings": [],
+      "calls": []
+    }
+  }
+]

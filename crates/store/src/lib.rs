@@ -97,6 +97,11 @@ pub struct Board {
     pub comment_code_spacing: bool,
     pub comment_sjis_spacing: bool,
     pub math_tags: bool,
+    /// Imported ENABLE_PAINTERJS policy, including boards needing unsupported replays.
+    pub oekaki: bool,
+    pub oekaki_replays: bool,
+    pub oekaki_width: i32,
+    pub oekaki_height: i32,
     pub comment_max_lines: i32,
     pub comment_spoiler_cleanup: bool,
     pub custom_spoiler_count: i32,
@@ -137,6 +142,17 @@ pub struct Board {
 }
 
 impl Board {
+    /// The ordinary PNG editor uses an already-enabled public upload workflow.
+    /// Keep the imported source switch separate from this supported capability.
+    pub fn ordinary_drawing_enabled(&self, media_enabled: bool) -> bool {
+        media_enabled
+            && self.oekaki
+            && !self.oekaki_replays
+            && !self.staff_only
+            && !self.text_only
+            && self.image_limit > 0
+    }
+
     pub fn flag_options(&self) -> Vec<(&'static str, &'static str)> {
         board_domain::board_flags::flags(&self.board_flag_type)
             .iter()

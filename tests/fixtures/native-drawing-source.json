@@ -1,0 +1,91 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "scope": "Independent pinned source behavior oracle. No claim that legacy upload/replay endpoints or unused OEKAKI_MIN/MAX constants are implemented. Actual raster output requires the real isolated drawing browser lane.",
+  "files": {
+    "js/core.js": "a9ab67bea1f51fcdaaac1a879098a4d5888622008bf7f26f1fe18861ea52aab5",
+    "js/extension.js": "05b3b34f68377a44c071e4f74f629d2700fef61e064dcd2e836b161ee9ee0c31",
+    "views/imgboard.php": "6c2771682a20672f4f8395e78a2cb9fa80a9ed55933b77a0fcc54cc9f23e17eb",
+    "js/tegaki.min.js": "daea182c52df0c032eadbecb4de8f91f634a61bf82aaf35dda077fab50e68744",
+    "config/global_config.ini": "8bebeedec119b30559cba4fdccfef416653294cf62118d10288434be99a3034d",
+    "config/boards/i.config.ini": "b587a543e5566dddde008449e8004ee66355ea95608551e96e058a1bd53facd8",
+    "config/boards/qst.config.ini": "204aadc8b836ae56b91686f492780382b7cf2366a034c3fee01a88b6648b217d",
+    "config/boards/vip.config.ini": "39515e6dc058310314425508c65901dc1e6dd38648d76f1954786a2bd0f008f3",
+    "config/boards/test.config.ini": "72f1ddef8a63944bfb40e5d2e368c8ffeb42bef4c18b02a04d3638186a98b683"
+  },
+  "snippets": {
+    "ordinary": {
+      "file": "js/core.js",
+      "byte_start": 52091,
+      "byte_end": 57102,
+      "sha256": "d697b6761f52b1b9959648abb91b15899fac3357f4e3b206a21db94f0db89f7b",
+      "text": "var PainterCore = {\r\n  init: function() {\r\n    var cnt, btns;\r\n    \r\n    if (!document.forms.post) {\r\n      return;\r\n    }\r\n    \r\n    cnt = document.forms.post.getElementsByClassName('painter-ctrl')[0];\r\n    \r\n    if (!cnt) {\r\n      return;\r\n    }\r\n    \r\n    btns = cnt.getElementsByTagName('button');\r\n    \r\n    if (!btns[1]) {\r\n      return;\r\n    }\r\n    \r\n    this.data = null;\r\n    this.replayBlob = null;\r\n    \r\n    this.time = 0;\r\n    \r\n    this.btnDraw = btns[0];\r\n    this.btnClear = btns[1];\r\n    this.btnFile = document.getElementById('postFile');\r\n    this.btnSubmit = document.forms.post.querySelector('input[type=\"submit\"]');\r\n    this.inputNodes = cnt.getElementsByTagName('input');\r\n    this.replayCb = cnt.getElementsByClassName('oe-r-cb')[0];\r\n    \r\n    btns[0].addEventListener('click', this.onDrawClick, false);\r\n    btns[1].addEventListener('click', this.onCancel, false);\r\n  },\r\n  \r\n  onDrawClick: function() {\r\n    var w, h, dims = this.parentNode.getElementsByTagName('input');\r\n    \r\n    w = +dims[0].value;\r\n    h = +dims[1].value;\r\n    \r\n    if (w < 1 || h < 1) {\r\n      return;\r\n    }\r\n    \r\n    window.Keybinds && (Keybinds.enabled = false);\r\n    \r\n    Tegaki.open({\r\n      onDone: PainterCore.onDone,\r\n      onCancel: PainterCore.onCancel,\r\n      saveReplay: PainterCore.replayCb && PainterCore.replayCb.checked,\r\n      width: w,\r\n      height: h\r\n    });\r\n  },\r\n  \r\n  replay: function(id) {\r\n    id = +id;\r\n    \r\n    Tegaki.open({\r\n      replayMode: true,\r\n      replayURL: '//i.4cdn.org/' + location.pathname.split(/\\//)[1] + '/' + id + '.tgkr'\r\n    });\r\n  },\r\n  \r\n  // move this to tegaki.js\r\n  b64toBlob: function(data) {\r\n    var i, bytes, ary, bary, len;\r\n    \r\n    bytes = atob(data);\r\n    len = bytes.length;\r\n    \r\n    ary = new Array(len);\r\n    \r\n    for (i = 0; i < len; ++i) {\r\n      ary[i] = bytes.charCodeAt(i);\r\n    }\r\n    \r\n    bary = new Uint8Array(ary);\r\n    \r\n    return new Blob([bary]);\r\n  },\r\n  \r\n  onDone: function() {\r\n    var self, el;\r\n    \r\n    self = PainterCore;\r\n    \r\n    window.Keybinds && (Keybinds.enabled = true);\r\n    \r\n    self.btnFile.disabled = true;\r\n    self.btnClear.disabled = false;\r\n    \r\n    self.data = Tegaki.flatten().toDataURL('image/png');\r\n    \r\n    if (Tegaki.saveReplay) {\r\n      self.replayBlob = Tegaki.replayRecorder.toBlob();\r\n    }\r\n    \r\n    if (!Tegaki.hasCustomCanvas && Tegaki.startTimeStamp) {\r\n      self.time = Math.round((Date.now() - Tegaki.startTimeStamp) / 1000);\r\n    }\r\n    else {\r\n      self.time = 0;\r\n    }\r\n    \r\n    self.btnFile.style.visibility = 'hidden';\r\n    \r\n    self.btnDraw.textContent = 'Edit';\r\n    \r\n    for (el of self.inputNodes) {\r\n      el.disabled = true;\r\n    }\r\n    \r\n    document.forms.post.addEventListener('submit', self.onSubmit, false);\r\n  },\r\n  \r\n  onCancel: function() {\r\n    var self = PainterCore;\r\n    \r\n    window.Keybinds && (Keybinds.enabled = true);\r\n    \r\n    self.data = null;\r\n    self.replayBlob = null;\r\n    self.time = 0;\r\n    \r\n    self.btnFile.disabled = false;\r\n    self.btnClear.disabled = true;\r\n    \r\n    self.btnFile.style.visibility = '';\r\n    \r\n    self.btnDraw.textContent = 'Draw';\r\n    \r\n    for (var el of self.inputNodes) {\r\n      el.disabled = false;\r\n    }\r\n    \r\n    document.forms.post.removeEventListener('submit', self.onSubmit, false);\r\n  },\r\n  \r\n  onSubmit: function(e) {\r\n    var formdata, blob, xhr;\r\n    \r\n    e.preventDefault();\r\n    \r\n    formdata = new FormData(this);\r\n    \r\n    blob = PainterCore.b64toBlob(PainterCore.data.slice(PainterCore.data.indexOf(',') + 1));\r\n    \r\n    if (blob) {\r\n      formdata.append('upfile', blob, 'tegaki.png');\r\n      \r\n      if (PainterCore.replayBlob) {\r\n        formdata.append('oe_replay', PainterCore.replayBlob, 'tegaki.tgkr');\r\n      }\r\n    }\r\n    \r\n    formdata.append('oe_time', PainterCore.time);\r\n    \r\n    xhr = new XMLHttpRequest();\r\n    xhr.open('POST', this.action, true);\r\n    xhr.withCredentials = true;\r\n    xhr.onerror = PainterCore.onSubmitError;\r\n    xhr.onload = PainterCore.onSubmitDone;\r\n    \r\n    xhr.send(formdata);\r\n    \r\n    PainterCore.btnSubmit.disabled = true;\r\n  },\r\n  \r\n  onSubmitError: function() {\r\n    PainterCore.btnSubmit.disabled = false;\r\n    showPostFormError('Connection Error.');\r\n  },\r\n  \r\n  onSubmitDone: function() {\r\n    var resp, ids, tid, pid, board;\r\n    \r\n    PainterCore.btnSubmit.disabled = false;\r\n    \r\n    if (ids = this.responseText.match(/<!-- thread:([0-9]+),no:([0-9]+) -->/)) {\r\n      tid = +ids[1];\r\n      pid = +ids[2];\r\n      \r\n      if (!tid) {\r\n        tid = pid;\r\n      }\r\n      \r\n      board = location.pathname.split(/\\//)[1];\r\n      \r\n      window.location.href = '/' + board + '/thread/' + tid + '#p' + pid;\r\n      \r\n      PainterCore.onCancel();\r\n      \r\n      if (tid != pid) {\r\n        PainterCore.btnClear.disabled = true;\r\n        window.location.reload();\r\n      }\r\n      \r\n      return;\r\n    }\r\n    \r\n    if (resp = this.responseText.match(/\"errmsg\"[^>]*>(.*?)<\\/span/)) {\r\n      showPostFormError(resp[1]);\r\n    }\r\n  }\r\n};\r\n\r\n"
+    },
+    "qr": {
+      "file": "js/extension.js",
+      "byte_start": 98322,
+      "byte_end": 100102,
+      "sha256": "23b4283d0c90ddc46a2e2db063b2d972acc7c7aad2736e934acc3971027ca456",
+      "text": "QR.openPainter = function() {\r\n  var w, h, dims, cb;\r\n  \r\n  dims = $.tag('input', $.id('qr-painter-ctrl'));\r\n  \r\n  w = +dims[0].value;\r\n  h = +dims[1].value;\r\n  \r\n  if (w < 1 || h < 1) {\r\n    return;\r\n  }\r\n  \r\n  cb = $.cls('oe-r-cb', $.id('qr-painter-ctrl'))[0];\r\n  \r\n  Keybinds.enabled = false;\r\n  \r\n  window.Tegaki.open({\r\n    onDone: QR.onPainterDone,\r\n    onCancel: QR.onPainterCancel,\r\n    saveReplay: cb && cb.checked,\r\n    width: w,\r\n    height: h\r\n  });\r\n};\r\n\r\nQR.onPainterDone = function() {\r\n  var el, cnt;\r\n  \r\n  Keybinds.enabled = true;\r\n  \r\n  QR.painterData = Tegaki.flatten().toDataURL('image/png');\r\n  \r\n  if (Tegaki.saveReplay) {\r\n    QR.replayBlob = Tegaki.replayRecorder.toBlob();\r\n  }\r\n  \r\n  QR.painterTime = 0;\r\n  \r\n  if (Tegaki.startTimeStamp) {\r\n    if (!Tegaki.hasCustomCanvas || QR.painterSrc) {\r\n      QR.painterTime = Math.round((Date.now() - Tegaki.startTimeStamp) / 1000);\r\n    }\r\n  }\r\n  \r\n  if (el = $.id('qrFile')) {\r\n    el.style.visibility = 'hidden';\r\n  }\r\n  \r\n  cnt = $.id('qr-painter-ctrl');\r\n  \r\n  if (el = $.tag('button', cnt)[0]) {\r\n    el.textContent = 'Edit';\r\n  }\r\n  \r\n  if (el = $.tag('button', cnt)[1]) {\r\n    el.disabled = false;\r\n  }\r\n  \r\n  for (el of $.tag('input', cnt)) {\r\n    el.disabled = true;\r\n  }\r\n};\r\n\r\nQR.onPainterCancel = function() {\r\n  var el, cnt;\r\n  \r\n  Keybinds.enabled = true;\r\n  \r\n  QR.painterData = null;\r\n  QR.painterSrc = null;\r\n  QR.replayBlob = null;\r\n  QR.painterTime = 0;\r\n  \r\n  if (el = $.id('qrFile')) {\r\n    el.style.visibility = '';\r\n  }\r\n  \r\n  cnt = $.id('qr-painter-ctrl');\r\n  \r\n  if (el = $.tag('button', cnt)[0]) {\r\n    el.textContent = 'Draw';\r\n  }\r\n  \r\n  if (el = $.tag('button', cnt)[1]) {\r\n    el.disabled = true;\r\n  }\r\n  \r\n  for (el of $.tag('input', cnt)) {\r\n    el.disabled = false;\r\n  }\r\n};\r\n\r\n"
+    },
+    "qr_close": {
+      "file": "js/extension.js",
+      "byte_start": 110752,
+      "byte_end": 111660,
+      "sha256": "f33051dc1e3b43265c64f6d5687a8d843f5ad1046c86ec9e4e0a3a94a72d1124",
+      "text": "QR.close = function() {\r\n  var el, cnt = $.id('quickReply');\r\n  \r\n  QR.comField = null;\r\n  QR.currentTid = null;\r\n  \r\n  QR.painterTime = 0;\r\n  QR.painterData = null;\r\n  QR.painterSrc = null;\r\n  QR.replayBlob = null;\r\n  QR.canvasLoading = false;\r\n  \r\n  clearInterval(QR.pulse);\r\n  \r\n  if (QR.xhr) {\r\n    QR.xhr.abort();\r\n    QR.xhr = null;\r\n  }\r\n  \r\n  cnt.removeEventListener('click', QR.onClick, false);\r\n  \r\n  (el = $.id('qrFile')) && el.removeEventListener('change', QR.startCooldown, false);\r\n  (el = $.id('qrEmail')) && el.removeEventListener('change', QR.startCooldown, false);\r\n  $.tag('textarea', cnt)[0].removeEventListener('keydown', QR.onKeyDown, false);\r\n  \r\n  Draggable.unset($.id('qrHeader'));\r\n  \r\n  if (!QR.noCaptcha) {\r\n    QR.setCTTag();\r\n  }\r\n  \r\n  if (window.t_captcha && TCaptcha.node === QR.captchaWidgetCnt) {\r\n    TCaptcha.destroy();\r\n  }\r\n  \r\n  document.body.removeChild(cnt);\r\n};\r\n\r\n"
+    },
+    "template": {
+      "file": "views/imgboard.php",
+      "byte_start": 5676,
+      "byte_end": 6352,
+      "sha256": "50ff82c73b9d28309f01339080d302ba20d709ca6f4075b618546206e290b014",
+      "text": "\t\t\tif (ENABLE_PAINTERJS) {\r\n\t\t\t  $dat .= '<tr data-type=\"Painter\" class=\"desktop\">\r\n\t\t\t  <td>Draw</td>\r\n  \t\t\t<td class=\"painter-ctrl\">Size <input type=\"text\" value=\"'\r\n  \t\t\t  . PAINTERJS_DIMS . '\" maxlength=\"4\"> &times; <input type=\"text\" value=\"'\r\n  \t\t\t  . PAINTERJS_DIMS . '\" maxlength=\"4\"> ';\r\n        \r\n        if (ENABLE_OEKAKI_REPLAYS) {\r\n          $dat .= '<label title=\"Generate a replay animation of your drawing\"><input type=\"checkbox\" checked class=\"oe-r-cb\">Replay</label> ';\r\n        }\r\n        \r\n        $dat .= '<button data-dims=\"'\r\n  \t\t\t  . PAINTERJS_DIMS . '\" type=\"button\">Draw</button> <button disabled type=\"button\">Clear</button></td>\r\n\t\t\t  </tr>';\r\n\t\t\t}"
+    },
+    "tegaki_open": {
+      "file": "js/tegaki.min.js",
+      "byte_start": 31630,
+      "byte_end": 32378,
+      "sha256": "a24baa6f52d865a29d4576f65583a9d174d5b0ace28977e09bb5b5d0a5d1ea60",
+      "text": "open:function(e={}){var t=Tegaki;if(t.bg){if(t.replayMode===!!e.replayMode)return void t.resume();t.destroy()}t.startTimeStamp=Date.now(),e.bgColor&&(t.bgColor=e.bgColor),t.hasCustomCanvas=!1,t.saveReplay=!!e.saveReplay,t.replayMode=!!e.replayMode,t.onDoneCb=e.onDone,t.onCancelCb=e.onCancel,t.baseWidth=e.width||0,t.baseHeight=e.height||0,t.createTools(),t.initKeybinds(),[t.bg,t.canvasCnt,t.layersCnt]=TegakiUI.buildUI(),document.body.appendChild(t.bg),document.body.classList.add(\"tegaki-backdrop\"),t.replayMode?(TegakiUI.setReplayMode(!0),t.replayViewer=new TegakiReplayViewer,e.replayURL&&t.loadReplayFromURL(e.replayURL)):(t.init(),t.setTool(t.defaultTool),t.saveReplay&&(t.replayRecorder=new TegakiReplayRecorder,t.replayRecorder.start()))},"
+    },
+    "tegaki_done_cancel": {
+      "file": "js/tegaki.min.js",
+      "byte_start": 42830,
+      "byte_end": 42989,
+      "sha256": "6f7592996dd0c6ea6a0bc64397a98379521f3d7796fc701ffedcc5396fd28513",
+      "text": "onDoneClick:function(){Tegaki.hide(),Tegaki.onDoneCb()},onCancelClick:function(){confirm(TegakiStrings.confirmCancel)&&(Tegaki.destroy(),Tegaki.onCancelCb())},"
+    },
+    "tegaki_resume_hide": {
+      "file": "js/tegaki.min.js",
+      "byte_start": 36737,
+      "byte_end": 37210,
+      "sha256": "8f42cbfdc3d1cbc942417d5375e9bcf9905e6ca6025ad52c0b5a71dd52a0d290",
+      "text": "resume:function(){Tegaki.saveReplay&&Tegaki.replayRecorder.start(),Tegaki.bg.classList.remove(\"tegaki-hidden\"),document.body.classList.add(\"tegaki-backdrop\"),Tegaki.setZoom(0),Tegaki.updateLayersCntSize(),Tegaki.updatePosOffset(),TegakiCursor.updateCanvasSize(),Tegaki.bindGlobalEvents()},hide:function(){Tegaki.saveReplay&&Tegaki.replayRecorder.stop(),Tegaki.bg.classList.add(\"tegaki-hidden\"),document.body.classList.remove(\"tegaki-backdrop\"),Tegaki.unBindGlobalEvents()},"
+    }
+  },
+  "policies": {
+    "config/global_config.ini": [
+      "ENABLE_PAINTERJS = no",
+      "PAINTERJS_DIMS = 400",
+      "ENABLE_OEKAKI_REPLAYS = no"
+    ],
+    "config/boards/i.config.ini": [
+      "ENABLE_PAINTERJS = yes",
+      "ENABLE_OEKAKI_REPLAYS = yes",
+      "OEKAKI_MIN_W = 100",
+      "OEKAKI_MIN_H = 100",
+      "OEKAKI_MAX_W = 800",
+      "OEKAKI_MAX_H = 800"
+    ],
+    "config/boards/qst.config.ini": [
+      "ENABLE_PAINTERJS = yes"
+    ],
+    "config/boards/vip.config.ini": [
+      "ENABLE_PAINTERJS = yes"
+    ],
+    "config/boards/test.config.ini": [
+      ";ENABLE_PAINTERJS = yes",
+      ";ENABLE_OEKAKI_REPLAYS = yes"
+    ]
+  }
+}

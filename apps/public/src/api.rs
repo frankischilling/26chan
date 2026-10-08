@@ -133,6 +133,7 @@ pub async fn boards(
         }
         if board.user_ids { value["user_ids"] = json!(1); }
         if board.math_tags { value["math_tags"] = json!(1); }
+        if board.ordinary_drawing_enabled(state.media.is_some()) { value["oekaki"] = json!(1); }
         if board.country_flags { value["country_flags"] = json!(1); }
         let flags = (!board.board_flags.is_empty()).then(|| OrderedFlags(board.flag_options()));
         if board.forced_anon {

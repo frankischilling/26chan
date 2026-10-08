@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check:generated": "npm run check:global-search && npm run check:native-filter && npm run check:native-images && npm run check:native-thread-controls && npm run check:native-backlinks && npm run check:native-quick-reply && npm run check:math && npm run check:native-post-deletion",
+    "check:generated": "npm run check:global-search && npm run check:native-filter && npm run check:native-images && npm run check:native-thread-controls && npm run check:native-backlinks && npm run check:native-quick-reply && npm run check:math && npm run check:native-post-deletion && npm run check:tegaki",
     "build:global-search": "node scripts/build-global-search.mjs",
     "check:global-search": "node scripts/build-global-search.mjs --check",
     "test:global-search": "npm run check:global-search && node --test tests/browser/global-search.test.mjs && playwright test tests/browser/global-search.spec.js",
@@ -60,7 +60,7 @@
     "check:native-filter": "node scripts/build-native-filter.mjs --check",
     "build:native-backlinks": "node scripts/build-native-backlinks.mjs",
     "check:native-backlinks": "npm run check:native-filter && node scripts/build-native-backlinks.mjs --check",
-    "test:watcher-core": "npm run check:native-filter && node --test tests/browser/report-popup.test.mjs tests/browser/thread-watcher-core.test.mjs tests/browser/post-tracking.test.mjs tests/browser/watcher-position.test.mjs tests/browser/native-reply-hiding.test.mjs tests/browser/native-filter.test.mjs tests/browser/native-catalog.test.mjs tests/browser/native-filter-html.test.mjs tests/browser/native-catalog-transport.test.mjs tests/browser/native-auto-watch.test.mjs && node --test apps/public/client/native-thread-hiding-state.test.js apps/public/client/native-keybinds.test.js && node --test tests/browser/native-mobile-label.test.mjs tests/browser/native-updater.test.mjs tests/browser/native-semantic-reply.test.mjs tests/browser/native-updater-schedule.test.mjs tests/browser/native-updater-notifications.test.mjs tests/browser/native-watch-lock.test.mjs",
+    "test:watcher-core": "npm run check:native-filter && node --test tests/browser/report-popup.test.mjs tests/browser/report-popup-close.test.mjs tests/browser/thread-watcher-core.test.mjs tests/browser/post-tracking.test.mjs tests/browser/watcher-position.test.mjs tests/browser/native-reply-hiding.test.mjs tests/browser/native-filter.test.mjs tests/browser/native-catalog.test.mjs tests/browser/native-filter-html.test.mjs tests/browser/native-catalog-transport.test.mjs tests/browser/native-auto-watch.test.mjs && node --test apps/public/client/native-thread-hiding-state.test.js apps/public/client/native-keybinds.test.js && node --test tests/browser/native-mobile-label.test.mjs tests/browser/native-updater.test.mjs tests/browser/native-semantic-reply.test.mjs tests/browser/native-updater-schedule.test.mjs tests/browser/native-updater-notifications.test.mjs tests/browser/native-watch-lock.test.mjs",
     "test:post-tracking": "playwright test tests/browser/post-tracking.spec.js",
     "test:thread-watcher": "playwright test tests/browser/thread-watcher.spec.js tests/browser/native-catalog-transport.spec.js",
     "test:watcher-lifecycle": "playwright test tests/browser/watcher-lifecycle.spec.js tests/browser/watcher-archive.spec.js",
@@ -81,7 +81,12 @@
     "test:math": "npm run test:math-core && playwright test --config playwright.math.config.js",
     "build:native-post-deletion": "node scripts/build-native-post-deletion.mjs",
     "check:native-post-deletion": "node scripts/build-native-post-deletion.mjs --check",
-    "test:native-post-deletion-core": "npm run check:native-post-deletion && node --test tests/browser/native-post-deletion.test.mjs tests/browser/native-post-deletion-dom.test.mjs"
+    "test:native-post-deletion-core": "npm run check:native-post-deletion && node --test tests/browser/native-post-deletion.test.mjs tests/browser/native-post-deletion-dom.test.mjs",
+    "check:tegaki": "python3 scripts/prepare-tegaki-assets.py --check",
+    "build:tegaki": "python3 scripts/prepare-tegaki-assets.py",
+    "test:replay-foundation": "node apps/media-guest/tests/fixtures/replay/generate.cjs && python3 tests/media/fixtures/replay-wire/generate.py && python3 tests/media/fixtures/replay-cost/generate.py && node tests/fixtures/record-native-replay-source.mjs && node --test tests/browser/native-replay-data.test.mjs && python3 tests/media/test_replay_fixture_guards.py",
+    "test:drawing-core": "npm run check:tegaki && npm run check:native-quick-reply && node --test tests/browser/native-drawing-core.test.mjs tests/browser/native-drawing.test.mjs tests/browser/native-drawing-qr-cancel.test.mjs tests/browser/native-drawing-source.test.mjs && npm run test:replay-foundation",
+    "test:drawing": "npm run test:drawing-core && playwright test tests/browser/native-drawing.spec.js"
   },
   "devDependencies": {
     "@mathjax/mathjax-tex-font": "4.1.3",

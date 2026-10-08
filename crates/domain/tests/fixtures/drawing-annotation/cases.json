@@ -1,0 +1,1050 @@
+{
+  "time": [
+    {
+      "id": "time_-1",
+      "args": [
+        -1,
+        null,
+        null
+      ],
+      "expected_text": ""
+    },
+    {
+      "id": "time_0",
+      "args": [
+        0,
+        null,
+        null
+      ],
+      "expected_text": ""
+    },
+    {
+      "id": "time_1",
+      "args": [
+        1,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 1s)</small>"
+    },
+    {
+      "id": "time_29",
+      "args": [
+        29,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 29s)</small>"
+    },
+    {
+      "id": "time_30",
+      "args": [
+        30,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 30s)</small>"
+    },
+    {
+      "id": "time_59",
+      "args": [
+        59,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 59s)</small>"
+    },
+    {
+      "id": "time_60",
+      "args": [
+        60,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 1m)</small>"
+    },
+    {
+      "id": "time_89",
+      "args": [
+        89,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 1m)</small>"
+    },
+    {
+      "id": "time_90",
+      "args": [
+        90,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>"
+    },
+    {
+      "id": "time_119",
+      "args": [
+        119,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>"
+    },
+    {
+      "id": "time_120",
+      "args": [
+        120,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>"
+    },
+    {
+      "id": "time_3569",
+      "args": [
+        3569,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 59m)</small>"
+    },
+    {
+      "id": "time_3570",
+      "args": [
+        3570,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 60m)</small>"
+    },
+    {
+      "id": "time_3599",
+      "args": [
+        3599,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 60m)</small>"
+    },
+    {
+      "id": "time_3600",
+      "args": [
+        3600,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 1h 0m)</small>"
+    },
+    {
+      "id": "time_3629",
+      "args": [
+        3629,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 1h 0m)</small>"
+    },
+    {
+      "id": "time_3630",
+      "args": [
+        3630,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 1h 1m)</small>"
+    },
+    {
+      "id": "time_7169",
+      "args": [
+        7169,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 1h 59m)</small>"
+    },
+    {
+      "id": "time_7170",
+      "args": [
+        7170,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 1h 60m)</small>"
+    },
+    {
+      "id": "time_7199",
+      "args": [
+        7199,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 1h 60m)</small>"
+    },
+    {
+      "id": "time_7200",
+      "args": [
+        7200,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2h 0m)</small>"
+    },
+    {
+      "id": "time_5183999",
+      "args": [
+        5183999,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 1439h 60m)</small>"
+    },
+    {
+      "id": "time_5184000",
+      "args": [
+        5184000,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 1440h 0m)</small>"
+    },
+    {
+      "id": "time_5184001",
+      "args": [
+        5184001,
+        null,
+        null
+      ],
+      "expected_text": ""
+    },
+    {
+      "id": "numeric_string",
+      "args": [
+        "90",
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>"
+    },
+    {
+      "id": "fraction_truncated",
+      "args": [
+        59.9,
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 59s)</small>"
+    },
+    {
+      "id": "nonnumeric",
+      "args": [
+        "garbage",
+        null,
+        null
+      ],
+      "expected_text": ""
+    },
+    {
+      "id": "null",
+      "args": [
+        null,
+        null,
+        null
+      ],
+      "expected_text": ""
+    },
+    {
+      "id": "leading_numeric_string",
+      "args": [
+        "90abc",
+        null,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>"
+    },
+    {
+      "id": "replay",
+      "args": [
+        90,
+        1690000000000,
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Replay: <a href=\"javascript:oeReplay(1690000000000);\">View</a>)</small>"
+    },
+    {
+      "id": "source",
+      "args": [
+        90,
+        null,
+        101
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Source: &gt;&gt;101)</small>"
+    },
+    {
+      "id": "source_suppresses_replay",
+      "args": [
+        90,
+        1690000000000,
+        101
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Source: &gt;&gt;101)</small>"
+    },
+    {
+      "id": "zero_source_keeps_replay",
+      "args": [
+        90,
+        1690000000000,
+        0
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Replay: <a href=\"javascript:oeReplay(1690000000000);\">View</a>)</small>"
+    },
+    {
+      "id": "truthy_source_cast_after_branch",
+      "args": [
+        90,
+        1690000000000,
+        "garbage"
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Source: &gt;&gt;0)</small>"
+    },
+    {
+      "id": "truthy_replay_cast_after_branch",
+      "args": [
+        90,
+        "garbage",
+        null
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Replay: <a href=\"javascript:oeReplay(0);\">View</a>)</small>"
+    },
+    {
+      "id": "invalid_time_hides_all",
+      "args": [
+        0,
+        1690000000000,
+        101
+      ],
+      "expected_text": ""
+    },
+    {
+      "id": "zero_string_source",
+      "args": [
+        90,
+        1690000000000,
+        "0"
+      ],
+      "expected_text": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Replay: <a href=\"javascript:oeReplay(1690000000000);\">View</a>)</small>"
+    }
+  ],
+  "tables": {
+    "a": [
+      [
+        100,
+        0,
+        1000,
+        0
+      ],
+      [
+        101,
+        100,
+        1001,
+        0
+      ],
+      [
+        102,
+        200,
+        1002,
+        0
+      ],
+      [
+        200,
+        0,
+        2000,
+        0
+      ],
+      [
+        103,
+        100,
+        0,
+        0
+      ],
+      [
+        104,
+        100,
+        1004,
+        1
+      ],
+      [
+        105,
+        100,
+        -1,
+        0
+      ]
+    ],
+    "b": [
+      [
+        300,
+        0,
+        3000,
+        0
+      ],
+      [
+        301,
+        100,
+        3001,
+        0
+      ]
+    ]
+  },
+  "source": [
+    {
+      "id": "same_thread_op",
+      "args": [
+        100,
+        "a",
+        100
+      ],
+      "expected": 100
+    },
+    {
+      "id": "matching_reply",
+      "args": [
+        101,
+        "a",
+        100
+      ],
+      "expected": 101
+    },
+    {
+      "id": "other_reply",
+      "args": [
+        102,
+        "a",
+        100
+      ],
+      "expected": null
+    },
+    {
+      "id": "other_thread_op_same_board",
+      "args": [
+        200,
+        "a",
+        100
+      ],
+      "expected": 200
+    },
+    {
+      "id": "no_image",
+      "args": [
+        103,
+        "a",
+        100
+      ],
+      "expected": null
+    },
+    {
+      "id": "deleted_flag_not_checked",
+      "args": [
+        104,
+        "a",
+        100
+      ],
+      "expected": 104
+    },
+    {
+      "id": "nonzero_negative_tim",
+      "args": [
+        105,
+        "a",
+        100
+      ],
+      "expected": 105
+    },
+    {
+      "id": "cross_board_op",
+      "args": [
+        300,
+        "a",
+        100
+      ],
+      "expected": null
+    },
+    {
+      "id": "same_id_other_board_reply",
+      "args": [
+        301,
+        "a",
+        100
+      ],
+      "expected": null
+    },
+    {
+      "id": "selected_other_board_op",
+      "args": [
+        300,
+        "b",
+        100
+      ],
+      "expected": 300
+    },
+    {
+      "id": "missing_post",
+      "args": [
+        999,
+        "a",
+        100
+      ],
+      "expected": null
+    },
+    {
+      "id": "zero_source",
+      "args": [
+        0,
+        "a",
+        100
+      ],
+      "expected": null
+    },
+    {
+      "id": "negative_source",
+      "args": [
+        -1,
+        "a",
+        100
+      ],
+      "expected": null
+    },
+    {
+      "id": "zero_thread",
+      "args": [
+        100,
+        "a",
+        0
+      ],
+      "expected": null
+    },
+    {
+      "id": "negative_thread",
+      "args": [
+        100,
+        "a",
+        -1
+      ],
+      "expected": null
+    },
+    {
+      "id": "source_numeric_string",
+      "args": [
+        "101",
+        "a",
+        "100"
+      ],
+      "expected": 101
+    },
+    {
+      "id": "source_truncation",
+      "args": [
+        101.9,
+        "a",
+        100.9
+      ],
+      "expected": 101
+    },
+    {
+      "id": "source_nonnumeric",
+      "args": [
+        "bad",
+        "a",
+        100
+      ],
+      "expected": null
+    },
+    {
+      "id": "thread_nonnumeric",
+      "args": [
+        100,
+        "a",
+        "bad"
+      ],
+      "expected": null
+    },
+    {
+      "id": "op_arbitrary_positive_thread",
+      "args": [
+        200,
+        "a",
+        999
+      ],
+      "expected": 200
+    }
+  ],
+  "validation": [
+    {
+      "id": "minimal_structural_acceptance",
+      "expected_outcome": "return",
+      "expected_value": true
+    },
+    {
+      "id": "upload_error",
+      "error": 1,
+      "expected_outcome": "source_error",
+      "expected_symbol": "S_FAILEDUPLOAD"
+    },
+    {
+      "id": "upload_error_wins_over_zero_size",
+      "error": 1,
+      "file_size": 0,
+      "expected_outcome": "source_error",
+      "expected_symbol": "S_FAILEDUPLOAD"
+    },
+    {
+      "id": "zero_reported_size",
+      "file_size": 0,
+      "expected_outcome": "source_error",
+      "expected_symbol": "S_NOREC"
+    },
+    {
+      "id": "over_8_mib",
+      "file_size": 8388609,
+      "expected_outcome": "source_error",
+      "expected_symbol": "S_TOOLARGE"
+    },
+    {
+      "id": "at_8_mib_metadata_short_actual",
+      "file_size": 8388608,
+      "expected_outcome": "return",
+      "expected_value": true
+    },
+    {
+      "id": "not_http_upload",
+      "uploaded": false,
+      "expected_outcome": "source_error",
+      "expected_symbol": "S_FAILEDUPLOAD"
+    },
+    {
+      "id": "bad_magic",
+      "magic_hex": "54474b00",
+      "expected_outcome": "source_error",
+      "expected_symbol": "S_NOREC"
+    },
+    {
+      "id": "empty_declared_body",
+      "declared_size": 0,
+      "expected_outcome": "source_error",
+      "expected_symbol": "S_NOREC"
+    },
+    {
+      "id": "declared_over_18_mib",
+      "declared_size": 18874369,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "declared_at_18_mib_short_actual",
+      "declared_size": 18874368,
+      "expected_outcome": "return",
+      "expected_value": true
+    },
+    {
+      "id": "declared_over_actual_within_cap",
+      "declared_size": 100,
+      "expected_outcome": "return",
+      "expected_value": true
+    },
+    {
+      "id": "declared_smaller_than_inflated",
+      "declared_size": 1,
+      "expected_outcome": "source_error",
+      "expected_symbol": "S_NOREC"
+    },
+    {
+      "id": "invalid_deflate",
+      "compressed_hex": "deadbeef",
+      "expected_outcome": "source_error",
+      "expected_symbol": "S_NOREC"
+    },
+    {
+      "id": "oversize_declaration_ignores_bad_deflate",
+      "declared_size": 18874369,
+      "compressed_hex": "deadbeef",
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "zero_meta",
+      "meta_size": 0,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "zero_tool_count",
+      "tool_count": 0,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "zero_tool_entry_size",
+      "tool_size": 0,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "missing_tool_meta",
+      "meta_size": 65535,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "zero_event_count",
+      "event_count": 0,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "event_count_at_limit",
+      "event_count": 12000000,
+      "expected_outcome": "return",
+      "expected_value": true
+    },
+    {
+      "id": "event_count_above_limit",
+      "event_count": 12000001,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "bad_prelude",
+      "prelude": 1,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "bad_conclusion",
+      "conclusion": 254,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "unsupported_version_ignored",
+      "version_hex": "fffffffe",
+      "expected_outcome": "return",
+      "expected_value": true
+    },
+    {
+      "id": "event_count_one_accepted_with_two_markers",
+      "event_count": 1,
+      "expected_outcome": "return",
+      "expected_value": true
+    },
+    {
+      "id": "trailer_after_conclusion",
+      "append_body_hex": "01",
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "empty_inflated_body",
+      "body_hex": "",
+      "declared_size": 1,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "one_byte_inflated_body",
+      "body_hex": "00",
+      "declared_size": 1,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "truncated_event_count",
+      "truncate_body": 7,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "missing_prelude",
+      "truncate_body": 9,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "missing_conclusion",
+      "truncate_body": 14,
+      "expected_outcome": "return",
+      "expected_value": false
+    },
+    {
+      "id": "header_only_zero_read_length",
+      "truncate_file": 12,
+      "expected_outcome": "runtime_error"
+    },
+    {
+      "id": "short_header_negative_read_length",
+      "truncate_file": 4,
+      "expected_outcome": "runtime_error"
+    },
+    {
+      "id": "zero_string_reported_size",
+      "file_size": "0",
+      "expected_outcome": "runtime_error"
+    },
+    {
+      "id": "empty_compressed_with_positive_read",
+      "compressed_hex": "",
+      "file_size": 13,
+      "expected_outcome": "source_error",
+      "expected_symbol": "S_NOREC"
+    },
+    {
+      "id": "compressed_ascii_zero_falsey",
+      "compressed_hex": "30",
+      "expected_outcome": "source_error",
+      "expected_symbol": "S_NOREC"
+    },
+    {
+      "id": "bad_magic_beats_oversize_declaration",
+      "magic_hex": "00000000",
+      "declared_size": 18874369,
+      "expected_outcome": "source_error",
+      "expected_symbol": "S_NOREC"
+    }
+  ],
+  "gates": [
+    {
+      "id": "no_replay_time_only",
+      "expected_outcome": "return",
+      "post": {
+        "oe_time": 90
+      },
+      "expected_annotation": true,
+      "expected_replay": false,
+      "expected_moved": false
+    },
+    {
+      "id": "valid_replay_time",
+      "expected_outcome": "return",
+      "upload": {},
+      "post": {
+        "oe_time": 90
+      },
+      "expected_annotation": true,
+      "expected_replay": true,
+      "expected_moved": true
+    },
+    {
+      "id": "valid_replay_no_time",
+      "expected_outcome": "return",
+      "upload": {},
+      "expected_annotation": false,
+      "expected_moved": true
+    },
+    {
+      "id": "valid_replay_invalid_time",
+      "expected_outcome": "return",
+      "upload": {},
+      "post": {
+        "oe_time": 0
+      },
+      "expected_annotation": false,
+      "expected_moved": true
+    },
+    {
+      "id": "wrong_replay_filename_ignored",
+      "expected_outcome": "return",
+      "upload": {
+        "name": "other.tgkr",
+        "error": 1
+      },
+      "post": {
+        "oe_time": 90
+      },
+      "expected_annotation": true,
+      "expected_replay": false,
+      "expected_moved": false
+    },
+    {
+      "id": "wrong_image_basename_ignored",
+      "expected_outcome": "return",
+      "insfile": "other",
+      "upload": {
+        "error": 1
+      },
+      "post": {
+        "oe_time": 90
+      },
+      "expected_annotation": true,
+      "expected_replay": false,
+      "expected_moved": false
+    },
+    {
+      "id": "painter_disabled",
+      "expected_outcome": "return",
+      "painter_enabled": false,
+      "upload": {
+        "error": 1
+      },
+      "post": {
+        "oe_time": 90
+      },
+      "expected_annotation": false,
+      "expected_moved": false
+    },
+    {
+      "id": "replays_disabled_suppresses_annotation",
+      "expected_outcome": "return",
+      "replays_enabled": false,
+      "upload": {
+        "error": 1
+      },
+      "post": {
+        "oe_time": 90
+      },
+      "expected_annotation": false,
+      "expected_moved": false
+    },
+    {
+      "id": "no_image_outer_guard",
+      "expected_outcome": "return",
+      "has_image": false,
+      "upload": {},
+      "post": {
+        "oe_time": 90
+      },
+      "expected_annotation": false,
+      "expected_moved": false
+    },
+    {
+      "id": "malformed_replay_hard_error",
+      "expected_outcome": "source_error",
+      "upload": {
+        "magic_hex": "00000000"
+      },
+      "post": {
+        "oe_time": 90
+      },
+      "expected_symbol": "S_NOREC"
+    },
+    {
+      "id": "upload_error_hard_error",
+      "expected_outcome": "source_error",
+      "upload": {
+        "error": 1
+      },
+      "post": {
+        "oe_time": 90
+      },
+      "expected_symbol": "S_FAILEDUPLOAD"
+    },
+    {
+      "id": "unsupported_replay_silent_ignore",
+      "expected_outcome": "return",
+      "upload": {
+        "meta_size": 0
+      },
+      "post": {
+        "oe_time": 90
+      },
+      "expected_annotation": true,
+      "expected_replay": false,
+      "expected_moved": false
+    },
+    {
+      "id": "oversize_declared_replay_silent_ignore",
+      "expected_outcome": "return",
+      "upload": {
+        "declared_size": 18874369
+      },
+      "post": {
+        "oe_time": 90
+      },
+      "expected_annotation": true,
+      "expected_replay": false,
+      "expected_moved": false
+    },
+    {
+      "id": "replay_move_failure",
+      "expected_outcome": "source_error",
+      "upload": {},
+      "post": {
+        "oe_time": 90
+      },
+      "move_success": false,
+      "expected_symbol": "S_FAILEDUPLOAD"
+    },
+    {
+      "id": "valid_source_suppresses_replay_link",
+      "expected_outcome": "return",
+      "upload": {},
+      "post": {
+        "oe_time": 90,
+        "oe_src": 200
+      },
+      "rows": 1,
+      "expected_annotation": true,
+      "expected_replay": false,
+      "expected_source": true,
+      "expected_moved": true
+    },
+    {
+      "id": "invalid_source_preserves_replay_link",
+      "expected_outcome": "return",
+      "upload": {},
+      "post": {
+        "oe_time": 90,
+        "oe_src": 102
+      },
+      "rows": 0,
+      "expected_annotation": true,
+      "expected_replay": true,
+      "expected_source": false,
+      "expected_moved": true
+    },
+    {
+      "id": "new_thread_ignores_source",
+      "expected_outcome": "return",
+      "upload": {},
+      "resto": 0,
+      "post": {
+        "oe_time": 90,
+        "oe_src": 200
+      },
+      "rows": 1,
+      "expected_annotation": true,
+      "expected_replay": true,
+      "expected_source": false,
+      "expected_moved": true
+    },
+    {
+      "id": "source_without_time_not_queried",
+      "expected_outcome": "return",
+      "post": {
+        "oe_src": 200
+      },
+      "rows": 1,
+      "expected_annotation": false,
+      "expected_moved": false
+    },
+    {
+      "id": "source_annotation_without_replay",
+      "expected_outcome": "return",
+      "post": {
+        "oe_time": 90,
+        "oe_src": 200
+      },
+      "rows": 1,
+      "expected_annotation": true,
+      "expected_source": true,
+      "expected_replay": false,
+      "expected_moved": false
+    },
+    {
+      "id": "fractional_time_annotation",
+      "expected_outcome": "return",
+      "post": {
+        "oe_time": 59.9
+      },
+      "expected_annotation": true,
+      "expected_replay": false,
+      "expected_moved": false
+    }
+  ]
+}

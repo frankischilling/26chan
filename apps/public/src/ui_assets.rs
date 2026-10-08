@@ -30,7 +30,21 @@ pub(crate) const NATIVE_MATH_PATH: &str = "/static/native-math.v1.js";
 pub(crate) const NATIVE_MATH_WORKER_PATH: &str = "/static/native-math-worker.v1.js";
 pub(crate) const UPDATER_SOUND_PATH: &str = "/static/notifications/beep.ogg";
 
+pub(crate) const TEGAKI_SCRIPT_PATH: &str = "/static/tegaki/tegaki-0.9.4.v1.js";
+pub(crate) const TEGAKI_STYLE_PATH: &str = "/static/tegaki/tegaki-0.9.4.v1.css";
+pub(crate) const TEGAKI_FONT_PATH: &str = "/static/tegaki/tegaki-icons.v1.woff";
+
 const ASSETS: &[(&str, &str, &[u8])] = &[
+    (
+        TEGAKI_STYLE_PATH,
+        "text/css; charset=utf-8",
+        include_bytes!("../static/tegaki/tegaki-0.9.4.v1.css"),
+    ),
+    (
+        TEGAKI_FONT_PATH,
+        "font/woff",
+        include_bytes!("../static/tegaki/tegaki-icons.v1.woff"),
+    ),
     (
         "/static/catalog/spoiler-a1.png",
         "image/png",
@@ -861,6 +875,10 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         );
     }
     for (path, bytes) in [
+        (
+            TEGAKI_SCRIPT_PATH,
+            include_bytes!("../static/tegaki/tegaki-0.9.4.v1.js").as_slice(),
+        ),
         (
             NATIVE_MATH_PATH,
             include_bytes!("../static/native-math.v1.js").as_slice(),

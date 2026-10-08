@@ -476,6 +476,7 @@ dependencies = [
 name = "board-media-guest"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "gif",
  "jpeg-encoder",
  "png",

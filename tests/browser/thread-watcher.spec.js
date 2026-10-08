@@ -1,4 +1,5 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
+import { closeReportPopup } from './helpers/report-popup-close.js';
 import { test as base, expect } from '@playwright/test';
 import { saveWatcherSettings } from './helpers/watcher-settings.js';
 
@@ -250,9 +251,7 @@ test('post menus report through the actual popup and cancel native deletion befo
   // the real menu before exercising deletion, without bypassing report authority.
   await expect(page.locator(`#m${reply}`)).toBeHidden();
   await expect(page.locator(`#m${id}`)).toBeVisible();
-  const closed = popup.waitForEvent('close');
-  await popup.locator('#report-popup-close').click();
-  await closed;
+  await closeReportPopup(popup, page);
   await page.goto(`/demo/thread/${id}`);
   await expect(page.locator(`#m${reply}`)).toBeHidden();
   await trigger.click();

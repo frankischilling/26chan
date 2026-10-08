@@ -20,17 +20,20 @@ from test_vm import red_png
 def finish_browser(process, script):
     # Browser stderr can include one-use capabilities in page/response details.
     # Emit only a fixed script/location and an allowlisted HTTP response category.
-    assert script in ('public-upload.mjs', 'quick-reply-upload.mjs')
+    assert script in ('public-upload.mjs', 'quick-reply-upload.mjs', 'drawing-upload.mjs')
     output, error = process.communicate(timeout=35)
     if process.returncode != 0:
         locations = re.findall(rb'/' + re.escape(script.encode()) + rb':([0-9]{1,6}):([0-9]{1,6})\b', error)
         location = ':' + ':'.join(value.decode('ascii') for value in locations[0]) if locations else ''
         responses = re.findall(rb'^OWNED_UPLOAD_RESPONSE status=([1-5][0-9]{2}) type=(json|html|plain|other)\r?$', error, re.MULTILINE)
         response = (' (HTTP ' + responses[0][0].decode('ascii') + ', ' + responses[0][1].decode('ascii') + ')') if responses else ''
-        classified = re.findall(rb'^OWNED_UPLOAD_RESPONSE status=([1-5][0-9]{2}) type=(json|html|plain|other) stage=(upload|post) failure=(http|json|body)\r?$', error, re.MULTILINE)
+        classified = re.findall(rb'^OWNED_UPLOAD_RESPONSE status=([1-5][0-9]{2}) type=(json|html|plain|other) stage=(upload|post|owner-thread) failure=(http|json|body)\r?$', error, re.MULTILINE)
         if classified:
             status, category, stage, failure = (value.decode('ascii') for value in classified[-1])
             response = f' (HTTP {status}, {category}, {stage}, {failure})'
+        drawing = re.findall(rb'^OWNED_DRAWING_EDIT (cancel=(?:none|pending|failed|other|[1-5][0-9]{2}) ui=(?:empty|queued|canceling|checking|uploading|cancel-error|editor-error|other) editor=(?:absent|hidden|visible) cursor=(?:absent|hidden|visible) active=(?:true|false|other)|unavailable)\r?$', error, re.MULTILINE)
+        if drawing and script == 'drawing-upload.mjs':
+            response += ' (Edit ' + drawing[-1].decode('ascii') + ')'
         raise AssertionError('owned upload browser rejected at ' + script + location + response)
     return output
 
@@ -54,6 +57,9 @@ class PublicUpload:
         self.created = False
         self.browser = None
         self.filenames = []
+        self.completed_jobs = []
+        self._public_identity = None
+        self.drawing_upload = None
 
     def setup(self):
         f = self.f
@@ -68,6 +74,7 @@ class PublicUpload:
             edge = grp.getgrnam('board-edge')
         assert edge.gr_gid != 0
         assert public.pw_uid not in (0, f.intake_user.pw_uid, f.coordinator.pw_uid, f.http_user.pw_uid)
+        self._public_identity = (public.pw_uid, edge.gr_gid)
         shutil.copyfile(f.binaries / 'board-public', f.bin / 'board-public')
         (f.bin / 'board-public').chmod(0o755)
         with socket.socket() as sock:
@@ -174,6 +181,53 @@ class PublicUpload:
         sql(f"UPDATE content.boards SET comment_spoiler_cleanup=false WHERE slug='{self.board}' AND title='Upload qualification';")
         self.upload_one('quick-reply-disabled.png', red_png(), True, quick_reply=True, spoilers=False)
         self.upload_one('quick-reply-inline-disabled.png', red_png(), True, quick_reply='inline', spoilers=False)
+        # Drawing shares this server's actor on a new owned board. Its own reset
+        # cannot remove this board's cross-board OP cooldown. End the completed
+        # host workflow with the same exact actor-and-owned-board scoped reset.
+        self.reset_posting_history()
+        self.restart_for_drawing()
+        from public_drawing_fixture import PublicDrawingUpload
+        self.drawing_upload = PublicDrawingUpload(self)
+        self.drawing_upload.exercise()
+
+    def restart_for_drawing(self):
+        # Each browser batch owns the same loopback write-budget bucket. Start
+        # drawing with a fresh instance of only this disposable public service,
+        # after every preceding browser, dispatch and reconcile has completed.
+        # Keep the configured 60/minute limit and production policy unchanged.
+        assert self.installed and self.created and self.board == self._owned_board
+        assert self.drawing_upload is None
+        assert self._public_identity and all(isinstance(value, int) and value > 0 for value in self._public_identity)
+        token = self.f.root.name.removeprefix('26chan-dispatch-')
+        assert re.fullmatch('[a-z0-9_]{8}', token)
+        assert self.unit.name == f'paperboard-dispatch-qualification-{token}-public.service'
+        assert self.unit in self.f.processes
+        path = pathlib.Path('/run/systemd/system') / self.unit.name
+        assert path in self.f.unit_files and path.read_bytes() == self.f.unit_files[path]
+        assert len(self.filenames) == len(set(self.filenames)) == 9
+        assert len(self.completed_jobs) == len(set(self.completed_jobs)) == 9
+        assert all(HEX.fullmatch(job) and job in self.f.ids for job in self.completed_jobs)
+        assert all(re.fullmatch(r'public-upload-' + self.board + r'\.[a-z.-]+', name) for name in self.filenames)
+        assert self.browser is not None and self.browser.poll() == 0, 'previous upload browser is not complete'
+        names = ','.join("'" + name + "'" for name in self.filenames)
+        jobs = ','.join("'" + job + "'" for job in self.completed_jobs)
+        assert sql(f"SELECT count(*)=9 AND bool_and(state='published' AND id IN ({jobs})) FROM media.jobs WHERE filename IN ({names});") == 't', 'previous upload jobs are not complete'
+        self.f.clean_vm()
+        previous = self.unit.state()
+        assert previous['ActiveState'] == 'active' and re.fullmatch('[a-f0-9]{32}', previous['InvocationID'])
+        systemctl('restart', self.unit.name, timeout=35)
+        wait_until(self.ready)
+        current = self.unit.state()
+        assert current['ActiveState'] == 'active' and re.fullmatch('[a-f0-9]{32}', current['InvocationID'])
+        assert current['InvocationID'] != previous['InvocationID'], 'public service did not start a fresh invocation'
+        pid = int(current['MainPID'])
+        assert pid > 0
+        status = pathlib.Path(f'/proc/{pid}/status').read_text()
+        ids = dict(line.split(':', 1) for line in status.splitlines() if ':' in line)
+        uid, gid = self._public_identity
+        assert set(map(int, ids['Uid'].split())) == {uid}
+        assert set(map(int, ids['Gid'].split())) == {gid}
+        self.browser = None
 
     def upload_one(self, suffix, data, javascript=False, quick_reply=False, spoilers=True):
         self.reset_deletion_quota()
@@ -232,9 +286,12 @@ class PublicUpload:
         assert sql(f"SELECT count(*) FROM content.post_media WHERE asset_id='{asset}' AND file_deleted;") == '1'
         assert f.http(f'/media/{asset}.png')[0] == 404
         assert f.http(f'/media/{asset}.thumb.png')[0] == 404
+        self.completed_jobs.append(job)
         print(f'PASS {suffix}: real nonroot public browser -> authenticated intake -> Firecracker -> persisted attachment -> browser image -> deletion revokes reader -> both files removed with tombstone retained', flush=True)
 
     def cleanup(self):
+        if self.drawing_upload is not None:
+            self.drawing_upload.cleanup()
         if self.browser is not None:
             self.f.stop(self.browser)
         if self.installed:

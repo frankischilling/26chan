@@ -1,0 +1,192 @@
+{
+  "sourceCommit": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "sourceFile": "js/tegaki.min.js",
+  "sourceSha256": "daea182c52df0c032eadbecb4de8f91f634a61bf82aaf35dda077fab50e68744",
+  "description": "Synthetic commands packed and compressed by the original Tegaki 0.9.4 recorder. No canvas, playback, or PNG correspondence tested.",
+  "fixtures": [
+    {
+      "name": "empty",
+      "bytes": 113,
+      "sha256": "f43a6b843eb6078492f6aafa1dd1c95ed89e184622b6e65e75886ad22f6d2bb8",
+      "events": [
+        {
+          "tag": 0,
+          "timestamp": 123,
+          "size": 5
+        },
+        {
+          "tag": 255,
+          "timestamp": 1123,
+          "size": 5
+        }
+      ]
+    },
+    {
+      "name": "commands",
+      "bytes": 258,
+      "sha256": "f70ca7c89e105986da4d995bf70df141f55680b1467614445e8b9eefcf2e10b7",
+      "events": [
+        {
+          "tag": 0,
+          "timestamp": 1123,
+          "size": 5
+        },
+        {
+          "tag": 6,
+          "timestamp": 1200,
+          "size": 8
+        },
+        {
+          "tag": 10,
+          "timestamp": 1201,
+          "size": 6
+        },
+        {
+          "tag": 11,
+          "timestamp": 1202,
+          "size": 6
+        },
+        {
+          "tag": 12,
+          "timestamp": 1203,
+          "size": 9
+        },
+        {
+          "tag": 13,
+          "timestamp": 1204,
+          "size": 6
+        },
+        {
+          "tag": 14,
+          "timestamp": 1205,
+          "size": 6
+        },
+        {
+          "tag": 16,
+          "timestamp": 1206,
+          "size": 6
+        },
+        {
+          "tag": 17,
+          "timestamp": 1207,
+          "size": 6
+        },
+        {
+          "tag": 18,
+          "timestamp": 1208,
+          "size": 9
+        },
+        {
+          "tag": 1,
+          "timestamp": 1209,
+          "size": 11
+        },
+        {
+          "tag": 2,
+          "timestamp": 1210,
+          "size": 11
+        },
+        {
+          "tag": 3,
+          "timestamp": 1211,
+          "size": 5
+        },
+        {
+          "tag": 4,
+          "timestamp": 1212,
+          "size": 5
+        },
+        {
+          "tag": 5,
+          "timestamp": 1213,
+          "size": 5
+        },
+        {
+          "tag": 10,
+          "timestamp": 1214,
+          "size": 6
+        },
+        {
+          "tag": 15,
+          "timestamp": 1215,
+          "size": 6
+        },
+        {
+          "tag": 7,
+          "timestamp": 1216,
+          "size": 9
+        },
+        {
+          "tag": 8,
+          "timestamp": 1217,
+          "size": 9
+        },
+        {
+          "tag": 2,
+          "timestamp": 1218,
+          "size": 11
+        },
+        {
+          "tag": 3,
+          "timestamp": 1219,
+          "size": 5
+        },
+        {
+          "tag": 20,
+          "timestamp": 1220,
+          "size": 5
+        },
+        {
+          "tag": 24,
+          "timestamp": 1221,
+          "size": 6
+        },
+        {
+          "tag": 25,
+          "timestamp": 1222,
+          "size": 6
+        },
+        {
+          "tag": 26,
+          "timestamp": 1223,
+          "size": 6
+        },
+        {
+          "tag": 27,
+          "timestamp": 1224,
+          "size": 9
+        },
+        {
+          "tag": 22,
+          "timestamp": 1225,
+          "size": 6
+        },
+        {
+          "tag": 23,
+          "timestamp": 1226,
+          "size": 5
+        },
+        {
+          "tag": 20,
+          "timestamp": 1227,
+          "size": 5
+        },
+        {
+          "tag": 21,
+          "timestamp": 1228,
+          "size": 5
+        },
+        {
+          "tag": 254,
+          "timestamp": 1229,
+          "size": 5
+        },
+        {
+          "tag": 255,
+          "timestamp": 2123,
+          "size": 5
+        }
+      ]
+    }
+  ]
+}

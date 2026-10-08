@@ -34,6 +34,14 @@ routes and navigation. `/f/` has no ordinary catalog. Its specialized upload
 workflow remains in #206. Source flags for unsupported policies are recorded
 in the fixture and tracked through #192; recording a flag does not implement it.
 
+Migration 0114 imports drawing and replay switches plus 400 x 400 default
+dimensions for all 82 boards. `/i/`, `/qst/` and `/vip/` enable drawing in the
+source; only `/i/` enables replay. The [native PNG drawing slice](native-drawing.md)
+supports `/qst/` and `/vip/` when the existing media gates pass. `/i/` remains
+runtime-disabled pending replay support; recording its policy does not complete
+its workflow. The unused source `OEKAKI_MIN/MAX` constants are not imported as
+admission limits.
+
 Migration 0092 imports the executable `MAX_USER_THREADS` and
 `MAX_USER_THREADS_PERIOD` settings as `user_thread_limit` and
 `user_thread_period_hours`. The source defaults are five OPs per board over

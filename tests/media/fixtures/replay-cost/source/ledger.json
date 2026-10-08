@@ -1,0 +1,1091 @@
+{
+  "suite": "ledger",
+  "pin": {
+    "bytes": 110619,
+    "sha256": "daea182c52df0c032eadbecb4de8f91f634a61bf82aaf35dda077fab50e68744",
+    "version": "0.9.4"
+  },
+  "sourcePath": "26chan-reference/js/tegaki.min.js",
+  "stubs": {
+    "ui": [
+      "getLayerPreviewSize",
+      "setupDragLabel",
+      "processDragLabel",
+      "clearDragLabel",
+      "printMsg",
+      "clearMsg",
+      "buildUI",
+      "buildDummyFilePicker",
+      "buildMenuBar",
+      "buildViewerMenuBar",
+      "buildToolModeBar",
+      "buildToolsMenu",
+      "buildCanvasCnt",
+      "buildCtrlGroup",
+      "buildLayersCtrlGroup",
+      "buildSizeCtrlGroup",
+      "buildAlphaCtrlGroup",
+      "buildFlowCtrlGroup",
+      "buildZoomCtrlGroup",
+      "buildColorCtrlGroup",
+      "buildStatusCnt",
+      "buildReplayControls",
+      "buildLayerGridCell",
+      "onLayerSelectorPtrDown",
+      "onLayerDragStart",
+      "onLayerDragOver",
+      "onLayerDragLeave",
+      "onLayerDragEnd",
+      "onLayerDragDrop",
+      "updateLayersGridDragExt",
+      "updateLayersGridDragEffect",
+      "layersGridFindDropTgt",
+      "layersGridCanDrop",
+      "setReplayMode",
+      "onToolChanged",
+      "updateLayerAlphaOpt",
+      "updateLayerName",
+      "updateLayerPreviewSize",
+      "deleteLayerPreviewCtx",
+      "updateLayersGridClear",
+      "updateLayersGrid",
+      "updateLayersGridActive",
+      "updateLayersGridAdd",
+      "updateLayersGridRemove",
+      "updayeLayersGridOrder",
+      "updateLayersGridVisibility",
+      "updateLayersGridSelectedClear",
+      "updateLayersGridSelectedSet",
+      "updateToolSize",
+      "updateToolAlpha",
+      "updateToolFlow",
+      "updateToolDynamics",
+      "updateToolShape",
+      "updateToolPreserveAlpha",
+      "updateToolModes",
+      "updateUndoRedo",
+      "updateZoomLevel",
+      "updateColorPalette",
+      "updateReplayTime",
+      "updateReplayControls",
+      "updateReplayGapless",
+      "updateReplayPlayPause",
+      "updateReplaySpeed",
+      "enableReplayControls",
+      "setRecordingStatus"
+    ],
+    "canvas": "Canvas API calls are recorded but never rasterized; getImageData returns transparent storage.",
+    "document": "Inert elements, no rendering or event listeners."
+  },
+  "proposalOnly": true,
+  "plan": {
+    "width": 32,
+    "height": 24,
+    "activeTool": 1,
+    "tools": {
+      "1": {
+        "size": 1,
+        "alpha": 1,
+        "flow": 1,
+        "step": 0.01,
+        "tipId": 0,
+        "sizeDynamicsEnabled": false,
+        "alphaDynamicsEnabled": false,
+        "flowDynamicsEnabled": false
+      },
+      "2": {
+        "size": 8,
+        "alpha": 1,
+        "flow": 1,
+        "step": 0.05,
+        "tipId": 0,
+        "sizeDynamicsEnabled": false,
+        "alphaDynamicsEnabled": false,
+        "flowDynamicsEnabled": false
+      },
+      "3": {
+        "size": 32,
+        "alpha": 1,
+        "flow": 1,
+        "step": 0.1,
+        "tipId": 0,
+        "sizeDynamicsEnabled": false,
+        "alphaDynamicsEnabled": false,
+        "flowDynamicsEnabled": false
+      },
+      "5": {
+        "size": 8,
+        "alpha": 0.5,
+        "flow": 1,
+        "step": 0.01,
+        "tipId": 0,
+        "sizeDynamicsEnabled": false,
+        "alphaDynamicsEnabled": false,
+        "flowDynamicsEnabled": false
+      },
+      "7": {
+        "size": 32,
+        "alpha": 0.5,
+        "flow": 1,
+        "step": 0.25,
+        "tipId": 0,
+        "sizeDynamicsEnabled": false,
+        "alphaDynamicsEnabled": false,
+        "flowDynamicsEnabled": false
+      },
+      "8": {
+        "size": 8,
+        "alpha": 1,
+        "flow": 1,
+        "step": 0.1,
+        "tipId": 0,
+        "sizeDynamicsEnabled": false,
+        "alphaDynamicsEnabled": false,
+        "flowDynamicsEnabled": false
+      }
+    },
+    "events": [
+      {
+        "type": "setTool",
+        "value": 5
+      },
+      {
+        "type": "setAlpha",
+        "value": 0.7
+      },
+      {
+        "type": "setTool",
+        "value": 2
+      },
+      {
+        "type": "setSize",
+        "value": 64
+      },
+      {
+        "type": "setTool",
+        "value": 2
+      },
+      {
+        "type": "setTool",
+        "value": 8
+      },
+      {
+        "type": "setTip",
+        "value": 1
+      },
+      {
+        "type": "setTip",
+        "value": 2
+      },
+      {
+        "type": "setTool",
+        "value": 7
+      },
+      {
+        "type": "setSize",
+        "value": 8
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      },
+      {
+        "type": "start",
+        "x": 0,
+        "y": 0
+      },
+      {
+        "type": "draw",
+        "x": 31,
+        "y": 23,
+        "pressure": 65535
+      },
+      {
+        "type": "commit"
+      }
+    ]
+  },
+  "estimate": {
+    "eventCount": "190",
+    "shapeRegenerations": "10",
+    "shapeWorkUnits": "10728448",
+    "shapeStackScalarPushes": "670548",
+    "rasterLeafUnits": "1421880",
+    "rasterAllLoopUnits": "4175700",
+    "toneLeafUnits": "12288",
+    "toneAllLoopUnits": "25777",
+    "typedAllocatedBytes": "2401728",
+    "typedCopyBytes": "368640",
+    "typedClearBytes": "368640",
+    "cursorLoopUnits": "6151",
+    "cursorScalarPushes": "24576",
+    "cursorClearCalls": "1",
+    "canvasGetImageDataCalls": "1",
+    "canvasGetImageDataPixels": "768",
+    "canvasFillPixels": "768",
+    "canvasPutImageDataCalls": "120",
+    "canvasPutFullInputPixels": "92160",
+    "canvasDirtyRequestedPixels": "76380",
+    "previewDrawCalls": "60",
+    "previewSourcePixels": "46080",
+    "previewDestinationPixels": "34560",
+    "previewClearPixels": "34560",
+    "fixedCanvasSurfacePixels": "2112",
+    "unmodeledViewportCanvasAllocations": "1",
+    "committedStrokes": "60",
+    "typedZeroInitializationBytesUpper": "2401728"
+  },
+  "measuredSourceCounters": {
+    "typedAllocatedBytes": 1577284,
+    "typedCopyBytes": 368640,
+    "typedClearBytes": 368640,
+    "shapeWorkUnits": 2098794,
+    "shapeStackScalarPushes": 209288,
+    "rasterLeafUnits": 584340,
+    "rasterAllLoopUnits": 1620840,
+    "toneLeafUnits": 12288,
+    "canvasPutImageDataCalls": 120,
+    "previewDrawCalls": 60
+  },
+  "rejected": [
+    {
+      "type": "undo"
+    },
+    {
+      "type": "setTool",
+      "value": 4
+    },
+    {
+      "type": "start",
+      "x": 32,
+      "y": 0
+    },
+    {
+      "type": "setDynamics",
+      "kind": "size",
+      "value": true
+    }
+  ]
+}

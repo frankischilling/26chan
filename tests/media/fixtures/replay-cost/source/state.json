@@ -1,0 +1,1035 @@
+{
+  "suite": "state",
+  "pin": {
+    "bytes": 110619,
+    "sha256": "daea182c52df0c032eadbecb4de8f91f634a61bf82aaf35dda077fab50e68744",
+    "version": "0.9.4"
+  },
+  "sourcePath": "26chan-reference/js/tegaki.min.js",
+  "stubs": {
+    "ui": [
+      "getLayerPreviewSize",
+      "setupDragLabel",
+      "processDragLabel",
+      "clearDragLabel",
+      "printMsg",
+      "clearMsg",
+      "buildUI",
+      "buildDummyFilePicker",
+      "buildMenuBar",
+      "buildViewerMenuBar",
+      "buildToolModeBar",
+      "buildToolsMenu",
+      "buildCanvasCnt",
+      "buildCtrlGroup",
+      "buildLayersCtrlGroup",
+      "buildSizeCtrlGroup",
+      "buildAlphaCtrlGroup",
+      "buildFlowCtrlGroup",
+      "buildZoomCtrlGroup",
+      "buildColorCtrlGroup",
+      "buildStatusCnt",
+      "buildReplayControls",
+      "buildLayerGridCell",
+      "onLayerSelectorPtrDown",
+      "onLayerDragStart",
+      "onLayerDragOver",
+      "onLayerDragLeave",
+      "onLayerDragEnd",
+      "onLayerDragDrop",
+      "updateLayersGridDragExt",
+      "updateLayersGridDragEffect",
+      "layersGridFindDropTgt",
+      "layersGridCanDrop",
+      "setReplayMode",
+      "onToolChanged",
+      "updateLayerAlphaOpt",
+      "updateLayerName",
+      "updateLayerPreviewSize",
+      "deleteLayerPreviewCtx",
+      "updateLayersGridClear",
+      "updateLayersGrid",
+      "updateLayersGridActive",
+      "updateLayersGridAdd",
+      "updateLayersGridRemove",
+      "updayeLayersGridOrder",
+      "updateLayersGridVisibility",
+      "updateLayersGridSelectedClear",
+      "updateLayersGridSelectedSet",
+      "updateToolSize",
+      "updateToolAlpha",
+      "updateToolFlow",
+      "updateToolDynamics",
+      "updateToolShape",
+      "updateToolPreserveAlpha",
+      "updateToolModes",
+      "updateUndoRedo",
+      "updateZoomLevel",
+      "updateColorPalette",
+      "updateReplayTime",
+      "updateReplayControls",
+      "updateReplayGapless",
+      "updateReplayPlayPause",
+      "updateReplaySpeed",
+      "enableReplayControls",
+      "setRecordingStatus"
+    ],
+    "canvas": "Canvas API calls are recorded but never rasterized; getImageData returns transparent storage.",
+    "document": "Inert elements, no rendering or event listeners."
+  },
+  "initialization": {
+    "counts": {
+      "canvas.fillRect": 1,
+      "canvas.getImageData": 1,
+      "ui.updateLayersGridAdd": 1,
+      "ui.updateLayerAlphaOpt": 3,
+      "ui.updateLayersGridSelectedClear": 1,
+      "ui.updateLayersGridSelectedSet": 1,
+      "ui.updateLayersGridActive": 1,
+      "ui.updateUndoRedo": 1,
+      "ui.updateZoomLevel": 1
+    },
+    "typedBytes": 36864,
+    "allocations": [
+      {
+        "kind": "Uint8ClampedArray",
+        "bytes": 12288,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8ClampedArray",
+        "bytes": 12288,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint32Array",
+        "bytes": 0,
+        "viewBytes": 12288
+      },
+      {
+        "kind": "Uint32Array",
+        "bytes": 0,
+        "viewBytes": 12288
+      },
+      {
+        "kind": "Uint8ClampedArray",
+        "bytes": 12288,
+        "viewBytes": 0
+      }
+    ],
+    "canvas": [
+      {
+        "method": "fillRect",
+        "canvasWidth": 64,
+        "canvasHeight": 48,
+        "args": [
+          0,
+          0,
+          64,
+          48
+        ]
+      },
+      {
+        "method": "getImageData",
+        "canvasWidth": 64,
+        "canvasHeight": 48,
+        "args": [
+          0,
+          0,
+          64,
+          48
+        ]
+      }
+    ],
+    "maxStack": 0
+  },
+  "cases": [
+    {
+      "label": "select-default-pencil",
+      "counts": {
+        "shape.circle.tests": 2,
+        "shape.circle": 1,
+        "ui.onToolChanged": 1,
+        "canvas.clearRect": 1
+      },
+      "typedBytes": 4,
+      "allocations": [
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 4,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint32Array",
+          "bytes": 0,
+          "viewBytes": 4
+        }
+      ],
+      "canvas": [
+        {
+          "method": "clearRect",
+          "canvasWidth": 128,
+          "canvasHeight": 128,
+          "args": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "maxStack": 0
+    },
+    {
+      "label": "select-tone-first",
+      "counts": {
+        "tone.maps.tests": 17,
+        "tone.maps": 16,
+        "tone.rows.tests": 784,
+        "tone.rows": 768,
+        "tone.cells.tests": 49920,
+        "tone.cells": 49152,
+        "shape.circle.tests": 5,
+        "shape.circle": 4,
+        "shape.stack.scalarPushes": 54,
+        "shape.flood.pairs.tests": 28,
+        "shape.flood.pairs": 27,
+        "shape.stack.scalarPops": 54,
+        "shape.flood.tests": 150,
+        "shape.scan.left.tests": 49,
+        "shape.scan.left": 22,
+        "shape.flood.cells": 32,
+        "shape.scan.right.tests": 37,
+        "shape.scan.right": 10,
+        "ui.onToolChanged": 1,
+        "cursor.circle.tests": 5,
+        "cursor.circle": 4
+      },
+      "typedBytes": 49664,
+      "allocations": [
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 3072,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 256,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint32Array",
+          "bytes": 0,
+          "viewBytes": 256
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 256,
+          "viewBytes": 0
+        }
+      ],
+      "canvas": [],
+      "maxStack": 38
+    },
+    {
+      "label": "tone-alpha-cached",
+      "counts": {
+        "ui.updateToolAlpha": 1
+      },
+      "typedBytes": 0,
+      "allocations": [],
+      "canvas": [],
+      "maxStack": 0
+    },
+    {
+      "label": "tone-flow",
+      "counts": {
+        "ui.updateToolFlow": 1
+      },
+      "typedBytes": 0,
+      "allocations": [],
+      "canvas": [],
+      "maxStack": 0
+    },
+    {
+      "label": "tone-repeat-tool",
+      "counts": {
+        "shape.circle.tests": 5,
+        "shape.circle": 4,
+        "shape.stack.scalarPushes": 54,
+        "shape.flood.pairs.tests": 28,
+        "shape.flood.pairs": 27,
+        "shape.stack.scalarPops": 54,
+        "shape.flood.tests": 150,
+        "shape.scan.left.tests": 49,
+        "shape.scan.left": 22,
+        "shape.flood.cells": 32,
+        "shape.scan.right.tests": 37,
+        "shape.scan.right": 10,
+        "ui.onToolChanged": 1,
+        "cursor.circle.tests": 5,
+        "cursor.circle": 4
+      },
+      "typedBytes": 512,
+      "allocations": [
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 256,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint32Array",
+          "bytes": 0,
+          "viewBytes": 256
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 256,
+          "viewBytes": 0
+        }
+      ],
+      "canvas": [],
+      "maxStack": 38
+    },
+    {
+      "label": "tone-repeat-size",
+      "counts": {
+        "shape.circle.tests": 5,
+        "shape.circle": 4,
+        "shape.stack.scalarPushes": 54,
+        "shape.flood.pairs.tests": 28,
+        "shape.flood.pairs": 27,
+        "shape.stack.scalarPops": 54,
+        "shape.flood.tests": 150,
+        "shape.scan.left.tests": 49,
+        "shape.scan.left": 22,
+        "shape.flood.cells": 32,
+        "shape.scan.right.tests": 37,
+        "shape.scan.right": 10,
+        "cursor.circle.tests": 5,
+        "cursor.circle": 4,
+        "ui.updateToolSize": 1
+      },
+      "typedBytes": 512,
+      "allocations": [
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 256,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint32Array",
+          "bytes": 0,
+          "viewBytes": 256
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 256,
+          "viewBytes": 0
+        }
+      ],
+      "canvas": [],
+      "maxStack": 38
+    },
+    {
+      "label": "select-pen",
+      "counts": {
+        "shape.circle.tests": 30,
+        "shape.circle": 28,
+        "shape.stack.scalarPushes": 1562,
+        "shape.flood.pairs.tests": 782,
+        "shape.flood.pairs": 781,
+        "shape.stack.scalarPops": 1562,
+        "shape.flood.tests": 3998,
+        "shape.scan.left.tests": 1219,
+        "shape.scan.left": 438,
+        "shape.flood.cells": 812,
+        "shape.scan.right.tests": 1155,
+        "shape.scan.right": 374,
+        "shape.downsample.columns.tests": 11,
+        "shape.downsample.columns": 10,
+        "shape.downsample.cells.tests": 110,
+        "shape.downsample.cells": 100,
+        "shape.downsample.rows.tests": 500,
+        "shape.downsample.rows": 400,
+        "shape.downsample.samples.tests": 2000,
+        "shape.downsample.samples": 1600,
+        "ui.onToolChanged": 1,
+        "cursor.circle.tests": 5,
+        "cursor.circle": 4
+      },
+      "typedBytes": 13200,
+      "allocations": [
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 6400,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint32Array",
+          "bytes": 0,
+          "viewBytes": 6400
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 6400,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 400,
+          "viewBytes": 0
+        }
+      ],
+      "canvas": [],
+      "maxStack": 844
+    },
+    {
+      "label": "pen-repeat-tool",
+      "counts": {
+        "shape.circle.tests": 30,
+        "shape.circle": 28,
+        "shape.stack.scalarPushes": 1562,
+        "shape.flood.pairs.tests": 782,
+        "shape.flood.pairs": 781,
+        "shape.stack.scalarPops": 1562,
+        "shape.flood.tests": 3998,
+        "shape.scan.left.tests": 1219,
+        "shape.scan.left": 438,
+        "shape.flood.cells": 812,
+        "shape.scan.right.tests": 1155,
+        "shape.scan.right": 374,
+        "shape.downsample.columns.tests": 11,
+        "shape.downsample.columns": 10,
+        "shape.downsample.cells.tests": 110,
+        "shape.downsample.cells": 100,
+        "shape.downsample.rows.tests": 500,
+        "shape.downsample.rows": 400,
+        "shape.downsample.samples.tests": 2000,
+        "shape.downsample.samples": 1600,
+        "ui.onToolChanged": 1,
+        "cursor.circle.tests": 5,
+        "cursor.circle": 4
+      },
+      "typedBytes": 13200,
+      "allocations": [
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 6400,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint32Array",
+          "bytes": 0,
+          "viewBytes": 6400
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 6400,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 400,
+          "viewBytes": 0
+        }
+      ],
+      "canvas": [],
+      "maxStack": 844
+    },
+    {
+      "label": "pen-repeat-size",
+      "counts": {
+        "shape.circle.tests": 30,
+        "shape.circle": 28,
+        "shape.stack.scalarPushes": 1562,
+        "shape.flood.pairs.tests": 782,
+        "shape.flood.pairs": 781,
+        "shape.stack.scalarPops": 1562,
+        "shape.flood.tests": 3998,
+        "shape.scan.left.tests": 1219,
+        "shape.scan.left": 438,
+        "shape.flood.cells": 812,
+        "shape.scan.right.tests": 1155,
+        "shape.scan.right": 374,
+        "shape.downsample.columns.tests": 11,
+        "shape.downsample.columns": 10,
+        "shape.downsample.cells.tests": 110,
+        "shape.downsample.cells": 100,
+        "shape.downsample.rows.tests": 500,
+        "shape.downsample.rows": 400,
+        "shape.downsample.samples.tests": 2000,
+        "shape.downsample.samples": 1600,
+        "cursor.circle.tests": 5,
+        "cursor.circle": 4,
+        "ui.updateToolSize": 1
+      },
+      "typedBytes": 13200,
+      "allocations": [
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 6400,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint32Array",
+          "bytes": 0,
+          "viewBytes": 6400
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 6400,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 400,
+          "viewBytes": 0
+        }
+      ],
+      "canvas": [],
+      "maxStack": 844
+    },
+    {
+      "label": "pen-alpha",
+      "counts": {
+        "ui.updateToolAlpha": 1
+      },
+      "typedBytes": 0,
+      "allocations": [],
+      "canvas": [],
+      "maxStack": 0
+    },
+    {
+      "label": "pen-flow",
+      "counts": {
+        "ui.updateToolFlow": 1
+      },
+      "typedBytes": 0,
+      "allocations": [],
+      "canvas": [],
+      "maxStack": 0
+    },
+    {
+      "label": "pen-generic-tip",
+      "counts": {
+        "shape.circle.tests": 30,
+        "shape.circle": 28,
+        "shape.stack.scalarPushes": 1562,
+        "shape.flood.pairs.tests": 782,
+        "shape.flood.pairs": 781,
+        "shape.stack.scalarPops": 1562,
+        "shape.flood.tests": 3998,
+        "shape.scan.left.tests": 1219,
+        "shape.scan.left": 438,
+        "shape.flood.cells": 812,
+        "shape.scan.right.tests": 1155,
+        "shape.scan.right": 374,
+        "shape.downsample.columns.tests": 11,
+        "shape.downsample.columns": 10,
+        "shape.downsample.cells.tests": 110,
+        "shape.downsample.cells": 100,
+        "shape.downsample.rows.tests": 500,
+        "shape.downsample.rows": 400,
+        "shape.downsample.samples.tests": 2000,
+        "shape.downsample.samples": 1600,
+        "ui.updateToolShape": 1
+      },
+      "typedBytes": 13200,
+      "allocations": [
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 6400,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint32Array",
+          "bytes": 0,
+          "viewBytes": 6400
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 6400,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 400,
+          "viewBytes": 0
+        }
+      ],
+      "canvas": [],
+      "maxStack": 844
+    },
+    {
+      "label": "select-eraser",
+      "counts": {
+        "shape.circle.tests": 5,
+        "shape.circle": 4,
+        "shape.stack.scalarPushes": 54,
+        "shape.flood.pairs.tests": 28,
+        "shape.flood.pairs": 27,
+        "shape.stack.scalarPops": 54,
+        "shape.flood.tests": 150,
+        "shape.scan.left.tests": 49,
+        "shape.scan.left": 22,
+        "shape.flood.cells": 32,
+        "shape.scan.right.tests": 37,
+        "shape.scan.right": 10,
+        "ui.onToolChanged": 1,
+        "cursor.circle.tests": 5,
+        "cursor.circle": 4
+      },
+      "typedBytes": 512,
+      "allocations": [
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 256,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint32Array",
+          "bytes": 0,
+          "viewBytes": 256
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 256,
+          "viewBytes": 0
+        }
+      ],
+      "canvas": [],
+      "maxStack": 38
+    },
+    {
+      "label": "eraser-pen-tip",
+      "counts": {
+        "shape.circle.tests": 30,
+        "shape.circle": 28,
+        "shape.stack.scalarPushes": 1562,
+        "shape.flood.pairs.tests": 782,
+        "shape.flood.pairs": 781,
+        "shape.stack.scalarPops": 1562,
+        "shape.flood.tests": 3998,
+        "shape.scan.left.tests": 1219,
+        "shape.scan.left": 438,
+        "shape.flood.cells": 812,
+        "shape.scan.right.tests": 1155,
+        "shape.scan.right": 374,
+        "shape.downsample.columns.tests": 11,
+        "shape.downsample.columns": 10,
+        "shape.downsample.cells.tests": 110,
+        "shape.downsample.cells": 100,
+        "shape.downsample.rows.tests": 500,
+        "shape.downsample.rows": 400,
+        "shape.downsample.samples.tests": 2000,
+        "shape.downsample.samples": 1600,
+        "ui.updateToolShape": 1
+      },
+      "typedBytes": 13200,
+      "allocations": [
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 6400,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint32Array",
+          "bytes": 0,
+          "viewBytes": 6400
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 6400,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 400,
+          "viewBytes": 0
+        }
+      ],
+      "canvas": [],
+      "maxStack": 844
+    },
+    {
+      "label": "eraser-repeat-tip",
+      "counts": {
+        "shape.circle.tests": 30,
+        "shape.circle": 28,
+        "shape.stack.scalarPushes": 1562,
+        "shape.flood.pairs.tests": 782,
+        "shape.flood.pairs": 781,
+        "shape.stack.scalarPops": 1562,
+        "shape.flood.tests": 3998,
+        "shape.scan.left.tests": 1219,
+        "shape.scan.left": 438,
+        "shape.flood.cells": 812,
+        "shape.scan.right.tests": 1155,
+        "shape.scan.right": 374,
+        "shape.downsample.columns.tests": 11,
+        "shape.downsample.columns": 10,
+        "shape.downsample.cells.tests": 110,
+        "shape.downsample.cells": 100,
+        "shape.downsample.rows.tests": 500,
+        "shape.downsample.rows": 400,
+        "shape.downsample.samples.tests": 2000,
+        "shape.downsample.samples": 1600,
+        "ui.updateToolShape": 1
+      },
+      "typedBytes": 13200,
+      "allocations": [
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 6400,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint32Array",
+          "bytes": 0,
+          "viewBytes": 6400
+        },
+        {
+          "kind": "Uint8Array",
+          "bytes": 6400,
+          "viewBytes": 0
+        },
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 400,
+          "viewBytes": 0
+        }
+      ],
+      "canvas": [],
+      "maxStack": 844
+    },
+    {
+      "label": "draw-start-no-pressure",
+      "counts": {
+        "typed.copyBytes": 12288,
+        "brush.stamps": 1,
+        "brush.rows.tests": 11,
+        "brush.rows": 10,
+        "brush.cells.tests": 55,
+        "brush.cells": 50,
+        "canvas.putImageData": 1
+      },
+      "typedBytes": 12288,
+      "allocations": [
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 12288,
+          "viewBytes": 0
+        }
+      ],
+      "canvas": [
+        {
+          "method": "putImageData",
+          "canvasWidth": 64,
+          "canvasHeight": 48,
+          "args": [
+            64,
+            48,
+            0,
+            0,
+            -5,
+            -5,
+            10,
+            10
+          ]
+        }
+      ],
+      "maxStack": 0
+    },
+    {
+      "label": "draw-no-pressure",
+      "counts": {
+        "segment.points": 64,
+        "brush.stamps": 63,
+        "brush.rows.tests": 693,
+        "brush.rows": 630,
+        "brush.cells.tests": 6622,
+        "brush.cells": 6020,
+        "canvas.putImageData": 1
+      },
+      "typedBytes": 0,
+      "allocations": [],
+      "canvas": [
+        {
+          "method": "putImageData",
+          "canvasWidth": 64,
+          "canvasHeight": 48,
+          "args": [
+            64,
+            48,
+            0,
+            0,
+            -5,
+            -5,
+            73,
+            57
+          ]
+        }
+      ],
+      "maxStack": 0
+    },
+    {
+      "label": "draw-commit",
+      "counts": {
+        "typed.fillElements": 6144,
+        "typed.fillBytes": 24576,
+        "canvas.clearRect": 1,
+        "canvas.drawImage": 1,
+        "typed.copyBytes": 12288,
+        "ui.updateUndoRedo": 1
+      },
+      "typedBytes": 12288,
+      "allocations": [
+        {
+          "kind": "Uint8ClampedArray",
+          "bytes": 12288,
+          "viewBytes": 0
+        }
+      ],
+      "canvas": [
+        {
+          "method": "clearRect",
+          "canvasWidth": 40,
+          "canvasHeight": 40,
+          "args": [
+            0,
+            0,
+            40,
+            40
+          ]
+        },
+        {
+          "method": "drawImage",
+          "canvasWidth": 40,
+          "canvasHeight": 40,
+          "args": [
+            64,
+            48,
+            0,
+            0,
+            40,
+            40
+          ]
+        }
+      ],
+      "maxStack": 0
+    }
+  ],
+  "history": {
+    "maxActions": 50,
+    "pendingRetainsSameActionAsUndo": true,
+    "retainedSnapshotBytes": 24576
+  },
+  "replayHeaderInit": {
+    "counts": {},
+    "typedBytes": 0,
+    "allocations": [],
+    "canvas": [],
+    "maxStack": 0
+  },
+  "replayInitialToolSet": {
+    "counts": {
+      "tone.maps.tests": 17,
+      "tone.maps": 16,
+      "tone.rows.tests": 784,
+      "tone.rows": 768,
+      "tone.cells.tests": 49920,
+      "tone.cells": 49152,
+      "shape.circle.tests": 24,
+      "shape.circle": 23,
+      "shape.stack.scalarPushes": 5878,
+      "shape.flood.pairs.tests": 2940,
+      "shape.flood.pairs": 2939,
+      "shape.stack.scalarPops": 5878,
+      "shape.flood.tests": 14878,
+      "shape.scan.left.tests": 4501,
+      "shape.scan.left": 1562,
+      "shape.flood.cells": 3000,
+      "shape.scan.right.tests": 4377,
+      "shape.scan.right": 1438,
+      "ui.onToolChanged": 1,
+      "cursor.circle.tests": 24,
+      "cursor.circle": 23
+    },
+    "typedBytes": 81920,
+    "allocations": [
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 3072,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint8ClampedArray",
+        "bytes": 16384,
+        "viewBytes": 0
+      },
+      {
+        "kind": "Uint32Array",
+        "bytes": 0,
+        "viewBytes": 16384
+      },
+      {
+        "kind": "Uint8Array",
+        "bytes": 16384,
+        "viewBytes": 0
+      }
+    ],
+    "canvas": [],
+    "maxStack": 3062
+  }
+}

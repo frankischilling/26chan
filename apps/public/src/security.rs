@@ -61,6 +61,17 @@ pub(crate) fn math_page(mut response: Response, enabled: bool) -> Response {
     response
 }
 
+// Granted only by the successful renderer with a usable drawing form.
+#[derive(Clone, Copy)]
+struct DrawingPage;
+
+pub(crate) fn drawing_page(mut response: Response, enabled: bool) -> Response {
+    if enabled && response.status().is_success() {
+        response.extensions_mut().insert(DrawingPage);
+    }
+    response
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum InteractivePage {
     Board,
@@ -229,6 +240,9 @@ fn headers(
             .get("content-type")
             .and_then(|value| value.to_str().ok())
             .is_some_and(|value| value.starts_with("text/html"));
+    let drawing = interactive
+        && page == Some(InteractivePage::Board)
+        && response.extensions().get::<DrawingPage>().is_some();
     let math = interactive
         && page == Some(InteractivePage::Board)
         && response.extensions().get::<MathPage>().is_some();
@@ -383,6 +397,24 @@ fn headers(
     } else {
         "'none'"
     };
+    let script = if drawing {
+        format!(
+            "{script} {}{}",
+            state.origin,
+            crate::ui_assets::TEGAKI_SCRIPT_PATH
+        )
+    } else {
+        script
+    };
+    let font = if drawing {
+        format!(
+            "font-src {}{}; ",
+            state.origin,
+            crate::ui_assets::TEGAKI_FONT_PATH
+        )
+    } else {
+        String::new()
+    };
     let script_resource = response
         .headers()
         .get("content-type")
@@ -406,7 +438,7 @@ fn headers(
         "default-src 'none'; script-src 'none'; connect-src 'none'; worker-src 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'".into()
     } else {
         format!(
-            "default-src 'none'; style-src 'self'; img-src {images}; media-src {sound}; script-src {script}; script-src-attr 'none'; connect-src {connect}; worker-src {worker}; frame-src {frames}; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
+            "default-src 'none'; style-src 'self'; {font}img-src {images}; media-src {sound}; script-src {script}; script-src-attr 'none'; connect-src {connect}; worker-src {worker}; frame-src {frames}; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
         )
     };
     headers.insert(
@@ -463,7 +495,10 @@ pub(crate) fn math_fixture_response(
     };
     let response = crate::output::html(&state, page)
         .map_err(|_| "Fixture rendering exceeded its budget.".to_owned())?;
-    let response = math_page(response, page.board.math_tags && !page.catalog);
+    let response = drawing_page(
+        math_page(response, page.board.math_tags && !page.catalog),
+        page.drawing_allowed(),
+    );
     Ok(headers(
         response,
         &state,

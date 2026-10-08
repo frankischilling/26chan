@@ -5,6 +5,9 @@ use std::io::{self, Cursor};
 mod gif;
 mod jpeg;
 
+pub mod replay;
+pub mod replay_output;
+
 /// Format selection and every complex parser stay inside the disposable guest.
 /// Extensions and client content types are never used to select a decoder.
 pub fn decode_image(input: &[u8]) -> io::Result<Vec<u8>> {

@@ -1,0 +1,67 @@
+{
+  "algorithm": "sha256",
+  "source_tree": "../26chan-reference",
+  "files": {
+    "lib/oekaki.php": {
+      "sha256": "44c1cc0f4e3553b7091019143106e9a4b124ba8dd2d88bd444fed7a9d2e4f3bf",
+      "bytes": 3619
+    },
+    "imgboard.php": {
+      "sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+      "bytes": 296536
+    },
+    "views/imgboard.php": {
+      "sha256": "6c2771682a20672f4f8395e78a2cb9fa80a9ed55933b77a0fcc54cc9f23e17eb",
+      "bytes": 23519
+    },
+    "js/core.js": {
+      "sha256": "a9ab67bea1f51fcdaaac1a879098a4d5888622008bf7f26f1fe18861ea52aab5",
+      "bytes": 64523
+    },
+    "js/extension.js": {
+      "sha256": "05b3b34f68377a44c071e4f74f629d2700fef61e064dcd2e836b161ee9ee0c31",
+      "bytes": 282837
+    },
+    "js/tegaki.min.js": {
+      "sha256": "daea182c52df0c032eadbecb4de8f91f634a61bf82aaf35dda077fab50e68744",
+      "bytes": 110619
+    }
+  },
+  "snippets": [
+    {
+      "name": "php_replay_validator",
+      "file": "lib/oekaki.php",
+      "start_line": 6,
+      "end_line": 100,
+      "sha256": "bc058bcc1a49e6c1cee21d0f1c165b8efaea28e07a9b0c59151866bc7b96df3a"
+    },
+    {
+      "name": "php_source_id",
+      "file": "lib/oekaki.php",
+      "start_line": 102,
+      "end_line": 124,
+      "sha256": "37e4a4ef071bc73d5ad477723399f53fc5c6981e996535c12672c4355eb2e251"
+    },
+    {
+      "name": "php_time_annotation",
+      "file": "lib/oekaki.php",
+      "start_line": 126,
+      "end_line": 160,
+      "sha256": "577dd0c760119e3bf3a935535b0e14144c4a82da1d55732a58439b812871cfcf"
+    },
+    {
+      "name": "php_oekaki_upload_gate",
+      "file": "imgboard.php",
+      "start_line": 6063,
+      "end_line": 6097,
+      "sha256": "b2e854be3b1e15ca78e241a90186b96f48fd8e1eb16df6c661a01066850990eb"
+    },
+    {
+      "name": "php_default_replay_checkbox",
+      "file": "views/imgboard.php",
+      "start_line": 182,
+      "end_line": 184,
+      "sha256": "a7e463eb15008d527d5d5bb2c07067ec6545fc67d8bbdea2650a8f172c16153f"
+    }
+  ]
+}

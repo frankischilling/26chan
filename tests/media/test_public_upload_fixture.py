@@ -178,6 +178,146 @@ class PublicUploadBoardTest(unittest.TestCase):
                 self.assertEqual(sql.call_count, 1)
                 self.assertTrue(sql.call_args.args[0].startswith('SELECT '))
 
+    def test_drawing_transition_clears_completed_host_actor_board_only(self):
+        # Inert SQL scope/order witness. Actual PostgreSQL admission and HTTP
+        # responses remain separate integration qualifications.
+        fixture = self.fixture()
+        fixture.created = True
+        own = bytes.fromhex(fixture._posting_actor_hex())
+        foreign = bytes.fromhex(self.fixture()._posting_actor_hex())
+        with sqlite3.connect(':memory:') as db:
+            db.execute("ATTACH DATABASE ':memory:' AS content")
+            db.execute("ATTACH DATABASE ':memory:' AS post_secrets")
+            db.create_function('decode', 2, lambda value, encoding: bytes.fromhex(value)
+                               if encoding == 'hex' else None)
+            db.execute('''CREATE TABLE content.boards (slug TEXT PRIMARY KEY, title TEXT,
+                comment_spoiler_cleanup BOOLEAN, posting_reply_seconds INTEGER,
+                posting_image_seconds INTEGER, posting_thread_seconds INTEGER)''')
+            db.execute("INSERT INTO content.boards VALUES (?,'Upload qualification',true,0,0,0)",
+                       (fixture.board,))
+            sentinels = [(foreign, fixture.board, 42), (own, 'foreign', 43)]
+            for table in ('posting_history', 'posting_thread_actions'):
+                db.execute(f'CREATE TABLE post_secrets.{table} (actor_hash BLOB, board TEXT, request_at INTEGER)')
+                db.executemany(f'INSERT INTO post_secrets.{table} VALUES (?,?,?)', sentinels)
+
+            def sql(statement):
+                cursor = db.execute(statement)
+                return '|'.join(map(str, cursor.fetchone())) if cursor.description else ''
+
+            def completed_upload(*args, **kwargs):
+                for table in ('posting_history', 'posting_thread_actions'):
+                    db.execute(f'INSERT INTO post_secrets.{table} VALUES (?,?,?)', (own, fixture.board, 41))
+
+            def start_drawing(host):
+                self.assertIs(host, fixture)
+                self.assertEqual(upload.call_count, 9)
+                restart.assert_called_once_with()
+                for table in ('posting_history', 'posting_thread_actions'):
+                    self.assertEqual(db.execute(f'SELECT * FROM post_secrets.{table} ORDER BY request_at').fetchall(),
+                                     sentinels)
+                return mock.Mock()
+
+            with mock.patch('public_upload_fixture.sql', side_effect=sql), \
+                    mock.patch.object(fixture, 'upload_one', side_effect=completed_upload) as upload, \
+                    mock.patch.object(fixture, 'restart_for_drawing') as restart, \
+                    mock.patch('public_drawing_fixture.PublicDrawingUpload', side_effect=start_drawing) as drawing:
+                fixture.exercise()
+            drawing.assert_called_once_with(fixture)
+            fixture.drawing_upload.exercise.assert_called_once_with()
+
+
+class DrawingQuotaBoundaryTest(unittest.TestCase):
+    def fixture(self):
+        fixture = PublicUpload(SimpleNamespace(root=pathlib.Path('/tmp/26chan-dispatch-12345678')))
+        fixture.installed = fixture.created = True
+        fixture._public_identity = (1001, 1002)
+        fixture.f.processes = [fixture.unit]
+        fixture.f.unit_files = {pathlib.Path('/run/systemd/system') / fixture.unit.name: b'owned public unit'}
+        fixture.completed_jobs = [format(i, '032x') for i in range(1, 10)]
+        fixture.f.ids = list(fixture.completed_jobs)
+        fixture.filenames = [f'public-upload-{fixture.board}.{suffix}' for suffix in
+                            ('png', 'baseline.jpg', 'progressive.jpg', 'static.gif', 'tracking.png',
+                             'quick-reply.png', 'quick-reply-inline.png', 'quick-reply-disabled.png',
+                             'quick-reply-inline-disabled.png')]
+        fixture.browser = SimpleNamespace(poll=lambda: 0)
+        fixture.f.clean_vm = mock.Mock()
+        return fixture
+
+    def test_restart_is_owned_completed_and_gets_a_new_invocation(self):
+        fixture = self.fixture()
+        states = [dict(ActiveState='active', InvocationID='1'*32), dict(ActiveState='active', InvocationID='2'*32, MainPID='12345')]
+        with mock.patch.object(pathlib.Path, 'read_bytes', return_value=b'owned public unit'), \
+                mock.patch.object(pathlib.Path, 'read_text', return_value='Uid: 1001 1001 1001 1001\nGid: 1002 1002 1002 1002'), \
+                mock.patch('public_upload_fixture.sql', return_value='t') as sql, \
+                mock.patch('public_upload_fixture.systemctl') as systemctl, \
+                mock.patch('public_upload_fixture.wait_until') as ready, \
+                mock.patch.object(fixture.unit, 'state', side_effect=states):
+            fixture.restart_for_drawing()
+        self.assertIn("count(*)=9 AND bool_and(state='published'", sql.call_args.args[0])
+        self.assertNotIn('DELETE', sql.call_args.args[0])
+        fixture.f.clean_vm.assert_called_once_with()
+        systemctl.assert_called_once_with('restart', fixture.unit.name, timeout=35)
+        ready.assert_called_once_with(fixture.ready)
+        self.assertIsNone(fixture.browser)
+
+    def test_incomplete_browser_jobs_or_vm_and_changed_unit_prevent_restart(self):
+        for failure in ('browser', 'missing-job', 'live-job', 'vm', 'unit'):
+            fixture = self.fixture()
+            if failure == 'browser': fixture.browser = SimpleNamespace(poll=lambda: None)
+            if failure == 'missing-job': fixture.completed_jobs.pop()
+            if failure == 'vm': fixture.f.clean_vm.side_effect = AssertionError('live VM')
+            with self.subTest(failure=failure), \
+                    mock.patch.object(pathlib.Path, 'read_bytes', return_value=b'changed' if failure == 'unit' else b'owned public unit'), \
+                    mock.patch('public_upload_fixture.sql', return_value='f' if failure == 'live-job' else 't'), \
+                    mock.patch('public_upload_fixture.systemctl') as systemctl:
+                with self.assertRaises(AssertionError): fixture.restart_for_drawing()
+                systemctl.assert_not_called()
+
+    def test_fresh_invocation_with_wrong_runtime_identity_is_rejected(self):
+        fixture = self.fixture()
+        states = [dict(ActiveState='active', InvocationID='1'*32), dict(ActiveState='active', InvocationID='2'*32, MainPID='12345')]
+        with mock.patch.object(pathlib.Path, 'read_bytes', return_value=b'owned public unit'), \
+                mock.patch.object(pathlib.Path, 'read_text', return_value='Uid: 0 0 0 0\nGid: 1002 1002 1002 1002'), \
+                mock.patch('public_upload_fixture.sql', return_value='t'), \
+                mock.patch('public_upload_fixture.systemctl'), \
+                mock.patch('public_upload_fixture.wait_until'), \
+                mock.patch.object(fixture.unit, 'state', side_effect=states):
+            with self.assertRaises(AssertionError): fixture.restart_for_drawing()
+        self.assertIsNotNone(fixture.browser)
+
+    def test_unchanged_invocation_is_not_a_successful_boundary(self):
+        fixture = self.fixture()
+        with mock.patch.object(pathlib.Path, 'read_bytes', return_value=b'owned public unit'), \
+                mock.patch.object(pathlib.Path, 'read_text', return_value='Uid: 1001 1001 1001 1001\nGid: 1002 1002 1002 1002'), \
+                mock.patch('public_upload_fixture.sql', return_value='t'), \
+                mock.patch('public_upload_fixture.systemctl'), \
+                mock.patch('public_upload_fixture.wait_until'), \
+                mock.patch.object(fixture.unit, 'state', return_value=dict(ActiveState='active', InvocationID='1'*32)):
+            with self.assertRaisesRegex(AssertionError, 'fresh invocation'): fixture.restart_for_drawing()
+        self.assertIsNotNone(fixture.browser)
+
+
+class DrawingEditDiagnosticTest(unittest.TestCase):
+    def test_only_complete_fixed_drawing_diagnostics_are_reported(self):
+        from public_upload_fixture import finish_browser
+        good = 'cancel=403 ui=cancel-error editor=hidden cursor=hidden active=false'
+        for script, line, expected in [
+            ('drawing-upload.mjs', good, '(Edit ' + good + ')'),
+            ('drawing-upload.mjs', 'unavailable', '(Edit unavailable)'),
+            ('drawing-upload.mjs', good + ' secret-capability', None),
+            ('drawing-upload.mjs', good.replace('cancel-error', 'secret-capability'), None),
+            ('public-upload.mjs', good, None),
+        ]:
+            process = SimpleNamespace(returncode=1, communicate=lambda **_: (b'', ('OWNED_DRAWING_EDIT ' + line + '\n').encode()))
+            with self.subTest(script=script, line=line), self.assertRaises(AssertionError) as failure:
+                finish_browser(process, script)
+            message = str(failure.exception)
+            self.assertNotIn('secret-capability', message)
+            if expected:
+                self.assertIn(expected, message)
+            else:
+                self.assertNotIn('(Edit ', message)
+
 
 if __name__ == '__main__':
     unittest.main()
