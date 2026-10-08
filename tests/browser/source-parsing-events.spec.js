@@ -23,6 +23,7 @@ for (const deferred of [false, true, 'bfcache']) test(`listeners registered befo
   const response = await write({ resto: '0', sub: 'Source events', com: 'Owned event OP' });
   expect(response.status()).toBe(303);
   const id = response.headers().location.match(/thread\/(\d+)/)[1];
+  let primaryError;
   try {
     await listen(page);
     let reply, fetches = 0;
@@ -34,10 +35,11 @@ for (const deferred of [false, true, 'bfcache']) test(`listeners registered befo
         ? hold.then(() => request(...args)) : request(...args);
     });
     await page.goto(`/demo/thread/${id}`);
+    const update = page.locator('.nativeUpdater [data-cmd="update"]:visible').first();
     if (deferred) {
-      await expect(page.locator('.nativeUpdater [data-cmd="update"]').first()).toHaveCount(1);
+      await expect(update).toHaveCount(1);
       reply = await write({ resto: id, com: 'Owned dynamic event reply' }); expect(reply.status()).toBe(303);
-      await page.locator('.nativeUpdater [data-cmd="update"]').first().evaluate(link => link.click());
+      await update.click({ timeout: 5_000 });
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       expect(fetches).toBe(0);
       expect(await page.evaluate(() => parsingEvents)).toEqual([]);
@@ -55,7 +57,7 @@ for (const deferred of [false, true, 'bfcache']) test(`listeners registered befo
       bubbles: false, cancelable: false, target: true, count: 1, menus: 1 };
     expect(await page.evaluate(() => parsingEvents)).toEqual([initial]);
     reply ??= await write({ resto: id, com: 'Owned dynamic event reply' }); expect(reply.status()).toBe(303);
-    await page.locator('.nativeUpdater [data-cmd="update"]').first().click();
+    await update.click({ timeout: 5_000 });
     await expect.poll(() => page.evaluate(() => parsingEvents.length)).toBe(3);
     expect(await page.evaluate(() => parsingEvents)).toEqual([initial,
       { ...initial, detail: { threadId: id, offset: 1, limit: 2 }, count: 2, menus: 2 }, { updated: true }]);
@@ -70,11 +72,19 @@ for (const deferred of [false, true, 'bfcache']) test(`listeners registered befo
     await expect.poll(() => page.evaluate(id => parsingEvents.filter(e => e.detail?.threadId === id).length, id)).toBe(1);
     expect(await page.evaluate(id => parsingEvents.find(e => e.detail?.threadId === id).detail, id))
       .toEqual({ threadId: id, offset: 0, limit: 2 });
+  } catch (error) {
+    primaryError = error;
+    throw error;
   } finally {
-    await withDeletionQuota(async () => {
-      const removed = await request.post('/demo/delete', { headers: { Origin: 'http://127.0.0.1:3000' },
-        maxRedirects: 0, form: { no: id, password } });
-      expect(removed.status()).toBe(303);
-    });
+    try {
+      await withDeletionQuota(async () => {
+        const removed = await request.post('/demo/delete', { headers: { Origin: 'http://127.0.0.1:3000' },
+          maxRedirects: 0, timeout: 5_000, form: { no: id, password } });
+        expect(removed.status()).toBe(303);
+      });
+    } catch (cleanupError) {
+      if (primaryError) throw new AggregateError([primaryError, cleanupError], 'Source event test and cleanup both failed');
+      throw cleanupError;
+    }
   }
 });
