@@ -19,8 +19,12 @@ Socket creation, nonblocking mode, TCP_NODELAY, 45-second keep-alive options,
 FD_CONNECT handling and explicit `SO_RANDOMIZE_PORT` FALSE/TRUE with readback
 match the existing native control. Before the first receive, the read event
 changes to `FD_READ | FD_CLOSE`. Reads call nonblocking `recv`; when it would block, the
-probe waits on the event and calls `WSAEnumNetworkEvents`. Unexpected closure
-or an event error fails the exchange. Completed responses must have the exact
+probe waits on the event and calls `WSAEnumNetworkEvents`. An empty event mask
+re-arms the wait under the same absolute exchange deadline. It does not call
+connect, resend a request, reset a timer or count a response. Every zero mask stays
+in the native operation stream and the bounded job-log report counts them as
+`empty_read_events`. Unexpected masks, closure or an event error still fail the
+exchange. Completed responses must have the exact
 synthetic fixture body and valid bounded Content-Length framing.
 
 Writes use `WSASend` with an owned buffer, WSABUF, OVERLAPPED and separate
@@ -29,6 +33,21 @@ success and `WSA_IO_PENDING` are recorded separately. Pending writes wait only
 within the original exchange deadline. `WSAGetOverlappedResult` retrieves the
 terminal result and transferred byte count while the socket is still live.
 A partial completed send submits only the remaining request suffix.
+
+Chromium 151's [DidSignalRead implementation, lines 1146-1150](https://github.com/chromium/chromium/blob/151.0.7922.34/net/socket/tcp_socket_win.cc#L1146-L1150)
+handles an empty mask by watching again: a synchronous read can consume data
+without clearing the event signal. This diagnostic previously failed that branch
+with a synthetic 10022. The e0a9c861 run reported read-event-missing failures in both variants, with
+all writes synchronous and all socket/event ownership released.
+The event mask itself was absent from that job log, so the empty-mask explanation
+for that run is an inference. Its failed evidence remains a failure; the change
+corrects a source-documented readiness case and does not establish a cause or
+fix for the browser's earlier 10055.
+
+The diagnostic remains stricter than Chromium for FD_CLOSE and event errors.
+Chromium's lines 1129-1145 call recv again to obtain remaining data or a more
+accurate error; this fixed keep-alive profile rejects them. No such failure is
+silently accepted by the empty-mask handling.
 
 ## Close and completion ownership
 

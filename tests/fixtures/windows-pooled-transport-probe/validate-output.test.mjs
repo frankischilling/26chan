@@ -563,3 +563,85 @@ test('native pass cannot qualify with reporter timeout or unverified cleanup', (
     assert.equal(finalExit(0, bad), 1); assert.equal(finalExit(1, bad), 1);
   }
 });
+
+function emptyReadNotifications(count = 1, records = sample({ blockedReads: true })) {
+  const position = index(records, 'read-wait');
+  const first = records[position];
+  const notifications = [];
+  for (let i = 0; i < count; i++) for (const stage of ['read-wait', 'read-enumerate', 'read-events']) notifications.push({ ...first, stage, result: 0, error: 0 });
+  records.splice(position, 0, ...notifications);
+  return recount(records);
+}
+for (const count of [1, 2, 20]) test(`qualifies ${count} empty readiness notifications followed by actual FD_READ`, () => {
+  const records = emptyReadNotifications(count);
+  const result = validateOutput(encode(records));
+  assert.equal(result.passed, true); assert.equal(result.emptyReadEvents, count);
+  assert.equal(result.summary.bytes_sent, 36 * REQUEST_BYTES); assert.equal(result.summary.successes, 36);
+  assert.equal(records.filter(row => row.stage === 'write-submit').length, 36);
+  const diagnostic = summarizeDiagnostics(diagnosticInputs({ native: encode(records) }));
+  assert.equal(diagnostic.empty_read_events, count); assert.equal(diagnostic.native_passed, true);
+});
+test('empty notifications preserve partial reads and asynchronous completion ownership', () => {
+  const records = emptyReadNotifications(3, sample({ partial: true, asynchronous: true, blockedReads: true }));
+  const result = validateOutput(encode(records));
+  assert.equal(result.passed, true); assert.equal(result.emptyReadEvents, 3);
+  assert.equal(result.summary.async_writes, 108); assert.equal(result.summary.pending_at_close, 0);
+});
+test('empty notification cannot substitute for a read event or completed response', () => {
+  for (const stage of ['read-wait', 'read-enumerate', 'read-events']) {
+    const records = emptyReadNotifications();
+    records.splice(index(records, stage) + 3, 1); recount(records); rejects(records);
+  }
+  const premature = emptyReadNotifications();
+  const start = index(premature, 'read-wait') + 3;
+  premature.splice(start, 4); recount(premature); rejects(premature);
+});
+test('empty notification cannot extend exchange or overall deadlines', () => {
+  const late = emptyReadNotifications(); shiftFrom(late, index(late, 'read-events'), 1001); rejects(late);
+  const total = emptyReadNotifications(); total.at(-1).elapsed_ms = 30001; rejects(total);
+});
+test('empty notification does not bypass operation cap', () => {
+  const records = emptyReadNotifications(6700);
+  assert.ok(records.at(-1).operation_records > MAX_OPERATIONS);
+  assert.throws(() => validateOutput(encode(records)), /Operation output cap/);
+});
+for (const mask of [2, 3, 16, 32, 33, 1023]) test(`unexpected/close mask ${mask} still fails after an empty notification`, () => {
+  const records = emptyReadNotifications();
+  const masks = records.filter(row => row.type === 'operation' && row.stage === 'read-events');
+  masks[1].result = mask; rejects(records);
+});
+for (const stage of ['read-wait', 'read-enumerate', 'read-event-error']) test(`${stage} API error remains a failure after empty notification`, () => {
+  const records = emptyReadNotifications();
+  const candidates = records.filter(row => row.type === 'operation' && row.stage === stage);
+  const target = stage === 'read-event-error' ? candidates[0] : candidates[1];
+  target.result = -1; target.error = 10055;
+  const position = records.indexOf(target);
+  records.splice(position + 1, 0, { type: 'failure', id: target.id, stage, error: 10055, ms: target.ms }); recount(records);
+  const result = validateOutput(encode(records));
+  assert.equal(result.passed, false); assert.equal(result.error10055, 1);
+});
+test('empty event result cannot carry an ignored error code', () => {
+  const records = emptyReadNotifications(); row(records, 'read-events').error = 10022; rejects(records);
+});
+test('empty notification cannot start a new request or reset its deadline', () => {
+  const records = emptyReadNotifications();
+  records.splice(index(records, 'read-events') + 1, 0, { ...row(records, 'write-reset') }); recount(records); rejects(records);
+  const readBranch = source.slice(source.indexOf('if (result == SOCKET_ERROR && error == WSAEWOULDBLOCK)'), source.indexOf('if (result <= 0)'));
+  assert.match(readBranch, /while \(true\)/);
+  assert.match(readBranch, /if \(events\.lNetworkEvents == 0\) continue/);
+  assert.match(readBranch, /Clock::now\(\) >= deadline \|\| !withinBudget\(item.id\)/);
+  assert.match(readBranch, /boundedWait\(deadline\)/);
+  assert.doesNotMatch(readBranch, /deadline\s*=|connect\(|WSASend\(|Sleep\(/);
+  assert.match(readBranch, /events\.lNetworkEvents & ~\(FD_READ \| FD_CLOSE\)/);
+});
+test('old missing-readiness failure remains failed evidence', () => {
+  const original = sample({ blockedReads: true });
+  const maskAt = index(original, 'read-events'); original[maskAt].result = 0;
+  const closeAt = index(original, 'pending-at-close');
+  const records = original.filter((row, at) => at <= maskAt || row.id !== 0 || at >= closeAt);
+  records.splice(maskAt + 1, 0, { type: 'failure', id: 0, stage: 'read-event-missing', error: 10022, ms: 0 }); recount(records);
+  const report = summarizeDiagnostics(diagnosticInputs({ native: encode(records), status: JSON.stringify(diagnosticStatus({ native_exit: 1, validator_exit: 1, passed: false })) }));
+  assert.equal(report.status.native_exit, 1); assert.equal(report.native_passed, false);
+  assert.equal(report.empty_read_events, 1);
+  assert.deepEqual(report.native_failures, [{ id: 0, stage: 'read-event-missing', error: 10022 }]);
+});

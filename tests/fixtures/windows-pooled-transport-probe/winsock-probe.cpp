@@ -292,28 +292,38 @@ bool http(Owned& item, int exchange) {
     int error = result == SOCKET_ERROR ? WSAGetLastError() : 0;
     record(item.id, "http-recv", result, error);
     if (result == SOCKET_ERROR && error == WSAEWOULDBLOCK) {
-      DWORD waited = WSAWaitForMultipleEvents(1, &item.event, FALSE, boundedWait(deadline), FALSE);
-      error = waited == WSA_WAIT_FAILED ? WSAGetLastError() : 0;
-      record(item.id, "read-wait", static_cast<int>(waited), error);
-      if (waited != WSA_WAIT_EVENT_0) { fail(item.id, "read-wait", error ? error : WSAETIMEDOUT); return false; }
-      WSANETWORKEVENTS events{};
-      result = WSAEnumNetworkEvents(item.socket, item.event, &events);
-      error = result == SOCKET_ERROR ? WSAGetLastError() : 0;
-      record(item.id, "read-enumerate", result, error);
-      if (result == SOCKET_ERROR) { fail(item.id, "read-enumerate", error); return false; }
-      record(item.id, "read-events", static_cast<int>(events.lNetworkEvents), 0);
-      if (events.lNetworkEvents & FD_READ) {
-        error = events.iErrorCode[FD_READ_BIT];
-        record(item.id, "read-event-error", error ? -1 : 0, error);
-        if (error) { fail(item.id, "read-event-error", error); return false; }
+      while (true) {
+        if (Clock::now() >= deadline || !withinBudget(item.id)) { fail(item.id, "http-deadline", WSAETIMEDOUT); return false; }
+        DWORD waited = WSAWaitForMultipleEvents(1, &item.event, FALSE, boundedWait(deadline), FALSE);
+        error = waited == WSA_WAIT_FAILED ? WSAGetLastError() : 0;
+        record(item.id, "read-wait", static_cast<int>(waited), error);
+        if (waited != WSA_WAIT_EVENT_0) { fail(item.id, "read-wait", error ? error : WSAETIMEDOUT); return false; }
+        WSANETWORKEVENTS events{};
+        result = WSAEnumNetworkEvents(item.socket, item.event, &events);
+        error = result == SOCKET_ERROR ? WSAGetLastError() : 0;
+        record(item.id, "read-enumerate", result, error);
+        if (result == SOCKET_ERROR) { fail(item.id, "read-enumerate", error); return false; }
+        record(item.id, "read-events", static_cast<int>(events.lNetworkEvents), 0);
+        if (Clock::now() >= deadline || !withinBudget(item.id)) { fail(item.id, "http-deadline", WSAETIMEDOUT); return false; }
+        // Chromium 151 DidSignalRead re-arms its watcher for an empty mask:
+        // synchronous recv may consume data without clearing the event signal.
+        // Enumeration has reset the event; wait again under the same deadline.
+        if (events.lNetworkEvents == 0) continue;
+        if (events.lNetworkEvents & ~(FD_READ | FD_CLOSE)) { fail(item.id, "read-event-missing", WSAEINVAL); return false; }
+        if (events.lNetworkEvents & FD_READ) {
+          error = events.iErrorCode[FD_READ_BIT];
+          record(item.id, "read-event-error", error ? -1 : 0, error);
+          if (error) { fail(item.id, "read-event-error", error); return false; }
+        }
+        if (events.lNetworkEvents & FD_CLOSE) {
+          error = events.iErrorCode[FD_CLOSE_BIT];
+          record(item.id, "close-event-error", error ? -1 : 0, error);
+          // Even a graceful peer close cannot satisfy six keep-alive exchanges.
+          fail(item.id, "unexpected-peer-close", error ? error : WSAECONNRESET); return false;
+        }
+        if (!(events.lNetworkEvents & FD_READ)) { fail(item.id, "read-event-missing", WSAEINVAL); return false; }
+        break;
       }
-      if (events.lNetworkEvents & FD_CLOSE) {
-        error = events.iErrorCode[FD_CLOSE_BIT];
-        record(item.id, "close-event-error", error ? -1 : 0, error);
-        // Even a graceful peer close cannot satisfy six keep-alive exchanges.
-        fail(item.id, "unexpected-peer-close", error ? error : WSAECONNRESET); return false;
-      }
-      if (!(events.lNetworkEvents & FD_READ)) { fail(item.id, "read-event-missing", WSAEINVAL); return false; }
       continue;
     }
     if (result <= 0) { fail(item.id, "http-recv", error ? error : WSAECONNRESET); return false; }

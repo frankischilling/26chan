@@ -102,11 +102,18 @@ function qualify(records, header, summary) {
         while (peek()?.stage !== 'http-complete') {
           const recv = take(id, 'http-recv');
           if (recv.result === -1 && recv.error === 10035) {
-            zero(id, 'read-wait');
-            zero(id, 'read-enumerate');
-            const events = take(id, 'read-events');
-            check(events.result === 1 && events.error === 0, 'Read readiness missing or unexpected peer close');
-            zero(id, 'read-event-error');
+            // An empty readiness notification requires another complete wait and
+            // enumeration, not recv, a new write, or an extended time budget.
+            while (true) {
+              zero(id, 'read-wait');
+              zero(id, 'read-enumerate');
+              const events = take(id, 'read-events');
+              check(events.ms - begin.ms <= 1000, 'Exchange deadline exceeded');
+              check((events.result === 0 || events.result === 1) && events.error === 0, 'Read readiness missing or unexpected peer close');
+              if (events.result === 0) continue;
+              zero(id, 'read-event-error');
+              break;
+            }
           } else {
             check(recv.result > 0 && recv.error === 0 && recv.result <= Math.min(1024, 8192 - received), 'Invalid response byte count');
             received += recv.result;
@@ -246,7 +253,8 @@ export function validateOutput(text) {
   if (error10055) check(records.some(row => row.type === 'failure' && row.error === 10055), 'Unreported operation 10055');
   const passed = summary.complete && summary.failures === 0 && error10055 === 0 && summary.successes === summary.attempts * 6 && summary.sockets_opened === summary.attempts && summary.sockets_closed === summary.attempts && summary.events_opened === summary.attempts * 2 && summary.events_closed === summary.attempts * 2 && summary.pending_at_close === 0 && summary.post_close_signals === 0 && summary.retained_writes === 0;
   if (passed) qualify(records, header, summary);
-  return { header, summary, passed, error10055, reproduction: 'inconclusive' };
+  const emptyReadEvents = records.filter(row => row.type === 'operation' && row.stage === 'read-events' && row.result === 0 && row.error === 0).length;
+  return { header, summary, passed, error10055, emptyReadEvents, reproduction: 'inconclusive' };
 }
 
 // Diagnostic mode never participates in qualification. Only allowlisted scalar
@@ -257,7 +265,7 @@ const statusKeys = ['schema', 'phase', 'compiler_exit', 'native_exit', 'validato
 const statusBooleans = ['compiler_timeout', 'native_timeout', 'validator_timeout', 'child_cleanup_complete', 'process_tree_kill_attempted', 'complete', 'passed'];
 const cleanupReasons = new Set(['compiler-timeout-descendants-unverified', 'forced-process-tree-cleanup-unverified']);
 export function summarizeDiagnostics(inputs) {
-  const report = { type: 'pooled-diagnostics', schema: 1, status_state: 'unavailable', status: null, native_state: 'unavailable', native_passed: null, native_summary: null, native_failures: [], failures_truncated: false, validator_problem: null, compiler_state: 'unavailable', compiler_errors: [], compiler_errors_truncated: false };
+  const report = { type: 'pooled-diagnostics', schema: 1, status_state: 'unavailable', status: null, native_state: 'unavailable', native_passed: null, native_summary: null, empty_read_events: null, native_failures: [], failures_truncated: false, validator_problem: null, compiler_state: 'unavailable', compiler_errors: [], compiler_errors_truncated: false };
   const bounded = (value, cap) => typeof value === 'string' && Buffer.byteLength(value) <= cap;
   if (inputs.status !== null) {
     try {
@@ -295,6 +303,7 @@ export function summarizeDiagnostics(inputs) {
         else throw new Error('native-type');
       }
       report.native_summary = Object.fromEntries(summaryKeys.map(key => [key, summary[key]]));
+      report.empty_read_events = records.filter(row => row.type === 'operation' && row.stage === 'read-events' && row.result === 0 && row.error === 0).length;
       report.native_failures = failures.slice(0, DIAGNOSTIC_LIMITS.failures);
       report.failures_truncated = failures.length > DIAGNOSTIC_LIMITS.failures;
       report.native_state = 'shape-valid';
