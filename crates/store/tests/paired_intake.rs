@@ -8,6 +8,11 @@ use board_store::{
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::time::Duration;
 
+// The privilege probe temporarily revokes database-wide function grants. Hold
+// this lock from before connecting until fixture cleanup finishes, so sibling
+// tests cannot observe those revocations. Concurrency within a test is unchanged.
+static FIXTURE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 fn descriptor(image: u64, replay: Option<u64>) -> PairedInputDescriptor {
     PairedInputDescriptor {
         bytes: image + replay.unwrap_or(0) + 56,
@@ -25,9 +30,11 @@ struct Fixture {
     media: PgPool,
     queue: MediaQueue,
     ids: Vec<String>,
+    _serial: tokio::sync::MutexGuard<'static, ()>,
 }
 impl Fixture {
     async fn new() -> Self {
+        let serial = FIXTURE_LOCK.lock().await;
         Self {
             store: IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
                 .await
@@ -42,6 +49,7 @@ impl Fixture {
                 .await
                 .unwrap(),
             ids: Vec::new(),
+            _serial: serial,
         }
     }
     async fn reserve(&mut self) -> IntakeReservation {
