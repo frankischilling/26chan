@@ -196,7 +196,12 @@ try {
     }, post);
     const mediaRequests = requests.filter(value => value === media || value === media.replace(/\.png$/, 's.jpg')).length;
     const openPages = context.pages().length;
-    await link.click(); await file.locator('.fileText > a').click(); await link.click({ button: 'middle' });
+    await link.click(); await link.click({ button: 'middle' });
+    // The source hides desktop file labels at mobile widths. Exercise that
+    // retained link where it is actually visible instead of forcing a click.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(file.locator('.fileText > a')).toBeVisible();
+    await file.locator('.fileText > a').click();
     assert.deepEqual(await page.evaluate(() => window.ownedDeletedFileClicks), [true, true, true]);
     await expect(file.locator('.expanded-thumb')).toHaveCount(0);
     await expect(page.locator('#image-hover')).toHaveCount(0);
