@@ -1,6 +1,6 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
-import { openSettingControl, openNativeSettingsCategory, openWatcherSettings } from './helpers/watcher-settings.js';
+import { openSettingControl, openNativeSettingsCategory, openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
 // API contexts share Playwright's keep-alive agent. Finish fixture exchanges on
@@ -71,6 +71,12 @@ const inlineFor = (scope, target) => scope.locator(`.inlined .postInfo > .postNu
 const rule = (pattern, changes = {}) => ({ type: 2, pattern, boards: 'demo', active: true,
   auto: false, hide: false, color: '#ff0000', ...changes });
 
+async function waitForQuoteControls(page) {
+  // The server-rendered link is visible before the watcher modules execute.
+  // Native Settings is installed after the inline controller in that document.
+  await expect(watcherSettingsOpener(page)).toBeVisible();
+}
+
 async function initialize(page, url, settings = enabled, rules) {
   // These cases assert all fetches made by quote loading, including after a
   // navigation. Thread statistics have their own enabled-feature coverage.
@@ -79,7 +85,7 @@ async function initialize(page, url, settings = enabled, rules) {
     if (rules !== undefined && localStorage.getItem('4chan-filters') === null) localStorage.setItem('4chan-filters', JSON.stringify(rules));
   }, { settings: { threadStats: false, ...settings }, rules });
   await page.goto(new URL(url, origin).href);
-  await expect(page.locator('#settingsWindowLink:visible, #settingsWindowLinkMobile:visible')).toBeVisible();
+  await waitForQuoteControls(page);
 }
 
 async function saveSettings(page, values) {
@@ -131,6 +137,7 @@ test.describe('unmodified persisted inline quotes', () => {
     await originalQuote(page, source, target).click();
     await expectInline(page, target, 'Owned inline original post');
     await page.goto('/demo/');
+    await waitForQuoteControls(page);
     await originalQuote(page, source, target).click();
     await expectInline(page, target, 'Owned inline original post');
     await saveSettings(page, { disableAll: true });
@@ -357,6 +364,7 @@ test.describe('unmodified persisted inline quotes', () => {
     const filteredTarget = post(owned, await owned.reply(`>>${owner}\nSeparate filter hide needle`));
     // Navigation admits the new persisted source and retains manual storage.
     await page.reload();
+    await waitForQuoteControls(page);
     const other = await context.newPage();
     try {
       await other.goto(owned.url);
@@ -740,6 +748,7 @@ test.describe('held genuine responses and real cross-tab cancellation', () => {
       expect(await page.evaluate(key => JSON.parse(sessionStorage.getItem(key) || '[]'), abortLogKey)).toEqual([remote.path]);
       await expect(page.locator('.inlined')).toHaveCount(0);
       await page.goto(owned.url);
+      await waitForQuoteControls(page);
       await expect(page.locator('.inlined')).toHaveCount(0);
       await expect(originalQuote(page, source, remote)).not.toHaveClass(/linkfade/);
       await originalQuote(page, source, remote).click();
@@ -963,6 +972,7 @@ test.describe('finite admission with owned persisted posts', () => {
     const limits = await inlineLimits(page), target = post(owned);
     const source = await owned.reply(Array.from({ length: limits.open + 1 }, (_, index) => `>>${target.id} Owned open source ${index + 1}`).join('\n'));
     await page.reload();
+    await waitForQuoteControls(page);
     const links = originalQuote(page, source, target);
     for (let index = 0; index < limits.open; index++) {
       await links.nth(index).click();
@@ -972,6 +982,7 @@ test.describe('finite admission with owned persisted posts', () => {
     await links.nth(limits.open).click();
     await expect(page).toHaveURL(`${origin}${target.url}#p${target.id}`);
     await expect(page.locator('.inlined')).toHaveCount(0);
+    await waitForQuoteControls(page);
     await originalQuote(page, source, target).first().click();
     await expectInline(page, target, 'Owned inline original post');
 
@@ -981,6 +992,7 @@ test.describe('finite admission with owned persisted posts', () => {
       chain.push(post(chainThread, await chainThread.reply(`>>${chain.at(-1).id}\nOwned nesting level ${index + 1}`)));
     }
     await page.goto(chainThread.url);
+    await waitForQuoteControls(page);
     let link = originalQuote(page, chain.at(-1).id, chain.at(-2));
     for (let depth = 1; depth <= limits.depth; depth++) {
       const target = chain[chain.length - depth - 1];
@@ -1000,6 +1012,7 @@ test.describe('finite admission with owned persisted posts', () => {
     const limits = await inlineLimits(page), remote = post(await owned.createThread('fixture', 'Owned pending-cap target'));
     const source = await owned.reply(Array.from({ length: limits.pending + 1 }, (_, index) => `${quoteText(remote)} Owned pending source ${index + 1}`).join('\n'));
     await page.reload();
+    await waitForQuoteControls(page);
     const requests = network(page), held = await holdResponse(page, remote.path);
     try {
       const links = originalQuote(page, source, remote);

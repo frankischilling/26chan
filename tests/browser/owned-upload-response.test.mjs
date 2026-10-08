@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { chromium } from '@playwright/test';
-import { assertOwnedThreadResponse, observeOwnedUploadResponse, ownedUploadResponse } from './owned-upload-response.mjs';
+import { assertOwnedThreadResponse, observeOwnedDeletionResponse, observeOwnedUploadResponse, ownedDeletionResponse, ownedUploadResponse } from './owned-upload-response.mjs';
 
 const response = (status, type, json) => ({ status: () => status, headers: () => ({ 'content-type': type }), json });
 
@@ -114,5 +114,126 @@ test('browser capture retains the real upload and posting bodies after transport
     if (browser) await browser.close();
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
+  }
+});
+
+
+test('deletion capture requires HTTP 200 HTML and the unchanged success text', async () => {
+  const text = '<p>The deletion was completed.</p>', diagnostics = [];
+  assert.deepEqual(await ownedDeletionResponse({ status: () => 200,
+    headers: () => ({ 'content-type': 'text/html; charset=utf-8' }), text: async () => text },
+  value => diagnostics.push(value)), { status: 200, text });
+  assert.deepEqual(diagnostics, []);
+  for (const [status, mime, body, failure, type] of [
+    [403, 'text/html', text, 'http', 'html'],
+    [429, 'text/plain', text, 'http', 'plain'],
+    [200, 'application/json', text, 'http', 'json'],
+    [200, 'private-type', text, 'http', 'other'],
+    [200, 'text/html', 'private response', 'content', 'html'],
+    [200, 'text/html', text + 'x'.repeat(4096), 'content', 'html'],
+    [200, 'text/html', new Error('private URL and capability'), 'body', 'html'],
+  ]) {
+    const messages = [];
+    await assert.rejects(ownedDeletionResponse({ status: () => status,
+      headers: () => ({ 'content-type': mime }), text: async () => {
+        if (body instanceof Error) throw body;
+        return body;
+      } }, value => messages.push(value)), /^Error: Owned deletion response was not confirmed\.$/);
+    assert.deepEqual(messages, [`OWNED_UPLOAD_RESPONSE status=${status} type=${type} stage=deletion failure=${failure}`]);
+  }
+});
+
+test('invalid deletion statuses cannot enter safe diagnostics', async () => {
+  const messages = [];
+  for (const status of [99, 600, 200.5, '200 private-value', NaN]) {
+    await assert.rejects(ownedDeletionResponse({ status: () => status }, value => messages.push(value)),
+      /^Error: Invalid owned response status\.$/);
+  }
+  assert.deepEqual(messages, []);
+});
+
+test('browser capture retains native deletion HTML after actual transport cleanup without another POST', { timeout: 30000 }, async () => {
+  const [transport, core, success] = await Promise.all([
+    readFile(new URL('../../apps/public/client/native-post-deletion.js', import.meta.url)),
+    readFile(new URL('../../apps/public/static/thread-watcher-core.v1.js', import.meta.url)),
+    readFile(new URL('../../apps/public/templates/delete_success.html', import.meta.url), 'utf8'),
+  ]);
+  const html = success.replace('{{ board }}', 'demo');
+  const bodies = [];
+  const server = createServer((request, response) => {
+    if (request.method === 'POST' && request.url === '/demo/imgboard.php') {
+      let body = '';
+      request.on('data', chunk => { body += chunk; });
+      request.on('end', () => {
+        bodies.push(body);
+        response.writeHead(200, { 'content-type': 'text/html' }).end(html);
+      });
+    } else {
+      request.resume();
+      if (request.url === '/client/native-post-deletion.js') {
+        response.writeHead(200, { 'content-type': 'text/javascript' }).end(transport);
+      } else if (request.url === '/static/thread-watcher-core.v1.js') {
+        response.writeHead(200, { 'content-type': 'text/javascript' }).end(core);
+      } else response.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><title>Owned deletion response</title>');
+    }
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  let browser;
+  try {
+    browser = await chromium.launch({ timeout: 15000 });
+    const page = await browser.newPage();
+    await page.goto(origin);
+    const diagnostics = [];
+    const deleted = await observeOwnedDeletionResponse(page, `${origin}/demo/imgboard.php`, value => diagnostics.push(value));
+    // Await the actual transport's completed cleanup before reading the capture.
+    assert.equal(await page.evaluate(async () => {
+      const { sendNativeDeletion } = await import('/client/native-post-deletion.js');
+      return sendNativeDeletion({ origin: location.origin, board: 'demo', id: '11', fileOnly: true });
+    }), true);
+    assert.deepEqual(await deleted(), { status: 200, text: html });
+    assert.equal(bodies.length, 1);
+    assert.deepEqual([...new URLSearchParams(bodies[0])].sort(),
+      [['11', 'delete'], ['mode', 'usrdel'], ['onlyimgdel', 'on']].sort());
+    assert.deepEqual(diagnostics, []);
+  } finally {
+    if (browser) await browser.close();
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('deletion page capture bounds bytes and preserves the original response', async () => {
+  const saved = globalThis.window;
+  const success = 'The deletion was completed.';
+  try {
+    for (const [bytes, failure] of [
+      [new TextEncoder().encode(success.padEnd(4096)), null],
+      [new TextEncoder().encode(success.padEnd(4097)), 'body'],
+      [new Uint8Array([0xff]), 'body'],
+      [new TextEncoder().encode('private unexpected content'), 'content'],
+    ]) {
+      const original = new Response(bytes, { headers: { 'content-type': 'text/html' } });
+      let calls = 0;
+      const fetcher = async () => { calls++; return original; };
+      globalThis.window = { fetch: fetcher };
+      const page = { evaluate: async (fn, argument) => fn(argument) }, diagnostics = [];
+      const captured = await observeOwnedDeletionResponse(page, 'http://owned.invalid/demo/imgboard.php', value => diagnostics.push(value));
+      const received = await window.fetch('http://owned.invalid/demo/imgboard.php', { method: 'POST' });
+      assert.equal(received, original);
+      assert.equal(window.fetch, fetcher);
+      assert.deepEqual(new Uint8Array(await received.arrayBuffer()), bytes);
+      if (failure) {
+        await assert.rejects(captured(), /^Error: Owned deletion response was not confirmed\.$/);
+        assert.deepEqual(diagnostics, [`OWNED_UPLOAD_RESPONSE status=200 type=html stage=deletion failure=${failure}`]);
+      } else {
+        assert.deepEqual(await captured(), { status: 200, text: success.padEnd(4096) });
+        assert.deepEqual(diagnostics, []);
+      }
+      assert.equal(calls, 1);
+    }
+  } finally {
+    if (saved === undefined) delete globalThis.window;
+    else globalThis.window = saved;
   }
 });

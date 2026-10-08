@@ -72,6 +72,26 @@ class BrowserDiagnostics(unittest.TestCase):
                 with self.assertRaisesRegex(AssertionError, r'^owned upload browser rejected at quick-reply-upload\.mjs$'):
                     finish_browser(self.process(marker + b'\n'), 'quick-reply-upload.mjs')
 
+    def test_deletion_failures_retain_only_safe_classifications(self):
+        for failure in (b'http', b'body', b'content'):
+            error = (b'private URL and capability ' + b'a' * 64
+                     + b'\nOWNED_UPLOAD_RESPONSE status=200 type=html stage=deletion failure='
+                     + failure + b'\n at file:///owned/quick-reply-upload.mjs:157:30\n')
+            with self.subTest(failure=failure), self.assertRaises(AssertionError) as result:
+                finish_browser(self.process(error), 'quick-reply-upload.mjs')
+            self.assertEqual(str(result.exception), 'owned upload browser rejected at quick-reply-upload.mjs:157:30'
+                             + f' (HTTP 200, html, deletion, {failure.decode()})')
+
+    def test_deletion_diagnostic_rejects_unbounded_or_unlisted_details(self):
+        for marker in (b'OWNED_UPLOAD_RESPONSE status=999 type=html stage=deletion failure=body',
+                       b'OWNED_UPLOAD_RESPONSE status=200 type=private stage=deletion failure=body',
+                       b'OWNED_UPLOAD_RESPONSE status=200 type=html stage=deletion failure=json',
+                       b'OWNED_UPLOAD_RESPONSE status=200 type=html stage=deletion failure=body secret=value',
+                       b'prefix OWNED_UPLOAD_RESPONSE status=200 type=html stage=deletion failure=body'):
+            with self.subTest(marker=marker), self.assertRaisesRegex(AssertionError,
+                    r'^owned upload browser rejected at quick-reply-upload\.mjs$'):
+                finish_browser(self.process(marker + b'\n'), 'quick-reply-upload.mjs')
+
     def test_drawing_lane_uses_same_bounded_private_diagnostics(self):
         error = (b'private drawing receipt ' + b'a' * 64
                  + b'\n at file:///owned/tests/browser/drawing-upload.mjs:72:11\n')
