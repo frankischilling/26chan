@@ -1,0 +1,82 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "catalog.php": "9e41cd26755f9cee12e3fffa2050952a227e16362310b9b888438eba307af946",
+    "js/catalog.js": "12f59335953bd013ce892a24186218a31f2e8ad7fe3dbaa54af82f40ca182e5e",
+    "js/extension.js": "05b3b34f68377a44c071e4f74f629d2700fef61e064dcd2e836b161ee9ee0c31",
+    "js/core.js": "a9ab67bea1f51fcdaaac1a879098a4d5888622008bf7f26f1fe18861ea52aab5"
+  },
+  "snippets": {
+    "catalog_caller": {
+      "file": "catalog.php",
+      "byte_start": 17654,
+      "byte_end": 17995,
+      "sha256": "43229028eae0c1f52fdbc220ea794c1d6a60ee427d24eb596f627f07bd43ccd8",
+      "text": "  document.addEventListener('DOMContentLoaded', function() {\r\n    initAnalytics();\r\n    fourcat.init();\r\n    fourcat.loadCatalog(catalog);\r\n    $.on($.id('tobottom'), 'click', function() { window.scrollTo(0, document.documentElement.scrollHeight); });\r\n    $.on($.id('totop'), 'click', function() { window.scrollTo(0, 0); });\r\n  }, false);\r\n"
+    },
+    "catalog_settings": {
+      "file": "js/catalog.js",
+      "byte_start": 43548,
+      "byte_end": 45381,
+      "sha256": "b79f5f583c1ca0135071f847492f69323a3c342411dd0392ce4a26f9ab570445",
+      "text": "  function loadSettings() {\r\n    var settings;\r\n    if (UA.hasWebStorage && (settings = localStorage.getItem('catalog-settings'))) {\r\n      $.extend(options, JSON.parse(settings));\r\n    }\r\n  }    \r\n  \r\n  function saveSettings() {\r\n    var i, key, settings;\r\n    if (!UA.hasWebStorage) {\r\n      return;\r\n    }\r\n    settings = {};\r\n    for (i = basicSettings.length - 1; i >= 0; i--) {\r\n      key = basicSettings[i];\r\n      settings[key] = options[key];\r\n    }\r\n    localStorage.setItem('catalog-settings', JSON.stringify(settings));\r\n    //StorageSync.sync('catalog-settings');\r\n  }\r\n  \r\n  function setExtended(mode, init) {\r\n    var cls = '';\r\n    if (mode) {\r\n      $teaserCtrl.selectedIndex = 1;\r\n      cls = 'extended-';\r\n      options.extended = true;\r\n    }\r\n    else {\r\n      $teaserCtrl.selectedIndex = 0;\r\n      options.extended = false;\r\n    }\r\n    if (options.large) {\r\n      cls += 'large';\r\n    }\r\n    else {\r\n      cls += 'small';\r\n    }\r\n    $threads.className = cls;\r\n    if (!init) {\r\n      saveSettings();\r\n    }\r\n  }\r\n  \r\n  function setLarge(mode, init) {\r\n    var cls = options.extended ? 'extended-' : '';\r\n    if (mode) {\r\n      $sizeCtrl.selectedIndex = 1;\r\n      cls += 'large';\r\n      options.large = true;\r\n    }\r\n    else {\r\n      $sizeCtrl.selectedIndex = 0;\r\n      cls += 'small';\r\n      options.large = false;\r\n    }\r\n    $threads.className = cls;\r\n    if (!init) {\r\n      saveSettings();\r\n      buildThreads();\r\n    }\r\n  }\r\n  \r\n  function setOrder(order, init) {\r\n    var o = { alt: 0, absdate: 1, date: 2, r: 3 };\r\n    if (o[order] !== undefined) {\r\n      $orderCtrl.selectedIndex = o[order];\r\n      options.orderby = order;\r\n    }\r\n    else {\r\n      $orderCtrl.selectedIndex = 0;\r\n      options.orderby = 'date';\r\n    }\r\n    if (!init) {\r\n      saveSettings();\r\n      buildThreads();\r\n    }\r\n  }\r\n  \r\n"
+    },
+    "catalog_load": {
+      "file": "js/catalog.js",
+      "byte_start": 9450,
+      "byte_end": 10374,
+      "sha256": "0af6ce6d5e4ba42e1bbb4e2ab18c6da0ad87ebe0a12e4419fabf217e2aad75ba",
+      "text": "  self.loadCatalog = function(c) {\r\n    var query;\r\n    \r\n    catalog = c;\r\n    \r\n    $.addClass(document.body, activeStyleSheet.toLowerCase().replace(/ /g, '_'));\r\n    \r\n    initStyleSwitcher();\r\n    loadFilters();\r\n    loadStorage();\r\n    \r\n    if (UA.hasSessionStorage && !location.hash && (query = sessionStorage.getItem('4chan-catalog-search'))) {\r\n      if (catalog.slug != sessionStorage.getItem('4chan-catalog-search-board')) {\r\n        sessionStorage.removeItem('4chan-catalog-search');\r\n        sessionStorage.removeItem('4chan-catalog-search-board');\r\n        query = null;\r\n      }\r\n    }\r\n    else if (location.hash && (query = location.hash.match(/#s=(.+)/))) {\r\n      query = decodeURIComponent(query[1].replace(/\\+/g, ' '));\r\n    }\r\n    \r\n    if (query) {\r\n      toggleQuickfilter();\r\n      $.id('qf-box').value = query;\r\n      applyQuickfilter();\r\n    }\r\n    else {\r\n      buildThreads();\r\n    }\r\n  };\r\n  \r\n"
+    },
+    "catalog_init": {
+      "file": "js/catalog.js",
+      "byte_start": 4391,
+      "byte_end": 7757,
+      "sha256": "463f6414ee2a5ea1b09d95bf408b9cf16408e260b40374d69d0f44200f6762e3",
+      "text": "  self.init = function() {\r\n    var extConfig, el, val, fn;\r\n    \r\n    FC.hasMobileLayout = checkMobileLayout();\r\n    \r\n    applyTheme(activeTheme, true);\r\n    \r\n    $threads = $.id('threads');\r\n    $qfCtrl = $.id('qf-ctrl');\r\n    $teaserCtrl = $.id('teaser-ctrl');\r\n    $sizeCtrl = $.id('size-ctrl');\r\n    $orderCtrl = $.id('order-ctrl');\r\n    \r\n    $.on($qfCtrl, 'click', toggleQuickfilter);\r\n    $.on($.id('filters-clear-hidden'), 'click', toggleHiddenThreads);\r\n    $.on($.id('filters-clear-hidden-bottom'), 'click', toggleHiddenThreads);\r\n    $.on($.id('qf-clear'), 'click', toggleQuickfilter);\r\n    $.on($.id('settingsWindowLink'), 'click', showThemeEditor);\r\n    $.on($.id('settingsWindowLinkBot'), 'click', showThemeEditor);\r\n    $.on($.id('settingsWindowLinkMobile'), 'click', showThemeEditor);\r\n    $.on($.id('filters-ctrl'), 'click', showFilters);\r\n    $.on($teaserCtrl, 'change', onTeaserChange);\r\n    $.on($sizeCtrl, 'change', onSizeChange);\r\n    $.on($orderCtrl, 'change', onOrderChange);\r\n    $.on($threads, 'mouseover', onThreadMouseOver);\r\n    $.on($threads, 'mouseout', onThreadMouseOut);\r\n    $.on($.id('togglePostFormLinkMobile'), 'click', togglePostFormMobile);\r\n    $.on(document, 'click', onClick);\r\n    \r\n    loadSettings();\r\n    \r\n    bindGlobalShortcuts();\r\n    \r\n    initGlobalMessage();\r\n    \r\n    if (UA.hasContextMenu) {\r\n      buildContextMenu();\r\n    }\r\n    \r\n    window.Config = {};\r\n    \r\n    if (UA.hasWebStorage) {\r\n      if (extConfig = localStorage.getItem('4chan-settings')) {\r\n        extConfig = JSON.parse(extConfig);\r\n        \r\n        window.Config = extConfig;\r\n        \r\n        if (!extConfig.disableAll) {\r\n          CustomMenu.initCtrl(extConfig.dropDownNav, extConfig.classicNav);\r\n          /*\r\n          if (location.host === 'boards.4channel.org' && extConfig.showNWSBoards) {\r\n            CustomMenu.showNWSBoards();\r\n          }\r\n          */\r\n          if (extConfig.filter) {\r\n            ThreadWatcher.hasFilters = true;\r\n          }\r\n          \r\n          if (extConfig.threadWatcher) {\r\n            hasThreadWatcher = true;\r\n            ThreadWatcher.init();\r\n          }\r\n          \r\n          if (extConfig.customMenu) {\r\n            CustomMenu.apply(extConfig.customMenuList);\r\n          }\r\n          \r\n          if (extConfig.dropDownNav !== false && !FC.hasMobileLayout) {\r\n            hasDropDownNav = true;\r\n            hasClassicNav = extConfig.classicNav;\r\n            hasAutoHideNav = extConfig.autoHideNav;\r\n            showDropDownNav();\r\n          }\r\n          \r\n          altCaptcha = extConfig.altCaptcha;\r\n        }\r\n      }\r\n      else if (UA.isMobileDevice && !FC.hasMobileLayout) {\r\n        hasDropDownNav = true;\r\n        showDropDownNav();\r\n      }\r\n      else {\r\n        CustomMenu.initCtrl(false, false);\r\n      }\r\n      \r\n      if (window.css_event && activeStyleSheet === '_special') {\r\n        fn = window['fc_' + window.css_event + '_init'];\r\n        fn && fn();\r\n      }\r\n    }\r\n    \r\n    if (el = document.forms.post.flag) {\r\n      if ((val = $.readCookie('4chan_flag')) && (el = el.querySelector('option[value=\"' + val + '\"]'))) {\r\n        el.setAttribute('selected', 'selected');\r\n      }\r\n    }\r\n    \r\n    setOrder(options.orderby, true);\r\n    setLarge(options.large, true);\r\n    setExtended(options.extended, true);\r\n    \r\n    UA.dispatchEvent('4chanMainInit');\r\n  };\r\n  \r\n"
+    },
+    "catalog_defaults": {
+      "file": "js/catalog.js",
+      "byte_start": 2811,
+      "byte_end": 3272,
+      "sha256": "54ba1e840c6b2d9c2a8b9e467cfb128d044f1c20b0a92f7b6f9cb058194d6f78",
+      "text": "  options = {\r\n    orderby: 'alt',\r\n    large: false,\r\n    extended: true,\r\n    imgdel: '//s.4cdn.org/image/filedeleted-res.gif',\r\n    imgspoiler: '//s.4cdn.org/image/spoiler',\r\n    nofile: '//s.4cdn.org/image/nofile.png',\r\n    smallsize: 150,\r\n    tipdelay: 250,\r\n    filterColors: [\r\n      ['#E0B0FF', '#F2F3F4', '#7DF9FF', '#FFFF00'],\r\n      ['#FBCEB1', '#FFBF00', '#ADFF2F', '#0047AB'],\r\n      ['#00A550', '#007FFF', '#AF0A0F', '#B5BD68']\r\n    ]\r\n  },\r\n  \r\n"
+    },
+    "catalog_dispatch": {
+      "file": "js/catalog.js",
+      "byte_start": 2555,
+      "byte_end": 2760,
+      "sha256": "690846dfaf2558c0585d1fd53d47e966c74e90548d1d9e72e62c01ef45be23df",
+      "text": "UA.dispatchEvent = function(name, detail) {\r\n  var e = document.createEvent('Event');\r\n  e.initEvent(name, false, false);\r\n  if (detail) {\r\n    e.detail = detail;\r\n  }\r\n  document.dispatchEvent(e);\r\n};\r\n\r\n"
+    },
+    "init": {
+      "file": "js/extension.js",
+      "byte_start": 238126,
+      "byte_end": 239176,
+      "sha256": "a320e945c6ca3d0ae5a111202d8b4f0f82d5b9a3abcef9608d8b6a0ded4f1654",
+      "text": "Main.init = function() {\r\n  var params;\r\n  \r\n  document.addEventListener('DOMContentLoaded', Main.run, false);\r\n  \r\n  Main.now = Date.now();\r\n  \r\n  Main.is_4channel = location.host === 'boards.4channel.org';\r\n  \r\n  UA.init();\r\n  \r\n  Config.load();\r\n  \r\n  if (Config.forceHTTPS && location.protocol != 'https:') {\r\n    location.href = location.href.replace(/^http:/, 'https:');\r\n    return;\r\n  }\r\n  \r\n  if (Main.firstRun && Config.loadFromURL()) {\r\n    Main.firstRun = false;\r\n  }\r\n  \r\n  if (Main.stylesheet = Main.getCookie(style_group)) {\r\n    Main.stylesheet = Main.stylesheet.toLowerCase().replace(/ /g, '_');\r\n  }\r\n  else {\r\n    Main.stylesheet =\r\n      style_group == 'nws_style' ? 'yotsuba_new' : 'yotsuba_b_new';\r\n  }\r\n  \r\n  QR.noCaptcha = QR.noCaptcha || window.passEnabled;\r\n  \r\n  Main.initIcons();\r\n  \r\n  Main.addCSS();\r\n  \r\n  Main.type = style_group.split('_')[0];\r\n  \r\n  params = location.pathname.split(/\\//);\r\n  Main.board = params[1];\r\n  Main.page = params[2];\r\n  Main.tid = params[3];\r\n  \r\n  UA.dispatchEvent('4chanMainInit');\r\n};\r\n\r\n"
+    },
+    "dispatch": {
+      "file": "js/extension.js",
+      "byte_start": 220680,
+      "byte_end": 220885,
+      "sha256": "690846dfaf2558c0585d1fd53d47e966c74e90548d1d9e72e62c01ef45be23df",
+      "text": "UA.dispatchEvent = function(name, detail) {\r\n  var e = document.createEvent('Event');\r\n  e.initEvent(name, false, false);\r\n  if (detail) {\r\n    e.detail = detail;\r\n  }\r\n  document.dispatchEvent(e);\r\n};\r\n\r\n"
+    },
+    "run": {
+      "file": "js/extension.js",
+      "byte_start": 240571,
+      "byte_end": 244680,
+      "sha256": "48323b8683f8d06f6fde7e431e3201971393aaf0aa1020647475163212897617",
+      "text": "Main.run = function() {\r\n  var el, thread;\r\n  \r\n  document.removeEventListener('DOMContentLoaded', Main.run, false);\r\n  \r\n  document.addEventListener('click', Main.onclick, false);\r\n  \r\n  $.id('settingsWindowLink').addEventListener('click', SettingsMenu.toggle, false);\r\n  $.id('settingsWindowLinkBot').addEventListener('click', SettingsMenu.toggle, false);\r\n  $.id('settingsWindowLinkMobile').addEventListener('click', SettingsMenu.toggle, false);\r\n  \r\n  Main.isOekakiBoard = Main.board === 'i';\r\n  \r\n  Main.hasMobileLayout = Main.checkMobileLayout();\r\n  Main.isMobileDevice = /Mobile|Android|Dolfin|Opera Mobi|PlayStation Vita|Nintendo DS/.test(navigator.userAgent);\r\n  \r\n  Search.init();\r\n  \r\n  if (Config.disableAll) {\r\n    return;\r\n  }\r\n  \r\n  Report.init();\r\n  \r\n  if (Main.hasMobileLayout) {\r\n    $.extend(Config, ConfigMobile);\r\n  }\r\n  else {\r\n    if (el = $.id('bottomReportBtn')) {\r\n      el.style.display = 'none';\r\n    }\r\n    \r\n    if (Main.isMobileDevice) {\r\n      $.addClass(document.body, 'isMobileDevice');\r\n    }\r\n  }\r\n  /*\r\n  if (Main.is_4channel && Config.showNWSBoards) {\r\n    CustomMenu.showNWSBoards();\r\n  }\r\n  */\r\n  if (Config.linkify) {\r\n    Linkify.init();\r\n  }\r\n  \r\n  if (Config.IDColor) {\r\n    IDColor.init();\r\n  }\r\n  \r\n  if (Config.customCSS) {\r\n    CustomCSS.init();\r\n  }\r\n  \r\n  if (Config.keyBinds) {\r\n    Keybinds.init();\r\n  }\r\n  \r\n  if (Main.firstRun && Main.isMobileDevice) {\r\n    Config.topPageNav = false;\r\n    Config.dropDownNav = true;\r\n  }\r\n  \r\n  if (Config.dropDownNav && !Main.hasMobileLayout) {\r\n    Main.initPersistentNav();\r\n  }\r\n  \r\n  $.addClass(document.body, Main.stylesheet);\r\n  $.addClass(document.body, Main.type);\r\n  \r\n  if (Config.darkTheme) {\r\n    $.addClass(document.body, 'm-dark');\r\n    if (!Main.hasMobileLayout) {\r\n      $.cls('stylechanger')[0].addEventListener('change', Main.disableDarkTheme, false);\r\n    }\r\n  }\r\n  \r\n  if (Config.compactThreads) {\r\n    $.addClass(document.body, 'compact');\r\n  }\r\n  else if (Config.centeredThreads) {\r\n    $.addClass(document.body, 'centeredThreads');\r\n  }\r\n  \r\n  if (Config.noPictures) {\r\n    $.addClass(document.body, 'noPictures');\r\n  }\r\n  \r\n  if (Config.customMenu) {\r\n    CustomMenu.apply(Config.customMenuList);\r\n  }\r\n  \r\n  CustomMenu.initCtrl();\r\n  \r\n  if (Config.quotePreview || Config.imageHover|| Config.filter) {\r\n    thread = $.id('delform') || $.id('arc-list');\r\n    thread.addEventListener('mouseover', Main.onThreadMouseOver, false);\r\n    thread.addEventListener('mouseout', Main.onThreadMouseOut, false);\r\n  }\r\n  \r\n  if (Config.stickyNav) {\r\n    Main.setStickyNav();\r\n  }\r\n  \r\n  if (!Main.hasMobileLayout) {\r\n    Main.initGlobalMessage();\r\n    if (Config.autoHideNav) {\r\n      StickyNav.init();\r\n    }\r\n  }\r\n  else {\r\n    StickyNav.init();\r\n  }\r\n  \r\n  if (Config.threadExpansion) {\r\n    ThreadExpansion.init();\r\n  }\r\n  \r\n  if (Config.filter) {\r\n    Filter.init();\r\n  }\r\n  \r\n  if (Config.threadWatcher) {\r\n    ThreadWatcher.init();\r\n  }\r\n  \r\n  if (Main.hasMobileLayout || Config.embedSoundCloud || Config.embedYouTube) {\r\n    Media.init();\r\n  }\r\n  \r\n  ReplyHiding.init();\r\n  \r\n  if (Config.quotePreview) {\r\n    QuotePreview.init();\r\n  }\r\n  \r\n  Parser.init();\r\n  \r\n  if (Main.tid) {\r\n    Main.threadClosed = !document.forms.post || !!$.cls('closedIcon')[0];\r\n    Main.threadSticky = !!$.cls('stickyIcon', $.id('pi' + Main.tid))[0];\r\n    \r\n    if (Config.threadStats) {\r\n      ThreadStats.init();\r\n    }\r\n    \r\n    Parser.parseThread(Main.tid);\r\n    \r\n    if (Config.threadUpdater) {\r\n      ThreadUpdater.init();\r\n    }\r\n  }\r\n  else {\r\n    if (!Main.page) {\r\n      Depager.init();\r\n    }\r\n    \r\n    if (Config.topPageNav) {\r\n      Main.setPageNav();\r\n    }\r\n    if (Config.threadHiding) {\r\n      ThreadHiding.init();\r\n      Parser.parseBoard();\r\n    }\r\n    else {\r\n      Parser.parseBoard();\r\n    }\r\n  }\r\n  \r\n  if (Main.board === 'f') {\r\n    SWFEmbed.init();\r\n  }\r\n  \r\n  if (Config.quickReply) {\r\n    QR.init();\r\n  }\r\n  \r\n  ReplyHiding.purge();\r\n  \r\n  if (Config.alwaysDepage && !Main.hasMobileLayout) {\r\n    if ($.docEl.scrollHeight <= $.docEl.clientHeight) {\r\n      Depager.depage();\r\n    }\r\n  }\r\n};\r\n"
+    },
+    "math_startup": {
+      "file": "js/core.js",
+      "byte_start": 42525,
+      "byte_end": 42596,
+      "sha256": "ba18a4474a950afb7d343a53d24ce8feea9cb42fcf15c341c13c86728aeaffc4",
+      "text": "  if (window.math_tags && pageHasMath()) {\r\n    loadMathJax();\r\n  }\r\n\r\n"
+    }
+  },
+  "scope": "Board/thread pre-parser and catalog controls-ready MainInit boundaries, event shape and caller ordering."
+}
