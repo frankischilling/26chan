@@ -105,3 +105,43 @@ export async function exportDrawingProof(page, expected) {
   assert.equal((await canvasProof(page)).hash, expected.hash, 'Export leaves the retained canvas unchanged');
   await download.delete();
 }
+
+// Observe only the real cancellation transport; never read or log its request
+// body (which contains the capability) or an arbitrary server error body.
+export function observeDrawingCancellation(page, url) {
+  let state = 'none';
+  page.on('request', request => { if (request.url() === url && request.method() === 'POST') state = 'pending'; });
+  page.on('response', response => {
+    if (response.url() === url && response.request().method() === 'POST') {
+      const status = response.status();
+      state = Number.isInteger(status) && status >= 100 && status <= 599 ? String(status) : 'other';
+    }
+  });
+  page.on('requestfailed', request => { if (request.url() === url && request.method() === 'POST' && state === 'pending') state = 'failed'; });
+  return () => state;
+}
+
+export function drawingStatusCategory(text) {
+  const categories = { '': 'empty', 'tegaki.png queued for processing.': 'queued',
+    'Canceling drawing upload…': 'canceling', 'Checking tegaki.png…': 'checking',
+    'Uploading tegaki.png…': 'uploading', 'Upload could not be canceled. Try again.': 'cancel-error',
+    'The drawing editor could not be loaded. Try Draw again.': 'editor-error',
+  };
+  return Object.hasOwn(categories, text) ? categories[text] : 'other';
+}
+
+export async function reportDrawingEditFailure(page, controls, cancellation, report = console.error) {
+  // Diagnostics must not replace the original assertion, even on a closed page.
+  try {
+    const ui = drawingStatusCategory(await controls.status.textContent());
+    const visibility = async selector => {
+      const element = page.locator(selector);
+      return await element.count() === 0 ? 'absent' : await element.isVisible() ? 'visible' : 'hidden';
+    };
+    const editor = await visibility('#tegaki'), cursor = await visibility('#tegaki-cursor-layer');
+    const raw = await page.locator('html').getAttribute('data-native-drawing-active');
+    const active = ['true', 'false'].includes(raw) ? raw : 'other';
+    const value = cancellation(), cancel = /^(?:none|pending|failed|other|[1-5][0-9]{2})$/.test(value) ? value : 'other';
+    report(`OWNED_DRAWING_EDIT cancel=${cancel} ui=${ui} editor=${editor} cursor=${cursor} active=${active}`);
+  } catch { report('OWNED_DRAWING_EDIT unavailable'); }
+}

@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { chromium, expect } from '@playwright/test';
 import { createInterface } from 'node:readline';
 import { assertOwnedThreadResponse } from './owned-upload-response.mjs';
-import { canvasProof, closePainter, decodedPngProof, drawingControls, pointerDrawing, tegakiModule, observeDrawingResponse, exportDrawingProof } from './helpers/drawing-browser.mjs';
+import { canvasProof, closePainter, decodedPngProof, drawingControls, pointerDrawing, tegakiModule, observeDrawingResponse, exportDrawingProof, observeDrawingCancellation, reportDrawingEditFailure } from './helpers/drawing-browser.mjs';
 
 const [rawOrigin, board, marker, mode] = process.argv.slice(2), origin = new URL(rawOrigin);
 assert.equal(process.argv.length, 6); assert.equal(origin.hostname, '127.0.0.1'); assert.equal(origin.protocol, 'http:');
@@ -26,6 +26,7 @@ try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await context.newPage(); page.setDefaultTimeout(10000);
   const requests = [], violations = [];
+  const cancellation = observeDrawingCancellation(page, url(`/${board}/upload/cancel`));
   page.on('request', request => requests.push({ url: request.url(), method: request.method() }));
   await context.exposeBinding('recordDrawingCsp', (_source, value) => violations.push(value));
   await context.addInitScript(() => {
@@ -78,7 +79,9 @@ try {
   // The retained hidden canvas is readable while Edit is still canceling.
   // Reopening the painter is the completion boundary: prepare() must first
   // successfully revoke the previous receipt. A failed cancel never opens it.
-  await expect(page.locator('#tegaki-cursor-layer')).toBeVisible();
+  await expect(page.locator('#tegaki-cursor-layer')).toBeVisible().catch(async error => {
+    await reportDrawingEditFailure(page, controls, cancellation); throw error;
+  });
   assert.equal((await canvasProof(page)).hash, firstProof.hash);
   await signal('REVOKED', firstReceipt.upload_id);
   // Edit cancels the old approval without destroying the retained canvas.

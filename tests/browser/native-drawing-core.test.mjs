@@ -296,3 +296,24 @@ test('Finish and confirmed Cancel invalidate pending download independently of u
     assert.equal(urls, 0); drawing.dispose();
   }
 });
+
+
+test('Edit diagnostics classify real transport and UI without leaking bodies or capabilities', async () => {
+  const { observeDrawingCancellation, drawingStatusCategory, reportDrawingEditFailure } = await import('./helpers/drawing-browser.mjs');
+  const handlers = {}, lines = [], url = 'http://127.0.0.1/owned/upload/cancel';
+  const request = { url: () => url, method: () => 'POST', postData: () => { throw new Error('must not read capability'); } };
+  const page = { on: (name, callback) => { handlers[name] = callback; }, locator: selector => ({
+    count: async () => 1, isVisible: async () => false, getAttribute: async () => 'false',
+  }) };
+  const cancellation = observeDrawingCancellation(page, url);
+  assert.equal(cancellation(), 'none'); handlers.request(request); assert.equal(cancellation(), 'pending');
+  handlers.response({ url: () => url, request: () => request, status: () => 403 });
+  assert.equal(cancellation(), '403');
+  for (const text of ['secret-capability', '__proto__', 'constructor', 'cancel-error\nsecret']) assert.equal(drawingStatusCategory(text), 'other');
+  await reportDrawingEditFailure(page, { status: { textContent: async () => 'secret-capability' } }, cancellation, value => lines.push(value));
+  assert.deepEqual(lines, ['OWNED_DRAWING_EDIT cancel=403 ui=other editor=hidden cursor=hidden active=false']);
+  handlers.requestfailed(request); assert.equal(cancellation(), '403', 'body disposal must not erase an observed HTTP response');
+  handlers.request(request); handlers.requestfailed(request); assert.equal(cancellation(), 'failed');
+  await reportDrawingEditFailure(page, { status: { textContent: async () => { throw new Error('secret'); } } }, cancellation, value => lines.push(value));
+  assert.equal(lines.at(-1), 'OWNED_DRAWING_EDIT unavailable');
+});
