@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { drawingDimensions, drawingPngFile, createDrawingUpload } from '../../apps/public/client/native-drawing-core.js';
 import { createDrawingPainter, createDrawingDownload } from '../../apps/public/client/native-drawing-painter.js';
 import { drawingPostingResult, postingResult, parseQuickReplyUpload, uploadTarget, sendDrawingPost,
@@ -144,6 +145,67 @@ test('Finish and Clear retain real editor state; Edit rebinds callbacks and edit
   assert.equal(await drawing.open(owner, '500', '500'), true); assert.equal(engine.baseWidth, 400);
   engine.destroy(); engine.onCancelCb(); assert.equal(owner.state.pending, false); assert.equal(drawing.active(), false);
   assert.deepEqual(active, [true, false, false, true, false]); drawing.dispose();
+});
+
+test('qualification waits for Edit to reopen before sending the revoked receipt', async () => {
+  const source = await readFile(new URL('./drawing-upload.mjs', import.meta.url), 'utf8');
+  const start = source.indexOf('  await controls.draw.click();', source.indexOf('const firstReceipt ='));
+  const end = source.indexOf("  await signal('REVOKED', firstReceipt.upload_id);", start);
+  assert.ok(start > 0 && end > start);
+  const fragment = source.slice(start, end) + "  await signal('REVOKED', firstReceipt.upload_id);";
+  const run = new Function('controls', 'page', 'expect', 'canvasProof', 'firstProof', 'signal', 'firstReceipt', 'assert',
+    `return (async () => { ${fragment} })();`);
+  const visible = deferred(), signals = [], proof = { hash: 'retained-canvas' };
+  const work = run({ draw: { click: async () => {} } },
+    { locator: selector => { assert.equal(selector, '#tegaki-cursor-layer'); return selector; } },
+    () => ({ toBeVisible: () => visible.promise }), async () => proof, proof,
+    async (...args) => signals.push(args), receipt(), assert);
+  await tick();
+  assert.deepEqual(signals, [], 'reading a retained canvas cannot prove cancellation');
+  visible.resolve(); await work;
+  assert.deepEqual(signals, [['REVOKED', receipt().upload_id]]);
+});
+
+for (const succeeds of [true, false]) test(`Edit only reopens retained canvas after successful receipt cancellation (${succeeds})`, async () => {
+  const cancellation = deferred(), engine = editor(), owner = client();
+  const upload = createDrawingUpload({ board: 'qst', target: () => '0',
+    upload: async () => receipt(), cancel: () => cancellation.promise,
+    schedule: () => 0, unschedule() {},
+  });
+  owner.prepare = () => upload.clear();
+  owner.finished = file => upload.select(file);
+  const drawing = createDrawingPainter({ load: async () => engine });
+  try {
+    assert.equal(await drawing.open(owner, 400, 400), true);
+    await engine.onDoneCb();
+    const retained = engine.bg, canvas = engine.flatten();
+    assert.equal(upload.snapshot().phase, 'queued');
+    const edit = drawing.open(owner, 400, 400);
+    await tick();
+    // This is the former harness race: canvas dimensions/pixels remain
+    // readable even though the old receipt has not been revoked yet.
+    assert.equal(engine.bg, retained);
+    assert.equal(engine.flatten().width, canvas.width);
+    assert.equal(engine.flatten().height, canvas.height);
+    assert.equal(upload.snapshot().phase, 'canceling');
+    assert.equal(upload.snapshot().receipt.upload_id, receipt().upload_id);
+    assert.equal(drawing.active(), false);
+    assert.equal(engine.opens, 1, 'retained editor has not reopened during cancellation');
+    if (succeeds) cancellation.resolve();
+    else cancellation.reject(new Error('Cancellation rejected'));
+    assert.equal(await edit, succeeds);
+    assert.equal(drawing.active(), succeeds);
+    assert.equal(engine.opens, succeeds ? 2 : 1);
+    assert.equal(engine.bg, retained, 'success and failure both retain the source canvas');
+    if (succeeds) assert.equal(upload.snapshot().receipt, null);
+    if (!succeeds) {
+      assert.equal(upload.snapshot().receipt.upload_id, receipt().upload_id);
+      assert.equal(upload.snapshot().error, 'Cancellation rejected');
+      assert.equal(upload.snapshot().phase, 'queued');
+    }
+  } finally {
+    drawing.dispose(); upload.posting(true); upload.dispose();
+  }
 });
 
 test('export and editor-load completions are stale after Clear or pagehide', async () => {

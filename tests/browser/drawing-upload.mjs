@@ -74,7 +74,12 @@ try {
   const firstReceipt = await emitReceipt();
   await expect(controls.draw).toHaveText('Edit'); await expect(controls.width).toBeDisabled();
   await expect(form.locator('[name=upload_id]')).toHaveCount(0); // queued is not approved
-  await controls.draw.click(); assert.equal((await canvasProof(page)).hash, firstProof.hash);
+  await controls.draw.click();
+  // The retained hidden canvas is readable while Edit is still canceling.
+  // Reopening the painter is the completion boundary: prepare() must first
+  // successfully revoke the previous receipt. A failed cancel never opens it.
+  await expect(page.locator('#tegaki-cursor-layer')).toBeVisible();
+  assert.equal((await canvasProof(page)).hash, firstProof.hash);
   await signal('REVOKED', firstReceipt.upload_id);
   // Edit cancels the old approval without destroying the retained canvas.
   await closePainter(page, true); await expect(page.locator('#tegaki')).toHaveCount(0);
