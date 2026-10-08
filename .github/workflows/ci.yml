@@ -193,6 +193,7 @@ jobs:
       - name: Qualify paired candidates through the actual isolated guest and broker
         run: |
           python3 -m unittest discover -s tests/media -p test_paired_vm_controls.py -v
+          python3 -m unittest discover -s tests/media -p test_paired_unix_client.py -v
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin APP_ENV=development \
             MEDIA_PAIRED_VM_QUALIFY=1 \
             MEDIA_PAIRED_COORDINATOR_TEST="$(cat .local/paired-vm-path)" \

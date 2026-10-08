@@ -22,9 +22,20 @@ for dispatch qualification. It removes Python startup environment controls and
 ignores them for the dispatch interpreter. Direct Python entries reject `-O`
 and `-OO`, production or missing development mode, and missing opt-in before
 any VM, service or SQL work. The bounded Unix-client helper separately requires
-its authorized nonroot gateway identity and explicit client-mode flag.
+its authorized nonroot gateway identity and explicit client-mode flag. The root
+harness stages this standard-library-only client as a root-owned mode-0644 file
+in the existing root-owned mode-0755 run directory's `bin` directory, then uses
+isolated Python (`-I`) as the gateway identity. The gateway needs no checkout
+traversal or fixture imports and receives no database credentials. Failed child
+exchanges expose only a validated fixed stage, error class and bounded errno;
+unrecognized child output is suppressed.
 The script does not create or rotate credentials.
 
+- `python3 -m unittest discover -s tests/media -p test_paired_unix_client.py -v`
+  checks staging, cleared child environment and safe diagnostics with mocks, plus
+  an actual isolated Python subprocess whose temporary source checkout has been
+  removed. This proves checkout-independent startup, not gateway identity,
+  Unix-socket transport or VM execution.
 - `python3 -m unittest discover -s tests/media -p test_paired_vm_controls.py -v`
   checks the deterministic fixtures and the independent result assertion without
   root or a VM.

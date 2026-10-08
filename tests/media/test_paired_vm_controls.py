@@ -29,7 +29,7 @@ class PairedVmControls(unittest.TestCase):
                     self.assertNotEqual(result.returncode, 0)
                     self.assertIn('optimized Python cannot run qualification', result.stderr)
                     self.assertNotIn('PASS', result.stdout)
-            for module in ('test_paired_vm', 'test_paired_dispatch_vm'):
+            for module in ('test_paired_vm', 'test_paired_dispatch_vm', 'paired_unix_client'):
                 result = subprocess.run([sys.executable, optimization, '-c', 'import ' + module],
                                         cwd=directory, env=environment, capture_output=True, text=True, timeout=5)
                 self.assertNotEqual(result.returncode, 0)
@@ -51,7 +51,8 @@ class PairedVmControls(unittest.TestCase):
     def test_direct_entries_require_explicit_development_and_opt_in(self):
         import test_paired_vm as vm
         import test_paired_dispatch_vm as dispatch
-        invocations = [vm.PairedVmTest.setUpClass,
+        invocations = [lambda: dispatch.stage_unix_client('/missing', '/missing'),
+                       vm.PairedVmTest.setUpClass,
                        lambda: vm.PairedVmTest().execute(b'unused'),
                        lambda: vm.mutated_disk_main('padding', '/missing', '/missing', '/missing'),
                        dispatch.PairedExercise,
