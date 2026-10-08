@@ -381,7 +381,8 @@ async function start(context) {
       return saved.then(() => { render(); });
     },
   });
-  const nativeKeys = catalog ? null : mountNativeKeybinds({ board, settings: configuration,
+  const nativeKeys = catalog ? null : mountNativeKeybinds({ board, settings: () => document.documentElement.dataset.nativeDrawingActive === 'true'
+    ? { ...configuration(), keyBinds: false } : configuration(),
     quickReply: () => nativeQuickReply?.open(),
     update: () => { void nativeUpdater?.update(); },
     auto: () => nativeUpdater?.toggleAuto(),

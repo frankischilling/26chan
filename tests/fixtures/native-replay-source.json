@@ -1,0 +1,476 @@
+{
+  "schema": 1,
+  "source": {
+    "bytes": 110619,
+    "sha256": "daea182c52df0c032eadbecb4de8f91f634a61bf82aaf35dda077fab50e68744",
+    "version": "0.9.4"
+  },
+  "scope": "Frozen own fields of actual production constructors, without dispatch or original decoding. No state, cost, lifecycle, raster, or playback approval.",
+  "wire": {
+    "path": "tests/media/fixtures/replay-wire/commands.ibr",
+    "bytes": 768,
+    "sha256": "ae72a8ee49b0a0b0f486b886d8a4d3b43708440b91b5954ee9efa62ce2bc26ce"
+  },
+  "events": [
+    {
+      "tag": 0,
+      "arguments": [
+        1123
+      ],
+      "constructor": "TegakiEventPrelude",
+      "ownFields": {
+        "size": 5,
+        "timeStamp": 1123,
+        "type": 0
+      }
+    },
+    {
+      "tag": 6,
+      "arguments": [
+        1200,
+        [
+          12,
+          34,
+          56
+        ]
+      ],
+      "constructor": "TegakiEventSetColor",
+      "ownFields": {
+        "timeStamp": 1200,
+        "r": 12,
+        "g": 34,
+        "b": 56,
+        "type": 6,
+        "size": 8,
+        "coalesce": true
+      }
+    },
+    {
+      "tag": 10,
+      "arguments": [
+        1201,
+        2
+      ],
+      "constructor": "TegakiEventSetTool",
+      "ownFields": {
+        "size": 6,
+        "timeStamp": 1201,
+        "value": 2,
+        "type": 10,
+        "coalesce": true
+      }
+    },
+    {
+      "tag": 11,
+      "arguments": [
+        1202,
+        16
+      ],
+      "constructor": "TegakiEventSetToolSize",
+      "ownFields": {
+        "size": 6,
+        "timeStamp": 1202,
+        "value": 16,
+        "type": 11,
+        "coalesce": true
+      }
+    },
+    {
+      "tag": 12,
+      "arguments": [
+        1203,
+        0.5
+      ],
+      "constructor": "TegakiEventSetToolAlpha",
+      "ownFields": {
+        "timeStamp": 1203,
+        "value": 0.5,
+        "type": 12,
+        "coalesce": true,
+        "size": 9
+      }
+    },
+    {
+      "tag": 13,
+      "arguments": [
+        1204,
+        1
+      ],
+      "constructor": "TegakiEventSetToolSizeDynamics",
+      "ownFields": {
+        "size": 6,
+        "timeStamp": 1204,
+        "value": 1,
+        "type": 13,
+        "coalesce": true
+      }
+    },
+    {
+      "tag": 14,
+      "arguments": [
+        1205,
+        1
+      ],
+      "constructor": "TegakiEventSetToolAlphaDynamics",
+      "ownFields": {
+        "size": 6,
+        "timeStamp": 1205,
+        "value": 1,
+        "type": 14,
+        "coalesce": true
+      }
+    },
+    {
+      "tag": 16,
+      "arguments": [
+        1206,
+        1
+      ],
+      "constructor": "TegakiEventPreserveAlpha",
+      "ownFields": {
+        "size": 6,
+        "timeStamp": 1206,
+        "value": 1,
+        "type": 16,
+        "coalesce": true
+      }
+    },
+    {
+      "tag": 17,
+      "arguments": [
+        1207,
+        1
+      ],
+      "constructor": "TegakiEventSetToolFlowDynamics",
+      "ownFields": {
+        "size": 6,
+        "timeStamp": 1207,
+        "value": 1,
+        "type": 17,
+        "coalesce": true
+      }
+    },
+    {
+      "tag": 18,
+      "arguments": [
+        1208,
+        0.25
+      ],
+      "constructor": "TegakiEventSetToolFlow",
+      "ownFields": {
+        "timeStamp": 1208,
+        "value": 0.25,
+        "type": 18,
+        "coalesce": true,
+        "size": 9
+      }
+    },
+    {
+      "tag": 1,
+      "arguments": [
+        1209,
+        -3,
+        9,
+        0
+      ],
+      "constructor": "TegakiEventDrawStart",
+      "ownFields": {
+        "timeStamp": 1209,
+        "x": -3,
+        "y": 9,
+        "pressure": 0,
+        "type": 1,
+        "size": 11
+      }
+    },
+    {
+      "tag": 2,
+      "arguments": [
+        1210,
+        12,
+        -2,
+        65535
+      ],
+      "constructor": "TegakiEventDraw",
+      "ownFields": {
+        "timeStamp": 1210,
+        "x": 12,
+        "y": -2,
+        "pressure": 65535,
+        "type": 2,
+        "size": 11
+      }
+    },
+    {
+      "tag": 3,
+      "arguments": [
+        1211
+      ],
+      "constructor": "TegakiEventDrawCommit",
+      "ownFields": {
+        "size": 5,
+        "timeStamp": 1211,
+        "type": 3
+      }
+    },
+    {
+      "tag": 4,
+      "arguments": [
+        1212
+      ],
+      "constructor": "TegakiEventUndo",
+      "ownFields": {
+        "size": 5,
+        "timeStamp": 1212,
+        "type": 4
+      }
+    },
+    {
+      "tag": 5,
+      "arguments": [
+        1213
+      ],
+      "constructor": "TegakiEventRedo",
+      "ownFields": {
+        "size": 5,
+        "timeStamp": 1213,
+        "type": 5
+      }
+    },
+    {
+      "tag": 10,
+      "arguments": [
+        1214,
+        8
+      ],
+      "constructor": "TegakiEventSetTool",
+      "ownFields": {
+        "size": 6,
+        "timeStamp": 1214,
+        "value": 8,
+        "type": 10,
+        "coalesce": true
+      }
+    },
+    {
+      "tag": 15,
+      "arguments": [
+        1215,
+        2
+      ],
+      "constructor": "TegakiEventSetToolTip",
+      "ownFields": {
+        "size": 6,
+        "timeStamp": 1215,
+        "value": 2,
+        "type": 15,
+        "coalesce": true
+      }
+    },
+    {
+      "tag": 7,
+      "arguments": [
+        1216,
+        -32768,
+        32767
+      ],
+      "constructor": "TegakiEventDrawStartNoP",
+      "ownFields": {
+        "timeStamp": 1216,
+        "x": -32768,
+        "y": 32767,
+        "type": 7,
+        "size": 9
+      }
+    },
+    {
+      "tag": 8,
+      "arguments": [
+        1217,
+        640,
+        480
+      ],
+      "constructor": "TegakiEventDrawNoP",
+      "ownFields": {
+        "timeStamp": 1217,
+        "x": 640,
+        "y": 480,
+        "type": 8,
+        "size": 9
+      }
+    },
+    {
+      "tag": 2,
+      "arguments": [
+        1218,
+        20,
+        30,
+        32768
+      ],
+      "constructor": "TegakiEventDraw",
+      "ownFields": {
+        "timeStamp": 1218,
+        "x": 20,
+        "y": 30,
+        "pressure": 32768,
+        "type": 2,
+        "size": 11
+      }
+    },
+    {
+      "tag": 3,
+      "arguments": [
+        1219
+      ],
+      "constructor": "TegakiEventDrawCommit",
+      "ownFields": {
+        "size": 5,
+        "timeStamp": 1219,
+        "type": 3
+      }
+    },
+    {
+      "tag": 20,
+      "arguments": [
+        1220
+      ],
+      "constructor": "TegakiEventAddLayer",
+      "ownFields": {
+        "size": 5,
+        "timeStamp": 1220,
+        "type": 20
+      }
+    },
+    {
+      "tag": 24,
+      "arguments": [
+        1221,
+        2
+      ],
+      "constructor": "TegakiEventToggleLayerVisibility",
+      "ownFields": {
+        "size": 6,
+        "timeStamp": 1221,
+        "value": 2,
+        "type": 24
+      }
+    },
+    {
+      "tag": 25,
+      "arguments": [
+        1222,
+        1
+      ],
+      "constructor": "TegakiEventSetActiveLayer",
+      "ownFields": {
+        "size": 6,
+        "timeStamp": 1222,
+        "value": 1,
+        "type": 25
+      }
+    },
+    {
+      "tag": 26,
+      "arguments": [
+        1223,
+        2
+      ],
+      "constructor": "TegakiEventToggleLayerSelection",
+      "ownFields": {
+        "size": 6,
+        "timeStamp": 1223,
+        "value": 2,
+        "type": 26
+      }
+    },
+    {
+      "tag": 27,
+      "arguments": [
+        1224,
+        0.75
+      ],
+      "constructor": "TegakiEventSetSelectedLayersAlpha",
+      "ownFields": {
+        "timeStamp": 1224,
+        "value": 0.75,
+        "type": 27,
+        "coalesce": true,
+        "size": 9
+      }
+    },
+    {
+      "tag": 22,
+      "arguments": [
+        1225,
+        3
+      ],
+      "constructor": "TegakiEventMoveLayers",
+      "ownFields": {
+        "size": 6,
+        "timeStamp": 1225,
+        "value": 3,
+        "type": 22
+      }
+    },
+    {
+      "tag": 23,
+      "arguments": [
+        1226
+      ],
+      "constructor": "TegakiEventMergeLayers",
+      "ownFields": {
+        "size": 5,
+        "timeStamp": 1226,
+        "type": 23
+      }
+    },
+    {
+      "tag": 20,
+      "arguments": [
+        1227
+      ],
+      "constructor": "TegakiEventAddLayer",
+      "ownFields": {
+        "size": 5,
+        "timeStamp": 1227,
+        "type": 20
+      }
+    },
+    {
+      "tag": 21,
+      "arguments": [
+        1228
+      ],
+      "constructor": "TegakiEventDeleteLayers",
+      "ownFields": {
+        "size": 5,
+        "timeStamp": 1228,
+        "type": 21
+      }
+    },
+    {
+      "tag": 254,
+      "arguments": [
+        1229
+      ],
+      "constructor": "TegakiEventHistoryDummy",
+      "ownFields": {
+        "size": 5,
+        "timeStamp": 1229,
+        "type": 254
+      }
+    },
+    {
+      "tag": 255,
+      "arguments": [
+        2123
+      ],
+      "constructor": "TegakiEventConclusion",
+      "ownFields": {
+        "size": 5,
+        "timeStamp": 2123,
+        "type": 255
+      }
+    }
+  ]
+}

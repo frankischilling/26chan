@@ -1,0 +1,6918 @@
+{
+  "pin": {
+    "bytes": 110619,
+    "sha256": "daea182c52df0c032eadbecb4de8f91f634a61bf82aaf35dda077fab50e68744",
+    "version": "0.9.4"
+  },
+  "domain": "Creation-only layers<=8; no undo across Add; Draw/Alpha/Dummy history only; no settings/layers/history within stroke.",
+  "scenarios": [
+    {
+      "name": "initialization-and-eight-real-adds",
+      "toolMap": {
+        "1": {
+          "size": 1,
+          "alpha": 1,
+          "flow": 1,
+          "step": 0.009999999776482582,
+          "tipId": 0,
+          "sizeDynamicsEnabled": false,
+          "alphaDynamicsEnabled": false,
+          "flowDynamicsEnabled": false,
+          "usePreserveAlpha": true
+        },
+        "2": {
+          "size": 8,
+          "alpha": 1,
+          "flow": 1,
+          "step": 0.05000000074505806,
+          "tipId": 0,
+          "sizeDynamicsEnabled": false,
+          "alphaDynamicsEnabled": false,
+          "flowDynamicsEnabled": false,
+          "usePreserveAlpha": true
+        },
+        "3": {
+          "size": 32,
+          "alpha": 1,
+          "flow": 1,
+          "step": 0.10000000149011612,
+          "tipId": 0,
+          "sizeDynamicsEnabled": false,
+          "alphaDynamicsEnabled": false,
+          "flowDynamicsEnabled": false,
+          "usePreserveAlpha": true
+        },
+        "4": {
+          "size": 1,
+          "alpha": 1,
+          "flow": 1,
+          "step": 100,
+          "tipId": 0,
+          "sizeDynamicsEnabled": false,
+          "alphaDynamicsEnabled": false,
+          "flowDynamicsEnabled": false,
+          "usePreserveAlpha": false
+        },
+        "5": {
+          "size": 8,
+          "alpha": 0.5,
+          "flow": 1,
+          "step": 0.009999999776482582,
+          "tipId": 0,
+          "sizeDynamicsEnabled": false,
+          "alphaDynamicsEnabled": false,
+          "flowDynamicsEnabled": false,
+          "usePreserveAlpha": true
+        },
+        "6": {
+          "size": 1,
+          "alpha": 1,
+          "flow": 1,
+          "step": 100,
+          "tipId": 0,
+          "sizeDynamicsEnabled": false,
+          "alphaDynamicsEnabled": false,
+          "flowDynamicsEnabled": false,
+          "usePreserveAlpha": false
+        },
+        "7": {
+          "size": 32,
+          "alpha": 0.5,
+          "flow": 1,
+          "step": 0.25,
+          "tipId": 0,
+          "sizeDynamicsEnabled": false,
+          "alphaDynamicsEnabled": false,
+          "flowDynamicsEnabled": false,
+          "usePreserveAlpha": false
+        },
+        "8": {
+          "size": 8,
+          "alpha": 1,
+          "flow": 1,
+          "step": 0.10000000149011612,
+          "tipId": 0,
+          "sizeDynamicsEnabled": false,
+          "alphaDynamicsEnabled": false,
+          "flowDynamicsEnabled": false,
+          "usePreserveAlpha": false
+        }
+      },
+      "rows": [
+        {
+          "label": "actual-header-and-initial-layer",
+          "code": "Tegaki.replayMode=true;Tegaki.createTools();\n    Tegaki.replayViewer={toolId:1,canvasWidth:32,canvasHeight:24,bgColor:[255,255,255],toolColor:[0,0,0],toolMap:{}};\n    for(const tool of Object.values(Tegaki.tools))Tegaki.replayViewer.toolMap[tool.id]={size:tool.size,alpha:Math.fround(tool.alpha),flow:Math.fround(tool.flow),step:Math.fround(tool.step),tipId:tool.tipId||0,sizeDynamicsEnabled:false,alphaDynamicsEnabled:false,flowDynamicsEnabled:false,usePreserveAlpha:tool.usePreserveAlpha};\n    Tegaki.initFromReplay();[Tegaki.bg,Tegaki.canvasCnt,Tegaki.layersCnt]=TegakiUI.buildUI();Tegaki.init();Tegaki.setTool(Tegaki.defaultTool);",
+          "counts": {
+            "canvas.fillRect": 1,
+            "canvas.getImageData": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateZoomLevel": 1,
+            "shape.circle.tests": 2,
+            "shape.circle": 1,
+            "ui.onToolChanged": 1,
+            "canvas.clearRect": 1
+          },
+          "typedBytes": 9220,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 3072
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 3072
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 4,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 4
+            }
+          ],
+          "canvas": [
+            {
+              "method": "fillRect",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            },
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            },
+            {
+              "method": "clearRect",
+              "canvasWidth": 128,
+              "canvasHeight": 128,
+              "args": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-canvas-1",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-1",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            },
+            {
+              "id": "tegaki-cursor-layer",
+              "width": 128,
+              "height": 128,
+              "requestedPixels": 16384
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [],
+            "redo": [],
+            "pending": null,
+            "activeData": 1,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "add-layer-2",
+          "code": "new TegakiEventAddLayer(0).dispatch();",
+          "counts": {
+            "canvas.getImageData": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas-2",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-2",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "add-layer-3",
+          "code": "new TegakiEventAddLayer(0).dispatch();",
+          "counts": {
+            "canvas.getImageData": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas-3",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-3",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1,
+              2,
+              3
+            ],
+            "canvasLayerIds": [
+              1,
+              2,
+              3
+            ],
+            "active": 3,
+            "selected": [
+              3
+            ],
+            "counter": 3,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ],
+              [
+                3,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "AddLayer",
+                "layerId": 3,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 5,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "activate-first-before-add-4",
+          "code": "new TegakiEventSetActiveLayer(0,1).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2,
+              3
+            ],
+            "canvasLayerIds": [
+              1,
+              2,
+              3
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 3,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ],
+              [
+                3,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "AddLayer",
+                "layerId": 3,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 1,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "add-layer-4",
+          "code": "new TegakiEventAddLayer(0).dispatch();",
+          "counts": {
+            "canvas.getImageData": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas-4",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-4",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1,
+              4,
+              2,
+              3
+            ],
+            "canvasLayerIds": [
+              1,
+              4,
+              2,
+              3
+            ],
+            "active": 4,
+            "selected": [
+              4
+            ],
+            "counter": 4,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                4,
+                true
+              ],
+              [
+                2,
+                true
+              ],
+              [
+                3,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "AddLayer",
+                "layerId": 3,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 6,
+                "kind": "AddLayer",
+                "layerId": 4,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 7,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "add-layer-5",
+          "code": "new TegakiEventAddLayer(0).dispatch();",
+          "counts": {
+            "canvas.getImageData": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas-5",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-5",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1,
+              4,
+              5,
+              2,
+              3
+            ],
+            "canvasLayerIds": [
+              1,
+              4,
+              5,
+              2,
+              3
+            ],
+            "active": 5,
+            "selected": [
+              5
+            ],
+            "counter": 5,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                5,
+                1
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                4,
+                true
+              ],
+              [
+                5,
+                true
+              ],
+              [
+                2,
+                true
+              ],
+              [
+                3,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "AddLayer",
+                "layerId": 3,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 6,
+                "kind": "AddLayer",
+                "layerId": 4,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 8,
+                "kind": "AddLayer",
+                "layerId": 5,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 9,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "activate-first-before-add-6",
+          "code": "new TegakiEventSetActiveLayer(0,1).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              4,
+              5,
+              2,
+              3
+            ],
+            "canvasLayerIds": [
+              1,
+              4,
+              5,
+              2,
+              3
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 5,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                5,
+                1
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                4,
+                true
+              ],
+              [
+                5,
+                true
+              ],
+              [
+                2,
+                true
+              ],
+              [
+                3,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "AddLayer",
+                "layerId": 3,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 6,
+                "kind": "AddLayer",
+                "layerId": 4,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 8,
+                "kind": "AddLayer",
+                "layerId": 5,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 1,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "add-layer-6",
+          "code": "new TegakiEventAddLayer(0).dispatch();",
+          "counts": {
+            "canvas.getImageData": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas-6",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-6",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1,
+              6,
+              4,
+              5,
+              2,
+              3
+            ],
+            "canvasLayerIds": [
+              1,
+              6,
+              4,
+              5,
+              2,
+              3
+            ],
+            "active": 6,
+            "selected": [
+              6
+            ],
+            "counter": 6,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                6,
+                1
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                5,
+                1
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                6,
+                true
+              ],
+              [
+                4,
+                true
+              ],
+              [
+                5,
+                true
+              ],
+              [
+                2,
+                true
+              ],
+              [
+                3,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "AddLayer",
+                "layerId": 3,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 6,
+                "kind": "AddLayer",
+                "layerId": 4,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 8,
+                "kind": "AddLayer",
+                "layerId": 5,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 10,
+                "kind": "AddLayer",
+                "layerId": 6,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 11,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "add-layer-7",
+          "code": "new TegakiEventAddLayer(0).dispatch();",
+          "counts": {
+            "canvas.getImageData": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas-7",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-7",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1,
+              6,
+              7,
+              4,
+              5,
+              2,
+              3
+            ],
+            "canvasLayerIds": [
+              1,
+              6,
+              7,
+              4,
+              5,
+              2,
+              3
+            ],
+            "active": 7,
+            "selected": [
+              7
+            ],
+            "counter": 7,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                6,
+                1
+              ],
+              [
+                7,
+                1
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                5,
+                1
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                6,
+                true
+              ],
+              [
+                7,
+                true
+              ],
+              [
+                4,
+                true
+              ],
+              [
+                5,
+                true
+              ],
+              [
+                2,
+                true
+              ],
+              [
+                3,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "AddLayer",
+                "layerId": 3,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 6,
+                "kind": "AddLayer",
+                "layerId": 4,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 8,
+                "kind": "AddLayer",
+                "layerId": 5,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 10,
+                "kind": "AddLayer",
+                "layerId": 6,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 12,
+                "kind": "AddLayer",
+                "layerId": 7,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 13,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "add-layer-8",
+          "code": "new TegakiEventAddLayer(0).dispatch();",
+          "counts": {
+            "canvas.getImageData": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas-8",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-8",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1,
+              6,
+              7,
+              8,
+              4,
+              5,
+              2,
+              3
+            ],
+            "canvasLayerIds": [
+              1,
+              6,
+              7,
+              8,
+              4,
+              5,
+              2,
+              3
+            ],
+            "active": 8,
+            "selected": [
+              8
+            ],
+            "counter": 8,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                6,
+                1
+              ],
+              [
+                7,
+                1
+              ],
+              [
+                8,
+                1
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                5,
+                1
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                6,
+                true
+              ],
+              [
+                7,
+                true
+              ],
+              [
+                8,
+                true
+              ],
+              [
+                4,
+                true
+              ],
+              [
+                5,
+                true
+              ],
+              [
+                2,
+                true
+              ],
+              [
+                3,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "AddLayer",
+                "layerId": 3,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 6,
+                "kind": "AddLayer",
+                "layerId": 4,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 8,
+                "kind": "AddLayer",
+                "layerId": 5,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 10,
+                "kind": "AddLayer",
+                "layerId": 6,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 12,
+                "kind": "AddLayer",
+                "layerId": 7,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 14,
+                "kind": "AddLayer",
+                "layerId": 8,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 15,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "set-active-zero-top",
+          "code": "new TegakiEventSetActiveLayer(0,0).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              6,
+              7,
+              8,
+              4,
+              5,
+              2,
+              3
+            ],
+            "canvasLayerIds": [
+              1,
+              6,
+              7,
+              8,
+              4,
+              5,
+              2,
+              3
+            ],
+            "active": 3,
+            "selected": [
+              3
+            ],
+            "counter": 8,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                6,
+                1
+              ],
+              [
+                7,
+                1
+              ],
+              [
+                8,
+                1
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                5,
+                1
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                6,
+                true
+              ],
+              [
+                7,
+                true
+              ],
+              [
+                8,
+                true
+              ],
+              [
+                4,
+                true
+              ],
+              [
+                5,
+                true
+              ],
+              [
+                2,
+                true
+              ],
+              [
+                3,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "AddLayer",
+                "layerId": 3,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 6,
+                "kind": "AddLayer",
+                "layerId": 4,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 8,
+                "kind": "AddLayer",
+                "layerId": 5,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 10,
+                "kind": "AddLayer",
+                "layerId": 6,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 12,
+                "kind": "AddLayer",
+                "layerId": 7,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 14,
+                "kind": "AddLayer",
+                "layerId": 8,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 5,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "visibility-toggle",
+          "code": "new TegakiEventToggleLayerVisibility(0,2).dispatch();",
+          "counts": {
+            "ui.updateLayersGridVisibility": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              6,
+              7,
+              8,
+              4,
+              5,
+              2,
+              3
+            ],
+            "canvasLayerIds": [
+              1,
+              6,
+              7,
+              8,
+              4,
+              5,
+              2,
+              3
+            ],
+            "active": 3,
+            "selected": [
+              3
+            ],
+            "counter": 8,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                6,
+                1
+              ],
+              [
+                7,
+                1
+              ],
+              [
+                8,
+                1
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                5,
+                1
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                6,
+                true
+              ],
+              [
+                7,
+                true
+              ],
+              [
+                8,
+                true
+              ],
+              [
+                4,
+                true
+              ],
+              [
+                5,
+                true
+              ],
+              [
+                2,
+                false
+              ],
+              [
+                3,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "AddLayer",
+                "layerId": 3,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 6,
+                "kind": "AddLayer",
+                "layerId": 4,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 8,
+                "kind": "AddLayer",
+                "layerId": 5,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 10,
+                "kind": "AddLayer",
+                "layerId": 6,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 12,
+                "kind": "AddLayer",
+                "layerId": 7,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 14,
+                "kind": "AddLayer",
+                "layerId": 8,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 5,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "selection-insertion-order",
+          "code": "new TegakiEventToggleLayerSelection(0,8).dispatch();new TegakiEventToggleLayerSelection(0,1).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 2,
+            "ui.updateLayersGridSelectedSet": 2
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              6,
+              7,
+              8,
+              4,
+              5,
+              2,
+              3
+            ],
+            "canvasLayerIds": [
+              1,
+              6,
+              7,
+              8,
+              4,
+              5,
+              2,
+              3
+            ],
+            "active": 3,
+            "selected": [
+              3,
+              8,
+              1
+            ],
+            "counter": 8,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                6,
+                1
+              ],
+              [
+                7,
+                1
+              ],
+              [
+                8,
+                1
+              ],
+              [
+                4,
+                1
+              ],
+              [
+                5,
+                1
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                6,
+                true
+              ],
+              [
+                7,
+                true
+              ],
+              [
+                8,
+                true
+              ],
+              [
+                4,
+                true
+              ],
+              [
+                5,
+                true
+              ],
+              [
+                2,
+                false
+              ],
+              [
+                3,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "AddLayer",
+                "layerId": 3,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 6,
+                "kind": "AddLayer",
+                "layerId": 4,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 8,
+                "kind": "AddLayer",
+                "layerId": 5,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 10,
+                "kind": "AddLayer",
+                "layerId": 6,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 12,
+                "kind": "AddLayer",
+                "layerId": 7,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 14,
+                "kind": "AddLayer",
+                "layerId": 8,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 5,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        }
+      ]
+    },
+    {
+      "name": "draw-undo-redo-allocates-new-active-image",
+      "rows": [
+        {
+          "label": "actual-header-and-initial-layer",
+          "code": "Tegaki.replayMode=true;Tegaki.createTools();\n    Tegaki.replayViewer={toolId:1,canvasWidth:32,canvasHeight:24,bgColor:[255,255,255],toolColor:[0,0,0],toolMap:{}};\n    for(const tool of Object.values(Tegaki.tools))Tegaki.replayViewer.toolMap[tool.id]={size:tool.size,alpha:Math.fround(tool.alpha),flow:Math.fround(tool.flow),step:Math.fround(tool.step),tipId:tool.tipId||0,sizeDynamicsEnabled:false,alphaDynamicsEnabled:false,flowDynamicsEnabled:false,usePreserveAlpha:tool.usePreserveAlpha};\n    Tegaki.initFromReplay();[Tegaki.bg,Tegaki.canvasCnt,Tegaki.layersCnt]=TegakiUI.buildUI();Tegaki.init();Tegaki.setTool(Tegaki.defaultTool);",
+          "counts": {
+            "canvas.fillRect": 1,
+            "canvas.getImageData": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateZoomLevel": 1,
+            "shape.circle.tests": 2,
+            "shape.circle": 1,
+            "ui.onToolChanged": 1,
+            "canvas.clearRect": 1
+          },
+          "typedBytes": 9220,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 3072
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 3072
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 4,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 4
+            }
+          ],
+          "canvas": [
+            {
+              "method": "fillRect",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            },
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            },
+            {
+              "method": "clearRect",
+              "canvasWidth": 128,
+              "canvasHeight": 128,
+              "args": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-canvas-1",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-1",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            },
+            {
+              "id": "tegaki-cursor-layer",
+              "width": 128,
+              "height": 128,
+              "requestedPixels": 16384
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [],
+            "redo": [],
+            "pending": null,
+            "activeData": 1,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "add-second",
+          "code": "new TegakiEventAddLayer(0).dispatch();",
+          "counts": {
+            "canvas.getImageData": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas-2",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-2",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "draw-start",
+          "code": "new TegakiEventDrawStartNoP(0,2,2).dispatch();",
+          "counts": {
+            "typed.copyBytes": 3072,
+            "brush.stamps": 1,
+            "brush.rows.tests": 2,
+            "brush.rows": 1,
+            "brush.cells.tests": 2,
+            "brush.cells": 1,
+            "canvas.putImageData": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "putImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                2,
+                2,
+                1,
+                1
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": {
+              "object": 4,
+              "kind": "Draw",
+              "layerId": 2,
+              "before": 5,
+              "after": null,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 3,
+            "activeDataSha256": "1e4b3fdb6d48db973f7ccdd39ccca148057608fe2bbecab89f0de3c1a2adf544"
+          }
+        },
+        {
+          "label": "draw-segment",
+          "code": "new TegakiEventDraw(0,20,18,65535).dispatch();",
+          "counts": {
+            "segment.points": 19,
+            "brush.stamps": 18,
+            "brush.rows.tests": 36,
+            "brush.rows": 18,
+            "brush.cells.tests": 36,
+            "brush.cells": 18,
+            "canvas.putImageData": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [
+            {
+              "method": "putImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                2,
+                2,
+                19,
+                17
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": {
+              "object": 4,
+              "kind": "Draw",
+              "layerId": 2,
+              "before": 5,
+              "after": null,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 3,
+            "activeDataSha256": "35be125d988e46ee00d7fb300442a6e652a8742523f188eb7d5264d289851bd1"
+          }
+        },
+        {
+          "label": "draw-commit",
+          "code": "new TegakiEventDrawCommit(0).dispatch();",
+          "counts": {
+            "typed.fillElements": 1536,
+            "typed.fillBytes": 6144,
+            "canvas.clearRect": 1,
+            "canvas.drawImage": 1,
+            "typed.copyBytes": 3072,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "clearRect",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                0,
+                0,
+                24,
+                18
+              ]
+            },
+            {
+              "method": "drawImage",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                24,
+                18
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "Draw",
+                "layerId": 2,
+                "before": 5,
+                "after": 6,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": {
+              "object": 4,
+              "kind": "Draw",
+              "layerId": 2,
+              "before": 5,
+              "after": 6,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 3,
+            "activeDataSha256": "35be125d988e46ee00d7fb300442a6e652a8742523f188eb7d5264d289851bd1"
+          }
+        },
+        {
+          "label": "change-active-selection-and-target-visibility",
+          "code": "new TegakiEventSetActiveLayer(0,1).dispatch();new TegakiEventToggleLayerSelection(0,2).dispatch();new TegakiEventToggleLayerVisibility(0,2).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 4,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 2,
+            "ui.updateLayersGridActive": 1,
+            "ui.updateLayersGridVisibility": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 1,
+            "selected": [
+              1,
+              2
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                false
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "Draw",
+                "layerId": 2,
+                "before": 5,
+                "after": 6,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": {
+              "object": 4,
+              "kind": "Draw",
+              "layerId": 2,
+              "before": 5,
+              "after": 6,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 1,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "undo-draw",
+          "code": "new TegakiEventUndo(0).dispatch();",
+          "counts": {
+            "canvas.putImageData": 1,
+            "typed.copyBytes": 3072,
+            "canvas.clearRect": 1,
+            "canvas.drawImage": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "putImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                32,
+                24,
+                0,
+                0
+              ]
+            },
+            {
+              "method": "clearRect",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                0,
+                0,
+                24,
+                18
+              ]
+            },
+            {
+              "method": "drawImage",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                24,
+                18
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                false
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [
+              {
+                "object": 4,
+                "kind": "Draw",
+                "layerId": 2,
+                "before": 5,
+                "after": 6,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "pending": {
+              "object": 4,
+              "kind": "Draw",
+              "layerId": 2,
+              "before": 5,
+              "after": 6,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 7,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "redo-draw",
+          "code": "new TegakiEventRedo(0).dispatch();",
+          "counts": {
+            "canvas.putImageData": 1,
+            "typed.copyBytes": 3072,
+            "canvas.clearRect": 1,
+            "canvas.drawImage": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "putImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                32,
+                24,
+                0,
+                0
+              ]
+            },
+            {
+              "method": "clearRect",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                0,
+                0,
+                24,
+                18
+              ]
+            },
+            {
+              "method": "drawImage",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                24,
+                18
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                false
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "Draw",
+                "layerId": 2,
+                "before": 5,
+                "after": 6,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": {
+              "object": 4,
+              "kind": "Draw",
+              "layerId": 2,
+              "before": 5,
+              "after": 6,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 8,
+            "activeDataSha256": "35be125d988e46ee00d7fb300442a6e652a8742523f188eb7d5264d289851bd1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "alpha-dummy-coalescing-and-history-zero-raster-cost",
+      "rows": [
+        {
+          "label": "actual-header-and-initial-layer",
+          "code": "Tegaki.replayMode=true;Tegaki.createTools();\n    Tegaki.replayViewer={toolId:1,canvasWidth:32,canvasHeight:24,bgColor:[255,255,255],toolColor:[0,0,0],toolMap:{}};\n    for(const tool of Object.values(Tegaki.tools))Tegaki.replayViewer.toolMap[tool.id]={size:tool.size,alpha:Math.fround(tool.alpha),flow:Math.fround(tool.flow),step:Math.fround(tool.step),tipId:tool.tipId||0,sizeDynamicsEnabled:false,alphaDynamicsEnabled:false,flowDynamicsEnabled:false,usePreserveAlpha:tool.usePreserveAlpha};\n    Tegaki.initFromReplay();[Tegaki.bg,Tegaki.canvasCnt,Tegaki.layersCnt]=TegakiUI.buildUI();Tegaki.init();Tegaki.setTool(Tegaki.defaultTool);",
+          "counts": {
+            "canvas.fillRect": 1,
+            "canvas.getImageData": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateZoomLevel": 1,
+            "shape.circle.tests": 2,
+            "shape.circle": 1,
+            "ui.onToolChanged": 1,
+            "canvas.clearRect": 1
+          },
+          "typedBytes": 9220,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 3072
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 3072
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 4,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 4
+            }
+          ],
+          "canvas": [
+            {
+              "method": "fillRect",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            },
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            },
+            {
+              "method": "clearRect",
+              "canvasWidth": 128,
+              "canvasHeight": 128,
+              "args": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-canvas-1",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-1",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            },
+            {
+              "id": "tegaki-cursor-layer",
+              "width": 128,
+              "height": 128,
+              "requestedPixels": 16384
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [],
+            "redo": [],
+            "pending": null,
+            "activeData": 1,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "add-second",
+          "code": "new TegakiEventAddLayer(0).dispatch();",
+          "counts": {
+            "canvas.getImageData": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas-2",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-2",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "select-two-in-order",
+          "code": "new TegakiEventToggleLayerSelection(0,1).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 1,
+            "ui.updateLayersGridSelectedSet": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2,
+              1
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "alpha-first",
+          "code": "new TegakiEventSetSelectedLayersAlpha(0,.25).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 1,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2,
+              1
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                0.25
+              ],
+              [
+                2,
+                0.25
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  2,
+                  1
+                ],
+                "newAlpha": 0.25
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "push-dummy",
+          "code": "new TegakiEventHistoryDummy(0).dispatch();",
+          "counts": {
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2,
+              1
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                0.25
+              ],
+              [
+                2,
+                0.25
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  2,
+                  1
+                ],
+                "newAlpha": 0.25
+              },
+              {
+                "object": 5,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "undo-dummy",
+          "code": "new TegakiEventUndo(0).dispatch();",
+          "counts": {
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2,
+              1
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                0.25
+              ],
+              [
+                2,
+                0.25
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  2,
+                  1
+                ],
+                "newAlpha": 0.25
+              }
+            ],
+            "redo": [
+              {
+                "object": 5,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "alpha-coalesce-keeps-redo",
+          "code": "new TegakiEventSetSelectedLayersAlpha(0,.75).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2,
+              1
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                0.75
+              ],
+              [
+                2,
+                0.75
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  2,
+                  1
+                ],
+                "newAlpha": 0.75
+              }
+            ],
+            "redo": [
+              {
+                "object": 5,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "undo-alpha",
+          "code": "new TegakiEventUndo(0).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 1,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2,
+              1
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [
+              {
+                "object": 5,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  2,
+                  1
+                ],
+                "newAlpha": 0.75
+              }
+            ],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "redo-alpha",
+          "code": "new TegakiEventRedo(0).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 1,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2,
+              1
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                0.75
+              ],
+              [
+                2,
+                0.75
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  2,
+                  1
+                ],
+                "newAlpha": 0.75
+              }
+            ],
+            "redo": [
+              {
+                "object": 5,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "redo-dummy",
+          "code": "new TegakiEventRedo(0).dispatch();",
+          "counts": {
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2,
+              1
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                0.75
+              ],
+              [
+                2,
+                0.75
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  2,
+                  1
+                ],
+                "newAlpha": 0.75
+              },
+              {
+                "object": 5,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "undo-dummy-exposes-alpha-for-order-check",
+          "code": "new TegakiEventUndo(0).dispatch();",
+          "counts": {
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              2,
+              1
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                0.75
+              ],
+              [
+                2,
+                0.75
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  2,
+                  1
+                ],
+                "newAlpha": 0.75
+              }
+            ],
+            "redo": [
+              {
+                "object": 5,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "reverse-selection-order",
+          "code": "new TegakiEventToggleLayerSelection(0,2).dispatch();new TegakiEventToggleLayerSelection(0,2).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 2,
+            "ui.updateLayersGridSelectedSet": 2
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              1,
+              2
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                0.75
+              ],
+              [
+                2,
+                0.75
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  2,
+                  1
+                ],
+                "newAlpha": 0.75
+              }
+            ],
+            "redo": [
+              {
+                "object": 5,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "alpha-new-ordered-targets",
+          "code": "new TegakiEventSetSelectedLayersAlpha(0,.5).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 1,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1,
+              2
+            ],
+            "canvasLayerIds": [
+              1,
+              2
+            ],
+            "active": 2,
+            "selected": [
+              1,
+              2
+            ],
+            "counter": 2,
+            "alphas": [
+              [
+                1,
+                0.5
+              ],
+              [
+                2,
+                0.5
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 4,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  2,
+                  1
+                ],
+                "newAlpha": 0.75
+              },
+              {
+                "object": 6,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  1,
+                  2
+                ],
+                "newAlpha": 0.5
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 3,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        }
+      ]
+    },
+    {
+      "name": "alpha-coalescing-retains-costly-draw-redo",
+      "rows": [
+        {
+          "label": "actual-header-and-initial-layer",
+          "code": "Tegaki.replayMode=true;Tegaki.createTools();\n    Tegaki.replayViewer={toolId:1,canvasWidth:32,canvasHeight:24,bgColor:[255,255,255],toolColor:[0,0,0],toolMap:{}};\n    for(const tool of Object.values(Tegaki.tools))Tegaki.replayViewer.toolMap[tool.id]={size:tool.size,alpha:Math.fround(tool.alpha),flow:Math.fround(tool.flow),step:Math.fround(tool.step),tipId:tool.tipId||0,sizeDynamicsEnabled:false,alphaDynamicsEnabled:false,flowDynamicsEnabled:false,usePreserveAlpha:tool.usePreserveAlpha};\n    Tegaki.initFromReplay();[Tegaki.bg,Tegaki.canvasCnt,Tegaki.layersCnt]=TegakiUI.buildUI();Tegaki.init();Tegaki.setTool(Tegaki.defaultTool);",
+          "counts": {
+            "canvas.fillRect": 1,
+            "canvas.getImageData": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateZoomLevel": 1,
+            "shape.circle.tests": 2,
+            "shape.circle": 1,
+            "ui.onToolChanged": 1,
+            "canvas.clearRect": 1
+          },
+          "typedBytes": 9220,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 3072
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 3072
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 4,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 4
+            }
+          ],
+          "canvas": [
+            {
+              "method": "fillRect",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            },
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            },
+            {
+              "method": "clearRect",
+              "canvasWidth": 128,
+              "canvasHeight": 128,
+              "args": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-canvas-1",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-1",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            },
+            {
+              "id": "tegaki-cursor-layer",
+              "width": 128,
+              "height": 128,
+              "requestedPixels": 16384
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [],
+            "redo": [],
+            "pending": null,
+            "activeData": 1,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "alpha-before-draw",
+          "code": "new TegakiEventSetSelectedLayersAlpha(0,.25).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 1,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                0.25
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  1
+                ],
+                "newAlpha": 0.25
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 1,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "draw-after-alpha",
+          "code": "new TegakiEventDrawStartNoP(0,1,1).dispatch();new TegakiEventDrawCommit(0).dispatch();",
+          "counts": {
+            "typed.copyBytes": 6144,
+            "brush.stamps": 1,
+            "brush.rows.tests": 2,
+            "brush.rows": 1,
+            "brush.cells.tests": 2,
+            "brush.cells": 1,
+            "canvas.putImageData": 1,
+            "typed.fillElements": 1536,
+            "typed.fillBytes": 6144,
+            "canvas.clearRect": 1,
+            "canvas.drawImage": 1,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 6144,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "putImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                1,
+                1,
+                1,
+                1
+              ]
+            },
+            {
+              "method": "clearRect",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                0,
+                0,
+                24,
+                18
+              ]
+            },
+            {
+              "method": "drawImage",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                24,
+                18
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                0.25
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  1
+                ],
+                "newAlpha": 0.25
+              },
+              {
+                "object": 3,
+                "kind": "Draw",
+                "layerId": 1,
+                "before": 4,
+                "after": 5,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": {
+              "object": 3,
+              "kind": "Draw",
+              "layerId": 1,
+              "before": 4,
+              "after": 5,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 1,
+            "activeDataSha256": "96cd71755248b9c2ae24b4d1e01f6c0883d0a8015f0aafdbd135f81455443cbd"
+          }
+        },
+        {
+          "label": "undo-draw-leaves-alpha-top",
+          "code": "new TegakiEventUndo(0).dispatch();",
+          "counts": {
+            "canvas.putImageData": 1,
+            "typed.copyBytes": 3072,
+            "canvas.clearRect": 1,
+            "canvas.drawImage": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "putImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                32,
+                24,
+                0,
+                0
+              ]
+            },
+            {
+              "method": "clearRect",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                0,
+                0,
+                24,
+                18
+              ]
+            },
+            {
+              "method": "drawImage",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                24,
+                18
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                0.25
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  1
+                ],
+                "newAlpha": 0.25
+              }
+            ],
+            "redo": [
+              {
+                "object": 3,
+                "kind": "Draw",
+                "layerId": 1,
+                "before": 4,
+                "after": 5,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "pending": {
+              "object": 3,
+              "kind": "Draw",
+              "layerId": 1,
+              "before": 4,
+              "after": 5,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 6,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "alpha-coalesces-with-draw-redo-pending",
+          "code": "new TegakiEventSetSelectedLayersAlpha(0,.75).dispatch();",
+          "counts": {
+            "ui.updateLayerAlphaOpt": 1
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                0.75
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  1
+                ],
+                "newAlpha": 0.75
+              }
+            ],
+            "redo": [
+              {
+                "object": 3,
+                "kind": "Draw",
+                "layerId": 1,
+                "before": 4,
+                "after": 5,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "pending": {
+              "object": 3,
+              "kind": "Draw",
+              "layerId": 1,
+              "before": 4,
+              "after": 5,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 6,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "redo-retained-draw",
+          "code": "new TegakiEventRedo(0).dispatch();",
+          "counts": {
+            "canvas.putImageData": 1,
+            "typed.copyBytes": 3072,
+            "canvas.clearRect": 1,
+            "canvas.drawImage": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "putImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                32,
+                24,
+                0,
+                0
+              ]
+            },
+            {
+              "method": "clearRect",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                0,
+                0,
+                24,
+                18
+              ]
+            },
+            {
+              "method": "drawImage",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                24,
+                18
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                0.75
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "SetLayersAlpha",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": [
+                  1
+                ],
+                "newAlpha": 0.75
+              },
+              {
+                "object": 3,
+                "kind": "Draw",
+                "layerId": 1,
+                "before": 4,
+                "after": 5,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": {
+              "object": 3,
+              "kind": "Draw",
+              "layerId": 1,
+              "before": 4,
+              "after": 5,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 7,
+            "activeDataSha256": "96cd71755248b9c2ae24b4d1e01f6c0883d0a8015f0aafdbd135f81455443cbd"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pending-alias-survives-eviction-no-refund",
+      "rows": [
+        {
+          "label": "actual-header-and-initial-layer",
+          "code": "Tegaki.replayMode=true;Tegaki.createTools();\n    Tegaki.replayViewer={toolId:1,canvasWidth:32,canvasHeight:24,bgColor:[255,255,255],toolColor:[0,0,0],toolMap:{}};\n    for(const tool of Object.values(Tegaki.tools))Tegaki.replayViewer.toolMap[tool.id]={size:tool.size,alpha:Math.fround(tool.alpha),flow:Math.fround(tool.flow),step:Math.fround(tool.step),tipId:tool.tipId||0,sizeDynamicsEnabled:false,alphaDynamicsEnabled:false,flowDynamicsEnabled:false,usePreserveAlpha:tool.usePreserveAlpha};\n    Tegaki.initFromReplay();[Tegaki.bg,Tegaki.canvasCnt,Tegaki.layersCnt]=TegakiUI.buildUI();Tegaki.init();Tegaki.setTool(Tegaki.defaultTool);",
+          "counts": {
+            "canvas.fillRect": 1,
+            "canvas.getImageData": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateZoomLevel": 1,
+            "shape.circle.tests": 2,
+            "shape.circle": 1,
+            "ui.onToolChanged": 1,
+            "canvas.clearRect": 1
+          },
+          "typedBytes": 9220,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 3072
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 3072
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 4,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 4
+            }
+          ],
+          "canvas": [
+            {
+              "method": "fillRect",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            },
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            },
+            {
+              "method": "clearRect",
+              "canvasWidth": 128,
+              "canvasHeight": 128,
+              "args": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-canvas-1",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-1",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            },
+            {
+              "id": "tegaki-cursor-layer",
+              "width": 128,
+              "height": 128,
+              "requestedPixels": 16384
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [],
+            "redo": [],
+            "pending": null,
+            "activeData": 1,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "complete-draw",
+          "code": "new TegakiEventDrawStartNoP(0,1,1).dispatch();new TegakiEventDrawCommit(0).dispatch();",
+          "counts": {
+            "typed.copyBytes": 6144,
+            "brush.stamps": 1,
+            "brush.rows.tests": 2,
+            "brush.rows": 1,
+            "brush.cells.tests": 2,
+            "brush.cells": 1,
+            "canvas.putImageData": 1,
+            "typed.fillElements": 1536,
+            "typed.fillBytes": 6144,
+            "canvas.clearRect": 1,
+            "canvas.drawImage": 1,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 6144,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "putImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                1,
+                1,
+                1,
+                1
+              ]
+            },
+            {
+              "method": "clearRect",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                0,
+                0,
+                24,
+                18
+              ]
+            },
+            {
+              "method": "drawImage",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                24,
+                18
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "Draw",
+                "layerId": 1,
+                "before": 3,
+                "after": 4,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": {
+              "object": 2,
+              "kind": "Draw",
+              "layerId": 1,
+              "before": 3,
+              "after": 4,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 1,
+            "activeDataSha256": "96cd71755248b9c2ae24b4d1e01f6c0883d0a8015f0aafdbd135f81455443cbd"
+          }
+        },
+        {
+          "label": "fifty-dummies-evict-draw",
+          "code": "for(let i=0;i<50;i++)new TegakiEventHistoryDummy(0).dispatch();",
+          "counts": {
+            "ui.updateUndoRedo": 50
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 5,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 6,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 7,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 8,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 9,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 10,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 11,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 12,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 13,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 14,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 15,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 16,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 17,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 18,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 19,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 20,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 21,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 22,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 23,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 24,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 25,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 26,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 27,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 28,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 29,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 30,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 31,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 32,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 33,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 34,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 35,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 36,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 37,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 38,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 39,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 40,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 41,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 42,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 43,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 44,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 45,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 46,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 47,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 48,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 49,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 50,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 51,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 52,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 53,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 54,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": {
+              "object": 2,
+              "kind": "Draw",
+              "layerId": 1,
+              "before": 3,
+              "after": 4,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 1,
+            "activeDataSha256": "96cd71755248b9c2ae24b4d1e01f6c0883d0a8015f0aafdbd135f81455443cbd"
+          }
+        },
+        {
+          "label": "next-start-replaces-pending",
+          "code": "new TegakiEventDrawStartNoP(0,2,2).dispatch();",
+          "counts": {
+            "typed.copyBytes": 3072,
+            "brush.stamps": 1,
+            "brush.rows.tests": 2,
+            "brush.rows": 1,
+            "brush.cells.tests": 2,
+            "brush.cells": 1,
+            "canvas.putImageData": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "putImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                2,
+                2,
+                1,
+                1
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 5,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 6,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 7,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 8,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 9,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 10,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 11,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 12,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 13,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 14,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 15,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 16,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 17,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 18,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 19,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 20,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 21,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 22,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 23,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 24,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 25,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 26,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 27,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 28,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 29,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 30,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 31,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 32,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 33,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 34,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 35,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 36,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 37,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 38,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 39,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 40,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 41,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 42,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 43,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 44,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 45,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 46,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 47,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 48,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 49,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 50,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 51,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 52,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 53,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 54,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": {
+              "object": 55,
+              "kind": "Draw",
+              "layerId": 1,
+              "before": 56,
+              "after": null,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 1,
+            "activeDataSha256": "976dc4b1bb49e86f7d4c928f974303990e08fda3312fe05308bcecbcb8e484ca"
+          }
+        },
+        {
+          "label": "commit-after-eviction",
+          "code": "new TegakiEventDrawCommit(0).dispatch();",
+          "counts": {
+            "typed.fillElements": 1536,
+            "typed.fillBytes": 6144,
+            "canvas.clearRect": 1,
+            "canvas.drawImage": 1,
+            "typed.copyBytes": 3072,
+            "ui.updateUndoRedo": 1
+          },
+          "typedBytes": 3072,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            }
+          ],
+          "canvas": [
+            {
+              "method": "clearRect",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                0,
+                0,
+                24,
+                18
+              ]
+            },
+            {
+              "method": "drawImage",
+              "canvasWidth": 24,
+              "canvasHeight": 18,
+              "args": [
+                32,
+                24,
+                0,
+                0,
+                24,
+                18
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 6,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 7,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 8,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 9,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 10,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 11,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 12,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 13,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 14,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 15,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 16,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 17,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 18,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 19,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 20,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 21,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 22,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 23,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 24,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 25,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 26,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 27,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 28,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 29,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 30,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 31,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 32,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 33,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 34,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 35,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 36,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 37,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 38,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 39,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 40,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 41,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 42,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 43,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 44,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 45,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 46,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 47,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 48,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 49,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 50,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 51,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 52,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 53,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 54,
+                "kind": "Dummy",
+                "layerId": null,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 55,
+                "kind": "Draw",
+                "layerId": 1,
+                "before": 56,
+                "after": 57,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": {
+              "object": 55,
+              "kind": "Draw",
+              "layerId": 1,
+              "before": 56,
+              "after": 57,
+              "alphaIds": null,
+              "newAlpha": null
+            },
+            "activeData": 1,
+            "activeDataSha256": "976dc4b1bb49e86f7d4c928f974303990e08fda3312fe05308bcecbcb8e484ca"
+          }
+        }
+      ]
+    },
+    {
+      "name": "optional-final-flatten-request-volume",
+      "rows": [
+        {
+          "label": "actual-header-and-initial-layer",
+          "code": "Tegaki.replayMode=true;Tegaki.createTools();\n    Tegaki.replayViewer={toolId:1,canvasWidth:32,canvasHeight:24,bgColor:[255,255,255],toolColor:[0,0,0],toolMap:{}};\n    for(const tool of Object.values(Tegaki.tools))Tegaki.replayViewer.toolMap[tool.id]={size:tool.size,alpha:Math.fround(tool.alpha),flow:Math.fround(tool.flow),step:Math.fround(tool.step),tipId:tool.tipId||0,sizeDynamicsEnabled:false,alphaDynamicsEnabled:false,flowDynamicsEnabled:false,usePreserveAlpha:tool.usePreserveAlpha};\n    Tegaki.initFromReplay();[Tegaki.bg,Tegaki.canvasCnt,Tegaki.layersCnt]=TegakiUI.buildUI();Tegaki.init();Tegaki.setTool(Tegaki.defaultTool);",
+          "counts": {
+            "canvas.fillRect": 1,
+            "canvas.getImageData": 1,
+            "ui.updateLayerAlphaOpt": 3,
+            "ui.updateLayersGridSelectedClear": 1,
+            "ui.updateLayersGridSelectedSet": 1,
+            "ui.updateLayersGridActive": 1,
+            "ui.updateUndoRedo": 1,
+            "ui.updateZoomLevel": 1,
+            "shape.circle.tests": 2,
+            "shape.circle": 1,
+            "ui.onToolChanged": 1,
+            "canvas.clearRect": 1
+          },
+          "typedBytes": 9220,
+          "allocations": [
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 3072
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 3072
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 3072,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint8ClampedArray",
+              "bytes": 4,
+              "viewBytes": 0
+            },
+            {
+              "kind": "Uint32Array",
+              "bytes": 0,
+              "viewBytes": 4
+            }
+          ],
+          "canvas": [
+            {
+              "method": "fillRect",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            },
+            {
+              "method": "getImageData",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                0,
+                0,
+                32,
+                24
+              ]
+            },
+            {
+              "method": "clearRect",
+              "canvasWidth": 128,
+              "canvasHeight": 128,
+              "args": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": "tegaki-canvas",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-canvas-1",
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            },
+            {
+              "id": "tegaki-layers-p-canvas-1",
+              "width": 24,
+              "height": 18,
+              "requestedPixels": 432
+            },
+            {
+              "id": "tegaki-cursor-layer",
+              "width": 128,
+              "height": 128,
+              "requestedPixels": 16384
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1
+            ],
+            "canvasLayerIds": [
+              1
+            ],
+            "active": 1,
+            "selected": [
+              1
+            ],
+            "counter": 1,
+            "alphas": [
+              [
+                1,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ]
+            ],
+            "undo": [],
+            "redo": [],
+            "pending": null,
+            "activeData": 1,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        },
+        {
+          "label": "final-flatten-background-and-visible",
+          "code": "globalThis.flattened=Tegaki.flatten();",
+          "counts": {
+            "canvas.drawImage": 3
+          },
+          "typedBytes": 0,
+          "allocations": [],
+          "canvas": [
+            {
+              "method": "drawImage",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                32,
+                24,
+                0,
+                0
+              ]
+            },
+            {
+              "method": "drawImage",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                32,
+                24,
+                0,
+                0
+              ]
+            },
+            {
+              "method": "drawImage",
+              "canvasWidth": 32,
+              "canvasHeight": 24,
+              "args": [
+                32,
+                24,
+                0,
+                0
+              ]
+            }
+          ],
+          "maxStack": 0,
+          "createdCanvases": [
+            {
+              "id": null,
+              "width": 32,
+              "height": 24,
+              "requestedPixels": 768
+            }
+          ],
+          "state": {
+            "layerIds": [
+              1,
+              2,
+              3
+            ],
+            "canvasLayerIds": [
+              1,
+              2,
+              3
+            ],
+            "active": 3,
+            "selected": [
+              3
+            ],
+            "counter": 3,
+            "alphas": [
+              [
+                1,
+                1
+              ],
+              [
+                2,
+                1
+              ],
+              [
+                3,
+                1
+              ]
+            ],
+            "visible": [
+              [
+                1,
+                true
+              ],
+              [
+                2,
+                false
+              ],
+              [
+                3,
+                true
+              ]
+            ],
+            "undo": [
+              {
+                "object": 2,
+                "kind": "AddLayer",
+                "layerId": 2,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              },
+              {
+                "object": 3,
+                "kind": "AddLayer",
+                "layerId": 3,
+                "before": null,
+                "after": null,
+                "alphaIds": null,
+                "newAlpha": null
+              }
+            ],
+            "redo": [],
+            "pending": null,
+            "activeData": 4,
+            "activeDataSha256": "e80232b4d18d0bb7e794be263ba937626f383f9917d4b8a737ba893a8f752293"
+          }
+        }
+      ]
+    }
+  ],
+  "boundaries": {
+    "canvas": "Inert API recording only. No native raster, CSS, GPU, time or heap claim.",
+    "dom": "Layer-container class query and created IDs preserved for real source insertion and preview sizing.",
+    "ui": "Real source layer-grid add/cell/preview sizing preserved; unrelated UI methods remain inert.",
+    "allocations": "New typed backing bytes/copies/fills are counted; JS arrays, native canvases and DOM storage are separately unbounded by these byte counters.",
+    "initialization": "All8 source constructor/header slots initialized; actual source init creates blank ID1 active/selected, history empty. Source initial Add action object is returned and discarded rather than pushed.",
+    "estimator": "Single-layer ledger.cjs is not expanded or qualified for these transitions."
+  }
+}

@@ -20,7 +20,7 @@ from test_vm import red_png
 def finish_browser(process, script):
     # Browser stderr can include one-use capabilities in page/response details.
     # Emit only a fixed script/location and an allowlisted HTTP response category.
-    assert script in ('public-upload.mjs', 'quick-reply-upload.mjs')
+    assert script in ('public-upload.mjs', 'quick-reply-upload.mjs', 'drawing-upload.mjs')
     output, error = process.communicate(timeout=35)
     if process.returncode != 0:
         locations = re.findall(rb'/' + re.escape(script.encode()) + rb':([0-9]{1,6}):([0-9]{1,6})\b', error)
@@ -54,6 +54,7 @@ class PublicUpload:
         self.created = False
         self.browser = None
         self.filenames = []
+        self.drawing_upload = None
 
     def setup(self):
         f = self.f
@@ -174,6 +175,9 @@ class PublicUpload:
         sql(f"UPDATE content.boards SET comment_spoiler_cleanup=false WHERE slug='{self.board}' AND title='Upload qualification';")
         self.upload_one('quick-reply-disabled.png', red_png(), True, quick_reply=True, spoilers=False)
         self.upload_one('quick-reply-inline-disabled.png', red_png(), True, quick_reply='inline', spoilers=False)
+        from public_drawing_fixture import PublicDrawingUpload
+        self.drawing_upload = PublicDrawingUpload(self)
+        self.drawing_upload.exercise()
 
     def upload_one(self, suffix, data, javascript=False, quick_reply=False, spoilers=True):
         self.reset_deletion_quota()
@@ -235,6 +239,8 @@ class PublicUpload:
         print(f'PASS {suffix}: real nonroot public browser -> authenticated intake -> Firecracker -> persisted attachment -> browser image -> deletion revokes reader -> both files removed with tombstone retained', flush=True)
 
     def cleanup(self):
+        if self.drawing_upload is not None:
+            self.drawing_upload.cleanup()
         if self.browser is not None:
             self.f.stop(self.browser)
         if self.installed:

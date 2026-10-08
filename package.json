@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check:generated": "npm run check:global-search && npm run check:native-filter && npm run check:native-images && npm run check:native-thread-controls && npm run check:native-backlinks && npm run check:native-quick-reply && npm run check:math && npm run check:native-post-deletion",
+    "check:generated": "npm run check:global-search && npm run check:native-filter && npm run check:native-images && npm run check:native-thread-controls && npm run check:native-backlinks && npm run check:native-quick-reply && npm run check:math && npm run check:native-post-deletion && npm run check:tegaki",
     "build:global-search": "node scripts/build-global-search.mjs",
     "check:global-search": "node scripts/build-global-search.mjs --check",
     "test:global-search": "npm run check:global-search && node --test tests/browser/global-search.test.mjs && playwright test tests/browser/global-search.spec.js",
@@ -81,7 +81,12 @@
     "test:math": "npm run test:math-core && playwright test --config playwright.math.config.js",
     "build:native-post-deletion": "node scripts/build-native-post-deletion.mjs",
     "check:native-post-deletion": "node scripts/build-native-post-deletion.mjs --check",
-    "test:native-post-deletion-core": "npm run check:native-post-deletion && node --test tests/browser/native-post-deletion.test.mjs tests/browser/native-post-deletion-dom.test.mjs"
+    "test:native-post-deletion-core": "npm run check:native-post-deletion && node --test tests/browser/native-post-deletion.test.mjs tests/browser/native-post-deletion-dom.test.mjs",
+    "check:tegaki": "python3 scripts/prepare-tegaki-assets.py --check",
+    "build:tegaki": "python3 scripts/prepare-tegaki-assets.py",
+    "test:replay-foundation": "node apps/media-guest/tests/fixtures/replay/generate.cjs && python3 tests/media/fixtures/replay-wire/generate.py && python3 tests/media/fixtures/replay-cost/generate.py && node tests/fixtures/record-native-replay-source.mjs && node --test tests/browser/native-replay-data.test.mjs && python3 tests/media/test_replay_fixture_guards.py",
+    "test:drawing-core": "npm run check:tegaki && npm run check:native-quick-reply && node --test tests/browser/native-drawing-core.test.mjs tests/browser/native-drawing.test.mjs tests/browser/native-drawing-qr-cancel.test.mjs tests/browser/native-drawing-source.test.mjs && npm run test:replay-foundation",
+    "test:drawing": "npm run test:drawing-core && playwright test tests/browser/native-drawing.spec.js"
   },
   "devDependencies": {
     "@mathjax/mathjax-tex-font": "4.1.3",

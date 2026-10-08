@@ -1,0 +1,163 @@
+{
+  "schema": 1,
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "version": "0.9.4",
+  "upstream": {
+    "repository": "https://github.com/desuwa/tegaki",
+    "tag": "0.9.4",
+    "revision": "b6697b164d6e9866adb39be4ef8c9db7102c8947"
+  },
+  "source_files": {
+    "tegaki.min.js": {
+      "reference_path": "js/tegaki.min.js",
+      "path": "apps/public/vendor/tegaki/0.9.4/tegaki.min.js",
+      "bytes": 110619,
+      "sha256": "daea182c52df0c032eadbecb4de8f91f634a61bf82aaf35dda077fab50e68744"
+    },
+    "tegaki.css": {
+      "reference_path": "css/tegaki.css",
+      "path": "apps/public/vendor/tegaki/0.9.4/tegaki.css",
+      "bytes": 16766,
+      "sha256": "0f29e747f90131104d1058559a6ec8b559f24aae6379fc310cb9fa26262f244e"
+    }
+  },
+  "upstream_css": {
+    "url": "https://raw.githubusercontent.com/desuwa/tegaki/b6697b164d6e9866adb39be4ef8c9db7102c8947/css/tegaki.css",
+    "bytes": 16096,
+    "sha256": "16e953e0f8a291fbcebfe6dca93219fc83b762452fddc4506961dd55285a20f9",
+    "relation": "Production CSS is identical after CRLF-to-LF normalization."
+  },
+  "notices": [
+    {
+      "url": "https://raw.githubusercontent.com/desuwa/tegaki/b6697b164d6e9866adb39be4ef8c9db7102c8947/LICENSE",
+      "path": "docs/licenses/tegaki-MIT.txt",
+      "bytes": 1058,
+      "sha256": "9d9dede33388a8b08d7a13423c3116be8da4af922901dbb603e873a637c38b7d",
+      "retrieved": "2026-10-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/desuwa/tegaki/b6697b164d6e9866adb39be4ef8c9db7102c8947/lib/UZIP/LICENSE",
+      "path": "docs/licenses/tegaki-UZIP-MIT.txt",
+      "bytes": 1065,
+      "sha256": "786adae9320db47cd483f9a8774ebd3edab8876d714caa4fb0aee8e5b2c3edc0",
+      "retrieved": "2026-10-08"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/desuwa/tegaki/b6697b164d6e9866adb39be4ef8c9db7102c8947/fonts/LICENSE.txt",
+      "path": "docs/licenses/tegaki-font-NOTICE.txt",
+      "bytes": 342,
+      "sha256": "752e00703659a5be42b00cf45e6932e18725cb2a907e57d9bda76b9ef7d033f0",
+      "retrieved": "2026-10-08"
+    },
+    {
+      "url": "https://openfontlicense.org/documents/OFL.txt",
+      "path": "docs/licenses/tegaki-font-OFL-1.1.txt",
+      "bytes": 4119,
+      "sha256": "67b68bca726748f3bfefa48770519d63a532a1f254cbf01714130b1121066653",
+      "retrieved": "2026-10-08",
+      "extraction": "Verbatim license body, beginning at the title separator; excludes the official example copyright placeholders. Checked against the official text through web retrieval."
+    },
+    {
+      "url": "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/1cf1062e0cfda5e9b5b2cac7844721b345e1a9c5/LICENSE.txt",
+      "path": "docs/licenses/tegaki-fontawesome5-LICENSE.txt",
+      "bytes": 1548,
+      "sha256": "e779748dfe75e84f974df3c7bc07f842011a100159158b0f1f49b2f2a5a515cb",
+      "retrieved": "2026-10-08"
+    },
+    {
+      "url": "https://fontawesome.com/license/free",
+      "path": "docs/licenses/tegaki-fontawesome5-NOTICE.txt",
+      "bytes": 1038,
+      "sha256": "0e39f1cef0fd117801b45fa8e2c7ffd0e43f7f0608142e2fa5b326924a4ab3a1",
+      "kind": "Local attribution and modification record for upstream custom glyphs; license text is preserved in tegaki-fontawesome5-LICENSE.txt."
+    }
+  ],
+  "font_config": {
+    "url": "https://raw.githubusercontent.com/desuwa/tegaki/b6697b164d6e9866adb39be4ef8c9db7102c8947/fonts/config.json",
+    "path": "apps/public/vendor/tegaki/0.9.4/fontello-config.json",
+    "bytes": 4698,
+    "sha256": "4836d204659b4091cd1e48052c1f78afe4f01a757ee4ae754f417ee710e20dfb"
+  },
+  "outputs": [
+    {
+      "path": "apps/public/static/tegaki/tegaki-0.9.4.v1.js",
+      "bytes": 112787,
+      "sha256": "6026ae780c2c89765ccfe3c0d3b3972903b9acc7f6fbe2484995456b6d020285",
+      "release_path": "/static/tegaki/tegaki-0.9.4.v1.js"
+    },
+    {
+      "path": "apps/public/static/tegaki/tegaki-0.9.4.v1.css",
+      "bytes": 18974,
+      "sha256": "a8e61a077267150c5393cb2f56d740bd6dbf52778150129be9d496ac7b4a6eaa",
+      "release_path": "/static/tegaki/tegaki-0.9.4.v1.css"
+    },
+    {
+      "path": "apps/public/static/tegaki/tegaki-icons.v1.woff",
+      "bytes": 3128,
+      "sha256": "889ad3a092c684e62064431fe8f81ec948316a7875a3290525edb6bfc4af080b",
+      "release_path": "/static/tegaki/tegaki-icons.v1.woff"
+    }
+  ],
+  "transformations": [
+    "Preserve all production JavaScript bytes; append complete Tegaki and UZIP MIT notices and one named ES-module export for Tegaki.",
+    "Normalize production CSS CRLF to LF; replace its one data URI with ./tegaki-icons.v1.woff; append the upstream font notice, complete OFL 1.1 text, and additional Font Awesome Free attribution/license for the two upstream custom glyphs.",
+    "Decode the existing WOFF without modifying its bytes, name table or glyphs."
+  ],
+  "runtime_review": {
+    "eval": false,
+    "dynamic_import": false,
+    "workers": false,
+    "remote_resources_for_drawing": false,
+    "inline_script": false,
+    "style_element_or_css_text": false,
+    "style_properties": [
+      "opacity",
+      "width",
+      "height",
+      "backgroundColor"
+    ],
+    "object_urls": [
+      "PNG download link in onExportClick",
+      "Local input file image in onOpenFileSelected"
+    ],
+    "network": [
+      "fetch in replay viewer only; replay is disabled in this slice."
+    ],
+    "required_script_path": "/static/tegaki/tegaki-0.9.4.v1.js",
+    "required_stylesheet_path": "/static/tegaki/tegaki-0.9.4.v1.css",
+    "required_font_path": "/static/tegaki/tegaki-icons.v1.woff",
+    "optional_img_src": "blob: only if the built-in local Open action is enabled; ordinary drawing and canvas.toBlob do not need it."
+  },
+  "scope": "Production 0.9.4 drawing assets and license provenance. The 0.9.1 tegaki-test.js is not a substitute. Replay and edit-from-post integration are out of scope.",
+  "custom_icon_provenance": {
+    "upstream_release_is_unspecified": true,
+    "compared_release": "5.7.2",
+    "compared_revision": "1cf1062e0cfda5e9b5b2cac7844721b345e1a9c5",
+    "comparison": "SVG paths parsed with FontTools 4.61.1; official 512-unit coordinates scaled to 1000 units; operation lists match, with upstream rounding differences.",
+    "icons": [
+      {
+        "url": "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/1cf1062e0cfda5e9b5b2cac7844721b345e1a9c5/svgs/solid/spray-can.svg",
+        "path": "apps/public/vendor/tegaki/0.9.4/fontawesome5/spray-can.svg",
+        "bytes": 804,
+        "sha256": "08f8ec6a16512ce9c35b2386ffc9b3fb99efcc71c3b5806bb83aece4718acbac",
+        "tegaki_control": "airbrush",
+        "max_coordinate_difference": 0.1390625
+      },
+      {
+        "url": "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/1cf1062e0cfda5e9b5b2cac7844721b345e1a9c5/svgs/solid/pen-fancy.svg",
+        "path": "apps/public/vendor/tegaki/0.9.4/fontawesome5/pen-fancy.svg",
+        "bytes": 455,
+        "sha256": "a8277f94bb192a1f44b4c263ad6ee21de51584851db0ab2fb6f051391858a06b",
+        "tegaki_control": "pen",
+        "max_coordinate_difference": 0.0484375
+      }
+    ],
+    "copyright_source": {
+      "url": "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/1cf1062e0cfda5e9b5b2cac7844721b345e1a9c5/webfonts/fa-solid-900.woff",
+      "bytes": 96244,
+      "sha256": "d60f0b5201e77d15aff62bfcff73ae356a6c0831744f32e8bf56d893b2252577",
+      "name_id": 0,
+      "notice": "Copyright (c) Font Awesome"
+    }
+  }
+}

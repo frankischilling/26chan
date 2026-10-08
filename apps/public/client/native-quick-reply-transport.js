@@ -13,8 +13,10 @@ const lowerHex = (value, length) => typeof value === 'string' && value.length ==
 const exact = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).sort().join(',') === [...keys].sort().join(',');
 
+export const uploadTarget = thread => thread === '0' || !!postId(thread);
+
 function uploadContext(board, thread, origin) {
-  if (!/^[a-z0-9]{1,10}$/.test(board) || !postId(thread)) throw new Error('Invalid upload target.');
+  if (!/^[a-z0-9]{1,10}$/.test(board) || !uploadTarget(thread)) throw new Error('Invalid upload target.');
   let base;
   try { base = new URL(origin); } catch { throw new Error('Invalid upload origin.'); }
   if (!['http:', 'https:'].includes(base.protocol) || base.origin !== origin
@@ -23,7 +25,7 @@ function uploadContext(board, thread, origin) {
 }
 
 export function parseQuickReplyUpload(text, thread) {
-  if (typeof text !== 'string' || text.length > QUICK_REPLY_UPLOAD_LIMITS.responseBytes || !postId(thread)) {
+  if (typeof text !== 'string' || text.length > QUICK_REPLY_UPLOAD_LIMITS.responseBytes || !uploadTarget(thread)) {
     throw new Error('Invalid upload response.');
   }
   let value;
@@ -198,7 +200,15 @@ export function quoteInsertion(value, start, end, id, selected = '') {
 }
 
 export function postingResult(text, thread) {
-  if (!postId(thread) || typeof text !== 'string' || text.length > 8192) throw new Error('Invalid response');
+  return parsePostingResult(text, thread, false);
+}
+
+export function drawingPostingResult(text, thread) {
+  return parsePostingResult(text, thread, true);
+}
+
+function parsePostingResult(text, thread, allowNew) {
+  if (!(allowNew ? uploadTarget(thread) : postId(thread)) || typeof text !== 'string' || text.length > 8192) throw new Error('Invalid response');
   const value = JSON.parse(text);
   if (/^\s*\{\s*"error"\s*:\s*"(?:[^"\\]|\\.)*"\s*\}\s*$/.test(text)
     && value && typeof value.error === 'string' && value.error.length > 0 && value.error.length <= 2000) {
@@ -207,16 +217,19 @@ export function postingResult(text, thread) {
   // Parse only the source's two integer tokens, never rounded Number values.
   const match = /^\s*\{\s*"tid"\s*:\s*([0-9]{1,19})\s*,\s*"pid"\s*:\s*([0-9]{1,19})\s*\}\s*$/.exec(text);
   if (!match || match[1] !== thread || !postId(match[2]) || BigInt(match[2]) <= BigInt(thread)) throw new Error('Invalid response');
-  return { thread, post: match[2] };
+  return { thread: thread === '0' ? match[2] : thread, post: match[2] };
 }
 
-export async function sendQuickReply({ board, thread, fields, signal, origin = location.origin, fetcher = fetch }) {
-  if (!/^[a-z0-9]{1,10}$/.test(board) || !postId(thread)) throw new Error('Invalid posting target.');
+export function sendQuickReply(options) { return sendPost(options, false); }
+export function sendDrawingPost(options) { return sendPost(options, true); }
+
+async function sendPost({ board, thread, fields, signal, origin = location.origin, fetcher = fetch }, allowNew) {
+  if (!/^[a-z0-9]{1,10}$/.test(board) || !(allowNew ? uploadTarget(thread) : postId(thread))) throw new Error('Invalid posting target.');
   const base = new URL(origin);
   if (!['http:', 'https:'].includes(base.protocol) || base.origin !== origin || base.username || base.password) throw new Error('Invalid posting origin.');
   const form = new FormData();
   let bytes = 0;
-  for (const name of ['name', 'email', 'com', 'pwd', 'upload_id', 'upload_capability', 'spoiler', 'flag']) {
+  for (const name of ['name', 'email', ...(allowNew ? ['sub'] : []), 'com', 'pwd', 'upload_id', 'upload_capability', 'spoiler', 'flag']) {
     const value = fields[name] ?? '';
     if (typeof value !== 'string') throw new Error('Invalid posting form.');
     bytes += new TextEncoder().encode(value).length;
@@ -253,7 +266,7 @@ export async function sendQuickReply({ board, thread, fields, signal, origin = l
         text += decoder.decode(chunk.value, { stream: true });
       }
       text += decoder.decode();
-      const result = postingResult(text, thread);
+      const result = parsePostingResult(text, thread, allowNew);
       if (response.status !== 200 && !result.error) throw new Error('Invalid posting status.');
       return result;
     })()]);

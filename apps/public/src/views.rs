@@ -53,6 +53,13 @@ pub struct UploadForm {
 }
 
 impl BoardPage {
+    pub fn drawing_allowed(&self) -> bool {
+        self.posting_allowed()
+            && self
+                .board
+                .ordinary_drawing_enabled(!self.media_origin.is_empty())
+    }
+
     pub fn catalog_spoiler_thumbnail(&self) -> String {
         spoilers::catalog_thumbnail(&self.board)
     }

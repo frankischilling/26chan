@@ -1,0 +1,610 @@
+{
+  "tables": {
+    "a": [
+      [
+        100,
+        0,
+        1000,
+        0
+      ],
+      [
+        101,
+        100,
+        1001,
+        0
+      ],
+      [
+        102,
+        200,
+        1002,
+        0
+      ],
+      [
+        200,
+        0,
+        2000,
+        0
+      ],
+      [
+        103,
+        100,
+        0,
+        0
+      ],
+      [
+        104,
+        100,
+        1004,
+        1
+      ],
+      [
+        105,
+        100,
+        -1,
+        0
+      ]
+    ],
+    "b": [
+      [
+        300,
+        0,
+        3000,
+        0
+      ],
+      [
+        301,
+        100,
+        3001,
+        0
+      ]
+    ]
+  },
+  "results": [
+    {
+      "id": "same_thread_op",
+      "input": [
+        100,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": 100,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 100 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "matching_reply",
+      "input": [
+        101,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": 101,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 101 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "other_reply",
+      "input": [
+        102,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 102 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "other_thread_op_same_board",
+      "input": [
+        200,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": 200,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 200 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "no_image",
+      "input": [
+        103,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 103 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "deleted_flag_not_checked",
+      "input": [
+        104,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": 104,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 104 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "nonzero_negative_tim",
+      "input": [
+        105,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": 105,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 105 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "cross_board_op",
+      "input": [
+        300,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 300 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "same_id_other_board_reply",
+      "input": [
+        301,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 301 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "selected_other_board_op",
+      "input": [
+        300,
+        "b",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": 300,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 300 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "b"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "missing_post",
+      "input": [
+        999,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 999 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "zero_source",
+      "input": [
+        0,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": []
+      }
+    },
+    {
+      "id": "negative_source",
+      "input": [
+        -1,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": []
+      }
+    },
+    {
+      "id": "zero_thread",
+      "input": [
+        100,
+        "a",
+        0
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": []
+      }
+    },
+    {
+      "id": "negative_thread",
+      "input": [
+        100,
+        "a",
+        -1
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": []
+      }
+    },
+    {
+      "id": "source_numeric_string",
+      "input": [
+        "101",
+        "a",
+        "100"
+      ],
+      "result": {
+        "outcome": "return",
+        "value": 101,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 101 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "source_truncation",
+      "input": [
+        101.9,
+        "a",
+        100.9
+      ],
+      "result": {
+        "outcome": "return",
+        "value": 101,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 101 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "source_nonnumeric",
+      "input": [
+        "bad",
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": []
+      }
+    },
+    {
+      "id": "thread_nonnumeric",
+      "input": [
+        100,
+        "a",
+        "bad"
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": []
+      }
+    },
+    {
+      "id": "op_arbitrary_positive_thread",
+      "input": [
+        200,
+        "a",
+        999
+      ],
+      "result": {
+        "outcome": "return",
+        "value": 200,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 200 AND (resto = 999 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    }
+  ],
+  "sql": [
+    {
+      "id": "same_thread_op",
+      "query": "SELECT no FROM `a` WHERE no = 100 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": [
+        100
+      ]
+    },
+    {
+      "id": "matching_reply",
+      "query": "SELECT no FROM `a` WHERE no = 101 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": [
+        101
+      ]
+    },
+    {
+      "id": "other_reply",
+      "query": "SELECT no FROM `a` WHERE no = 102 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": []
+    },
+    {
+      "id": "other_thread_op_same_board",
+      "query": "SELECT no FROM `a` WHERE no = 200 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": [
+        200
+      ]
+    },
+    {
+      "id": "no_image",
+      "query": "SELECT no FROM `a` WHERE no = 103 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": []
+    },
+    {
+      "id": "deleted_flag_not_checked",
+      "query": "SELECT no FROM `a` WHERE no = 104 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": [
+        104
+      ]
+    },
+    {
+      "id": "nonzero_negative_tim",
+      "query": "SELECT no FROM `a` WHERE no = 105 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": [
+        105
+      ]
+    },
+    {
+      "id": "cross_board_op",
+      "query": "SELECT no FROM `a` WHERE no = 300 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": []
+    },
+    {
+      "id": "same_id_other_board_reply",
+      "query": "SELECT no FROM `a` WHERE no = 301 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": []
+    },
+    {
+      "id": "selected_other_board_op",
+      "query": "SELECT no FROM `b` WHERE no = 300 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": [
+        300
+      ]
+    },
+    {
+      "id": "missing_post",
+      "query": "SELECT no FROM `a` WHERE no = 999 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": []
+    },
+    {
+      "id": "zero_source",
+      "query": null,
+      "matching_ids": []
+    },
+    {
+      "id": "negative_source",
+      "query": null,
+      "matching_ids": []
+    },
+    {
+      "id": "zero_thread",
+      "query": null,
+      "matching_ids": []
+    },
+    {
+      "id": "negative_thread",
+      "query": null,
+      "matching_ids": []
+    },
+    {
+      "id": "source_numeric_string",
+      "query": "SELECT no FROM `a` WHERE no = 101 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": [
+        101
+      ]
+    },
+    {
+      "id": "source_truncation",
+      "query": "SELECT no FROM `a` WHERE no = 101 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": [
+        101
+      ]
+    },
+    {
+      "id": "source_nonnumeric",
+      "query": null,
+      "matching_ids": []
+    },
+    {
+      "id": "thread_nonnumeric",
+      "query": null,
+      "matching_ids": []
+    },
+    {
+      "id": "op_arbitrary_positive_thread",
+      "query": "SELECT no FROM `a` WHERE no = 200 AND (resto = 999 OR resto = 0) AND tim != 0 LIMIT 1",
+      "matching_ids": [
+        200
+      ]
+    }
+  ],
+  "row_counts": [
+    {
+      "id": "query_failure",
+      "input": [
+        100,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 100 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "unexpected_two_rows",
+      "input": [
+        100,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": null,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 100 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "exactly_one_row",
+      "input": [
+        100,
+        "a",
+        100
+      ],
+      "result": {
+        "outcome": "return",
+        "value": 100,
+        "warnings": [],
+        "calls": [
+          [
+            "mysql_board_call",
+            "SELECT no FROM `%s` WHERE no = 100 AND (resto = 100 OR resto = 0) AND tim != 0 LIMIT 1",
+            "a"
+          ]
+        ]
+      }
+    }
+  ]
+}

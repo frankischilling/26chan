@@ -13,7 +13,7 @@ const result = await build({
   entryPoints: ['apps/public/client/native-quick-reply.js'],
   outfile: 'apps/public/static/native-quick-reply.v1.js',
   bundle: true, platform: 'browser', format: 'esm', target: ['es2022'], minify: true, charset: 'ascii',
-  external: ['../static/thread-watcher-core.v1.js'], write: false, metafile: true, logLevel: 'silent',
+  external: ['../static/thread-watcher-core.v1.js', '/static/tegaki/tegaki-0.9.4.v1.js'], write: false, metafile: true, logLevel: 'silent',
   banner: { js: '/*! Build with npm run build:native-quick-reply. Uses the fixed thread-watcher-core.v1.js ID helpers. */' },
 });
 assert.equal(result.outputFiles.length, 1);
@@ -22,10 +22,14 @@ assert.deepEqual(output.imports.map(item => [item.path, item.kind, item.external
   ['../static/thread-watcher-core.v1.js', 'import-statement', true],
   ['../static/thread-watcher-core.v1.js', 'import-statement', true],
   ['../static/thread-watcher-core.v1.js', 'import-statement', true],
+  ['/static/tegaki/tegaki-0.9.4.v1.js', 'dynamic-import', true],
 ]);
 assert.deepEqual(output.exports, ['mountNativeQuickReply']);
 for (const path of Object.keys(result.metafile.inputs)) assert.ok([
   'apps/public/client/native-quick-reply.js',
+  'apps/public/client/native-drawing.js',
+  'apps/public/client/native-drawing-core.js',
+  'apps/public/client/native-drawing-painter.js',
   'apps/public/client/native-quick-reply-transport.js',
   'apps/public/client/native-post-form.js',
   'apps/public/client/native-quick-reply-position.js',
@@ -35,7 +39,7 @@ for (const path of Object.keys(result.metafile.inputs)) assert.ok([
   'apps/public/static/watcher-position.v1.js',
 ].includes(path), `Unexpected Quick Reply source: ${path}`);
 const bytes = result.outputFiles[0].contents;
-assert.ok(bytes.length <= 32768, 'Quick Reply asset exceeds its 32 KiB budget');
+assert.ok(bytes.length <= 49152, 'Quick Reply and drawing adapter exceed their 48 KiB budget');
 const target = new URL('apps/public/static/native-quick-reply.v1.js', root);
 if (args[0] === '--check') assert.ok(Buffer.from(bytes).equals(await readFile(target)), 'Quick Reply bundle is stale');
 else await writeFile(target, bytes);

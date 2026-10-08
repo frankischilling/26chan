@@ -16,6 +16,7 @@ POLICY_KEYS.add("DISP_ID_NO_HEAVEN")
 POLICY_KEYS.update({"MAX_USER_THREADS", "MAX_USER_THREADS_PERIOD"})
 POLICY_KEYS.add("CAN_REPORT_POSTS")
 POLICY_KEYS.add("JSMATH")
+POLICY_KEYS.update({"ENABLE_PAINTERJS", "ENABLE_OEKAKI_REPLAYS", "PAINTERJS_DIMS"})
 
 
 def policy(path):
@@ -61,6 +62,10 @@ def extract(root, names_encoding="utf-8"):
             "comment_code_spacing": boolean("CODE_TAGS"),
             "comment_sjis_spacing": boolean("SJIS_TAGS"),
             "math_tags": boolean("JSMATH"),
+            "oekaki": boolean("ENABLE_PAINTERJS"),
+            "oekaki_replays": boolean("ENABLE_OEKAKI_REPLAYS"),
+            "oekaki_width": integer("PAINTERJS_DIMS"),
+            "oekaki_height": integer("PAINTERJS_DIMS"),
             "comment_spoiler_cleanup": boolean("SPOILERS"),
             "require_subject": boolean("REQUIRE_SUBJECT"),
             "op_markup": boolean("OP_MARKUP"), "forced_anon": boolean("FORCED_ANON"),
@@ -94,6 +99,7 @@ def migration(reference):
         "listed", "source_policy", "meta_board", "poster_id_no_heaven", "expire_neglected",
         "posting_reply_seconds", "posting_image_seconds", "posting_thread_seconds",
         "user_thread_limit", "user_thread_period_hours", "can_report_posts", "math_tags",
+        "oekaki", "oekaki_replays", "oekaki_width", "oekaki_height",
     }]
     def sql(value):
         if isinstance(value, bool):
@@ -160,6 +166,29 @@ def math_migration(reference):
             + "".join(updates))
 
 
+def drawing_migration(reference):
+    rows = []
+    for board in reference["boards"]:
+        if (board["oekaki"], board["oekaki_replays"], board["oekaki_width"], board["oekaki_height"]) != (False, False, 400, 400):
+            slug = board["slug"].replace("'", "''")
+            rows.append("('" + slug + "'," +
+                        ("true" if board["oekaki"] else "false") + "," +
+                        ("true" if board["oekaki_replays"] else "false") + "," +
+                        str(board["oekaki_width"]) + "," + str(board["oekaki_height"]) + ")")
+    return ("-- Imported ENABLE_PAINTERJS, ENABLE_OEKAKI_REPLAYS and PAINTERJS_DIMS policy.\n"
+            "-- Replay-enabled boards retain their policy while replay support is unfinished.\n"
+            "-- The unused source OEKAKI_MIN/MAX constants are not admission limits.\n"
+            "ALTER TABLE content.boards\n"
+            "    ADD COLUMN oekaki boolean NOT NULL DEFAULT false,\n"
+            "    ADD COLUMN oekaki_replays boolean NOT NULL DEFAULT false,\n"
+            "    ADD COLUMN oekaki_width integer NOT NULL DEFAULT 400 CHECK (oekaki_width > 0),\n"
+            "    ADD COLUMN oekaki_height integer NOT NULL DEFAULT 400 CHECK (oekaki_height > 0);\n"
+            "UPDATE content.boards b SET oekaki=policy.enabled,oekaki_replays=policy.replays,\n"
+            "    oekaki_width=policy.width,oekaki_height=policy.height\n"
+            "FROM (VALUES\n" + ",\n".join(rows) +
+            ") policy(slug,enabled,replays,width,height) WHERE b.slug=policy.slug;\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
@@ -168,6 +197,7 @@ def main():
     parser.add_argument("--migration", type=Path, help="Historical board import using the original Windows name decoding")
     parser.add_argument("--rss-migration", type=Path)
     parser.add_argument("--math-migration", type=Path)
+    parser.add_argument("--drawing-migration", type=Path)
     parser.add_argument("--wordfilter-migration", type=Path)
     parser.add_argument("--board-encoding-migration", type=Path)
     args = parser.parse_args()
@@ -181,6 +211,8 @@ def main():
             raise SystemExit("Board reference differs from the supplied checkout.")
         if args.migration and args.migration.read_bytes() != migration(historical).encode("utf-8"):
             raise SystemExit("Board migration differs from the extracted policy.")
+        if args.drawing_migration and args.drawing_migration.read_bytes() != drawing_migration(reference).encode("utf-8"):
+            raise SystemExit("Drawing migration differs from the extracted policy.")
         if args.math_migration and args.math_migration.read_bytes() != math_migration(reference).encode("utf-8"):
             raise SystemExit("Math migration differs from the extracted policy.")
         if args.rss_migration and args.rss_migration.read_bytes() != rss_migration(reference).encode("utf-8"):
@@ -197,6 +229,8 @@ def main():
         args.output.write_bytes(data.encode("utf-8"))
         if args.migration:
             args.migration.write_bytes(migration(historical).encode("utf-8"))
+        if args.drawing_migration:
+            args.drawing_migration.write_bytes(drawing_migration(reference).encode("utf-8"))
         if args.math_migration:
             args.math_migration.write_bytes(math_migration(reference).encode("utf-8"))
         if args.rss_migration:

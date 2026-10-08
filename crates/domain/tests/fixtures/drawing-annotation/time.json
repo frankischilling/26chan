@@ -1,0 +1,520 @@
+[
+  {
+    "id": "time_-1",
+    "input": [
+      -1,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_0",
+    "input": [
+      0,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_1",
+    "input": [
+      1,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 1s)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_29",
+    "input": [
+      29,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 29s)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_30",
+    "input": [
+      30,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 30s)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_59",
+    "input": [
+      59,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 59s)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_60",
+    "input": [
+      60,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 1m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_89",
+    "input": [
+      89,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 1m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_90",
+    "input": [
+      90,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_119",
+    "input": [
+      119,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_120",
+    "input": [
+      120,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_3569",
+    "input": [
+      3569,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 59m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_3570",
+    "input": [
+      3570,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 60m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_3599",
+    "input": [
+      3599,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 60m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_3600",
+    "input": [
+      3600,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 1h 0m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_3629",
+    "input": [
+      3629,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 1h 0m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_3630",
+    "input": [
+      3630,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 1h 1m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_7169",
+    "input": [
+      7169,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 1h 59m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_7170",
+    "input": [
+      7170,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 1h 60m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_7199",
+    "input": [
+      7199,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 1h 60m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_7200",
+    "input": [
+      7200,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2h 0m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_5183999",
+    "input": [
+      5183999,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 1439h 60m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_5184000",
+    "input": [
+      5184000,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 1440h 0m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "time_5184001",
+    "input": [
+      5184001,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "numeric_string",
+    "input": [
+      "90",
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "fraction_truncated",
+    "input": [
+      59.9,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 59s)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "nonnumeric",
+    "input": [
+      "garbage",
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "null",
+    "input": [
+      null,
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "leading_numeric_string",
+    "input": [
+      "90abc",
+      null,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "replay",
+    "input": [
+      90,
+      1690000000000,
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Replay: <a href=\"javascript:oeReplay(1690000000000);\">View</a>)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "source",
+    "input": [
+      90,
+      null,
+      101
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Source: &gt;&gt;101)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "source_suppresses_replay",
+    "input": [
+      90,
+      1690000000000,
+      101
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Source: &gt;&gt;101)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "zero_source_keeps_replay",
+    "input": [
+      90,
+      1690000000000,
+      0
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Replay: <a href=\"javascript:oeReplay(1690000000000);\">View</a>)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "truthy_source_cast_after_branch",
+    "input": [
+      90,
+      1690000000000,
+      "garbage"
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Source: &gt;&gt;0)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "truthy_replay_cast_after_branch",
+    "input": [
+      90,
+      "garbage",
+      null
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Replay: <a href=\"javascript:oeReplay(0);\">View</a>)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "invalid_time_hides_all",
+    "input": [
+      0,
+      1690000000000,
+      101
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "",
+      "warnings": [],
+      "calls": []
+    }
+  },
+  {
+    "id": "zero_string_source",
+    "input": [
+      90,
+      1690000000000,
+      "0"
+    ],
+    "result": {
+      "outcome": "return",
+      "value": "<br><br><small><b>Oekaki Post</b> (Time: 2m, Replay: <a href=\"javascript:oeReplay(1690000000000);\">View</a>)</small>",
+      "warnings": [],
+      "calls": []
+    }
+  }
+]

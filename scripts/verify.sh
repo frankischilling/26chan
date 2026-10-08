@@ -19,6 +19,7 @@ if [[ ${CI:-} == true ]]; then
 fi
 npm run check:generated
 timeout 300s npm run test:math
+timeout 300s npm run test:drawing
 python3 scripts/check-windows-test-exits.py
 npm run test:settings-categories
 node --test tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs

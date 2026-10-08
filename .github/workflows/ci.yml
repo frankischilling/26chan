@@ -134,6 +134,8 @@ jobs:
           cargo build --workspace --examples --bins --locked
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
+      - name: Qualify source drawing board policy upgrade
+        run: sudo bash scripts/test-board-drawing-migration.sh
       - name: Upgrade existing staff sessions from migration 0005
         run: sudo bash scripts/test-staff-idle-migration.sh
       - name: Build and qualify a disposable media guest on the owned runner
@@ -147,6 +149,7 @@ jobs:
           python3 -m unittest discover -s tests/media -p test_identity_environment.py
           python3 -m unittest discover -s tests/media -p test_browser_diagnostics.py -v
           python3 -m unittest discover -s tests/media -p test_public_upload_fixture.py -v
+          python3 -m unittest discover -s tests/media -p test_public_drawing_fixture.py -v
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin python3 scripts/media/provision-test.py /tmp/26chan-media-ci "$PWD/target/x86_64-unknown-linux-musl/debug"
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
@@ -467,6 +470,10 @@ jobs:
         timeout-minutes: 5
         shell: pwsh
         run: npm run test:math
+      - name: Verify pinned drawing assets and bounded editor lifecycle
+        timeout-minutes: 5
+        shell: pwsh
+        run: npm run test:drawing-core
       - name: Verify quote-preview parsing and bounded DOM construction
         shell: pwsh
         run: npm run test:quote-preview-core

@@ -317,7 +317,7 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
             "Public posting, deletion and reporting are unavailable: POSTER_ID_KEY is required.",
         ));
     }
-    sqlx::query("SELECT slug,can_report_posts,expire_neglected,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type,deletion_no_op,deletion_no_reply,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards LIMIT 1")
+    sqlx::query("SELECT slug,oekaki,oekaki_replays,oekaki_width,oekaki_height,can_report_posts,expire_neglected,meta_board,poster_id_no_heaven,custom_spoiler_count,spoiler_thumbnail_assets,board_flag_type,deletion_no_op,deletion_no_reply,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards LIMIT 1")
         .execute(&state.pool)
         .await
         .map_err(StoreError::from)?;
@@ -603,6 +603,7 @@ async fn board_page(
         }
     }
     let math_tags = board.math_tags && !catalog;
+    let drawing = !catalog && board.ordinary_drawing_enabled(state.media.is_some());
     let response = crate::output::html(
         state,
         &BoardPage {
@@ -632,7 +633,10 @@ async fn board_page(
                 .unwrap_or_default(),
         },
     )?;
-    Ok(crate::security::math_page(response, math_tags))
+    Ok(crate::security::drawing_page(
+        crate::security::math_page(response, math_tags),
+        drawing,
+    ))
 }
 pub async fn thread(
     State(state): State<AppState>,
@@ -697,6 +701,9 @@ pub async fn thread(
     };
     let posts = posts.into_iter().map(PostView::new).collect();
     let math_tags = board.math_tags;
+    let drawing = !thread.closed
+        && thread.archived_at.is_none()
+        && board.ordinary_drawing_enabled(state.media.is_some());
     let response = crate::output::html(
         &state,
         &BoardPage {
@@ -727,7 +734,10 @@ pub async fn thread(
                 .unwrap_or_default(),
         },
     )?;
-    Ok(crate::security::math_page(response, math_tags))
+    Ok(crate::security::drawing_page(
+        crate::security::math_page(response, math_tags),
+        drawing,
+    ))
 }
 pub async fn quote(
     State(state): State<AppState>,

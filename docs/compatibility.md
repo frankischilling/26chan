@@ -98,6 +98,14 @@ preserve source scope rules and immutable configured labels. Import alone never
 activates a catalog; operator activation is separate, and original production
 category definitions are still required.
 
+[Native PNG drawing](native-drawing.md) adds a partial Tegaki 0.9.4 workflow for
+ordinary OP/reply forms and Quick Reply on media-enabled `/qst/` and `/vip/`.
+Migration 0114 also imports `/i/` drawing/replay policy, but its editor stays
+disabled until replay support is implemented. Drawings use the existing isolated
+approval path, with a 1024-pixel safety cap and image import disabled.
+Replay, source-post annotations, edit-from-post and full rendered comparison
+remain open in #207; actual browser qualification awaits hosted CI.
+
 ## Earlier public-reference checkpoints
 
 The [public page navigation, titles and footer](public-page-chrome.md) use
@@ -1080,7 +1088,9 @@ unspecified:
 
 Source-known implementation gaps remain separately tracked: full formatting/
 search-field matching, custom-board assets, Quick Reply and related lifecycle,
-remaining native settings/features, omitted API identity fields, unsupported media formats and full rendered-page comparison.
+[drawing replay, annotations and edit-from-post](native-drawing.md), remaining
+native settings/features, omitted API identity fields, unsupported media formats
+and full rendered-page comparison.
 Deliberate security/retention exceptions require an explicit decision, not an
 invented parity claim. The original source audit changed documentation only and ran no tests. Later
 implementation checks are recorded in their linked feature contracts.

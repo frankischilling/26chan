@@ -259,8 +259,10 @@ post and deletion workflows with the response-body capture fix, including the
 subsequent tripcode integration. These checkpoints do not replace CI for the
 final PR head.
 
-Pass/captcha, staff-specific cooldown rules, duplicate flood rules, drawing
-and full rendered-source comparison remain unfinished. Ordinary Quick Reply
+Pass/captcha, staff-specific cooldown rules, duplicate flood rules and full
+rendered-source comparison remain unfinished. [Native PNG drawing](native-drawing.md)
+now has a partial integration based on the source. Replay, edit-from-post,
+annotations and browser qualification remain open. Ordinary Quick Reply
 countdown/one-shot posting is implemented but its new browser cases remain
 unqualified. The help lists the source's Global and built-in
 Quick Reply shortcut groups; exact help geometry remains unqualified. These are

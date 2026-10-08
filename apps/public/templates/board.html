@@ -11,6 +11,7 @@
 {% block body_attributes %}{% if board.math_tags && !catalog %} data-math-tags="1"{% endif %} data-worksafe="{{ board.worksafe }}" data-page-catalog="{{ catalog }}"{% if !catalog %} data-post-headers="true"{% endif %} class="publicPageChrome {% if board.worksafe %}ws{% else %}nws{% endif %}{% if catalog %} is_catalog{% endif %}{% if board.text_only %} text_only{% endif %}"{% endblock %}
 {% block favicon %}<link rel="shortcut icon" type="image/x-icon" href="/static/notifications/favicon{% if board.worksafe %}-ws{% endif %}.ico">{% endblock %}
 {% block theme_stylesheet %}<link rel="stylesheet" data-native-theme-stylesheet href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
+{% block drawing_stylesheet %}{% if drawing_allowed() %}<link rel="stylesheet" href="/static/tegaki/tegaki-0.9.4.v1.css">{% endif %}{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
 {% block feature_notice %}{% if media_origin.is_empty() %}Text posts only.{% else %}Development media workflow.{% endif %}{% endblock %}
 {% block board_navigation %}{% if catalog %}<div id="topnav" class="boardnav">{% endif %}{% call page_navigation::desktop(navigation(), catalog, board.worksafe, false) %}{% endcall %}{% if catalog %}</div>{% endif %}{% call page_navigation::mobile(navigation(), board) %}{% endcall %}{% endblock %}
@@ -34,12 +35,12 @@
 <button type="submit">Upload file</button>
 </form>
 {% endif %}
-<form id="reply" name="post" action="/{{ board.slug }}/imgboard.php" method="post" enctype="multipart/form-data" class="postEditor" data-comment-limit="{{ board.max_comment_chars }}" data-spoilers="{{ board.comment_spoiler_cleanup }}" data-posting-reply-seconds="{{ board.posting_reply_seconds }}" data-posting-image-seconds="{{ board.posting_image_seconds }}">
+<form id="reply" name="post" action="/{{ board.slug }}/imgboard.php" method="post" enctype="multipart/form-data" class="postEditor"{% if drawing_allowed() %} data-drawing-allowed="true" data-drawing-width="{{ board.oekaki_width }}" data-drawing-height="{{ board.oekaki_height }}"{% endif %} data-comment-limit="{{ board.max_comment_chars }}" data-spoilers="{{ board.comment_spoiler_cleanup }}" data-posting-reply-seconds="{{ board.posting_reply_seconds }}" data-posting-image-seconds="{{ board.posting_image_seconds }}">
 <div id="mpostform" class="mobile" hidden><a href="#postForm" class="mobilePostFormToggle mobile hidden button" data-worksafe="{{ board.worksafe }}" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a></div>
 <div id="togglePostFormLink" class="desktop" hidden>[<a href="#postForm" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a>]</div>
 <h2>{% if parent == 0 %}Start a new thread{% else %}Post a reply{% endif %}</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
-{% call posting::fields(parent, false, board.comment_spoiler_cleanup, board.text_only, board.forced_anon, board.country_flags, board.flag_options(), quote) %}{% endcall %}
+{% call posting::fields(parent, false, board.comment_spoiler_cleanup, board.text_only, board.forced_anon, board.country_flags, board.flag_options(), quote, drawing_allowed(), board.oekaki_width, board.oekaki_height) %}{% endcall %}
 <p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.reply_limit }} per thread. {% if media_origin.is_empty() || board.image_limit == 0 || board.text_only %}Media uploads are unavailable.{% else %}Use the upload form above to post with an image.{% endif %}</p>
 </form>
 {% endif %}

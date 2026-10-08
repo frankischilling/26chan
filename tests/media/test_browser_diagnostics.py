@@ -72,6 +72,12 @@ class BrowserDiagnostics(unittest.TestCase):
                 with self.assertRaisesRegex(AssertionError, r'^owned upload browser rejected at quick-reply-upload\.mjs$'):
                     finish_browser(self.process(marker + b'\n'), 'quick-reply-upload.mjs')
 
+    def test_drawing_lane_uses_same_bounded_private_diagnostics(self):
+        error = (b'private drawing receipt ' + b'a' * 64
+                 + b'\n at file:///owned/tests/browser/drawing-upload.mjs:72:11\n')
+        with self.assertRaisesRegex(AssertionError, r'^owned upload browser rejected at drawing-upload\.mjs:72:11$'):
+            finish_browser(self.process(error), 'drawing-upload.mjs')
+
     def test_unknown_diagnostic_script_is_rejected_before_child_access(self):
         with self.assertRaises(AssertionError):
             finish_browser(None, 'private-script.mjs')

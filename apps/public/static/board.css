@@ -797,3 +797,8 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
   z-index: 10001; max-width: min(36rem, calc(100vw - 2rem)); padding: .5rem .75rem;
   color: CanvasText; background: Canvas; border: 1px solid; font: inherit;
 }
+
+/* Pinned source painter controls retain the compact desktop size fields. */
+.painter-ctrl input[type="text"], #qr-painter-ctrl input[type="text"] { width: 30px !important; text-align: center; }
+#qr-painter-ctrl .oe-r-cb { vertical-align: sub; }
+#oe-canvas-preview { position: absolute; margin-left: 5px; margin-top: 3px; box-shadow: 0 0 1px 1px rgba(0, 0, 0, .25); }
