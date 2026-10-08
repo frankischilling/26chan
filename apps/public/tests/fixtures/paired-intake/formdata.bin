@@ -1,0 +1,23 @@
+------formdata-undici-040584764030
+Content-Disposition: form-data; name="resto"
+
+19
+------formdata-undici-040584764030
+Content-Disposition: form-data; name="png_bytes"
+
+3
+------formdata-undici-040584764030
+Content-Disposition: form-data; name="replay_bytes"
+
+6
+------formdata-undici-040584764030
+Content-Disposition: form-data; name="upfile"; filename="tegaki.png"
+Content-Type: image/png
+
+png
+------formdata-undici-040584764030
+Content-Disposition: form-data; name="replay"; filename="tegaki.tgkr"
+Content-Type: application/octet-stream
+
+replay
+------formdata-undici-040584764030--

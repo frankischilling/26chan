@@ -15,6 +15,7 @@ pub mod media_assets;
 pub mod media_intake;
 pub mod monitoring;
 mod op_bump;
+pub mod paired_candidates;
 mod polls;
 pub use polls::{
     POLL_READINESS_SQL, PollOption, PollSnapshot, PollSummary, poll_catalogue, poll_snapshot,

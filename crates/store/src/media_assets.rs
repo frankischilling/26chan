@@ -187,10 +187,14 @@ impl MediaQueue {
             }
         }
         let mut tx = self.pool.begin().await?;
-        sqlx::query("SELECT id FROM media.jobs WHERE id = $1 FOR UPDATE")
-            .bind(job_id)
-            .fetch_optional(&mut *tx)
-            .await?;
+        let input_kind: Option<String> =
+            sqlx::query_scalar("SELECT input_kind FROM media.jobs WHERE id = $1 FOR UPDATE")
+                .bind(job_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        if input_kind.as_deref() == Some("paired-v2") {
+            return Err(unavailable());
+        }
         let reserved: Option<Reservation> = sqlx::query_as("SELECT id, sha256, bytes, width, height, state FROM media.assets WHERE job_id = $1 AND lease_token = $2 FOR UPDATE")
             .bind(job_id).bind(token).fetch_optional(&mut *tx).await?;
         if let Some(reserved) = reserved {
@@ -211,7 +215,7 @@ impl MediaQueue {
             }
         }
         // The statement that inserts or reuses pending metadata rechecks the lease.
-        let asset = sqlx::query_as("INSERT INTO media.assets (id, job_id, lease_token, sha256, bytes, width, height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5) SELECT replace(gen_random_uuid()::text, '-', ''), id, lease_token, $3, $4, $5, $6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16 FROM media.jobs WHERE id = $1 AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13) ON CONFLICT (job_id, lease_token) DO UPDATE SET updated_at = media.assets.updated_at WHERE media.assets.state = 'pending' AND media.assets.sha256 = $3 AND media.assets.bytes = $4 AND media.assets.width = $5 AND media.assets.height = $6 AND (media.assets.md5,media.assets.thumbnail_sha256,media.assets.thumbnail_bytes,media.assets.thumbnail_width,media.assets.thumbnail_height) IS NOT DISTINCT FROM ($7,$8,$9,$10,$11) AND (media.assets.source_input_sha256,media.assets.source_input_bytes,media.assets.source_profile,media.assets.source_retained_bytes,media.assets.source_md5) IS NOT DISTINCT FROM ($12,$13,$14,$15,$16) AND EXISTS (SELECT 1 FROM media.jobs WHERE id = $1 AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13)) RETURNING id, sha256, bytes, width, height")
+        let asset = sqlx::query_as("INSERT INTO media.assets (id, job_id, lease_token, sha256, bytes, width, height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5) SELECT replace(gen_random_uuid()::text, '-', ''), id, lease_token, $3, $4, $5, $6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13) ON CONFLICT (job_id, lease_token) DO UPDATE SET updated_at = media.assets.updated_at WHERE media.assets.state = 'pending' AND media.assets.sha256 = $3 AND media.assets.bytes = $4 AND media.assets.width = $5 AND media.assets.height = $6 AND (media.assets.md5,media.assets.thumbnail_sha256,media.assets.thumbnail_bytes,media.assets.thumbnail_width,media.assets.thumbnail_height) IS NOT DISTINCT FROM ($7,$8,$9,$10,$11) AND (media.assets.source_input_sha256,media.assets.source_input_bytes,media.assets.source_profile,media.assets.source_retained_bytes,media.assets.source_md5) IS NOT DISTINCT FROM ($12,$13,$14,$15,$16) AND EXISTS (SELECT 1 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13)) RETURNING id, sha256, bytes, width, height")
             .bind(job_id).bind(token).bind(&metadata.sha256).bind(metadata.bytes).bind(metadata.width).bind(metadata.height)
             .bind(variants.map(|v| &v.md5)).bind(variants.map(|v| &v.thumbnail.sha256))
             .bind(variants.map(|v| v.thumbnail.bytes)).bind(variants.map(|v| v.thumbnail.width)).bind(variants.map(|v| v.thumbnail.height))
@@ -235,10 +239,14 @@ impl MediaQueue {
         validate_hex(token, 32)?;
         validate_hex(output_id, 32)?;
         let mut tx = self.pool.begin().await?;
-        sqlx::query("SELECT id FROM media.jobs WHERE id = $1 FOR UPDATE")
-            .bind(job_id)
-            .fetch_optional(&mut *tx)
-            .await?;
+        let input_kind: Option<String> =
+            sqlx::query_scalar("SELECT input_kind FROM media.jobs WHERE id = $1 FOR UPDATE")
+                .bind(job_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        if input_kind.as_deref() == Some("paired-v2") {
+            return Err(unavailable());
+        }
         let reserved: Reservation = sqlx::query_as("SELECT id, sha256, bytes, width, height, state FROM media.assets WHERE id = $3 AND job_id = $1 AND lease_token = $2 FOR UPDATE")
             .bind(job_id).bind(token).bind(output_id).fetch_optional(&mut *tx).await?.ok_or_else(unavailable)?;
         if reserved.state == "approved" {
@@ -248,7 +256,7 @@ impl MediaQueue {
         if reserved.state != "pending" {
             return Err(unavailable());
         }
-        changed(sqlx::query("UPDATE media.jobs SET state = 'published', output_sha256 = $3, output_bytes = $4, expires_at = NULL, updated_at = clock_timestamp() WHERE id = $1 AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp()")
+        changed(sqlx::query("UPDATE media.jobs SET state = 'published', output_sha256 = $3, output_bytes = $4, expires_at = NULL, updated_at = clock_timestamp() WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp()")
             .bind(job_id).bind(token).bind(&reserved.asset.sha256).bind(reserved.asset.bytes)
             .execute(&mut *tx).await?.rows_affected())?;
         changed(sqlx::query("UPDATE media.assets SET state = 'approved', approved_at = clock_timestamp(), updated_at = clock_timestamp() WHERE id = $1 AND state = 'pending'")

@@ -39,6 +39,7 @@ fn boot() -> io::Result<()> {
             None,
         )?;
     }
+    let kind = board_media_guest::paired::kernel_input_kind(&fs::read_to_string("/proc/cmdline")?)?;
     fs::set_permissions("/dev/vda", fs::Permissions::from_mode(0o444))?;
     fs::set_permissions("/dev/vdb", fs::Permissions::from_mode(0o666))?;
     for (resource, maximum) in [
@@ -47,7 +48,7 @@ fn boot() -> io::Result<()> {
         (Resource::As, 96 * 1024 * 1024),
         (Resource::Nproc, 16),
         (Resource::Nofile, 32),
-        (Resource::Fsize, 4_194_816),
+        (Resource::Fsize, kind.output_bytes()),
     ] {
         setrlimit(
             resource,
@@ -59,6 +60,7 @@ fn boot() -> io::Result<()> {
     }
     rustix::thread::set_no_new_privs(true)?;
     let status = Command::new("/worker")
+        .arg(kind.argument())
         .env_clear()
         .uid(1000)
         .gid(1000)

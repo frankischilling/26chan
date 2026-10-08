@@ -28,7 +28,7 @@ pub(crate) fn error(status: StatusCode) -> Response {
     response
 }
 
-fn single<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
+pub(crate) fn single<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
     let mut values = headers.get_all(name).iter();
     let value = values.next()?.to_str().ok()?;
     if values.next().is_some() {
@@ -141,7 +141,7 @@ pub(crate) async fn reserve(State(state): State<AppState>, request: Request) -> 
     }
 }
 
-fn capability(headers: &HeaderMap, id: &str) -> Result<(ObjectId, String), StatusCode> {
+pub(crate) fn capability(headers: &HeaderMap, id: &str) -> Result<(ObjectId, String), StatusCode> {
     let id = id.parse().map_err(|_| StatusCode::NOT_FOUND)?;
     let value = single(headers, "upload-capability")
         .filter(|v| valid_token(v))
@@ -237,7 +237,7 @@ pub(crate) async fn ready(State(state): State<AppState>) -> Response {
     Json(json!({"status":"ok"})).into_response()
 }
 
-fn store_error(value: StoreError) -> Response {
+pub(crate) fn store_error(value: StoreError) -> Response {
     error(match value {
         StoreError::NotFound => StatusCode::NOT_FOUND,
         StoreError::Conflict(_) => StatusCode::CONFLICT,

@@ -89,6 +89,37 @@ impl DispatchClient {
             .await
             .map_err(|_| Error::Deadline)?
     }
+    /// Explicit paired transport; never retries or accepts an image-v1 response.
+    pub async fn process_paired<R: AsyncRead + Unpin>(
+        &self,
+        input: R,
+        length: u64,
+        binding: &[u8; 32],
+    ) -> Result<Vec<u8>> {
+        if !(protocol::MIN_PAIRED_INPUT..=protocol::MAX_PAIRED_INPUT).contains(&length) {
+            return Err(Error::Frame);
+        }
+        let mut stream = timeout(INTAKE, async {
+            let socket = TcpStream::connect(self.endpoint)
+                .await
+                .map_err(|_| Error::Transport)?;
+            self.connector
+                .connect(self.name.clone(), socket)
+                .await
+                .map_err(|_| Error::Authentication)
+        })
+        .await
+        .map_err(|_| Error::Deadline)??;
+        timeout(
+            INTAKE,
+            protocol::write_paired_request(input, length, binding, &mut stream),
+        )
+        .await
+        .map_err(|_| Error::Deadline)??;
+        timeout(PROCESSING, protocol::read_paired_response(&mut stream))
+            .await
+            .map_err(|_| Error::Deadline)?
+    }
 }
 
 pub fn server_config(settings: &GatewaySettings) -> Result<Arc<rustls::ServerConfig>> {

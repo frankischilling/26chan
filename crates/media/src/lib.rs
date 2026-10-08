@@ -8,6 +8,7 @@ mod block;
 mod id;
 mod output;
 pub mod paired;
+pub mod paired_snapshot;
 mod promotion;
 mod publication;
 mod quarantine;
@@ -21,7 +22,7 @@ pub use id::ObjectId;
 pub use output::{EncodedOutput, ValidatedOutput};
 pub use promotion::{Promoter, Promotion};
 pub use publication::{ApprovedFiles, PublicationGuard, PublicationStore};
-pub use quarantine::{InputSnapshot, Quarantine};
+pub use quarantine::{InputSnapshot, PairReceipt, Quarantine};
 
 pub const MAX_INPUT_BYTES: u64 = 8 * 1024 * 1024;
 pub const MAX_DIMENSION: u32 = 1024;
@@ -29,6 +30,8 @@ pub const MAX_PNG_BYTES: usize = 5 * 1024 * 1024;
 
 #[derive(Debug, thiserror::Error)]
 pub enum MediaError {
+    #[error("invalid paired input: {0}")]
+    Paired(#[from] paired::PairedError),
     #[error("invalid object ID")]
     InvalidId,
     #[error("operating system randomness unavailable")]

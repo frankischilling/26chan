@@ -7,7 +7,8 @@
 //! The exact packet length is `256 + 16 * event_count`, with 2..=16,384 events.
 //! Profile 1 identifies this structural representation only. It establishes no
 //! safe tool dynamics, valid state/history, playback cost, provenance, or PNG
-//! correspondence. No production dispatcher or output-disk protocol uses it.
+//! correspondence. The explicitly selected, inactive paired-v2 output-disk
+//! path carries this untrusted wire; encoding grants no safety admission.
 //!
 //! Header offsets: magic 0, version u16 8, header size u16 10, profile u16 12,
 //! flags u16 (zero) 14, total length u32 16, event count u32 20, width/height

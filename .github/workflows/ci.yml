@@ -132,6 +132,9 @@ jobs:
       - name: Build qualification binaries and install the intake browser
         run: |
           cargo build --workspace --examples --bins --locked
+          cargo test -p board-media-admin --features database-tests --test paired_vm --no-run --locked --message-format=json > .local/paired-vm-artifacts.json
+          python3 -m unittest discover -s tests/media -p test_paired_coordinator_artifact.py -v
+          python3 scripts/paired-coordinator-artifact.py .local/paired-vm-artifacts.json "$PWD" "$PWD/target" > .local/paired-vm-path
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
       - name: Qualify source drawing board policy upgrade
@@ -187,6 +190,17 @@ jobs:
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             python3 tests/media/test_dispatch_broker.py -v
           systemd-analyze verify deploy/media-dispatch-broker.service deploy/media-dispatch-gateway.service
+      - name: Qualify paired candidates through the actual isolated guest and broker
+        run: |
+          python3 -m unittest discover -s tests/media -p test_paired_vm_controls.py -v
+          python3 -m unittest discover -s tests/media -p test_paired_unix_client.py -v
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin APP_ENV=development \
+            MEDIA_PAIRED_VM_QUALIFY=1 \
+            MEDIA_PAIRED_COORDINATOR_TEST="$(cat .local/paired-vm-path)" \
+            MEDIA_DISPATCH_BIN_DIR="$PWD/target/debug" \
+            MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
+            MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
+            bash scripts/test-paired-media-dispatch.sh
       - name: Qualify authenticated HTTP intake through isolated processing and the separate reader
         run: |
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
@@ -303,6 +317,10 @@ jobs:
         run: sudo bash scripts/test-staff-file-digest-migration.sh
       - name: Qualify private PNG provenance without changing retained output or read authority
         run: sudo bash scripts/test-media-source-provenance-migration.sh
+      - name: Qualify paired intake provenance without enabling processing or publication
+        run: sudo bash scripts/test-paired-input-provenance-migration.sh
+      - name: Qualify populated paired candidate upgrade, rollback and runtime authority
+        run: sudo bash scripts/test-paired-candidate-migration.sh
       - name: Qualify nullable moderation snapshots without historical backfill or expanded authority
         run: sudo bash scripts/test-audit-snapshot-migration.sh
       - name: Qualify force archive audit upgrade without rewriting history or expanding authority

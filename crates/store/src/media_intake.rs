@@ -14,6 +14,18 @@ pub struct IntakeReservation {
     pub capability: String,
 }
 
+/// Actual-byte provenance from a completed private paired object. These values
+/// do not authorize replay processing or publication.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PairedInputDescriptor {
+    pub bytes: u64,
+    pub sha256: String,
+    pub image_bytes: u64,
+    pub image_sha256: String,
+    pub replay_bytes: Option<u64>,
+    pub replay_sha256: Option<String>,
+}
+
 #[derive(sqlx::FromRow)]
 pub struct IntakeStatus {
     pub id: String,
@@ -50,6 +62,68 @@ impl IntakeStore {
             .fetch_one(&self.pool)
             .await
             .map_err(scoped_error)
+    }
+
+    /// Reserve an inactive paired-v2 job; no v1 worker can claim it.
+    pub async fn reserve_pair(&self, filename: &str) -> Result<IntakeReservation, StoreError> {
+        if filename.contains('\0') {
+            return Err(StoreError::Invalid(
+                "Invalid media intake metadata or size.",
+            ));
+        }
+        sqlx::query_as("SELECT id, capability FROM media_intake.reserve_pair($1)")
+            .bind(filename)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(scoped_error)
+    }
+
+    pub async fn begin_pair_upload(&self, id: &str, capability: &str) -> Result<(), StoreError> {
+        sqlx::query("SELECT media_intake.begin_pair_upload($1, $2)")
+            .bind(id)
+            .bind(capability)
+            .execute(&self.pool)
+            .await
+            .map_err(scoped_error)?;
+        Ok(())
+    }
+
+    pub async fn finish_pair_upload(
+        &self,
+        id: &str,
+        capability: &str,
+        descriptor: &PairedInputDescriptor,
+    ) -> Result<(), StoreError> {
+        // Invalid sentinels preserve authentication-before-metadata errors at
+        // the SQL boundary, including integers outside bigint and NUL digests.
+        let digest = |value: &str| {
+            if value.len() == 64
+                && value
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                value.to_owned()
+            } else {
+                String::new()
+            }
+        };
+        sqlx::query("SELECT media_intake.finish_pair_upload($1,$2,$3,$4,$5,$6,$7,$8)")
+            .bind(id)
+            .bind(capability)
+            .bind(i64::try_from(descriptor.bytes).unwrap_or(-1))
+            .bind(digest(&descriptor.sha256))
+            .bind(i64::try_from(descriptor.image_bytes).unwrap_or(-1))
+            .bind(digest(&descriptor.image_sha256))
+            .bind(
+                descriptor
+                    .replay_bytes
+                    .map(|n| i64::try_from(n).unwrap_or(-1)),
+            )
+            .bind(descriptor.replay_sha256.as_deref().map(digest))
+            .execute(&self.pool)
+            .await
+            .map_err(scoped_error)?;
+        Ok(())
     }
 
     pub async fn begin_upload(&self, id: &str, capability: &str) -> Result<(), StoreError> {
@@ -135,6 +209,9 @@ fn scoped_error(error: sqlx::Error) -> StoreError {
 const SAFE_ROLE: &str = r#"
 WITH expected_functions(signature, result) AS (VALUES
  ('media_intake.reserve(text)', 'TABLE(id text, capability text)'),
+ ('media_intake.reserve_pair(text)', 'TABLE(id text, capability text)'),
+ ('media_intake.begin_pair_upload(text,text)', 'void'),
+ ('media_intake.finish_pair_upload(text,text,bigint,text,bigint,text,bigint,text)', 'void'),
  ('media_intake.begin_upload(text,text)', 'void'),
  ('media_intake.finish_upload(text,text,bigint)', 'void'),
  ('media_intake.abort_upload(text,text)', 'void'),
@@ -145,6 +222,12 @@ WITH expected_functions(signature, result) AS (VALUES
  ('media.queue_policy','singleton','UPDATE'),
  ('media.jobs','id','SELECT'), ('media.jobs','state','SELECT'),
  ('media.jobs','input_bytes','SELECT'), ('media.jobs','expires_at','SELECT'),
+ ('media.jobs','input_kind','SELECT'), ('media.jobs','input_kind','INSERT'),
+ ('media.jobs','input_sha256','SELECT'), ('media.jobs','input_sha256','UPDATE'),
+ ('media.jobs','input_image_bytes','SELECT'), ('media.jobs','input_image_bytes','UPDATE'),
+ ('media.jobs','input_image_sha256','SELECT'), ('media.jobs','input_image_sha256','UPDATE'),
+ ('media.jobs','input_replay_bytes','SELECT'), ('media.jobs','input_replay_bytes','UPDATE'),
+ ('media.jobs','input_replay_sha256','SELECT'), ('media.jobs','input_replay_sha256','UPDATE'),
  ('media.jobs','id','INSERT'), ('media.jobs','filename','INSERT'), ('media.jobs','expires_at','INSERT'),
  ('media.jobs','state','UPDATE'), ('media.jobs','input_bytes','UPDATE'),
  ('media.jobs','expires_at','UPDATE'), ('media.jobs','updated_at','UPDATE'), ('media.jobs','failure','UPDATE'),

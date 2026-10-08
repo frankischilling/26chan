@@ -253,8 +253,8 @@ fn input_lengths_are_checked_before_any_attacker_sized_allocation() {
     for (image, replay, error) in [
         (4, 2, PairedError::Length),
         (3, 1, PairedError::Length),
-        (8_388_608, 2, PairedError::InputSize),
-        (1, 8_388_608, PairedError::InputSize),
+        (8_388_608, 2, PairedError::Length),
+        (1, 8_388_608, PairedError::Length),
         (u64::MAX, 1, PairedError::Length),
         (1, u64::MAX, PairedError::Length),
         (u64::MAX - 2, 1, PairedError::Length),
@@ -267,32 +267,30 @@ fn input_lengths_are_checked_before_any_attacker_sized_allocation() {
 }
 
 #[test]
-fn whole_job_cap_includes_both_components_header_and_trailer() {
-    let mut image = vec![7; 8_388_608 - 56];
-    let frame = encode_input(KIND, JOB, &image, None).unwrap();
-    assert_eq!(frame.len(), 8_388_608);
-    assert_eq!(
-        decode_input(KIND, &frame, JOB).unwrap().image_bytes(),
-        image
-    );
-    assert_eq!(
-        encode_input(KIND, JOB, &image, Some(&[1])),
-        Err(PairedError::InputSize)
-    );
-    image.pop();
-    let frame = encode_input(KIND, JOB, &image, Some(&[1])).unwrap();
-    assert_eq!(frame.len(), 8_388_608);
+fn independent_component_caps_and_exact_aggregate_are_enforced() {
+    use board_media::paired::{InputHeader, MAX_PAIR_INPUT_BYTES};
+    let image = vec![7; 8_388_608];
+    let replay = vec![8; 8_388_608];
+    let frame = encode_input(KIND, JOB, &image, Some(&replay)).unwrap();
+    assert_eq!(frame.len() as u64, MAX_PAIR_INPUT_BYTES);
     assert!(decode_input(KIND, &frame, JOB).is_ok());
-    let mut too_big = frame;
-    too_big.push(0);
+    let mut extra = frame;
+    extra.push(0);
     assert_eq!(
-        decode_input(KIND, &too_big, JOB).unwrap_err(),
+        decode_input(KIND, &extra, JOB).unwrap_err(),
         PairedError::InputSize
     );
-    image.extend_from_slice(&[1, 2]);
+    for (image, replay) in [
+        (8_388_609, None),
+        (1, Some(8_388_609)),
+        (u64::MAX, Some(1)),
+        (1, Some(u64::MAX)),
+    ] {
+        assert!(InputHeader::new(JOB, image, replay).is_err());
+    }
     assert_eq!(
-        encode_input(KIND, JOB, &image, None),
-        Err(PairedError::InputSize)
+        encode_input(KIND, JOB, &image, None).unwrap().len(),
+        8_388_664
     );
 }
 

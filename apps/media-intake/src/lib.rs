@@ -2,6 +2,7 @@
 
 pub mod config;
 mod http;
+pub mod paired;
 
 use axum::{
     Router, middleware,
@@ -89,3 +90,19 @@ pub fn observed_router(state: AppState) -> (board_observe::Metrics, Router) {
 
 #[cfg(test)]
 mod tests;
+
+/// Local qualification only. The production binary uses `router`, which has no
+/// v2 routes. This harness retains v1 authentication, deadlines, and concurrency.
+#[cfg(feature = "database-tests")]
+pub fn paired_qualification_router(state: AppState) -> Router {
+    Router::new()
+        .route("/v2/reservations", post(paired::reserve))
+        .route("/v2/uploads/{id}", put(paired::upload))
+        .route("/v1/uploads/{id}", get(http::status))
+        .layer(middleware::from_fn_with_state(
+            state.access.clone(),
+            http::protect,
+        ))
+        .layer(middleware::from_fn(board_http::retain_response_body))
+        .with_state(state)
+}

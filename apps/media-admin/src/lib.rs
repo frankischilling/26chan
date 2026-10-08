@@ -3,6 +3,7 @@
 //! Trusted operator publication. The worker never receives this process's
 //! credentials or storage authority. Production media remains disabled.
 pub mod backfill;
+pub mod paired;
 use board_media::{
     ApprovedFiles, InputSnapshot, MAX_INPUT_BYTES, PublicationStore, Quarantine, ValidatedOutput,
     source_digest::{

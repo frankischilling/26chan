@@ -788,6 +788,84 @@ mod root_gateway {
         }
     }
 
+    #[tokio::test]
+    async fn paired_gateway_preserves_binding_and_version_and_rejects_broker_downgrade() {
+        if !enabled() {
+            return;
+        }
+        use board_media_dispatch::protocol::{PAIRED_OUTPUT_LENGTH, read_paired_request};
+        for correct_version in [true, false] {
+            let mut f = Fixture::new();
+            let backend = UnixListener::bind(&f.gateway.broker_socket).unwrap();
+            let listener = TcpListener::bind(f.gateway.listen).await.unwrap();
+            f.settings.endpoint = listener.local_addr().unwrap();
+            let gateway = tokio::spawn(Gateway::new(&f.gateway).unwrap().serve(listener));
+            let broker = tokio::spawn(async move {
+                let (mut socket, _) = backend.accept().await.unwrap();
+                assert_eq!(
+                    read_paired_request(&mut socket).await.unwrap(),
+                    ([0xa5; 32], vec![7; 57])
+                );
+                if correct_version {
+                    board_media_dispatch::protocol::write_paired_response(
+                        &vec![0x5a; PAIRED_OUTPUT_LENGTH as usize],
+                        &mut socket,
+                    )
+                    .await
+                    .unwrap();
+                } else {
+                    // Write only the v1 header: gateway must reject before sending any TLS output.
+                    let _ = socket.write_all(&response(&[], 4_194_816)).await;
+                    let _ = socket.shutdown().await;
+                }
+                assert!(
+                    tokio::time::timeout(Duration::from_millis(100), backend.accept())
+                        .await
+                        .is_err()
+                );
+            });
+            let result = DispatchClient::new(&f.settings)
+                .unwrap()
+                .process_paired(&[7; 57][..], 57, &[0xa5; 32])
+                .await;
+            if correct_version {
+                assert_eq!(result.unwrap(), vec![0x5a; PAIRED_OUTPUT_LENGTH as usize]);
+            } else {
+                assert!(result.is_err());
+            }
+            broker.await.unwrap();
+            gateway.abort();
+        }
+    }
+
+    #[tokio::test]
+    async fn paired_gateway_requires_request_eof_before_broker_connection() {
+        if !enabled() {
+            return;
+        }
+        let mut f = Fixture::new();
+        let running = start(&mut f).await;
+        let mut stream = f
+            .connector(Some((&f.client, &f.client_key)))
+            .connect(
+                ServerName::try_from("dispatch.test").unwrap(),
+                TcpStream::connect(f.settings.endpoint).await.unwrap(),
+            )
+            .await
+            .unwrap();
+        stream.write_all(b"IBJOB002").await.unwrap();
+        stream.write_all(&57u64.to_be_bytes()).await.unwrap();
+        stream.write_all(&[0xa5; 32]).await.unwrap();
+        stream.write_all(&[7; 57]).await.unwrap();
+        stream.flush().await.unwrap();
+        // All declared bytes arrived, but request completion has not.
+        let result = tokio::time::timeout(Duration::from_secs(4), stream.read(&mut [0; 1]))
+            .await
+            .unwrap();
+        assert!(result.is_err() || result.unwrap() == 0);
+        assert_eq!(running.calls.load(Ordering::SeqCst), 0);
+    }
+
     struct Child(std::process::Child);
     impl Drop for Child {
         fn drop(&mut self) {
@@ -984,4 +1062,104 @@ mod root_gateway {
             .unwrap();
         assert_eq!(control.await.unwrap().unwrap(), vec![0x5a; 4_194_816]);
     }
+}
+
+#[tokio::test]
+async fn paired_client_uses_explicit_request_and_rejects_downgrade_and_unclean_eof() {
+    use board_media_dispatch::protocol::{PAIRED_OUTPUT_LENGTH, read_paired_request};
+    for (magic, length, body_length, close_notify, success) in [
+        (
+            b"IBOUT002",
+            PAIRED_OUTPUT_LENGTH,
+            PAIRED_OUTPUT_LENGTH,
+            true,
+            true,
+        ),
+        (b"IBOUT001", 4_194_816, 4_194_816, true, false),
+        (
+            b"IBOUT002",
+            PAIRED_OUTPUT_LENGTH,
+            PAIRED_OUTPUT_LENGTH,
+            false,
+            false,
+        ),
+        (
+            b"IBOUT002",
+            PAIRED_OUTPUT_LENGTH,
+            PAIRED_OUTPUT_LENGTH + 1,
+            true,
+            false,
+        ),
+        (b"IBOUT002", PAIRED_OUTPUT_LENGTH, 7, true, false),
+    ] {
+        let mut f = Fixture::new();
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        f.settings.endpoint = listener.local_addr().unwrap();
+        let acceptor = TlsAcceptor::from(server_config(&f.gateway).unwrap());
+        let server = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut stream = acceptor.accept(socket).await.unwrap();
+            assert_eq!(
+                read_paired_request(&mut stream).await.unwrap(),
+                ([0xa5; 32], vec![7; 57])
+            );
+            let wire = [
+                magic.as_slice(),
+                &length.to_be_bytes(),
+                &vec![0x5a; body_length as usize],
+            ]
+            .concat();
+            let _ = stream.write_all(&wire).await;
+            if close_notify {
+                let _ = stream.shutdown().await;
+            } else {
+                let _ = stream.flush().await;
+            }
+            // A failed paired attempt must never reconnect as v1.
+            assert!(
+                tokio::time::timeout(Duration::from_millis(100), listener.accept())
+                    .await
+                    .is_err()
+            );
+        });
+        let result = DispatchClient::new(&f.settings)
+            .unwrap()
+            .process_paired(&[7; 57][..], 57, &[0xa5; 32])
+            .await;
+        if success {
+            assert_eq!(result.unwrap(), vec![0x5a; PAIRED_OUTPUT_LENGTH as usize]);
+        } else {
+            assert!(result.is_err());
+        }
+        server.await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn paired_client_intake_deadline_includes_source_eof() {
+    use board_media_dispatch::protocol::read_paired_request;
+    let mut f = Fixture::new();
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    f.settings.endpoint = listener.local_addr().unwrap();
+    let acceptor = TlsAcceptor::from(server_config(&f.gateway).unwrap());
+    let server = tokio::spawn(async move {
+        let (socket, _) = listener.accept().await.unwrap();
+        let mut stream = acceptor.accept(socket).await.unwrap();
+        assert!(read_paired_request(&mut stream).await.is_err());
+    });
+    let (mut sender, receiver) = tokio::io::duplex(64);
+    sender.write_all(&[7; 57]).await.unwrap();
+    assert_eq!(
+        tokio::time::timeout(
+            Duration::from_secs(4),
+            DispatchClient::new(&f.settings)
+                .unwrap()
+                .process_paired(receiver, 57, &[0; 32])
+        )
+        .await
+        .unwrap(),
+        Err(board_media_dispatch::Error::Deadline)
+    );
+    drop(sender);
+    server.await.unwrap();
 }

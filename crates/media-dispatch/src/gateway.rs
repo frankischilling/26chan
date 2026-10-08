@@ -81,7 +81,7 @@ impl Gateway {
         self.authorize(&fingerprint)?;
         let _work = work.try_acquire_owned().map_err(|_| Error::Busy)?;
         drop(handshake);
-        let input = timeout(INTAKE, protocol::read_request(&mut stream))
+        let input = timeout(INTAKE, protocol::read_versioned_request(&mut stream))
             .await
             .map_err(|_| Error::Deadline)??;
         self.authorize(&fingerprint)?;
@@ -92,10 +92,27 @@ impl Gateway {
             if broker.peer_cred().map_err(|_| Error::Authentication)?.uid() != 0 {
                 return Err(Error::Authentication);
             }
-            protocol::write_request(input.as_slice(), input.len() as u64, &mut broker).await?;
-            let disk = protocol::read_response(&mut broker).await?;
-            self.authorize(&fingerprint)?;
-            protocol::write_response(&disk, &mut stream).await
+            match input {
+                protocol::Request::ImageV1(input) => {
+                    protocol::write_request(input.as_slice(), input.len() as u64, &mut broker)
+                        .await?;
+                    let disk = protocol::read_response(&mut broker).await?;
+                    self.authorize(&fingerprint)?;
+                    protocol::write_response(&disk, &mut stream).await
+                }
+                protocol::Request::PairedV2 { binding, input } => {
+                    protocol::write_paired_request(
+                        input.as_slice(),
+                        input.len() as u64,
+                        &binding,
+                        &mut broker,
+                    )
+                    .await?;
+                    let disk = protocol::read_paired_response(&mut broker).await?;
+                    self.authorize(&fingerprint)?;
+                    protocol::write_paired_response(&disk, &mut stream).await
+                }
+            }
         })
         .await
         .map_err(|_| Error::Deadline)?
