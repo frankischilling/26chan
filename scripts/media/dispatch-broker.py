@@ -105,9 +105,9 @@ def handle_connection(connection, allowed_uid, requests, execute):
             request = candidate
         finally:
             signal.pthread_sigmask(signal.SIG_SETMASK, previous)
-        receive_request(connection, request / 'input')
-        execute(request / 'input', request / 'output')
-        send_response(connection, request / 'output')
+        input_kind = receive_request(connection, request / 'input')
+        execute(request / 'input', request / 'output', input_kind=input_kind)
+        send_response(connection, request / 'output', input_kind=input_kind)
     except RequestRetained:
         retain = True
         raise
@@ -168,9 +168,9 @@ def serve(config, directory, gateway):
                 raise ValueError('dispatch stale socket rejected')
             endpoint.unlink()
 
-        def execute(source, destination):
+        def execute(source, destination, *, input_kind):
             try:
-                runner.run(config, source, destination)
+                runner.run(config, source, destination, input_kind=input_kind)
             except BaseException:
                 # A failed stop must retain input/output as well as VM storage.
                 # Keep cancellation suppressed through the uncertain-cleanup

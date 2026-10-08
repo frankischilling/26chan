@@ -8,6 +8,7 @@ mod block;
 mod id;
 mod output;
 pub mod paired;
+pub mod paired_snapshot;
 mod promotion;
 mod publication;
 mod quarantine;

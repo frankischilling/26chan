@@ -24,16 +24,37 @@ fn probe() -> std::io::Result<()> {
         std::thread::sleep(Duration::from_secs(10));
         return Ok(());
     }
+    // This qualification worker has its own tiny command framing. It never
+    // replaces production media-decode in decode.json or synthesizes candidates.
+    let kind = board_media_guest::paired::InputKind::parse(
+        &std::env::args().nth(1).unwrap_or_else(|| "image-v1".into()),
+    )?;
     let mut input = File::open("/dev/vda")?;
+    if kind == board_media_guest::paired::InputKind::PairedV2 {
+        let mut magic = [0; 8];
+        input.read_exact(&mut magic)?;
+        if &magic != b"IBJOB002" {
+            return Err(std::io::Error::other("probe version rejected"));
+        }
+    }
     let mut length = [0; 8];
     input.read_exact(&mut length)?;
     let length = u64::from_be_bytes(length);
     if length > 4096 {
         return Err(std::io::Error::other("probe input too large"));
     }
+    if kind == board_media_guest::paired::InputKind::PairedV2 {
+        let mut binding = [0; 32];
+        input.read_exact(&mut binding)?;
+    }
     let mut bytes = vec![0; length as usize];
     input.read_exact(&mut bytes)?;
     let text = probe_text(&bytes).map_err(std::io::Error::other)?;
+    let text = if kind == board_media_guest::paired::InputKind::PairedV2 {
+        text.trim_end()
+    } else {
+        text
+    };
     let mut lines = text.lines();
     let mut checks = Vec::new();
     match lines.next() {
@@ -158,7 +179,7 @@ fn probe() -> std::io::Result<()> {
         }
         Some("disk") => {
             let mut output = OpenOptions::new().write(true).open("/dev/vdb")?;
-            output.seek(SeekFrom::Start(4_194_816))?;
+            output.seek(SeekFrom::Start(kind.output_bytes()))?;
             checks.push(output.write(&[1]).is_err());
         }
         Some("sleep") => {

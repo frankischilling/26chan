@@ -88,6 +88,18 @@ impl Quarantine {
         if !(1..=MAX_INPUT_BYTES).contains(&bytes) {
             return Err(MediaError::InputLengthMismatch);
         }
+        self.open_recorded_input(id, bytes)
+    }
+
+    /// Paired-v2 only. This opens a file, not a verified descriptor or lease.
+    pub fn open_paired_input(&self, id: ObjectId, bytes: u64) -> Result<File, MediaError> {
+        if !(57..=crate::paired::MAX_PAIR_INPUT_BYTES).contains(&bytes) {
+            return Err(MediaError::InputLengthMismatch);
+        }
+        self.open_recorded_input(id, bytes)
+    }
+
+    fn open_recorded_input(&self, id: ObjectId, bytes: u64) -> Result<File, MediaError> {
         let path = self.root.join(format!("{id}.input"));
         let metadata = fs::symlink_metadata(&path)?;
         if !metadata.is_file() || metadata.len() != bytes {

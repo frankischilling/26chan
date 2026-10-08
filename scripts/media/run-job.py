@@ -20,8 +20,8 @@ import uuid
 
 from job_lifecycle import ENV, JOBS, locked_jobs, reconcile_jobs, remove_workspace, run_service, stop_job
 
-OUTPUT_BYTES = 4_194_816
-INPUT_BYTES = 8 * 1024 * 1024
+from dispatch_protocol import (IMAGE_V1, PAIRED_V2, INPUT_BYTES, OUTPUT_BYTES,
+                               PAIRED_INPUT_BYTES, output_bytes, request_kind)
 
 
 class Cancelled(RuntimeError):
@@ -94,14 +94,26 @@ def configuration(path):
     return config
 
 
-def input_disk(source, destination):
+def input_disk(source, destination, *, input_kind=IMAGE_V1):
+    output_bytes(input_kind)  # Reject unknown versions before touching files.
     descriptor = os.open(source, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(descriptor, 'rb') as reader, destination.open('xb') as writer:
         info = os.fstat(reader.fileno())
-        if not stat.S_ISREG(info.st_mode) or not 1 <= info.st_size <= INPUT_BYTES:
+        maximum = INPUT_BYTES if input_kind == IMAGE_V1 else 48 + PAIRED_INPUT_BYTES
+        if not stat.S_ISREG(info.st_mode) or not 1 <= info.st_size <= maximum:
             raise ValueError('input size or file type rejected')
-        writer.write(info.st_size.to_bytes(8, 'big'))
-        remaining = info.st_size
+        if input_kind == IMAGE_V1:
+            writer.write(info.st_size.to_bytes(8, 'big'))
+            disk_size = info.st_size + 8
+            remaining = info.st_size
+        else:
+            header = reader.read(16)
+            actual_kind, size = request_kind(header)
+            if actual_kind != input_kind or info.st_size != 48 + size:
+                raise ValueError('paired request version or size rejected')
+            writer.write(header)
+            disk_size = info.st_size
+            remaining = info.st_size - 16
         while remaining:
             data = reader.read(min(remaining, 8192))
             if not data:
@@ -110,10 +122,11 @@ def input_disk(source, destination):
             remaining -= len(data)
         if reader.read(1):
             raise ValueError('input changed during intake')
-        writer.write(bytes(-(info.st_size + 8) % 512))
+        writer.write(bytes(-disk_size % 512))
 
 
-def run(config, source, destination):
+def run(config, source, destination, *, input_kind=IMAGE_V1):
+    result_size = output_bytes(input_kind)
     user = pwd.getpwnam('board-media-vmm')
     if user.pw_uid == 0 or user.pw_gid == 0 or user.pw_shell != '/usr/sbin/nologin':
         raise ValueError('VMM identity rejected')
@@ -142,10 +155,10 @@ def run(config, source, destination):
             for name in ('kernel', 'initramfs'):
                 shutil.copyfile(config[name], jail / name)
                 (jail / name).chmod(0o444)
-            input_disk(source, jail / 'input.disk')
+            input_disk(source, jail / 'input.disk', input_kind=input_kind)
             (jail / 'input.disk').chmod(0o444)
             with (jail / 'output.disk').open('xb') as output:
-                os.posix_fallocate(output.fileno(), 0, OUTPUT_BYTES)
+                os.posix_fallocate(output.fileno(), 0, result_size)
             # Keep this exact inode open before the VMM starts. Never follow a
             # worker-controlled name or symlink when collecting the output.
             output_reader = (jail / 'output.disk').open('rb')
@@ -153,7 +166,8 @@ def run(config, source, destination):
             (jail / 'output.disk').chmod(0o600)
             machine = {
                 'boot-source': {'kernel_image_path': '/kernel', 'initrd_path': '/initramfs',
-                                'boot_args': 'console=ttyS0 reboot=k panic=1 pci=off rdinit=/init'},
+                                'boot_args': 'console=ttyS0 reboot=k panic=1 pci=off rdinit=/init '
+                                             + 'board_media_input_kind=' + input_kind},
                 'drives': [
                     {'drive_id': 'input', 'path_on_host': '/input.disk', 'is_root_device': False,
                      'is_read_only': True},
@@ -178,7 +192,7 @@ def run(config, source, destination):
                      str(config['jailer']), '--id', job_id, '--exec-file', str(config['firecracker']),
                      '--uid', str(user.pw_uid), '--gid', str(user.pw_gid),
                      '--chroot-base-dir', str(root), '--new-pid-ns',
-                     '--resource-limit', 'fsize=4194816', '--resource-limit', 'no-file=64',
+                     '--resource-limit', 'fsize=' + str(result_size), '--resource-limit', 'no-file=64',
                      '--', '--no-api', '--config-file', '/vm.json']
             # A surviving launch client must retain exclusion until its request
             # has completed. PID 1 creates the guest service without this FD.
@@ -186,10 +200,10 @@ def run(config, source, destination):
             # A successful systemd exit is only a transport result. Do not parse
             # the guest's filesystem or trust its success, paths, or dimensions.
             try:
-                if os.fstat(output_reader.fileno()).st_size != OUTPUT_BYTES:
+                if os.fstat(output_reader.fileno()).st_size != result_size:
                     raise ValueError('output device size changed')
                 with open(destination, 'xb') as writer:
-                    remaining = OUTPUT_BYTES
+                    remaining = result_size
                     while remaining:
                         data = output_reader.read(min(remaining, 8192))
                         if not data:
@@ -213,6 +227,8 @@ def run(config, source, destination):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--input-kind', choices=(IMAGE_V1, PAIRED_V2), default=IMAGE_V1,
+                        help='explicit input contract; paired-v2 takes a complete IBJOB002 request')
     parser.add_argument('--reconcile', action='store_true', help='recover abandoned operator jobs without collecting output')
     parser.add_argument('config', nargs='?')
     parser.add_argument('input', nargs='?')
@@ -238,7 +254,7 @@ def main():
                 reconcile_jobs()
             print('Media job recovery completed; no output collected or approved')
         else:
-            run(configuration(args.config), args.input, args.output)
+            run(configuration(args.config), args.input, args.output, input_kind=args.input_kind)
     except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
         parser.exit(1, f'isolated job failed ({failure_location(error)}); no validated publication produced\n')
 

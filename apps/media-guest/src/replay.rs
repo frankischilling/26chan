@@ -19,9 +19,10 @@
 //! requests are checked and fallible. Dependency/runtime allocations, including
 //! the inflater state, are not all fallible through this API. No rendering occurs.
 //! The event cap also bounds decode work. These caps are not a timing proof:
-//! an eventual caller must still run this inside the disposable guest limits.
-//! Canvas dimensions match the existing 1024-square RGBA limit. No candidate
-//! is written to the current fixed output protocol or accepted by image dispatch.
+//! callers must still run this inside the disposable guest limits.
+//! Canvas dimensions match the existing 1024-square RGBA limit. The explicitly
+//! selected, inactive paired-v2 path transports candidates as untrusted wire
+//! data; it does not grant safety admission or change image-v1 dispatch.
 //!
 //! A candidate is NON-authoritative. Structural success proves neither safe
 //! playback nor valid layer/history state, bounded rendering work, or agreement

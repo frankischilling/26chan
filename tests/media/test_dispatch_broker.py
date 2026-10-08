@@ -221,7 +221,8 @@ class RootBrokerTest(unittest.TestCase):
         requests.mkdir(mode=0o700)
         executed = []
         failures = []
-        def execute(source, output):
+        def execute(source, output, *, input_kind):
+            self.assertEqual(input_kind, protocol.IMAGE_V1)
             executed.append(source.read_bytes())
             output.write_bytes(bytes(4_194_816))
             output.chmod(0o600)
@@ -275,7 +276,8 @@ class RootBrokerTest(unittest.TestCase):
                 handlers = {number: signal.getsignal(number) for number in broker.SIGNALS}
                 client_errors = []
 
-                def controlled_run(config, source, destination):
+                def controlled_run(config, source, destination, *, input_kind):
+                    self.assertEqual(input_kind, protocol.IMAGE_V1)
                     self.assertEqual(source.read_bytes(), b'controlled input')
                     destination.write_bytes(b'controlled stopped-state uncertainty')
                     destination.chmod(0o600)
