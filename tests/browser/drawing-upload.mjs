@@ -139,7 +139,7 @@ try {
   await expect(page.locator('form.postEditor [data-drawing-draw]')).toBeHidden();
   // Verify owned anonymous session deletion without sending a password again.
   const deleted = await context.request.post(url(`/${board}/delete`), { headers: { Origin: origin.origin }, maxRedirects: 0,
-    form: { no: post, password: '', file_only: 'on' } });
+    form: { no: post, password: '', file_only: 'true' } });
   assert.equal(deleted.status(), 303); assert.equal((await context.request.get(media)).status(), 404);
   assert.equal((await (await context.request.get(api)).json()).posts.find(value => String(value.no) === post).filedeleted, 1);
   assert.deepEqual(violations, []);
