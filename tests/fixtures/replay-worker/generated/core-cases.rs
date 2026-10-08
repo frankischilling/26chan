@@ -1,0 +1,21 @@
+// Generated exact owned corpus; logical state/cost checks do not qualify browser pixels.
+const PROBE_CASES: &[(&str, &str, &[u8])] = &[
+    ("pencil-pressure", "aca73faf96ce8966e75e01afac95749f526b7790aa00a9d37dee0ebbdd1a2b43", include_bytes!("pencil-pressure.ibr")),
+    ("tool-1", "fd8f8c088804fb0c6ce7e0b3d7fe43b9bd3ca558104294de46fe33bbca2a69ef", include_bytes!("tool-1.ibr")),
+    ("tool-2", "2f3416f9635425ad568af40ba76e121dad5d1cb5497cb457a6b0bca211e864b2", include_bytes!("tool-2.ibr")),
+    ("tool-3", "1633a24e60d477829108bf6050220b4bad7a6dd894e8ff3d10d899e4957c56ae", include_bytes!("tool-3.ibr")),
+    ("tool-5", "7e2d46fe5fbac6a479f66d06098a949cc38dd42dcdc5ea1166288ca00a5d7e7e", include_bytes!("tool-5.ibr")),
+    ("tool-7", "dd0d4c33cde293e15f57a740c98f3da5b4bd0fb0e5496153f31fb6414ff9bb2c", include_bytes!("tool-7.ibr")),
+    ("tool-8", "e5560296d97046bcfa2e042bc31d9b5c916f98558cc023de08a3c96fb2af86b9", include_bytes!("tool-8.ibr")),
+    ("eraser-tip-0", "546dae450f3d0be5c9e45bf543725600baf4048b35017214baff85f101d6539b", include_bytes!("eraser-tip-0.ibr")),
+    ("eraser-tip-1", "20632319392f2d63b1f7c6954e5471aebd45a682de0d94395b3fed4fd896a1f9", include_bytes!("eraser-tip-1.ibr")),
+    ("eraser-tip-2", "cfcea688503829629617aaf8e2b69d1248b3063b1d0dba8e903ea86d63b9689a", include_bytes!("eraser-tip-2.ibr")),
+    ("tone-initial-and-settings", "588a4571daf1321debbf4fb7dddcc4a644976acad3f40e5bab9db3f25ee49768", include_bytes!("tone-initial-and-settings.ibr")),
+    ("alpha-flow-preserve", "8d17f9f8e95e24de7a848564fcee083876e42056de5fd9e7bf96f0fd1206a916", include_bytes!("alpha-flow-preserve.ibr")),
+    ("layer-history-order", "4cdcff856dea808a06edc4b5e279a52ae975d77575cb219bccaa445c126e3bc3", include_bytes!("layer-history-order.ibr")),
+    ("alpha-coalesce-redo", "9373fb68c3148eee06af0bf98d356fbecf3a7d3358146124e80ad7f10cf06535", include_bytes!("alpha-coalesce-redo.ibr")),
+    ("eight-layers", "370f362a8147e8cfab94862912c222cf884bd89a2d9ab42f0ce1e664f9672c64", include_bytes!("eight-layers.ibr")),
+    ("history-eviction", "968bafc0b0101090b529287f9ba838ec4b2b87fff1a4565ac896ca53f0143e84", include_bytes!("history-eviction.ibr")),
+    ("asymmetric-blur", "373f111bde485280df0658a788a3110e72a6e1f3548298e344b75bdf4aac2eef", include_bytes!("asymmetric-blur.ibr")),
+    ("tiny-pen", "b786c1eb26263edcb5c0f693c9bdb3b903dcad34ed8584a0847d94d4849da720", include_bytes!("tiny-pen.ibr")),
+];

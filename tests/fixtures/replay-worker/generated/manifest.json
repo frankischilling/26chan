@@ -1,0 +1,246 @@
+{
+  "schema": 1,
+  "consumer": "tegaki-worker-probe-v1",
+  "source": {
+    "bytes": 110619,
+    "sha256": "daea182c52df0c032eadbecb4de8f91f634a61bf82aaf35dda077fab50e68744",
+    "version": "0.9.4"
+  },
+  "adapter": {
+    "bytes": 7994,
+    "sha256": "5537da5500f7e499496e6f6b493aa319836eb5a4ed42ebd98928acb640fe34b2"
+  },
+  "canonicalAdapter": {
+    "bytes": 10410,
+    "sha256": "612da625118876021417faa06bc58a3e239d78aa17fb9760d927a06acdabe423"
+  },
+  "artifacts": {
+    "consumer-v1.mjs": {
+      "bytes": 120763,
+      "sha256": "8015211feca77db2236b1ce7d84c222cb0fa377ba29ac572627722f40006cbdc"
+    },
+    "canonical-data.mjs": {
+      "bytes": 10410,
+      "sha256": "612da625118876021417faa06bc58a3e239d78aa17fb9760d927a06acdabe423"
+    },
+    "tegaki.css": {
+      "bytes": 18974,
+      "sha256": "a8e61a077267150c5393cb2f56d740bd6dbf52778150129be9d496ac7b4a6eaa"
+    },
+    "tegaki-icons.v1.woff": {
+      "bytes": 3128,
+      "sha256": "889ad3a092c684e62064431fe8f81ec948316a7875a3290525edb6bfc4af080b"
+    },
+    "pencil-pressure.ibr": {
+      "bytes": 336,
+      "sha256": "aca73faf96ce8966e75e01afac95749f526b7790aa00a9d37dee0ebbdd1a2b43"
+    },
+    "tool-1.ibr": {
+      "bytes": 544,
+      "sha256": "fd8f8c088804fb0c6ce7e0b3d7fe43b9bd3ca558104294de46fe33bbca2a69ef"
+    },
+    "tool-2.ibr": {
+      "bytes": 544,
+      "sha256": "2f3416f9635425ad568af40ba76e121dad5d1cb5497cb457a6b0bca211e864b2"
+    },
+    "tool-3.ibr": {
+      "bytes": 544,
+      "sha256": "1633a24e60d477829108bf6050220b4bad7a6dd894e8ff3d10d899e4957c56ae"
+    },
+    "tool-5.ibr": {
+      "bytes": 544,
+      "sha256": "7e2d46fe5fbac6a479f66d06098a949cc38dd42dcdc5ea1166288ca00a5d7e7e"
+    },
+    "tool-7.ibr": {
+      "bytes": 544,
+      "sha256": "dd0d4c33cde293e15f57a740c98f3da5b4bd0fb0e5496153f31fb6414ff9bb2c"
+    },
+    "tool-8.ibr": {
+      "bytes": 544,
+      "sha256": "e5560296d97046bcfa2e042bc31d9b5c916f98558cc023de08a3c96fb2af86b9"
+    },
+    "eraser-tip-0.ibr": {
+      "bytes": 464,
+      "sha256": "546dae450f3d0be5c9e45bf543725600baf4048b35017214baff85f101d6539b"
+    },
+    "eraser-tip-1.ibr": {
+      "bytes": 464,
+      "sha256": "20632319392f2d63b1f7c6954e5471aebd45a682de0d94395b3fed4fd896a1f9"
+    },
+    "eraser-tip-2.ibr": {
+      "bytes": 464,
+      "sha256": "cfcea688503829629617aaf8e2b69d1248b3063b1d0dba8e903ea86d63b9689a"
+    },
+    "tone-initial-and-settings.ibr": {
+      "bytes": 608,
+      "sha256": "588a4571daf1321debbf4fb7dddcc4a644976acad3f40e5bab9db3f25ee49768"
+    },
+    "alpha-flow-preserve.ibr": {
+      "bytes": 752,
+      "sha256": "8d17f9f8e95e24de7a848564fcee083876e42056de5fd9e7bf96f0fd1206a916"
+    },
+    "layer-history-order.ibr": {
+      "bytes": 800,
+      "sha256": "4cdcff856dea808a06edc4b5e279a52ae975d77575cb219bccaa445c126e3bc3"
+    },
+    "alpha-coalesce-redo.ibr": {
+      "bytes": 512,
+      "sha256": "9373fb68c3148eee06af0bf98d356fbecf3a7d3358146124e80ad7f10cf06535"
+    },
+    "eight-layers.ibr": {
+      "bytes": 560,
+      "sha256": "370f362a8147e8cfab94862912c222cf884bd89a2d9ab42f0ce1e664f9672c64"
+    },
+    "history-eviction.ibr": {
+      "bytes": 1200,
+      "sha256": "968bafc0b0101090b529287f9ba838ec4b2b87fff1a4565ac896ca53f0143e84"
+    },
+    "asymmetric-blur.ibr": {
+      "bytes": 480,
+      "sha256": "373f111bde485280df0658a788a3110e72a6e1f3548298e344b75bdf4aac2eef"
+    },
+    "tiny-pen.ibr": {
+      "bytes": 400,
+      "sha256": "b786c1eb26263edcb5c0f693c9bdb3b903dcad34ed8584a0847d94d4849da720"
+    },
+    "core-cases.rs": {
+      "bytes": 2416,
+      "sha256": "b06ad1d5417c07956d94d83f3e5a79226e2eaf9c8a56c9fe2a897054a0edf419"
+    }
+  },
+  "cases": [
+    {
+      "id": "pencil-pressure",
+      "name": "pencil-pressure.ibr",
+      "bytes": 336,
+      "sha256": "aca73faf96ce8966e75e01afac95749f526b7790aa00a9d37dee0ebbdd1a2b43",
+      "events": 5
+    },
+    {
+      "id": "tool-1",
+      "name": "tool-1.ibr",
+      "bytes": 544,
+      "sha256": "fd8f8c088804fb0c6ce7e0b3d7fe43b9bd3ca558104294de46fe33bbca2a69ef",
+      "events": 18
+    },
+    {
+      "id": "tool-2",
+      "name": "tool-2.ibr",
+      "bytes": 544,
+      "sha256": "2f3416f9635425ad568af40ba76e121dad5d1cb5497cb457a6b0bca211e864b2",
+      "events": 18
+    },
+    {
+      "id": "tool-3",
+      "name": "tool-3.ibr",
+      "bytes": 544,
+      "sha256": "1633a24e60d477829108bf6050220b4bad7a6dd894e8ff3d10d899e4957c56ae",
+      "events": 18
+    },
+    {
+      "id": "tool-5",
+      "name": "tool-5.ibr",
+      "bytes": 544,
+      "sha256": "7e2d46fe5fbac6a479f66d06098a949cc38dd42dcdc5ea1166288ca00a5d7e7e",
+      "events": 18
+    },
+    {
+      "id": "tool-7",
+      "name": "tool-7.ibr",
+      "bytes": 544,
+      "sha256": "dd0d4c33cde293e15f57a740c98f3da5b4bd0fb0e5496153f31fb6414ff9bb2c",
+      "events": 18
+    },
+    {
+      "id": "tool-8",
+      "name": "tool-8.ibr",
+      "bytes": 544,
+      "sha256": "e5560296d97046bcfa2e042bc31d9b5c916f98558cc023de08a3c96fb2af86b9",
+      "events": 18
+    },
+    {
+      "id": "eraser-tip-0",
+      "name": "eraser-tip-0.ibr",
+      "bytes": 464,
+      "sha256": "546dae450f3d0be5c9e45bf543725600baf4048b35017214baff85f101d6539b",
+      "events": 13
+    },
+    {
+      "id": "eraser-tip-1",
+      "name": "eraser-tip-1.ibr",
+      "bytes": 464,
+      "sha256": "20632319392f2d63b1f7c6954e5471aebd45a682de0d94395b3fed4fd896a1f9",
+      "events": 13
+    },
+    {
+      "id": "eraser-tip-2",
+      "name": "eraser-tip-2.ibr",
+      "bytes": 464,
+      "sha256": "cfcea688503829629617aaf8e2b69d1248b3063b1d0dba8e903ea86d63b9689a",
+      "events": 13
+    },
+    {
+      "id": "tone-initial-and-settings",
+      "name": "tone-initial-and-settings.ibr",
+      "bytes": 608,
+      "sha256": "588a4571daf1321debbf4fb7dddcc4a644976acad3f40e5bab9db3f25ee49768",
+      "events": 22
+    },
+    {
+      "id": "alpha-flow-preserve",
+      "name": "alpha-flow-preserve.ibr",
+      "bytes": 752,
+      "sha256": "8d17f9f8e95e24de7a848564fcee083876e42056de5fd9e7bf96f0fd1206a916",
+      "events": 31
+    },
+    {
+      "id": "layer-history-order",
+      "name": "layer-history-order.ibr",
+      "bytes": 800,
+      "sha256": "4cdcff856dea808a06edc4b5e279a52ae975d77575cb219bccaa445c126e3bc3",
+      "events": 34
+    },
+    {
+      "id": "alpha-coalesce-redo",
+      "name": "alpha-coalesce-redo.ibr",
+      "bytes": 512,
+      "sha256": "9373fb68c3148eee06af0bf98d356fbecf3a7d3358146124e80ad7f10cf06535",
+      "events": 16
+    },
+    {
+      "id": "eight-layers",
+      "name": "eight-layers.ibr",
+      "bytes": 560,
+      "sha256": "370f362a8147e8cfab94862912c222cf884bd89a2d9ab42f0ce1e664f9672c64",
+      "events": 19
+    },
+    {
+      "id": "history-eviction",
+      "name": "history-eviction.ibr",
+      "bytes": 1200,
+      "sha256": "968bafc0b0101090b529287f9ba838ec4b2b87fff1a4565ac896ca53f0143e84",
+      "events": 59
+    },
+    {
+      "id": "asymmetric-blur",
+      "name": "asymmetric-blur.ibr",
+      "bytes": 480,
+      "sha256": "373f111bde485280df0658a788a3110e72a6e1f3548298e344b75bdf4aac2eef",
+      "events": 14
+    },
+    {
+      "id": "tiny-pen",
+      "name": "tiny-pen.ibr",
+      "bytes": 400,
+      "sha256": "b786c1eb26263edcb5c0f693c9bdb3b903dcad34ed8584a0847d94d4849da720",
+      "events": 9
+    }
+  ],
+  "claims": {
+    "fixedOwnedCorpusOnly": true,
+    "generalAdmission": false,
+    "nativeBrowserExecutedHere": false,
+    "cssCompositorEquivalence": false,
+    "repeatedPresentationInExistingCostModel": false
+  }
+}
