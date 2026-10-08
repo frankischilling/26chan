@@ -19,11 +19,73 @@
 //! and any future trusted job/attempt association. Slice length is not proof of
 //! completion of a larger stream. All multibyte wire integers are big-endian.
 
-use crate::{MAX_DIMENSION, MAX_INPUT_BYTES, replay_wire};
+use crate::{MAX_DIMENSION, replay_wire};
 use replay_wire::{ReplayWireError, UntrustedReplay};
 use sha2::{Digest, Sha256};
 
 pub const VERSION: u16 = 2;
+/// Separate component budgets; neither component borrows the other's allowance.
+pub const MAX_PNG_INPUT_BYTES: u64 = 8 * 1024 * 1024;
+pub const MAX_REPLAY_INPUT_BYTES: u64 = 8 * 1024 * 1024;
+pub const MAX_PAIR_INPUT_BYTES: u64 = 16_777_272;
+pub const INPUT_COMPLETION: &[u8; 8] = b"IBDONE02";
+
+/// Validated declarations only. Actual-byte receipt and persistence are separate.
+#[derive(Debug, Clone, Copy)]
+pub struct InputHeader {
+    bytes: [u8; 48],
+    image_bytes: u64,
+    replay_bytes: u64,
+}
+
+impl InputHeader {
+    pub fn new(job: [u8; 16], image: u64, replay: Option<u64>) -> Result<Self, PairedError> {
+        input_length(image, replay.unwrap_or(0), replay.is_some())?;
+        let mut bytes = [0; 48];
+        bytes[..8].copy_from_slice(b"IBPAIR02");
+        bytes[8..10].copy_from_slice(&VERSION.to_be_bytes());
+        bytes[10..12].copy_from_slice(&48_u16.to_be_bytes());
+        bytes[12..16].copy_from_slice(&u32::from(replay.is_some()).to_be_bytes());
+        bytes[16..24].copy_from_slice(&image.to_be_bytes());
+        bytes[24..32].copy_from_slice(&replay.unwrap_or(0).to_be_bytes());
+        bytes[32..].copy_from_slice(&job);
+        Ok(Self {
+            bytes,
+            image_bytes: image,
+            replay_bytes: replay.unwrap_or(0),
+        })
+    }
+
+    pub fn parse(bytes: [u8; 48], expected_job: [u8; 16]) -> Result<Self, PairedError> {
+        require_header(&bytes, b"IBPAIR02", INPUT_HEADER_BYTES)?;
+        let present = replay_flag(&bytes)?;
+        let image = u64_at(&bytes, 16);
+        let replay = u64_at(&bytes, 24);
+        input_length(image, replay, present)?;
+        if bytes[32..] != expected_job {
+            return Err(PairedError::JobId);
+        }
+        Ok(Self {
+            bytes,
+            image_bytes: image,
+            replay_bytes: replay,
+        })
+    }
+
+    pub fn bytes(&self) -> &[u8; 48] {
+        &self.bytes
+    }
+    pub fn image_bytes(&self) -> u64 {
+        self.image_bytes
+    }
+    pub fn replay_bytes(&self) -> Option<u64> {
+        (self.replay_bytes != 0).then_some(self.replay_bytes)
+    }
+    pub fn total_bytes(&self) -> u64 {
+        56 + self.image_bytes + self.replay_bytes
+    }
+}
+
 pub const INPUT_HEADER_BYTES: usize = 48;
 pub const INPUT_TRAILER_BYTES: usize = 8;
 pub const RESULT_HEADER_BYTES: usize = 64;
@@ -160,7 +222,8 @@ impl<'a> PairedResultCandidate<'a> {
 }
 
 /// Encode a candidate frame, with the header, components, and trailer sharing
-/// the existing 8 MiB job cap. No image/replay decoding or storage occurs.
+/// independent 8 MiB component caps and the 16,777,272-byte aggregate cap.
+/// No image/replay decoding or storage occurs.
 /// `Some(&[])` is rejected, never normalized to absent replay.
 pub fn encode_input(
     kind: InputKind,
@@ -202,7 +265,7 @@ pub fn decode_input(
 ) -> Result<PairedInputCandidate<'_>, PairedError> {
     require_kind(kind)?;
     if input.len() < INPUT_HEADER_BYTES + INPUT_TRAILER_BYTES
-        || u64::try_from(input.len()).map_err(|_| PairedError::InputSize)? > MAX_INPUT_BYTES
+        || u64::try_from(input.len()).map_err(|_| PairedError::InputSize)? > MAX_PAIR_INPUT_BYTES
     {
         return Err(PairedError::InputSize);
     }
@@ -319,7 +382,10 @@ fn input_length(image: u64, replay: u64, has_replay: bool) -> Result<usize, Pair
         .checked_add(replay)
         .and_then(|length| length.checked_add((INPUT_HEADER_BYTES + INPUT_TRAILER_BYTES) as u64))
         .ok_or(PairedError::Length)?;
-    if total > MAX_INPUT_BYTES {
+    if image > MAX_PNG_INPUT_BYTES
+        || replay > MAX_REPLAY_INPUT_BYTES
+        || total > MAX_PAIR_INPUT_BYTES
+    {
         return Err(PairedError::InputSize);
     }
     usize::try_from(total).map_err(|_| PairedError::InputSize)

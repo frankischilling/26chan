@@ -5,6 +5,10 @@ use std::{fmt, str::FromStr};
 pub struct ObjectId([u8; 16]);
 
 impl ObjectId {
+    pub fn bytes(self) -> [u8; 16] {
+        self.0
+    }
+
     /// Generate an opaque identifier from operating system randomness.
     pub fn generate() -> Result<Self, MediaError> {
         let mut bytes = [0; 16];

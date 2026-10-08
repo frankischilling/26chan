@@ -303,6 +303,8 @@ jobs:
         run: sudo bash scripts/test-staff-file-digest-migration.sh
       - name: Qualify private PNG provenance without changing retained output or read authority
         run: sudo bash scripts/test-media-source-provenance-migration.sh
+      - name: Qualify paired intake provenance without enabling processing or publication
+        run: sudo bash scripts/test-paired-input-provenance-migration.sh
       - name: Qualify nullable moderation snapshots without historical backfill or expanded authority
         run: sudo bash scripts/test-audit-snapshot-migration.sh
       - name: Qualify force archive audit upgrade without rewriting history or expanding authority

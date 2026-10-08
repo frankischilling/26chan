@@ -10,6 +10,12 @@ pub struct Job {
     pub filename: String,
     pub state: String,
     pub input_bytes: Option<i64>,
+    pub input_kind: String,
+    pub input_sha256: Option<String>,
+    pub input_image_bytes: Option<i64>,
+    pub input_image_sha256: Option<String>,
+    pub input_replay_bytes: Option<i64>,
+    pub input_replay_sha256: Option<String>,
     pub attempts: i32,
     pub lease_token: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
@@ -99,7 +105,7 @@ impl MediaQueue {
                 "Upload size is outside the permitted range.",
             ));
         }
-        changed(sqlx::query("UPDATE media.jobs SET state = 'queued', input_bytes = $2, expires_at = clock_timestamp() + interval '1 hour', updated_at = clock_timestamp() WHERE id = $1 AND state = 'receiving' AND expires_at > clock_timestamp()")
+        changed(sqlx::query("UPDATE media.jobs SET state = 'queued', input_bytes = $2, expires_at = clock_timestamp() + interval '1 hour', updated_at = clock_timestamp() WHERE id = $1 AND input_kind = 'image-v1' AND state = 'receiving' AND expires_at > clock_timestamp()")
             .bind(id).bind(input_bytes as i64).execute(&self.pool).await?.rows_affected())
     }
 
@@ -111,7 +117,7 @@ impl MediaQueue {
 
     pub async fn claim(&self) -> Result<Option<Job>, StoreError> {
         let mut tx = self.pool.begin().await?;
-        let id: Option<String> = sqlx::query_scalar("SELECT id FROM media.jobs WHERE state = 'queued' AND attempts < 3 AND expires_at > clock_timestamp() ORDER BY created_at, id FOR UPDATE SKIP LOCKED LIMIT 1")
+        let id: Option<String> = sqlx::query_scalar("SELECT id FROM media.jobs WHERE input_kind = 'image-v1' AND state = 'queued' AND attempts < 3 AND expires_at > clock_timestamp() ORDER BY created_at, id FOR UPDATE SKIP LOCKED LIMIT 1")
             .fetch_optional(&mut *tx).await?;
         let Some(id) = id else {
             return Ok(None);
@@ -150,7 +156,7 @@ impl MediaQueue {
             tx.commit().await?;
             return Ok(());
         }
-        changed(sqlx::query("UPDATE media.jobs SET state = 'published', output_sha256 = $3, output_bytes = $4, expires_at = NULL, updated_at = clock_timestamp() WHERE id = $1 AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp()")
+        changed(sqlx::query("UPDATE media.jobs SET state = 'published', output_sha256 = $3, output_bytes = $4, expires_at = NULL, updated_at = clock_timestamp() WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp()")
             .bind(id).bind(token).bind(digest).bind(bytes as i64).execute(&mut *tx).await?.rows_affected())?;
         tx.commit().await?;
         Ok(())

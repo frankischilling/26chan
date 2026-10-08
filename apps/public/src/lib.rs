@@ -15,6 +15,7 @@ mod native_board_snapshot;
 mod native_thread_stats;
 mod native_updater_snapshot;
 mod output;
+pub mod paired_upload;
 mod polls;
 mod post_preferences;
 mod post_receipts;

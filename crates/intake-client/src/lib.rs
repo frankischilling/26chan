@@ -198,6 +198,54 @@ impl IntakeClient {
         Ok(())
     }
 
+    /// Inactive v2 endpoint contract; production intake does not register it yet.
+    pub async fn reserve_pair(&self, filename: &str) -> Result<Reservation, IntakeError> {
+        let body = serde_json::to_vec(&serde_json::json!({"filename":filename}))
+            .map_err(|_| IntakeError::Unavailable)?;
+        let body = self
+            .request(Method::POST, "/v2/reservations", None, Body::from(body))
+            .await?;
+        let value: Reservation =
+            serde_json::from_slice(&body).map_err(|_| IntakeError::Unavailable)?;
+        if !valid_hex(&value.id, 32)
+            || !valid_hex(&value.capability, 64)
+            || value.state != "receiving"
+        {
+            return Err(IntakeError::Unavailable);
+        }
+        Ok(value)
+    }
+
+    pub async fn upload_pair(
+        &self,
+        id: &str,
+        capability: &str,
+        body: Body,
+    ) -> Result<(), IntakeError> {
+        if !valid_hex(id, 32) || !valid_hex(capability, 64) {
+            return Err(IntakeError::NotFound);
+        }
+        let body = self
+            .request(
+                Method::PUT,
+                &format!("/v2/uploads/{id}"),
+                Some(capability),
+                body,
+            )
+            .await?;
+        let value: Status = serde_json::from_slice(&body).map_err(|_| IntakeError::Unavailable)?;
+        if value.id != id
+            || value.state != "queued"
+            || value.output_id.is_some()
+            || value
+                .input_bytes
+                .is_none_or(|b| !(57..=16_777_272).contains(&b))
+        {
+            return Err(IntakeError::Unavailable);
+        }
+        Ok(())
+    }
+
     pub async fn status(&self, id: &str, capability: &str) -> Result<Status, IntakeError> {
         if !valid_hex(id, 32) || !valid_hex(capability, 64) {
             return Err(IntakeError::NotFound);
@@ -480,6 +528,54 @@ mod tests {
             } else {
                 assert!(matches!(result, Err(IntakeError::Unavailable)));
             }
+            server.await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn paired_reservation_uses_only_the_explicit_v2_endpoint() {
+        let id = "1".repeat(32);
+        let capability = "2".repeat(64);
+        let body = serde_json::json!({"id":id,"capability":capability,"state":"receiving"});
+        let (client, server) = fixture(
+            response("201 Created", "application/json", &body.to_string()),
+            "POST",
+            "/v2/reservations".into(),
+            None,
+        )
+        .await;
+        let reservation = client.reserve_pair("tegaki.png").await.unwrap();
+        assert_eq!(reservation.id, id);
+        assert_eq!(reservation.capability, capability);
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn paired_upload_acknowledgement_has_its_own_exact_aggregate_bound() {
+        let id = "1".repeat(32);
+        let capability = "2".repeat(64);
+        for (bytes, valid) in [
+            (56, false),
+            (57, true),
+            (8_388_664, true),
+            (16_777_272, true),
+            (16_777_273, false),
+        ] {
+            let body = serde_json::json!({"id":id,"state":"queued","input_bytes":bytes});
+            let (client, server) = fixture(
+                response("202 Accepted", "application/json", &body.to_string()),
+                "PUT",
+                format!("/v2/uploads/{id}"),
+                Some(capability.clone()),
+            )
+            .await;
+            assert_eq!(
+                client
+                    .upload_pair(&id, &capability, Body::from("candidate"))
+                    .await
+                    .is_ok(),
+                valid
+            );
             server.await.unwrap();
         }
     }
