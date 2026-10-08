@@ -1,0 +1,92 @@
+name: Native replay qualification
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  replay-worker-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/replay-worker-evidence/native-results.json
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Record exact source identity before dependency setup
+        timeout-minutes: 1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/replay-worker-evidence
+          printf 'REPLAY_PROBE_CARGO_TARGET_DIR=%s/replay-worker-probe-target\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          {
+            printf 'candidate=%s\n' "$CANDIDATE_SHA"
+            git rev-parse HEAD
+            sha256sum package-lock.json Cargo.lock tests/fixtures/replay-worker/rust-check/Cargo.lock
+            sha256sum tests/fixtures/replay-worker/generated/manifest.json tests/fixtures/replay-worker/generated/consumer-v1.mjs
+          } > test-results/replay-worker-evidence/identity.txt
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        timeout-minutes: 2
+        with:
+          node-version: '24.14.0'
+          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install locked qualification dependencies
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            rustup toolchain install 1.94.0 --profile minimal
+            npm ci --ignore-scripts
+            cargo fetch --locked --manifest-path tests/fixtures/replay-worker/rust-check/Cargo.toml
+            npx --no-install playwright install --with-deps chromium
+            node --version
+            rustc --version
+            npx --no-install playwright --version
+          } 2>&1 | tee test-results/replay-worker-evidence/setup.log
+      - name: Check pinned source, report controls and exact core corpus
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:replay-worker-probe-core 2>&1 | tee test-results/replay-worker-evidence/node.log
+          node --test tests/fixtures/replay-worker/verify-native-report.test.mjs 2>&1 | tee test-results/replay-worker-evidence/report-controls.log
+          npm run test:replay-worker-probe-state 2>&1 | tee test-results/replay-worker-evidence/state.log
+      - name: Qualify native Chromium rendering and ownership
+        timeout-minutes: 6
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=10s 330s \
+            npx --no-install playwright test --config playwright.replay-worker.config.js \
+            --forbid-only --workers=1 --retries=0 --max-failures=1 --global-timeout=300000 \
+            --reporter=line,json --output=test-results/replay-worker-native \
+            2>&1 | tee test-results/replay-worker-evidence/native.log
+          node tests/fixtures/replay-worker/verify-native-report.mjs "$PLAYWRIGHT_JSON_OUTPUT_NAME" \
+            | tee test-results/replay-worker-evidence/verified.json
+      - name: Retain bounded synthetic qualification evidence
+        if: always()
+        timeout-minutes: 2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: replay-worker-native-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/replay-worker-evidence/**
+            test-results/replay-worker-native/**
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false

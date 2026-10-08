@@ -33,6 +33,20 @@ def request(payload=None):
 
 
 class PairedTransportTest(unittest.TestCase):
+    def test_runner_cli_keeps_v1_default_and_selects_v2_explicitly(self):
+        for options, keywords in (([], {}), (['--input-kind', protocol.IMAGE_V1], {}),
+                                  (['--input-kind', protocol.PAIRED_V2], {'input_kind': protocol.PAIRED_V2})):
+            argv = ['run-job.py', *options, 'owned-config', 'owned-input', 'owned-output']
+            with self.subTest(options=options), mock.patch.object(sys, 'argv', argv), \
+                    mock.patch.dict(os.environ, {}, clear=True), \
+                    mock.patch.object(runner.os, 'geteuid', return_value=0), \
+                    mock.patch.object(runner.signal, 'signal'), \
+                    mock.patch.object(runner, 'configuration', return_value={'owned': True}) as config, \
+                    mock.patch.object(runner, 'run') as run:
+                runner.main()
+                config.assert_called_once_with('owned-config')
+                run.assert_called_once_with({'owned': True}, 'owned-input', 'owned-output', **keywords)
+
     def receive(self, data, target, *, eof=True):
         left, right = socket.socketpair()
         with left, right:

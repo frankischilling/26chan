@@ -254,7 +254,11 @@ def main():
                 reconcile_jobs()
             print('Media job recovery completed; no output collected or approved')
         else:
-            run(configuration(args.config), args.input, args.output, input_kind=args.input_kind)
+            config = configuration(args.config)
+            if args.input_kind == PAIRED_V2:
+                run(config, args.input, args.output, input_kind=PAIRED_V2)
+            else:
+                run(config, args.input, args.output)
     except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
         parser.exit(1, f'isolated job failed ({failure_location(error)}); no validated publication produced\n')
 
