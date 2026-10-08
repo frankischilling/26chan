@@ -156,3 +156,13 @@ cancellation, mobile arbitration, build policies and fixture distinctions.
 
 Complete CI must pass on the reviewed PR head before merge. These tests do not
 establish full original-page parity or production readiness.
+
+The October 8 Linux failure in the open-cap scenario occurred after ordinary
+navigation. Its trace shows the next quote activation before watcher dependencies
+finished loading; the new document's Settings link had no native readiness marker.
+The fixture now waits for the existing native Settings opener after startup and
+navigation. The watcher installs that opener after mounting inline quotes.
+All 25 unit/DOM cases and all 36 persisted browser cases passed on Windows with
+the original admission, navigation, cancellation and ownership assertions.
+The two cap scenarios also passed in a focused run. Browser retries and
+screenshot baselines remain unchanged. Fresh hosted qualification is required.

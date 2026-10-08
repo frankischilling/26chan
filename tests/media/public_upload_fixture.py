@@ -31,6 +31,10 @@ def finish_browser(process, script):
         if classified:
             status, category, stage, failure = (value.decode('ascii') for value in classified[-1])
             response = f' (HTTP {status}, {category}, {stage}, {failure})'
+        deletion = re.findall(rb'^OWNED_UPLOAD_RESPONSE status=([1-5][0-9]{2}) type=(json|html|plain|other) stage=deletion failure=(http|body|content)\r?$', error, re.MULTILINE)
+        if deletion:
+            status, category, failure = (value.decode('ascii') for value in deletion[-1])
+            response = f' (HTTP {status}, {category}, deletion, {failure})'
         drawing = re.findall(rb'^OWNED_DRAWING_EDIT (cancel=(?:none|pending|failed|other|[1-5][0-9]{2}) ui=(?:empty|queued|canceling|checking|uploading|cancel-error|editor-error|other) editor=(?:absent|hidden|visible) cursor=(?:absent|hidden|visible) active=(?:true|false|other)|unavailable)\r?$', error, re.MULTILINE)
         if drawing and script == 'drawing-upload.mjs':
             response += ' (Edit ' + drawing[-1].decode('ascii') + ')'
