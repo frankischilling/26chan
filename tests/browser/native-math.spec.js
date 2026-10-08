@@ -200,7 +200,23 @@ test('pagehide restores literal comments and pageshow retypesets without retaini
 });
 
 test('hostile resource macros never introduce active DOM or resource requests; bounded failure preserves text', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.initialMathPageParsed = false;
+    document.addEventListener('4chanParsingDone', event => {
+      if (event.detail?.offset === 0 &&
+          event.detail.threadId === document.getElementById('watcher-context')?.dataset.thread) {
+        window.initialMathPageParsed = true;
+      }
+    });
+  });
   await page.goto('/sci/thread/1000002');
+  await expect.poll(() => page.evaluate(() => window.initialMathPageParsed)).toBe(true);
+  // Initial watcher decoration is unrelated to the hostile expression below.
+  // Finish its actual icon loads before measuring expression-triggered requests.
+  const icons = page.locator('#twPrune img, #twClose img');
+  await expect(icons).toHaveCount(2);
+  await icons.evaluateAll(images => Promise.all(images.map(image => image.decode())));
+  expect(await icons.evaluateAll(images => images.every(image => image.complete && image.naturalWidth > 0))).toBe(true);
   const requests = [];
   page.on('request', request => requests.push(new URL(request.url()).pathname));
   const hostile = String.raw`[math]\href{https://evil.invalid/x}{x}\includegraphics{https://evil.invalid/y}\require{https://evil.invalid/z}\class{owned}{x}\cssId{owned}{x}\style{background:url(https://evil.invalid/a)}{x}\def\x{\x}\x[/math]`;
