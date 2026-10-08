@@ -62,3 +62,84 @@ fn post_references_retain_leading_zero_labels_and_bounded_targets() {
         );
     }
 }
+
+#[test]
+fn nondecimal_numeric_quotes_never_resolve_to_a_leading_digit_post() {
+    for format in [104, 111, 120, 127] {
+        for term in [
+            "1e2",
+            "1e+2",
+            "1e-2",
+            "+001e+02",
+            "-1e2",
+            "1e999999999999999999999999999999999999",
+        ] {
+            let input = format!(">>>/po/{term}");
+            let lines = board_domain::parse_post_comment_on_board(&input, format, "g");
+            let mut retained = String::new();
+            for token in lines.iter().flat_map(|line| &line.tokens) {
+                match token {
+                    Token::Text(text) => retained.push_str(text),
+                    Token::WordBreak => {}
+                    _ => panic!("Unexpected reference token for {input}: {token:?}"),
+                }
+            }
+            assert_eq!(retained, input);
+        }
+    }
+}
+
+#[test]
+fn post_wrap_numeric_fragments_do_not_gain_partial_destinations() {
+    for (prefix, term) in [(26, "1e2"), (25, "1e+2"), (26, "1e+2"), (26, "1e-2")] {
+        let input = format!("{}>>>/po/{term}", "x".repeat(prefix));
+        let lines = board_domain::parse_post_comment_on_board(&input, 104, "g");
+        assert!(
+            lines
+                .iter()
+                .flat_map(|line| &line.tokens)
+                .all(|token| !matches!(token, Token::PostQuote(_))),
+            "{input}"
+        );
+    }
+    // The source wraps before resolving posts. When the break lands before
+    // the exponent, the complete surviving term really is decimal 1.
+    let input = format!("{}>>>/po/1e2", "x".repeat(27));
+    let lines = board_domain::parse_post_comment_on_board(&input, 104, "g");
+    assert!(lines.iter().flat_map(|line| &line.tokens).any(|token| matches!(token, Token::PostQuote(quote) if quote.board() == Some("po") && quote.id() == 1 && quote.label() == ">>>/po/1")));
+}
+
+#[test]
+fn source_post_wrap_lookup_gate_never_becomes_a_different_decimal_id() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../fixtures/source-link-boundary-reference.json"
+    ))
+    .unwrap();
+    for case in fixture["dynamic_cases"].as_array().unwrap() {
+        let input = case["input"].as_str().unwrap();
+        let lines = board_domain::parse_post_comment_on_board(input, 104, "g");
+        let quotes: Vec<_> = lines
+            .iter()
+            .flat_map(|line| &line.tokens)
+            .filter_map(|token| match token {
+                Token::PostQuote(quote) => Some(quote),
+                _ => None,
+            })
+            .collect();
+        let expected: Vec<_> = case["lookup_terms"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|term| {
+                let value = term["number"].as_str().unwrap();
+                (value.bytes().all(|byte| byte.is_ascii_digit()))
+                    .then(|| value.parse::<u64>().unwrap())
+            })
+            .collect();
+        assert_eq!(
+            quotes.iter().map(|quote| quote.id()).collect::<Vec<_>>(),
+            expected,
+            "{input}"
+        );
+    }
+}

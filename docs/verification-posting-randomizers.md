@@ -11,6 +11,21 @@ list without loading the old application, private configuration or database.
 The checked fixture records both source-file hashes. The seasonal fortune list
 is commented out in the supplied source and is not treated as active behavior.
 
+Source-spelling correction, October 7, 2026:
+
+The isolated PHP oracle now covers 31 dice cases and eight explicit resource-bound
+rejections, alongside the 13 fortunes and eight teasers. It records leading-zero
+counts and sides, the 25-roll cap, modifier spelling and incomplete patterns.
+The expanded stored-result test checks repeated reads of both padded and
+ordinary labels. Browser scenarios carry padded labels through reload, JSON,
+catalog, search, RSS, updater and quote previews. Local qualification of these
+changes passed the full 194-test domain suite, the persisted randomizer test,
+128 public-library cases and both server-link/word-break HTTP regressions. One
+public Unix-socket test remains excluded locally after socket creation was denied.
+Strict workspace Clippy passed. The two browser cases were discovered but not
+executed locally; hosted qualification remains pending. The earlier results
+below apply to their recorded versions.
+
 Checks run on October 1, 2026:
 
 | Command | Result |

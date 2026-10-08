@@ -30,6 +30,10 @@ pub struct DiceRequest {
     pub count: u8,
     pub sides: u32,
     pub modifier: Option<i64>,
+    /// Source `min(25, $match[1])` retains captured digits below the cap.
+    pub count_text: String,
+    /// Source interpolates the captured digits, including leading zeroes.
+    pub sides_text: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -89,7 +93,7 @@ fn parse_dice_at(input: &[u8], start: usize) -> Result<Option<DiceRequest>, Vali
     if cursor == count_start || !matches!(input.get(cursor), Some(b' ' | b'd' | b'+')) {
         return Ok(None);
     }
-    let count = parse_clamped_count(&input[count_start..cursor])?;
+    let count_end = cursor;
     cursor += 1;
     let side_start = cursor;
     while input.get(cursor).is_some_and(u8::is_ascii_digit) {
@@ -98,13 +102,49 @@ fn parse_dice_at(input: &[u8], start: usize) -> Result<Option<DiceRequest>, Vali
     if cursor == side_start {
         return Ok(None);
     }
+    // Do not reject a count until the complete mandatory expression matches.
+    // PCRE skips incomplete candidates and can find a later valid expression.
+    let count = parse_clamped_count(&input[count_start..count_end])?;
     let sides = parse_positive_u32(&input[side_start..cursor], MAX_DICE_SIDES)?;
     let modifier = parse_modifier(input, cursor)?;
     Ok(Some(DiceRequest {
         count,
         sides,
         modifier,
+        count_text: if count == MAX_DICE_ROLLS {
+            count.to_string()
+        } else {
+            ascii_digits(&input[count_start..count_end])
+        },
+        sides_text: ascii_digits(&input[side_start..cursor]),
     }))
+}
+
+fn ascii_digits(digits: &[u8]) -> String {
+    digits.iter().map(|digit| char::from(*digit)).collect()
+}
+
+fn valid_dice_request(dice: &DiceRequest) -> bool {
+    if !(1..=MAX_DICE_ROLLS).contains(&dice.count)
+        || !(1..=MAX_DICE_SIDES).contains(&dice.sides)
+        || dice.count_text.is_empty()
+        || dice.sides_text.is_empty()
+        || dice.count_text.len() > MAX_PUBLIC_FIELD_BYTES
+        || dice.sides_text.len() > MAX_PUBLIC_FIELD_BYTES
+        || !dice.count_text.bytes().all(|byte| byte.is_ascii_digit())
+        || !dice.sides_text.bytes().all(|byte| byte.is_ascii_digit())
+        || dice.count_text.parse::<u8>() != Ok(dice.count)
+        || dice.sides_text.parse::<u32>() != Ok(dice.sides)
+        || (dice.count == MAX_DICE_ROLLS && dice.count_text != MAX_DICE_ROLLS.to_string())
+    {
+        return false;
+    }
+    // Require a spelling that can originate in a bounded options field. A
+    // negative modifier needs two sign bytes because a lone '-' means '+'.
+    let modifier_bytes = dice.modifier.map_or(0, |value| {
+        value.unsigned_abs().to_string().len() + if value < 0 { 2 } else { 1 }
+    });
+    6 + dice.count_text.len() + dice.sides_text.len() + modifier_bytes <= MAX_PUBLIC_FIELD_BYTES
 }
 
 fn parse_clamped_count(digits: &[u8]) -> Result<u8, ValidationError> {
@@ -237,9 +277,7 @@ fn generate_with(
             })
         }
         Request::Dice(dice) => {
-            if !(1..=MAX_DICE_ROLLS).contains(&dice.count)
-                || !(1..=MAX_DICE_SIDES).contains(&dice.sides)
-            {
+            if !valid_dice_request(dice) {
                 return Err(GenerationError::InvalidRequest);
             }
             let mut values = Vec::with_capacity(usize::from(dice.count));
@@ -275,11 +313,74 @@ fn generate_with(
             }
             text.push_str(&format!(
                 " ({}d{}{})",
-                dice.count,
-                dice.sides,
+                dice.count_text,
+                dice.sides_text,
                 modifier.as_deref().unwrap_or("")
             ));
             Ok(Outcome::Dice(text))
+        }
+    }
+}
+
+/// Public Outcome variants are constructible by callers. Validate the complete
+/// generated value before using it in a source comparison projection.
+pub(crate) fn valid_outcome(outcome: &Outcome) -> bool {
+    match outcome {
+        Outcome::Fortune { text, color } => FORTUNES
+            .iter()
+            .zip(FORTUNE_COLORS)
+            .any(|(expected, expected_color)| text == expected && color == expected_color),
+        Outcome::Dice(text) => {
+            if text.len() > 1024 {
+                return false;
+            }
+            let Some((body, expression)) = text
+                .strip_prefix("Rolled ")
+                .and_then(|text| text.strip_suffix(')'))
+                .and_then(|text| text.rsplit_once(" ("))
+            else {
+                return false;
+            };
+            let fields: Vec<_> = expression.split(' ').collect();
+            if fields.len() != 1 && fields.len() != 3 {
+                return false;
+            }
+            let Some((count_text, sides_text)) = fields[0].split_once('d') else {
+                return false;
+            };
+            let (Ok(count), Ok(sides)) = (count_text.parse::<u8>(), sides_text.parse::<u32>())
+            else {
+                return false;
+            };
+            let modifier = if fields.len() == 3 {
+                if !matches!(fields[1], "+" | "-") {
+                    return false;
+                }
+                let Ok(value) = format!("{}{}", fields[1], fields[2]).parse::<i64>() else {
+                    return false;
+                };
+                Some(value)
+            } else {
+                None
+            };
+            let mut values = body.split(", ");
+            let request = Request::Dice(DiceRequest {
+                count,
+                sides,
+                modifier,
+                count_text: count_text.into(),
+                sides_text: sides_text.into(),
+            });
+            let generated = generate_with(&request, |_| {
+                let value = values.next().ok_or(GenerationError::InvalidRequest)?;
+                let digits: String = value.chars().take_while(char::is_ascii_digit).collect();
+                digits
+                    .parse::<u32>()
+                    .ok()
+                    .and_then(|value| value.checked_sub(1))
+                    .ok_or(GenerationError::InvalidRequest)
+            });
+            generated.as_ref() == Ok(outcome)
         }
     }
 }
@@ -331,11 +432,16 @@ mod tests {
             if case["dice"].is_null() {
                 assert_eq!(parsed, None);
             } else {
-                assert_eq!(
-                    generate(&parsed.unwrap()).unwrap(),
-                    Outcome::Dice(case["dice"].as_str().unwrap().into())
-                );
+                let expected = Outcome::Dice(case["dice"].as_str().unwrap().into());
+                assert_eq!(generate(&parsed.unwrap()).unwrap(), expected);
+                assert!(valid_outcome(&expected), "{case}");
             }
+        }
+        for case in reference["bounded_rejections"].as_array().unwrap() {
+            assert!(
+                request(case["options"].as_str().unwrap(), true, false).is_err(),
+                "{case}"
+            );
         }
         for (index, entry) in reference["fortunes"].as_array().unwrap().iter().enumerate() {
             let expected = Outcome::Fortune {
@@ -360,7 +466,112 @@ mod tests {
             if let Ok(Some(Request::Dice(dice))) = parsed {
                 prop_assert!((1..=MAX_DICE_ROLLS).contains(&dice.count));
                 prop_assert!((1..=MAX_DICE_SIDES).contains(&dice.sides));
+                prop_assert!(valid_dice_request(&dice));
             }
+        }
+
+        #[test]
+        fn bounded_digit_spellings_survive_generation_and_outcome_validation(
+            count in 1u8..=60,
+            sides in 1u32..=MAX_DICE_SIDES,
+            count_zeroes in 0usize..40,
+            side_zeroes in 0usize..40,
+        ) {
+            let count_text = format!("{}{count}", "0".repeat(count_zeroes));
+            let sides_text = format!("{}{sides}", "0".repeat(side_zeroes));
+            let input = format!("dice+{count_text}d{sides_text}");
+            let parsed = request(&input, true, false).unwrap().unwrap();
+            let Request::Dice(dice) = &parsed else { unreachable!() };
+            prop_assert_eq!(&dice.sides_text, &sides_text);
+            prop_assert_eq!(&dice.count_text, &if count >= MAX_DICE_ROLLS {
+                MAX_DICE_ROLLS.to_string()
+            } else {
+                count_text
+            });
+            let outcome = generate_with(&parsed, |_| Ok(0)).unwrap();
+            prop_assert!(valid_outcome(&outcome));
+        }
+    }
+
+    #[test]
+    fn forged_digit_spellings_fail_before_randomness() {
+        let Request::Dice(valid) = request("dice+01d001", true, false).unwrap().unwrap() else {
+            unreachable!()
+        };
+        for (count_text, sides_text) in [
+            ("", "1"),
+            ("1", ""),
+            ("+1", "1"),
+            ("1", "+1"),
+            ("1", "1</b>"),
+            ("１", "1"),
+            ("1", "１"),
+            ("0", "1"),
+            ("1", "0"),
+            ("2", "1"),
+            ("1", "2"),
+        ] {
+            let mut forged = valid.clone();
+            forged.count_text = count_text.into();
+            forged.sides_text = sides_text.into();
+            assert_eq!(
+                generate_with(&Request::Dice(forged), |_| panic!("RNG must not run")),
+                Err(GenerationError::InvalidRequest)
+            );
+        }
+
+        let mut overlong = valid.clone();
+        overlong.count_text = format!("{}1", "0".repeat(93));
+        assert_eq!(
+            generate_with(&Request::Dice(overlong), |_| panic!("RNG must not run")),
+            Err(GenerationError::InvalidRequest)
+        );
+        assert!(!valid_outcome(&Outcome::Dice(format!(
+            "Rolled 1 (1d{}1)",
+            "0".repeat(93)
+        ))));
+
+        let Request::Dice(mut capped) = request("dice+25d01", true, false).unwrap().unwrap() else {
+            unreachable!()
+        };
+        capped.count_text = "025".into();
+        assert_eq!(
+            generate_with(&Request::Dice(capped), |_| panic!("RNG must not run")),
+            Err(GenerationError::InvalidRequest)
+        );
+    }
+
+    #[test]
+    fn generated_outcome_validation_checks_the_complete_text() {
+        for text in [
+            "Rolled 1 (01d001)",
+            "Rolled 1 + 0 (01d001 + 0)",
+            "Rolled 1, 1 - 3 = -1 (02d001 - 3)",
+        ] {
+            assert!(valid_outcome(&Outcome::Dice(text.into())), "{text}");
+        }
+        for text in [
+            "Rolled 1 (d1)",
+            "Rolled 1 (1d)",
+            "Rolled 1 (+1d1)",
+            "Rolled 1 (1d+1)",
+            "Rolled 1 (1d1</b>)",
+            "Rolled 1 (１d1)",
+            "Rolled 1 (1d１)",
+            "Rolled 1 (0d1)",
+            "Rolled 1 (1d0)",
+            "Rolled 01 (01d001)",
+            "Rolled 0 (01d001)",
+            "Rolled 2 (01d001)",
+            "Rolled 1 - 0 (01d001 - 0)",
+            "Rolled 1 + 00 (01d001 + 00)",
+            "Rolled 1 + 3 (01d001 + 2)",
+            "Rolled 1, 1 = 3 (02d001)",
+            "Rolled 1, 1 (01d001)",
+            "Rolled 1 (01d001) trailing",
+            "Rolled 1 (01d001\n)",
+        ] {
+            assert!(!valid_outcome(&Outcome::Dice(text.into())), "{text}");
         }
     }
 
@@ -382,7 +593,9 @@ mod tests {
             Some(Request::Dice(DiceRequest {
                 count: 2,
                 sides: 6,
-                modifier: Some(3)
+                modifier: Some(3),
+                count_text: "2".into(),
+                sides_text: "6".into(),
             }))
         );
         assert_eq!(
@@ -390,7 +603,9 @@ mod tests {
             Some(Request::Dice(DiceRequest {
                 count: 2,
                 sides: 6,
-                modifier: Some(3)
+                modifier: Some(3),
+                count_text: "2".into(),
+                sides_text: "6".into(),
             }))
         );
         assert_eq!(
@@ -398,7 +613,9 @@ mod tests {
             Some(Request::Dice(DiceRequest {
                 count: 2,
                 sides: 6,
-                modifier: Some(-3)
+                modifier: Some(-3),
+                count_text: "2".into(),
+                sides_text: "6".into(),
             }))
         );
         assert_eq!(
@@ -406,7 +623,9 @@ mod tests {
             Some(Request::Dice(DiceRequest {
                 count: 25,
                 sides: 20,
-                modifier: None
+                modifier: None,
+                count_text: "25".into(),
+                sides_text: "20".into(),
             }))
         );
         assert_eq!(request("dice+2d6", false, false).unwrap(), None);
@@ -425,7 +644,9 @@ mod tests {
             Some(Request::Dice(DiceRequest {
                 count: 2,
                 sides: 1,
-                modifier: Some(i64::MIN)
+                modifier: Some(i64::MIN),
+                count_text: "2".into(),
+                sides_text: "1".into(),
             }))
         );
     }
@@ -437,21 +658,29 @@ mod tests {
                 count: 0,
                 sides: 6,
                 modifier: None,
+                count_text: "0".into(),
+                sides_text: "6".into(),
             },
             DiceRequest {
                 count: MAX_DICE_ROLLS + 1,
                 sides: 6,
                 modifier: None,
+                count_text: (MAX_DICE_ROLLS + 1).to_string(),
+                sides_text: "6".into(),
             },
             DiceRequest {
                 count: 1,
                 sides: 0,
                 modifier: None,
+                count_text: "1".into(),
+                sides_text: "0".into(),
             },
             DiceRequest {
                 count: 1,
                 sides: MAX_DICE_SIDES + 1,
                 modifier: None,
+                count_text: "1".into(),
+                sides_text: (MAX_DICE_SIDES + 1).to_string(),
             },
         ] {
             assert_eq!(
@@ -487,6 +716,8 @@ mod tests {
                     count: 1,
                     sides: 6,
                     modifier: None,
+                    count_text: "1".into(),
+                    sides_text: "6".into(),
                 }),
                 |_| Err(GenerationError::RandomnessUnavailable)
             ),
@@ -498,6 +729,8 @@ mod tests {
                     count: 1,
                     sides: 6,
                     modifier: None,
+                    count_text: "1".into(),
+                    sides_text: "6".into(),
                 }),
                 |_| Ok(6)
             ),
@@ -511,6 +744,8 @@ mod tests {
             count: 3,
             sides: 6,
             modifier: Some(-2),
+            count_text: "3".into(),
+            sides_text: "6".into(),
         });
         let mut draws = [0, 2, 5].into_iter();
         assert_eq!(
@@ -521,6 +756,8 @@ mod tests {
             count: 1,
             sides: 20,
             modifier: Some(4),
+            count_text: "1".into(),
+            sides_text: "20".into(),
         });
         assert_eq!(
             generate_with(&one, |_| Ok(9)).unwrap(),

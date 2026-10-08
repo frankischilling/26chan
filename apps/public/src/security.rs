@@ -316,6 +316,15 @@ fn headers(
     } else {
         script
     };
+    let script = if full_board_page {
+        format!(
+            "{script} {}{}",
+            state.origin,
+            crate::ui_assets::NATIVE_POST_DELETION_PATH
+        )
+    } else {
+        script
+    };
     let script = if math {
         format!(
             "{script} {}{}",
@@ -534,6 +543,20 @@ mod tests {
                             policy
                                 .contains("https://board.example/static/native-math-worker.v1.js"),
                             expected
+                        );
+                        assert_eq!(
+                            policy.contains(
+                                "https://board.example/static/native-post-deletion.v1.js"
+                            ),
+                            matches!(
+                                page,
+                                Some(
+                                    InteractivePage::Board
+                                        | InteractivePage::Catalog
+                                        | InteractivePage::Upload
+                                )
+                            ) && status == StatusCode::OK
+                                && content_type.starts_with("text/html")
                         );
                         assert!(
                             !policy.contains("unsafe-inline") && !policy.contains("unsafe-eval")

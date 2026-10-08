@@ -127,13 +127,101 @@ try {
   const opening = page.waitForEvent('popup'); await (spoilers ? link : file.locator('.fileText > a')).click(); const imagePage = await opening;
   await expect.poll(() => imagePage.locator('img').evaluate(image => image.naturalWidth)).toBe(1); await imagePage.close();
   const deletion = page.locator(`#p${post} form[action$="/delete"]`);
-  await page.locator(`#p${post} .postActions summary`).click();
-  await expect(deletion.locator('[name=password]')).toHaveValue(''); await deletion.locator('[name=file_only]').check();
-  await deletion.getByRole('button', { name: 'Delete post', exact: true }).click();
+  if (inline) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(post => {
+      localStorage.removeItem('4chan_never_show_mobile');
+      window.dispatchEvent(new StorageEvent('storage', { key: '4chan_never_show_mobile', storageArea: localStorage }));
+      window.ownedMobileFileDeletion = {
+        document, post: document.getElementById(`p${post}`), file: document.getElementById(`f${post}`),
+        image: document.querySelector(`#f${post} .fileThumb > img`),
+        text: document.getElementById(`m${post}`).textContent, history: history.length,
+      };
+    }, post);
+    const currentUrl = page.url(), endpoint = url(`/${board}/imgboard.php`), deletionRequests = [];
+    page.on('request', request => {
+      if (request.method() === 'POST' && [endpoint, url(`/${board}/delete`)].includes(request.url())) deletionRequests.push(request);
+    });
+    const menu = page.getByRole('button', { name: `Post menu for post ${post}`, exact: true });
+    await expect(menu).toHaveText('...');
+    await menu.click();
+    await expect(page.getByRole('menuitem', { name: 'Delete file', exact: true })).toBeVisible();
+    const finished = page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'POST');
+    const confirmation = page.waitForEvent('dialog');
+    const clicked = page.getByRole('menuitem', { name: 'Delete file', exact: true }).click();
+    const dialog = await confirmation, message = dialog.message(), type = dialog.type();
+    await dialog.accept(); await clicked;
+    assert.equal(type, 'confirm'); assert.equal(message, 'Delete file?');
+    const removed = await finished;
+    assert.equal(removed.status(), 200);
+    assert.ok((await removed.text()).includes('The deletion was completed.'));
+    await expect(page.locator('.nativeDeletionFeedback')).toHaveText(`Post No.${post}: File deleted.`);
+    await expect(file).toHaveClass(/\bdeleted\b/);
+    await expect(file.locator('.fileThumb > img')).toHaveClass(/\bdeleted\b/);
+    await expect(file.locator('.fileThumb > img')).toHaveCSS('opacity', '0.66');
+    await expect(file).toHaveCSS('opacity', '1');
+    await expect(page.locator(`#pc${post}`)).not.toHaveClass(/\bdeleted\b/);
+    await expect(page.locator(`#p${post}`)).not.toHaveAttribute('aria-busy');
+    await expect(deletion.locator('[name=file_only]')).not.toBeChecked();
+    await expect(deletion.locator('[name=password]')).toHaveValue('');
+    assert.equal(page.url(), currentUrl);
+    assert.equal(await page.evaluate(post => {
+      const original = window.ownedMobileFileDeletion;
+      return original.document === document && original.history === history.length
+        && original.post === document.getElementById(`p${post}`)
+        && original.file === document.getElementById(`f${post}`)
+        && original.image === document.querySelector(`#f${post} .fileThumb > img`)
+        && original.text === document.getElementById(`m${post}`).textContent;
+    }, post), true);
+    assert.equal(deletionRequests.length, 1);
+    assert.equal(deletionRequests[0].url(), endpoint);
+    assert.equal(deletionRequests[0].isNavigationRequest(), false);
+    assert.deepEqual([...new URLSearchParams(deletionRequests[0].postData())].sort(),
+      [[post, 'delete'], ['mode', 'usrdel'], ['onlyimgdel', 'on']].sort());
+    await menu.click();
+    await expect(page.getByRole('menuitem', { name: 'Delete post', exact: true })).toBeVisible();
+    for (const name of ['Delete file', 'Open normalized file', 'Image search',
+      'Search image on Google', 'Search image on Yandex', 'Search image on SauceNAO']) {
+      await expect(page.getByRole('menuitem', { name, exact: true })).toHaveCount(0);
+    }
+    await page.keyboard.press('Escape');
+    // Exercise real clicks on retained links. Deletion must prevent both native
+    // expansion and ordinary navigation rather than merely hiding menu entries.
+    await page.evaluate(post => {
+      window.ownedDeletedFileClicks = [];
+      const record = event => {
+        if (event.target.closest(`#f${post} a[href]`)) window.ownedDeletedFileClicks.push(event.defaultPrevented);
+      };
+      document.addEventListener('click', record); document.addEventListener('auxclick', record);
+    }, post);
+    const mediaRequests = requests.filter(value => value === media || value === media.replace(/\.png$/, 's.jpg')).length;
+    const openPages = context.pages().length;
+    await link.click(); await file.locator('.fileText > a').click(); await link.click({ button: 'middle' });
+    assert.deepEqual(await page.evaluate(() => window.ownedDeletedFileClicks), [true, true, true]);
+    await expect(file.locator('.expanded-thumb')).toHaveCount(0);
+    await expect(page.locator('#image-hover')).toHaveCount(0);
+    assert.equal(context.pages().length, openPages);
+    assert.equal(requests.filter(value => value === media || value === media.replace(/\.png$/, 's.jpg')).length, mediaRequests);
+    assert.equal(page.url(), currentUrl); assert.equal(deletionRequests.length, 1);
+    const after = await context.request.get(api); assert.equal(after.status(), 200);
+    const retained = (await after.json()).posts;
+    assert.deepEqual(retained.map(value => String(value.no)), posts.map(value => String(value.no)));
+    assert.equal(retained.find(value => String(value.no) === post).com, attached.com);
+    assert.equal(retained.find(value => String(value.no) === post).filedeleted, 1);
+    assert.equal(retained[2].com, 'Text after the consumed image');
+    assert.equal((await context.request.get(media)).status(), 404);
+    await page.reload();
+  } else {
+    // Keep the ordinary server form/redirect covered separately from the native
+    // mobile action; it uses the same real anonymous session proof.
+    await page.locator(`#p${post} .postActions summary`).click();
+    await expect(deletion.locator('[name=password]')).toHaveValue(''); await deletion.locator('[name=file_only]').check();
+    await deletion.getByRole('button', { name: 'Delete post', exact: true }).click();
+  }
   await expect(page.locator(`#p${post} .file img.fileDeletedRes`)).toHaveAttribute('src', '/static/catalog/filedeleted-res.gif');
   await expect(page.locator(`#p${post} .file a`)).toHaveCount(0);
   assert.equal((await context.request.get(media)).status(), 404);
   const deleted = (await (await context.request.get(api)).json()).posts.find(value => String(value.no) === post);
   assert.equal(deleted.filedeleted, 1); assert.equal(deleted.tim, undefined); assert.equal(deleted.spoiler, spoilers ? 1 : undefined);
-  console.log(`PASS JavaScript upload, isolated approval, persisted posting through Quick Reply, ${inline ? 'inline selection, ' : ''}consumed capabilities, text follow-up, replay denial and file-only deletion`);
+  console.log(`PASS JavaScript upload, isolated approval, persisted posting through Quick Reply, ${inline ? 'inline selection, ' : ''}consumed capabilities, text follow-up, replay denial and ${inline ? 'mobile in-place file-only deletion' : 'file-only form deletion'}`);
 } finally { if (browser) await browser.close(); }

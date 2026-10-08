@@ -14,6 +14,7 @@ pub(crate) const WATCHER_POSITION_PATH: &str = "/static/watcher-position.v1.js";
 pub(crate) const NATIVE_FILTER_PATH: &str = "/static/native-filter.v1.js";
 pub(crate) const NATIVE_QUICK_REPLY_PATH: &str = "/static/native-quick-reply.v1.js";
 pub(crate) const NATIVE_BACKLINKS_PATH: &str = "/static/native-backlinks.v1.js";
+pub(crate) const NATIVE_POST_DELETION_PATH: &str = "/static/native-post-deletion.v1.js";
 pub(crate) const NATIVE_IMAGES_PATH: &str = "/static/native-images.v1.js";
 pub(crate) const NATIVE_DISPLAY_PATH: &str = "/static/native-display.v1.js";
 pub(crate) const NATIVE_POST_TOOLTIPS_PATH: &str = "/static/native-post-tooltips.v1.js";
@@ -927,6 +928,10 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         (
             NATIVE_IMAGES_PATH,
             include_bytes!("../static/native-images.v1.js").as_slice(),
+        ),
+        (
+            NATIVE_POST_DELETION_PATH,
+            include_bytes!("../static/native-post-deletion.v1.js").as_slice(),
         ),
         (
             NATIVE_BACKLINKS_PATH,

@@ -306,6 +306,11 @@ pub(crate) fn tokenize_spanned(
             && let Some((quote, consumed)) = crate::static_quote::StaticQuote::parse(tail)
         {
             found = Some((Token::StaticQuote(quote, Vec::new()), consumed));
+        } else if quotes
+            && source_quotes
+            && let Some(consumed) = crate::static_quote::unresolved_post_reference_prefix(tail)
+        {
+            found = Some((Token::Text(tail[..consumed].into()), consumed));
         } else if quotes && let Some(rest) = tail.strip_prefix(">>>/") {
             if let Some(end) = rest.bytes().take(11).position(|byte| byte == b'/')
                 && let Ok(board) = crate::BoardSlug::parse(&rest[..end])

@@ -26,6 +26,9 @@ routes replace the original separate posting domain. Public archived deletion is
 rejected by the [source eligibility gates](source-public-deletion.md). Multiple
 selected posts follow the source request order and partial-success behavior.
 
+[Mobile menu deletion](native-post-deletion.md) uses this route in place, with
+explicit confirmation, bounded completion and stale-target protection.
+
 ## Request and authorization rules
 
 Deletion accepts either URL-encoded fields or bounded text-only multipart. It

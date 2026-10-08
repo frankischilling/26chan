@@ -61,7 +61,9 @@ if (($argv[3] ?? '') === '--worker') {
     }
     if (!preg_match('/\$valid_boards\s*=\s*"([a-z0-9|]+)";/', $app, $match)) { throw new RuntimeException('Board allowlist missing.'); }
     $valid_boards = $match[1];
-    define('BOARD_DIR', 'g'); define('SJIS_TAGS', true); define('CODE_TAGS', true);
+    $projection_board = $argv[5] ?? 'g';
+    if (!in_array($projection_board, ['g', 'po', 'b'], true)) { throw new RuntimeException('Unknown projection board.'); }
+    define('BOARD_DIR', $projection_board); define('SJIS_TAGS', true); define('CODE_TAGS', true);
     // Ordinary public comments cannot take the legacy privileged HTML branch.
     $html = 0;
     // Removed from PHP 8; the audited deployment did not enable magic quotes.
@@ -156,12 +158,133 @@ if (($argv[3] ?? '') === '--worker') {
                 'linked' => $linked, 'wrapped' => str_replace('{{w_br}}', '<wbr>', $wrapped), 'final' => $final, 'teaser' => $teaser, 'teaser_full' => $teaser_full];
         }
     }
-    echo json_encode($cases, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    // Prepared ordinary comments only: independent source functions exercise
+    // randomizer composition before markup, including unclosed BBCode.
+    $projection_cases = [];
+    $projection_inputs = [
+        '', '0', '>green', '>>42 >>>/g/catalog',
+        '[spoiler]unclosed', '[code]unclosed', '[sjis]unclosed', '[b]unclosed',
+        "[code]\nabcdefg[/code]\n\n\n\n>tail",
+        'CUCK soy finna & " fam',
+        "https://boards.4chan.org/g/thread/42#p43 https://www.4chan.org/faq?x=1&y=2",
+        str_repeat('x', 34) . " &quot;",
+        "t[spoiler]t[/spoiler]t {{w_br}} ~?rep?~>tail~?erep?~",
+        "https://www.4chan.org/faq/~?re~?rep?~p?~owned",
+        '>>>/g/1e2 >>>/g/1e+2 >>>/g/1e-2 >>>/po/+001e+02 >>>/po/-0e-000',
+        '>>>/g/1e999999999999999999999999999999999999 >>>/po/-1e-999999999999999999999999999999999999',
+        '>>>/po/' . str_repeat('9', 400) . 'e+999999999999999999999999999999999999',
+        '>>>/g/e2 >>>/g/1e >>>/g/1e+ >>>/g/1e- >>>/g/1e--2 >>>/g/1e+-2',
+        '>>>/g/1e2e3 >>>/g/1e2/ >>>/g/1e2, >>>/g/1e2l >>>/g/0x1 >>>/g/nan >>>/g/inf',
+        '>>>/g/1E2 >>>/g/1.2 >>>/g/+ >>>/g/-',
+        "https://boards.4chan.org/g/thread/42\u{2003}tail",
+        "https://boards.4chan.org/po/thread/42\u{a0}tail",
+        "https://boards.4chan.org/g/thread/42\ttail",
+        'https://boards.4chan.org/g/fooXphp?res=42 https://boards.4chan.org/po/fooXphp?res=42#p43',
+        'https://boards.4chan.org/g/thread/0 https://boards.4chan.org/g/thread/42#p0',
+        'https://boards.4chan.org/long_board_name/thread/42 https://boards.4chan.org/po/',
+        '>>>/longunknownboard/rules/3 >>>/f/catalog >>>/unknown/catalog',
+        str_repeat('x', 26) . '>>>/po/1e2',
+        str_repeat('x', 25) . '>>>/po/1e+2',
+        str_repeat('x', 26) . '>>>/po/1e+2',
+        str_repeat('x', 27) . '>>>/po/1e2',
+
+    ];
+    if (BOARD_DIR !== 'g') {
+        $projection_inputs = [
+            'https://boards.4chan.org/po/fooXphp?res=42#p43 https://boards.4chan.org/g/fooXphp?res=42',
+            "https://boards.4chan.org/po/thread/42\u{2003}tail https://boards.4chan.org/b/thread/42\ttail",
+            'https://boards.4chan.org/po/thread/0 https://boards.4chan.org/b/thread/42#p0',
+            '>>>/po/1e999999999999999999999 >>>/g/1e-2 >>>/po/1e-',
+        ];
+    }
+    $randomizers = [null,
+        ['kind' => 'dice', 'text' => 'Rolled 1, 1 + 3 = 5 (2d1 + 3)'],
+        ['kind' => 'fortune', 'text' => 'You will meet a dark handsome stranger', 'color' => '#0893e1'],
+    ];
+    $projection_rolls = $profile === 'test' ? [[0, 4], [1, 5], [2, 3], [0, 0], [5, 5]] : [[null, null]];
+    $scenarios = [];
+    foreach ($projection_inputs as $input) {
+        foreach ($randomizers as $randomizer) {
+            $scenarios[] = [$input, ['spoilers' => true, 'code' => true, 'sjis' => true, 'op' => true], $randomizer, true];
+            if ($profile === 'global') { $scenarios[] = [$input, ['spoilers' => true, 'code' => true, 'sjis' => true, 'op' => true], $randomizer, false]; }
+        }
+    }
+    if ($profile === 'global') {
+        for ($bits = 0; $bits < 16; ++$bits) {
+            $policy = ['spoilers' => (bool)($bits & 1), 'code' => (bool)($bits & 2), 'sjis' => (bool)($bits & 4), 'op' => (bool)($bits & 8)];
+            $scenarios[] = ["[spoiler]x[/spoiler][sjis]text[/sjis][code]\nabcdefg[/code][b]tail", $policy, $randomizers[2], false];
+        }
+    }
+    if ($profile === 'global' && BOARD_DIR === 'g') {
+        // Fixed source outcomes retain dice count/side spelling. These pass
+        // through the same markup, filter and wrapping stages as other rolls.
+        foreach (['Rolled 1 (1d01)', 'Rolled 1 (01d1)',
+                  'Rolled 1, 1 + 3 = 5 (0002d0001 + 3)'] as $dice_text) {
+            foreach ([true, false] as $filter_enabled) {
+                $scenarios[] = ['[spoiler]tail',
+                    ['spoilers' => true, 'code' => true, 'sjis' => true, 'op' => true],
+                    ['kind' => 'dice', 'text' => $dice_text], $filter_enabled];
+            }
+        }
+    }
+    foreach ($scenarios as [$input, $policy, $randomizer, $filter_enabled]) {
+        foreach ($filter_enabled ? $projection_rolls : [[null, null]] as $rolls) {
+            $GLOBALS['owned_filter_rolls'] = $rolls;
+            $comment = htmlspecialchars($input, ENT_QUOTES);
+            // Record the posting preparer's boundary after exactly one first
+            // marker pass. The source pipeline below still runs that pass once.
+            $prepared_input = htmlspecialchars_decode(str_replace(['~?rep?~', '~?erep?~'], '', $comment), ENT_QUOTES);
+            // Source 5557 and 5590. Outcomes are fixed, not resampled.
+            if ($randomizer !== null && $randomizer['kind'] === 'dice') {
+                $comment = '<b>' . $randomizer['text'] . '<br><br></b>' . $comment;
+            } elseif ($randomizer !== null) {
+                $comment .= '<span class="fortune" style="color:' . $randomizer['color'] . '"><br><br><b>Your fortune: ' . $randomizer['text'] . '</b></span>';
+            }
+            $comment = str_replace(['~?rep?~', '~?erep?~'], '', $comment);
+            $comment = str_replace("\n", '', nl2br($comment, false));
+            if ($policy['sjis']) { $comment = sjis_parse($comment); }
+            if ($policy['spoilers']) {
+                $comment = spoiler_parse($comment);
+                if (stripos($comment, '<s>') !== false) { $comment = preg_replace('/<s>(\s|<br>|(?R))*<\/s>/', '', $comment); }
+            }
+            if ($policy['code']) {
+                $comment = preg_replace('#(\[code\](.{0,6})\[\/code\])#', '\\2', $comment);
+                $comment = code_parse($comment);
+                $comment = str_replace('<pre class="prettyprint"><br>', '<pre class="prettyprint">', $comment);
+                $comment = preg_replace('#(<br>){4,}#', '<br><br><br>', $comment);
+            }
+            if ($policy['op']) { $comment = parse_op_markup($comment); }
+            $markup = $comment;
+            if ($filter_enabled) { $comment = word_filter($comment, 'com'); }
+            $filtered = $comment;
+            // Root URLs can leave $no unset in the pinned callback. Preserve
+            // those nonfatal source diagnostics as data, like format-reference.
+            $link_warnings = [];
+            set_error_handler(function ($severity, $message) use (&$link_warnings) { $link_warnings[] = ['severity' => $severity, 'message' => $message]; return true; }, E_WARNING | E_DEPRECATED);
+            $comment = normalize_and_linkify($comment);
+            restore_error_handler();
+            $linked = $comment;
+            $comment = wordwrap2($comment, 35, '{{w_br}}');
+            $comment = preg_replace('#(&gt;&gt;&gt;/[a-z0-9]+/[^ <$]*|&gt;&gt;[0-9]+)#', '~?rep?~\\1~?erep?~', $comment);
+            $comment = preg_replace('!(^|r>|r> )(&gt;[^<]*)!', '\\1<span class="quote">\\2</span>', $comment);
+            $comment = preg_replace('#~?rep?~<span class="quote">(.+?)</span>~?erep?~#', '\\1', $comment);
+            $comment = str_replace(['~?rep?~', '~?erep?~', '{{w_br}}'], ['', '', '<wbr>'], $comment);
+            $projection_cases[] = ['board' => BOARD_DIR, 'synthetic_input' => $input, 'prepared_comment' => $prepared_input, 'policy' => $policy, 'filter_enabled' => $filter_enabled,
+                'rolls' => $rolls, 'randomizer' => $randomizer, 'markup' => $markup, 'filtered' => $filtered,
+                'linked' => $linked, 'link_warnings' => $link_warnings, 'final' => $comment, 'source_check_applies' => (bool)$comment];
+        }
+    }
+    echo json_encode(['posting' => $cases, 'admission_projection' => $projection_cases], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     exit(0);
 }
 $profiles = [];
-foreach ($hashes as $profile => $hash) {
-    $process = proc_open([PHP_BINARY, __FILE__, $root, $argv[2], '--worker', $profile],
+$admission_projection = [];
+$workers = [];
+foreach ($hashes as $profile => $hash) { $workers[] = [$profile, 'g']; }
+$workers[] = ['global', 'po'];
+$workers[] = ['global', 'b'];
+foreach ($workers as [$profile, $projection_board]) {
+    $process = proc_open([PHP_BINARY, __FILE__, $root, $argv[2], '--worker', $profile, $projection_board],
         [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, null, ['bypass_shell' => true]);
     if (!is_resource($process)) { throw new RuntimeException('Pure worker did not start.'); }
     fclose($pipes[0]);
@@ -169,14 +292,16 @@ foreach ($hashes as $profile => $hash) {
     $errors = stream_get_contents($pipes[2], 4097); fclose($pipes[2]);
     $status = proc_close($process);
     if ($status !== 0 || strlen($output) > 2097152 || $errors !== '') { throw new RuntimeException('Pure worker failed: ' . $profile); }
-    $profiles[$profile] = json_decode($output, true, 64, JSON_THROW_ON_ERROR);
+    $decoded = json_decode($output, true, 64, JSON_THROW_ON_ERROR);
+    if ($projection_board === 'g') { $profiles[$profile] = $decoded['posting']; }
+    $admission_projection[$profile] = array_merge($admission_projection[$profile] ?? [], $decoded['admission_projection']);
 }
 $files = ['imgboard.php' => hash('sha256', $app), 'lib/util.php' => hash('sha256', $util),
     'lib/postfilter.php' => hash('sha256', $postfilter)];
 foreach ($hashes as $name => $hash) { $files['wordfilters/' . $name . '.php'] = $hash; }
 $json = json_encode(['reference' => 'operator-supplied 4chan-old checkout', 'extractor_php' => PHP_VERSION,
     'extractor_pcre' => PCRE_VERSION, 'board' => 'g', 'markup_policy' => ['spoilers' => true, 'code' => true, 'sjis' => true, 'op' => true],
-    'files' => $files, 'profiles' => $profiles], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+    'files' => $files, 'profiles' => $profiles, 'admission_projection' => $admission_projection], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
 if (in_array('--check', $argv, true)) {
     if (file_get_contents($argv[2]) !== $json) { throw new RuntimeException('Posting reference differs.'); }
     echo 'Wordfilter posting reference matches ' . array_sum(array_map('count', $profiles)) . " synthetic cases.\n";

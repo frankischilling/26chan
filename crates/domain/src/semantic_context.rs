@@ -91,7 +91,7 @@ fn cleanup(input: &str) -> String {
 
 // htmlspecialchars_decode(ENT_QUOTES | ENT_HTML401), not html_entity_decode:
 // leave other named/numeric entities as literal text and never decode twice.
-fn decode_special_entities(input: &str) -> String {
+pub(crate) fn decode_special_entities(input: &str) -> String {
     let mut output = String::new();
     let mut rest = input;
     while let Some(start) = rest.find('&') {

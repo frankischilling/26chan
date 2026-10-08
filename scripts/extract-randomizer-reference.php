@@ -5,6 +5,9 @@ if ($argc < 3) { fwrite(STDERR, "Usage: php scripts/extract-randomizer-reference
 $root = realpath($argv[1]);
 if (!$root) { throw new RuntimeException('Reference directory is missing.'); }
 $source = file_get_contents($root . '/imgboard.php');
+if (hash('sha256', $source) !== 'caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445') {
+    throw new RuntimeException('Audited randomizer source differs.');
+}
 if (!preg_match('/preg_match\( "(\/dice[^"\n]+)"/', $source, $match)) { throw new RuntimeException('Dice pattern is missing.'); }
 $pattern = stripcslashes($match[1]);
 $start = strpos($source, "\tif (DICE_ROLL == 1) {");
@@ -32,7 +35,21 @@ function load_truncation($source) {
 }
 load_truncation($source);
 $cases = [];
-foreach (['dice+2d1+3', 'dice+2d1-3', 'dice+2d1 -3', 'dice+2d1--3', 'dice 1 1', 'prefix dice+26+1 suffix', 'SaGedice+2d1+3', 'DICE+2d1', 'dice++2d1'] as $input) {
+$inputs = [
+    'dice+2d1+3', 'dice+2d1-3', 'dice+2d1 -3', 'dice+2d1--3', 'dice 1 1',
+    'prefix dice+26+1 suffix', 'SaGedice+2d1+3', 'DICE+2d1', 'dice++2d1',
+    'dice+1d01', 'dice+01d1', 'dice+0002d0001+0003',
+    'dice+00024d01', 'dice+025d01', 'dice+00025d01', 'dice+00026d01',
+    'dice+01d01-0000', 'dice+01d01 -0000', 'dice+02d01 -0003',
+    'dice+00d', 'dice+00dX', 'dice+00dX dice+01d01',
+    'dice+-1d1', 'dice+1D1', 'dice+1d-1', 'dice+１d1', 'dice+1d１',
+    'dice+' . str_repeat('0', 92) . '1d1',
+    'dice+1d' . str_repeat('0', 92) . '1',
+    'dice+' . str_repeat('9', 92) . 'd01',
+    'dice+01d01+not-a-modifier',
+];
+foreach ($inputs as $input) {
+    if (strlen($input) > 100) { throw new RuntimeException('Dice input exceeds its bound.'); }
     $email = str_ireplace('sage', '', $input);
     $com = 'ordinary'; $dicesum = 0; $diceadd_formatted = '';
     // Optional PCRE groups are absent in PHP 8; initialize the source's expected
@@ -43,6 +60,18 @@ foreach (['dice+2d1+3', 'dice+2d1-3', 'dice+2d1 -3', 'dice+2d1--3', 'dice 1 1', 
     restore_error_handler();
     $dice = str_starts_with($com, '<b>') ? substr($com, 3, strpos($com, '<br>') - 3) : null;
     $cases[] = ['options' => $input, 'dice' => $dice];
+}
+// The source pattern admits these numbers. The rewrite deliberately rejects
+// them before rolling under its documented zero, side and modifier bounds.
+// Record actual PCRE captures without calling mt_rand on invalid bounds.
+$bounded_rejections = [];
+foreach (['dice+0d1', 'dice+000d01', 'dice+1d0', 'dice+01d000',
+          'dice+1d2147483648', 'dice+1d0002147483648',
+          'dice+1d1+9223372036854775808', 'dice+1d1 -9223372036854775809'] as $input) {
+    if (preg_match($pattern, $input, $match) !== 1) {
+        throw new RuntimeException('Bounded-rejection source input no longer matches.');
+    }
+    $bounded_rejections[] = ['options' => $input, 'captures' => array_slice($match, 1)];
 }
 if (!preg_match('/\$fortunes\s*=\s*(array\([^\n]+\));/', $source, $match)) { throw new RuntimeException('Standard fortunes are missing.'); }
 $fortunes = eval('return ' . $match[1] . ';');
@@ -64,8 +93,8 @@ foreach ([['dice' => $cases[0]['dice'], 'fortune' => null, 'color' => null], ['d
         }
     }
 }
-$json = json_encode(['reference' => 'operator-supplied 4chan-old checkout', 'files' => ['imgboard.php' => hash('sha256', $source), 'catalog.php' => hash_file('sha256', $root . '/catalog.php')], 'dice_cases' => $cases, 'fortunes' => $palette, 'teaser_cases' => $teasers], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+$json = json_encode(['reference' => 'operator-supplied 4chan-old checkout', 'files' => ['imgboard.php' => hash('sha256', $source), 'catalog.php' => hash_file('sha256', $root . '/catalog.php')], 'dice_cases' => $cases, 'bounded_rejections' => $bounded_rejections, 'fortunes' => $palette, 'teaser_cases' => $teasers], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
 if (in_array('--check', $argv, true)) {
     if (file_get_contents($argv[2]) !== $json) { throw new RuntimeException('Randomizer reference differs.'); }
-    echo 'Randomizer reference matches 9 dice cases, 13 fortunes and 8 teasers.' . "\n";
+    echo 'Randomizer reference matches ' . count($cases) . ' dice cases, ' . count($bounded_rejections) . ' bounded rejections, 13 fortunes and 8 teasers.' . "\n";
 } else { file_put_contents($argv[2], $json); }

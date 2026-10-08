@@ -102,6 +102,19 @@ async fn board_randomizers_are_guarded_persisted_and_rollback_with_the_post() {
         );
         assert_eq!(second.dice_result, first.dice_result);
 
+        for (options, expected) in [
+            ("dice+0002d01+3", "Rolled 1, 1 + 3 = 5 (0002d01 + 3)"),
+            ("dice+01d001", "Rolled 1 (01d001)"),
+        ] {
+            let id = create(&task_public, &task_board, plain, options)
+                .await
+                .unwrap();
+            for _ in 0..2 {
+                let saved = find_post(&task_public, &task_board, id).await.unwrap();
+                assert_eq!(saved.dice_result.as_deref(), Some(expected));
+            }
+        }
+
         sqlx::query("UPDATE content.boards SET fortune_trip=true WHERE slug=$1")
             .bind(&task_board)
             .execute(&task_admin)

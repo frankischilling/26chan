@@ -10,6 +10,7 @@ import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativ
 import { mountNativeBacklinks, mountNativeInlineQuotes, createCommentProjection } from './native-backlinks.v1.js';
 import { mountNativeQuickReply } from './native-quick-reply.v1.js';
 import { mountNativeImages } from './native-images.v1.js';
+import { mountNativeDeletion } from './native-post-deletion.v1.js';
 import { mountNativeDisplay, mountNativePosterIds, mountNativePosterIdActions } from './native-display.v1.js';
 import { mountNativePostTooltips } from './native-post-tooltips.v1.js';
 import { mountNativeThreadUpdater, mountNativeThreadExpansion, mountNativeDepager, NativeBoardPageTransport } from './native-thread-controls.v1.js';
@@ -341,6 +342,11 @@ async function start(context) {
   const nativeImages = catalog ? null : mountNativeImages({ root: document.querySelector('.board'),
     mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, mobile, family: themeFamily,
     previewRoot: () => document.getElementById('quote-preview'),
+  });
+  const nativeDeletion = catalog ? null : mountNativeDeletion({ root: document.querySelector('.board'), board,
+    settings: configuration, mobileLayout: () => sourceMobileLayout(mobile.matches, readNeverMobile()),
+    projection, images: nativeImages,
+    complete: post => { if (activePostMenu?.post === post) closePostMenu(); },
   });
   const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
     worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection,
@@ -796,6 +802,7 @@ async function start(context) {
     return link;
   }
   function postFileMenu(menu) {
+    if (menu.post.closest('.deleted') || menu.post.querySelector(':scope > .file.deleted')) return;
     const source = projection.query(menu.post, '.file > .fileText > a[href],.file > p > a[href]');
     if (!source) return;
     let file;
@@ -811,9 +818,9 @@ async function start(context) {
       if (name === 'Yandex') url.searchParams.set('rpt', 'imageview');
       return [name, url.href];
     });
-    if (mobile.matches) {
-      if (menu.post.querySelector(`form[action="/${board}/delete"] input[name=file_only]`)) {
-        postMenuItem(menu, 'del-file', 'Delete file', () => openPostAction(menu.post, 'delete', true));
+    if (sourceMobileLayout(mobile.matches, readNeverMobile())) {
+      if (nativeDeletion?.canDelete(menu.post, true)) {
+        postMenuItem(menu, 'del-file', 'Delete file', () => { void nativeDeletion.remove(menu.post, true); });
       }
       postMenuLink(menu.list, 'Open normalized file', file.href);
       for (const [name, url] of providers) postMenuLink(menu.list, `Search image on ${name}`, url);
@@ -864,18 +871,6 @@ async function start(context) {
     } catch { /* Popup blocking falls back to the same canonical native GET. */ }
     if (popup) reportRegistry.register(popup, board, id, post);
     else location.assign(url);
-  }
-  function openPostAction(post, action, fileOnly = false) {
-    const form = post.querySelector(`.postActions form[action="/${board}/${action}"]`);
-    if (!form) return;
-    if (action === 'delete') {
-      const checkbox = form.querySelector('input[name=file_only]');
-      if (checkbox) checkbox.checked = fileOnly;
-    }
-    const details = form.closest('details');
-    if (details) details.open = true;
-    const field = form.querySelector(action === 'report' ? '[name="reason"]' : '[name="password"]');
-    (field?.type === 'hidden' ? form.querySelector('button') : field)?.focus();
   }
   function syncOpenPostMenu(position = true) {
     const menu = activePostMenu;
@@ -936,7 +931,7 @@ async function start(context) {
     if (post.classList.contains('reply')) {
       menu.hide = postMenuItem(menu, 'hide-r', '', () => { void nativeReplies?.toggle(post.id.slice(1)); });
     }
-    if (mobile.matches) postMenuItem(menu, 'del-post', 'Delete post', () => openPostAction(post, 'delete'));
+    if (nativeDeletion?.canDelete(post)) postMenuItem(menu, 'del-post', 'Delete post', () => { void nativeDeletion.remove(post); });
     postFileMenu(menu);
     root.addEventListener('keydown', event => {
       const items = [...list.querySelectorAll('[role="menuitem"]')].filter(item => item.getClientRects().length);
@@ -1018,6 +1013,7 @@ async function start(context) {
     nativeInlineQuotes?.refresh();
     nativeQuotePreview?.refresh();
     nativeImages?.refresh();
+    nativeDeletion?.refresh();
     nativeEmbeds?.refresh();
     nativeCustomCSS?.refresh();
     nativeDisplay?.refresh();

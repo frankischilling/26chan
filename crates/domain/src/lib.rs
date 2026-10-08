@@ -13,6 +13,7 @@ pub mod semantic_context;
 pub mod word_break;
 
 pub mod bump;
+pub mod comment_admission_projection;
 mod comment_ascii;
 mod comment_lines;
 pub mod comment_markup;

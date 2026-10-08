@@ -1,0 +1,1502 @@
+{
+    "reference": "operator-supplied 4chan-old checkout",
+    "runtime": "PHP 8.3.6",
+    "board": "g",
+    "files": {
+        "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+        "lib/util.php": "5307cea255e2d3eb243c7549e1a6521281bf6253c47e010476412b9a4c63a70c"
+    },
+    "scope": "Original normalization/static-link functions and post-wrap numeric gate, with recording missing-post stub; database coercion and existence are unqualified.",
+    "dynamic_cases": [
+        {
+            "input": ">>>/po/1e2",
+            "wrapped": "&gt;&gt;&gt;/po/1e2",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "1e2"
+                }
+            ],
+            "missing_post_html": "<span class=\"deadlink\">&gt;&gt;&gt;/po/1e2</span>"
+        },
+        {
+            "input": ">>>/po/1e+2",
+            "wrapped": "&gt;&gt;&gt;/po/1e+2",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "1e+2"
+                }
+            ],
+            "missing_post_html": "<span class=\"deadlink\">&gt;&gt;&gt;/po/1e+2</span>"
+        },
+        {
+            "input": ">>>/po/1e-2",
+            "wrapped": "&gt;&gt;&gt;/po/1e-2",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "1e-2"
+                }
+            ],
+            "missing_post_html": "<span class=\"deadlink\">&gt;&gt;&gt;/po/1e-2</span>"
+        },
+        {
+            "input": ">>>/po/42",
+            "wrapped": "&gt;&gt;&gt;/po/42",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "42"
+                }
+            ],
+            "missing_post_html": "<span class=\"deadlink\">&gt;&gt;&gt;/po/42</span>"
+        },
+        {
+            "input": ">>>/po/+001",
+            "wrapped": "&gt;&gt;&gt;/po/+001",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "+001"
+                }
+            ],
+            "missing_post_html": "<span class=\"deadlink\">&gt;&gt;&gt;/po/+001</span>"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/1e2",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1e2<wbr>",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "1e2"
+                }
+            ],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxx<span class=\"deadlink\">&gt;&gt;&gt;/po/1e2</span><wbr>"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/1e+2",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1e+<wbr>2",
+            "lookup_terms": [],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1e+<wbr>2"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/1e-2",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1e-<wbr>2",
+            "lookup_terms": [],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1e-<wbr>2"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/42",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/42",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "42"
+                }
+            ],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxx<span class=\"deadlink\">&gt;&gt;&gt;/po/42</span>"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/+001",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/+00<wbr>1",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "+00"
+                }
+            ],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxx<span class=\"deadlink\">&gt;&gt;&gt;/po/+00</span><wbr>1"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/1e2",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1e<wbr>2",
+            "lookup_terms": [],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1e<wbr>2"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/1e+2",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1e<wbr>+2",
+            "lookup_terms": [],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1e<wbr>+2"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/1e-2",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1e<wbr>-2",
+            "lookup_terms": [],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1e<wbr>-2"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/42",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/42<wbr>",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "42"
+                }
+            ],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxxx<span class=\"deadlink\">&gt;&gt;&gt;/po/42</span><wbr>"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/+001",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/+0<wbr>01",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "+0"
+                }
+            ],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxxx<span class=\"deadlink\">&gt;&gt;&gt;/po/+0</span><wbr>01"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/1e2",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1<wbr>e2",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "1"
+                }
+            ],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxxxx<span class=\"deadlink\">&gt;&gt;&gt;/po/1</span><wbr>e2"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/1e+2",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1<wbr>e+2",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "1"
+                }
+            ],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxxxx<span class=\"deadlink\">&gt;&gt;&gt;/po/1</span><wbr>e+2"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/1e-2",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/1<wbr>e-2",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "1"
+                }
+            ],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxxxx<span class=\"deadlink\">&gt;&gt;&gt;/po/1</span><wbr>e-2"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/42",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/4<wbr>2",
+            "lookup_terms": [
+                {
+                    "board": "po",
+                    "number": "4"
+                }
+            ],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxxxx<span class=\"deadlink\">&gt;&gt;&gt;/po/4</span><wbr>2"
+        },
+        {
+            "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxx>>>/po/+001",
+            "wrapped": "xxxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/+<wbr>001",
+            "lookup_terms": [],
+            "missing_post_html": "xxxxxxxxxxxxxxxxxxxxxxxxxxx&gt;&gt;&gt;/po/+<wbr>001"
+        }
+    ],
+    "normalization_cases": [
+        {
+            "input": "https://boards.4chan.org/g/imgboard.php?res=42",
+            "normalized": ">>42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/imgboardXphp?res=42#p43",
+            "normalized": ">>43",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/xphp?res=42",
+            "normalized": "https://boards.4chan.org/g/xphp?res=42",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/xphp?res=42",
+                    "label": "https://boards.4chan.org/g/xphp?res=42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/xxphp?res=42",
+            "normalized": ">>42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/x/php?res=42",
+            "normalized": ">>42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/x-php?res=42",
+            "normalized": ">>42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/x.php?RES=42#Q43",
+            "normalized": ">>43",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/x..php?res=42",
+            "normalized": "https://boards.4chan.org/g/x..php?res=42",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/x..php?res=42",
+                    "label": "https://boards.4chan.org/g/x..php?res=42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/x\nphp?res=42",
+            "normalized": "https://boards.4chan.org/g/x\nphp?res=42",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/x",
+                    "label": "https://boards.4chan.org/g/x",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/xéphp?res=42",
+            "normalized": "https://boards.4chan.org/g/xéphp?res=42",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/x",
+                    "label": "https://boards.4chan.org/g/x",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/0",
+            "normalized": ">>thread",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/res/0",
+            "normalized": ">>res",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/THREAD/0",
+            "normalized": ">>THREAD",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/00",
+            "normalized": ">>00",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42#p0",
+            "normalized": ">>42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42#q00",
+            "normalized": ">>00",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/0#p0",
+            "normalized": ">>thread",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/po/thread/0",
+            "normalized": ">>>/po/thread",
+            "links": [
+                {
+                    "href": "/po/catalog#s=thread",
+                    "label": ">>>/po/thread",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/po/thread/0#p43",
+            "normalized": ">>>/po/43",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/imgboard.php?res=0",
+            "normalized": ">>>/g/",
+            "links": [
+                {
+                    "href": "/g/",
+                    "label": ">>>/g/",
+                    "new_tab": false
+                }
+            ],
+            "warnings": [
+                "Undefined variable $no",
+                "stripos(): Passing null to parameter #1 ($haystack) of type string is deprecated",
+                "Undefined variable $no",
+                "Undefined variable $no",
+                "Undefined variable $no",
+                "stripos(): Passing null to parameter #1 ($haystack) of type string is deprecated",
+                "Undefined variable $no",
+                "Undefined variable $no"
+            ]
+        },
+        {
+            "input": "https://boards.4chan.org/g/imgboard.php?res=42#0",
+            "normalized": ">>42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/imgboard.php?res=0#00",
+            "normalized": ">>00",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/",
+            "normalized": ">>>/g/",
+            "links": [
+                {
+                    "href": "/g/",
+                    "label": ">>>/g/",
+                    "new_tab": false
+                }
+            ],
+            "warnings": [
+                "Undefined variable $no",
+                "stripos(): Passing null to parameter #1 ($haystack) of type string is deprecated",
+                "Undefined variable $no",
+                "Undefined variable $no",
+                "Undefined variable $no",
+                "stripos(): Passing null to parameter #1 ($haystack) of type string is deprecated",
+                "Undefined variable $no",
+                "Undefined variable $no"
+            ]
+        },
+        {
+            "input": "https://boards.4chan.org/po/",
+            "normalized": ">>>/po/",
+            "links": [
+                {
+                    "href": "/po/",
+                    "label": ">>>/po/",
+                    "new_tab": false
+                }
+            ],
+            "warnings": [
+                "Undefined variable $no",
+                "stripos(): Passing null to parameter #1 ($haystack) of type string is deprecated",
+                "Undefined variable $no",
+                "Undefined variable $no",
+                "stripos(): Passing null to parameter #1 ($haystack) of type string is deprecated",
+                "Undefined variable $no"
+            ]
+        },
+        {
+            "input": "https://boards.4chan.org/longboard12345/thread/42",
+            "normalized": ">>>/longboard12345/42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/longboard12345/",
+            "normalized": ">>>/longboard12345/",
+            "links": [],
+            "warnings": [
+                "Undefined variable $no",
+                "stripos(): Passing null to parameter #1 ($haystack) of type string is deprecated",
+                "Undefined variable $no",
+                "Undefined variable $no",
+                "stripos(): Passing null to parameter #1 ($haystack) of type string is deprecated",
+                "Undefined variable $no"
+            ]
+        },
+        {
+            "input": "https://boards.4chan.org/with_under/thread/42",
+            "normalized": ">>>/with_under/42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/polls/thread/42",
+            "normalized": ">>>/polls/42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/é/thread/42",
+            "normalized": "https://boards.4chan.org/é/thread/42",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org",
+                    "label": "https://boards.4chan.org",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/catalog#s=0",
+            "normalized": ">>>/g/0",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/catalog#s=",
+            "normalized": "https://boards.4chan.org/g/catalog#s=",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/catalog#s=",
+                    "label": "https://boards.4chan.org/g/catalog#s=",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/CATALOG#S=a+B",
+            "normalized": ">>>/g/a+B",
+            "links": [
+                {
+                    "href": "/g/catalog#s=a+",
+                    "label": ">>>/g/a+",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/catalogue",
+            "normalized": "https://boards.4chan.org/g/catalogue",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/catalogue",
+                    "label": "https://boards.4chan.org/g/catalogue",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42#p",
+            "normalized": ">>42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42#bad",
+            "normalized": "https://boards.4chan.org/g/thread/42#bad",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42#bad",
+                    "label": "https://boards.4chan.org/g/thread/42#bad",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42/slug.more",
+            "normalized": ">>42.more",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42/slug/more",
+            "normalized": "https://boards.4chan.org/g/thread/42/slug/more",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42/slug/more",
+                    "label": "https://boards.4chan.org/g/thread/42/slug/more",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42?query=1",
+            "normalized": ">>42?query=1",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "HTTPS://BOARDS.4CHAN.ORG/g/thread/42",
+            "normalized": "HTTPS://BOARDS.4CHAN.ORG/g/thread/42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "4chan HTTPS://BOARDS.4CHAN.ORG/g/thread/42",
+            "normalized": "4chan HTTPS://BOARDS.4CHAN.ORG/g/thread/42",
+            "links": [
+                {
+                    "href": "HTTPS://BOARDS.4CHAN.ORG/g/thread/42",
+                    "label": "HTTPS://BOARDS.4CHAN.ORG/g/thread/42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "4chan HTTPS://boards.4CHAN.ORG/g/thread/42",
+            "normalized": "4chan >>42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org/g/thread/42",
+            "normalized": "https://www.4chan.org/g/thread/42",
+            "links": [
+                {
+                    "href": "https://www.4chan.org/g/thread/42",
+                    "label": "https://www.4chan.org/g/thread/42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org.evil.test/g/thread/42",
+            "normalized": "https://boards.4chan.org.evil.test/g/thread/42",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org",
+                    "label": "https://boards.4chan.org",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org:443/g/thread/42",
+            "normalized": "https://boards.4chan.org:443/g/thread/42",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org",
+                    "label": "https://boards.4chan.org",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42 tail",
+            "normalized": ">>42 tail",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42\ttail",
+            "normalized": ">>42\ttail",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42\ntail",
+            "normalized": ">>42\ntail",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42\u000btail",
+            "normalized": ">>42\u000btail",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42\ftail",
+            "normalized": ">>42\ftail",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42\rtail",
+            "normalized": ">>42\rtail",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42tail",
+            "normalized": "https://boards.4chan.org/g/thread/42tail",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42",
+                    "label": "https://boards.4chan.org/g/thread/42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42 tail",
+            "normalized": "https://boards.4chan.org/g/thread/42 tail",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42",
+                    "label": "https://boards.4chan.org/g/thread/42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42 tail",
+            "normalized": "https://boards.4chan.org/g/thread/42 tail",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42",
+                    "label": "https://boards.4chan.org/g/thread/42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42\u2028tail",
+            "normalized": "https://boards.4chan.org/g/thread/42\u2028tail",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42",
+                    "label": "https://boards.4chan.org/g/thread/42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42.tail",
+            "normalized": ">>42.tail",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42!tail",
+            "normalized": ">>42!tail",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42?tail",
+            "normalized": ">>42?tail",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42,tail",
+            "normalized": ">>42,tail",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42/tail",
+            "normalized": ">>42",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42:tail",
+            "normalized": "https://boards.4chan.org/g/thread/42:tail",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42:tail",
+                    "label": "https://boards.4chan.org/g/thread/42:tail",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42;tail",
+            "normalized": "https://boards.4chan.org/g/thread/42;tail",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42;tail",
+                    "label": "https://boards.4chan.org/g/thread/42;tail",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42atail",
+            "normalized": "https://boards.4chan.org/g/thread/42atail",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42atail",
+                    "label": "https://boards.4chan.org/g/thread/42atail",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        }
+    ],
+    "escaped_normalization_cases": [
+        {
+            "input": "https://boards.4chan.org/g/x<php?res=42",
+            "normalized": "https://boards.4chan.org/g/x<php?res=42",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/x<php?res=42",
+                    "label": "https://boards.4chan.org/g/x<php?res=42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42<tail",
+            "normalized": "https://boards.4chan.org/g/thread/42<tail",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42<tail",
+                    "label": "https://boards.4chan.org/g/thread/42<tail",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/x>php?res=42",
+            "normalized": "https://boards.4chan.org/g/x>php?res=42",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/x>php?res=42",
+                    "label": "https://boards.4chan.org/g/x>php?res=42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42>tail",
+            "normalized": "https://boards.4chan.org/g/thread/42>tail",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42>tail",
+                    "label": "https://boards.4chan.org/g/thread/42>tail",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/x&php?res=42",
+            "normalized": "https://boards.4chan.org/g/x&php?res=42",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/x&php?res=42",
+                    "label": "https://boards.4chan.org/g/x&php?res=42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42&tail",
+            "normalized": "https://boards.4chan.org/g/thread/42&tail",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42&tail",
+                    "label": "https://boards.4chan.org/g/thread/42&tail",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/x\"php?res=42",
+            "normalized": "https://boards.4chan.org/g/x\"php?res=42",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/x\"php?res=42",
+                    "label": "https://boards.4chan.org/g/x\"php?res=42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42\"tail",
+            "normalized": "https://boards.4chan.org/g/thread/42\"tail",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42\"tail",
+                    "label": "https://boards.4chan.org/g/thread/42\"tail",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/x'php?res=42",
+            "normalized": "https://boards.4chan.org/g/x'php?res=42",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/x'php?res=42",
+                    "label": "https://boards.4chan.org/g/x'php?res=42",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://boards.4chan.org/g/thread/42'tail",
+            "normalized": "https://boards.4chan.org/g/thread/42'tail",
+            "links": [
+                {
+                    "href": "https://boards.4chan.org/g/thread/42'tail",
+                    "label": "https://boards.4chan.org/g/thread/42'tail",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        }
+    ],
+    "static_cases": [
+        {
+            "input": ">>>/po/1e2",
+            "normalized": ">>>/po/1e2",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/+1e2",
+            "normalized": ">>>/po/+1e2",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/-1e2",
+            "normalized": ">>>/po/-1e2",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1e+2",
+            "normalized": ">>>/po/1e+2",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1e-2",
+            "normalized": ">>>/po/1e-2",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/0e0",
+            "normalized": ">>>/po/0e0",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/00e00",
+            "normalized": ">>>/po/00e00",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1e99999999999999999999999999999999",
+            "normalized": ">>>/po/1e99999999999999999999999999999999",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1e",
+            "normalized": ">>>/po/1e",
+            "links": [
+                {
+                    "href": "/po/catalog#s=1e",
+                    "label": ">>>/po/1e",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/e2",
+            "normalized": ">>>/po/e2",
+            "links": [
+                {
+                    "href": "/po/catalog#s=e2",
+                    "label": ">>>/po/e2",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1e+",
+            "normalized": ">>>/po/1e+",
+            "links": [
+                {
+                    "href": "/po/catalog#s=1e+",
+                    "label": ">>>/po/1e+",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1e-",
+            "normalized": ">>>/po/1e-",
+            "links": [
+                {
+                    "href": "/po/catalog#s=1e-",
+                    "label": ">>>/po/1e-",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1ee2",
+            "normalized": ">>>/po/1ee2",
+            "links": [
+                {
+                    "href": "/po/catalog#s=1ee2",
+                    "label": ">>>/po/1ee2",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1e2e3",
+            "normalized": ">>>/po/1e2e3",
+            "links": [
+                {
+                    "href": "/po/catalog#s=1e2e3",
+                    "label": ">>>/po/1e2e3",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1e2x",
+            "normalized": ">>>/po/1e2x",
+            "links": [
+                {
+                    "href": "/po/catalog#s=1e2x",
+                    "label": ">>>/po/1e2x",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1e2/3",
+            "normalized": ">>>/po/1e2/3",
+            "links": [
+                {
+                    "href": "/po/catalog#s=1e2%2F3",
+                    "label": ">>>/po/1e2/3",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1e2,3",
+            "normalized": ">>>/po/1e2,3",
+            "links": [
+                {
+                    "href": "/po/catalog#s=1e2%2C3",
+                    "label": ">>>/po/1e2,3",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1E2",
+            "normalized": ">>>/po/1E2",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/.5",
+            "normalized": ">>>/po/.5",
+            "links": [
+                {
+                    "href": "/po/",
+                    "label": ">>>/po/",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1.5",
+            "normalized": ">>>/po/1.5",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/+",
+            "normalized": ">>>/po/+",
+            "links": [
+                {
+                    "href": "/po/catalog#s=+",
+                    "label": ">>>/po/+",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/-",
+            "normalized": ">>>/po/-",
+            "links": [
+                {
+                    "href": "/po/catalog#s=-",
+                    "label": ">>>/po/-",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/++1",
+            "normalized": ">>>/po/++1",
+            "links": [
+                {
+                    "href": "/po/catalog#s=++1",
+                    "label": ">>>/po/++1",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/--1",
+            "normalized": ">>>/po/--1",
+            "links": [
+                {
+                    "href": "/po/catalog#s=--1",
+                    "label": ">>>/po/--1",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/1e+-2",
+            "normalized": ">>>/po/1e+-2",
+            "links": [
+                {
+                    "href": "/po/catalog#s=1e+-2",
+                    "label": ">>>/po/1e+-2",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/0x10",
+            "normalized": ">>>/po/0x10",
+            "links": [
+                {
+                    "href": "/po/catalog#s=0x10",
+                    "label": ">>>/po/0x10",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/inf",
+            "normalized": ">>>/po/inf",
+            "links": [
+                {
+                    "href": "/po/catalog#s=inf",
+                    "label": ">>>/po/inf",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/nan",
+            "normalized": ">>>/po/nan",
+            "links": [
+                {
+                    "href": "/po/catalog#s=nan",
+                    "label": ">>>/po/nan",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/0",
+            "normalized": ">>>/po/0",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/00",
+            "normalized": ">>>/po/00",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/",
+            "normalized": ">>>/po/",
+            "links": [
+                {
+                    "href": "/po/",
+                    "label": ">>>/po/",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/catalog",
+            "normalized": ">>>/po/catalog",
+            "links": [
+                {
+                    "href": "/po/catalog",
+                    "label": ">>>/po/catalog",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/po/a+b/c,d-e",
+            "normalized": ">>>/po/a+b/c,d-e",
+            "links": [
+                {
+                    "href": "/po/catalog#s=a+b%2Fc%2Cd-e",
+                    "label": ">>>/po/a+b/c,d-e",
+                    "new_tab": false
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/longboard12345/rules/3",
+            "normalized": ">>>/longboard12345/rules/3",
+            "links": [
+                {
+                    "href": "/rules#longboard123453",
+                    "label": ">>>/longboard12345/rules/3",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/longboard12345/catalog",
+            "normalized": ">>>/longboard12345/catalog",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/polls/rules/3",
+            "normalized": ">>>/polls/rules/3",
+            "links": [
+                {
+                    "href": "/rules#polls3",
+                    "label": ">>>/polls/rules/3",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/polls/catalog",
+            "normalized": ">>>/polls/catalog",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/unknown/rules",
+            "normalized": ">>>/unknown/rules",
+            "links": [
+                {
+                    "href": "/rules#unknown",
+                    "label": ">>>/unknown/rules",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/unknown/",
+            "normalized": ">>>/unknown/",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/with_under/rules",
+            "normalized": ">>>/with_under/rules",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/G/rules",
+            "normalized": ">>>/G/rules",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>//rules",
+            "normalized": ">>>//rules",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/é/rules",
+            "normalized": ">>>/é/rules",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/../rules",
+            "normalized": ">>>/../rules",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/g/rules/../../x",
+            "normalized": ">>>/g/rules/../../x",
+            "links": [
+                {
+                    "href": "/rules#g",
+                    "label": ">>>/g/rules/",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/g/rules//elsewhere",
+            "normalized": ">>>/g/rules//elsewhere",
+            "links": [
+                {
+                    "href": "/rules#g/elsewhere",
+                    "label": ">>>/g/rules//elsewhere",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/g/rulesbad/1",
+            "normalized": ">>>/g/rulesbad/1",
+            "links": [
+                {
+                    "href": "/rules#g1",
+                    "label": ">>>/g/rulesbad/1",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": ">>>/f/catalog",
+            "normalized": ">>>/f/catalog",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": ">>>/f/rules",
+            "normalized": ">>>/f/rules",
+            "links": [
+                {
+                    "href": "/rules#f",
+                    "label": ">>>/f/rules",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        }
+    ],
+    "server_cases": [
+        {
+            "input": "http://4chan.org/",
+            "normalized": "http://4chan.org/",
+            "links": [
+                {
+                    "href": "http://4chan.org",
+                    "label": "http://4chan.org",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org/",
+            "normalized": "https://www.4chan.org/",
+            "links": [
+                {
+                    "href": "https://www.4chan.org",
+                    "label": "https://www.4chan.org",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org/.",
+            "normalized": "https://www.4chan.org/.",
+            "links": [
+                {
+                    "href": "https://www.4chan.org",
+                    "label": "https://www.4chan.org",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org/()",
+            "normalized": "https://www.4chan.org/()",
+            "links": [
+                {
+                    "href": "https://www.4chan.org",
+                    "label": "https://www.4chan.org",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org//",
+            "normalized": "https://www.4chan.org//",
+            "links": [
+                {
+                    "href": "https://www.4chan.org//",
+                    "label": "https://www.4chan.org//",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org/a.",
+            "normalized": "https://www.4chan.org/a.",
+            "links": [
+                {
+                    "href": "https://www.4chan.org/a",
+                    "label": "https://www.4chan.org/a",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org/a/().,",
+            "normalized": "https://www.4chan.org/a/().,",
+            "links": [
+                {
+                    "href": "https://www.4chan.org/a/",
+                    "label": "https://www.4chan.org/a/",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://i.4cdn.org/g/1.jpg",
+            "normalized": "https://i.4cdn.org/g/1.jpg",
+            "links": [
+                {
+                    "href": "https://i.4cdn.org/g/1.jpg",
+                    "label": "https://i.4cdn.org/g/1.jpg",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org:443/path",
+            "normalized": "https://www.4chan.org:443/path",
+            "links": [
+                {
+                    "href": "https://www.4chan.org",
+                    "label": "https://www.4chan.org",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org.evil.test/path",
+            "normalized": "https://www.4chan.org.evil.test/path",
+            "links": [
+                {
+                    "href": "https://www.4chan.org",
+                    "label": "https://www.4chan.org",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://x1.4chan.org/path",
+            "normalized": "https://x1.4chan.org/path",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://www.4chan.org@evil.test/path",
+            "normalized": "https://www.4chan.org@evil.test/path",
+            "links": [
+                {
+                    "href": "https://www.4chan.org",
+                    "label": "https://www.4chan.org",
+                    "new_tab": true
+                }
+            ],
+            "warnings": []
+        },
+        {
+            "input": "https://user:password@www.4chan.org/path",
+            "normalized": "https://user:password@www.4chan.org/path",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "javascript://www.4chan.org/path",
+            "normalized": "javascript://www.4chan.org/path",
+            "links": [],
+            "warnings": []
+        },
+        {
+            "input": "https://example.org/4chan",
+            "normalized": "https://example.org/4chan",
+            "links": [],
+            "warnings": []
+        }
+    ]
+}

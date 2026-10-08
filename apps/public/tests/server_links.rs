@@ -124,7 +124,9 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
         format!("{external} https://www.4chan.org/faq >>>/g/catalog >>>/g/a+b >>>/g/rules/3");
     for mode in 0..8 {
         let op = submit(&app, board, 0, mode, &initial).await;
-        let reply = format!("{external} https://boards.4chan.org/{board}/thread/{op} >>>/po/00042");
+        let reply = format!(
+            "{external} https://boards.4chan.org/{board}/thread/{op} https://boards.4chan.org/{board}/fooXphp?res={op} https://boards.4chan.org/{board}/thread/{op}#p0 >>>/po/00042 >>>/po/1e2"
+        );
         let id = submit(&app, board, op, mode, &reply).await;
         let saved = board_store::find_post(public, board, id).await.unwrap();
         assert_eq!(saved.comment, reply);
@@ -133,6 +135,9 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
         let html = get(&app, &path).await;
         assert!(html.contains(&format!("href=\"/{board}/post/{op}\">&gt;&gt;{op}</a>")));
         assert!(html.contains("href=\"/po/post/42\">&gt;&gt;&gt;/po/00042</a>"));
+        assert!(!html.contains("/po/catalog#s=1e2"));
+        assert!(!html.contains("href=\"/po/post/1\""));
+        assert!(!html.contains("fooXphp"));
         for destination in [
             "/g/catalog",
             "/g/catalog#s=a+b",

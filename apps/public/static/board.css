@@ -376,8 +376,8 @@ table.postForm button { padding: 1px 6px; }
 .nativePostMenu .imageSearchSubmenu { position: absolute; top: 0; left: 100%; min-width: 100%; }
 .nativePostMenu.dd-menu-left .imageSearchSubmenu { left: auto; right: 100%; }
 @media (max-width: 480px) {
-  .postMenuBtn[data-post-menu] { transform: rotate(90deg); margin: 4px -5px 0 4px; float: left; font-weight: bold; opacity: 1; height: .5em; font-size: 16px; }
-  #post-menu.nativePostMenu { font-size: 16px; line-height: 2.5em; }
+  body:not([data-native-never-mobile="true"]) .postMenuBtn[data-post-menu] { transform: rotate(90deg); margin: 4px -5px 0 4px; float: left; font-weight: bold; opacity: 1; height: .5em; font-size: 16px; }
+  body:not([data-native-never-mobile="true"]) #post-menu.nativePostMenu { font-size: 16px; line-height: 2.5em; }
 }
 @media (prefers-reduced-motion: reduce) { .postMenuBtn[data-post-menu] { transition: none; } }
 
@@ -789,3 +789,11 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 #input-tex-preview { display: block; box-sizing: border-box; width: 100%; min-height: 100px; }
 #output-tex-preview { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 3em; margin-top: 8px; }
 #qrHeader .tex-logo { float: left; font-size: inherit; line-height: 16px; padding: 0 3px; }
+
+/* Source mobile deletion leaves the original post/thumbnail visibly in place. */
+.postContainer.deleted, .fileThumb > img.deleted { opacity: .66; }
+.nativeDeletionFeedback {
+  position: fixed; left: 50%; bottom: 1rem; transform: translateX(-50%);
+  z-index: 10001; max-width: min(36rem, calc(100vw - 2rem)); padding: .5rem .75rem;
+  color: CanvasText; background: Canvas; border: 1px solid; font: inherit;
+}

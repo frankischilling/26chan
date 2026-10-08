@@ -37,18 +37,18 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       return id;
     }
     try {
-      const dice = await post('tg', 'dice+2d1+3');
+      const dice = await post('tg', 'dice+0002d01+3');
       const fortune = await post('b', 'SaGefortunesage');
       const plain = await post('fixture', 'dice+0d0', `${marker}\n>>>/tg/${dice}\n>>>/b/${fortune}`);
-      const expected = 'Rolled 1, 1 + 3 = 5 (2d1 + 3)';
+      const expected = 'Rolled 1, 1 + 3 = 5 (0002d01 + 3)';
       await page.goto(`/tg/thread/${dice}`);
       await expect(page.locator(`#m${dice} > b`)).toHaveText(expected);
       expect((await (await context.request.get(`/tg/thread/${dice}.json`)).json()).posts[0].com.startsWith(`<b>${expected}<br><br></b>`)).toBe(true);
       await page.reload();
       await expect(page.locator(`#m${dice} > b`)).toHaveText(expected);
-      const reply = await post('tg', 'dice+1d1', `>>${dice}\n${marker}`, dice);
+      const reply = await post('tg', 'dice+01d001', `>>${dice}\n${marker}`, dice);
       await page.locator('a[data-cmd="update"]:visible').first().click();
-      await expect(page.locator(`#m${reply} > b`)).toHaveText('Rolled 1 (1d1)');
+      await expect(page.locator(`#m${reply} > b`)).toHaveText('Rolled 1 (01d001)');
       await expect(page.locator(`#m${reply} .quotelink`)).toHaveAttribute('href', `/tg/post/${dice}`);
       const feed = await context.request.get(`${origin}/tg/index.rss`);
       expect(feed.status()).toBe(200);

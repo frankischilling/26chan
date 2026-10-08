@@ -17,6 +17,11 @@ non-greedy sign capture also means `dice+2d6-3` and `dice+2d6 -3` do not
 produce the same modifier; the rewrite preserves that behavior. The displayed
 prefix is `Rolled`, from `config/global_strings.ini`.
 
+Dice labels preserve captured leading zeros in sides and counts below 25.
+Counts at or above 25 display as `25`, matching the source minimum operation.
+An incomplete expression is skipped before looking for a later valid one.
+The generator validates numeric values and display spellings together.
+
 The pinned board configuration enables dice on `/b/`, `/mlp/`, `/qst/`
 and `/tg/`. It enables fortunes on `/b/` and `/s4s/`. Migration 0055
 stores those switches on the board row. The posting transaction locks that row

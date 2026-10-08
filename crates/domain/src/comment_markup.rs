@@ -90,6 +90,8 @@ pub enum MarkupToken {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Atom {
     Char(char),
+    // Comparison-only source characters; never exposed as rendering tokens.
+    Generated(char),
     Break,
     Open(Tag),
     Close(Tag),
@@ -101,7 +103,7 @@ impl Atom {
             Self::Char('&') => 5,
             Self::Char('<' | '>') => 4,
             Self::Char('"' | '\'') => 6,
-            Self::Char(ch) => ch.len_utf8(),
+            Self::Char(ch) | Self::Generated(ch) => ch.len_utf8(),
             Self::Break => 4,
             Self::Open(tag) => tag.source_html_bytes(true),
             Self::Close(tag) => tag.source_html_bytes(false),
@@ -125,7 +127,7 @@ pub fn parse_markup_with_limits(
     policy: MarkupPolicy,
     limits: crate::PostLimits,
 ) -> Vec<MarkupToken> {
-    let mut atoms: Vec<_> = input
+    let atoms: Vec<_> = input
         .chars()
         .take(limits.prepared_chars())
         .map(|ch| {
@@ -136,6 +138,10 @@ pub fn parse_markup_with_limits(
             }
         })
         .collect();
+    coalesce(apply_passes(atoms, policy))
+}
+
+fn apply_passes(mut atoms: Vec<Atom>, policy: MarkupPolicy) -> Vec<Atom> {
     if policy.sjis {
         let skip = contains_marker(&atoms, "[spoiler]");
         atoms = parse_one(atoms, Tag::Sjis, 1, skip);
@@ -154,7 +160,46 @@ pub fn parse_markup_with_limits(
             atoms = parse_one(atoms, tag, 1, false);
         }
     }
-    coalesce(atoms)
+    atoms
+}
+
+/// Only the admission projection supplies generated source decorations. The
+/// caller validates them; user text always enters through Char and is escaped.
+pub(crate) fn admission_source(
+    input: &str,
+    policy: MarkupPolicy,
+    prefix: &str,
+    suffix: &str,
+) -> String {
+    fn generated(value: &str, atoms: &mut Vec<Atom>) {
+        for (index, part) in value.split("<br>").enumerate() {
+            if index > 0 {
+                atoms.push(Atom::Break);
+            }
+            atoms.extend(part.chars().map(Atom::Generated));
+        }
+    }
+    let mut atoms = Vec::new();
+    generated(prefix, &mut atoms);
+    atoms.extend(input.chars().map(|ch| {
+        if ch == '\n' {
+            Atom::Break
+        } else {
+            Atom::Char(ch)
+        }
+    }));
+    generated(suffix, &mut atoms);
+    let mut result = String::new();
+    for atom in apply_passes(atoms, policy) {
+        match atom {
+            Atom::Char(ch) => result.push_str(&crate::source_html_entities(&ch.to_string())),
+            Atom::Generated(ch) => result.push(ch),
+            Atom::Break => result.push_str("<br>"),
+            Atom::Open(tag) => result.push_str(crate::robot9000::markup(tag, true)),
+            Atom::Close(tag) => result.push_str(crate::robot9000::markup(tag, false)),
+        }
+    }
+    result
 }
 
 fn marker_at(input: &[Atom], index: usize, marker: &str) -> bool {
@@ -331,7 +376,7 @@ fn coalesce(input: Vec<Atom>) -> Vec<MarkupToken> {
             Atom::Break => MarkupToken::Break,
             Atom::Open(tag) => MarkupToken::Open(tag),
             Atom::Close(tag) => MarkupToken::Close(tag),
-            Atom::Char(_) => unreachable!(),
+            Atom::Char(_) | Atom::Generated(_) => unreachable!("comparison-only atom"),
         });
     }
     if !text.is_empty() {
@@ -397,6 +442,7 @@ mod tests {
             .iter()
             .map(|atom| match atom {
                 Atom::Char(ch) => crate::source_html_entities(&ch.to_string()),
+                Atom::Generated(ch) => ch.to_string(),
                 Atom::Break => "<br>".into(),
                 Atom::Open(_) => "<OPEN>".into(),
                 Atom::Close(_) => "<CLOSE>".into(),
