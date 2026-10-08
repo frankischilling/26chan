@@ -2,7 +2,7 @@
 // HTTP authority and the one-use approval issued to its own upload.
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
-import { observeOwnedUploadResponse } from './owned-upload-response.mjs';
+import { observeOwnedDeletionResponse, observeOwnedUploadResponse } from './owned-upload-response.mjs';
 
 const origin = new URL(process.argv[2]), board = process.argv[3], source = process.argv[4], flags = process.argv.slice(5);
 assert.ok(flags.every(flag => ['--inline', '--no-spoilers'].includes(flag))); assert.equal(new Set(flags).size, flags.length);
@@ -146,15 +146,15 @@ try {
     await expect(menu).toHaveText('...');
     await menu.click();
     await expect(page.getByRole('menuitem', { name: 'Delete file', exact: true })).toBeVisible();
-    const finished = page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'POST');
+    const finished = await observeOwnedDeletionResponse(page, endpoint);
     const confirmation = page.waitForEvent('dialog');
     const clicked = page.getByRole('menuitem', { name: 'Delete file', exact: true }).click();
     const dialog = await confirmation, message = dialog.message(), type = dialog.type();
     await dialog.accept(); await clicked;
     assert.equal(type, 'confirm'); assert.equal(message, 'Delete file?');
-    const removed = await finished;
-    assert.equal(removed.status(), 200);
-    assert.ok((await removed.text()).includes('The deletion was completed.'));
+    const removed = await finished();
+    assert.equal(removed.status, 200);
+    assert.ok(removed.text.includes('The deletion was completed.'));
     await expect(page.locator('.nativeDeletionFeedback')).toHaveText(`Post No.${post}: File deleted.`);
     await expect(file).toHaveClass(/\bdeleted\b/);
     await expect(file.locator('.fileThumb > img')).toHaveClass(/\bdeleted\b/);
