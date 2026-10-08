@@ -10,7 +10,7 @@
     "test:posting-randomizers": "playwright test tests/browser/posting-randomizers.spec.js",
     "test:polls-core": "node --test tests/browser/polls-fixture.test.mjs",
     "test:polls": "npm run test:polls-core && playwright test tests/browser/polls.spec.js",
-    "test:robot9000": "playwright test tests/browser/robot9000.spec.js",
+    "test:robot9000": "node --test tests/browser/posting-response.test.mjs && playwright test tests/browser/robot9000.spec.js",
     "test:wordfilters": "npm run check:native-filter && npm run check:native-backlinks && node --test tests/browser/native-wordfilters.test.mjs tests/browser/native-wordfilters-dom.test.mjs && playwright test tests/browser/wordfilters.spec.js",
     "test:custom-spoilers": "node --test tests/browser/custom-spoilers.test.mjs && playwright test --config playwright.custom-spoilers.config.js",
     "test:source-flags": "node --test tests/browser/source-board-flags.test.mjs && playwright test --config playwright.source-flags.config.js",
