@@ -52,6 +52,7 @@ npm run test:source-flags
 npm run test:display
 npm run test:post-tooltips
 npm run check:native-thread-controls
+npm run test:source-parsing
 npm run test:thread-updater-dom
 npm run test:expansion
 npm run test:stats

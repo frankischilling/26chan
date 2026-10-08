@@ -536,6 +536,9 @@ jobs:
       - name: Verify atomic updater page integration
         shell: pwsh
         run: npm run test:thread-updater-dom
+      - name: Verify source parsing lifecycle guards
+        shell: pwsh
+        run: npm run test:source-parsing-core
       - name: Verify navigation bounds and native layout transitions
         shell: pwsh
         run: |

@@ -1,3 +1,4 @@
+import { captureParsingRange, sourceDepagerThreadId } from './native-source-events.js';
 import { UPDATER_LIMITS, boardPageContext, updaterContext, validateBoardPageSnapshot, validatePostTree } from '../static/native-filter.v1.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { buildPostTree, checkPostTreeIds } from './native-post-tree.js';
@@ -138,7 +139,7 @@ function deadline(window, promise, milliseconds, signal, label) {
 }
 
 export function mountNativeDepager({ root, board, page = 0, nextPage: initialNextPage = undefined,
-  mediaOrigin = '', settings = () => ({}), createTransport, applied, stateChanged,
+  mediaOrigin = '', settings = () => ({}), ready = () => true, createTransport, applied, stateChanged,
   pageMarker = defaultDepagerPageMarker, origin = globalThis.location?.origin, limits = {} }) {
   const document = root?.ownerDocument, window = document?.defaultView;
   if (!root || !window || !root.matches('.board') || typeof createTransport !== 'function' || !validPage(page)) return null;
@@ -216,6 +217,7 @@ export function mountNativeDepager({ root, board, page = 0, nextPage: initialNex
   }
 
   async function loadMore(manual = true) {
+    if (!ready()) return { status: 'initializing' };
     if (destroyed || disabled()) return { status: 'disabled' };
     if (!available()) { emit('paused'); return { status: 'unavailable' }; }
     if (active) return { status: 'busy' };
@@ -264,14 +266,17 @@ export function mountNativeDepager({ root, board, page = 0, nextPage: initialNex
       }
       const record = { page: snapshot.page, nodes, sections }; request.record = record;
       const x = window.scrollX, y = window.scrollY;
-      root.append(fragment); window.scrollTo(x, y); emit('applying');
+      root.append(fragment);
+      const parsing = sections.map(section => captureParsingRange(section, undefined, undefined, sourceDepagerThreadId(section.id.slice(1))));
+      window.scrollTo(x, y); emit('applying');
       await deadline(window,
         Promise.resolve(applied?.({ page: snapshot.page, threads: snapshot.threads, added: sections }, controller.signal)),
         bound.applyMs, controller.signal, 'depager-apply-timeout');
       if (!current()) { removeRecord(record); request.record = null; return cancelled(); }
-      require(record.nodes.every(node => node.parentNode === root && node.isConnected), 'depager-apply-integrity');
+      require(record.nodes.every(node => node.parentNode === root && node.isConnected) && parsing.every(range => range.current()), 'depager-apply-integrity');
       request.record = null; commitRecord(record, cost);
       nextPage = snapshot.next_page; failed = false;
+      for (const range of parsing) { if (current()) range.emit(); }
       document.dispatchEvent(new window.CustomEvent('4chanPageDepaged', {
         detail: { page: snapshot.page, added: sections.length },
       }));

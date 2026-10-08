@@ -214,6 +214,8 @@ test('isolated Depager DOM and fixed worker transport behavior', async t => {
             refresh({ page, signal }) { return new Promise(resolve => loads.push({ page, signal, resolve })); },
             cancel() { cancels++; },
           });
+        window.parsingEvents = [];
+        for (const name of ['4chanParsingDone', '4chanPageDepaged']) document.addEventListener(name, event => parsingEvents.push({ name, detail: event.detail, constructor: event.constructor.name }));
         window.depager = depagerModule.mountNativeDepager({ root: document.querySelector('.board'), board: 'demo', page: 0,
           nextPage, mediaOrigin: media, settings: () => config, limits, createTransport,
           stateChanged: value => states.push({ ...value }),
@@ -246,6 +248,10 @@ test('isolated Depager DOM and fixed worker transport behavior', async t => {
         await context.addCookies([{ name: 'private-session', value: 'synthetic-only', url: origin }]);
         const result = await page.evaluate(() => depager.loadMore());
         assert.deepEqual(result, { status: 'ok', page: 1, added: 1 });
+        assert.deepEqual(await page.evaluate(() => parsingEvents), [
+          { name: '4chanParsingDone', detail: { threadId: 100, offset: 0, limit: 4 }, constructor: 'Event' },
+          { name: '4chanPageDepaged', detail: { page: 1, added: 1 }, constructor: 'CustomEvent' },
+        ]);
         assert.equal(await page.locator('#t100').count(), 1);
         assert.equal(await page.locator('.depageNumber').textContent(), 'Page 2');
         assert.equal(await page.locator('#m101').textContent(), 'Owned page 101 <script>literal</script>');

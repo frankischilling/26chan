@@ -75,6 +75,8 @@ test('isolated expansion DOM and real parser-worker behavior', async t => {
         const module = await import('/static/native-thread-controls.v1.js');
         window.api = await import('/static/native-filter.v1.js');
         window.projection = (await import('/static/native-backlinks.v1.js')).createCommentProjection();
+        window.parsingEvents = [];
+        for (const name of ['4chanParsingDone', '4chanThreadExpanded']) document.addEventListener(name, event => parsingEvents.push({ name, detail: event.detail, constructor: event.constructor.name }));
         window.config = config; window.loads = []; window.cancels = 0; window.applies = 0;
         const root = document.querySelector('.board');
         window.original = [...root.querySelectorAll('.postContainer')];
@@ -95,6 +97,24 @@ test('isolated expansion DOM and real parser-worker behavior', async t => {
       await page.evaluate(() => deliver());
       await page.waitForFunction(() => !expansion.stats().busy);
     };
+
+    await t.test('parsing completion describes only the new prefix and precedes expansion completion', async () => {
+      const { context, page } = await setup();
+      try {
+        await begin(page); await finish(page);
+        assert.deepEqual(await page.evaluate(() => parsingEvents), [
+          { name: '4chanParsingDone', detail: { threadId: thread, offset: 1, limit: 3 }, constructor: 'Event' },
+          { name: '4chanThreadExpanded', detail: { thread, count: 2 }, constructor: 'CustomEvent' },
+        ]);
+        await page.evaluate(() => { click(); click(); });
+        assert.equal(await page.evaluate(() => parsingEvents.length), 2);
+      } finally { await context.close(); }
+    });
+    await t.test('failed expansion emits no parsing completion', async () => {
+      const { context, page } = await setup({ apply: 'throw' });
+      try { await begin(page); await finish(page); assert.deepEqual(await page.evaluate(() => parsingEvents), []); }
+      finally { await context.close(); }
+    });
 
     await t.test('real fetched snapshots cross the actual worker and preserve visible nodes and drafts', async () => {
       const { context, page, requests, errors } = await setup({ real: true });

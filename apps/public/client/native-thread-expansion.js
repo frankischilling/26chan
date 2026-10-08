@@ -1,3 +1,4 @@
+import { captureParsingRange } from './native-source-events.js';
 // This import remains external in the release asset. The parser, transport and
 // post validator are the same bounded implementations used by thread updates.
 import { NativeUpdaterTransport, UPDATER_LIMITS, updaterContext, validatePostTree, validateSnapshotMetadata } from '../static/native-filter.v1.js';
@@ -39,7 +40,7 @@ export function planThreadExpansion(snapshot, context, originalIds) {
 }
 
 export function mountNativeThreadExpansion({ root, board, thread, mediaOrigin = '', settings, applied, projection,
-  decorateButton, origin = globalThis.location?.origin,
+  ready = () => true, decorateButton, origin = globalThis.location?.origin,
   createTransport = context => new NativeUpdaterTransport(context), limits = {} }) {
   const document = root?.ownerDocument, window = document?.defaultView;
   if (!root || !window || thread || !/^[a-z0-9]{1,10}$/.test(board)) return null;
@@ -93,7 +94,7 @@ export function mountNativeThreadExpansion({ root, board, thread, mediaOrigin = 
     buttonState(entry);
   }
   async function toggle(entry) {
-    if (disabled() || !entry.section.isConnected) return;
+    if (!ready() || disabled() || !entry.section.isConnected) return;
     if (active?.entry === entry) { cancel('Expansion cancelled. '); return; }
     if (entry.loaded) { show(entry, !entry.expanded); return; }
     if (!available()) { entry.state.textContent = 'Expansion is unavailable while the page is hidden or offline. '; return; }
@@ -132,6 +133,7 @@ export function mountNativeThreadExpansion({ root, board, thread, mediaOrigin = 
       entry.cost = cost;
       for (const key of Object.keys(used)) used[key] += cost[key];
       entry.section.insertBefore(fragment, originals[1] ?? entry.summary);
+      const parsing = captureParsingRange(entry.section, 1, additions.length);
       entry.loaded = true; show(entry, true);
       // A feature callback can include worker-backed filters. A stalled or
       // cancelled pass cannot retain partially integrated expansion state.
@@ -144,7 +146,8 @@ export function mountNativeThreadExpansion({ root, board, thread, mediaOrigin = 
         });
         await Promise.race([Promise.resolve(applied?.(result.snapshot, controller.signal)), deadline, cancelled]);
       } finally { window.clearTimeout(timer); controller.signal.removeEventListener('abort', abort); }
-      if (!stillCurrent()) { if (entries.get(entry.section) === entry) discard(entry); return; }
+      if (!stillCurrent() || !parsing.current()) { if (entries.get(entry.section) === entry) discard(entry); return; }
+      if (additions.length) parsing.emit();
       document.dispatchEvent(new window.CustomEvent('4chanThreadExpanded', { detail: { thread: entry.id, count: additions.length } }));
     } catch {
       if (entries.get(entry.section) === entry && active === request) {

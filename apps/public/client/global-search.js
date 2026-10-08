@@ -20,30 +20,29 @@ const postId = value => typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(v
   && BigInt(value) <= 9223372036854775807n;
 
 export function pageToOffset(page) {
-  const value = Number.parseInt(page, 10);
-  if (!Number.isInteger(value) || value < 1 || value > SEARCH_LIMITS.maxPages) return 0;
-  return (value - 1) * SEARCH_LIMITS.pageSize;
+  if (page < 1 || page > SEARCH_LIMITS.maxPages) page = 1;
+  return (page - 1) * SEARCH_LIMITS.pageSize;
 }
 
 export function offsetToPage(offset) {
-  const value = Number(offset);
-  const page = value / SEARCH_LIMITS.pageSize + 1;
-  if (!Number.isInteger(page) || page < 1 || page > SEARCH_LIMITS.maxPages) return 1;
+  const page = offset / SEARCH_LIMITS.pageSize + 1;
+  if (page < 1 || page > SEARCH_LIMITS.maxPages) return 1;
   return page;
 }
 
 export function parseSearchHash(hash, boards = null) {
   if (typeof hash !== 'string' || hash === '') return { query: '', board: '', offset: 0 };
-  const fragment = hash.startsWith('#/') ? hash.slice(2) : hash.slice(1);
-  if (fragment.length > SEARCH_LIMITS.hashUnits) return { query: '', board: '', offset: 0 };
-  const fragments = fragment.split('/');
+  // Source checks the complete UTF-16 hash before splitting or decoding.
+  if (hash.length > SEARCH_LIMITS.hashUnits) return { query: '', board: '', offset: 0 };
+  const fragments = hash.split('/').slice(1);
   let query;
   try { query = fragments[0] ? decodeURIComponent(fragments[0]) : ''; }
   catch { return null; }
   let board = fragments[1] || '';
   if (board === 'all') board = '';
   if (boards && board !== '' && !boards.has(board)) board = '';
-  return { query, board, offset: pageToOffset(fragments[2]) };
+  // Preserve source ToInt32 (including hexadecimal, fractions and wrapping).
+  return { query, board, offset: pageToOffset(0 | fragments[2]) };
 }
 
 export function searchHash(query, board, offset) {
@@ -191,7 +190,11 @@ export function mountGlobalSearch({ root = globalThis.document, history = global
   async function execute(query, board, offset) {
     clearPager(); state.controller?.abort(); state.controller = null;
     if (query === '') { busy(false); status(''); return; }
-    state.query = query; state.board = boards.has(board) ? board : ''; state.offset = pageToOffset(offsetToPage(offset)); updateHash();
+    state.query = query; state.board = boards.has(board) ? board : '';
+    // Keep the replacement backend's bounded integral offsets at this boundary.
+    state.offset = Number.isInteger(offset) && offset % SEARCH_LIMITS.pageSize === 0
+      ? pageToOffset(offsetToPage(offset)) : 0;
+    updateHash();
     const controller = new AbortController(); state.controller = controller; const sequence = ++state.sequence; busy(true);
     try {
       const data = await requestSearch({ query: state.query, board: state.board, offset: state.offset, origin: pageOrigin, mediaOrigin, signal: controller.signal, fetcher });

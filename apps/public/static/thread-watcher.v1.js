@@ -13,7 +13,7 @@ import { mountNativeImages } from './native-images.v1.js';
 import { mountNativeDeletion } from './native-post-deletion.v1.js';
 import { mountNativeDisplay, mountNativePosterIds, mountNativePosterIdActions } from './native-display.v1.js';
 import { mountNativePostTooltips } from './native-post-tooltips.v1.js';
-import { mountNativeThreadUpdater, mountNativeThreadExpansion, mountNativeDepager, NativeBoardPageTransport } from './native-thread-controls.v1.js';
+import { createParsingBootstrap, mountNativeThreadUpdater, mountNativeThreadExpansion, mountNativeDepager, NativeBoardPageTransport } from './native-thread-controls.v1.js';
 import { mountNativeThreadStats } from './native-thread-stats.v1.js';
 import { mountNativeNavigation, navigationPage } from './native-navigation.v1.js';
 import { mountNativeLayout, sourceMobileLayout, THEME_READY_EVENT } from './native-layout.v1.js';
@@ -29,6 +29,13 @@ async function start(context) {
   const board = context.dataset.board;
   const threadId = postId(context.dataset.thread);
   const catalog = context.dataset.catalog === 'true';
+  let initialParsing = new AbortController(), initialSuspended = false;
+  const cancelParsing = () => { initialSuspended = true; initialParsing.abort(); };
+  if (!catalog) {
+    window.addEventListener('pagehide', cancelParsing);
+    window.addEventListener('pageshow', () => { initialSuspended = false; });
+  }
+  const parsingBootstrap = createParsingBootstrap(configuration);
   let mathPage = null;
   if (!catalog && document.body.dataset.mathTags === '1') {
     try { mathPage = (await import('./native-math.v1.js')).pageNativeMath(); } catch { /* Literal tags remain usable. */ }
@@ -349,7 +356,7 @@ async function start(context) {
     complete: post => { if (activePostMenu?.post === post) closePostMenu(); },
   });
   const nativeUpdater = catalog ? null : mountNativeThreadUpdater({ board, thread: threadId,
-    worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection,
+    worksafe: context.dataset.worksafe === 'true', mediaOrigin: context.dataset.mediaOrigin, settings: configuration, ready: parsingBootstrap.ready, projection,
     applied: async (_snapshot, signal) => {
       render();
       // Let insertion/quote-decoration observers enqueue their refresh first.
@@ -469,7 +476,7 @@ async function start(context) {
     }).catch(() => { notice.textContent = 'The style preference could not be updated. Try again.'; });
   });
   const nativeExpansion = catalog ? null : mountNativeThreadExpansion({ root: document.querySelector('.board'),
-    board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, decorateButton: icon,
+    board, thread: threadId, mediaOrigin: context.dataset.mediaOrigin, settings: configuration, ready: parsingBootstrap.ready, projection, decorateButton: icon,
     applied: async (_snapshot, signal) => {
       render(); await new Promise(resolve => queueMicrotask(resolve));
       if (signal.aborted) return;
@@ -507,7 +514,7 @@ async function start(context) {
     const status = node('span', '', 'nativeDepagerStatus'); status.id = 'depage-status'; status.setAttribute('role', 'status');
     controls.append(' [', more, '] ', cancel, status); pages.append(controls);
     let controller = null, overrideAuto = null, lastAlways = configuration().alwaysDepage === true;
-    controller = mountNativeDepager({ root, board, page, nextPage: next, mediaOrigin: context.dataset.mediaOrigin,
+    controller = mountNativeDepager({ root, board, page, nextPage: next, ready: parsingBootstrap.ready, mediaOrigin: context.dataset.mediaOrigin,
       settings: () => {
         const config = configuration(), always = config.alwaysDepage === true;
         if (lastAlways !== always) { overrideAuto = null; lastAlways = always; }
@@ -1221,17 +1228,36 @@ async function start(context) {
   });
   window.addEventListener('resize', () => closePostMenu());
   window.addEventListener('pagehide', () => { mutationLock.suspend(); closePostMenu(); refresh.cancel(); reportRegistry.clear(); window.removeEventListener('message', receiveReport); });
-  window.addEventListener('pageshow', event => { if (event.persisted) { mutationLock.resume(); window.addEventListener('message', receiveReport); } });
+  window.addEventListener('pageshow', event => { if (event.persisted) { mutationLock.resume(); window.addEventListener('message', receiveReport); if (!catalog && !parsingBootstrap.ready()) resumeInitial(); } });
   mobile.addEventListener('change', () => { closePostMenu(); collapsed = mobile.matches; render(); });
   const container = document.getElementById('threads');
   if (container) new MutationObserver(controls).observe(container, { childList: true });
   render();
-  tracking.consume(threadId).then(async () => {
-    if (!mutationLock.active) return;
+  const prepareInitial = async signal => {
+    await tracking.consume(threadId);
+    if (signal.aborted || !mutationLock.active) return false;
     await acknowledgeCurrent();
-    if (!mutationLock.active) return;
+    if (signal.aborted || !mutationLock.active) return false;
     render();
-    void nativeFilters?.refresh();
-    navigateReadPosition(); return refreshAll(true);
-  });
+    return true;
+  };
+  function resumeInitial() {
+    if (initialSuspended) return;
+    if (initialParsing.signal.aborted) initialParsing = new AbortController();
+    const signal = initialParsing.signal;
+    const initialReady = catalog ? prepareInitial(signal) : parsingBootstrap.run({
+      sections: sections(), signal, prepare: prepareInitial,
+      active: () => mutationLock.active && configuration().disableAll !== true,
+      settle: async signal => {
+        await new Promise(resolve => queueMicrotask(resolve));
+        return nativeFilters ? nativeFilters.refreshSettled(signal) : true;
+      },
+    });
+    void initialReady.then(ready => {
+      if (!ready || signal.aborted || !mutationLock.active) return;
+      render();
+      navigateReadPosition(); return refreshAll(true);
+    });
+  }
+  resumeInitial();
 }

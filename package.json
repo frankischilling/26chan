@@ -91,7 +91,9 @@
     "check:replay-worker-probe": "node tests/fixtures/replay-worker/build.mjs",
     "test:replay-worker-probe-core": "npm run check:replay-worker-probe && node --test tests/replay-worker/preparation.test.mjs",
     "test:replay-worker-probe": "npm run test:replay-worker-probe-core && npm run test:replay-worker-probe-state && playwright test --config playwright.replay-worker.config.js",
-    "test:replay-worker-probe-state": "node tests/fixtures/replay-worker/run-state.mjs"
+    "test:replay-worker-probe-state": "node tests/fixtures/replay-worker/run-state.mjs",
+    "test:source-parsing-core": "node --test tests/browser/native-source-events.test.mjs tests/browser/native-source-updater-readiness.test.mjs",
+    "test:source-parsing": "npm run check:native-thread-controls && npm run test:source-parsing-core && playwright test tests/browser/source-parsing-events.spec.js"
   },
   "devDependencies": {
     "@mathjax/mathjax-tex-font": "4.1.3",

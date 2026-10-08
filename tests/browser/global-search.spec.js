@@ -165,3 +165,59 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     }
   });
 }
+
+// These are real page/API navigations. Expected hash parsing comes from the
+// unchanged pinned client methods, not a second implementation of the grammar.
+for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+  test(`direct hash boundaries and ToInt32 pages match source at ${viewport.width}px`, async ({ browser }) => {
+    const { sourceSearch } = await import('./helpers/global-search-source.mjs');
+    const context = await browser.newContext({ viewport });
+    const page = await context.newPage();
+    const marker = `NoSearchHit${randomUUID().replaceAll('-', '')}`;
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const cases = [
+      `#${marker}`, `#/${marker}/fixture/0x2`, `#/${marker}/fixture/2junk`,
+      `#/${marker}/fixture/2.9`, `#/${marker}/fixture/1e1`,
+      `#/${marker}/fixture/Infinity`, `#/${marker}/fixture/-1`,
+      `#/${marker}/fixture/4294967298`, `#/${marker}/fixture/2147483648`,
+      `#/${marker}/all/2`, `#/${marker}/missing/2`,
+      `#/${marker}%2F%252F%2B/fixture/2`, '#/%E0%A4%A',
+      ...[510, 511, 512].map(length => `#/${marker.padEnd(length, 'x')}`),
+      `#/${'%41'.repeat(170)}`, `#/${'%41'.repeat(171)}`,
+    ];
+    try {
+      for (const hash of cases) {
+        await page.goto('about:blank');
+        // URL serialization is browser behavior; source receives location.hash.
+        const url = new URL(`/globalsearch.php${hash}`, origin);
+        const expected = sourceSearch(url.hash, ['fixture']);
+        const requests = [];
+        const record = request => { if (new URL(request.url()).pathname === '/search/api') requests.push(new URL(request.url())); };
+        page.on('request', record);
+        const responsePromise = expected?.query
+          ? page.waitForResponse(response => new URL(response.url()).pathname === '/search/api') : null;
+        await page.goto(url.href);
+        if (responsePromise) {
+          const response = await responsePromise;
+          expect(response.status()).toBe(200);
+          expect((await response.json()).offset).toBe(expected.offset);
+          await expect(page.locator('#js-sf-btn')).toBeEnabled();
+          expect(requests).toHaveLength(1);
+          expect(requests[0].searchParams.get('q')).toBe(expected.query);
+          expect(requests[0].searchParams.get('b') || '').toBe(expected.board);
+          expect(Number(requests[0].searchParams.get('o') || 0)).toBe(expected.offset);
+          expect(await page.locator('#js-sf-qf').inputValue()).toBe(expected.query);
+          expect(await page.locator('#js-sf-bf').inputValue()).toBe(expected.board);
+        } else {
+          expect(requests).toHaveLength(0);
+          expect(await page.locator('#js-sf-qf').inputValue()).toBe('');
+          if (expected === null) await expect(page.locator('#js-sf-status')).toHaveText('Something went wrong.');
+          else await expect(page.locator('#js-sf-results')).toBeEmpty();
+        }
+        page.off('request', record);
+      }
+      expect(errors).toEqual([]);
+    } finally { await context.close(); }
+  });
+}

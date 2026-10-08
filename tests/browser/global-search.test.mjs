@@ -55,7 +55,7 @@ test('global search keeps the original ten-by-ten hash grammar', () => {
   assert.deepEqual(parseSearchHash('#/owned/missing/3', boards), { query: 'owned', board: '', offset: 20 });
   assert.equal(parseSearchHash('#/%E0%A4%A', boards), null);
   assert.deepEqual(parseSearchHash(`#/${'x'.repeat(513)}`, boards), { query: '', board: '', offset: 0 });
-  assert.equal(parseSearchHash(`#/${'x'.repeat(512)}`, boards).query.length, 512);
+  assert.equal(parseSearchHash(`#/${'x'.repeat(510)}`, boards).query.length, 510);
   assert.equal(searchHash('two words', '', 20), '#/two%20words/all/3');
   assert.equal(searchHash('owned', 'g', 0), '#/owned/g');
   assert.equal(pageToOffset(11), 0);
@@ -158,4 +158,57 @@ test('a malformed replacement hash cancels the older request before showing its 
   assert.equal(old.aborted, true);
   assert.equal(fixture.handle.state.sequence, before + 1);
   assert.equal(fixture.results.children[0].textContent, 'Something went wrong.');
+});
+
+test('hash table matches unchanged pinned source methods, including UTF-16 and ToInt32', async () => {
+  const { sourceSearch, hashCases, source } = await import('./helpers/global-search-source.mjs');
+  const { createHash } = await import('node:crypto');
+  assert.equal(source.source_revision, '545b7812d1849f7958d914950c91fdbbe38f6b22');
+  assert.equal(source.file_sha256, '05b3b34f68377a44c071e4f74f629d2700fef61e064dcd2e836b161ee9ee0c31');
+  assert.equal(source.sha256, '7c69839faf04ed5ccceed0cf4bb66644582a0417b4e1a21042898edd81b2c698');
+  assert.equal(createHash('sha256').update(source.text).digest('hex'), source.sha256);
+  assert.equal(Buffer.byteLength(source.text), source.byte_end - source.byte_start);
+  for (const hash of hashCases) {
+    assert.deepEqual(parseSearchHash(hash, new Set(['a', 'g'])), sourceSearch(hash), JSON.stringify(hash));
+  }
+  const { runInNewContext } = await import('node:vm');
+  const methods = runInNewContext(`var Search = { pageSize: 10, maxPages: 10, ${source.text} exec() {} }; Search;`);
+  for (const value of [-Infinity, -4294967294, -1, 0, 1, 1.5, 2, 10, 10.9, 11, 90, 95, Infinity, NaN]) {
+    assert.equal(pageToOffset(value), methods.pageToOffset(value), `page ${value}`);
+    assert.equal(offsetToPage(value), methods.offsetToPage(value), `offset ${value}`);
+  }
+});
+
+test('source-derived table kills prefix-length, slashless and parseInt regressions', async () => {
+  const { sourceSearch, hashCases } = await import('./helpers/global-search-source.mjs');
+  const original = parseSearchHash.toString();
+  const mutations = [
+    ['prefix excluded from limit', 'hash.length >', 'hash.slice(2).length >'],
+    ['slashless query accepted', "hash.split('/').slice(1)", "hash.slice(hash.startsWith('#/') ? 2 : 1).split('/')"],
+    ['decimal parseInt instead of ToInt32', '0 | fragments[2]', 'Number.parseInt(fragments[2], 10)'],
+  ];
+  for (const [name, before, after] of mutations) {
+    assert.ok(original.includes(before), name);
+    const mutant = Function('SEARCH_LIMITS', 'pageToOffset', `return (${original.replace(before, after)});`)(SEARCH_LIMITS, pageToOffset);
+    assert.ok(hashCases.some(hash => JSON.stringify(mutant(hash, new Set(['a', 'g']))) !== JSON.stringify(sourceSearch(hash))), name);
+  }
+});
+
+test('clearing or over-limit replacement hashes cancel in-flight searches without stale output', async () => {
+  for (const hash of ['#owned', `#/${'x'.repeat(511)}`]) {
+    let resolve;
+    let signal;
+    const fixture = searchFixture({ hash: '#/first/g', fetcher: (_url, options) => {
+      signal = options.signal;
+      return new Promise(done => { resolve = done; });
+    } });
+    fixture.location.hash = hash;
+    fixture.events.hashchange();
+    assert.equal(signal.aborted, true);
+    assert.equal(fixture.query.value, '');
+    assert.equal(fixture.button.disabled, false);
+    resolve(new Response(JSON.stringify({ threads: [], offset: 0, nhits: 0 }), { headers: { 'content-type': 'application/json' } }));
+    await new Promise(done => setImmediate(done));
+    assert.deepEqual(fixture.results.children, []);
+  }
 });
