@@ -216,7 +216,7 @@ try {
         if ((Get-Item -LiteralPath $resultPath).Length -gt 65536) { throw 'Metadata limit' }
         $diagnostic = [IO.File]::ReadAllText($resultPath)
     } catch { Write-Output 'AFD manifest inspection unavailable; continuing the unchanged theme command.' }
-    npm run test:themes -- --shard "$env:THEME_SHARD/8" --output "test-results/windows-themes-$env:THEME_SHARD"
+    node scripts/windows-theme-stderr.mjs --shard "$env:THEME_SHARD/8" --output "test-results/windows-themes-$env:THEME_SHARD"
     $testExit = $LASTEXITCODE
 } finally {
     # Inspection failures must never replace the saved theme result.

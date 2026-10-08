@@ -208,7 +208,7 @@ test('board post menus watch persisted threads and synchronize an open menu acro
   await expect(trigger).toBeFocused();
 });
 
-test('post menus select the actual report popup and cookie-authorized deletion forms without submitting on selection', async ({ page, context, request, createThread }) => {
+test('post menus report through the actual popup and cancel native deletion before cookie-authorized fallback submission', async ({ page, context, request, createThread }) => {
   const id = await createThread('demo', 'Post action menu fixture');
   const replyResponse = await withPostingHistory(() => request.post('/demo/post', { headers: { Origin: origin },
     form: { resto: id, com: 'Reply selected through the native menu', password: 'watcher-test-password' }, maxRedirects: 0 }));
@@ -259,9 +259,24 @@ test('post menus select the actual report popup and cookie-authorized deletion f
   await page.getByRole('menuitem', { name: 'Unhide post', exact: true }).click();
   await expect(page.locator(`#m${reply}`)).toBeVisible();
   await trigger.click();
-  await page.getByRole('menuitem', { name: 'Delete post', exact: true }).click();
-  await expect(page.locator(`#p${reply} form[action="/demo/delete"] button`)).toBeFocused();
+  const confirmation = page.waitForEvent('dialog');
+  const clicked = page.getByRole('menuitem', { name: 'Delete post', exact: true }).click();
+  const dialog = await confirmation, message = dialog.message(), type = dialog.type();
+  await dialog.dismiss();
+  await clicked;
+  expect(type).toBe('confirm');
+  expect(message).toBe('Delete post?');
+  await expect(page.locator('#post-menu')).toHaveCount(0);
+  await expect(page.locator(`#pc${reply}`)).not.toHaveClass(/\bdeleted\b/);
+  await expect(page.locator(`#p${reply} details.postActions`)).not.toHaveAttribute('open');
+  await expect(page).toHaveURL(`${origin}/demo/thread/${id}`);
+  const remaining = await request.get(`/demo/thread/${id}.json`);
+  expect(remaining.status()).toBe(200);
+  expect((await remaining.json()).posts.some(post => String(post.no) === reply)).toBe(true);
   expect(writes).toBe(1);
+  // The mobile menu uses native confirmation; the legacy form remains a
+  // separate, explicitly opened path with its real redirect and persistence checks.
+  await page.locator(`#p${reply}`).getByText('Delete or report', { exact: true }).click();
   await expect(page.locator(`#delete${reply}`)).toHaveValue('');
   await withDeletionQuota(async () => {
     const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/demo/delete'));
