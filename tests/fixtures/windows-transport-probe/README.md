@@ -10,7 +10,7 @@ Pinned-source defaults enable `TcpPortRandomizationWin` with minimum `WIN11_22H2
 
 ## Model and deliberate limits
 
-The probe uses `WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, WSA_FLAG_OVERLAPPED)`, `ioctlsocket(FIONBIO)`, `TCP_NODELAY`, the 45-second idle/interval `SIO_KEEPALIVE_VALS` defaults, two event handles corresponding to the default Chromium core, `WSAEventSelect(FD_CONNECT)`, then unbound `connect`. A pending connection uses `WSAEnumNetworkEvents` and the FD_CONNECT error. Socket release calls `shutdown(SD_SEND)`, `closesocket`, and closes both event handles. It does not implement Chromium's optional explicit-bind path or IOCP read/write core.
+The probe uses `WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED)`, `ioctlsocket(FIONBIO)`, `TCP_NODELAY`, the 45-second idle/interval `SIO_KEEPALIVE_VALS` defaults, two event handles corresponding to the default Chromium core, `WSAEventSelect(FD_CONNECT)`, then unbound `connect`. A pending connection uses `WSAEnumNetworkEvents` and the FD_CONNECT error. Socket release calls `shutdown(SD_SEND)`, `closesocket`, and closes both event handles. It does not implement Chromium's optional explicit-bind path or IOCP read/write core.
 
 Variants explicitly set and read back `SO_RANDOMIZE_PORT=FALSE` (`plain`) or `TRUE` (`randomized`). This is a controlled native contrast, not an assertion that Chromium ran with either value. Chromium feature-off skips that setsockopt call; explicit FALSE is a deliberate difference. The probe treats rejected/unsupported options as failed qualification and stops that socket, whereas Chromium ignores some option failures. The extra getsockopt/getsockname observations also differ. The harness accepts a synchronous connect success; the pinned Chromium branch marks that outcome NOTREACHED. It never represents such a result as equivalent browser behavior. A returned Boolean is verified before any connection is interpreted as belonging to a variant.
 
@@ -52,7 +52,7 @@ The low-level run-probe.ps1 script does not create, start or stop the fixture. T
 
 ## Validation available here
 
-Linux checks: `node --test validate-output.test.mjs`; compile/run `response-parser.test.cpp` with `g++ -std=c++17 -Wall -Wextra -Werror`. These exercise strict output shape/counters/ownership and every partial-response boundary, duplicate/framing/body/size rejection. They do not validate Windows ABI, cl warnings, PowerShell execution, actual socket behavior or any causal hypothesis. This environment has no Windows, cl, PowerShell or Windows cross-compiler; Windows compilation and both real variants remain unexecuted.
+Linux checks: `node --test validate-output.test.mjs`; compile/run `response-parser.test.cpp` with `g++ -std=c++17 -Wall -Wextra -Werror`. These exercise strict output shape/counters/ownership and every partial-response boundary, duplicate/framing/body/size rejection. They do not validate Windows ABI, cl warnings, PowerShell execution, actual socket behavior or any causal hypothesis. Local checks cannot execute Windows. The first hosted attempt reached MSVC but failed on the ANSI socket macro under warnings-as-errors; the source now calls WSASocketW explicitly. Successful native compilation and both real variants remain unqualified.
 
 ## Primary sources
 
@@ -74,7 +74,7 @@ output validation. Compilation, unsupported socket options, native failures and
 incomplete evidence all fail the diagnostic lane. Both variants passing would
 be an inconclusive reproduction result, not a fix for the earlier browser error.
 
-The MSVC, PowerShell and Winsock paths remain unverified until the first hosted
-run. Step deadlines leave room for evidence upload, but runner loss or job
+The first hosted run verified fixture ownership and retained its compiler failure.
+Successful native compilation and the Winsock paths remain unverified. Step deadlines leave room for evidence upload, but runner loss or job
 cancellation can still prevent retention. No registry, port-range, browser
 feature or persistent network setting is changed.

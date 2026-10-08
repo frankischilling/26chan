@@ -93,7 +93,7 @@ void bindingState(Owned& item, const char* stage) {
 }
 bool connectStart(Owned& item) {
   ++attempts;
-  item.socket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);
+  item.socket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED);
   int error = item.socket == INVALID_SOCKET ? WSAGetLastError() : 0;
   record(item.id, "socket", item.socket == INVALID_SOCKET ? -1 : 0, error);
   if (item.socket == INVALID_SOCKET) { fail(item.id, "socket", error); return false; }

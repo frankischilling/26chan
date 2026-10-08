@@ -15,7 +15,6 @@ jobs:
     timeout-minutes: 30
     env:
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      REPLAY_PROBE_CARGO_TARGET_DIR: ${{ runner.temp }}/replay-worker-probe-target
       PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/replay-worker-evidence/native-results.json
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -29,6 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p test-results/replay-worker-evidence
+          printf 'REPLAY_PROBE_CARGO_TARGET_DIR=%s/replay-worker-probe-target\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
           {
             printf 'candidate=%s\n' "$CANDIDATE_SHA"
             git rev-parse HEAD

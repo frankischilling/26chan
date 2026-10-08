@@ -227,7 +227,8 @@ The separate Native replay qualification workflow tests the exact candidate head
 on Ubuntu 24.04 with the lockfile's Chromium revision. It runs the source, Node,
 and real Rust corpus checks before all 41 native cases. A separate report gate
 requires exactly one passing attempt for every case, with no skipped, flaky,
-expected-failure or retried cases. Thirteen report-gate tests cover valid and misleading results.
+expected-failure or retried cases. Fourteen report/workflow tests cover valid and misleading results, including
+the runner-step boundary for temporary-directory setup.
 
 Setup and test steps have individual deadlines within the job deadline, leaving
 time to retain exact source identities, setup/test logs, results and synthetic

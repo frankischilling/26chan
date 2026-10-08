@@ -22,3 +22,12 @@ for (const [name, mutate] of [
   ['unexpected result hidden in aggregate', r => first(r).status = 'unexpected'],
   ['top-level failure', r => r.errors.push({ message: 'worker failed' })],
 ]) test(`rejects ${name}`, () => { const report = good(); mutate(report); assert.throws(() => verifyNativeReport(report)); });
+
+test('runner-dependent target is initialized by a runner step, not job-level env', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('../../../.github/workflows/native-replay-qualification.yml', import.meta.url), 'utf8');
+  const jobEnv = source.split('    env:\n')[1]?.split('    steps:\n')[0];
+  assert(jobEnv, 'Expected explicit job environment');
+  assert.doesNotMatch(jobEnv, /\$\{\{\s*runner\./);
+  assert.match(source, /REPLAY_PROBE_CARGO_TARGET_DIR=%s\/replay-worker-probe-target\\n' "\$RUNNER_TEMP" >> "\$GITHUB_ENV"/);
+});
