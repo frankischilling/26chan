@@ -72,7 +72,7 @@
     "test:media-visual": "playwright test --config playwright.media-visual.config.js",
     "test:themes": "playwright test --config playwright.themes.config.js",
     "test:states": "playwright test --config playwright.states.config.js",
-    "test:staff": "playwright test --config playwright.staff.config.js",
+    "test:staff": "node --test tests/browser/staff-auth-budget.test.mjs && playwright test --config playwright.staff.config.js",
     "test:catalog-filters-core": "node --test tests/browser/catalog-filters.test.mjs",
     "test:catalog-theme-core": "node --test tests/browser/catalog-theme.test.mjs",
     "build:math": "node scripts/build-native-math.mjs",
