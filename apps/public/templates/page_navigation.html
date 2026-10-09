@@ -1,13 +1,13 @@
-{% macro desktop(boards, catalog, worksafe, footer) %}
+{% macro desktop(groups, worksafe, footer) %}
 <div id="{% if footer %}boardNavDesktopFoot{% else %}boardNavDesktop{% endif %}" class="desktop" role="navigation" aria-label="{% if footer %}Bottom board navigation{% else %}Board navigation{% endif %}">
-<span class="boardList" data-public-board-list>[ {% for entry in boards %}{% if !loop.first %} / {% endif %}<span{% if !entry.worksafe %} class="nwsb"{% endif %}><a href="/{{ entry.slug }}/{% if catalog && entry.slug != "f" %}catalog{% endif %}" title="{{ entry.title }}">{{ entry.slug }}</a></span>{% endfor %} ]</span>
+<span class="boardList" data-public-board-list>{% for group in groups %}<span data-public-board-group="{{ loop.index0 }}">[{% for entry in group %}{% if !loop.first %} / {% endif %}<span{% if entry.nws %} class="nwsb"{% endif %}><a href="{{ entry.href }}" title="{{ entry.title }}">{{ entry.slug }}</a></span>{% endfor %}]</span>{% if !loop.last %} {% endif %}{% endfor %}</span>
 <span id="{% if footer %}navbotright{% else %}navtopright{% endif %}">[<a id="settingsWindowLink{% if footer %}Bot{% endif %}" href="/settings/theme?worksafe={{ worksafe }}">Settings</a>] [<a href="#boardNavMobile" data-page-mobile="enable">Mobile</a>] [<a href="/">Home</a>]</span>
 </div>
 {% endmacro %}
 
-{% macro mobile(boards, board) %}
+{% macro mobile(boards, board, fallback) %}
 <div id="boardNavMobile" class="mobile" role="navigation" aria-label="Mobile board navigation">
-<div class="boardSelect"><strong>Board</strong> <select id="boardSelectMobile" aria-label="Board">{% for entry in boards %}<option value="{{ entry.slug }}"{% if !entry.worksafe %} class="nwsb"{% endif %}{% if entry.slug == board.slug %} selected{% endif %}>/{{ entry.slug }}/ - {{ entry.title }}</option>{% endfor %}</select></div>
+<div class="boardSelect"><strong>Board</strong> <select id="boardSelectMobile" aria-label="Board">{% for entry in boards %}<option value="{{ entry.slug }}"{% if entry.nws %} class="nwsb"{% endif %}{% if entry.slug == board.slug %} selected{% endif %}>/{{ entry.slug }}/ - {{ entry.title }}</option>{% endfor %}{% if fallback %}<option value="{{ board.slug }}" data-current-board-fallback="true"{% if !board.worksafe %} class="nwsb"{% endif %} selected>/{{ board.slug }}/ - {{ board.title }}</option>{% endif %}</select></div>
 <div class="pageJump"><a href="#bottom" aria-label="Bottom">▼</a><a id="settingsWindowLinkMobile" href="/settings/theme?worksafe={{ board.worksafe }}">Settings</a><a href="#boardNavDesktop" data-page-mobile="disable">Desktop</a><a href="/">Home</a></div>
 </div>
 {% endmacro %}

@@ -6,6 +6,9 @@ import assert from 'node:assert/strict';
 // Independent reference rows may span CI shards; the suite still uses one worker.
 test.describe.configure({ mode: 'parallel' });
 
+const navigationReference = JSON.parse(await readFile(new URL('../../fixtures/navigation-reference.json', import.meta.url)));
+const headerLabels = new Map(navigationReference.header_groups.flat());
+const headerNws = new Map(navigationReference.header_parent_nws[navigationReference.configured_header]);
 const reference = JSON.parse(await readFile(new URL('../../docs/public-page-chrome-reference.json', import.meta.url)));
 for (const [id, properties] of Object.entries(reference.component_styles)) {
   assert.equal(id, createHash('sha256').update(JSON.stringify(properties)).digest('hex').slice(0, 16));
@@ -49,7 +52,14 @@ for (const row of cases) {
         clonedIds: ['boardNavDesktopFoot', 'navbotright', 'settingsWindowLinkBot'].map(id => document.querySelectorAll(`#${id}`).length),
         footerBeforeDisclaimer: document.getElementById('boardNavDesktopFoot').nextElementSibling.id === 'absbot' };
       }, { selectors, expected: row.styles });
-      expect(actual).toEqual({ styles: row.styles, options: row.options, selected: row.selected,
+      // Keep recorded component styles intact. These synthetic inventory rows
+      // now contribute only source-header members plus the selected fallback.
+      const options = row.options.filter(option => headerLabels.has(option.value)).map(option => ({
+        ...option, label: `/${option.value}/ - ${headerLabels.get(option.value)}`,
+        class: headerNws.get(option.value) ? 'nwsb' : '',
+      })).sort((a, b) => a.value < b.value ? -1 : a.value > b.value ? 1 : 0);
+      if (!headerLabels.has(row.selected)) options.push(row.options.find(option => option.value === row.selected));
+      expect(actual).toEqual({ styles: row.styles, options, selected: row.selected,
         clonedIds: row.clonedIds, footerBeforeDisclaimer: row.footerBeforeDisclaimer });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (row.width <= 480) {

@@ -30,6 +30,39 @@ export function parseNavigationDirectory(raw) {
   return value.boards;
 }
 
+// Desktop groups are an independent, immutable admission boundary. Never infer
+// source header membership, ordering or destinations from the mobile directory.
+export function admitNavigationGroups(value) {
+  if (!Array.isArray(value) || value.length > 5) throw new TypeError('navigation-groups');
+  const seen = new Set(), encoder = new TextEncoder();
+  return Object.freeze(value.map(group => {
+    if (!Array.isArray(group) || !group.length) throw new TypeError('navigation-group');
+    return Object.freeze(group.map(entry => {
+      if (!sameObject(entry, ['board', 'title', 'href', 'nws']) || !slug(entry.board) || seen.has(entry.board)
+        || typeof entry.title !== 'string' || !entry.title || encoder.encode(entry.title).length > 120
+        || typeof entry.nws !== 'boolean'
+        || ![`/${entry.board}/`, `/${entry.board}/catalog`, `/${entry.board}/archive`].includes(entry.href)
+        || (entry.board === 'f' && entry.href !== '/f/') || (entry.board === 'b' && entry.href === '/b/archive')) {
+        throw new TypeError('navigation-group-board');
+      }
+      seen.add(entry.board);
+      if (seen.size > 77) throw new TypeError('navigation-group-limit');
+      return Object.freeze({ ...entry });
+    }));
+  }));
+}
+
+function serverNavigationGroups(root, window) {
+  if (root !== window.document.body || !root.classList.contains('publicPageChrome')) return null;
+  const list = root.querySelector('#boardNavDesktop [data-public-board-list]');
+  if (!list) return Object.freeze([]);
+  try {
+    return admitNavigationGroups([...list.querySelectorAll('[data-public-board-group]')].map(group =>
+      [...group.querySelectorAll('a')].map(anchor => ({ board: anchor.textContent, title: anchor.title,
+        href: anchor.getAttribute('href'), nws: anchor.parentElement.classList.contains('nwsb') }))));
+  } catch { return Object.freeze([]); }
+}
+
 function serverNavigationDirectory(root, window) {
   if (root !== window.document.body || !root.classList.contains('publicPageChrome')) return null;
   const select = root.querySelector('#boardSelectMobile');
@@ -42,7 +75,8 @@ function serverNavigationDirectory(root, window) {
       return { board: option.value, title: option.textContent.slice(prefix.length) };
     });
     return { boards: parseNavigationDirectory(JSON.stringify({ version: 1, boards })),
-      nws: new Set(options.filter(option => option.classList.contains('nwsb')).map(option => option.value)) };
+      nws: new Set(options.filter(option => option.classList.contains('nwsb')).map(option => option.value)),
+      fallback: new Set(options.filter(option => option.hasAttribute('data-current-board-fallback')).map(option => option.value)) };
   } catch { return null; }
 }
 
@@ -193,7 +227,11 @@ export function mountNativeNavigation({ root, board, thread, catalog = false, se
   if (!root || !window || !slug(board) || typeof settings !== 'function') return null;
   navigationMounts.get(root)?.destroy();
   const serverDirectory = serverNavigationDirectory(root, window);
-  const positions = new Map(); let bar = null, top = null, arrows = null, directory = serverDirectory?.boards ?? null, pending = null;
+  const serverGroups = serverNavigationGroups(root, window);
+  // A rejected public header must not silently widen to the discovery endpoint.
+  // Non-public legacy mounts may still request that independent full directory.
+  const sourceHeader = root === document.body && root.classList.contains('publicPageChrome');
+  const positions = new Map(); let bar = null, top = null, arrows = null, directory = serverDirectory?.boards ?? (sourceHeader ? [] : null), pending = null;
   let signature = null, suspended = false, destroyed = false, hideTimer = null, previousScroll = window.scrollY;
   let autoHideActive = false, controller = null;
   let ownsDropDownClass = false;
@@ -233,23 +271,32 @@ export function mountNativeNavigation({ root, board, thread, catalog = false, se
     const config = settings(), list = bar.querySelector('.nativeBoardLinks'), select = bar.querySelector('select');
     const entries = list ? boardLinks(config) : directory ?? [{ board, title: `/${board}/` }];
     if (list) {
-      list.replaceChildren(document.createTextNode('[ '));
-      entries.forEach((entry, index) => {
-        if (index) list.append(' / ');
-        const custom = config.customMenu === true && customBoards(config.customMenuList)?.length;
-        const anchor = link(entry.board, publicBoardPath(entry.board, catalog && !custom)); anchor.title = entry.title; list.append(anchor);
-      });
-      list.append(' ]');
+      const custom = config.customMenu === true && customBoards(config.customMenuList)?.length;
+      const groups = !custom && serverGroups ? serverGroups : [entries.map(entry => ({ ...entry,
+        href: publicBoardPath(entry.board, catalog && !custom), nws: false }))];
+      list.replaceChildren();
+      for (const group of groups) {
+        if (list.childNodes.length) list.append(' ');
+        const wrapper = element('span'); wrapper.setAttribute('data-public-board-group', ''); wrapper.append(!custom && serverGroups ? '[' : '[ ');
+        group.forEach((entry, index) => {
+          if (index) wrapper.append(' / ');
+          const anchor = link(entry.board, entry.href); anchor.title = entry.title;
+          if (entry.nws) { const nws = element('span', undefined, 'nwsb'); nws.append(anchor); wrapper.append(nws); }
+          else wrapper.append(anchor);
+        });
+        wrapper.append(!custom && serverGroups ? ']' : ' ]'); list.append(wrapper);
+      }
     }
     if (select) {
       select.replaceChildren();
       for (const entry of entries) {
         const option = element('option', `/${entry.board}/ - ${entry.title}`); option.value = entry.board;
         if (serverDirectory?.nws.has(entry.board)) option.className = 'nwsb';
+        if (serverDirectory?.fallback.has(entry.board)) option.setAttribute('data-current-board-fallback', 'true');
         option.selected = entry.board === board; select.append(option);
       }
       if (!entries.some(entry => entry.board === board)) {
-        const current = element('option', `/${board}/`); current.value = board; current.selected = true; select.prepend(current);
+        const current = element('option', `/${board}/`); current.setAttribute('data-current-board-fallback', 'true'); current.value = board; current.selected = true; select.prepend(current);
       }
       const custom = bar.querySelector('.nativeCustomBoardLinks');
       custom.replaceChildren();

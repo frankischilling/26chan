@@ -1,11 +1,15 @@
 # Public page navigation, titles and footer
 
-The board, catalog, thread and archive templates render the real local board
-directory above the page and in the footer. The mobile selector sorts the same
-directory and keeps the catalog view when moving between boards, except for
-`f`, whose destination is its index. Settings links have a server theme-page
+The board, catalog, thread and archive templates render the authorized subset
+of the 77 source-header entries above the page and in the footer. They retain
+the five source groups and omit empty groups. The mobile selector sorts that
+same membership by slug. Catalog destinations preserve the catalog view except
+for `f`, which opens its index. Archive desktop links target archives except for
+`f` and `b`, which open their indexes. Settings links have a server theme-page
 fallback; board and thread scripts bind those existing links to the native
-dialog. Archive pages load only the fixed navigation module.
+dialog. Archive pages load only the fixed page-chrome module for mobile
+navigation and mode controls; they do not mount the native persistent-navigation
+controller.
 
 The [local blotter](local-blotter.md) adds the source-gated newest-three preview,
 timestamp dismissal and a local dated cursor-paginated page. Its database and
@@ -105,14 +109,21 @@ node scripts/verify-public-viewport-reference.mjs <reference-directory>
 npx playwright test --config playwright.themes.config.js tests/themes/public-viewport.spec.js
 ```
 
-Directory rendering is capped at 100 boards and retains the current board when
-it lies beyond that set. Template escaping applies to titles and descriptions.
+The [source navigation contract](source-navigation.md) keeps the 77 header
+entries, 78 static directory records and 82 installed board policies separate.
+The existing authorized store and directory API bound remains 100 entries.
+Public directory rendering uses source directory labels and order where known,
+then local titles for additional authorized boards. A current board absent from
+the source header has a separate fallback; it does not enlarge the source
+groups or mobile membership. Template escaping applies to labels, titles and
+descriptions.
 HTML board, catalog, thread and archive readers load that directory within the
 same repeatable-read transaction as their content and settings. Rendering starts
 after commit. JSON and updater reads retain their existing bounded queries and
 do not load the HTML directory.
-The mobile controller captures at most 100 admitted local slugs and six mode
-controls. It does not fetch a directory or admit external destinations.
+The mobile controller retains its 100-entry admission bound and six mode
+controls; the server supplies at most 77 source-header board options. It does
+not fetch a directory or admit external destinations.
 Persistent navigation reuses that validated server directory and preserves its
 non-worksafe classes. The bounded HTTP directory remains a fallback for pages
 without the server selector. Custom links keep their saved order and open index
@@ -127,7 +138,8 @@ attribute replaced by another writer. The existing native layout controller
 reads the same preference and uses the same mobile-mode attribute.
 
 The archive response admits only `/static/page-chrome.v1.js` as script code.
-Fetches, workers, sound and embedded players remain denied. Watcher and Settings
+Its server-rendered groups and mobile controls do not mount the native
+persistent-navigation controller. Fetches, workers, sound and embedded players remain denied. Watcher and Settings
 modules are absent. GET/HEAD success with HTML is required; write responses,
 errors, plain responses and JSON-shaped routes retain no script authority. The
 asset itself serves fixed GET/HEAD bytes, has no API-listener or write route,

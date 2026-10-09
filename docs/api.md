@@ -22,6 +22,13 @@ policy on both JSON listeners. Enabled boards with a nonzero count advertise
 replies omit it. Disabled boards omit both fields. Apply migration 0081 before
 starting the updated binaries.
 
+Boards advertise `code_tags` and `sjis_tags` as numeric `1` when their current
+stored formatting policy enables the corresponding feature. Disabled flags are
+omitted, not returned as `false`, `0` or `null`. Both JSON listeners use the same
+projection and retain JSON-disabled and staff-only exclusions. The pinned source
+clauses and four-case truth table are recorded in
+`fixtures/board-format-metadata-reference.json`; no migration is required.
+
 Set both `API_ORIGIN` and `API_BIND_ADDR` to enable it; omit both for the existing single-listener setup. In a fresh development shell, after the database is migrated and seeded:
 
 ```bash

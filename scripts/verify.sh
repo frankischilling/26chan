@@ -13,6 +13,10 @@ export APP_ENV=development
 : "${MONITOR_DATABASE_URL:?Set the disposable aggregate observer database URL}"
 : "${AUTH_DATABASE_URL:?Set the disposable authentication test database URL}"
 : "${STAFF_DATABASE_URL:?Set the disposable staff test database URL}"
+python3 scripts/extract-navigation-reference.py
+python3 scripts/test-navigation-reference.py
+python3 scripts/extract-board-format-metadata-reference.py
+python3 scripts/test-board-format-metadata-reference.py
 npm ci --ignore-scripts
 if [[ ${CI:-} == true ]]; then
   npx playwright install --with-deps chromium

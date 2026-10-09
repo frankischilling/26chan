@@ -42,6 +42,7 @@ async fn coherent_during_commit(
         .fetch_one(&public)
         .await
         .unwrap();
+    navigation_snapshot_during_commit(&owner, &public, &slug, &other_slug, reader).await;
     let mut inconsistent = Vec::new();
     for delete in [false, true] {
         for (app, suffix, archived) in [
@@ -92,7 +93,7 @@ async fn coherent_during_commit(
             let before = get_response(app, &path).await;
             assert_eq!(before.0, 200, "{path}");
             if !suffix.ends_with(".json") {
-                assert!(String::from_utf8_lossy(&before.1).contains("Other before commit"));
+                assert!(!String::from_utf8_lossy(&before.1).contains("Other before commit"));
             }
 
             let mut writer = owner.begin().await.unwrap();
@@ -177,7 +178,7 @@ async fn coherent_during_commit(
                 "{path}"
             );
             if after.0 == 200 && !suffix.ends_with(".json") {
-                assert!(String::from_utf8_lossy(&after.1).contains("Other after commit"));
+                assert!(!String::from_utf8_lossy(&after.1).contains("Other after commit"));
             }
             if !delete && ["catalog.json", "1.json"].contains(&suffix.as_str()) {
                 let opening = |raw: &[u8]| {
@@ -202,6 +203,83 @@ async fn coherent_during_commit(
         "responses combined different commits: {inconsistent:?}"
     );
     settled_contracts(&owner, &public, &slug, id).await;
+}
+
+// Independently retain the navigation-row snapshot proof: custom boards remain
+// discovery rows even though the source header intentionally does not list them.
+async fn navigation_snapshot_during_commit(
+    owner: &PgPool,
+    public: &PgPool,
+    slug: &str,
+    other: &str,
+    reader: i32,
+) {
+    use board_store::{BoardSelection, board_page_snapshot};
+    sqlx::query("UPDATE content.boards SET title='Snapshot before' WHERE slug=$1 OR slug=$2")
+        .bind(slug)
+        .bind(other)
+        .execute(owner)
+        .await
+        .unwrap();
+    let mut writer = owner.begin().await.unwrap();
+    sqlx::query("LOCK TABLE content.posts IN ACCESS EXCLUSIVE MODE")
+        .execute(&mut *writer)
+        .await
+        .unwrap();
+    let writer_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *writer)
+        .await
+        .unwrap();
+    let commit = async {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let blocked: bool = sqlx::query_scalar("SELECT $1 = ANY(pg_blocking_pids($2))")
+                    .bind(writer_pid)
+                    .bind(reader)
+                    .fetch_one(owner)
+                    .await
+                    .unwrap();
+                if blocked {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("navigation snapshot reader must reach the posts lock");
+        sqlx::query("UPDATE content.boards SET title='Snapshot after' WHERE slug=$1 OR slug=$2")
+            .bind(slug)
+            .bind(other)
+            .execute(&mut *writer)
+            .await
+            .unwrap();
+        writer.commit().await.unwrap();
+    };
+    let (during, ()) = tokio::join!(
+        board_page_snapshot(public, slug, BoardSelection::Page(1), Some(5)),
+        commit
+    );
+    let during = during.unwrap();
+    let navigation = during
+        .navigation_boards
+        .iter()
+        .find(|board| board.slug == other)
+        .unwrap();
+    assert_eq!(during.snapshot.board.title, "Snapshot before");
+    assert_eq!(navigation.title, during.snapshot.board.title);
+    let after = board_page_snapshot(public, slug, BoardSelection::Page(1), Some(5))
+        .await
+        .unwrap();
+    assert_eq!(after.snapshot.board.title, "Snapshot after");
+    assert_eq!(
+        after
+            .navigation_boards
+            .iter()
+            .find(|board| board.slug == other)
+            .unwrap()
+            .title,
+        "Snapshot after"
+    );
 }
 
 async fn cached(app: &axum::Router, path: &str, etag: Option<&str>) -> (u16, String) {

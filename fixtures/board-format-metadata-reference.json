@@ -1,0 +1,46 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445"
+  },
+  "source_excerpt": {
+    "function": "get_catalog_info",
+    "first_line": 7883,
+    "last_line": 7889,
+    "sha256": "62aebcec14394ad06dbfd7ca65bc55dba80be986767c23dcaeeab7cb7840f427",
+    "text": "  if (CODE_TAGS) {\r\n    $arr['code_tags'] = 1;\r\n  }\r\n  \r\n  if (SJIS_TAGS) {\r\n    $arr['sjis_tags'] = 1;\r\n  }\r\n"
+  },
+  "stored_columns": {
+    "CODE_TAGS": "comment_code_spacing",
+    "SJIS_TAGS": "comment_sjis_spacing"
+  },
+  "cases": [
+    {
+      "code_tags": false,
+      "sjis_tags": false,
+      "expected": {}
+    },
+    {
+      "code_tags": false,
+      "sjis_tags": true,
+      "expected": {
+        "sjis_tags": 1
+      }
+    },
+    {
+      "code_tags": true,
+      "sjis_tags": false,
+      "expected": {
+        "code_tags": 1
+      }
+    },
+    {
+      "code_tags": true,
+      "sjis_tags": true,
+      "expected": {
+        "code_tags": 1,
+        "sjis_tags": 1
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
-import { navigationPage, parseNavigationDirectory, navigationDirectory } from '../../apps/public/static/native-navigation.v1.js';
+import { admitNavigationGroups, navigationPage, parseNavigationDirectory, navigationDirectory } from '../../apps/public/static/native-navigation.v1.js';
 
 const origin = 'https://navigation.example';
 const directory = { version: 1, boards: [{ board: 'demo', title: 'Owned <img src=x> title' }, { board: 'test', title: 'Owned Test' }] };
@@ -21,6 +21,29 @@ test('navigation uses canonical local pages and a finite exact board schema', ()
     assert.throws(() => parseNavigationDirectory(JSON.stringify(value)));
   }
   assert.throws(() => parseNavigationDirectory(' '.repeat(32769)));
+});
+
+test('desktop group admission preserves immutable order, exact labels and local view destinations', () => {
+  const entry = (board, title, href = `/${board}/`) => ({ board, title, href, nws: false });
+  const input = [[entry('v', 'Video Games', '/v/archive'), entry('a', 'Anime & Manga', '/a/catalog')],
+    [{ ...entry('b', 'Random'), nws: true }, entry('f', 'Flash')]];
+  assert.deepEqual(admitNavigationGroups([]), []);
+  assert.ok(Object.isFrozen(admitNavigationGroups([])));
+  assert.deepEqual(admitNavigationGroups([[entry('a', 'Anime & Manga')], [entry('i', 'Oekaki')]]).map(group => group.map(item => item.board)), [['a'], ['i']]);
+  const admitted = admitNavigationGroups(input);
+  assert.deepEqual(admitted, input);
+  input[0][0].title = 'Changed'; input[0].reverse(); input.push([entry('extra', 'Extra')]);
+  assert.equal(admitted[0][0].title, 'Video Games');
+  assert.equal(admitted.length, 2);
+  assert.ok(Object.isFrozen(admitted) && Object.isFrozen(admitted[0]) && Object.isFrozen(admitted[0][0]));
+  for (const href of ['//evil.test/a/', 'https://evil.test/a/', '/v/', '/a/../v/', '/a/?x=1', '/a/thread/1', 'javascript:alert(1)']) {
+    assert.throws(() => admitNavigationGroups([[entry('a', 'Anime & Manga', href)]]));
+  }
+  for (const value of [[[]], Array(6).fill([entry('a', 'A')]), [[entry('a', 'A'), entry('a', 'A')]],
+    [[entry('f', 'Flash', '/f/catalog')]], [[entry('b', 'Random', '/b/archive')]],
+    [[{ ...entry('a', 'A'), onclick: 'evil' }]], [[entry('a', 'x'.repeat(121))]],
+    [Array.from({ length: 78 }, (_, i) => entry(`b${i}`, 'Board'))]]) assert.throws(() => admitNavigationGroups(value));
+  assert.equal(admitNavigationGroups([[entry('a', '<img src=x>')]])[0][0].title, '<img src=x>');
 });
 
 test('directory transport bounds authority, deadlines and empty-chunk stream work', async () => {
@@ -70,7 +93,7 @@ test('navigation controls own only their layout, local links and finite saved po
         if (files[url.pathname]) return route.fulfill({ contentType: 'text/javascript', body: files[url.pathname] });
         if (url.pathname === '/_watch/boards') { requests.push(url.pathname); return route.fulfill({ contentType: 'application/json', body: JSON.stringify(directory) }); }
         if (url.pathname === (catalog ? '/test/catalog' : '/test/1')) return route.fulfill({ contentType: 'text/html', body:
-          `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body${server ? ' class="publicPageChrome"' : ''}><nav class="boardList">[ <a href="/">All boards</a> ]</nav>${server ? '<select id="boardSelectMobile"><option value="demo" class="nwsb">/demo/ - Demo &lt;b&gt;board&lt;/b&gt;</option><option value="test" selected>/test/ - Owned Test</option></select>' : ''}<main><textarea id="draft">Owned draft</textarea><div style="height:3000px">Owned scroll area</div><nav class="pages"><a href="/test/0" rel="prev">Previous</a><a href="/test/2" rel="next">Next</a></nav></main></body></html>` });
+          `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body${server ? ' class="publicPageChrome"' : ''}><nav class="boardList">[ <a href="/">All boards</a> ]</nav>${server ? '<div id="boardNavDesktop"><span data-public-board-list><span data-public-board-group>[<a href="/test/archive" title="Desktop Test">test</a>]</span> <span data-public-board-group>[<span class="nwsb"><a href="/demo/archive" title="Demo &lt;b&gt;board&lt;/b&gt;">demo</a></span>]</span></span></div><select id="boardSelectMobile"><option value="demo" class="nwsb">/demo/ - Demo &lt;b&gt;board&lt;/b&gt;</option><option value="test" selected>/test/ - Owned Test</option></select>' : ''}<main><textarea id="draft">Owned draft</textarea><div style="height:3000px">Owned scroll area</div><nav class="pages"><a href="/test/0" rel="prev">Previous</a><a href="/test/2" rel="next">Next</a></nav></main></body></html>` });
         if (url.pathname.endsWith('favicon.ico')) return route.fulfill({ status: 204 });
         requests.push(url.href); return route.abort();
       });
@@ -159,6 +182,72 @@ test('navigation controls own only their layout, local links and finite saved po
         });
         assert.deepEqual(await page.locator('.nativePersistentNavigation option').evaluateAll(options => options.map(option => option.value)), ['demo', 'test']);
         assert.deepEqual(await page.locator('.nativeCustomBoardLinks a').evaluateAll(links => links.map(link => link.getAttribute('href'))), ['/demo/']);
+        assert.deepEqual(requests, []); assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    await t.test('classic snapshots retain desktop groups independently of mobile and restore after custom menus', async () => {
+      const { context, page, requests, errors } = await setup({ dropDownNav: true, classicNav: true }, false, true);
+      try {
+        const groups = () => page.locator('.nativeBoardLinks [data-public-board-group]').evaluateAll(groups =>
+          groups.map(group => [...group.querySelectorAll('a')].map(a => [a.textContent, a.title, a.getAttribute('href')])));
+        const expected = [[['test', 'Desktop Test', '/test/archive']], [['demo', 'Demo <b>board</b>', '/demo/archive']]];
+        assert.deepEqual(await groups(), expected);
+        assert.equal(await page.locator('.nativeBoardLinks').textContent(), '[test] [demo]');
+        assert.equal(await page.locator('.nativeBoardLinks .nwsb a').textContent(), 'demo');
+        assert.equal(await page.locator('.nativeBoardLinks b').count(), 0);
+        await page.evaluate(() => {
+          document.querySelector('#boardNavDesktop a').setAttribute('href', '//evil.example/');
+          config.customMenu = true; config.customMenuList = 'demo test'; navigation.refresh();
+        });
+        assert.deepEqual(await page.locator('.nativeBoardLinks a').evaluateAll(links => links.map(a => a.getAttribute('href'))), ['/demo/', '/test/']);
+        await page.evaluate(() => { config.customMenu = false; navigation.refresh(); });
+        assert.deepEqual(await groups(), expected);
+        await page.evaluate(() => { config.classicNav = false; navigation.refresh(); });
+        assert.deepEqual(await page.locator('.nativePersistentNavigation option').evaluateAll(options => options.map(o => o.textContent)),
+          ['/demo/ - Demo <b>board</b>', '/test/ - Owned Test']);
+        await page.evaluate(() => {
+          config.classicNav = true; navigation.refresh();
+          dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+          dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+          dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+        });
+        assert.deepEqual(await groups(), expected);
+        assert.equal(await page.locator('.nativePersistentNavigation').count(), 1);
+        assert.deepEqual(requests, []); assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    await t.test('empty or rejected public groups never widen to the full discovery directory', async () => {
+      const { context, page, requests, errors } = await setup({ dropDownNav: true }, false, true);
+      try {
+        await page.evaluate(() => {
+          document.querySelector('#boardNavDesktop [data-public-board-list]').replaceChildren();
+          document.querySelector('#boardSelectMobile').options[0].textContent = 'Invalid label';
+          navigation = mountNavigation();
+        });
+        assert.deepEqual(await page.locator('.nativePersistentNavigation option').evaluateAll(options => options.map(o => o.value)), ['test']);
+        assert.equal(await page.locator('.nativePersistentNavigation option[data-current-board-fallback]').count(), 1);
+        await page.evaluate(() => { config.classicNav = true; navigation.refresh(); });
+        assert.equal(await page.locator('.nativeBoardLinks a').count(), 0);
+        assert.deepEqual(requests, []); assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
+    await t.test('an invalid nonempty desktop group fails closed without poisoning valid mobile choices', async () => {
+      const { context, page, requests, errors } = await setup({ dropDownNav: true, classicNav: true }, false, true);
+      try {
+        await page.evaluate(() => {
+          const list = document.querySelector('#boardNavDesktop [data-public-board-list]');
+          list.lastElementChild.remove();
+          list.querySelector('a').setAttribute('href', '//evil.example/');
+          navigation = mountNavigation();
+        });
+        assert.equal(await page.locator('#boardNavDesktop [data-public-board-group]').count(), 1);
+        assert.equal(await page.locator('.nativeBoardLinks a').count(), 0);
+        await page.evaluate(() => { config.classicNav = false; navigation.refresh(); });
+        assert.deepEqual(await page.locator('.nativePersistentNavigation option').evaluateAll(options => options.map(o => o.value)), ['demo', 'test']);
+        assert.equal(await page.getByLabel('Board', { exact: true }).inputValue(), 'test');
         assert.deepEqual(requests, []); assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });

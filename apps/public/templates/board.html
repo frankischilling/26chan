@@ -14,8 +14,8 @@
 {% block drawing_stylesheet %}{% if drawing_allowed() %}<link rel="stylesheet" href="/static/tegaki/tegaki-0.9.4.v1.css">{% endif %}{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
 {% block feature_notice %}{% if media_origin.is_empty() %}Text posts only.{% else %}Development media workflow.{% endif %}{% endblock %}
-{% block board_navigation %}{% if catalog %}<div id="topnav" class="boardnav">{% endif %}{% call page_navigation::desktop(navigation(), catalog, board.worksafe, false) %}{% endcall %}{% if catalog %}</div>{% endif %}{% call page_navigation::mobile(navigation(), board) %}{% endcall %}{% endblock %}
-{% block page_footer %}{% call page_navigation::desktop(navigation(), catalog, board.worksafe, true) %}{% endcall %}<div id="absbot" class="absBotText"><div id="footer-links"><a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a> • <a href="/">All boards</a></div></div>{% if parent == 0 %}<div id="bottom"></div>{% endif %}<script type="module" src="/static/page-chrome.v1.js"></script>{% endblock %}
+{% block board_navigation %}{% if catalog %}<div id="topnav" class="boardnav">{% endif %}{% call page_navigation::desktop(navigation(), board.worksafe, false) %}{% endcall %}{% if catalog %}</div>{% endif %}{% call page_navigation::mobile(mobile_navigation(), board, navigation_fallback()) %}{% endcall %}{% endblock %}
+{% block page_footer %}{% call page_navigation::desktop(navigation(), board.worksafe, true) %}{% endcall %}<div id="absbot" class="absBotText"><div id="footer-links"><a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a> • <a href="/">All boards</a></div></div>{% if parent == 0 %}<div id="bottom"></div>{% endif %}<script type="module" src="/static/page-chrome.v1.js"></script>{% endblock %}
 {% block content %}
 <div class="boardBanner"{% if parent > 0 %} id="top"{% endif %}><div id="bannerCnt" class="title desktop"></div><div class="boardTitle" role="heading" aria-level="1">{{ heading() }}</div>{% include "board_subtitle.html" %}</div>
 {% if parent > 0 %}

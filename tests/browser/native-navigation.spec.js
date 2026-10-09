@@ -1,9 +1,13 @@
+import { readFileSync } from 'node:fs';
 import { openNativeSettingsCategory, watcherSettingsOpener } from './helpers/watcher-settings.js';
 import { test, expect } from '@playwright/test';
 
 const settingsKey = '4chan-settings';
+const navigationReference = JSON.parse(readFileSync(new URL('../../fixtures/navigation-reference.json', import.meta.url), 'utf8'));
+const sourceHeaderGroups = navigationReference.header_groups;
+const headerNws = new Map(navigationReference.header_parent_nws[navigationReference.configured_header]);
 
-test('catalog Settings uses the actual board directory and disables navigation without reload', async ({ page }) => {
+test('catalog Settings uses the source mobile header directory and disables navigation without reload', async ({ page }) => {
   const errors = [], unexpected = [], directoryRequests = []; page.on('pageerror', error => errors.push(error.message));
   page.on('request', request => { if (new URL(request.url()).origin !== 'http://127.0.0.1:3000') unexpected.push(request.url()); });
   await page.addInitScript(() => localStorage.setItem('4chan-settings', '{}'));
@@ -12,8 +16,13 @@ test('catalog Settings uses the actual board directory and disables navigation w
   await page.goto('/fixture/catalog');
   const bar = page.getByRole('navigation', { name: 'Persistent board navigation', exact: true });
   await expect(bar).toBeVisible(); await expect(bar.getByLabel('Board', { exact: true })).toHaveValue('fixture');
-  await expect(bar.locator('option[value="demo"]')).toHaveCount(1);
-  expect(await bar.locator('option').evaluateAll(options => options.map(option => option.value))).toEqual((await directory.json()).boards.map(entry => entry.board));
+  await expect(bar.locator('option[value="a"]')).toHaveText('/a/ - Anime & Manga');
+  await expect(bar.locator('option[value="demo"]')).toHaveCount(0);
+  await expect(bar.locator('option[data-current-board-fallback]')).toHaveAttribute('value', 'fixture');
+  await expect(bar.locator('option')).toHaveCount(78);
+  expect(await bar.locator('option').evaluateAll(options => options.map(option => option.value))).toEqual(
+    await page.locator('#boardSelectMobile option').evaluateAll(options => options.map(option => option.value)));
+  expect((await directory.json()).boards.some(entry => entry.board === 'demo')).toBe(true);
   let navigations = 0; page.on('framenavigated', () => navigations++);
   await bar.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.locator('#theme-ddn').uncheck(); await page.locator('#theme-save').click();
@@ -23,7 +32,7 @@ test('catalog Settings uses the actual board directory and disables navigation w
   expect(errors).toEqual([]); expect(unexpected).toEqual([]); expect(directoryRequests).toEqual([]);
 });
 
-test('persistent board navigation saves settings, uses the actual directory and supports keyboard relocation', async ({ page, context }) => {
+test('persistent board navigation saves settings, uses the source directory and supports keyboard relocation', async ({ page, context }) => {
   const failures = [], unexpected = [];
   page.on('pageerror', error => failures.push(error.message));
   page.on('request', request => {
@@ -41,7 +50,8 @@ test('persistent board navigation saves settings, uses the actual directory and 
   const bar = page.getByRole('navigation', { name: 'Persistent board navigation', exact: true });
   await expect(bar).toBeVisible();
   await expect(bar.getByLabel('Board', { exact: true })).toHaveValue('fixture');
-  await expect(bar.locator('option[value="demo"]')).toHaveCount(1);
+  await expect(bar.locator('option[value="a"]')).toHaveText('/a/ - Anime & Manga');
+  await expect(bar.locator('option[value="demo"]')).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Top page navigation', exact: true })).toBeVisible();
   const arrows = page.getByRole('navigation', { name: 'Page navigation arrows', exact: true });
   await expect(arrows).toBeVisible();
@@ -64,9 +74,9 @@ test('persistent board navigation saves settings, uses the actual directory and 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.setViewportSize({ width: 1000, height: 800 });
   await expect(bar).toBeVisible();
-  await bar.getByLabel('Board', { exact: true }).selectOption('demo');
-  await expect(page).toHaveURL('http://127.0.0.1:3000/demo/');
-  await expect(bar.getByLabel('Board', { exact: true })).toHaveValue('demo');
+  await bar.getByLabel('Board', { exact: true }).selectOption('a');
+  await expect(page).toHaveURL('http://127.0.0.1:3000/a/');
+  await expect(bar.getByLabel('Board', { exact: true })).toHaveValue('a');
 
   const other = await context.newPage();
   try {
@@ -79,7 +89,7 @@ test('persistent board navigation saves settings, uses the actual directory and 
     await expect(arrows).toHaveCount(0);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole('navigation', { name: 'Mobile board navigation', exact: true })).toBeVisible();
-    await expect(page.locator('#boardSelectMobile')).toHaveValue('demo');
+    await expect(page.locator('#boardSelectMobile')).toHaveValue('a');
     await expect(page.locator('#boardNavDesktop, #boardNavDesktopFoot')).toHaveCount(2);
     await expect(page.locator('#boardNavDesktop')).toBeHidden();
   } finally { await other.close(); }
@@ -207,4 +217,73 @@ test('returning mobile-UA users retain explicit desktop-layout navigation prefer
     await expect(dialog.getByLabel('Page navigation at top of page', { exact: true })).toBeChecked();
     expect(await page.evaluate(() => localStorage.getItem('4chan-settings'))).toBe(saved);
   } finally { await context.close(); }
+});
+
+for (const mode of ['index', 'catalog']) {
+  test(`classic ${mode} navigation retains source groups while dropdown stays independently sorted`, async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({
+      dropDownNav: true, classicNav: true, threadStats: false,
+    })));
+    await page.goto(`/a/${mode === 'index' ? '' : mode}`);
+    const original = page.locator('#boardNavDesktop [data-public-board-list]');
+    const classic = page.locator('.nativeBoardLinks');
+    const snapshot = locator => locator.locator('[data-public-board-group]').evaluateAll(groups => groups.map(group =>
+      [...group.querySelectorAll('a')].map(a => ({ board: a.textContent, title: a.title, href: a.getAttribute('href'), nws: a.parentElement.classList.contains('nwsb') }))));
+    await expect(original.locator('a')).toHaveCount(77);
+    const expected = await snapshot(original);
+    expect(expected).toHaveLength(5);
+    expect(expected.map(group => group.map(({ board, title }) => [board, title]))).toEqual(sourceHeaderGroups);
+    expect(await snapshot(classic)).toEqual(expected);
+    expect(await classic.textContent()).toBe(await original.textContent());
+    for (const group of expected) for (const entry of group) {
+      const destination = entry.board === 'f' || mode === 'index' ? '' : mode;
+      expect(entry.href).toBe(`/${entry.board}/${destination}`);
+      expect(entry.nws).toBe(headerNws.get(entry.board));
+    }
+    const mobile = await page.locator('#boardSelectMobile option').evaluateAll(options => options.map(o => [o.value, o.textContent, o.className]));
+    expect(mobile.map(([slug]) => slug)).toEqual(expected.flat().map(entry => entry.board).sort());
+    expect(mobile).toContainEqual(['a', '/a/ - Anime & Manga', headerNws.get('a') ? 'nwsb' : '']);
+    for (const [slug, , className] of mobile) expect(className).toBe(headerNws.get(slug) ? 'nwsb' : '');
+    await page.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem('4chan-settings'));
+      localStorage.setItem('4chan-settings', JSON.stringify({ ...settings, classicNav: false }));
+      document.dispatchEvent(new Event('4chanSettingsSaved'));
+    });
+    await expect(page.locator('.nativeBoardLinks')).toHaveCount(0);
+    expect(await page.locator('.nativePersistentNavigation option').evaluateAll(options => options.map(o => [o.value, o.textContent, o.className]))).toEqual(mobile);
+    await page.locator('.nativePersistentNavigation select').selectOption('c');
+    await expect(page).toHaveURL(`http://127.0.0.1:3000/c/${mode === 'catalog' ? 'catalog' : ''}`);
+  });
+}
+
+test('a current board absent from the header never becomes a classic source member', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ dropDownNav: true, classicNav: true })));
+  await page.goto('/fixture/');
+  await expect(page.locator('.nativeBoardLinks a')).toHaveCount(77);
+  await expect(page.locator('.nativeBoardLinks a[href="/fixture/"]')).toHaveCount(0);
+  await expect(page.locator('#boardSelectMobile option[data-current-board-fallback]')).toHaveAttribute('value', 'fixture');
+  await expect(page.locator('#boardSelectMobile')).toHaveValue('fixture');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('.nativePersistentNavigation')).toHaveCount(0);
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await expect(page.locator('.nativeBoardLinks [data-public-board-group]')).toHaveCount(5);
+  await expect(page.locator('.nativeBoardLinks a')).toHaveCount(77);
+  await expect(page.locator('.nativeBoardLinks a[href="/fixture/"]')).toHaveCount(0);
+});
+
+test('archive production navigation preserves source archive links and mobile index destinations', async ({ page }) => {
+  await page.goto('/a/archive');
+  await expect(page.locator('.nativePersistentNavigation')).toHaveCount(0);
+  const groups = await page.locator('#boardNavDesktop [data-public-board-group]').evaluateAll(groups => groups.map(group =>
+    [...group.querySelectorAll('a')].map(a => [a.textContent, a.title, a.getAttribute('href'), a.parentElement.classList.contains('nwsb')])));
+  expect(groups.map(group => group.map(([slug, title]) => [slug, title]))).toEqual(sourceHeaderGroups);
+  for (const group of groups) for (const [slug, , href, nws] of group) {
+    expect(nws).toBe(headerNws.get(slug));
+    expect(href).toBe(`/${slug}/${['f', 'b'].includes(slug) ? '' : 'archive'}`);
+  }
+  expect(await page.locator('#boardSelectMobile option').evaluateAll(options => options.map(o => o.value))).toEqual(
+    sourceHeaderGroups.flat().map(([slug]) => slug).sort());
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('#boardSelectMobile').selectOption('c');
+  await expect(page).toHaveURL('http://127.0.0.1:3000/c/');
 });

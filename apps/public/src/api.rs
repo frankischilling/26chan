@@ -132,6 +132,8 @@ pub async fn boards(
             value["require_subject"] = json!(1);
         }
         if board.user_ids { value["user_ids"] = json!(1); }
+        if board.comment_code_spacing { value["code_tags"] = json!(1); }
+        if board.comment_sjis_spacing { value["sjis_tags"] = json!(1); }
         if board.math_tags { value["math_tags"] = json!(1); }
         if board.ordinary_drawing_enabled(state.media.is_some()) { value["oekaki"] = json!(1); }
         if board.country_flags { value["country_flags"] = json!(1); }
