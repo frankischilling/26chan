@@ -67,3 +67,43 @@ The observer also rejects invalid UTF-8, malformed JSON and oversized captures
 while preserving the original response. After `npm ci --ignore-scripts`, all
 generated-asset checks, browser-spec syntax and `git diff --check` passed.
 The six database-backed page scenarios remain subject to fresh hosted CI.
+
+
+## Hosted search results and cancellation coverage, October 9, 2026
+
+[PR #234](https://github.com/frankischilling/26chan/pull/234) passed its final
+[application job](https://github.com/frankischilling/26chan/actions/runs/37832185569/job/113500726550).
+The checkout was synthetic merge `4352749f6961da92d751ef77f19768e5e3118036`
+(head `926572fd8232ab1642940bb2f5480b8ef57fb1cf` into
+`a135d803eb331b1ea4a306ec2e275bb376d73436`). The generated 186,837-byte
+bundle matched, all 11 Node/observer tests passed, and all six search page
+scenarios passed at 20:00:38 UTC on October 8.
+
+The [post-merge application job](https://github.com/frankischilling/26chan/actions/runs/37840609535/job/113529285215)
+on `bad63e6d0277f096187591a0d4df21d27fe406ee` also passed the persisted
+database search test, bundle check, 11 Node/observer tests and six page
+scenarios. The page cases finished at 21:08:22 UTC. That job later failed in
+`native-updater-notifications.spec.js:70` because `clock.pauseAt` tried to
+fast-forward into the past. Global Search passed its checks; the overall
+post-merge build failed.
+
+The acceptance review found that cancellation while a request is pending had
+only FakeNode coverage. The response-observer Chromium control aborted after
+completion. Two new scenarios in `global-search.spec.js`, at 1280 and 390
+pixels, now hold actual successful API responses for owned persisted threads.
+They check the loading message and disabled button, replace the hash with a
+new search or a cleared, malformed or over-limit hash, and observe cancellation
+of the original fetch signal and promise. After releasing the old response,
+they check the settled page and a mutation log for stale results. Each scenario
+also aborts one browser request and submits the form again to verify recovery
+through the real server endpoint. The six existing scenarios are unchanged.
+
+Local checks passed: nine parser/transport/lifecycle Node tests, the standalone
+bounded-observer test, the generated bundle check, JavaScript syntax and
+`git diff --check`. Playwright discovery lists all eight page scenarios using
+its development-mode loopback configuration; discovery starts no server.
+
+These two new scenarios have not run locally: Chromium is unavailable and
+local sockets are restricted. They require hosted qualification before #195's
+desktop/mobile cancellation acceptance can be marked complete. No application
+code, retries, screenshot tolerances or existing assertions changed.
