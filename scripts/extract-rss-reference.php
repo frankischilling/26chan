@@ -70,6 +70,8 @@ $rows = [
     ['no' => 22, 'sub' => '', 'com' => '[spoiler]hidden sentence[/spoiler]', 'name' => 'Anonymous', 'time' => 1720015200, 'tim' => 122, 'ext' => '.jpg'],
     ['no' => 21, 'sub' => '', 'com' => '<s>Visible spoiler sentence</s>', 'name' => 'Anonymous', 'time' => 1704110400, 'tim' => 121, 'ext' => '.gif'],
     ['no' => 20, 'sub' => '', 'com' => 'short', 'name' => 'Named poster', 'time' => 1704110400, 'tim' => 0, 'ext' => ''],
+    // These are saved comment representations, not page callback output.
+    ['no' => 19, 'sub' => 'Stored quotes', 'com' => '&gt;&gt;12 &gt;&gt;&gt;/g/34 &gt;&gt;0012 &gt;&gt;&gt;/g/0034 <a href="/g/catalog" class="quotelink">&gt;&gt;&gt;/g/catalog</a>', 'name' => 'Anonymous', 'time' => 1704110400, 'tim' => 0, 'ext' => ''],
 ];
 $row_index = 0;
 $queries = [];

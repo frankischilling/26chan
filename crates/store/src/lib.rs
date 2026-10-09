@@ -30,7 +30,9 @@ pub use public_deletion::{
     PublicDeletionBatch, PublicDeletionContext, public_deletion_precheck,
     public_deletion_quota_precheck, public_deletion_target_exists,
 };
+pub mod quote_targets;
 mod read;
+pub use quote_targets::{MAX_QUOTE_TARGETS, QuoteTargets};
 pub mod report_admission;
 pub mod report_catalog;
 pub mod report_categories;
@@ -154,6 +156,7 @@ pub struct Board {
     pub thread_limit: i32,
     pub expire_neglected: bool,
     pub threads_per_page: i32,
+    pub replies_shown: i32,
     pub worksafe: bool,
     pub archive_retention_seconds: i32,
     pub archive_limit: i32,
@@ -222,6 +225,12 @@ pub struct Thread {
     pub deleted: bool,
     pub archived_at: Option<DateTime<Utc>>,
     pub archive_expires_at: Option<DateTime<Utc>>,
+}
+
+impl Board {
+    pub fn preview_reply_limit(&self, sticky: bool) -> usize {
+        board_domain::preview::reply_limit(self.replies_shown as usize, sticky)
+    }
 }
 
 #[derive(Clone, sqlx::FromRow)]

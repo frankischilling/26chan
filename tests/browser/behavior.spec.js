@@ -1,3 +1,5 @@
+import { withFailurePreservingCleanup } from './helpers/preserve-cleanup-failure.js';
+import { cleanupDeletionFixtures, deletionFixture, ownedDeletionMarker } from './helpers/deletion-fixture.js';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { fillCatalogSearch } from './catalog-actions.js';
 import { test, expect } from '@playwright/test';
@@ -87,7 +89,7 @@ test('same-origin JSON posting returns persisted IDs and receipts without naviga
     expect(data.posts[0].com).toBe('Owned JSON thread<br>Second line');
     await page.goto(`${origin}/fixture/thread/${thread}`);
     await expect(page.locator(`#m${ownReply} .quotelink`)).toHaveText(`>>${thread} (You) (OP)`);
-    await expect(page.locator(`#m${ownReply} .quotelink`)).toHaveAttribute('href', `/fixture/post/${thread}`);
+    await expect(page.locator(`#m${ownReply} .quotelink`)).toHaveAttribute('href', `#p${thread}`);
     await expect(page.locator(`#watch-${thread}-fixture`)).toContainText('JSON browser thread');
     for (const id of [thread, ownReply]) {
       await expect.poll(() => page.evaluate(({ thread, id }) =>
@@ -301,73 +303,92 @@ test('cross-board quotes navigate persisted replies and respect deletion without
   const origin = 'http://127.0.0.1:3000';
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
-  const password = 'cross-board-browser-password';
-  const threads = [];
-  async function post(path, comment) {
+  const threads = [], importedThreads = [];
+  const marker = ownedDeletionMarker();
+  // All normal source forms intentionally carry blank hidden passwords. The
+  // real HttpOnly anonymous session owns these posts and authorizes deletion;
+  // keep the JavaScript-disabled browser on that native path end to end.
+  async function post(path, comment, subject) {
     await page.goto(`${origin}${path}`);
     await page.locator('#com').fill(comment);
+    if (subject) await page.locator('#sub').fill(subject);
+    await expect(page.locator('#postPassword')).toHaveAttribute('type', 'hidden');
     await expect(page.locator('#postPassword')).toHaveValue('');
     await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/thread\/\d+#p\d+$/);
     return /#p(\d+)$/.exec(page.url())[1];
   }
-  try {
-    const target = await post('/demo/', 'Owned cross-board target');
-    threads.push(['demo', target]);
-    const reply = await post(`/demo/thread/${target}`, 'Owned target reply');
-    const source = await post('/fixture/', `See >>>/demo/${reply}.\n<script>window.quoteHostile = true</script>\n>>>/../42\n[spoiler]>>>/demo/${reply}[/spoiler]`);
+  await withFailurePreservingCleanup(async () => {
+    const target = await post('/tg/', 'Owned cross-board target', marker);
+    importedThreads.push({ board: 'tg', id: target, marker });
+    expect((await context.cookies(origin)).find(cookie => cookie.name === 'board-anon')).toMatchObject({ httpOnly: true });
+    const reply = await post(`/tg/thread/${target}`, 'Owned target reply');
+    const source = await post('/fixture/', `See >>>/tg/${reply}.\n<script>window.quoteHostile = true</script>\n>>>/../42\n>>>/demo/${reply}\n[spoiler]>>>/tg/${reply}[/spoiler]`);
     threads.push(['fixture', source]);
     const sourceUrl = `${origin}/fixture/thread/${source}`;
-    const local = await post(`/fixture/thread/${source}`, `Local >>>/fixture/${source} and >>>/demo/${reply}.\n[spoiler]>>>/fixture/${source}[/spoiler]`);
-    const localLink = page.locator(`#m${local} a.quotelink[href="/fixture/post/${source}"]`).first();
+    const local = await post(`/fixture/thread/${source}`, `Local >>${source} and >>>/tg/${reply}.\n[spoiler]>>${source}[/spoiler]`);
+    const localLink = page.locator(`#m${local} a.quotelink[href="#p${source}"]`).first();
     await expect(localLink).toHaveText(`>>${source}`);
     await expect(page.locator(`#m${local} s`)).toHaveText(`>>${source}`);
-    await expect(page.locator(`#m${local} s a`)).toHaveAttribute('href', `/fixture/post/${source}`);
+    await expect(page.locator(`#m${local} s a`)).toHaveAttribute('href', `#p${source}`);
     await localLink.click();
     await expect(page).toHaveURL(`${sourceUrl}#p${source}`);
     await expect(page.locator(`#m${source} a.quotelink`)).toHaveCount(2);
     const link = page.locator(`#m${source} a.quotelink`).first();
-    await expect(link).toHaveAttribute('href', `/demo/post/${reply}`);
-    await expect(link).toHaveText(`>>>/demo/${reply}`);
+    await expect(link).toHaveAttribute('href', `/tg/thread/${target}#p${reply}`);
+    await expect(link).toHaveText(`>>>/tg/${reply}`);
     await expect(page.locator(`#m${source} script`)).toHaveCount(0);
-    await expect(page.locator(`#m${source} s a`)).toHaveAttribute('href', `/demo/post/${reply}`);
+    await expect(page.locator(`#m${source}`)).toContainText(`>>>/demo/${reply}`);
+    await expect(page.locator(`#m${source} a`).filter({ hasText: `>>>/demo/${reply}` })).toHaveCount(0);
+    await expect(page.locator(`#m${source} s a`)).toHaveAttribute('href', `/tg/thread/${target}#p${reply}`);
     await page.reload();
     const json = await (await context.request.get(`${origin}/fixture/thread/${source}.json`)).json();
-    expect(json.posts[0].com).toContain(`<a class="quotelink" href="/demo/post/${reply}">&gt;&gt;&gt;/demo/${reply}</a>`);
+    expect(json.posts[0].com).toContain(`<a class="quotelink" href="/tg/thread/${target}#p${reply}">&gt;&gt;&gt;/tg/${reply}</a>`);
     expect(json.posts[0].com).not.toContain('<script>');
-    expect(json.posts.find(post => String(post.no) === local).com).toContain(`<a class="quotelink" href="/fixture/post/${source}">&gt;&gt;${source}</a>`);
-    const redirect = await context.request.get(`${origin}/demo/post/${reply}`, { maxRedirects: 0 });
+    expect(json.posts.find(post => String(post.no) === local).com).toContain(`<a class="quotelink" href="#p${source}">&gt;&gt;${source}</a>`);
+    const redirect = await context.request.get(`${origin}/tg/post/${reply}`, { maxRedirects: 0 });
     expect(redirect.status()).toBe(303);
-    expect(redirect.headers().location).toBe(`/demo/thread/${target}#p${reply}`);
+    expect(redirect.headers().location).toBe(`/tg/thread/${target}#p${reply}`);
     expect((await context.request.get(`${origin}/fixture/post/${reply}`)).status()).toBe(404);
     expect((await context.request.get(`${origin}/missing/post/${reply}`)).status()).toBe(404);
     await link.click();
-    await expect(page).toHaveURL(`${origin}/demo/thread/${target}#p${reply}`);
+    await expect(page).toHaveURL(`${origin}/tg/thread/${target}#p${reply}`);
     await expect(page.locator(`#p${reply}`)).toBeVisible();
+    // Age only the exact owned reply; imported /tg/ deletion policy remains unchanged.
+    deletionFixture('age', 'tg', reply, marker);
     await page.locator(`#p${reply} summary`).click();
+    await expect(page.locator(`#delete${reply}`)).toHaveAttribute('type', 'hidden');
     await expect(page.locator(`#delete${reply}`)).toHaveValue('');
     await withDeletionQuota(async () => {
+      const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${origin}/tg/delete`);
       await page.locator(`#p${reply}`).getByRole('button', { name: 'Delete post', exact: true }).click();
-      expect((await context.request.get(`${origin}/demo/post/${reply}`)).status()).toBe(404);
+      expect((await deleted).status()).toBe(303);
+      expect((await context.request.get(`${origin}/tg/post/${reply}`)).status()).toBe(404);
     });
     await page.goto(sourceUrl);
-    await expect(link).toHaveCount(1);
-    const navigation = page.waitForResponse(response => response.url() === `${origin}/demo/post/${reply}`);
-    await link.click();
-    expect((await navigation).status()).toBe(404);
+    await expect(page.locator(`#m${source} a.quotelink`)).toHaveCount(0);
+    await expect(page.locator(`#m${source} span.deadlink`)).toHaveText([`>>>/tg/${reply}`, `>>>/tg/${reply}`]);
+    const deletedJson = await (await context.request.get(`${origin}/fixture/thread/${source}.json`)).json();
+    expect(deletedJson.posts[0].com).toContain(`<span class="deadlink">&gt;&gt;&gt;/tg/${reply}</span>`);
     await expect(page.getByText('Owned target reply', { exact: true })).toHaveCount(0);
-  } finally {
+  }, async () => {
     try {
       for (const [board, no] of threads.reverse()) {
         await withDeletionQuota(async () => {
           const deleted = await context.request.post(`${origin}/${board}/delete`, {
-            headers: { origin }, form: { no, password }, maxRedirects: 0,
+            headers: { origin }, form: { no, password: '' }, maxRedirects: 0,
           });
           expect(deleted.status()).toBe(303);
         });
       }
-    } finally { await context.close(); }
-  }
+    } finally {
+      try { cleanupDeletionFixtures(importedThreads); } finally { await context.close(); }
+    }
+  }, error => {
+    const detail = error instanceof Error ? error.stack || error.message : String(error);
+    test.info().annotations.push({ type: 'secondary-cleanup-error', description: detail });
+    console.error('Secondary quote-lifecycle cleanup failure:', detail);
+  });
 });
 
 test('release UI images have a narrow CSP with a healthy denied-origin control', async ({ page }) => {

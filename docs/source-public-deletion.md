@@ -100,7 +100,8 @@ limits of happy-path browser qualification.
 
 This slice does not complete issue #214. [Legacy batches](legacy-actions.md#multiple-selections)
 now preserve submitted order and partial success. The source's peer-address-only authority,
-physical row/file erasure
-and report cleanup remain separate work. The rewrite continues using opaque
+physical post/file erasure and historical report cleanup remain separate work.
+[Fresh whole-deletion report cleanup](deleted-report-cleanup.md) removes target
+report rows transactionally while preserving independent staff audit records. The rewrite continues using opaque
 session capabilities, hashed recovery passwords and its existing retention model.
 Shared-network peer equality alone does not grant deletion authority.

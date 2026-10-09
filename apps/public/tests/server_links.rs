@@ -106,6 +106,15 @@ fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
 }
 
 async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
+    // Reserve an ID without inserting a post, so this quote cannot accidentally
+    // resolve against another concurrently running fixture.
+    let missing: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+        .fetch_one(owner)
+        .await
+        .unwrap();
+    let raw_missing = format!("000{missing}");
+    let missing_label = format!("&gt;&gt;&gt;/po/{raw_missing}");
+    let missing_quote = format!("<span class=\"deadlink\">{missing_label}</span>");
     let (app, api) = board_public::routers_with_options(
         public.clone(),
         board_public::PublicRouterOptions {
@@ -125,7 +134,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
     for mode in 0..8 {
         let op = submit(&app, board, 0, mode, &initial).await;
         let reply = format!(
-            "{external} https://boards.4chan.org/{board}/thread/{op} https://boards.4chan.org/{board}/fooXphp?res={op} https://boards.4chan.org/{board}/thread/{op}#p0 >>>/po/00042 >>>/po/1e2"
+            "{external} https://boards.4chan.org/{board}/thread/{op} https://boards.4chan.org/{board}/fooXphp?res={op} https://boards.4chan.org/{board}/thread/{op}#p0 >>>/po/{raw_missing} >>>/po/1e2"
         );
         let id = submit(&app, board, op, mode, &reply).await;
         let saved = board_store::find_post(public, board, id).await.unwrap();
@@ -133,8 +142,9 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
         assert_eq!(saved.comment_format, 104);
         let path = format!("/{board}/thread/{op}");
         let html = get(&app, &path).await;
-        assert!(html.contains(&format!("href=\"/{board}/post/{op}\">&gt;&gt;{op}</a>")));
-        assert!(html.contains("href=\"/po/post/42\">&gt;&gt;&gt;/po/00042</a>"));
+        assert!(html.contains(&format!("href=\"#p{op}\">&gt;&gt;{op}</a>")));
+        assert!(html.contains(&missing_quote));
+        assert!(!html.contains(&format!("href=\"/po/post/{missing}\"")));
         assert!(!html.contains("/po/catalog#s=1e2"));
         assert!(!html.contains("href=\"/po/post/1\""));
         assert!(!html.contains("fooXphp"));
@@ -154,10 +164,10 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
             let value: serde_json::Value =
                 serde_json::from_str(&get(router, &format!("{path}.json")).await).unwrap();
             let comment = value["posts"][1]["com"].as_str().unwrap();
-            assert!(comment.contains(&format!("href=\"/{board}/post/{op}\"")));
+            assert!(comment.contains(&format!("href=\"#p{op}\"")));
             assert!(!comment.contains(&format!("href=\"{external}\"")));
             assert!(!comment.contains("boards.4chan.org"));
-            assert!(comment.contains("&gt;&gt;&gt;/po/00042</a>"));
+            assert!(comment.contains(&missing_quote));
         }
         let snapshot: serde_json::Value =
             serde_json::from_str(&get(&app, &format!("/_watch/{board}/thread/{op}/posts")).await)
@@ -166,7 +176,13 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
             snapshot["posts"][1]["html"]
                 .as_str()
                 .unwrap()
-                .contains(&format!("href=\"/{board}/post/{op}\""))
+                .contains(&format!("href=\"#p{op}\""))
+        );
+        assert!(
+            snapshot["posts"][1]["html"]
+                .as_str()
+                .unwrap()
+                .contains(&missing_quote)
         );
         let before = html;
         sqlx::query("UPDATE content.boards SET comment_code_spacing=true,comment_sjis_spacing=true WHERE slug=$1").bind(board).execute(owner).await.unwrap();

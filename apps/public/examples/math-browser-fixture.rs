@@ -61,6 +61,7 @@ fn board() -> Board {
         thread_limit: 100,
         expire_neglected: true,
         threads_per_page: 10,
+        replies_shown: 5,
         worksafe: true,
         archive_retention_seconds: 0,
         archive_limit: 1000,
@@ -138,6 +139,7 @@ fn fixture(enabled: bool, empty: bool, catalog: bool, index: bool) -> axum::resp
         }));
     }
     let page = BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: "spoiler.png".into(),
         navigation_boards: vec![board.clone()],

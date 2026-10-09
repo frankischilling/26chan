@@ -27,9 +27,9 @@ const result = await build({
   absWorkingDir: fileURLToPath(root), entryPoints: ['apps/public/client/native-filter.js'],
   outfile: 'apps/public/static/native-filter.v1.js', bundle: true, platform: 'browser',
   format: 'esm', target: ['es2022'], minify: true, charset: 'ascii', legalComments: 'inline',
-  // These parse5 tokenizer methods are called directly within this one bundle.
+  // These parse5 state and error methods are called directly within this bundle.
   // No exported protocol, application property or quoted lookup is renamed.
-  mangleProps: /^_state[A-Z]/,
+  mangleProps: /^(?:_state[A-Z]|_err$|_emit[A-Z]|_consume(?:$|Sequence)|_callState$)/,
   write: false, metafile: true, logLevel: 'silent',
   banner: { js: `/*! Build with npm run build:native-filter.\n\n${notices.join('\n\n')}\n*/` },
 });
@@ -51,9 +51,10 @@ for (const path of Object.keys(result.metafile.inputs)) {
   assert.ok(['apps/public/static/thread-watcher-core.v1.js', 'apps/public/static/watcher-position.v1.js'].includes(path)
     || ['apps/public/client/', 'node_modules/parse5/', 'node_modules/entities/'].some(prefix => path.startsWith(prefix)), `Unexpected worker source: ${path}`);
   const source = await readFile(new URL(path, root), 'utf8');
-  assert.ok(!/['"]_state[A-Z]/.test(source), `Quoted tokenizer lookup needs review: ${path}`);
+  const privateParser = '(?:_state[A-Z]|_err\\b|_emit[A-Z]|_consume(?:\\b|Sequence)|_callState\\b)';
+  assert.ok(!new RegExp(`['"]${privateParser}`).test(source), `Quoted parser lookup needs review: ${path}`);
   if (!path.startsWith('node_modules/parse5/')) {
-    assert.ok(!/\b_state[A-Z]/.test(source), `Tokenizer property escaped its parser boundary: ${path}`);
+    assert.ok(!new RegExp(`\\b${privateParser}`).test(source), `Private property escaped its parser boundary: ${path}`);
   }
 }
 const bytes = result.outputFiles[0].contents;

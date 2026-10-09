@@ -103,6 +103,7 @@ fn encode(
         images,
         tail_size,
         tail_id,
+        quote_targets,
         ..
     } = snapshot;
     if posts.is_empty()
@@ -151,7 +152,7 @@ fn encode(
     let mut rendered = Vec::with_capacity(posts.len());
     let mut remaining = limit;
     for post in posts {
-        let item = PostView::new(post);
+        let item = PostView::resolved(post, &quote_targets, Some(view.thread.id));
         let result = render_post(
             &item,
             &view,
@@ -249,6 +250,7 @@ fn encode_preview(
         board,
         thread,
         post,
+        quote_targets,
     } = snapshot;
     if thread.id <= 0
         || post.id < thread.id
@@ -260,7 +262,7 @@ fn encode_preview(
     {
         return Err(unavailable());
     }
-    let item = PostView::new(post);
+    let item = PostView::resolved(post, &quote_targets, Some(thread.id));
     let view = ThreadView {
         catalog_position: None,
         catalog_last_reply: None,
@@ -378,7 +380,8 @@ async fn selected(
     let snapshot =
         board_store::thread_snapshot_selection_bounded(&state.pool, &board, id, tail, read_limit)
             .await?;
-    let modified = snapshot.thread.http_modified_at;
+    let modified =
+        (!snapshot.quote_targets.has_dependencies()).then_some(snapshot.thread.http_modified_at);
     let media_origin = state
         .media
         .as_ref()
@@ -390,11 +393,11 @@ async fn selected(
         limit,
         state.limits.response_writer(limit),
     )?;
-    crate::api::bytes_response(bytes, Some(modified), &headers)
+    crate::api::bytes_response(bytes, modified, &headers)
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use board_store::{Board, Post, Thread, ThreadSnapshot, post_media::PostAttachment};
 
@@ -463,6 +466,7 @@ mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                public_origin: String::new(),
                 blotter: Vec::new(),
                 spoiler_thumbnail: "/static/catalog/spoiler.png".into(),
                 navigation_boards: vec![],
@@ -506,6 +510,7 @@ mod tests {
             board.posting_reply_seconds = reply;
             board.posting_image_seconds = image;
             let upload = crate::views::UploadPage {
+                public_origin: String::new(),
                 board: board.clone(),
                 form: crate::views::UploadForm {
                     upload_id: "1".repeat(32),
@@ -518,6 +523,7 @@ mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                public_origin: String::new(),
                 blotter: Vec::new(),
                 spoiler_thumbnail: "spoiler.png".into(),
                 navigation_boards: vec![],
@@ -551,10 +557,11 @@ mod tests {
         }
     }
 
-    fn fixture() -> ThreadSnapshot {
+    pub(crate) fn fixture() -> ThreadSnapshot {
         let now = chrono::DateTime::from_timestamp(1_767_225_600, 0).unwrap();
         let id = i64::MAX - 1;
         let board = Board {
+            replies_shown: 5,
             source_order: 1000,
             catalog_enabled: true,
             json_enabled: true,
@@ -662,6 +669,7 @@ mod tests {
             })
             .collect();
         ThreadSnapshot {
+            quote_targets: Default::default(),
             board,
             thread,
             posts,
@@ -694,6 +702,7 @@ mod tests {
         let mut snapshot = fixture();
         let post = snapshot.posts.remove(usize::from(!op));
         board_store::PostSnapshot {
+            quote_targets: snapshot.quote_targets,
             board: snapshot.board,
             thread: snapshot.thread,
             post,

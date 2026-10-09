@@ -42,6 +42,7 @@ for (const sage of [false, true]) {
         }
       });
       await page.goto(`/${board}/thread/${remote}`);
+      await expect(page.locator(`#m${remote} .quotelink`)).toHaveAttribute('href', `/${board}/thread/${thread}#p${thread}`);
       await page.locator(`#m${remote} .quotelink`).hover();
       await expect(page.locator('#quote-preview .postInfo .posteruid .hand')).toHaveText(id);
       expect(await page.locator('#quote-preview .postInfo .posteruid .hand').evaluate(element => element.style.backgroundColor)).toMatch(/^rgb\(/);

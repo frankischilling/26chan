@@ -557,13 +557,11 @@ async fn board_page(
         mut snapshot,
         navigation_boards,
         blotter,
-    } = board_store::board_page_snapshot(
-        &state.pool,
-        slug,
-        selection,
-        Some(if catalog { 0 } else { 3 }),
-    )
-    .await?;
+    } = if catalog {
+        board_store::board_page_snapshot(&state.pool, slug, selection, Some(0)).await?
+    } else {
+        board_store::source_board_page_snapshot(&state.pool, slug, selection).await?
+    };
     if catalog && !snapshot.board.catalog_enabled {
         return Err(AppError(StatusCode::NOT_FOUND, "Catalog not found."));
     }
@@ -604,7 +602,16 @@ async fn board_page(
             tail_size: 0,
             latest_reply_id: preview.latest_reply_id,
             thread: preview.thread,
-            posts: posts.into_iter().map(PostView::new).collect(),
+            posts: posts
+                .into_iter()
+                .map(|post| {
+                    if catalog {
+                        PostView::new(post)
+                    } else {
+                        PostView::resolved(post, &snapshot.quote_targets, None)
+                    }
+                })
+                .collect(),
             omitted,
             image_replies: preview.visible_images,
         };
@@ -619,6 +626,7 @@ async fn board_page(
     let response = crate::output::html(
         state,
         &BoardPage {
+            public_origin: state.origin.clone(),
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
             navigation_boards,
             blotter,
@@ -684,6 +692,7 @@ pub async fn thread(
         posts,
         tail_size,
         images,
+        quote_targets,
         ..
     } = snapshot;
     let latest_reply_id = posts
@@ -714,7 +723,10 @@ pub async fn thread(
             format!(">>{no}\n")
         }
     };
-    let posts = posts.into_iter().map(PostView::new).collect();
+    let posts = posts
+        .into_iter()
+        .map(|post| PostView::resolved(post, &quote_targets, Some(thread.id)))
+        .collect();
     let math_tags = board.math_tags;
     let drawing = !thread.closed
         && thread.archived_at.is_none()
@@ -722,6 +734,7 @@ pub async fn thread(
     let response = crate::output::html(
         &state,
         &BoardPage {
+            public_origin: state.origin.clone(),
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
             navigation_boards,
             blotter,
@@ -1407,7 +1420,7 @@ mod readiness_tests {
             "('report_target','bigint',false,'25 20 1184')",
             "('check_report_limits','void',false,'25 20 17 1184')",
             "('check_report_limits','void',false,'25 20 17 2950 1184')",
-            "('retire_deleted_report_membership','trigger',false,'')",
+            "('delete_reports_for_deleted_target','trigger',false,'')",
             "('retire_staff_file_report_membership','void',true,'25 20')",
             "NOT has_function_privilege(current_user,p.oid,'EXECUTE')",
             "required.attachment_authority AND NOT a.is_grantable",
@@ -1419,13 +1432,17 @@ mod readiness_tests {
             "t.tgnargs=0 AND octet_length(t.tgargs)=0 AND t.tgconstraint=0",
             "NOT t.tgdeferrable AND NOT t.tginitdeferred",
             "t.tgoldtable IS NULL AND t.tgnewtable IS NULL",
-            "p.proname='retire_deleted_report_membership'",
+            "p.proname='delete_reports_for_deleted_target'",
             "p.pronamespace=(SELECT oid FROM pg_catalog.pg_namespace WHERE nspname='post_secrets')",
             "p.pronargs=0 AND p.prokind='f' AND p.prorettype='pg_catalog.trigger'::regtype",
             "t.tgattr::text=(SELECT a.attnum::text",
             "a.attname='deleted' AND NOT a.attisdropped",
             "='notold.deletedandnew.deleted'",
             "('report_membership'),('report_admission_gate')",
+            "('report_membership'),('anonymous_reports'),('report_weight_evidence')",
+            "fk.contype='f' AND fk.confdeltype='c' AND fk.convalidated",
+            "has_table_privilege(r.oid,c.oid,'DELETE')",
+            "NOT has_table_privilege(current_user,c.oid,'DELETE,TRUNCATE,TRIGGER')",
             "c.relowner=r.oid",
             "has_table_privilege(runtime.oid,c.oid,'INSERT')",
             "has_column_privilege(runtime.oid,c.oid,a.attnum,'INSERT')",

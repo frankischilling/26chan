@@ -77,6 +77,7 @@ pub async fn thread(pool: &PgPool, slug: &str, id: i64) -> Result<Thread, StoreE
         .ok_or(StoreError::NotFound)
 }
 pub struct ThreadSnapshot {
+    pub quote_targets: crate::QuoteTargets,
     pub board: Board,
     pub thread: Thread,
     pub posts: Vec<Post>,
@@ -202,6 +203,11 @@ async fn read_thread_snapshot(
         return Err(StoreError::Invalid("Incomplete thread snapshot."));
     }
     crate::post_media::load(&mut tx, &mut entries).await?;
+    let quote_targets = if board.staff_only {
+        crate::QuoteTargets::default()
+    } else {
+        crate::quote_targets::load(&mut tx, &entries).await?
+    };
     let unique_ips = sqlx::query_scalar("SELECT content.unique_posters($1,$2)")
         .bind(slug)
         .bind(id)
@@ -219,6 +225,7 @@ async fn read_thread_snapshot(
     tx.commit().await?;
     Ok(PageSnapshot {
         snapshot: ThreadSnapshot {
+            quote_targets,
             board,
             thread: metadata,
             posts: entries,
@@ -444,6 +451,7 @@ pub async fn search(
 }
 
 pub struct PostSnapshot {
+    pub quote_targets: crate::QuoteTargets,
     pub board: Board,
     pub thread: Thread,
     pub post: Post,
@@ -480,8 +488,14 @@ pub async fn post_snapshot(pool: &PgPool, slug: &str, id: i64) -> Result<PostSna
     .await?
     .ok_or(StoreError::NotFound)?;
     crate::post_media::load(&mut tx, std::slice::from_mut(&mut post)).await?;
+    let quote_targets = if board.staff_only {
+        crate::QuoteTargets::default()
+    } else {
+        crate::quote_targets::load(&mut tx, std::slice::from_ref(&post)).await?
+    };
     tx.commit().await?;
     Ok(PostSnapshot {
+        quote_targets,
         board,
         thread,
         post,

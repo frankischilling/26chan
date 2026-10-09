@@ -131,7 +131,7 @@ impl Fixture {
             .unwrap();
         response.status()
     }
-    async fn html(&self) -> String {
+    async fn queue_html(&self) -> String {
         let response = router(self.state.clone())
             .oneshot(
                 Request::builder()
@@ -153,7 +153,7 @@ impl Fixture {
                 .unwrap()
                 .ends_with("img-src http://127.0.0.1:3002")
         );
-        let html = String::from_utf8(
+        String::from_utf8(
             response
                 .into_body()
                 .collect()
@@ -162,12 +162,32 @@ impl Fixture {
                 .to_bytes()
                 .to_vec(),
         )
-        .unwrap();
+        .unwrap()
+    }
+    async fn html(&self) -> String {
+        let html = self.queue_html().await;
         let article = html
             .split(&format!("<article id=\"report-{}\">", self.report))
             .nth(1)
-            .unwrap();
+            .expect("The live report must have a queue article");
         article.split("</article>").next().unwrap().to_string()
+    }
+    async fn assert_deleted_report_absent(&self) {
+        let html = self.queue_html().await;
+        assert!(
+            !html.contains(&format!("<article id=\"report-{}\">", self.report)),
+            "Whole deletion removes the exact report article from the successful queue response"
+        );
+        let exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM content.reports WHERE board=$1 AND id=$2 AND post_id=$3)",
+        )
+        .bind(&self.board)
+        .bind(self.report)
+        .bind(self.post)
+        .fetch_one(&self.owner)
+        .await
+        .unwrap();
+        assert!(!exists, "Whole deletion physically removes the report row");
     }
     async fn unchanged(&self) {
         let state: (bool, bool, bool, String, i64) = sqlx::query_as("SELECT m.file_deleted,p.deleted,t.deleted,p.comment,(SELECT count(*) FROM content.moderation_audit WHERE board=$1) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id JOIN content.threads t ON t.id=p.thread_id WHERE p.id=$2")
@@ -567,7 +587,22 @@ async fn exercise_spoiler_authority(f: &Fixture) {
             .await,
         StatusCode::NOT_FOUND
     );
-    assert!(!f.html().await.contains("Spoiler image"));
+    f.assert_deleted_report_absent().await;
+    let audits: Vec<(i64, i64, String)> = sqlx::query_as(
+        "SELECT account_id,target_id,action FROM content.moderation_audit WHERE board=$1 ORDER BY id",
+    )
+    .bind(&f.board)
+    .fetch_all(&f.owner)
+    .await
+    .unwrap();
+    assert_eq!(
+        audits,
+        vec![
+            (f.account, f.post, "spoiler".into()),
+            (f.account, f.post, "unspoiler".into()),
+        ],
+        "Report cleanup preserves independent spoiler moderation audits"
+    );
 }
 
 #[tokio::test]
@@ -748,9 +783,21 @@ async fn exercise_attachment(f: &Fixture) {
     store::moderate(&f.state.staff, &session, &f.board, f.post, "remove-thread")
         .await
         .unwrap();
-    assert!(
-        f.html().await.contains("File unavailable"),
-        "Removed post metadata remains reviewable"
+    f.assert_deleted_report_absent().await;
+    let audits: Vec<(i64, i64, String)> = sqlx::query_as(
+        "SELECT account_id,target_id,action FROM content.moderation_audit WHERE board=$1 ORDER BY id",
+    )
+    .bind(&f.board)
+    .fetch_all(&f.owner)
+    .await
+    .unwrap();
+    assert_eq!(
+        audits,
+        vec![
+            (f.account, f.post, "remove-file".into()),
+            (f.account, f.post, "remove-thread".into()),
+        ],
+        "Whole deletion preserves file-removal audit and records thread removal independently"
     );
 }
 

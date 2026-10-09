@@ -116,6 +116,7 @@ mod tests {
 
     fn base() -> Board {
         Board {
+            replies_shown: 5,
             source_order: 1000,
             catalog_enabled: true,
             json_enabled: true,
@@ -179,6 +180,7 @@ mod tests {
 
     fn page(boards: Vec<Board>, current: Board) -> super::super::BoardPage {
         super::super::BoardPage {
+            public_origin: String::new(),
             blotter: vec![],
             spoiler_thumbnail: String::new(),
             navigation_boards: boards,

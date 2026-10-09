@@ -181,7 +181,7 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     await expect(page.locator('#qrCom')).toHaveValue(''); await expect(page.locator('#quickReply')).toBeVisible();
     await expect(page.locator(`#m${reply}`)).toContainText('Owned Quick Reply result');
     await expect(page.locator(`#m${reply} .quotelink`)).toHaveText(`>>${id} (OP)`);
-    await expect(page.locator(`#m${reply} .quotelink`)).toHaveAttribute('href', `/fixture/post/${id}`);
+    await expect(page.locator(`#m${reply} .quotelink`)).toHaveAttribute('href', `#p${id}`);
     await expect(page.locator(`#bl_${id} a.quotelink`)).toHaveText(`>>${reply}`);
     await expect(page.locator(`#bl_${id} a.quotelink`)).toHaveAttribute('href', `/fixture/thread/${id}#p${reply}`);
     await expect.poll(() => page.evaluate(({ id, reply }) => JSON.parse(localStorage.getItem(`4chan-track-fixture-${id}`) || '{}')[`>>${reply}`], { id, reply })).toBe(1);

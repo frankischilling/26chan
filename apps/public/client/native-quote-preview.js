@@ -1,31 +1,19 @@
 import { sourceSpoilerPath } from './native-spoilers.js';
+import { quotePostId } from './native-quote-identity.js';
 import { isSpoilerAssetPath } from './native-spoiler-assets.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { FILTER_LIMITS } from './native-filter-limits.js';
 import { isPostFlagToken } from './native-post-flags.js';
 import { isCapcodeToken, postIdentityUrl } from './native-capcodes.js';
 import { postFileAssetUrl } from './native-file-presentation.js';
-import { PREVIEW_LIMITS, previewContext, updaterContext, validatePostTree, postLinkUrl, postMediaUrl } from './native-updater-snapshot.js';
+import { PREVIEW_LIMITS, previewContext, updaterContext, validatePostTree, postLinkUrl, postMediaUrl, quoteTarget } from './native-updater-snapshot.js';
 import { NativeQuotePreviewTransport, checkedQuotePreview } from './native-quote-preview-transport.js';
 import { isCommentElement, isWordfilterMarkup, isWordfilterMarkupTag } from './native-wordfilter-markup.js';
 
 export const mobileQuoteDevice = userAgent => typeof userAgent === 'string'
   && /Mobile|Android|Dolfin|Opera Mobi|PlayStation Vita|Nintendo DS/.test(userAgent);
 
-// Match the rewrite's post resolver and canonical same-origin thread anchors.
-// Do not resolve arbitrary relative paths, query strings or source-site URLs.
-export function quoteTarget(raw, { origin, board, thread = null }) {
-  if (typeof raw !== 'string' || raw.length > 512 || /[\u0000-\u0020\u007f\\]/.test(raw)
-    || typeof board !== 'string' || !/^[a-z0-9]{1,10}$/.test(board) || /[^a-z0-9]/.test(board)) return null;
-  if (raw.startsWith(`${origin}/`)) raw = raw.slice(origin.length);
-  const local = /^#p([1-9][0-9]{0,18})$/.exec(raw);
-  const route = /^\/([a-z0-9]{1,10})\/(?:post\/([1-9][0-9]{0,18})|thread\/([1-9][0-9]{0,18})#p([1-9][0-9]{0,18}))$/.exec(raw);
-  if (!local && !route) return null;
-  const post = local ? local[1] : route[2] ?? route[4];
-  const parent = local ? thread : route[3] ?? null;
-  if (postId(post) !== post || (parent !== null && (postId(parent) !== parent || BigInt(parent) > BigInt(post)))) return null;
-  return { board: local ? board : route[1], post, thread: parent };
-}
+export { quoteTarget } from './native-updater-snapshot.js';
 
 export function quotePreviewPosition(link, size, viewport, mobile = false) {
   const width = Math.max(1, viewport.width), height = Math.max(1, viewport.height);
@@ -93,7 +81,8 @@ export function localQuoteTree(article, context, no, projection) {
       const value = node.getAttribute(key);
       if (value !== null) { charge(key); charge(value); attrs[key] = value; }
     }
-    if (attrs.class !== undefined) attrs.class = attrs.class.split(/\s+/).filter(value => localClasses.has(value) || isPostFlagToken(value) || isCapcodeToken(value)).join(' ');
+    if (attrs.class !== undefined) attrs.class = attrs.class.split(/\s+/).filter(value => localClasses.has(value) || isPostFlagToken(value) || isCapcodeToken(value)
+      || (comment && tag === 'span' && originalAttrs.class === 'deadlink' && value === 'deadlink')).join(' ');
     if (!attrs.class) delete attrs.class;
     if (!ids.has(attrs.id)) delete attrs.id;
     if (tag === 'img') {
@@ -138,6 +127,13 @@ export function prepareQuotePost(tree, context, no) {
       || node.attrs.class?.split(' ').some(value => ['postActions', 'sideArrows'].includes(value))) return null;
     nodes++;
     const attrs = Object.fromEntries(Object.entries(node.attrs).filter(([key]) => key !== 'id'));
+    // A fetched preview can belong to a different thread than the live page.
+    // Bind its bare fragments before copying them into that page's DOM.
+    if (node.tag === 'a' && attrs.href?.startsWith('#p')) {
+      const ref = quoteTarget(attrs.href, context);
+      if (!ref?.thread) throw new TypeError('invalid-preview');
+      attrs.href = `/${ref.board}/thread/${ref.thread}#p${ref.post}`;
+    }
     for (const [key, value] of Object.entries(attrs)) characters += key.length + value.length;
     if (node.tag === 'a' && attrs.class?.split(' ').includes('quotelink')) quotes.push(attrs.href);
     return { tag: node.tag, attrs, children: node.children.map(clean).filter(child => child !== null) };
@@ -253,12 +249,13 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
     if (!current(value)) return;
     // This check precedes every createElement and every resource assignment.
     const budget = { nodes: 0 };
-    validatePostTree(tree, context, value.ref.post, budget, PREVIEW_LIMITS);
+    const no = quotePostId(value.ref.post);
+    validatePostTree(tree, context, no, budget, PREVIEW_LIMITS);
     if (document.getElementById('quote-preview')) throw new TypeError('preview-exists');
-    const popup = prepareQuotePost(tree, context, value.ref.post).build(document);
+    const popup = prepareQuotePost(tree, context, no).build(document);
     popup.id = 'quote-preview'; popup.classList.add('preview');
     if (!value.link.closest('.backlink')) popup.classList.add('reveal-spoilers');
-    if (context.board === board && window.location.hash === `#p${value.ref.post}`) popup.classList.add('highlight');
+    if (context.board === board && window.location.hash === `#p${no}`) popup.classList.add('highlight');
     popup.style.pointerEvents = mobile ? 'auto' : 'none';
     if (value.target) decoratePreview?.(popup, value.target, value.link,
       { nodes: PREVIEW_LIMITS.nodes - budget.nodes, characters: PREVIEW_LIMITS.bytes - budget.chars });
@@ -303,7 +300,7 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
     const article = post?.closest('.postContainer'), section = post?.closest('.thread');
     const parent = section && postId(section.id.slice(1));
     if (post && root.contains(post) && article?.id === `pc${ref.post}` && parent
-      && BigInt(parent) <= BigInt(ref.post) && (ref.thread === null || ref.thread === parent)) {
+      && BigInt(parent) <= BigInt(ref.post) && (ref.thread === null || quotePostId(ref.thread) === parent)) {
       value.target = post;
       const rect = post.getBoundingClientRect();
       if (rect.top > 0 && rect.bottom < document.documentElement.clientHeight && post.getClientRects().length && !hidden(post)) {

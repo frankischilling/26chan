@@ -49,7 +49,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       const reply = await post('tg', 'dice+01d001', `>>${dice}\n${marker}`, dice);
       await page.locator('a[data-cmd="update"]:visible').first().click();
       await expect(page.locator(`#m${reply} > b`)).toHaveText('Rolled 1 (01d001)');
-      await expect(page.locator(`#m${reply} .quotelink`)).toHaveAttribute('href', `/tg/post/${dice}`);
+      await expect(page.locator(`#m${reply} .quotelink`)).toHaveAttribute('href', `#p${dice}`);
       const feed = await context.request.get(`${origin}/tg/index.rss`);
       expect(feed.status()).toBe(200);
       const description = await page.evaluate(({ xml, guid }) => {
@@ -82,7 +82,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(page.locator(`#m${plain} > b, #m${plain} > .fortune`)).toHaveCount(0);
       for (const [board, id, generated] of [['tg', dice, expected], ['b', fortune, text]]) {
         await page.goto(`/fixture/thread/${plain}`);
-        const link = page.locator(`#m${plain} .quotelink[href="/${board}/post/${id}"]`);
+        const link = page.locator(`#m${plain} .quotelink[href="/${board}/thread/${id}#p${id}"]`);
         if (mobile) await link.tap(); else await link.hover();
         const preview = page.locator('#quote-preview .postMessage');
         await expect(preview).toContainText(generated);

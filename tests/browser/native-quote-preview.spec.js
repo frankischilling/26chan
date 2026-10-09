@@ -1,5 +1,6 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
+import { ownedDeletionMarker, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { openSettingControl, openNativeSettingsCategory, openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
 
 const origin = 'http://127.0.0.1:3000';
@@ -10,12 +11,12 @@ const themes = ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'photon', 'tomorro
 
 const test = base.extend({
   owned: async ({ request }, use) => {
-    const password = 'owned-quote-preview-password';
+    const password = 'owned-quote-preview-password', marker = ownedDeletionMarker();
     const threads = [];
     const write = async (board, resto, com) => {
       const response = await withPostingHistory(() => request.post(`/${board}/post`, {
         headers: { Origin: origin }, maxRedirects: 0,
-        form: { resto, com, password, ...(resto === '0' ? { sub: 'Owned quote preview' } : {}) },
+        form: { resto, com, password, ...(resto === '0' ? { sub: marker } : {}) },
       }));
       expect(response.status(), 'Persisted preview fixture must be accepted').toBe(303);
       const location = response.headers().location;
@@ -36,14 +37,22 @@ const test = base.extend({
     try {
       await use({ ...await createThread(), createThread });
     } finally {
+      const failures = [];
       for (const { board, id } of threads.reverse()) {
-        await withDeletionQuota(async () => {
-          const response = await request.post(`/${board}/delete`, {
-            headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
-          });
-          expect(response.status(), 'Owned preview thread cleanup must succeed').toBe(303);
-        });
+        try {
+          if (board === 'tg') {
+            cleanupDeletionFixtures([{ board, id, marker }]);
+          } else {
+            await withDeletionQuota(async () => {
+              const response = await request.post(`/${board}/delete`, {
+                headers: { Origin: origin }, maxRedirects: 0, form: { no: id, password },
+              });
+              expect(response.status(), 'Owned preview thread cleanup must succeed').toBe(303);
+            });
+          }
+        } catch (error) { failures.push(error); }
       }
+      if (failures.length) throw new AggregateError(failures, 'Owned preview thread cleanup failed');
     }
   },
 });
@@ -70,7 +79,9 @@ function network(page) {
 }
 
 function quote(page, reply, target) {
-  return page.locator(`#m${reply} a.quotelink[href="/${target.board}/post/${target.id}"]`);
+  const href = new URL(page.url()).pathname === target.url
+    ? `#p${target.id}` : `${target.url}#p${target.id}`;
+  return page.locator(`#m${reply} a.quotelink[href="${href}"]`);
 }
 
 async function leaveQuote(page) {
@@ -194,7 +205,7 @@ test.describe('unmodified persisted quote previews', () => {
     await leaveQuote(page);
   });
 
-  for (const board of ['demo', 'fixture']) {
+  for (const board of ['demo', 'tg']) {
     test(`a persisted ${board === 'demo' ? 'cross-thread' : 'cross-board'} quote fetches only its owned post endpoint`, async ({ page, request, owned }) => {
       const remote = await owned.createThread(board, `Remote target /${board}/\n${escaped}`);
       await remote.reply('Another post that must stay out of the preview');
@@ -223,13 +234,14 @@ test.describe('unmodified persisted quote previews', () => {
       expect(conditional.status()).toBe(304);
       expect(await conditional.text()).toBe('');
       await leaveQuote(page);
-      await expect(quote(page, reply, remote)).toHaveAttribute('href', `/${board}/post/${remote.id}`);
+      await expect(quote(page, reply, remote)).toHaveAttribute('href', `${remote.url}#p${remote.id}`);
     });
   }
 
   test('an omitted index reply is fetched while the index and omission link remain intact', async ({ page, owned }) => {
     const omitted = await owned.reply('Persisted omitted preview target');
-    for (let index = 0; index < 3; index++) await owned.reply(`Newer visible reply ${index + 1}`);
+    // Six replies put the target just outside the default five-reply preview.
+    for (let index = 0; index < 4; index++) await owned.reply(`Newer visible reply ${index + 1}`);
     const reply = await owned.reply(`>>${omitted}\nQuote to omitted reply`);
     const target = { ...owned, id: omitted, previewPath: `/_watch/demo/post/${omitted}` };
     await initialize(page, '/demo/');
@@ -244,11 +256,11 @@ test.describe('unmodified persisted quote previews', () => {
   });
 
   test('the real updater inserts working local and remote quote links into the existing document', async ({ page, owned }) => {
-    const remote = await owned.createThread('fixture', 'Updater remote preview target');
+    const remote = await owned.createThread('tg', 'Updater remote preview target');
     await page.setViewportSize({ width: 1280, height: 400 });
     await initialize(page, owned.url);
     await page.evaluate(() => { window.quotePreviewDocument = document; });
-    const reply = await owned.reply(`>>${owned.id}\n>>>/fixture/${remote.id}\n${trailingLines}`);
+    const reply = await owned.reply(`>>${owned.id}\n>>>/tg/${remote.id}\n${trailingLines}`);
     await page.locator('.threadNav.desktop a[data-cmd="update"]').first().click();
     await expect(page.locator('.threadNav.desktop .nativeUpdaterStatus').first()).toHaveText('1 new post');
     expect(await page.evaluate(() => document === window.quotePreviewDocument)).toBe(true);
@@ -264,8 +276,8 @@ test.describe('unmodified persisted quote previews', () => {
   });
 
   test('desktop focus and Enter retain canonical navigation without opening a preview', async ({ page, owned }) => {
-    const remote = await owned.createThread('fixture', 'Keyboard destination');
-    const reply = await owned.reply(`>>>/fixture/${remote.id}\nKeyboard quote`);
+    const remote = await owned.createThread('tg', 'Keyboard destination');
+    const reply = await owned.reply(`>>>/tg/${remote.id}\nKeyboard quote`);
     await initialize(page, owned.url);
     const link = quote(page, reply, remote), requests = network(page);
     await link.focus();
@@ -279,8 +291,8 @@ test.describe('unmodified persisted quote previews', () => {
   });
 
   test('desktop click and no-JavaScript click follow the same persisted quote destination', async ({ page, browser, owned }) => {
-    const remote = await owned.createThread('fixture', 'Canonical click destination');
-    const reply = await owned.reply(`>>>/fixture/${remote.id}\nCanonical click quote`);
+    const remote = await owned.createThread('tg', 'Canonical click destination');
+    const reply = await owned.reply(`>>>/tg/${remote.id}\nCanonical click quote`);
     await initialize(page, owned.url);
     await quote(page, reply, remote).click();
     await expect(page).toHaveURL(`${origin}${remote.url}#p${remote.id}`);
@@ -288,7 +300,7 @@ test.describe('unmodified persisted quote previews', () => {
     try {
       const plain = await context.newPage();
       await plain.goto(`${origin}${owned.url}`);
-      await expect(quote(plain, reply, remote)).toHaveAttribute('href', `/fixture/post/${remote.id}`);
+      await expect(quote(plain, reply, remote)).toHaveAttribute('href', `${remote.url}#p${remote.id}`);
       await quote(plain, reply, remote).click();
       await expect(plain).toHaveURL(`${origin}${remote.url}#p${remote.id}`);
       await expect(plain.locator(`#m${remote.id}`)).toHaveText('Canonical click destination');
@@ -326,8 +338,8 @@ test.describe('unmodified persisted quote previews', () => {
   });
 
   test('a mobile-device tap previews the original quote and the adjacent # link keeps navigation', async ({ browser, owned }, testInfo) => {
-    const remote = await owned.createThread('fixture', 'Mobile remote preview target');
-    const reply = await owned.reply(`>>>/fixture/${remote.id}\n${trailingLines}`);
+    const remote = await owned.createThread('tg', 'Mobile remote preview target');
+    const reply = await owned.reply(`>>>/tg/${remote.id}\n${trailingLines}`);
     const context = await browser.newContext({
       viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
       userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
@@ -338,7 +350,7 @@ test.describe('unmodified persisted quote previews', () => {
       const link = quote(page, reply, remote), navigation = page.locator(`#m${reply} a.quoteLink`);
       await expect(navigation).toHaveCount(1);
       await expect(navigation).toHaveText(' #');
-      await expect(navigation).toHaveAttribute('href', `/fixture/post/${remote.id}`);
+      await expect(navigation).toHaveAttribute('href', `${remote.url}#p${remote.id}`);
       await link.evaluate(node => node.scrollIntoView({ block: 'start' }));
       await page.evaluate(() => scrollBy(0, -40));
       await page.evaluate(() => {
@@ -470,14 +482,13 @@ test.describe('explicitly augmented DOM fixtures', () => {
   }
 
   test('a canonical thread fragment quote keeps its href and resolves through the single-post endpoint', async ({ page, owned }) => {
-    const remote = await owned.createThread('fixture', 'Canonical thread-fragment target');
-    const reply = await owned.reply(`>>>/fixture/${remote.id}\nThread-fragment quote`);
+    const remote = await owned.createThread('tg', 'Canonical thread-fragment target');
+    const reply = await owned.reply(`>>>/tg/${remote.id}\nThread-fragment quote`);
     await initialize(page, owned.url);
     const link = quote(page, reply, remote);
     const canonical = `${remote.url}#p${remote.id}`;
-    // Persisted comment rendering emits /post/id. This one explicit href change
-    // covers the other supported quote route without relabeling it as server HTML.
-    await link.evaluate((node, href) => { node.href = href; }, canonical);
+    // The source-profile renderer now supplies this canonical route itself.
+    await expect(link).toHaveAttribute('href', canonical);
     const canonicalLink = page.locator(`#m${reply} a.quotelink`), requests = network(page);
     await canonicalLink.hover();
     await expectPreview(page, remote, 'Canonical thread-fragment target');
@@ -578,8 +589,8 @@ async function holdNextResponse(page, path) {
 
 test.describe('held responses from persisted posts', () => {
   test('a real cross-tab filter hides the source quote and cancels its pending preview before the response is released', async ({ page, context, owned }) => {
-    const remote = await owned.createThread('fixture', 'Target behind a filtered quote');
-    const reply = await owned.reply(`>>>/fixture/${remote.id}\nHide preview source needle`);
+    const remote = await owned.createThread('tg', 'Target behind a filtered quote');
+    const reply = await owned.reply(`>>>/tg/${remote.id}\nHide preview source needle`);
     await observePreviewTransport(page);
     await initialize(page, owned.url, { quotePreview: true, filter: true });
     const other = await context.newPage();
@@ -617,8 +628,8 @@ test.describe('held responses from persisted posts', () => {
 
   for (const cancellation of ['pointer exit', 'quotePreview', 'disableAll']) {
     test(`${cancellation} aborts the owned request and its released late response cannot reopen a preview`, async ({ page, context, owned }) => {
-      const remote = await owned.createThread('fixture', 'Held persisted preview target');
-      const reply = await owned.reply(`>>>/fixture/${remote.id}\nHeld response quote`);
+      const remote = await owned.createThread('tg', 'Held persisted preview target');
+      const reply = await owned.reply(`>>>/tg/${remote.id}\nHeld response quote`);
       // Observe AbortSignal without altering requests, response bodies or results.
       await observePreviewTransport(page);
       await initialize(page, owned.url);
@@ -656,8 +667,8 @@ const imageProbe = '/static/themes/fade.png?native-quote-probe=payload';
 test.describe('response-substituted adversarial fixtures', () => {
   for (const defect of ['resource element', 'post identity', 'UTF-8 byte ceiling', 'tree depth', 'tree nodes']) {
     test(`${defect} rejects the complete response before preview resources load and permits a healthy retry`, async ({ page, request, owned }) => {
-      const remote = await owned.createThread('fixture', 'Healthy persisted recovery target');
-      const reply = await owned.reply(`>>>/fixture/${remote.id}\nAdversarial response quote`);
+      const remote = await owned.createThread('tg', 'Healthy persisted recovery target');
+      const reply = await owned.reply(`>>>/tg/${remote.id}\nAdversarial response quote`);
       const response = await request.get(remote.previewPath);
       expect(response.status()).toBe(200);
       const snapshot = await response.json();
@@ -718,8 +729,8 @@ test.describe('response-substituted adversarial fixtures', () => {
   }
 
   test('a transient HTTP failure preserves the link and a later hover fetches a fresh real response', async ({ page, owned }) => {
-    const remote = await owned.createThread('fixture', 'Healthy target after transient failure');
-    const reply = await owned.reply(`>>>/fixture/${remote.id}\nTransient failure quote`);
+    const remote = await owned.createThread('tg', 'Healthy target after transient failure');
+    const reply = await owned.reply(`>>>/tg/${remote.id}\nTransient failure quote`);
     await observePreviewTransport(page);
     await initialize(page, owned.url);
     const pattern = `**${remote.previewPath}`, requests = network(page);
@@ -727,7 +738,7 @@ test.describe('response-substituted adversarial fixtures', () => {
     await quote(page, reply, remote).hover();
     await expect.poll(() => page.evaluate(() => window.ownedPreviewFetches.at(-1)?.aborted)).toBe(true);
     await expect(page.locator('#quote-preview .postMessage')).toHaveCount(0);
-    await expect(quote(page, reply, remote)).toHaveAttribute('href', `/fixture/post/${remote.id}`);
+    await expect(quote(page, reply, remote)).toHaveAttribute('href', `${remote.url}#p${remote.id}`);
     await leaveQuote(page); await page.unroute(pattern); await page.waitForTimeout(350);
     await quote(page, reply, remote).hover();
     await expectPreview(page, remote, 'Healthy target after transient failure');
