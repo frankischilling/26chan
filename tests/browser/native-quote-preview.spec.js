@@ -240,7 +240,8 @@ test.describe('unmodified persisted quote previews', () => {
 
   test('an omitted index reply is fetched while the index and omission link remain intact', async ({ page, owned }) => {
     const omitted = await owned.reply('Persisted omitted preview target');
-    for (let index = 0; index < 3; index++) await owned.reply(`Newer visible reply ${index + 1}`);
+    // Six replies put the target just outside the default five-reply preview.
+    for (let index = 0; index < 4; index++) await owned.reply(`Newer visible reply ${index + 1}`);
     const reply = await owned.reply(`>>${omitted}\nQuote to omitted reply`);
     const target = { ...owned, id: omitted, previewPath: `/_watch/demo/post/${omitted}` };
     await initialize(page, '/demo/');
