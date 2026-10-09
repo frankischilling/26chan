@@ -33,6 +33,83 @@ fn authority(headers: &HeaderMap, enabled: bool) {
     assert!(!policy.contains("unsafe-inline") && !policy.contains("unsafe-eval"));
     assert!(!policy.contains("font-src") && !policy.contains("cdn."));
 }
+// The active PHP posting path leaves math tags literal. These cases exercise
+// admission and API/storage preservation, not the absent remote renderer.
+async fn nested_admission(owner: &PgPool, public: &PgPool, slug: &str, parent: i64) {
+    let (app, api) = posting::routers(public.clone(), slug, ORIGIN.into(), false);
+    let mut cases: Vec<String> = [
+        "[math]a[math]b[/math]c[/math]",
+        "[eqn]a[eqn]b[/eqn]c[/eqn]",
+        "[math]a[eqn]b[/eqn]c[/math]",
+        "[eqn]a[math]b[/math]c[/eqn]",
+        "[math]a[eqn]b[/math]c[/eqn]",
+        "[eqn]a[math]b[/eqn]c[/math]",
+        "[math]a[eqn]b[/eqn]",
+        "[math]a[eqn]b",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    // Spaces keep the independent 35-character word-wrap stage out of this
+    // literal math assertion while retaining 64 nested delimiter levels.
+    cases.push(format!(
+        "{}x{}",
+        "[math] ".repeat(64),
+        " [/math]".repeat(64)
+    ));
+    for enabled in [false, true] {
+        sqlx::query("UPDATE content.boards SET math_tags=$2 WHERE slug=$1")
+            .bind(slug)
+            .bind(enabled)
+            .execute(owner)
+            .await
+            .unwrap();
+        let mut admitted = Vec::new();
+        for literal in &cases {
+            // Distinct prose avoids duplicate-post admission across policies.
+            let comment = format!("policy={enabled} {literal}");
+            let id = posting::create_post(
+                public,
+                slug,
+                parent,
+                &NewPost {
+                    name: "Anonymous".into(),
+                    subject: String::new(),
+                    comment: comment.clone(),
+                    deletion_hash: "owned-nested-math-fixture-hash".into(),
+                    sage: false,
+                },
+            )
+            .await
+            .unwrap();
+            let saved: String = sqlx::query_scalar("SELECT comment FROM content.posts WHERE id=$1")
+                .bind(id)
+                .fetch_one(owner)
+                .await
+                .unwrap();
+            assert_eq!(saved, comment);
+            admitted.push((id, comment));
+        }
+        let (status, headers, html) = get(&app, &format!("/{slug}/thread/{parent}")).await;
+        assert_eq!(status, StatusCode::OK);
+        authority(&headers, enabled);
+        let (status, headers, raw) = get(&api, &format!("/{slug}/thread/{parent}.json")).await;
+        assert_eq!(status, StatusCode::OK);
+        authority(&headers, false);
+        let raw: Value = serde_json::from_str(&raw).unwrap();
+        for (id, comment) in admitted {
+            let post = raw["posts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|post| post["no"].as_i64() == Some(id))
+                .unwrap();
+            assert_eq!(post["com"], comment);
+            assert!(html.contains(&comment), "literal nested comment {id}");
+        }
+    }
+}
+
 async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
     let (app, api) = posting::routers(public.clone(), slug, ORIGIN.into(), false);
     let reference: Value =
@@ -125,6 +202,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
             assert!(board.get("math_tags").is_none());
         }
     }
+    nested_admission(owner, public, slug, id).await;
     assert!(
         sqlx::query("UPDATE content.boards SET math_tags=true WHERE slug=$1")
             .bind(slug)

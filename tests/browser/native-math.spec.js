@@ -428,3 +428,110 @@ test('failed math import keeps MainInit and ordinary initial parsing usable', as
   await expect(page.locator('#m1000001')).toContainText('[math]');
   await expect(page.locator('.nativeMath')).toHaveCount(0);
 });
+
+// Local safe-scanner behavior only. The supplied source configures delimiters
+// but does not include the remote historical renderer's nested-tag semantics.
+test('nested and crossed delimiters render nonrecursively while all source projections stay literal', async ({ page }) => {
+  await page.addInitScript(() => { window.IntersectionObserver = undefined; });
+  await page.goto('/sci/thread/1000002');
+  const cases = [
+    ['[math]a[math]b[/math]c[/math]', 'a[math]b', false, 'c[/math]'],
+    ['[eqn]a[eqn]b[/eqn]c[/eqn]', 'a[eqn]b', true, 'c[/eqn]'],
+    ['[math]a[eqn]b[/eqn]c[/math]', 'a[eqn]b[/eqn]c', false, ''],
+    ['[eqn]a[math]b[/math]c[/eqn]', 'a[math]b[/math]c', true, ''],
+    ['[math]a[eqn]b[/math]c[/eqn]', 'a[eqn]b', false, 'c[/eqn]'],
+    ['[eqn]a[math]b[/eqn]c[/math]', 'a[math]b', true, 'c[/math]'],
+    ['[math]a[eqn]b[/eqn]', 'b', true, '[math]a'],
+  ];
+  for (const [index, [input, tex, display, literal]] of cases.entries()) {
+    const message = await addMessage(page, input, `nested-math-${index}`);
+    await expect(message.locator('.nativeMath > svg')).toHaveCount(1);
+    await expect(message.locator('.nativeMath')).toHaveAttribute('aria-label', tex);
+    await expect(message.locator('.displayMath')).toHaveCount(display ? 1 : 0);
+    expect(await message.textContent()).toBe(literal);
+    const projections = await message.evaluate(async (node, path) => {
+      const { projection } = (await import(path)).pageNativeMath();
+      return [projection.text(node), projection.html(node), projection.clone(node).textContent];
+    }, modulePath);
+    expect(projections).toEqual([input, input, input]);
+  }
+  // Releasing ownership must restore the complete source, including unmatched
+  // outer closers, rather than a reconstructed or recursively stripped form.
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
+  for (const [index, [input]] of cases.entries()) {
+    await expect(page.locator(`#nested-math-${index}`)).toHaveText(input);
+    await expect(page.locator(`#nested-math-${index} svg`)).toHaveCount(0);
+  }
+  expect(await page.evaluate(() => window.mathCspViolations)).toEqual([]);
+});
+
+test('malformed and over-budget nested input stays literal, cannot execute HTML, and leaves the real worker usable', async ({ page }) => {
+  const injectionRequests = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/math-injection') injectionRequests.push(request.url());
+  });
+  await page.addInitScript(() => {
+    window.IntersectionObserver = undefined;
+    window.nestedMathJobs = [];
+    window.nestedMathExecuted = false;
+    const Worker = window.Worker;
+    window.Worker = class extends Worker {
+      postMessage(job, ...rest) {
+        window.nestedMathJobs.push({ tex: job.tex, display: job.display });
+        return super.postMessage(job, ...rest);
+      }
+    };
+  });
+  await page.goto('/sci/thread/1000002');
+  const deep = '[math]'.repeat(1000) + 'x' + '[/math]'.repeat(1000);
+  const hostile = '[math][eqn]\\href{https://evil.invalid/x}{x}<img src="/math-injection" onerror="window.nestedMathExecuted=true">[/eqn][/math]';
+  const inputs = [
+    '[math]a[eqn]b', '[eqn]a[/math]',
+    deep,
+    '[math][math]x[/math][/math]'.repeat(257),
+    '[math]x[/math]'.padEnd(65537, ' '),
+    hostile,
+  ];
+  for (const [index, input] of inputs.entries()) await addMessage(page, input, `literal-math-${index}`);
+  const sentinel = await addMessage(page, '[math]z+1[/math]', 'nested-sentinel');
+  await expect(sentinel.locator('.nativeMath > svg')).toHaveCount(1);
+  for (const [index, input] of inputs.entries()) {
+    const message = page.locator(`#literal-math-${index}`);
+    expect(await message.textContent()).toBe(input);
+    await expect(message.locator('svg, img, script, iframe, style, a, foreignObject')).toHaveCount(0);
+    if (input.length > 65536) {
+      // HTML/clone readers have their own 65,536-character text-node bound.
+      // Their refusal must leave the larger literal DOM/text projection intact.
+      const bounded = await message.evaluate(async (node, path) => {
+        const { projection } = (await import(path)).pageNativeMath();
+        const errors = ['html', 'clone'].map(method => {
+          try { projection[method](node); return null; }
+          catch (error) { return { name: error.name, message: error.message }; }
+        });
+        return { text: projection.text(node), errors, literal: node.textContent };
+      }, modulePath);
+      expect(bounded).toEqual({ text: input, literal: input, errors: [
+        { name: 'RangeError', message: 'comment-text' },
+        { name: 'RangeError', message: 'comment-text' },
+      ] });
+    } else {
+      const projections = await message.evaluate(async (node, path) => {
+        const { projection } = (await import(path)).pageNativeMath();
+        return [projection.text(node), projection.html(node), projection.clone(node).textContent];
+      }, modulePath);
+      const escaped = input.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+      expect(projections).toEqual([input, escaped, input]);
+    }
+  }
+  // Deep delimiter text is one bounded job, not 1,000 recursive jobs. The
+  // worker's 4,096-character TeX limit rejects it. Projection text-node and
+  // scanner span-count overflows queue none.
+  expect(await page.evaluate(() => window.nestedMathJobs)).toEqual([
+    { tex: '[math]'.repeat(999) + 'x', display: false },
+    { tex: hostile.slice('[math]'.length, -'[/math]'.length), display: false },
+    { tex: 'z+1', display: false },
+  ]);
+  expect(injectionRequests).toEqual([]);
+  expect(await page.evaluate(() => window.nestedMathExecuted)).toBe(false);
+  expect(await page.evaluate(() => window.mathCspViolations)).toEqual([]);
+});

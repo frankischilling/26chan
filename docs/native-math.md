@@ -79,6 +79,24 @@ security headers. Browser cases use a read-only fixture server with production
 templates and CSP, including real worker rendering, dynamic quotes/updates,
 preview cancellation and hostile input. The fixture has no database connection.
 
-Browser execution and exact-head CI are still pending. Local Chromium setup
-failed to obtain a usable browser archive, so test discovery is not a browser
-pass. This feature does not establish full rewrite or historical visual parity.
+The existing 21 browser cases passed on the hosted Windows job for PR #236,
+commit `dc00e6b`: [run 37901590850, job 113727013197](https://github.com/frankischilling/26chan/actions/runs/37901590850/job/113727013197).
+The math implementation is unchanged from that qualified revision. Exact-head
+CI, including the new nested-delimiter cases, is still pending. Local Chromium
+setup did not produce a usable browser archive; discovery alone is not a pass.
+
+Nested-delimiter tests distinguish source evidence from local behavior. The
+source detector recognizes lowercase openers even when nesting is malformed,
+and the disabled server call leaves those tags literal in storage and API
+responses. The local scanner uses the first matching closer without recursive
+expansion. Same-type, mixed, crossed and incomplete tags retain their full
+original text through projection readers within their size limits, whether
+the selected span renders or falls back to literal text. Above the HTML and
+clone readers' 65,536-character text-node limit, those readers reject the
+request while the literal DOM and larger-capacity text reader retain the source.
+Tests also cover the 65,536-character scan limit, 256-span limit and separate
+4,096-character worker input limit. Deep delimiters do not create recursive
+rendering jobs, and rejected input cannot
+introduce active HTML. These checks do not establish the absent MathJax 2.6
+renderer's nested-tag display behavior, full rewrite parity or historical
+visual parity.
