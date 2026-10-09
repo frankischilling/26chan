@@ -28,6 +28,8 @@
   --watcher-refresh: url('/static/watcher/burichan/refresh.png');
   --watcher-rotate: url('/static/watcher/burichan/post_expand_rotate.gif');
   --watcher-cross: url('/static/watcher/burichan/cross.png');
+  --settings-plus: url('/static/watcher/burichan/post_expand_plus.png');
+  --settings-minus: url('/static/watcher/burichan/post_expand_minus.png');
 }
 @media (min-resolution: 2dppx) {
   :root {
@@ -36,6 +38,8 @@
     --watcher-refresh: url('/static/watcher/burichan/refresh@2x.png');
     --watcher-rotate: url('/static/watcher/burichan/post_expand_rotate@2x.gif');
     --watcher-cross: url('/static/watcher/burichan/cross@2x.png');
+  --settings-plus: url('/static/watcher/burichan/post_expand_plus@2x.png');
+  --settings-minus: url('/static/watcher/burichan/post_expand_minus@2x.png');
   }
 }
 :root { --catalog-preview-subject: #dedede; }

@@ -229,3 +229,186 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     } finally { await context.close(); }
   });
 }
+
+// Observe the real fetch signal/promise without replacing either. The mutation
+// log catches stale results even if another render would remove them later.
+function observeSearchLifecycle() {
+  const fetch = window.fetch;
+  window.ownedSearchLifecycle = [];
+  window.ownedSearchCommits = [];
+  window.fetch = function (input, options) {
+    const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url, location.href);
+    let entry;
+    if (url.origin === location.origin && url.pathname === '/search/api') {
+      const signal = options?.signal ?? input?.signal;
+      entry = { query: url.searchParams.get('q'), aborted: signal?.aborted === true, settled: false, error: null };
+      window.ownedSearchLifecycle.push(entry);
+      signal?.addEventListener('abort', () => { entry.aborted = true; }, { once: true });
+    }
+    const pending = Reflect.apply(fetch, this, [input, options]);
+    if (entry) pending.then(() => { entry.settled = true; }, error => {
+      entry.settled = true; entry.error = error.name;
+    });
+    return pending;
+  };
+  new MutationObserver(() => {
+    window.ownedSearchCommits.push([...document.querySelectorAll('#js-sf-results .thread')].map(node => node.id));
+  }).observe(document, { childList: true, subtree: true });
+}
+
+// Hold a successful, persisted API response after the server has generated it.
+// Only delivery timing changes; no post fragments or response fields are made up.
+async function holdSearchResponse(page, query) {
+  let release, captured, failed, complete, failure, active = false, closed = false;
+  const gate = new Promise(resolve => { release = resolve; });
+  const ready = new Promise((resolve, reject) => { captured = resolve; failed = reject; });
+  // Own early rejection even if page setup fails before the caller awaits ready.
+  // Return the original promise so its awaited rejection still fails the test.
+  void ready.catch(() => {});
+  const finished = new Promise(resolve => { complete = resolve; });
+  const matches = url => url.pathname === '/search/api' && url.searchParams.get('q') === query;
+  const handler = async route => {
+    active = true;
+    try {
+      const response = await route.fetch({ maxRedirects: 0, maxRetries: 0 });
+      const body = await response.text();
+      captured({ status: response.status(), body });
+      await gate;
+      await route.fulfill({ response, body }).catch(error => {
+        // Playwright can reject fulfillment after the browser has cancelled.
+        // Any failure without a failed browser request remains a test failure.
+        if (!route.request().failure()) throw error;
+      });
+    } catch (error) { failure = error; failed(error); }
+    finally { complete(); }
+  };
+  await page.route(matches, handler, { times: 1 });
+  return { ready, async close() {
+    if (closed) return;
+    closed = true; release();
+    await page.unroute(matches, handler);
+    if (active) await finished;
+    if (failure) throw failure;
+  } };
+}
+
+for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+  test(`global search cancels pending responses and recovers from transport failure at ${viewport.width}px`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport });
+    await context.addInitScript(observeSearchLifecycle);
+    const page = await context.newPage();
+    const marker = `OwnedLifecycle${randomUUID().replaceAll('-', '')}`;
+    const staleQuery = `${marker} stale`, currentQuery = `${marker} current`;
+    const password = `delete-${randomUUID()}`;
+    const threads = [];
+    const errors = [];
+    const heldResponses = [];
+    const cleanupErrors = [];
+    let testFailure;
+    page.on('pageerror', error => errors.push(error.message));
+    const hashFor = query => `#/${encodeURIComponent(query)}/fixture`;
+    async function createThread(subject) {
+      const response = await withPostingHistory(() => context.request.post(`${origin}/fixture/post`, {
+        headers: { Origin: origin, Accept: 'application/json' },
+        form: { pwd: password, sub: subject, com: 'Owned search lifecycle fixture', resto: '0' },
+      }));
+      expect(response.status(), await response.text()).toBe(200);
+      const result = await response.json();
+      expect(result.error).toBeUndefined();
+      expect(Number.isSafeInteger(result.pid)).toBe(true);
+      const id = String(result.pid);
+      threads.push(id);
+      return id;
+    }
+    async function expectCurrent(id) {
+      await expect(page.locator('#js-sf-btn')).toBeEnabled();
+      await expect(page.locator('#js-sf-results .thread')).toHaveCount(1);
+      await expect(page.locator(`#js-sf-results #t${id}`)).toBeVisible();
+      await expect(page.locator('#js-sf-qf')).toHaveValue(currentQuery);
+      await expect(page.locator('#js-sf-bf')).toHaveValue('fixture');
+      await expect(page).toHaveURL(`${origin}/globalsearch.php${hashFor(currentQuery)}`);
+    }
+    try {
+      const staleId = await createThread(staleQuery);
+      const currentId = await createThread(currentQuery);
+      await page.goto('/globalsearch.php');
+      for (const replacement of [
+        { hash: hashFor(currentQuery), kind: 'current' },
+        { hash: '', kind: 'empty' },
+        { hash: '#/%E0%A4%A', kind: 'malformed' },
+        { hash: `#/${'x'.repeat(511)}`, kind: 'empty' },
+      ]) {
+        const held = await holdSearchResponse(page, staleQuery);
+        heldResponses.push(held);
+        await page.evaluate(hash => { location.hash = hash; }, hashFor(staleQuery));
+        const captured = await held.ready;
+        expect(captured.status).toBe(200);
+        const data = JSON.parse(captured.body);
+        expect(data.offset).toBe(0);
+        expect(data.nhits).toBe(1);
+        expect(data.threads.map(thread => thread.thread)).toEqual([staleId]);
+        await expect(page.locator('#js-sf-status')).toHaveText('Searching…');
+        await expect(page.locator('#js-sf-btn')).toBeDisabled();
+        await expect(page.locator('#js-sf-results .thread')).toHaveCount(0);
+        expect(await page.evaluate(query => window.ownedSearchLifecycle.filter(entry => entry.query === query).at(-1), staleQuery))
+          .toEqual({ query: staleQuery, aborted: false, settled: false, error: null });
+
+        await page.evaluate(hash => { location.hash = hash; }, replacement.hash);
+        await expect.poll(() => page.evaluate(query => window.ownedSearchLifecycle.filter(entry => entry.query === query).at(-1), staleQuery))
+          .toEqual({ query: staleQuery, aborted: true, settled: true, error: 'AbortError' });
+        await expect(page.locator('#js-sf-btn')).toBeEnabled();
+        if (replacement.kind === 'current') await expectCurrent(currentId);
+        else if (replacement.kind === 'malformed') await expect(page.locator('#js-sf-status')).toHaveText('Something went wrong.');
+        else await expect(page.locator('#js-sf-results')).toBeEmpty();
+
+        // Release the older successful response after the new state has settled.
+        await held.close();
+        if (replacement.kind === 'current') await expectCurrent(currentId);
+        else if (replacement.kind === 'malformed') await expect(page.locator('#js-sf-status')).toHaveText('Something went wrong.');
+        else await expect(page.locator('#js-sf-results')).toBeEmpty();
+        await expect(page.locator(`#t${staleId}`)).toHaveCount(0);
+        expect(await page.evaluate(id => window.ownedSearchCommits.some(ids => ids.includes(`t${id}`)), staleId)).toBe(false);
+      }
+
+      // A genuine failed browser request must restore the form and permit a
+      // subsequent search through the unmodified server endpoint.
+      const failedQuery = `${marker} transport`;
+      await page.route(url => url.pathname === '/search/api' && url.searchParams.get('q') === failedQuery,
+        route => route.abort('failed'), { times: 1 });
+      await page.evaluate(hash => { location.hash = hash; }, hashFor(failedQuery));
+      await expect(page.locator('#js-sf-status')).toHaveText('Connection error.');
+      await expect(page.locator('#js-sf-btn')).toBeEnabled();
+      await expect(page.locator('#js-sf-pl')).toHaveCount(0);
+      await expect(page.locator('#js-sf-results .thread')).toHaveCount(0);
+      await expect.poll(() => page.evaluate(query => window.ownedSearchLifecycle.find(entry => entry.query === query), failedQuery))
+        .toEqual({ query: failedQuery, aborted: false, settled: true, error: 'TypeError' });
+      await page.locator('#js-sf-qf').fill(currentQuery);
+      await page.locator('#js-sf-btn').click();
+      await expectCurrent(currentId);
+      expect(await page.evaluate(id => window.ownedSearchCommits.some(ids => ids.includes(`t${id}`)), staleId)).toBe(false);
+      expect(errors).toEqual([]);
+    } catch (error) { testFailure = error; }
+    finally {
+      for (const held of heldResponses) {
+        try { await held.close(); }
+        catch (error) { cleanupErrors.push(error); }
+      }
+      for (const thread of threads) {
+        try {
+          await withDeletionQuota(async () => {
+            expect((await context.request.post(`${origin}/fixture/delete`, {
+              headers: { Origin: origin }, form: { no: thread, password }, maxRedirects: 0,
+            })).status()).toBe(303);
+          });
+        } catch (error) { cleanupErrors.push(error); }
+      }
+      try { await context.close(); }
+      catch (error) { cleanupErrors.push(error); }
+    }
+    if (cleanupErrors.length) {
+      throw new AggregateError(testFailure ? [testFailure, ...cleanupErrors] : cleanupErrors,
+        'Global Search lifecycle test or owned-fixture cleanup failed', { cause: testFailure });
+    }
+    if (testFailure) throw testFailure;
+  });
+}
