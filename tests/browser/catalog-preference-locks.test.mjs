@@ -30,6 +30,7 @@ test('catalog preference mutations share the watcher lock and remain race-safe',
   const files = Object.fromEntries(await Promise.all([
     'catalog-preferences.v1.js', 'native-filter.v1.js', 'catalog-filters.v1.js',
     'catalog-filter-core.v1.js', 'native-settings.v1.js', 'catalog-theme.v1.js', 'native-custom-css.v1.js',
+    'thread-watcher-core.v1.js',
   ].map(async name => ['/static/' + name,
     await readFile(new URL('../../apps/public/static/' + name, import.meta.url), 'utf8')])));
   const browser = await chromium.launch({ headless: true });

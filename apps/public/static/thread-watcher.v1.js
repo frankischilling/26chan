@@ -13,7 +13,7 @@ import { mountNativeImages } from './native-images.v1.js';
 import { mountNativeDeletion } from './native-post-deletion.v1.js';
 import { mountNativeDisplay, mountNativePosterIds, mountNativePosterIdActions } from './native-display.v1.js';
 import { mountNativePostTooltips } from './native-post-tooltips.v1.js';
-import { createParsingBootstrap, mountNativeThreadUpdater, mountNativeThreadExpansion, mountNativeDepager, NativeBoardPageTransport } from './native-thread-controls.v1.js';
+import { createParsingBootstrap, createInitialMountLifecycle, dispatchSourceEvent, mountNativeThreadUpdater, mountNativeThreadExpansion, mountNativeDepager, NativeBoardPageTransport } from './native-thread-controls.v1.js';
 import { mountNativeThreadStats } from './native-thread-stats.v1.js';
 import { mountNativeNavigation, navigationPage } from './native-navigation.v1.js';
 import { mountNativeLayout, sourceMobileLayout, THEME_READY_EVENT } from './native-layout.v1.js';
@@ -29,6 +29,7 @@ async function start(context) {
   const board = context.dataset.board;
   const threadId = postId(context.dataset.thread);
   const catalog = context.dataset.catalog === 'true';
+  const mountLifecycle = createInitialMountLifecycle(window);
   let initialParsing = new AbortController(), initialSuspended = false;
   const cancelParsing = () => { initialSuspended = true; initialParsing.abort(); };
   if (!catalog) {
@@ -36,12 +37,6 @@ async function start(context) {
     window.addEventListener('pageshow', () => { initialSuspended = false; });
   }
   const parsingBootstrap = createParsingBootstrap(configuration);
-  let mathPage = null;
-  if (!catalog && document.body.dataset.mathTags === '1') {
-    try { mathPage = (await import('./native-math.v1.js')).pageNativeMath(); } catch { /* Literal tags remain usable. */ }
-  }
-  const projection = mathPage?.projection ?? createCommentProjection();
-  const nativeMath = mathPage?.controller;
   const storeKey = '4chan-watch';
   const settingsKey = '4chan-settings';
   const timestampKey = '4chan-tw-timestamp';
@@ -95,6 +90,24 @@ async function start(context) {
   };
   // Raw storage is always read afresh before any first-open persistence.
   settingsStartupRead = { status: 'captured' };
+
+  // Main.init publishes context and preferences before any parser starts.
+  // Upload forms share watcher storage but are not board parsing documents.
+  if (!catalog && document.querySelector('.board')) dispatchSourceEvent(document, '4chanMainInit');
+  let mathModule = null;
+  if (!catalog && document.body.dataset.mathTags === '1') {
+    try { mathModule = await import('./native-math.v1.js'); } catch { /* Literal tags remain usable. */ }
+  }
+  // A resolved import must not mount into a suspended or departed document.
+  // Recheck after every wake: a second pagehide can precede this continuation.
+  while (!mountLifecycle.active()) {
+    if (!await mountLifecycle.wait()) { mountLifecycle.disconnect(); return; }
+  }
+  mountLifecycle.disconnect();
+  let mathPage = null;
+  try { mathPage = mathModule?.pageNativeMath(); } catch { /* Literal tags remain usable. */ }
+  const projection = mathPage?.projection ?? createCommentProjection();
+  const nativeMath = mathPage?.controller;
 
   function readNeverMobile() {
     try { return localStorage.getItem('4chan_never_show_mobile'); }
@@ -397,10 +410,10 @@ async function start(context) {
     filter: () => { if (configuration().filter === true) nativeFilters?.addSelection(document.activeElement, nativeFilters.selection()); },
   });
   let nativeEmbeds = null, nativeCustomCSS = null, settingsTransfer = null;
-  const catalogTheme = catalog ? import('./catalog-theme.v1.js').then(({ mountCatalogTheme }) => mountCatalogTheme({
+  const catalogTheme = catalog ? import('./catalog-theme.v1.js').then(({ catalogMainBootstrap, mountCatalogTheme }) => catalogMainBootstrap(context).settings(() => () => mountCatalogTheme({
     root: context, configuration, saveVolatileSettings: (changes, signal) => saveSettings(changes, signal, true),
     mobileLayout: () => mobile.matches && readNeverMobile() !== 'true',
-  })).catch(() => { notice.textContent = 'Catalog settings could not be loaded.'; return null; }) : null;
+  }))).catch(() => { notice.textContent = 'Catalog settings could not be loaded.'; return null; }) : null;
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
     initializeOnOpen: initializeSettingsOnOpen,
     openCatalogSettings: catalog ? opener => { void catalogTheme.then(controller => {

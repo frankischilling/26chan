@@ -1,5 +1,69 @@
 import { readCatalogTheme, writeCatalogTheme, catalogDropDownEnabled, CATALOG_THEME_LIMITS } from './native-settings.v1.js';
 import { NativeWatchLock } from './native-filter.v1.js';
+import { watchKey } from './thread-watcher-core.v1.js';
+
+// Private rendezvous for the two catalog owners. Public events and DOM flags
+// never complete this gate. Its identity is the original, canonical page root.
+const catalogBootstraps = new WeakMap();
+export function catalogMainBootstrap(root) {
+  // Standalone fixtures can have identifiers the watcher cannot initialize.
+  // Their catalog controls must not wait for an owner that will never start.
+  if (!root || !watchKey(root.dataset.board, '1')) return null;
+  if (catalogBootstraps.has(root)) return catalogBootstraps.get(root);
+  const document = root.ownerDocument, window = document.defaultView;
+  let preferences, settings, started = false, retired = false, suspended = false;
+  const waiting = new Set();
+  let resolveSettings;
+  const settingsComplete = new Promise(resolve => { resolveSettings = resolve; });
+  const current = () => !retired && root.isConnected && root.dataset.catalog === 'true'
+    && document.getElementById('watcher-context') === root && (!preferences || preferences.current());
+  const release = () => { for (const resolve of waiting) resolve(); waiting.clear(); };
+  const hide = event => { suspended = true; if (!event.persisted) stop(); };
+  const show = event => { if (event.persisted && !retired) { suspended = false; release(); } };
+  const observer = new window.MutationObserver(() => { if (!current()) stop(); });
+  function stop() {
+    retired = true; release(); resolveSettings(null); observer.disconnect();
+    window.removeEventListener('pagehide', hide); window.removeEventListener('pageshow', show);
+  }
+  async function run() {
+    if (started || !preferences || !settings) return;
+    started = true;
+    try {
+      const initializeSettings = await settings;
+      while (current() && suspended) await new Promise(resolve => waiting.add(resolve));
+      if (!current()) return;
+      let configured = null;
+      try { configured = initializeSettings?.() ?? null; }
+      catch { /* Optional settings UI failure leaves basic catalog controls usable. */ }
+      resolveSettings(configured);
+      while (current() && suspended) await new Promise(resolve => waiting.add(resolve));
+      if (!current()) return;
+      if (!current() || preferences.prepare() === false) return;
+      while (current() && suspended) await new Promise(resolve => waiting.add(resolve));
+      if (!current()) return;
+      const event = document.createEvent('Event');
+      event.initEvent('4chanMainInit', false, false);
+      document.dispatchEvent(event);
+      // A synchronous listener can suspend or replace this catalog.
+      while (current() && suspended) await new Promise(resolve => waiting.add(resolve));
+      if (!current()) return;
+      preferences.load();
+    } catch { /* Failed preparation keeps the server-rendered catalog usable. */ }
+    finally { stop(); }
+  }
+  window.addEventListener('pagehide', hide); window.addEventListener('pageshow', show);
+  observer.observe(document.body, { childList: true, subtree: true });
+  const controller = {
+    preferences(value) { if (!preferences && !retired) { preferences = value; void run(); } },
+    settings(load) {
+      if (settings) return settingsComplete;
+      settings = Promise.resolve().then(load).catch(() => null);
+      void run(); return settingsComplete;
+    },
+  };
+  catalogBootstraps.set(root, controller);
+  return controller;
+}
 
 const themeKey = 'catalog-theme', settingsKey = '4chan-settings';
 const controllers = new WeakMap();
@@ -30,7 +94,7 @@ export function mountCatalogTheme({ root, configuration, saveVolatileSettings, m
   if (!root?.isConnected || root.id !== 'watcher-context' || root.dataset.catalog !== 'true'
     || typeof configuration !== 'function' || typeof saveVolatileSettings !== 'function') return null;
   const form = document.getElementById('ctrl'), container = document.getElementById('threads');
-  if (!form?.classList.contains('nativeCatalogControls') || !container?.isConnected) return null;
+  if (form?.tagName !== 'FORM' || !form.isConnected || !container?.isConnected) return null;
   let persistent = typeof navigator.locks?.request === 'function', themeRaw = null, settingsRaw = null;
   let dialog, fields, css, message, submit, opener, pending, spoilerPending, expected, expectedFlags, retired = false, suspended = false, lastCSS = '';
   let sheet = null;

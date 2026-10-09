@@ -86,7 +86,9 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
             assert_eq!(status, StatusCode::OK, "{path}");
             authority(&headers, enabled);
             assert_eq!(html.contains("data-math-tags=\"1\""), enabled);
-            assert_eq!(html.contains("src=\"/static/native-math.v1.js\""), enabled);
+            // Watcher owns math mounting after MainInit; imports stay inert.
+            assert!(!html.contains("src=\"/static/native-math.v1.js\""));
+            assert!(html.contains("src=\"/static/thread-watcher.v1.js\""));
             for tag in ["[math]", "[/math]", "[eqn]", "[/eqn]"] {
                 assert!(html.contains(tag));
             }
