@@ -159,7 +159,7 @@ async fn paired_rejects_lengths_truncation_trailing_and_unknown_versions() {
     trailing.push(0);
     assert!(read_paired_request(&mut trailing.as_slice()).await.is_err());
     let mut unknown = wire;
-    unknown[7] = b'3';
+    unknown[7] = b'4';
     assert!(
         read_versioned_request(&mut unknown.as_slice())
             .await

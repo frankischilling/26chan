@@ -1136,6 +1136,81 @@ async fn paired_client_uses_explicit_request_and_rejects_downgrade_and_unclean_e
 }
 
 #[tokio::test]
+async fn gif_client_requires_version_three_exact_length_clean_tls_eof_and_no_retry() {
+    use board_media_dispatch::protocol::{GIF_OUTPUT_LENGTH, Request, read_versioned_request};
+    for (magic, length, body_length, close_notify, success) in [
+        (
+            b"IBOUT003",
+            GIF_OUTPUT_LENGTH,
+            GIF_OUTPUT_LENGTH,
+            true,
+            true,
+        ),
+        (b"IBOUT001", 4_194_816, 0, true, false),
+        (b"IBOUT002", 4_456_960, 0, true, false),
+        (
+            b"IBOUT003",
+            GIF_OUTPUT_LENGTH,
+            GIF_OUTPUT_LENGTH,
+            false,
+            false,
+        ),
+        (
+            b"IBOUT003",
+            GIF_OUTPUT_LENGTH,
+            GIF_OUTPUT_LENGTH + 1,
+            true,
+            false,
+        ),
+        (b"IBOUT003", GIF_OUTPUT_LENGTH, 7, true, false),
+        (b"IBOUT003", GIF_OUTPUT_LENGTH - 1, 0, true, false),
+    ] {
+        let mut f = Fixture::new();
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        f.settings.endpoint = listener.local_addr().unwrap();
+        let acceptor = TlsAcceptor::from(server_config(&f.gateway).unwrap());
+        let server = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut stream = acceptor.accept(socket).await.unwrap();
+            assert_eq!(
+                read_versioned_request(&mut stream).await.unwrap(),
+                Request::GifV3(b"owned GIF upload".to_vec())
+            );
+            let wire = [
+                magic.as_slice(),
+                &length.to_be_bytes(),
+                &vec![0x5a; body_length as usize],
+            ]
+            .concat();
+            let _ = stream.write_all(&wire).await;
+            if close_notify {
+                let _ = stream.shutdown().await;
+            } else {
+                let _ = stream.flush().await;
+            }
+            assert!(
+                tokio::time::timeout(Duration::from_millis(100), listener.accept())
+                    .await
+                    .is_err()
+            );
+        });
+        let result = DispatchClient::new(&f.settings)
+            .unwrap()
+            .process_gif(b"owned GIF upload".as_slice(), 16)
+            .await;
+        assert_eq!(
+            result.is_ok(),
+            success,
+            "GIF response {magic:?}, length {length}, body {body_length}, close {close_notify}"
+        );
+        if success {
+            assert_eq!(result.unwrap(), vec![0x5a; GIF_OUTPUT_LENGTH as usize]);
+        }
+        server.await.unwrap();
+    }
+}
+
+#[tokio::test]
 async fn paired_client_intake_deadline_includes_source_eof() {
     use board_media_dispatch::protocol::read_paired_request;
     let mut f = Fixture::new();
