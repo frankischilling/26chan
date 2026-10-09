@@ -18,7 +18,7 @@ test('catalog Settings uses the source mobile header directory and disables navi
   await expect(bar).toBeVisible(); await expect(bar.getByLabel('Board', { exact: true })).toHaveValue('fixture');
   await expect(bar.locator('option[value="a"]')).toHaveText('/a/ - Anime & Manga');
   await expect(bar.locator('option[value="demo"]')).toHaveCount(0);
-  await expect(bar.locator('option[data-current-board-fallback]')).toHaveValue('fixture');
+  await expect(bar.locator('option[data-current-board-fallback]')).toHaveAttribute('value', 'fixture');
   await expect(bar.locator('option')).toHaveCount(78);
   expect(await bar.locator('option').evaluateAll(options => options.map(option => option.value))).toEqual(
     await page.locator('#boardSelectMobile option').evaluateAll(options => options.map(option => option.value)));
@@ -261,7 +261,7 @@ test('a current board absent from the header never becomes a classic source memb
   await page.goto('/fixture/');
   await expect(page.locator('.nativeBoardLinks a')).toHaveCount(77);
   await expect(page.locator('.nativeBoardLinks a[href="/fixture/"]')).toHaveCount(0);
-  await expect(page.locator('#boardSelectMobile option[data-current-board-fallback]')).toHaveValue('fixture');
+  await expect(page.locator('#boardSelectMobile option[data-current-board-fallback]')).toHaveAttribute('value', 'fixture');
   await expect(page.locator('#boardSelectMobile')).toHaveValue('fixture');
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator('.nativePersistentNavigation')).toHaveCount(0);

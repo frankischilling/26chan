@@ -61,7 +61,7 @@ test('custom navigation persists and synchronizes across tabs while mobile keeps
     const directory = await (await context.request.get('/_watch/boards')).json();
     const headerSlugs = await page.locator('#boardNavDesktop [data-public-board-list] a').evaluateAll(nodes => nodes.map(node => node.textContent).sort());
     expect(await page.locator('#boardSelectMobile option:not([data-current-board-fallback])').evaluateAll(nodes => nodes.map(node => node.value))).toEqual(headerSlugs);
-    await expect(page.locator('#boardSelectMobile [data-current-board-fallback]')).toHaveValue('fixture');
+    await expect(page.locator('#boardSelectMobile [data-current-board-fallback]')).toHaveAttribute('value', 'fixture');
     expect(directory.boards.some(board => board.board === 'demo')).toBe(true);
     expect(headerSlugs).not.toContain('demo');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
