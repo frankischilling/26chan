@@ -49,7 +49,7 @@ export function mountNativeKeybinds({ board, settings, watch, filter, update, au
     const header = document.createElement('h2'); header.className = 'panelHeader';
     const title = document.createElement('span'); title.id = 'keybinds-title'; title.textContent = 'Keyboard Shortcuts';
     const dismiss = document.createElement('button'); dismiss.type = 'button'; dismiss.className = 'panelCtrl';
-    dismiss.id = 'keybinds-close'; dismiss.textContent = '\u00d7'; dismiss.setAttribute('aria-label', 'Close keyboard shortcuts');
+    dismiss.id = 'keybinds-close'; dismiss.classList.add('nativePanelClose'); dismiss.setAttribute('aria-label', 'Close keyboard shortcuts');
     dismiss.addEventListener('click', close); header.append(title, dismiss); panel.append(header);
     const list = document.createElement('ul');
     const globalTitle = document.createElement('li'), globalStrong = document.createElement('strong');
@@ -57,16 +57,18 @@ export function mountNativeKeybinds({ board, settings, watch, filter, update, au
     for (const [key, label] of [['A', 'Toggle auto-updater'], ['Q', 'Open Quick Reply'], ['R', 'Update thread'],
       ['W', 'Watch/Unwatch thread'], ['B', 'Previous page'], ['N', 'Next page'], ['I', 'Return to index'], ['C', 'Open catalog'], ['F', 'Filter selected text']]) {
       const row = document.createElement('li'), keycap = document.createElement('kbd');
-      keycap.textContent = key; row.append(keycap, ` - ${label}`); list.append(row);
+      keycap.textContent = key; row.append(keycap, ` \u2014 ${label}`); list.append(row);
     }
     const quick = document.createElement('ul'), quickTitle = document.createElement('li'), strong = document.createElement('strong');
     strong.textContent = 'Quick Reply (always enabled)'; quickTitle.append(strong); quick.append(quickTitle);
-    for (const [key, label] of [['Ctrl + Click', 'the post number - Quote without linking'], ['Ctrl + S', 'Spoiler tags'], ['Esc', 'Close the Quick Reply']]) {
+    for (const [key, label] of [['Ctrl + Click', 'the post number \u2014 Quote without linking'], ['Ctrl + S', 'Spoiler tags'], ['Esc', 'Close the Quick Reply']]) {
       const row = document.createElement('li'), keycap = document.createElement('kbd');
-      keycap.textContent = key; row.append(keycap, `${key === 'Ctrl + Click' ? ' ' : ' - '}${label}`); quick.append(row);
+      keycap.textContent = key; row.append(keycap, `${key === 'Ctrl + Click' ? ' ' : ' \u2014 '}${label}`); quick.append(row);
     }
     panel.append(list, quick); dialog.append(panel);
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
+    // The source outer UIPanel dismisses on a backdrop click only.
+    dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
     document.body.append(dialog); help = dialog; dialog.showModal(); dismiss.focus();
   }
   document.addEventListener('keydown', resolve);

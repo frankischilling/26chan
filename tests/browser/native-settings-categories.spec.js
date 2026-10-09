@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 // Category order and layout availability follow 4chan-old/js/extension.js at
 // 545b781, restricted to the rewrite's implemented controls.
@@ -22,21 +22,40 @@ const enabledByDefault = new Set('threadHiding threadUpdater threadExpansion thr
 const sources = new Map(await Promise.all(['native-settings.v1.js', 'native-custom-css.v1.js'].map(async name =>
   [`/static/${name}`, await readFile(new URL(`../../apps/public/static/${name}`, import.meta.url), 'utf8')])));
 
-async function fixture(page, { settings, mobile = false, override = {},
+const productionCSS = await readFile(new URL('../../apps/public/static/board.css', import.meta.url), 'utf8');
+const commonCSS = await readFile(new URL('../../apps/public/static/themes/common.css', import.meta.url), 'utf8');
+const mobileCSS = await readFile(new URL('../../assets/comment-markup-mobile.css', import.meta.url), 'utf8');
+const themeStyles = new Map(await Promise.all(['yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon'].map(async name => [name, await readFile(new URL(`../../apps/public/static/themes/${name}.css`, import.meta.url), 'utf8')])));
+themeStyles.set('yotsuba', '');
+const keybindsJS = await readFile(new URL('../../apps/public/client/native-keybinds.js', import.meta.url), 'utf8');
+const openSettings = page => page.locator('#settingsWindowLink:visible, #settingsWindowLinkMobile:visible').click();
+
+async function fixture(page, { settings, mobile = false, override = {}, theme = 'yotsuba', realHelp = false,
   raw = settings === undefined ? null : JSON.stringify(settings), unavailable = false, integratedDefaults = false, autoOpen = true,
   initialization = null, catalog = false } = {}) {
   settings ??= {};
   await page.setViewportSize({ width: mobile ? 390 : 1000, height: 800 });
   const context = page.context();
-  await context.route('**/*', route => {
+  await context.route('**/*', async route => {
+    if (new URL(route.request().url()).origin !== 'https://settings.example') return route.abort();
     const path = new URL(route.request().url()).pathname;
+    if (path === '/static/board.css') return route.fulfill({ contentType: 'text/css', body: productionCSS });
+    if (path === '/static/theme.css') {
+      const selected = new URL(route.request().url()).searchParams.get('fixture-theme') || theme;
+      if (!themeStyles.has(selected)) return route.abort();
+      return route.fulfill({ contentType: 'text/css', body: `${commonCSS}\n${themeStyles.get(selected)}\n${mobileCSS}` });
+    }
+    if (path === '/static/native-keybinds.js') return route.fulfill({ contentType: 'text/javascript', body: keybindsJS });
+    if (/^\/static\/watcher\/(futaba|burichan|tomorrow|photon)\/(cross|post_expand_plus|post_expand_minus)(@2x)?\.png$/.test(path)) {
+      return route.fulfill({ contentType: 'image/png', body: await readFile(new URL(`../../apps/public${path}`, import.meta.url)) });
+    }
     if (sources.has(path)) return route.fulfill({ contentType: 'text/javascript', body: sources.get(path) });
     if (route.request().isNavigationRequest()) return route.fulfill({ contentType: 'text/html', body:
-      '<!doctype html><html><body><div class="boardList"></div></body></html>' });
+      '<!doctype html><html><head><link rel="stylesheet" href="/static/board.css"><link rel="stylesheet" href="/static/theme.css"></head><body><div class="boardList"></div></body></html>' });
     return route.abort();
   });
   await page.goto('https://settings.example/demo/');
-  await page.evaluate(async ({ settings, override, raw, unavailable, integratedDefaults, initialization, catalog }) => {
+  await page.evaluate(async ({ settings, override, raw, unavailable, integratedDefaults, initialization, catalog, realHelp }) => {
     if (raw === null) localStorage.removeItem('4chan-settings');
     else localStorage.setItem('4chan-settings', raw);
     window.storageWrites = [];
@@ -68,6 +87,9 @@ async function fixture(page, { settings, mobile = false, override = {},
     const { installSettings, captureSettingsPresentation, settingsOptionChecked } = await import('/static/native-settings.v1.js');
     const presentation = captureSettingsPresentation(unavailable ? { status: 'unavailable' }
       : { status: 'ok', raw: localStorage.getItem('4chan-settings') }, matchMedia('(max-width: 480px)').matches);
+    const help = realHelp ? (await import('/static/native-keybinds.js')).mountNativeKeybinds({
+      board: 'demo', settings: () => settingsState,
+    }) : null;
     window.settingsAPI = installSettings({
       catalog,
       ...(initialization === null ? {} : { initializeOnOpen: async signal => {
@@ -94,7 +116,7 @@ async function fixture(page, { settings, mobile = false, override = {},
       optionChecked: (key, initial, startup) => override[key]
         ?? (integratedDefaults ? settingsOptionChecked(key, initial, startup) : undefined),
       toggleWatcher: callback('watcher'), openFilters: callback('filters'),
-      clearThreads: callback('clear'), openKeybinds: callback('keys'),
+      clearThreads: callback('clear'), openKeybinds: source => { callback('keys')(source); help?.openHelp(source); },
       openCustomMenu: callback('menu'), openCustomCSS: callback('css'), openExport: callback('export'),
       save: async (changes, signal) => {
         const call = { changes, aborted: false };
@@ -109,8 +131,8 @@ async function fixture(page, { settings, mobile = false, override = {},
         return { persisted: false };
       },
     });
-  }, { settings, override, raw, unavailable, integratedDefaults, initialization, catalog });
-  if (autoOpen) await page.locator('#settingsWindowLink').click();
+  }, { settings, override, raw, unavailable, integratedDefaults, initialization, catalog, realHelp });
+  if (autoOpen) await openSettings(page);
   return page;
 }
 
@@ -166,11 +188,11 @@ test('independent disclosure and Expand All do not persist; reopening retains st
   assert.ok((await categoryState(page)).every(group => !group.hidden && group.expanded === 'true'));
   await page.locator('#settings-close').click();
   assert.equal(await page.evaluate(() => document.activeElement.id), 'settingsWindowLink');
-  await page.locator('#settingsWindowLink').click();
+  await openSettings(page);
   assert.ok((await categoryState(page)).every(group => group.hidden));
   await page.keyboard.press('Escape');
   await page.evaluate(() => { settingsState = {}; localStorage.removeItem('4chan-settings'); storageWrites.length = 0; });
-  await page.locator('#settingsWindowLink').click();
+  await openSettings(page);
   assert.ok((await categoryState(page)).every(group => group.hidden));
   assert.deepEqual(await page.evaluate(() => ({ writes: storageWrites, saves: saveCalls })), { writes: [], saves: [] });
 });
@@ -185,10 +207,12 @@ test('cancel discards edits across all groups and resizing does not replace the 
   await page.setViewportSize({ width: 390, height: 800 });
   assert.equal(await page.locator('#setting-inlineQuotes').count(), 1);
   assert.equal(await page.locator('#setting-inlineQuotes').isChecked(), true);
+  // Restore the opener's visible layout before asserting focus return.
+  await page.setViewportSize({ width: 1000, height: 800 });
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#settingsMenu').count(), 0);
   assert.equal(await page.evaluate(() => document.activeElement.id), 'settingsWindowLink');
-  await page.locator('#settingsWindowLink').click();
+  await openSettings(page);
   assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(false));
   assert.equal(await page.locator('#setting-inlineQuotes').isChecked(), false);
   assert.equal(await page.locator('#setting-darkTheme').count(), 0);
@@ -235,7 +259,7 @@ test('save errors remain recoverable and closing aborts pending saves without ap
   assert.equal(await page.locator('#settings-export').isDisabled(), true);
   await page.keyboard.press('Escape');
   assert.equal(await page.evaluate(() => saveCalls.at(-1).aborted), true);
-  await page.locator('#settingsWindowLink').click();
+  await openSettings(page);
   await page.evaluate(async () => { releaseSave(); await new Promise(resolve => setTimeout(resolve, 0)); });
   assert.equal(await page.locator('#settingsMenu').count(), 1);
   assert.equal(await page.locator('#setting-linkify').isChecked(), false);
@@ -265,7 +289,7 @@ for (const mobile of [false, true]) {
     assert.deepEqual(await page.evaluate(() => saveCalls[0].changes), { linkify: true });
     assert.deepEqual(await page.evaluate(() => settingsState), { ...hidden, ...concurrent, linkify: true });
     assert.deepEqual(await page.evaluate(() => storageWrites), []);
-    await page.locator('#settingsWindowLink').click();
+    await openSettings(page);
     assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(mobile));
     await page.locator('#settings-expand-all').click();
     assert.equal(await page.locator('#setting-linkify').isChecked(), true);
@@ -273,7 +297,7 @@ for (const mobile of [false, true]) {
     // Availability is captured at startup; resizing must leave this draft intact.
     assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(mobile));
     await page.keyboard.press('Escape');
-    await page.locator('#settingsWindowLink').click();
+    await openSettings(page);
     assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(mobile));
     for (const key of hiddenKeys) assert.equal(await page.locator(`#setting-${key}`).count(), 0, key);
     for (const selector of ['#filters-edit', '#custom-menu-edit', '#keybinds-open']) {
@@ -299,7 +323,7 @@ for (const [name, raw, firstRun, unavailable] of [
     assert.ok((await categoryState(page)).every(group => group.hidden === !firstRun));
     await page.keyboard.press('Escape');
     await page.evaluate(() => { settingsState = { quotePreview: false }; });
-    await page.locator('#settingsWindowLink').click();
+    await openSettings(page);
     assert.ok((await categoryState(page)).every(group => group.hidden === !firstRun));
     await page.locator('#settings-expand-all').click();
     assert.equal(await page.locator('#setting-quotePreview').isChecked(), false);
@@ -316,12 +340,12 @@ for (const mobile of [false, true]) {
     await page.setViewportSize({ width: mobile ? 1000 : 390, height: 800 });
     assert.equal(await page.locator('#setting-linkify').isChecked(), !mobile);
     await page.keyboard.press('Escape');
-    await page.locator('#settingsWindowLink').click();
+    await openSettings(page);
     assert.equal(await page.locator('#setting-linkify').isChecked(), mobile);
     if (!mobile) assert.equal(await page.locator('#setting-embedYouTube').isChecked(), true);
     await page.keyboard.press('Escape');
     await page.evaluate(() => { settingsState = { disableAll: true, linkify: false, embedYouTube: false }; });
-    await page.locator('#settingsWindowLink').click();
+    await openSettings(page);
     assert.equal(await page.locator('#setting-linkify').isChecked(), false);
     if (!mobile) assert.equal(await page.locator('#setting-embedYouTube').isChecked(), false);
     assert.deepEqual(await page.evaluate(() => ({ writes: storageWrites, saves: saveCalls })), { writes: [], saves: [] });
@@ -337,14 +361,14 @@ test('optional first-run hook has no install-time writes and runs after each act
   await fixture(page, { autoOpen: false, initialization: 'success' });
   assert.deepEqual(await page.evaluate(() => ({ calls: initializationCalls.length, writes: storageWrites })),
     { calls: 0, writes: [] });
-  await page.locator('#settingsWindowLink').click();
+  await openSettings(page);
   await page.waitForFunction(() => lifecycle.includes('initialize:commit'));
   assert.equal(await page.evaluate(() => initializationCalls[0].connected), true);
   assert.ok((await categoryState(page)).every(group => !group.hidden));
   assert.equal(await page.locator('#settings-export').isEnabled(), true);
   await page.locator('#settings-close').click();
   await page.setViewportSize({ width: 390, height: 800 });
-  await page.locator('#settingsWindowLink').click();
+  await openSettings(page);
   await page.waitForFunction(() => initializationCalls.length === 2 && storageWrites.length === 2);
   // The first save created nonempty storage, but this page's firstRun/layout stay fixed.
   assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(false));
@@ -411,7 +435,7 @@ for (const cancel of ['close', 'escape', 'pagehide', 'restore']) {
     assert.equal(await page.evaluate(() => initializationCalls[0].aborted), true);
     // Restore may leave the old form mounted; closing it is still safe.
     if (await page.locator('#settingsMenu').count()) await page.locator('#settings-close').click();
-    await page.locator('#settingsWindowLink').click();
+    await openSettings(page);
     assert.equal(await page.evaluate(() => initializationCalls.length), 2);
     assert.equal(await page.locator('#setting-linkify').isChecked(), false);
     await page.evaluate(async () => { settleInitialization(0); await new Promise(resolve => setTimeout(resolve, 0)); });
@@ -448,7 +472,7 @@ test('a rejected stale initialization cannot ungate or report into a newer dialo
   page.on('pageerror', error => errors.push(error.message));
   await fixture(page, { initialization: 'delayed' });
   await page.keyboard.press('Escape');
-  await page.locator('#settingsWindowLink').click();
+  await openSettings(page);
   await page.evaluate(async () => { settleInitialization(0, true); await new Promise(resolve => setTimeout(resolve, 0)); });
   assert.equal(await page.locator('#settings-export').isDisabled(), true);
   assert.equal(await page.locator('.settingsMessage').textContent(), '');
@@ -481,3 +505,169 @@ for (const mode of ['failure', 'throw']) {
     assert.deepEqual(await page.evaluate(() => settingsState), { linkify: true });
   });
 }
+
+const panelSource = JSON.parse(await readFile(new URL('../fixtures/native-settings-panel-source.json', import.meta.url), 'utf8'));
+
+// Render the literal pinned UIPanel rules in a separate, script-free document.
+// Matching panel height isolates placement/width from intentionally revised help copy.
+async function sourcePanelBounds(page, id, height) {
+  return page.evaluate(async ({ css, id, height }) => {
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;border:0;visibility:hidden;pointer-events:none';
+    frame.srcdoc = `<!doctype html><html><head><style>${css}</style></head><body><div id="${id}" class="UIPanel"><div style="height:${height}px"></div></div></body></html>`;
+    const loaded = new Promise(resolve => frame.addEventListener('load', resolve, { once: true }));
+    document.body.append(frame); await loaded;
+    const rect = frame.contentDocument.querySelector('.UIPanel > div').getBoundingClientRect();
+    const result = { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    frame.remove(); return result;
+  }, { css: panelSource.css, id, height });
+}
+
+for (const [theme, family] of Object.entries(panelSource.families)) {
+  for (const dpr of [1, 2]) {
+    test(`${theme} at ${dpr}x matches source Settings/help geometry and local icons`, async ({ browser }) => {
+      const context = await browser.newContext({ deviceScaleFactor: dpr });
+      const page = await context.newPage();
+      const images = [];
+      page.on('request', request => { if (request.resourceType() === 'image') images.push(request.url()); });
+      try {
+        await fixture(page, { settings: {}, theme, realHelp: true });
+        const suffix = dpr === 2 ? '@2x' : '';
+        const asset = name => `https://settings.example/static/watcher/${family}/${name}${suffix}.png`;
+        const expand = page.locator('.settings-expand').first();
+        const icon = () => expand.evaluate(el => getComputedStyle(el, '::before').backgroundImage);
+        assert.equal(await icon(), `url("${asset('post_expand_plus')}")`);
+        await expand.click();
+        assert.equal(await icon(), `url("${asset('post_expand_minus')}")`);
+        assert.equal(await page.locator('#settings-close').evaluate(el => getComputedStyle(el).backgroundImage), `url("${asset('cross')}")`);
+        await page.locator('#settings-expand-all').click();
+        await page.locator('#setting-quotePreview').uncheck();
+        const sub = page.locator('#setting-threadAutoWatcher').locator('..');
+        assert.equal(await sub.evaluate(el => getComputedStyle(el, '::before').borderLeftWidth), '1px');
+        assert.equal(await sub.evaluate(el => getComputedStyle(el.parentElement).marginLeft), '25px');
+        assert.equal(await page.locator('#settings-monitoring').evaluate(el => getComputedStyle(el).borderBottomWidth), theme === 'tomorrow' ? '1px' : '0px');
+        for (const viewport of [{ width: 1000, height: 800 }, { width: 390, height: 800 }]) {
+          await page.setViewportSize(viewport);
+          const actual = await page.locator('#settingsMenu > .nativeSettingsBody').boundingBox();
+          const source = await sourcePanelBounds(page, 'settingsMenu', actual.height);
+          for (const key of ['x', 'y', 'width', 'height']) assert.ok(Math.abs(actual[key] - source[key]) <= 1, `Settings ${key}: ${actual[key]} vs ${source[key]}`);
+        }
+        // The Settings availability snapshot stays desktop after resizing.
+        await page.locator('#keybinds-open').click();
+        const help = page.locator('#keybindsHelp');
+        assert.deepEqual(await help.locator('li:has(kbd)').allTextContents(), panelSource.shortcuts);
+        for (const viewport of [{ width: 390, height: 800 }, { width: 1000, height: 800 }]) {
+          await page.setViewportSize(viewport);
+          const actual = await help.locator('.nativeSettingsBody').boundingBox();
+          const source = await sourcePanelBounds(page, 'keybindsHelp', actual.height);
+          for (const key of ['x', 'y', 'width', 'height']) assert.ok(Math.abs(actual[key] - source[key]) <= 1, `Help ${key}: ${actual[key]} vs ${source[key]}`);
+        }
+        assert.equal(await page.locator('#keybinds-close').evaluate(el => getComputedStyle(el).backgroundImage), `url("${asset('cross')}")`);
+        await help.locator('strong').first().click();
+        await expect(help).toBeVisible();
+        await page.mouse.click(2, 2);
+        await expect(help).toHaveCount(0);
+        await expect(page.locator('#keybinds-open')).toBeFocused();
+        await expect(page.locator('#setting-quotePreview')).not.toBeChecked();
+        for (const close of ['Escape', 'button']) {
+          await page.locator('#keybinds-open').click();
+          if (close === 'Escape') await page.keyboard.press('Escape');
+          else await page.locator('#keybinds-close').click();
+          await expect(help).toHaveCount(0);
+          await expect(page.locator('#keybinds-open')).toBeFocused();
+        }
+        assert.deepEqual(await page.evaluate(() => saveCalls), []);
+        assert.deepEqual(await page.evaluate(() => storageWrites), []);
+        assert.ok(images.includes(asset('cross')));
+        assert.ok(images.includes(asset('post_expand_plus')));
+        assert.ok(images.includes(asset('post_expand_minus')));
+        assert.ok(images.every(url => new URL(url).origin === 'https://settings.example'));
+      } finally { await context.close(); }
+    });
+  }
+}
+
+test('short desktop panels scroll and Close restores focus after scrolling', async ({ page }) => {
+  await fixture(page, { realHelp: true });
+  await page.setViewportSize({ width: 1000, height: 220 });
+  const panel = page.locator('#settingsMenu > .nativeSettingsBody');
+  assert.ok(await panel.evaluate(el => el.scrollHeight > el.clientHeight));
+  await page.locator('#keybinds-open').click();
+  const help = page.locator('#keybindsHelp > .nativeSettingsBody');
+  const bounds = await help.boundingBox();
+  assert.ok(bounds.height <= 220 && bounds.y >= -1);
+  assert.ok(await help.evaluate(el => el.scrollHeight > el.clientHeight));
+  await help.evaluate(el => { el.scrollTop = el.scrollHeight; });
+  assert.ok(await help.evaluate(el => el.scrollTop > 0));
+  // Playwright must actually scroll the Close control into view and click it.
+  await page.locator('#keybinds-close').click();
+  await expect(page.locator('#keybindsHelp')).toHaveCount(0);
+  await expect(page.locator('#keybinds-open')).toBeFocused();
+  await panel.evaluate(el => { el.scrollTop = el.scrollHeight; });
+  assert.ok(await panel.evaluate(el => el.scrollTop > 0));
+  await page.locator('#settings-close').click();
+  await expect(page.locator('#settingsMenu')).toHaveCount(0);
+  await expect(page.locator('#settingsWindowLink')).toBeFocused();
+  assert.deepEqual(await page.evaluate(() => saveCalls), []);
+});
+
+for (const [theme, family] of Object.entries(panelSource.families)) {
+  test(`${theme} genuine mobile startup exposes only mobile Settings and closes after narrow scrolling`, async ({ page }) => {
+    await fixture(page, { mobile: true, theme, integratedDefaults: true });
+    assert.deepEqual((await categoryState(page)).map(({ name, keys }) => ({ name, keys })), expectedGroups(true));
+    await expect(page.locator('#keybinds-open, #keybindsHelp')).toHaveCount(0);
+    await expect(page.locator('#setting-quotePreview')).toBeFocused();
+    const panel = page.locator('#settingsMenu > .nativeSettingsBody');
+    assert.equal((await panel.boundingBox()).width, 320);
+    assert.equal(await page.locator('#settings-close').evaluate(el => getComputedStyle(el).backgroundImage),
+      `url("https://settings.example/static/watcher/${family}/cross.png")`);
+    await expect(page.locator('#setting-linkify')).toBeChecked();
+    await page.locator('#setting-quotePreview').uncheck();
+    await page.setViewportSize({ width: 280, height: 220 });
+    assert.ok((await panel.boundingBox()).width <= 260);
+    await panel.evaluate(el => { el.scrollTop = el.scrollHeight; });
+    assert.ok(await panel.evaluate(el => el.scrollTop > 0));
+    await page.locator('#settings-close').click();
+    await expect(page.locator('#settingsMenu')).toHaveCount(0);
+    await expect(page.locator('#settingsWindowLinkMobile')).toBeFocused();
+    assert.deepEqual(await page.evaluate(() => saveCalls), []);
+    await openSettings(page);
+    await expect(page.locator('#setting-quotePreview')).toBeChecked();
+    await expect(page.locator('#keybinds-open, #keybindsHelp')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#settingsWindowLinkMobile')).toBeFocused();
+  });
+}
+
+test('open Settings and help update their theme icons without losing draft, nodes or focus', async ({ page }) => {
+  await fixture(page, { theme: 'yotsuba', realHelp: true });
+  await page.locator('#setting-quotePreview').uncheck();
+  await page.locator('#keybinds-open').click();
+  await page.evaluate(() => {
+    window.panelRefs = { settings: document.getElementById('settingsMenu'), help: document.getElementById('keybindsHelp'),
+      draft: document.getElementById('setting-quotePreview'), focus: document.activeElement };
+  });
+  for (const theme of ['tomorrow', 'photon', 'burichan', 'yotsuba']) {
+    await page.evaluate(theme => new Promise((resolve, reject) => {
+      const link = document.querySelector('link[href^="/static/theme.css"]');
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', reject, { once: true });
+      link.href = `/static/theme.css?fixture-theme=${theme}`;
+    }), theme);
+    const family = panelSource.families[theme];
+    for (const selector of ['#settings-close', '#keybinds-close']) {
+      assert.equal(await page.locator(selector).evaluate(el => getComputedStyle(el).backgroundImage),
+        `url("https://settings.example/static/watcher/${family}/cross.png")`);
+    }
+    assert.equal(await page.locator('.settings-expand').first().evaluate(el => getComputedStyle(el, '::before').backgroundImage),
+      `url("https://settings.example/static/watcher/${family}/post_expand_minus.png")`);
+    assert.equal(await page.locator('#settings-monitoring').evaluate(el => getComputedStyle(el).borderBottomWidth), theme === 'tomorrow' ? '1px' : '0px');
+    assert.equal(await page.evaluate(() => panelRefs.settings === document.getElementById('settingsMenu')
+      && panelRefs.help === document.getElementById('keybindsHelp') && panelRefs.draft === document.getElementById('setting-quotePreview')
+      && panelRefs.focus === document.activeElement && panelRefs.draft.checked === false), true);
+  }
+  await page.locator('#keybinds-close').click();
+  await expect(page.locator('#keybinds-open')).toBeFocused();
+  await expect(page.locator('#setting-quotePreview')).not.toBeChecked();
+  assert.deepEqual(await page.evaluate(() => ({ saves: saveCalls, writes: storageWrites })), { saves: [], writes: [] });
+});
