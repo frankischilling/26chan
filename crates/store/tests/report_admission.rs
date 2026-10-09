@@ -700,7 +700,7 @@ async fn public_cannot_bypass_admission_or_read_private_membership() {
 }
 
 #[tokio::test]
-async fn post_and_thread_deletion_retire_only_matching_rows_and_archive_only_retains() {
+async fn post_and_thread_deletion_remove_only_matching_reports_and_archive_only_retains() {
     run(|f| async move {
         let mut reports = Vec::new();
         for board in 0..2 {
@@ -731,7 +731,7 @@ async fn post_and_thread_deletion_retire_only_matching_rows_and_archive_only_ret
         assert!(!f.member(reports[0]).await);
         assert!(!f.member(reports[2]).await);
         for report in &reports[3..] { assert!(f.member(*report).await); }
-        assert_eq!(f.counts().await, (6, 3), "Retirement retains moderation report records");
+        assert_eq!(f.counts().await, (3, 3), "Whole deletion removes report records, unlike archive-only retirement");
     }).await;
 }
 
@@ -1056,14 +1056,14 @@ async fn retirement_does_not_invert_gate_and_anonymous_session_lock_order() {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(f.counts().await, (2, 1));
+        assert_eq!(f.counts().await, (1, 1));
         assert!(!f.member(old_report).await);
         let linked: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.anonymous_reports WHERE token_hash=$1")
             .bind(token.as_slice())
             .fetch_one(&f.owner)
             .await
             .unwrap();
-        assert_eq!(linked, 2, "The unblocked admission committed anonymous registration");
+        assert_eq!(linked, 1, "Deletion cascaded old registration; the unblocked admission committed its new one");
         sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
             .bind(token.as_slice())
             .execute(&f.owner)
@@ -1185,6 +1185,176 @@ async fn session_lock_wait_rechecks_fresh_archive_expiry_without_activity() {
         let after: serde_json::Value = sqlx::query_scalar("SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s WHERE token_hash=$1")
             .bind(token.as_slice()).fetch_one(&f.owner).await.unwrap();
         assert_eq!(before, after);
-        assert_eq!(f.counts().await, (1, 0));
+        assert_eq!(f.counts().await, (0, 0));
     }).await;
+}
+
+// Capture rows, not merely counts: rollback and scope must preserve every
+// retained report/evidence field, including moderation dispositions.
+async fn report_snapshot(f: &Fixture) -> serde_json::Value {
+    let mut tx = f.owner.begin().await.unwrap();
+    let reports: serde_json::Value = sqlx::query_scalar("SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY id),'[]') FROM content.reports r WHERE board=ANY($1)")
+        .bind(f.boards.to_vec()).fetch_one(&mut *tx).await.unwrap();
+    let anonymous: serde_json::Value = sqlx::query_scalar("SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY a.report_id),'[]') FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board=ANY($1)")
+        .bind(f.boards.to_vec()).fetch_one(&mut *tx).await.unwrap();
+    private_role(&mut tx).await;
+    let private: serde_json::Value = sqlx::query_scalar("SELECT jsonb_build_object('members',(SELECT coalesce(jsonb_agg(to_jsonb(m) ORDER BY report_id),'[]') FROM post_secrets.report_membership m WHERE board=ANY($1)),'groups',(SELECT coalesce(jsonb_agg(to_jsonb(g) ORDER BY board,post_id),'[]') FROM post_secrets.report_group g WHERE board=ANY($1)),'evidence',(SELECT coalesce(jsonb_agg(to_jsonb(e) ORDER BY report_id),'[]') FROM post_secrets.report_weight_evidence e JOIN content.reports r ON r.id=e.report_id WHERE r.board=ANY($1)))")
+        .bind(f.boards.to_vec()).fetch_one(&mut *tx).await.unwrap();
+    tx.rollback().await.unwrap();
+    serde_json::json!({"reports": reports, "private": private, "anonymous": anonymous})
+}
+
+#[tokio::test]
+async fn whole_deletion_cascades_all_states_and_unmembered_history_without_erasing_posts() {
+    run(|f| async move {
+        let mut removed = Vec::new();
+        for target in 0..3 {
+            for state in ["open", "resolved", "dismissed"] {
+                let current = f.admit(0, target, &actor()).await.unwrap();
+                sqlx::query("UPDATE content.reports SET state=$2 WHERE id=$1")
+                    .bind(current).bind(state).execute(&f.owner).await.unwrap();
+                removed.push(current);
+                // Pre-admission history has neither membership nor a group.
+                // Cleared history must be physically removed as well.
+                let historical: i64 = sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason,state,reporter_cleared_at,group_cleared_at,group_cleared_by,group_clear_inherited) VALUES($1,$2,'Historical report without membership',$3,clock_timestamp(),clock_timestamp(),42,false) RETURNING id")
+                    .bind(&f.boards[0]).bind(f.posts[0][target]).bind(state).fetch_one(&f.owner).await.unwrap();
+                assert!(!f.member(historical).await);
+                removed.push(historical);
+            }
+        }
+        let unrelated = f.admit(1, 1, &actor()).await.unwrap();
+        // A second thread on the same board must not be caught by thread scope.
+        let post = NewPost {name:"Anonymous".into(),subject:"Unrelated thread".into(),comment:"Unrelated content".into(),deletion_hash:"fixture".into(),sage:false};
+        let other_thread = support::create_post(&f.public,&f.boards[0],0,&post).await.unwrap();
+        let mut connection=f.public.acquire().await.unwrap();
+        let other_report=admit(&mut connection,&f.boards[0],other_thread,actor().as_bytes()).await.unwrap();
+        drop(connection);
+        let before = report_snapshot(&f).await;
+        assert_eq!(before["private"]["evidence"].as_array().unwrap().len(),11,
+            "Actual anonymous admissions must create evidence before cascade coverage");
+        let tokens: Vec<Vec<u8>> = sqlx::query_scalar("SELECT token_hash FROM post_secrets.anonymous_reports WHERE report_id=ANY($1)")
+            .bind(&removed).fetch_all(&f.owner).await.unwrap();
+        let mut tx=f.public.begin().await.unwrap();
+        sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE").bind(&f.boards[0]).execute(&mut *tx).await.unwrap();
+        sqlx::query("UPDATE content.posts SET deleted=true WHERE board=$1 AND id=$2").bind(&f.boards[0]).bind(f.posts[0][1]).execute(&mut *tx).await.unwrap();
+        tx.rollback().await.unwrap();
+        assert_eq!(report_snapshot(&f).await,before,"Rollback restores reports and all cascaded private records");
+        board_store::delete_post(&f.public,&f.boards[0],f.posts[0][1]).await.unwrap();
+        let remaining: Vec<i64>=sqlx::query_scalar("SELECT id FROM content.reports WHERE board=$1 ORDER BY id")
+            .bind(&f.boards[0]).fetch_all(&f.owner).await.unwrap();
+        assert_eq!(remaining.len(),13);
+        assert!(removed[6..12].iter().all(|id| !remaining.contains(id)),"Reply cleanup includes historical reports");
+        board_store::delete_post(&f.public,&f.boards[0],f.posts[0][0]).await.unwrap();
+        assert_eq!(f.counts().await,(2,2));
+        assert!(f.member(unrelated).await && f.member(other_report).await);
+        let mut tx=f.owner.begin().await.unwrap();
+        let anonymous: i64=sqlx::query_scalar("SELECT count(*) FROM post_secrets.anonymous_reports WHERE report_id=ANY($1)").bind(&removed).fetch_one(&mut *tx).await.unwrap();
+        assert_eq!(anonymous,0);
+        private_role(&mut tx).await;
+        let evidence:i64=sqlx::query_scalar("SELECT count(*) FROM post_secrets.report_weight_evidence WHERE report_id=ANY($1)").bind(&removed).fetch_one(&mut *tx).await.unwrap();
+        let groups:i64=sqlx::query_scalar("SELECT count(*) FROM post_secrets.report_group WHERE board=$1 AND post_id=ANY($2)").bind(&f.boards[0]).bind(f.posts[0].to_vec()).fetch_one(&mut *tx).await.unwrap();
+        assert_eq!((evidence,groups),(0,0));
+        tx.rollback().await.unwrap();
+        let comments:Vec<String>=sqlx::query_scalar("SELECT comment FROM content.posts WHERE board=$1 AND thread_id=$2 ORDER BY id")
+            .bind(&f.boards[0]).bind(f.posts[0][0]).fetch_all(&f.owner).await.unwrap();
+        assert_eq!(comments,vec!["Owned report admission target";4],"Deletion retains post content");
+        for token in tokens {
+            sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1").bind(token).execute(&f.owner).await.unwrap();
+        }
+    }).await;
+}
+
+#[tokio::test]
+async fn whole_deletion_serializes_with_admission_in_both_board_lock_orders() {
+    run(|f| async move {
+        let public = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let waiter: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&public)
+            .await
+            .unwrap();
+        // Admission commits first: the waiting deletion sees and removes it.
+        let mut first = f.public.begin().await.unwrap();
+        let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *first)
+            .await
+            .unwrap();
+        let admitted = admit(&mut first, &f.boards[0], f.posts[0][1], actor().as_bytes())
+            .await
+            .unwrap();
+        let pending = tokio::spawn({
+            let public = public.clone();
+            let board = f.boards[0].clone();
+            let post = f.posts[0][1];
+            async move { board_store::delete_post(&public, &board, post).await }
+        });
+        wait_for_row_blocker(&f.owner, waiter, blocker).await;
+        first.commit().await.unwrap();
+        pending.await.unwrap().unwrap();
+        assert_eq!(f.counts().await, (0, 0));
+        assert!(!f.member(admitted).await);
+        // Deletion owns the board first: the waiting admission rechecks target
+        // visibility after commit rather than recreating a deleted report.
+        let mut deletion = f.public.begin().await.unwrap();
+        let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *deletion)
+            .await
+            .unwrap();
+        sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+            .bind(&f.boards[0])
+            .execute(&mut *deletion)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE content.posts SET deleted=true WHERE board=$1 AND id=$2")
+            .bind(&f.boards[0])
+            .bind(f.posts[0][2])
+            .execute(&mut *deletion)
+            .await
+            .unwrap();
+        let pending = tokio::spawn({
+            let public = public.clone();
+            let board = f.boards[0].clone();
+            let post = f.posts[0][2];
+            async move { report(&public, &board, post, "Blocked report", &actor()).await }
+        });
+        wait_for_row_blocker(&f.owner, waiter, blocker).await;
+        deletion.commit().await.unwrap();
+        assert!(matches!(pending.await.unwrap(), Err(StoreError::NotFound)));
+        assert_eq!(f.counts().await, (0, 0));
+        public.close().await;
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn whole_report_cleanup_does_not_grant_runtime_report_delete_authority() {
+    run(|f| async move {
+        let staff = PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        for (pool, role) in [(&f.public, "board_public"), (&staff, "board_staff")] {
+            let actual: String = sqlx::query_scalar("SELECT current_user::text")
+                .fetch_one(pool)
+                .await
+                .unwrap();
+            assert_eq!(actual, role);
+            for query in [
+                "DELETE FROM content.reports WHERE false",
+                "TRUNCATE content.reports",
+                "SELECT post_secrets.delete_reports_for_deleted_target()",
+                "SET ROLE board_report_admission_owner",
+            ] {
+                assert_eq!(
+                    code(&sqlx::query(query).execute(pool).await.unwrap_err()),
+                    "42501",
+                    "{role}: {query}"
+                );
+            }
+        }
+        staff.close().await;
+    })
+    .await;
 }

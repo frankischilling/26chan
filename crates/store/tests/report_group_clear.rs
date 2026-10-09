@@ -502,14 +502,14 @@ async fn archive_and_post_deletion_retire_cleared_lifetimes_before_waiting_clear
             .unwrap();
             reset(&mut observer).await;
             assert_eq!(remaining, (0, 0));
-            let after: String = sqlx::query_scalar(
+            let after: Option<String> = sqlx::query_scalar(
                 "SELECT to_jsonb(r)::text FROM content.reports r WHERE id=$1",
             )
             .bind(report)
-            .fetch_one(&mut *observer)
+            .fetch_optional(&mut *observer)
             .await
             .unwrap();
-            assert_eq!(after, before, "retirement must retain original clear evidence");
+            assert_eq!(after, archive.then_some(before), "Archive retains clear evidence; whole deletion removes report rows");
         })
         .await;
     }

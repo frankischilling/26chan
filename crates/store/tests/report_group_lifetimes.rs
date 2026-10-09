@@ -642,7 +642,10 @@ async fn actual_runtime_lifecycle_and_archive_lock_inversion_retry() {
                 .fetch_one(&owner)
                 .await
                 .unwrap();
-        assert_eq!(retained, report_ids.len() as i64);
+        assert_eq!(
+            retained, 0,
+            "Whole thread deletion removes all retained report states and history"
+        );
 
         // Real inverted order: the raw archiver owns the thread row first;
         // admission owns the board then waits for its membership FK key-share

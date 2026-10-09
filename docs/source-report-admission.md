@@ -65,8 +65,11 @@ fail closed rather than reproducing the source's query-failure bypass.
 
 ## Retirement
 
-Whole-post and whole-thread deletion retire the corresponding private
-memberships, including thread rollover and archive expiration. Public file-only
+Migration 0122 removes the corresponding `content.reports` rows on fresh
+whole-post and whole-thread deletion, including thread rollover and archive
+expiration. Foreign-key cascades retire private membership, anonymous report
+activity and captured weight evidence; empty groups retire through the existing
+membership trigger. Public file-only
 deletion preserves membership. The staff file-removal action retires membership
 only after a fresh successful file deletion; repeating the action cannot clear
 reports submitted later. Existing attachment visibility limits still apply.
@@ -77,8 +80,11 @@ so they cannot introduce a tuple-to-board wait cycle. Normal callers already
 hold the board lock. A concurrent, uncommitted removal can conservatively keep a
 report counted; it cannot allow excess admission. Rollback restores membership.
 
-Only private admission membership is retired. Existing report history and audit
-records remain. Ordinary resolution/dismissal does not release capacity.
+Whole deletion now removes report history for that target. Independent staff
+audit records remain. Historical reports on targets deleted before migration
+0122 are not swept; the staff queue and report-resolution lookup exclude those
+deleted targets. Their physical erasure remains separate operator work.
+Ordinary resolution/dismissal does not release capacity.
 Migration 0100 adds [forward archive retirement](report-group-lifetimes.md) for
 complete categorical group lifetimes below the source's three-illegal-report
 threshold. Missing or incomplete historical counters preserve membership.
@@ -93,8 +99,10 @@ input and the full source reporter interface remain separate gaps.
 
 For an existing installation, the bootstrap administrator runs
 `deploy/report-admission-role.sql` once before migration 0094. Fresh installations
-use `deploy/roles.sql`. Stop old writers, apply through 0106, then start matching
+use `deploy/roles.sql`. Stop old writers, apply through 0122, then start matching
 public and staff binaries. Both readiness checks require the new restricted interfaces.
+The cleanup migration does not restore deleted reports on binary rollback.
+See [whole-deletion cleanup](deleted-report-cleanup.md) for scope and checks.
 Old public binaries cannot insert reports after the direct grant is revoked;
 rolling back only the binary is not a compatible reporting rollback.
 

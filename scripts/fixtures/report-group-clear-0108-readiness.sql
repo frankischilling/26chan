@@ -1,174 +1,4 @@
-//! Private, report-bound IP and anonymous-session admission. GET is advisory;
-//! POST atomically inserts the report, membership, and anonymous activity.
-use crate::{StoreError, anonymous_session::PostingSession};
-use board_domain::poster_id::PublicReportRateIdentity;
-use sqlx::{PgConnection, PgPool};
-
-/// Does not reserve capacity, mutate anonymous activity, or acquire row locks.
-pub async fn check(
-    pool: &PgPool,
-    slug: &str,
-    id: i64,
-    identity: &PublicReportRateIdentity,
-) -> Result<(), StoreError> {
-    sqlx::query("SELECT content.check_report_admission($1,$2,$3)")
-        .bind(slug)
-        .bind(id)
-        .bind(identity.as_bytes().as_slice())
-        .execute(pool)
-        .await
-        .map_err(admission_error)?;
-    Ok(())
-}
-
-/// Read-only admission context from an already verified capability. An absent
-/// token checks only the transport identity and never creates session state.
-pub async fn check_with_session(
-    pool: &PgPool,
-    slug: &str,
-    id: i64,
-    identity: &PublicReportRateIdentity,
-    token: Option<&[u8; 32]>,
-    request_at: i64,
-) -> Result<(), StoreError> {
-    sqlx::query("SELECT content.check_report_admission($1,$2,$3,$4,$5)")
-        .bind(slug)
-        .bind(id)
-        .bind(identity.as_bytes().as_slice())
-        .bind(token.map(|token| token.as_slice()))
-        .bind(request_at)
-        .execute(pool)
-        .await
-        .map_err(admission_error)?;
-    Ok(())
-}
-
-/// Caller starts READ COMMITTED before its first query. The SQL function
-/// reenters the board lock, takes the global gate, and captures database time
-/// after contention. This legacy IP-only path is executable only by staff.
-pub(crate) async fn admit_on(
-    connection: &mut PgConnection,
-    slug: &str,
-    id: i64,
-    reason: &str,
-    identity: &PublicReportRateIdentity,
-) -> Result<i64, StoreError> {
-    sqlx::query_scalar("SELECT content.admit_report($1,$2,$3,$4)")
-        .bind(slug)
-        .bind(id)
-        .bind(reason)
-        .bind(identity.as_bytes().as_slice())
-        .fetch_one(connection)
-        .await
-        .map_err(admission_error)
-}
-
-/// Session resolution, quotas, report insertion, and activity registration all
-/// run inside the single SQL admission boundary, including for new sessions.
-pub(crate) async fn admit_with_session_on(
-    connection: &mut PgConnection,
-    slug: &str,
-    id: i64,
-    reason: &str,
-    identity: &PublicReportRateIdentity,
-    session: PostingSession,
-) -> Result<i64, StoreError> {
-    let fingerprints = session.fingerprints;
-    sqlx::query_scalar("SELECT content.admit_report($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
-        .bind(slug)
-        .bind(id)
-        .bind(reason)
-        .bind(identity.as_bytes().as_slice())
-        .bind(fingerprints.token.as_slice())
-        .bind(fingerprints.network.as_slice())
-        .bind(fingerprints.address.as_slice())
-        .bind(fingerprints.environment.as_slice())
-        .bind(session.minted)
-        .bind(session.now.timestamp())
-        .fetch_one(connection)
-        .await
-        .map_err(admission_error)
-}
-
-/// Category resolution and captured metadata are owned by the SQL boundary.
-/// The caller supplies only an ID and the advisory form's expected revision.
-pub(crate) async fn admit_categorical_with_session_on(
-    connection: &mut PgConnection,
-    slug: &str,
-    id: i64,
-    category_id: i64,
-    expected_revision: i64,
-    identity: &PublicReportRateIdentity,
-    session: PostingSession,
-) -> Result<i64, StoreError> {
-    let fingerprints = session.fingerprints;
-    sqlx::query_scalar(
-        "SELECT content.admit_categorical_report($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
-    )
-    .bind(slug)
-    .bind(id)
-    .bind(category_id)
-    .bind(expected_revision)
-    .bind(identity.as_bytes().as_slice())
-    .bind(fingerprints.token.as_slice())
-    .bind(fingerprints.network.as_slice())
-    .bind(fingerprints.address.as_slice())
-    .bind(fingerprints.environment.as_slice())
-    .bind(session.minted)
-    .bind(session.now.timestamp())
-    .fetch_one(connection)
-    .await
-    .map_err(admission_error)
-}
-
-pub(crate) fn admission_error(error: sqlx::Error) -> StoreError {
-    if let Some(database) = error.as_database_error() {
-        match database.code().as_deref() {
-            Some("P0002") => return StoreError::NotFound,
-            Some("28000") => return StoreError::AuthorizationChanged,
-            Some("P0094") => {
-                return StoreError::Database(sqlx::Error::Protocol(
-                    "Report admission capacity is unavailable.".into(),
-                ));
-            }
-            Some("P0001") => {
-                let message = match database.message() {
-                    "You cannot report posts on this board." => {
-                        "You cannot report posts on this board."
-                    }
-                    "Error: You cannot report a sticky." => "Error: You cannot report a sticky.",
-                    "Error: You cannot report this post." => "Error: You cannot report this post.",
-                    "You have already reported this post." => {
-                        "You have already reported this post."
-                    }
-                    "You have to wait a while before reporting another post." => {
-                        "You have to wait a while before reporting another post."
-                    }
-                    "Free-text reporting is not active." => "Free-text reporting is not active.",
-                    "Categorical reporting is not active." => {
-                        "Categorical reporting is not active."
-                    }
-                    "Report categories changed. Please reload the report form." => {
-                        "Report categories changed. Please reload the report form."
-                    }
-                    "Invalid category selected." => "Invalid category selected.",
-                    _ => return StoreError::Database(error),
-                };
-                return StoreError::Invalid(message);
-            }
-            Some("22023")
-                if database.message() == "Report reason must contain 1 to 1000 bytes." =>
-            {
-                return StoreError::Invalid("Report reason must contain 1 to 1000 bytes.");
-            }
-            _ => {}
-        }
-    }
-    StoreError::Database(error)
-}
-
-/// Catalog-only readiness contract shared by public and staff services.
-pub const READINESS_SQL: &str = r#"WITH owner_role AS (
+WITH owner_role AS (
     SELECT r.oid FROM pg_catalog.pg_roles r
     WHERE r.rolname='board_report_admission_owner'
       AND NOT (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
@@ -224,7 +54,7 @@ AND NOT EXISTS (
         ('report_target','bigint',false,'25 20 1184'),
         ('check_report_limits','void',false,'25 20 17 1184'),
         ('check_report_limits','void',false,'25 20 17 2950 1184'),
-        ('delete_reports_for_deleted_target','trigger',false,''),
+        ('retire_deleted_report_membership','trigger',false,''),
         ('retire_staff_file_report_membership','void',true,'25 20'),
         ('increment_report_group','trigger',false,''),
         ('retire_empty_report_group','trigger',false,''),
@@ -274,7 +104,7 @@ AND NOT EXISTS (
           AND t.tgnargs=0 AND octet_length(t.tgargs)=0 AND t.tgconstraint=0
           AND NOT t.tgdeferrable AND NOT t.tginitdeferred
           AND t.tgoldtable IS NULL AND t.tgnewtable IS NULL
-          AND p.proname='delete_reports_for_deleted_target'
+          AND p.proname='retire_deleted_report_membership'
           AND p.pronamespace=(SELECT oid FROM pg_catalog.pg_namespace WHERE nspname='post_secrets')
           AND p.pronargs=0 AND p.prokind='f' AND p.prorettype='pg_catalog.trigger'::regtype
           AND p.prosecdef AND p.provolatile='v'
@@ -299,47 +129,6 @@ AND NOT EXISTS (
                     OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
                         WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
                           AND has_column_privilege(runtime.oid,c.oid,a.attnum,'SELECT,INSERT,UPDATE,REFERENCES'))))
-    )
-)
--- Whole-deletion cleanup relies on exactly these report-dependent cascades.
--- Inspect catalog OIDs without granting runtimes private-schema name access.
-AND NOT EXISTS (
-    SELECT 1 FROM (VALUES ('report_membership'),('anonymous_reports'),('report_weight_evidence')) AS required(table_name)
-    WHERE NOT EXISTS (
-        SELECT 1 FROM pg_catalog.pg_constraint fk
-        JOIN pg_catalog.pg_class child ON child.oid=fk.conrelid
-        JOIN pg_catalog.pg_namespace n ON n.oid=child.relnamespace
-        JOIN relations parent ON parent.oid=fk.confrelid
-        WHERE n.nspname='post_secrets' AND child.relname=required.table_name
-          AND parent.nspname='content' AND parent.relname='reports'
-          AND fk.contype='f' AND fk.confdeltype='c' AND fk.convalidated
-          AND NOT fk.condeferrable AND NOT fk.condeferred
-          AND fk.conkey=ARRAY[(SELECT a.attnum FROM pg_catalog.pg_attribute a
-              WHERE a.attrelid=child.oid AND a.attname='report_id' AND NOT a.attisdropped)]
-          AND fk.confkey=ARRAY[(SELECT a.attnum FROM pg_catalog.pg_attribute a
-              WHERE a.attrelid=parent.oid AND a.attname='id' AND NOT a.attisdropped)]
-          AND fk.confmatchtype='s' AND fk.confupdtype='a'
-          AND (SELECT count(*)=4 FROM pg_catalog.pg_trigger t WHERE t.tgconstraint=fk.oid)
-          AND NOT EXISTS (
-              SELECT 1 FROM (VALUES
-                  ('RI_FKey_check_ins',5,true),('RI_FKey_check_upd',17,true),
-                  ('RI_FKey_cascade_del',9,false),('RI_FKey_noaction_upd',17,false)
-              ) AS required_trigger(function_name,event_type,on_child)
-              WHERE NOT EXISTS (
-                  SELECT 1 FROM pg_catalog.pg_trigger t
-                  JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid
-                  JOIN pg_catalog.pg_namespace pn ON pn.oid=p.pronamespace
-                  WHERE t.tgconstraint=fk.oid AND t.tgisinternal AND t.tgenabled='O'
-                    AND t.tgtype=required_trigger.event_type
-                    AND t.tgrelid=CASE WHEN required_trigger.on_child THEN child.oid ELSE parent.oid END
-                    AND t.tgconstrrelid=CASE WHEN required_trigger.on_child THEN parent.oid ELSE child.oid END
-                    AND t.tgconstrindid=fk.conindid
-                    AND NOT t.tgdeferrable AND NOT t.tginitdeferred
-                    AND t.tgnargs=0 AND octet_length(t.tgargs)=0
-                    AND t.tgattr::text='' AND t.tgqual IS NULL
-                    AND t.tgoldtable IS NULL AND t.tgnewtable IS NULL
-                    AND pn.nspname='pg_catalog' AND p.proname=required_trigger.function_name
-                    AND p.proargtypes=''::oidvector AND p.prorettype='pg_catalog.trigger'::regtype))
     )
 )
 -- The group is a private persisted lifetime, never a runtime-visible counter.
@@ -468,12 +257,6 @@ AND EXISTS (
 AND EXISTS (
     SELECT 1 FROM relations c CROSS JOIN owner_role r
     WHERE c.nspname='content' AND c.relname='reports'
-      AND has_table_privilege(r.oid,c.oid,'DELETE')
-      AND NOT has_table_privilege(r.oid,c.oid,'TRUNCATE,TRIGGER')
-      AND NOT has_table_privilege(current_user,c.oid,'DELETE,TRUNCATE,TRIGGER')
-      AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles runtime
-          WHERE runtime.rolname IN ('board_public','board_staff','board_auth')
-            AND has_table_privilege(runtime.oid,c.oid,'DELETE,TRUNCATE,TRIGGER'))
       AND NOT has_table_privilege(current_user,c.oid,'INSERT')
       AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
           WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
@@ -802,13 +585,7 @@ AND NOT EXISTS (
 AND EXISTS (
     SELECT 1 FROM relations c CROSS JOIN owner_role r
     WHERE c.nspname='content' AND c.relname='reports'
-      AND has_table_privilege(r.oid,c.oid,'DELETE')
-      AND NOT has_table_privilege(r.oid,c.oid,'TRUNCATE,TRIGGER')
-      AND NOT has_table_privilege(current_user,c.oid,'DELETE,TRUNCATE,TRIGGER')
-      AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles runtime
-          WHERE runtime.rolname IN ('board_public','board_staff','board_auth')
-            AND has_table_privilege(runtime.oid,c.oid,'DELETE,TRUNCATE,TRIGGER'))
-      AND NOT has_table_privilege(r.oid,c.oid,'UPDATE,TRUNCATE')
+      AND NOT has_table_privilege(r.oid,c.oid,'UPDATE,DELETE,TRUNCATE')
       AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
           WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
             AND a.attname NOT IN ('reporter_cleared_at','group_cleared_at','group_cleared_by','group_clear_inherited')
@@ -880,4 +657,4 @@ AND NOT EXISTS (
         WHERE n.nspname=required.schema_name AND has_schema_privilege(r.oid,n.oid,'USAGE')
           AND NOT has_schema_privilege(r.oid,n.oid,'CREATE')
     )
-)"#;
+);
