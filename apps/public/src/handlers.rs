@@ -626,6 +626,7 @@ async fn board_page(
     let response = crate::output::html(
         state,
         &BoardPage {
+            public_origin: state.origin.clone(),
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
             navigation_boards,
             blotter,
@@ -733,6 +734,7 @@ pub async fn thread(
     let response = crate::output::html(
         &state,
         &BoardPage {
+            public_origin: state.origin.clone(),
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
             navigation_boards,
             blotter,

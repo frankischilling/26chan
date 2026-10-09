@@ -82,6 +82,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
     let mut board = board();
     board.worksafe = worksafe;
     views::BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),

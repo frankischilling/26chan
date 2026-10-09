@@ -141,6 +141,7 @@ fn page(
         crate::output::html(
             state,
             &UploadPage {
+                public_origin: state.origin.clone(),
                 board,
                 form,
                 ready: matches!(stage, UploadState::Approved),

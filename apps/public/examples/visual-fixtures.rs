@@ -121,6 +121,7 @@ fn chrome_page(catalog: bool, worksafe: bool) -> String {
     // Existing component-style probes require an explicitly configured subtitle.
     current.board_subtitle = board_store::BoardSubtitle::WorksafeGif;
     BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&current),
         navigation_boards: boards,
@@ -266,6 +267,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
         thread.reply_count = 3;
     }
     BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),
@@ -314,6 +316,7 @@ fn archive_board(slug: &str) -> Board {
 
 fn empty_page(catalog: bool) -> String {
     BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&crate::board()),
         navigation_boards: crate::navigation_boards(),
@@ -451,6 +454,7 @@ fn archived_thread() -> String {
         }),
     ];
     BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),
@@ -553,6 +557,7 @@ async fn main() -> std::io::Result<()> {
         .route("/preview-pages/catalog", get(|| async { Html(catalog_limits::preview_pages()) }))
         .route("/demo/upload/fixture", get(|| async {
             Html(views::UploadPage {
+    public_origin: String::new(),
                 board: Board { comment_spoiler_cleanup: true, ..board() },
                 form: views::UploadForm { upload_id: "1".repeat(32), upload_capability: "2".repeat(64), resto: 1000001 },
                 ready: true,

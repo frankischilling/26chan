@@ -466,6 +466,7 @@ pub(crate) mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                public_origin: String::new(),
                 blotter: Vec::new(),
                 spoiler_thumbnail: "/static/catalog/spoiler.png".into(),
                 navigation_boards: vec![],
@@ -509,6 +510,7 @@ pub(crate) mod tests {
             board.posting_reply_seconds = reply;
             board.posting_image_seconds = image;
             let upload = crate::views::UploadPage {
+                public_origin: String::new(),
                 board: board.clone(),
                 form: crate::views::UploadForm {
                     upload_id: "1".repeat(32),
@@ -521,6 +523,7 @@ pub(crate) mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                public_origin: String::new(),
                 blotter: Vec::new(),
                 spoiler_thumbnail: "spoiler.png".into(),
                 navigation_boards: vec![],

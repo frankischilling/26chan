@@ -50,6 +50,48 @@ export function readSettingsStartup(raw) {
   } catch { return { status: 'invalid' }; }
 }
 
+// Config.load and Main.init in the supplied extension.js:8851-8867,
+// 9342-9347. A saved record makes the host cookie authoritative, rather than
+// the transferable boolean. HTTP-only deployments have no HTTPS target.
+export function configuredHTTPSOrigin(publicOrigin, href) {
+  if (typeof publicOrigin !== 'string' || publicOrigin.length > 2048
+    || typeof href !== 'string' || href.length > 65536) return null;
+  try {
+    const endpoint = new URL(publicOrigin), current = new URL(href);
+    if (endpoint.protocol !== 'https:' || !['http:', 'https:'].includes(current.protocol)
+      || endpoint.username || endpoint.password || endpoint.pathname !== '/'
+      || endpoint.search || endpoint.hash || current.username || current.password
+      || endpoint.hostname !== current.hostname) return null;
+    return endpoint.origin;
+  } catch { return null; }
+}
+
+export function httpsPreferenceEnabled(raw, cookie) {
+  if (!raw || readSettingsStartup(raw).status !== 'ok'
+    || typeof cookie !== 'string' || cookie.length > 16384) return false;
+  return /(?:^|;\s*)https=([^;]*)/.exec(cookie)?.[1] === '1';
+}
+
+export function settingsHTTPSRedirect(publicOrigin, href, raw, cookie) {
+  const origin = configuredHTTPSOrigin(publicOrigin, href);
+  if (!origin || !httpsPreferenceEnabled(raw, cookie)) return null;
+  const current = new URL(href);
+  if (current.protocol !== 'http:') return null;
+  const target = new URL(origin);
+  // Assign components separately: a path beginning // cannot select a host.
+  target.pathname = current.pathname;
+  target.search = current.search;
+  target.hash = current.hash;
+  return target.href;
+}
+
+export function httpsPreferenceCookie(enabled) {
+  // This host-only presentation cookie carries no authentication authority.
+  // It must be readable on HTTP before the optional HTTPS navigation.
+  return enabled === true ? 'https=1; Path=/; Max-Age=31536000; SameSite=Lax'
+    : 'https=; Path=/; Max-Age=0; SameSite=Lax';
+}
+
 // Source SettingsMenu.options at 545b781: presentation availability only.
 // Hidden preferences remain stored and are still honored by their runtimes.
 const mobileSettings = new Set(`quotePreview backlinks quickReply threadUpdater alwaysAutoUpdate
@@ -59,7 +101,8 @@ const desktopOnlySettings = new Set(`inlineQuotes persistentQR autoScroll update
   filter hideStubs dropDownNav classicNav autoHideNav customMenu topPageNav stickyNav keyBinds
   fitToScreenExpansion imageHover imageHoverBg embedYouTube embedSoundCloud compactThreads centeredThreads`.split(/\s+/));
 
-export function settingAvailable(key, mobileLayout) {
+export function settingAvailable(key, mobileLayout, httpsAvailable = false) {
+  if (key === 'forceHTTPS') return httpsAvailable === true;
   return mobileLayout ? mobileSettings.has(key)
     : key !== 'darkTheme' && (mobileSettings.has(key) || desktopOnlySettings.has(key));
 }
@@ -124,7 +167,7 @@ export function writeCatalogTheme(value) {
   return { ...checked, raw };
 }
 
-export function installSettings({ catalog, read, save, initializeOnOpen, toggleWatcher, openFilters, clearThreads, openKeybinds, openCustomMenu, openCustomCSS, openExport, openCatalogSettings, optionChecked, hasMobileLayout = () => false, presentation }) {
+export function installSettings({ catalog, read, save, initializeOnOpen, toggleWatcher, openFilters, clearThreads, openKeybinds, openCustomMenu, openCustomCSS, openExport, openCatalogSettings, optionChecked, hasMobileLayout = () => false, presentation, httpsAvailable = false }) {
   // Copy only immutable presentation flags; do not hold a mutable caller object.
   const startup = Object.freeze({ firstRun: presentation?.firstRun === true,
     mobileLayout: presentation ? presentation.mobileLayout === true : hasMobileLayout() === true });
@@ -185,7 +228,7 @@ export function installSettings({ catalog, read, save, initializeOnOpen, toggleW
     const form = node('form');
     const fields = new Map();
     function option(parent, key, label, tip, className) {
-      if (!catalog && !settingAvailable(key, mobileLayout)) return null;
+      if (!catalog && !settingAvailable(key, mobileLayout, httpsAvailable)) return null;
       const row = node('li', undefined, className);
       const caption = node('label');
       const input = node('input', undefined, 'menuOption');
@@ -287,6 +330,7 @@ export function installSettings({ catalog, read, save, initializeOnOpen, toggleW
       option(miscellaneousCategory, 'compactThreads', 'Force long posts to wrap', 'Limit thread width to 75% of the board');
       option(miscellaneousCategory, 'centeredThreads', 'Center threads', 'Center post containers at 75% of the board width');
       option(miscellaneousCategory, 'localTime', 'Convert dates to local time', 'Display post dates in your local time zone');
+      option(miscellaneousCategory, 'forceHTTPS', 'Always use HTTPS', 'Use the configured HTTPS endpoint when opening board pages');
       const global = node('ul');
       option(global, 'disableAll', 'Disable the native extension', '', 'settings-off');
       form.append(global);
@@ -325,11 +369,15 @@ export function installSettings({ catalog, read, save, initializeOnOpen, toggleW
           message.textContent = 'Settings could not be saved. Try again.';
           return;
         }
+        if (result.httpsFailed) {
+          message.textContent = 'The HTTPS preference could not be saved because browser cookies are unavailable. Other settings were saved.';
+          return;
+        }
         document.dispatchEvent(new CustomEvent(catalog ? '4chanCatalogThemeApplied' : '4chanSettingsSaved'));
         close();
         // The extension applies settings through navigation. A volatile fallback
         // stays on this page so unavailable storage cannot discard the changes.
-        if (!catalog && result.persisted) location.assign(location.pathname + location.search);
+        if (!catalog && result.persisted) location.assign(result.redirect || location.pathname + location.search);
       } catch {
         if (!controller.signal.aborted && active === dialog) message.textContent = 'Settings could not be saved. Try again.';
       } finally {

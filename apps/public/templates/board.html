@@ -77,6 +77,6 @@
 <nav class="pages" aria-label="Pagination">{% if !previous.is_empty() %}<a href="{{ previous }}" rel="prev">Previous</a>{% endif %} {% if !next.is_empty() %}<a href="{{ next }}" rel="next">Next</a>{% endif %}</nav>
 {% endif %}
 {% if catalog %}<template id="catalogFiltered">{% if board.text_only %}<table><tbody>{% for view in catalog_hidden %}{% call catalog_text_rows::row(view, board) %}{% endcall %}{% endfor %}</tbody></table>{% else %}{% for view in catalog_hidden %}{% call catalog_cards::card(view, board, media_origin, catalog_options, self.catalog_spoiler_thumbnail()) %}{% endcall %}{% endfor %}{% endif %}</template>{% endif %}
-<div id="watcher-context" hidden{% if board.math_tags && !catalog %} data-math-tags="1"{% endif %} data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}" data-worksafe="{{ board.worksafe }}" data-media-origin="{{ media_origin }}"></div>
+<div id="watcher-context" hidden{% if board.math_tags && !catalog %} data-math-tags="1"{% endif %} data-public-origin="{{ public_origin }}" data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}" data-worksafe="{{ board.worksafe }}" data-media-origin="{{ media_origin }}"></div>
 <script type="module" src="/static/thread-watcher.v1.js"></script>
 {% endblock %}
