@@ -63,6 +63,13 @@ the interoperability MD5 describe the actual encoded bytes. MD5 is never used
 for authorization. The first-frame PNG thumbnail uses a transparent canvas and
 the validated first rectangle; source thumbnail comparison is still required.
 
+Publication accepts only the host encoder's `EncodedGif` type, installs a fixed
+`{id}.gif` name under the existing publication lock and checks hash, size and
+contents on replay. A reservation cannot switch between PNG and GIF while its
+file exists. GIF readers check the same fixed name and a 20 MiB limit; thumbnails
+retain their PNG format and limit. Cleanup removes only the known output names.
+These storage primitives still require durable approval from their caller.
+
 These output bytes do not establish the source's post-cleanup checksum. The
 supplied PHP conditionally invokes an external `gifsicle` binary whose version
 and implementation are absent from the supplied tree. Source cleanup/checksum

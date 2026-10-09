@@ -47,6 +47,12 @@ impl EncodedGif {
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }
+    pub fn len(&self) -> u64 {
+        self.bytes.len() as u64
+    }
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
     pub fn sha256(&self) -> &str {
         &self.sha256
     }
