@@ -290,10 +290,27 @@ async fn file_md5_never_exposes_missing_or_unavailable_metadata() {
             assert_eq!(f.digest().await, (case == "legacy", None), "{case}");
             let (status, html) = f.html(true).await;
             assert_eq!(status, StatusCode::OK);
-            let article = html.split(&format!("<article id=\"report-{}\">", f.report))
-                .nth(1).unwrap().split("</article>").next().unwrap();
-            assert!(!article.contains("<summary>File MD5</summary>"), "{case}");
-            assert!(!article.contains(DIGEST), "{case}");
+            let marker = format!("<article id=\"report-{}\">", f.report);
+            if matches!(case, "deleted-post" | "deleted-thread") {
+                assert!(!html.contains(&marker), "{case}: whole deletion removes the report article");
+                assert!(!html.contains(DIGEST), "{case}");
+                let exists: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(SELECT 1 FROM content.reports WHERE board=$1 AND id=$2 AND post_id=$3)",
+                )
+                .bind(&f.board)
+                .bind(f.report)
+                .bind(f.post)
+                .fetch_one(&f.owner)
+                .await
+                .unwrap();
+                assert!(!exists, "{case}: whole deletion physically removes the report row");
+            } else {
+                let article = html.split(&marker)
+                    .nth(1).expect("The surviving report must have a queue article")
+                    .split("</article>").next().unwrap();
+                assert!(!article.contains("<summary>File MD5</summary>"), "{case}");
+                assert!(!article.contains(DIGEST), "{case}");
+            }
         }).await;
         f.cleanup().await;
         result.unwrap();
