@@ -4,7 +4,6 @@ import { test, expect } from '../helpers/visual-diagnostics.js';
 test.use({ javaScriptEnabled: true });
 const now = new Date('2026-09-08T12:07:00Z');
 async function freeze(page) {
-  await page.clock.install({ time: now });
   await page.clock.pauseAt(now);
 }
 async function show(page, target) {
