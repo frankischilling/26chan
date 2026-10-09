@@ -40,7 +40,7 @@ async function initialize(page, owned) {
   await page.goto(owned.url);
   await expect(page.locator(`#t${owned.id}`)).toHaveAttribute('data-tail-size', '2');
   await expect(page.locator('.threadNav.desktop a[data-cmd=update]').first()).toBeVisible();
-  const time = new Date(); await page.clock.install({ time }); await page.clock.pauseAt(time);
+  const time = new Date(); await page.clock.pauseAt(time);
 }
 function traffic(page, owned) {
   const responses = [];
