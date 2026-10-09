@@ -86,6 +86,18 @@ test('isolated backlink DOM and shared callback contracts', async t => {
       return { context, page, requests };
     }
 
+    await t.test('leading-zero fragments miss lexical DOM targets while thread aliases bind numeric destinations', async () => {
+      const html = section('100', post('100', quote('000100', '#p000100') + quote('000101', '#p000101')
+        + quote('101', '/demo/thread/000100#p101')) + post('101', 'Target'));
+      const { page, context } = await setup(html);
+      try {
+        assert.deepEqual(await page.evaluate(() => ({
+          labels: [...document.querySelectorAll('#m100 .quotelink')].map(link => link.textContent),
+          op: window.rows('100'), reply: window.rows('101'),
+        })), { labels: ['>>000100 →', '>>000101 →', '>>101'], op: [], reply: ['>>100'] });
+      } finally { await context.close(); }
+    });
+
     await t.test('source order, self-quotes, strict targets and first-discovery membership survive repeated refresh', async () => {
       const html = section('300', post('300', quote('100'), '300')
         + post('302', quote('100') + quote('100') + quote('302') + quote('999')

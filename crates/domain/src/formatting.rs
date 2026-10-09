@@ -314,13 +314,17 @@ pub(crate) fn tokenize_spanned(
         } else if quotes && let Some(rest) = tail.strip_prefix(">>>/") {
             if let Some(end) = rest.bytes().take(11).position(|byte| byte == b'/')
                 && let Ok(board) = crate::BoardSlug::parse(&rest[..end])
-                && let Some((id, digits)) = post_number(&rest[end + 1..])
+                && let Some((id, digits)) = post_number(&rest[end + 1..], source_quotes)
             {
                 let consumed = 4 + board.as_str().len() + 1 + digits;
                 found = Some((
                     if source_quotes {
                         Token::PostQuote(crate::post_quote::PostQuote {
-                            presentation: crate::post_quote::QuotePresentation::Unresolved,
+                            presentation: if id == 0 {
+                                crate::post_quote::QuotePresentation::Plain
+                            } else {
+                                crate::post_quote::QuotePresentation::Unresolved
+                            },
                             board: Some(board.as_str().into()),
                             id,
                             label: tail[..consumed].into(),
@@ -332,11 +336,15 @@ pub(crate) fn tokenize_spanned(
                 ));
             }
         } else if quotes && let Some(rest) = tail.strip_prefix(">>") {
-            if let Some((id, len)) = post_number(rest) {
+            if let Some((id, len)) = post_number(rest, source_quotes) {
                 found = Some((
                     if source_quotes {
                         Token::PostQuote(crate::post_quote::PostQuote {
-                            presentation: crate::post_quote::QuotePresentation::Unresolved,
+                            presentation: if id == 0 {
+                                crate::post_quote::QuotePresentation::Plain
+                            } else {
+                                crate::post_quote::QuotePresentation::Unresolved
+                            },
                             board: None,
                             id,
                             label: tail[..len + 2].into(),
@@ -382,17 +390,13 @@ pub(crate) fn tokenize_spanned(
     tokens
 }
 
-fn post_number(input: &str) -> Option<(u64, usize)> {
-    let len = input
-        .bytes()
-        .take(20)
-        .take_while(u8::is_ascii_digit)
-        .count();
-    if len == 0 || len > 19 {
+fn post_number(input: &str, source_quotes: bool) -> Option<(u64, usize)> {
+    let len = input.bytes().take_while(u8::is_ascii_digit).count();
+    if len == 0 || (!source_quotes && len > 19) {
         return None;
     }
     let id = input[..len].parse::<u64>().ok()?;
-    (id > 0 && id <= i64::MAX as u64).then_some((id, len))
+    ((source_quotes || id > 0) && id <= i64::MAX as u64).then_some((id, len))
 }
 
 #[cfg(test)]

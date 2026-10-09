@@ -79,8 +79,18 @@ class QuoteResolutionReferenceTests(unittest.TestCase):
         for value in self.fixture['unqualified_ids'] + ['', ' 1', '١', '１２', 1, None]:
             self.assertFalse(ref.canonical(value), repr(value))
         for case in self.cases.values():
-            self.assertTrue(ref.canonical(case['target_post_id']))
+            self.assertTrue(ref.decimal(case['target_post_id']))
         self.assertEqual(self.cases['maximum-canonical-reply']['expected']['href'], '//boards.example.test/a/thread/9223372036854775806#p9223372036854775807')
+
+    def test_leading_zero_lookup_and_lexical_destinations_are_distinct(self):
+        self.assertEqual(self.cases['leading-zero-same-thread-op']['expected']['href'], '#p000100')
+        self.assertEqual(self.cases['leading-zero-other-thread-op']['expected']['href'], '/g/thread/000123#p000123')
+        self.assertEqual(self.cases['leading-zero-other-thread-op']['expected']['thread_id'], '123')
+        self.assertEqual(self.cases['leading-zero-cross-reply']['expected']['href'], '//boards.example.test/a/thread/200#p000123')
+        for no in ('0', '0000'):
+            for kind in ('same', 'cross', 'mlp'):
+                self.assertEqual(self.cases[f'zero-{kind}-{no}']['expected']['kind'], 'dead')
+            self.assertEqual(self.cases[f'zero-unknown-{no}']['expected']['kind'], 'plain')
 
     def test_escaped_lexical_labels_and_token_prefixes(self):
         cases = {case['id']: case for case in self.fixture['lexical_cases']}

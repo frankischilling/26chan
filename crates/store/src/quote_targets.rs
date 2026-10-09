@@ -143,7 +143,7 @@ mod tests {
             .chunks(1000)
             .map(|ids| post(ids.iter().map(|id| format!(">>{} ", id + 1)).collect(), 104))
             .collect();
-        posts.push(post(">>1 >>1 >>>/co/00042 >>>/unknown/9".into(), 104));
+        posts.push(post(">>1 >>1 >>>/g/00042 >>>/unknown/9".into(), 104));
         assert!(posts.iter().all(|post| !post.staff_authorized_limits
             && post.comment.chars().count() <= board_domain::MAX_COMMENT_CHARS));
         assert_eq!(collect_keys(&posts).unwrap().len(), MAX_QUOTE_TARGETS);
@@ -152,7 +152,7 @@ mod tests {
     }
     #[test]
     fn historical_markup_and_forced_dead_references_do_not_consume_budget() {
-        let mut mlp = post(">>>/co/42 >>>/b/43 >>>/j/44 >>00045".into(), 104);
+        let mut mlp = post(">>>/co/42 >>>/b/43 >>>/j/44 >>0".into(), 104);
         mlp.board = "mlp".into();
         assert!(
             collect_keys(&[mlp, post(">>42 >>>/co/43".into(), 0)])
@@ -167,5 +167,18 @@ mod tests {
         targets.resolve_lines(&mut lines, "g", Some(1));
         assert!(targets.has_dependencies());
         assert_eq!(board_domain::formatting::plain_text(&lines), ">>42");
+    }
+
+    #[test]
+    fn source_decimal_spellings_share_one_lookup_and_zero_adds_none() {
+        let keys = collect_keys(&[post(
+            ">>45 >>00045 >>>/g/00045 >>0 >>0000 >>>/unknown/45".into(),
+            104,
+        )])
+        .unwrap();
+        assert_eq!(
+            keys,
+            BTreeSet::from([QuoteTargetKey::new("g", 45).unwrap()])
+        );
     }
 }

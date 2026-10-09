@@ -1,4 +1,5 @@
 import { defaultTreeAdapter, parseFragment } from 'parse5';
+import { quotePostId } from './native-quote-identity.js';
 import { isPostFlagClass, isPostFlagToken } from './native-post-flags.js';
 import { isCapcodeToken, postIdentityUrl, validateCapcodeTree } from './native-capcodes.js';
 import { validatePostNumbers } from './native-post-numbers.js';
@@ -72,12 +73,13 @@ export function quoteTarget(raw, { origin, board, thread = null }) {
   if (typeof raw !== 'string' || raw.length > 512 || /[\u0000-\u0020\u007f\\]/.test(raw)
     || typeof board !== 'string' || !/^[a-z0-9]{1,10}$/.test(board) || /[^a-z0-9]/.test(board)) return null;
   if (raw.startsWith(`${origin}/`)) raw = raw.slice(origin.length);
-  const local = /^#p([1-9][0-9]{0,18})$/.exec(raw);
-  const route = /^\/([a-z0-9]{1,10})\/(?:post\/([1-9][0-9]{0,18})|thread\/([1-9][0-9]{0,18})#p([1-9][0-9]{0,18}))$/.exec(raw);
+  const local = /^#p([0-9]+)$/.exec(raw);
+  const route = /^\/([a-z0-9]{1,10})\/(?:post\/([1-9][0-9]{0,18})|thread\/([0-9]+)#p([0-9]+))$/.exec(raw);
   if ((!local && !route) || (local && thread === null)) return null;
   const post = local ? local[1] : route[2] ?? route[4];
   const parent = local ? thread : route[3] ?? null;
-  if (postId(post) !== post || (parent !== null && (postId(parent) !== parent || /\D/.test(parent) || BigInt(parent) > BigInt(post)))) return null;
+  if (!quotePostId(post) || (local && (postId(parent) !== parent || /\D/.test(parent)))
+    || (parent !== null && (!quotePostId(parent) || BigInt(parent) > BigInt(post)))) return null;
   return { board: local ? board : route[1], post, thread: parent };
 }
 
@@ -85,6 +87,7 @@ export function postLinkUrl(raw, context) {
   if (raw.startsWith('#')) return quoteTarget(raw, context) !== null;
   if (raw.startsWith('/')) {
     if (/^\/rules#[a-z0-9]{1,10}[a-z0-9+/,\-]*$/.test(raw)) return true;
+    if (raw.includes('#p')) return quoteTarget(raw, context) !== null;
     // OP Reply/View thread uses the server's ordinary semantic context. Match
     // the raw root-relative path, never a URL-normalized or decoded alias, and
     // retain the exact decimal identity across worker/main-thread validation.
