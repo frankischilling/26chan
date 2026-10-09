@@ -9,6 +9,8 @@ mod catalog_identity;
 mod file_label;
 #[path = "views/mobile_label.rs"]
 mod mobile_label;
+#[path = "views/navigation.rs"]
+mod navigation;
 #[path = "views/page_identity.rs"]
 mod page_identity;
 #[path = "views/spoilers.rs"]
@@ -18,6 +20,12 @@ pub mod spoilers;
 #[template(path = "home.html")]
 pub struct Home {
     pub boards: Vec<Board>,
+}
+
+impl Home {
+    pub fn directory(&self) -> Vec<navigation::DirectoryEntry<'_>> {
+        navigation::directory(&self.boards)
+    }
 }
 
 #[derive(Template)]
@@ -95,8 +103,23 @@ impl BoardPage {
     pub fn catalog_spoiler_thumbnail(&self) -> String {
         spoilers::catalog_thumbnail(&self.board)
     }
-    pub fn navigation(&self) -> Vec<&Board> {
-        board_navigation(&self.navigation_boards, &self.board)
+    pub fn navigation(&self) -> Vec<Vec<navigation::Link<'_>>> {
+        navigation::groups(
+            &self.navigation_boards,
+            if self.catalog {
+                navigation::Destination::Catalog
+            } else {
+                navigation::Destination::Index
+            },
+        )
+    }
+
+    pub fn mobile_navigation(&self) -> Vec<navigation::Link<'_>> {
+        navigation::mobile(&self.navigation_boards)
+    }
+
+    pub fn navigation_fallback(&self) -> bool {
+        navigation::needs_fallback(&self.navigation_boards, &self.board)
     }
 
     pub fn posting_allowed(&self) -> bool {
@@ -142,21 +165,17 @@ impl ArchivePage {
             count.to_string()
         }
     }
-    pub fn navigation(&self) -> Vec<&Board> {
-        board_navigation(&self.navigation_boards, &self.board)
+    pub fn navigation(&self) -> Vec<Vec<navigation::Link<'_>>> {
+        navigation::groups(&self.navigation_boards, navigation::Destination::Archive)
     }
-}
 
-fn board_navigation<'a>(boards: &'a [Board], current: &'a Board) -> Vec<&'a Board> {
-    let mut links: Vec<_> = boards.iter().take(100).collect();
-    if !links.iter().any(|board| board.slug == current.slug) {
-        links.truncate(99);
-        links.push(current);
+    pub fn mobile_navigation(&self) -> Vec<navigation::Link<'_>> {
+        navigation::mobile(&self.navigation_boards)
     }
-    links.sort_by(|left, right| {
-        (left.source_order, &left.slug).cmp(&(right.source_order, &right.slug))
-    });
-    links
+
+    pub fn navigation_fallback(&self) -> bool {
+        navigation::needs_fallback(&self.navigation_boards, &self.board)
+    }
 }
 
 pub struct ThreadView {

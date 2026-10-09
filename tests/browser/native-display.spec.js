@@ -22,6 +22,9 @@ async function expectCustomMenus(page, visible = true) {
 
 test('custom navigation persists and synchronizes across tabs while mobile keeps the native board selector', async ({ page, context }) => {
   await page.goto('/fixture/');
+  const sourceGroups = await page.locator('#boardNavDesktop [data-public-board-group]').evaluateAll(groups => groups.map(group => group.textContent));
+  expect(sourceGroups).toHaveLength(5);
+  await expect(page.locator('#boardNavDesktop [data-public-board-list] a')).toHaveCount(77);
   let settings = await openSettings(page);
   await settings.locator('#custom-menu-edit').click();
   const editor = page.getByRole('dialog', { name: 'Custom Board List', exact: true });
@@ -43,6 +46,11 @@ test('custom navigation persists and synchronizes across tabs while mobile keeps
     await expect(other.locator('.customBoardList a').first()).toHaveAttribute('href', '/fixture/');
     await customMenu(page).getByRole('link', { name: 'Show all boards' }).click();
     await expect(page.locator('.customBoardList')).toHaveCount(0);
+    for (const parent of ['#boardNavDesktop', '#boardNavDesktopFoot']) {
+      await expect(page.locator(`${parent} [data-public-board-list]`)).toHaveCount(1);
+      expect(await page.locator(`${parent} [data-public-board-group]`).evaluateAll(groups => groups.map(group => group.textContent))).toEqual(sourceGroups);
+      await expect(page.locator(`${parent} [data-public-board-list] a`)).toHaveCount(77);
+    }
     await expect(page.getByRole('navigation', { name: 'Board navigation', exact: true })).toBeVisible();
     await expectCustomMenus(other);
     await page.setViewportSize({ width: 390, height: 844 });
@@ -51,7 +59,11 @@ test('custom navigation persists and synchronizes across tabs while mobile keeps
     await expect(page.locator('#boardNavMobile')).toBeVisible();
     await expect(page.locator('#boardSelectMobile')).toHaveValue('fixture');
     const directory = await (await context.request.get('/_watch/boards')).json();
-    expect(await page.locator('#boardSelectMobile option').evaluateAll(nodes => nodes.map(node => node.value))).toEqual(directory.boards.map(board => board.board));
+    const headerSlugs = await page.locator('#boardNavDesktop [data-public-board-list] a').evaluateAll(nodes => nodes.map(node => node.textContent).sort());
+    expect(await page.locator('#boardSelectMobile option:not([data-current-board-fallback])').evaluateAll(nodes => nodes.map(node => node.value))).toEqual(headerSlugs);
+    await expect(page.locator('#boardSelectMobile [data-current-board-fallback]')).toHaveValue('fixture');
+    expect(directory.boards.some(board => board.board === 'demo')).toBe(true);
+    expect(headerSlugs).not.toContain('demo');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     settings = await openSettings(page);
     await expect(settings.getByLabel('Custom board list', { exact: true })).toHaveCount(0);

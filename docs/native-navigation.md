@@ -32,9 +32,9 @@ height; auto-hide releases that top edge so the controls can use the viewport.
 
 `dropDownNav` keeps board selection and navigation actions at the top of the
 window. `classicNav` replaces the desktop selector with ordinary board links;
-mobile retains the selector. The selector retains the full directory when a
-custom board list is enabled; separate links show the chosen boards. Custom
-links open indexes, including from a catalog. Ordinary selection preserves the
+mobile retains the selector. The selector retains the authorized source-header
+set when a custom board list is enabled; separate links show the chosen boards.
+Custom links open indexes, including from a catalog. Ordinary selection preserves the
 catalog view except for `f`, which opens its index. Settings and
 Edit boards open the existing dialogs. The All boards link remains available if
 the directory cannot load.
@@ -45,16 +45,29 @@ control remains visible. Focused scrolling and runtime changes to the setting
 reset the direction baseline, and disabling the option cancels pending hiding
 work.
 
-The local layout uses the existing board structure, theme variables and
-accessible controls. It does not duplicate the original site's board categories
-or claim a complete rendered-page match. The ordinary pagination currently has
-Previous/Next links rather than a full numbered list; the movable switcher
+The local layout uses source header groups, existing theme variables and
+accessible controls. The five source groups contain at most 77 authorized
+anchors; empty groups are omitted. Classic navigation preserves those groups
+and source labels independently of the sorted mobile selector. This does not
+establish a complete historical rendered-page match. The ordinary pagination
+currently has Previous/Next links rather than a full numbered list; the movable switcher
 preserves that same contract.
 
 ## Directory and resource limits
 
-The controller first captures the server-rendered mobile directory. It validates
-the same finite slug/title schema and retains each non-worksafe option's class.
+The [source contract](source-navigation.md) distinguishes 77 header entries,
+78 static directory records and 82 installed board policies. These are separate
+sets. Public discovery uses authorized local boards; known directory records
+supply their source labels and order, while additional authorized boards use
+local titles. The existing store and directory API limit remains 100 entries.
+
+The controller first captures the server-rendered mobile selector. Its board
+options are the authorized subset of the 77 source-header entries, sorted by
+slug. It validates the finite slug/title schema and retains each option's
+server-supplied class. Desktop groups are captured separately and cannot be enlarged
+by later DOM edits. A current board absent from the source header uses a
+separate fallback instead of gaining membership in a source group.
+
 The HTML directory shares the page content's repeatable-read transaction, so a
 concurrent commit cannot mix new board labels with older content or settings.
 Later DOM changes cannot enlarge that admitted set. A valid server directory
@@ -71,6 +84,11 @@ request. It requires the exact same-origin response URL, JSON content type and
 strict schema, rejects redirects and sends no credentials. Empty chunks count
 toward the work limit. Slugs and titles become text nodes or fixed local paths;
 they never become HTML or external navigation authority.
+
+Archive pages render source groups and the mobile selector on the server and
+load only the fixed page-chrome module. They do not mount this native
+persistent-navigation controller. Archive link rewriting in the source does
+not grant additional script authority.
 
 The navigation resource imports the fixed display, position and page-navigation
 helpers. The last also mounts the ordinary mobile selector and mode controls.

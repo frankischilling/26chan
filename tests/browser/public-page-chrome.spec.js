@@ -3,6 +3,11 @@ import { test, expect } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
+
+const navigationReference = JSON.parse(readFileSync(new URL('../../fixtures/navigation-reference.json', import.meta.url), 'utf8'));
+const sourceHeaderGroups = navigationReference.header_groups;
+const headerNws = new Map(navigationReference.header_parent_nws[navigationReference.configured_header]);
 
 const origin = 'http://127.0.0.1:3000';
 const preference = '4chan_never_show_mobile';
@@ -18,19 +23,26 @@ function archiveFixture(command, slug) {
 }
 
 for (const catalog of [false, true]) {
-  test(`script-free ${catalog ? 'catalog' : 'index'} navigation uses the real board directory and Settings fallback`, async ({ browser, request }) => {
+  test(`script-free ${catalog ? 'catalog' : 'index'} navigation uses source header groups and Settings fallback`, async ({ browser, request }) => {
     const response = await request.get('/_watch/boards'); expect(response.status()).toBe(200);
     const directory = (await response.json()).boards;
     expect(directory.some(board => board.board === 'fixture')).toBe(true);
     const context = await browser.newContext({ javaScriptEnabled: false });
     try {
       const page = await context.newPage(); await page.goto(`${origin}/fixture/${catalog ? 'catalog' : ''}`);
-      const expected = directory.map(board => `/${board.board}/${catalog && board.board !== 'f' ? 'catalog' : ''}`);
-      for (const selector of ['#boardNavDesktop .boardList a', '#boardNavDesktopFoot .boardList a']) {
-        expect(await page.locator(selector).evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))).toEqual(expected);
-        expect(await page.locator(selector).evaluateAll(nodes => nodes.map(node => node.title))).toEqual(directory.map(board => board.title));
+      const expected = sourceHeaderGroups.map(group => group.map(([slug, title]) => ({
+        slug, title, href: `/${slug}/${catalog && slug !== 'f' ? 'catalog' : ''}`, nws: headerNws.get(slug),
+      })));
+      for (const parent of ['#boardNavDesktop', '#boardNavDesktopFoot']) {
+        await expect(page.locator(`${parent} [data-public-board-list]`)).toHaveCount(1);
+        expect(await page.locator(`${parent} [data-public-board-group]`).evaluateAll(groups => groups.map(group =>
+          [...group.querySelectorAll('a')].map(node => ({ slug: node.textContent, title: node.title, href: node.getAttribute('href'), nws: node.parentElement.classList.contains('nwsb') }))))).toEqual(expected);
       }
-      expect(await page.locator('#boardSelectMobile option').evaluateAll(nodes => nodes.map(node => node.value))).toEqual(directory.map(board => board.board));
+      expect(await page.locator('#boardSelectMobile option:not([data-current-board-fallback])').evaluateAll(nodes => nodes.map(node => [node.value, node.textContent, node.className]))).toEqual(
+        sourceHeaderGroups.flat().sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([slug, title]) => [slug, `/${slug}/ - ${title}`, headerNws.get(slug) ? 'nwsb' : '']));
+      await expect(page.locator('#boardSelectMobile option[data-current-board-fallback]')).toHaveValue('fixture');
+      expect(directory.some(board => board.board === 'demo')).toBe(true);
+      expect(sourceHeaderGroups.flat().some(([slug]) => slug === 'demo')).toBe(false);
       await expect(page.locator('#boardSelectMobile')).toHaveValue('fixture');
       for (const id of ['boardNavDesktop', 'boardNavMobile', 'boardNavDesktopFoot', 'navtopright', 'navbotright', 'settingsWindowLink', 'settingsWindowLinkMobile', 'settingsWindowLinkBot', 'bottom']) {
         await expect(page.locator(`#${id}`)).toHaveCount(1);
@@ -80,7 +92,7 @@ test('mobile catalog navigation preserves the view, reloads the saved mode and f
   await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ disableAll: true })));
   await page.setViewportSize({ width: 390, height: 900 }); await page.goto('/fixture/catalog');
   await expect(page.locator('body')).toHaveAttribute('data-native-never-mobile', 'false');
-  await page.locator('#boardSelectMobile').selectOption('demo'); await expect(page).toHaveURL(`${origin}/demo/catalog`);
+  await page.locator('#boardSelectMobile').selectOption('a'); await expect(page).toHaveURL(`${origin}/a/catalog`);
   await expect(page.locator('#settingsWindowLink')).toHaveAttribute('data-native-settings-ready', '');
   await Promise.all([page.waitForEvent('load'), page.locator('#boardNavMobile [data-page-mobile="disable"]').click()]);
   expect(await page.evaluate(key => localStorage.getItem(key), preference)).toBe('true');
@@ -126,8 +138,8 @@ test('a real archive admits page navigation while denying watcher code and fetch
     });
     expect(denied).toEqual({ fetchDenied: true, scriptDenied: true });
     await expect(page.locator('[data-native-settings-ready], #threadWatcher')).toHaveCount(0);
-    await page.locator('#boardSelectMobile').selectOption('demo'); await expect(page).toHaveURL(`${origin}/demo/`);
-    await expect(page.locator('.boardTitle')).toContainText('/demo/');
+    await page.locator('#boardSelectMobile').selectOption('a'); await expect(page).toHaveURL(`${origin}/a/`);
+    await expect(page.locator('.boardTitle')).toContainText('/a/');
     expect(errors).toEqual([]);
   } finally { await context.close(); archiveFixture('cleanup', slug); }
 });
