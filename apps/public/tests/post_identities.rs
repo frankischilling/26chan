@@ -371,7 +371,20 @@ async fn identities_persist_across_posting_forms_json_and_escaped_fragments() {
         }
         let page: Value =
             serde_json::from_str(&get(router, &format!("/{board}/1.json")).await).unwrap();
-        assert_eq!(page["threads"][0]["posts"], data["posts"]);
+        assert_eq!(data["posts"][0]["unique_ips"], 1);
+        let preview_posts = &page["threads"][0]["posts"];
+        assert!(preview_posts[0].get("unique_ips").is_none());
+        // Preview openers omit thread-only statistics; every other field,
+        // including escaped identities and all replies, must still match.
+        let mut expected_preview = data["posts"].clone();
+        assert_eq!(
+            expected_preview[0]
+                .as_object_mut()
+                .unwrap()
+                .remove("unique_ips"),
+            Some(json!(1))
+        );
+        assert_eq!(preview_posts, &expected_preview);
         let catalog: Value =
             serde_json::from_str(&get(router, &format!("/{board}/catalog.json")).await).unwrap();
         assert_eq!(catalog[0]["threads"][0]["trip"], "!ozOtJW9BFA");
