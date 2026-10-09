@@ -471,6 +471,11 @@ test('malformed and over-budget nested input stays literal, cannot execute HTML,
     if (new URL(request.url()).pathname === '/math-injection') injectionRequests.push(request.url());
   });
   await page.addInitScript(() => {
+    // Core math stays enabled with extensions disabled. Ordinary linkification
+    // calls restoreMessage before decoration, deliberately releasing/replanning
+    // math even when its literal input is unchanged. Isolate this exact job
+    // accounting case from that separate, already-tested integration behavior.
+    localStorage.setItem('4chan-settings', JSON.stringify({ disableAll: true }));
     window.IntersectionObserver = undefined;
     window.nestedMathJobs = [];
     window.nestedMathExecuted = false;
@@ -492,8 +497,20 @@ test('malformed and over-budget nested input stays literal, cannot execute HTML,
     '[math]x[/math]'.padEnd(65537, ' '),
     hostile,
   ];
-  for (const [index, input] of inputs.entries()) await addMessage(page, input, `literal-math-${index}`);
-  const sentinel = await addMessage(page, '[math]z+1[/math]', 'nested-sentinel');
+  // Admit one immutable batch; no interleaved scrolling or source edits can
+  // legitimately invalidate an in-flight record during the accounting window.
+  await page.evaluate(inputs => {
+    const batch = document.createDocumentFragment();
+    for (const [index, input] of [...inputs, '[math]z+1[/math]'].entries()) {
+      const message = document.createElement('blockquote');
+      message.className = 'postMessage';
+      message.id = index === inputs.length ? 'nested-sentinel' : `literal-math-${index}`;
+      message.textContent = input;
+      batch.append(message);
+    }
+    document.querySelector('.board').append(batch);
+  }, inputs);
+  const sentinel = page.locator('#nested-sentinel');
   await expect(sentinel.locator('.nativeMath > svg')).toHaveCount(1);
   for (const [index, input] of inputs.entries()) {
     const message = page.locator(`#literal-math-${index}`);
