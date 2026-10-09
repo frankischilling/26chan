@@ -3,7 +3,10 @@ use board_media::{
     ApprovedFiles, OUTPUT_DISK_BYTES, ObjectId, PublicationStore, Quarantine, ValidatedOutput,
 };
 use board_media_admin::backfill::complete_backfill;
-use board_store::{legacy_media::LegacyMediaStore, media_assets::MediaReader};
+use board_store::{
+    legacy_media::LegacyMediaStore,
+    media_assets::{MediaFormat, MediaReader},
+};
 use sqlx::PgPool;
 use std::{
     path::Path,
@@ -132,6 +135,7 @@ async fn exercise(owner: &PgPool, board: &str, destination_board: &str, ids: &Mu
     let output = ValidatedOutput::read(frame(50).as_slice()).await.unwrap();
     let (id, post) = insert_legacy(owner, board, &store, &output, ids).await;
     let before = admin.get(&id).await.unwrap();
+    assert_eq!(before.asset.output_format, MediaFormat::Png);
     assert!(before.variants().unwrap().is_none());
     assert!(reader.get_thumbnail(&id).await.is_err());
     let path = root.join(format!("{id}.png"));
