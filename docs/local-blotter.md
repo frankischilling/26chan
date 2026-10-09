@@ -46,4 +46,15 @@ Focused Node tests and generated-asset checks pass. PG16 validation passed for t
 
 Scoped offline Clippy for board-public and board-store, including all targets and features with warnings denied, and formatting checks pass. Public library tests passed 129 cases; one Unix-socket transport case was explicitly filtered because the environment prohibits that transport. Full-workspace validation was unavailable because its dependency set was not cached. Browser execution remains for hosted CI.
 
-The first hosted run exposed a missing CSP entry for the new module imported by the watcher. That blocked MainInit and math startup before the blotter scenarios could run. The native-page policy now admits only the fixed same-origin blotter script on board, catalog and upload pages; archive, search and generic responses retain their narrower policy. The policy regression fails without this entry. Local verification passes 128 public library tests (the same Unix-socket case filtered) and all ten UI asset tests, including blotter GET/HEAD bytes, headers, denied writes and absence from the API listener. The 21 math browser cases still require the new hosted run.
+The first hosted run exposed a missing CSP entry for the new module imported by the watcher. That blocked MainInit and math startup before the blotter scenarios could run. The native-page policy now admits only the fixed same-origin blotter script on board, catalog and upload pages; archive, search and generic responses retain their narrower policy. The policy regression fails without this entry. Local verification passes 128 public library tests (the same Unix-socket case filtered) and all ten UI asset tests, including blotter GET/HEAD bytes, headers, denied writes and absence from the API listener. All 21 math browser cases then passed on hosted head `fedc448`.
+
+That run passed 11 isolated blotter browser cases. Eight geometry cases stopped
+at CSS font-family spelling: the source serialized `arial, helvetica` while the
+local style serialized `Arial, Helvetica`. Other compared measurements matched.
+The comparison now folds ASCII family-name casing, as required by
+[CSS Fonts](https://www.w3.org/TR/css-fonts-3/#font-family-casing), while retaining
+family names, order, fallback and every geometry assertion. Two regression
+tests reject actual family-list changes; all 30 Node cases pass. The corrected
+browser comparison and persisted operator scenario still require hosted
+qualification. A separate Windows shard also reported socket 10055; this
+comparison correction does not address that transport failure.

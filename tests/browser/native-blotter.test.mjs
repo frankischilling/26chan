@@ -2,6 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { BLOTTER_STORAGE_KEY, blotterTimestamp, mountNativeBlotter } from '../../apps/public/client/native-blotter.js';
+import { asciiFontFamily } from '../helpers/ascii-font-family.mjs';
+
+test('source font comparison ignores only ASCII family-name casing', () => {
+  assert.equal(asciiFontFamily('Arial, Helvetica, sans-serif'), 'arial, helvetica, sans-serif');
+  assert.equal(asciiFontFamily('"Times New Roman", serif'), '"times new roman", serif');
+  assert.equal(asciiFontFamily('Ärial, sans-serif'), 'Ärial, sans-serif');
+});
+
+test('source font comparison still rejects changed names, order and fallback', () => {
+  const expected = asciiFontFamily('arial, helvetica, sans-serif');
+  for (const changed of ['Arial Black, Helvetica, sans-serif', 'Helvetica, Arial, sans-serif',
+    'Arial, Helvetica, serif', 'Arial, sans-serif']) {
+    assert.notEqual(asciiFontFamily(changed), expected);
+  }
+});
 
 function fixture(timestamp = '200', initial = null, failure = null, absent = false) {
   const values = new Map(initial === null ? [] : [[BLOTTER_STORAGE_KEY, initial]]);

@@ -39,7 +39,7 @@ const watch = (page, id) => page.getByRole('button', { name: `Watch thread ${id}
 const unwatch = (page, id) => page.getByRole('button', { name: `Unwatch thread ${id}`, exact: true }).first();
 const row = (page, id) => page.locator(`#watch-${id}-demo`);
 async function freeze(page) {
-  const time = new Date('2026-09-13T20:00:00Z'); await page.clock.install({ time }); await page.clock.pauseAt(time);
+  const time = new Date('2026-09-13T20:00:00Z'); await page.clock.pauseAt(time);
 }
 async function initialize(page, owned) {
   await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ threadWatcher: true })));

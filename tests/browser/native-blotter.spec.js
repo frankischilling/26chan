@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { asciiFontFamily } from '../helpers/ascii-font-family.mjs';
 const assets = new URL('../../apps/public/static/', import.meta.url);
 const script = await readFile(new URL('native-blotter.v1.js', assets), 'utf8');
 const css = await readFile(new URL('board.css', assets), 'utf8');
@@ -76,17 +77,20 @@ for (const { theme } of geometry.themes) for (const deviceScaleFactor of [1, 2])
     const context = await browser.newContext({ deviceScaleFactor, viewport: { width: 1280, height: 900 } });
     try {
       const page = await context.newPage(); await fixture(page, { theme, content: 'A short announcement.' });
-      const measure = () => page.locator('#blotter').evaluate(table => {
-        const date = table.querySelector('.blotter-date'), cell = table.querySelector('.blotterMessage');
-        const divider = table.querySelector('hr'), footer = table.querySelector('tfoot');
-        const rect = table.getBoundingClientRect(), style = getComputedStyle(table);
-        return { width: rect.width, height: rect.height, spacing: style.borderSpacing,
-          dateWidth: date.getBoundingClientRect().width, dateAlign: getComputedStyle(date).textAlign,
-          font: getComputedStyle(cell).fontSize, family: getComputedStyle(cell).fontFamily,
-          padding: getComputedStyle(cell).padding, footerAlign: getComputedStyle(footer).textAlign,
-          dividerWidth: divider.getBoundingClientRect().width, dividerHeight: divider.getBoundingClientRect().height,
-          dividerMargin: getComputedStyle(divider).margin, dividerBorder: getComputedStyle(divider).borderTopStyle };
-      });
+      const measure = async () => {
+        const measured = await page.locator('#blotter').evaluate(table => {
+          const date = table.querySelector('.blotter-date'), cell = table.querySelector('.blotterMessage');
+          const divider = table.querySelector('hr'), footer = table.querySelector('tfoot');
+          const rect = table.getBoundingClientRect(), style = getComputedStyle(table);
+          return { width: rect.width, height: rect.height, spacing: style.borderSpacing,
+            dateWidth: date.getBoundingClientRect().width, dateAlign: getComputedStyle(date).textAlign,
+            font: getComputedStyle(cell).fontSize, family: getComputedStyle(cell).fontFamily,
+            padding: getComputedStyle(cell).padding, footerAlign: getComputedStyle(footer).textAlign,
+            dividerWidth: divider.getBoundingClientRect().width, dividerHeight: divider.getBoundingClientRect().height,
+            dividerMargin: getComputedStyle(divider).margin, dividerBorder: getComputedStyle(divider).borderTopStyle };
+        });
+        return { ...measured, family: asciiFontFamily(measured.family) };
+      };
       for (const width of [1280, 481]) {
         await page.setViewportSize({ width, height: 900 });
         await page.goto('http://blotter.test/reference'); const reference = await measure();
