@@ -1,9 +1,13 @@
 export const CONTROL_TRIGGER = '[owned-browser-control] primary-no-buffer-space';
 
+export function validControlShard(shard) {
+  return typeof shard === 'string' && shard.length === 1 && /^[1-8]$/.test(shard);
+}
+
 export function browserControlEnabled(platform, env) {
   return platform === 'win32' && env.WINDOWS_BROWSER_CONTROL === '1' &&
     env.WINDOWS_BROWSER_CONTROL_OWNED === '1' && env.VISUAL_FIXTURE_SERVER === '1' &&
-    env.WINDOWS_VISUAL_NETLOG === '1' && env.WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS === '1' && env.THEME_SHARD === '7';
+    env.WINDOWS_VISUAL_NETLOG === '1' && env.WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS === '1' && validControlShard(env.THEME_SHARD);
 }
 
 // The coordinator has a second latch covering replacement test workers.

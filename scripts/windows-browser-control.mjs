@@ -6,7 +6,7 @@ import path from 'node:path';
 import { lstat, realpath, writeFile } from 'node:fs/promises';
 import { themeLaunchPlan, runThemeChild, encodeEvidence, saveEvidence } from './windows-theme-stderr.mjs';
 import filter from './windows-theme-stderr-filter.cjs';
-import { diagnosticPlan, createTriggerCollector, bounded, encodeSummary, STARTUP_MS, NAVIGATION_MS, CLOSE_MS } from './windows-browser-control-core.mjs';
+import { CONTROL_SCHEMA, controlIdentity, diagnosticPlan, createTriggerCollector, bounded, encodeSummary, STARTUP_MS, NAVIGATION_MS, CLOSE_MS } from './windows-browser-control-core.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const NAVIGATION = new Set(['not-triggered', 'http-200', 'unexpected-response', 'failed-or-timeout', 'unavailable']);
@@ -17,13 +17,14 @@ export async function saveControlSummary(root, value) {
   await writeFile(path.join(root, 'summary.json'), encodeSummary(value), { flag: 'wx', mode: 0o600 });
 }
 
-export async function coordinate({ startControl, runOriginal, now = () => performance.now(), startupMs = STARTUP_MS + 2000 }) {
+export async function coordinate({ shard, startControl, runOriginal, now = () => performance.now(), startupMs = STARTUP_MS + 2000 }) {
+  const identity = controlIdentity(shard);
   const origin = now();
   const elapsed = () => {
     const value = now() - origin;
     return Number.isFinite(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER ? Math.floor(value) : null;
   };
-  const summary = { schema: 1, diagnostic: 'one-shot-browser-control', phase: 'control-startup',
+  const summary = { schema: CONTROL_SCHEMA, shard: identity.shard, diagnostic: 'one-shot-browser-control', phase: 'control-startup',
     conclusion: 'inconclusive', trigger: 'not-observed', control: 'unavailable', package_version: null,
     trigger_receipt_ms: null, dispatch_ms: null, started_receipt_ms: null, completion_receipt_ms: null,
     trigger_to_completion_ms: null, clock: 'coordinator-monotonic-receipts',
@@ -108,6 +109,7 @@ async function main() {
   const cli = createRequire(import.meta.url).resolve('@playwright/test/cli');
   const preload = fileURLToPath(new URL('./windows-theme-stderr-preload.cjs', import.meta.url));
   const summary = await coordinate({
+    shard: diagnostic.shard,
     startControl: () => {
       const env = { ...process.env, DEBUG: '', WINDOWS_THEME_STDERR_PROBE: '0' };
       delete env.DEBUG_FILE;

@@ -1,23 +1,25 @@
 #requires -Version 7.0
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
-if (-not $IsWindows -or $env:WINDOWS_BROWSER_CONTROL -ne '1' -or $env:THEME_SHARD -ne '7' -or
+if (-not $IsWindows -or $env:WINDOWS_BROWSER_CONTROL -ne '1' -or $env:THEME_SHARD -cnotmatch '\A[1-8]\z' -or
     $env:WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS -ne '1' -or $env:WINDOWS_VISUAL_NETLOG -ne '1') {
     throw 'Owned browser control configuration rejected.'
 }
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 . (Join-Path $PSScriptRoot 'windows-browser-control-cleanup.ps1')
-$evidence = Join-Path $repo 'test-results/windows-browser-control-7'
+$shard = $env:THEME_SHARD
+$controlDirectory = 'windows-browser-control-' + $shard
+$evidence = Join-Path $repo ('test-results/' + $controlDirectory)
 # Refuse stale evidence and reparse traversal. Only these two directories are created.
 $directory = $repo
-foreach ($segment in @('test-results', 'windows-browser-control-7')) {
+foreach ($segment in @('test-results', $controlDirectory)) {
     $directory = Join-Path $directory $segment
-    if ($segment -eq 'windows-browser-control-7' -and (Test-Path -LiteralPath $directory)) { throw 'Prior control evidence exists.' }
+    if ($segment -eq $controlDirectory -and (Test-Path -LiteralPath $directory)) { throw 'Prior control evidence exists.' }
     if (-not (Test-Path -LiteralPath $directory)) { New-Item -ItemType Directory -Path $directory | Out-Null }
     $item = Get-Item -LiteralPath $directory -Force
     if (-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Unsafe evidence directory.' }
 }
-$state = [ordered]@{ schema = 1; phase = 'setup'; original_coordinator_exit = $null; hard_deadline = $false; forced_cleanup = $false; tree_exited = $false; cleanup_verified = $false }
+$state = [ordered]@{ schema = 2; shard = $shard; phase = 'setup'; original_coordinator_exit = $null; hard_deadline = $false; forced_cleanup = $false; tree_exited = $false; cleanup_verified = $false }
 $owned = $null
 $exitCode = 1
 $priorOwned = $env:WINDOWS_BROWSER_CONTROL_OWNED

@@ -78,8 +78,8 @@ export async function runControl({ launch, send, messages, root, version }) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    diagnosticPlan(process.env);
-    const root = path.resolve(fileURLToPath(new URL('../', import.meta.url)), 'test-results/windows-browser-control-7');
+    const diagnostic = diagnosticPlan(process.env);
+    const root = path.resolve(fileURLToPath(new URL('../', import.meta.url)), diagnostic.output);
     const version = createRequire(import.meta.url)('playwright/package.json').version;
     await runControl({ launch: options => chromium.launch(options), send: message => {
       if (process.connected) process.send(message, () => {});

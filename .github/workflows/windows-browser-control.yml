@@ -20,12 +20,16 @@ jobs:
   browser-failure-control:
     runs-on: windows-2025
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     env:
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       WINDOWS_BROWSER_CONTROL: '1'
       WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS: '1'
       WINDOWS_VISUAL_NETLOG: '1'
-      THEME_SHARD: '7'
+      THEME_SHARD: ${{ matrix.shard }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 1
@@ -107,11 +111,11 @@ jobs:
         timeout-minutes: 2
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: browser-control-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: browser-control-${{ matrix.shard }}-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            test-results/windows-browser-control-7/summary.json
-            test-results/windows-browser-control-7/control-netlog.json
-            test-results/windows-browser-control-7/ownership.json
+            test-results/windows-browser-control-${{ matrix.shard }}/summary.json
+            test-results/windows-browser-control-${{ matrix.shard }}/control-netlog.json
+            test-results/windows-browser-control-${{ matrix.shard }}/ownership.json
           if-no-files-found: warn
           retention-days: 3
           compression-level: 0
@@ -121,12 +125,12 @@ jobs:
         timeout-minutes: 2
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: browser-control-original-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          name: browser-control-original-failure-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            test-results/windows-themes-7/**/*.png
-            test-results/windows-themes-7/**/trace.zip
-            test-results/windows-themes-7/**/error-context.md
-            test-results/windows-themes-7/netlogs/*.json
+            test-results/windows-themes-${{ matrix.shard }}/**/*.png
+            test-results/windows-themes-${{ matrix.shard }}/**/trace.zip
+            test-results/windows-themes-${{ matrix.shard }}/**/error-context.md
+            test-results/windows-themes-${{ matrix.shard }}/netlogs/*.json
           if-no-files-found: ignore
           retention-days: 3
           compression-level: 0
@@ -136,10 +140,10 @@ jobs:
         timeout-minutes: 2
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: browser-control-original-transport-${{ github.run_id }}-${{ github.run_attempt }}
+          name: browser-control-original-transport-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            test-results/windows-themes-7/transport-stderr.json
-            test-results/windows-themes-7/fixture-lifecycle.json
+            test-results/windows-themes-${{ matrix.shard }}/transport-stderr.json
+            test-results/windows-themes-${{ matrix.shard }}/fixture-lifecycle.json
           if-no-files-found: ignore
           retention-days: 3
           compression-level: 0

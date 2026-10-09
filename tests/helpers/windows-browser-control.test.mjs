@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdtemp, realpath, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, readFile, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { browserControlEnabled, createBrowserControlTrigger, CONTROL_TRIGGER } from './browser-control-trigger.js';
-import { diagnosticPlan, createTriggerCollector, inspectControlNetlog, TARGET, bounded, encodeSummary } from '../../scripts/windows-browser-control-core.mjs';
+import { CONTROL_SCHEMA, controlIdentity, diagnosticPlan, createTriggerCollector, inspectControlNetlog, TARGET, bounded, encodeSummary } from '../../scripts/windows-browser-control-core.mjs';
+import { themeLaunchPlan } from '../../scripts/windows-theme-stderr.mjs';
 import { coordinate, saveControlSummary } from '../../scripts/windows-browser-control.mjs';
 import { runControl } from '../../scripts/windows-browser-control-child.mjs';
 import { qualifySummary, checkEvidence } from '../../scripts/check-windows-browser-control.mjs';
@@ -41,17 +42,17 @@ function fakeControl({ navigation = 'http-200', failSetup = false, silent = fals
   if (!silent) queueMicrotask(() => child.emit('message', failSetup ? { type: 'unavailable' } : { type: 'ready', package_version: '1.62.0' }));
   return child;
 }
-function ownership(summary) { return { schema: 1, phase: 'finished', hard_deadline: false, forced_cleanup: false, tree_exited: true, cleanup_verified: true, original_coordinator_exit: summary.original.code }; }
-async function simulate({ trigger = true, controlOptions } = {}) {
+function ownership(summary) { return { schema: CONTROL_SCHEMA, shard: summary.shard, phase: 'finished', hard_deadline: false, forced_cleanup: false, tree_exited: true, cleanup_verified: true, original_coordinator_exit: summary.original.code }; }
+async function simulate({ shard = '7', trigger = true, controlOptions } = {}) {
   let child, time = 0;
-  const summary = await coordinate({ now: () => ++time, startControl: () => child = fakeControl(controlOptions), runOriginal: async fire => {
+  const summary = await coordinate({ shard, now: () => ++time, startControl: () => child = fakeControl(controlOptions), runOriginal: async fire => {
     if (trigger) { fire(); fire(); }
     return { outcome, evidenceSaved: true };
   } });
   return { child, summary };
 }
 
-test('all exact opt-in guards are required; original shard arguments remain fixed', () => {
+test('all exact opt-in guards are required; original shard arguments remain unchanged', () => {
   assert.equal(browserControlEnabled('win32', env), true);
   assert.deepEqual(diagnosticPlan(env, 'win32').args, ['--shard', '7/8', '--output', 'test-results/windows-themes-7']);
   for (const platform of ['linux', 'darwin']) { assert.equal(browserControlEnabled(platform, env), false); assert.throws(() => diagnosticPlan(env, platform)); }
@@ -89,19 +90,19 @@ test('coordinator dispatches once, retains original failure and records one pare
   assert.deepEqual(summary.original, outcome);
   assert.equal(summary.conclusion, 'control-connected-after-observed-failure');
   assert.equal(summary.trigger_to_completion_ms, summary.completion_receipt_ms - summary.trigger_receipt_ms);
-  assert.equal(qualifySummary(summary, ownership(summary)), 'triggered');
-  for (const key of ['forced_cleanup', 'hard_deadline']) assert.equal(qualifySummary(summary, { ...ownership(summary), [key]: true }), 'unverified-cleanup');
+  assert.equal(qualifySummary(summary, ownership(summary), '7'), 'triggered');
+  for (const key of ['forced_cleanup', 'hard_deadline']) assert.equal(qualifySummary(summary, { ...ownership(summary), [key]: true }, '7'), 'unverified-cleanup');
 });
 test('no trigger is valid inconclusive evidence and does not navigate', async () => {
   const { child, summary } = await simulate({ trigger: false });
   assert.deepEqual(child.commands, ['stop']); assert.equal(summary.conclusion, 'inconclusive');
-  assert.equal(qualifySummary(summary, ownership(summary)), 'no-trigger');
+  assert.equal(qualifySummary(summary, ownership(summary), '7'), 'no-trigger');
 });
 test('unavailable setup and control failure cannot replace the original exit', async () => {
   for (const controlOptions of [{ failSetup: true }, { navigation: 'failed-or-timeout' }]) {
     const { summary } = await simulate({ controlOptions }); assert.deepEqual(summary.original, outcome);
     assert.equal(summary.conclusion, 'inconclusive');
-    if (controlOptions.failSetup) assert.equal(qualifySummary(summary, ownership(summary)), 'invalid-summary');
+    if (controlOptions.failSetup) assert.equal(qualifySummary(summary, ownership(summary), '7'), 'invalid-summary');
   }
 });
 test('bounded rejected operations settle without leaking their error or hanging', async () => {
@@ -135,16 +136,18 @@ test('separate control launches without inherited options and makes one exact na
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 test('admitted files are bounded, no-overwrite, and revalidated by the qualification check', async () => {
-  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'browser-control-evidence-')));
+  const temporary = await realpath(await mkdtemp(path.join(os.tmpdir(), 'browser-control-evidence-')));
+  const root = path.join(temporary, 'test-results', 'windows-browser-control-7');
+  await mkdir(root, { recursive: true });
   try {
     const { summary } = await simulate();
     await saveControlSummary(root, summary); await assert.rejects(saveControlSummary(root, summary));
     await writeFile(path.join(root, 'ownership.json'), JSON.stringify(ownership(summary)));
     await writeFile(path.join(root, 'control-netlog.json'), JSON.stringify(netlog()));
-    assert.equal(await checkEvidence(root), 'triggered');
-    await writeFile(path.join(root, 'control-netlog.json'), '{}'); await assert.rejects(checkEvidence(root));
-    await writeFile(path.join(root, 'summary.json'), 'x'.repeat(8193)); await assert.rejects(checkEvidence(root));
-  } finally { await rm(root, { recursive: true, force: true }); }
+    assert.equal(await checkEvidence(root, '7'), 'triggered');
+    await writeFile(path.join(root, 'control-netlog.json'), '{}'); await assert.rejects(checkEvidence(root, '7'));
+    await writeFile(path.join(root, 'summary.json'), 'x'.repeat(8193)); await assert.rejects(checkEvidence(root, '7'));
+  } finally { await rm(temporary, { recursive: true, force: true }); }
 });
 test('source guards retain job containment, no raw files, original status and finite deadlines', async () => {
   const ps = await readFile(new URL('../../scripts/windows-browser-control.ps1', import.meta.url), 'utf8');
@@ -229,7 +232,7 @@ test('TCP BEGIN alone and failed ENDs never support successful-control inference
 });
 test('late ready cannot qualify a startup that already timed out', async () => {
   let child;
-  const summary = await coordinate({ startupMs: 1, startControl: () => {
+  const summary = await coordinate({ shard: '7', startupMs: 1, startControl: () => {
     child = fakeControl({ silent: true });
     return child;
   }, runOriginal: async trigger => {
@@ -237,7 +240,7 @@ test('late ready cannot qualify a startup that already timed out', async () => {
     trigger(); return { outcome, evidenceSaved: true };
   } });
   assert.equal(summary.control, 'unavailable'); assert.ok(!child.commands.includes('navigate'));
-  assert.equal(qualifySummary(summary, ownership(summary)), 'invalid-summary');
+  assert.equal(qualifySummary(summary, ownership(summary), '7'), 'invalid-summary');
 });
 test('same-error failures on every off-origin variant are ignored', () => {
   const records = [], trigger = createBrowserControlTrigger(record => records.push(record));
@@ -298,7 +301,7 @@ test('unknown source types or phase schema cannot invent a successful socket pro
 
 test('signaled original outcome retains its signal and normalized fatal code', async () => {
   const signaled = { kind: 'signal', code: 143, signal: 'SIGTERM' };
-  const summary = await coordinate({
+  const summary = await coordinate({ shard: '7',
     startControl: () => fakeControl(),
     runOriginal: async () => ({ outcome: signaled, evidenceSaved: true }),
   });
@@ -326,4 +329,99 @@ test('owned cleanup grace shares one five-second budget and still requires actua
   assert.match(wrapper, /-ElapsedMilliseconds \{ \$cleanupWatch.ElapsedMilliseconds \} -State \$state/);
   assert.doesNotMatch(cleanup + wrapper, /Stop-Process|taskkill|\.Kill\([^)]*Id/);
   for (const name of ['already-empty', 'settled', 'persistent', 'live-root', 'misleading-wait', 'expired', 'near-deadline', 'survivor', 'late-zero', 'slow-grace-zero', 'slow-zero-read', 'unavailable']) assert.ok(controls.includes(`'${name}'`));
+});
+
+
+test('all eight shard identities retain the exact original launch plan and independent output', async () => {
+  const outputs = new Set();
+  for (let n = 1; n <= 8; n++) {
+    const shard = String(n), current = { ...env, THEME_SHARD: shard };
+    assert.equal(browserControlEnabled('win32', current), true);
+    const plan = diagnosticPlan(current, 'win32');
+    assert.equal(plan.shard, shard);
+    assert.deepEqual(plan.args, ['--shard', `${shard}/8`, '--output', `test-results/windows-themes-${shard}`]);
+    const original = themeLaunchPlan(plan.args, current, 'win32');
+    const other = shard === '8' ? '1' : String(n + 1);
+    assert.throws(() => themeLaunchPlan(plan.args, { ...current, THEME_SHARD: other }, 'win32'));
+    assert.throws(() => themeLaunchPlan(['--shard', `${shard}/8`, '--output', `test-results/windows-themes-${other}`], current, 'win32'));
+    assert.deepEqual(original.args, ['test', '--config', 'playwright.themes.config.js', ...plan.args]);
+    assert.equal(plan.output, `test-results/windows-browser-control-${shard}`);
+    assert.notEqual(plan.output, original.output);
+    outputs.add(plan.output);
+    for (const trigger of [true, false]) {
+      const { summary, child } = await simulate({ shard, trigger });
+      assert.equal(summary.schema, CONTROL_SCHEMA); assert.equal(summary.shard, shard);
+      assert.equal(qualifySummary(summary, ownership(summary), shard), trigger ? 'triggered' : 'no-trigger');
+      assert.deepEqual(summary.original, outcome);
+      assert.deepEqual(child.commands, trigger ? ['navigate', 'stop'] : ['stop']);
+    }
+  }
+  assert.equal(outputs.size, 8);
+});
+
+test('invalid shard values cannot enable a trigger, select a path, or start a coordinator', async () => {
+  for (const shard of [undefined, null, 7, {}, [], '0', '9', '10', '-1', '07', '7/8', ' 7', '7 ', '7\n', '7\r\n', '../7', '７', '7/../8', '']) {
+    const current = { ...env, THEME_SHARD: shard };
+    assert.equal(browserControlEnabled('win32', current), false);
+    assert.throws(() => controlIdentity(shard));
+    assert.throws(() => diagnosticPlan(current, 'win32'));
+    let started = false;
+    await assert.rejects(coordinate({ shard, startControl: () => { started = true; }, runOriginal: () => { started = true; } }));
+    assert.equal(started, false);
+    const { summary } = await simulate();
+    assert.equal(qualifySummary(summary, ownership(summary), shard), 'invalid-shard');
+  }
+});
+
+test('qualification binds both schema versions and shard identities to the selected path', async () => {
+  const temporary = await realpath(await mkdtemp(path.join(os.tmpdir(), 'browser-control-binding-')));
+  try {
+    const { summary } = await simulate({ shard: '3', trigger: false });
+    const owner = ownership(summary);
+    const root = path.join(temporary, 'test-results', 'windows-browser-control-3');
+    await mkdir(root, { recursive: true });
+    await saveControlSummary(root, summary);
+    await writeFile(path.join(root, 'ownership.json'), JSON.stringify(owner));
+    assert.equal(await checkEvidence(root, '3'), 'no-trigger');
+    for (const shard of ['1', '7', '8', '', '3\n']) await assert.rejects(checkEvidence(root, shard));
+    for (const value of [undefined, 3, '7', '03', '3\n']) {
+      assert.equal(qualifySummary({ ...summary, shard: value }, owner, '3'), 'shard-mismatch');
+      assert.equal(qualifySummary(summary, { ...owner, shard: value }, '3'), 'shard-mismatch');
+    }
+    for (const schema of [undefined, 1, 3, '2']) {
+      assert.equal(qualifySummary({ ...summary, schema }, owner, '3'), 'invalid-summary');
+      assert.equal(qualifySummary(summary, { ...owner, schema }, '3'), 'unverified-cleanup');
+    }
+    for (const other of [path.join(temporary, 'windows-browser-control-3'), path.join(temporary, 'test-results', 'windows-browser-control-7')]) {
+      await mkdir(other, { recursive: true });
+      await saveControlSummary(other, summary);
+      await writeFile(path.join(other, 'ownership.json'), JSON.stringify(owner));
+      await assert.rejects(checkEvidence(other, '3'));
+    }
+    await writeFile(path.join(root, 'ownership.json'), JSON.stringify({ ...owner, shard: '7' }));
+    await assert.rejects(checkEvidence(root, '3'));
+  } finally { await rm(temporary, { recursive: true, force: true }); }
+});
+
+test('workflow enumerates the same eight shards with isolated artifact names and strict wrapper validation', async () => {
+  const workflow = await readFile(new URL('../../.github/workflows/windows-browser-control.yml', import.meta.url), 'utf8');
+  const ci = await readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  const wrapper = await readFile(new URL('../../scripts/windows-browser-control.ps1', import.meta.url), 'utf8');
+  const child = await readFile(new URL('../../scripts/windows-browser-control-child.mjs', import.meta.url), 'utf8');
+  assert.match(workflow, /fail-fast: false/);
+  const matrix = 'shard: [1, 2, 3, 4, 5, 6, 7, 8]';
+  assert.ok(workflow.includes(matrix)); assert.ok(ci.includes(matrix));
+  assert.ok(workflow.includes('THEME_SHARD: ${{ matrix.shard }}'));
+  const names = workflow.split('\n').filter(line => /^          name: browser-control/.test(line));
+  assert.equal(names.length, 3);
+  for (const name of names) assert.ok(name.includes('${{ matrix.shard }}'));
+  for (const line of workflow.split('\n').filter(line => line.includes('test-results/windows-'))) {
+    assert.ok(line.includes('-${{ matrix.shard }}/'));
+  }
+  assert.doesNotMatch(workflow, /continue-on-error|windows-themes-7|windows-browser-control-7/);
+  assert.ok(wrapper.includes("$env:THEME_SHARD -cnotmatch '\\A[1-8]\\z'"));
+  assert.ok(wrapper.includes('schema = 2; shard = $shard;'));
+  assert.ok(wrapper.includes("$controlDirectory = 'windows-browser-control-' + $shard"));
+  assert.ok(child.includes('const diagnostic = diagnosticPlan(process.env)'));
+  assert.ok(child.includes('diagnostic.output'));
 });

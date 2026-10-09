@@ -1,4 +1,4 @@
-import { CONTROL_TRIGGER } from '../tests/helpers/browser-control-trigger.js';
+import { CONTROL_TRIGGER, validControlShard } from '../tests/helpers/browser-control-trigger.js';
 
 export const TARGET = 'http://127.0.0.1:3000/readyz';
 export const SUMMARY_BYTES = 8192;
@@ -6,13 +6,21 @@ export const STARTUP_MS = 30_000;
 export const NAVIGATION_MS = 5_000;
 export const CLOSE_MS = 5_000;
 
+export const CONTROL_SCHEMA = 2;
+
+export function controlIdentity(shard) {
+  if (!validControlShard(shard)) throw new Error('Control shard rejected');
+  return { shard, originalOutput: `test-results/windows-themes-${shard}`,
+    output: `test-results/windows-browser-control-${shard}` };
+}
+
 export function diagnosticPlan(env, platform = process.platform) {
   if (platform !== 'win32' || env.WINDOWS_BROWSER_CONTROL !== '1' ||
-      env.WINDOWS_BROWSER_CONTROL_OWNED !== '1' || env.THEME_SHARD !== '7' ||
+      env.WINDOWS_BROWSER_CONTROL_OWNED !== '1' || !validControlShard(env.THEME_SHARD) ||
       env.WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS !== '1' || env.WINDOWS_VISUAL_NETLOG !== '1' ||
       env.VISUAL_FIXTURE_SERVER !== '1') throw new Error('Owned browser control configuration rejected');
-  return { args: ['--shard', '7/8', '--output', 'test-results/windows-themes-7'],
-    output: 'test-results/windows-browser-control-7' };
+  const identity = controlIdentity(env.THEME_SHARD);
+  return { ...identity, args: ['--shard', `${identity.shard}/8`, '--output', identity.originalOutput] };
 }
 
 // Bounded ASCII framing. Invalid/oversized lines stay poisoned until LF.
