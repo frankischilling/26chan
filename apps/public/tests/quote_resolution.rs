@@ -110,7 +110,7 @@ async fn exercise(owner: PgPool, public: PgPool, board: String, other: String) {
     post(&owner, &board, target, target, "Target OP").await;
     post(&owner, &board, target_reply, target, "Target reply").await;
     let text = format!(
-        "resolutionneedle >>{source} >>{reply} >>{target} >>{target_reply} >>{missing} >>{foreign} >>0{target} >>>/zzzzzzzzzz/{target} <script>alert(1)</script>"
+        "resolutionneedle >>{source} >>{reply} >>{target} >>{target_reply} >>{missing} >>{foreign} >>000{source} >>000{reply} >>000{target} >>000{target_reply} >>000{missing} >>0 >>>/zzzzzzzzzz/{target} <script>alert(1)</script>"
     );
     post(&owner, &board, source, source, &text).await;
     post(&owner, &board, reply, source, "Intermediate reply").await;
@@ -145,9 +145,25 @@ async fn exercise(owner: PgPool, public: PgPool, board: String, other: String) {
             assert!(html.contains(expected), "{path}: missing {expected}");
         }
         assert!(html.contains(&link(
-            &format!("/{board}/post/{target}"),
-            &format!("&gt;&gt;0{target}")
+            &format!("/{board}/thread/000{target}#p000{target}"),
+            &format!("&gt;&gt;000{target}")
         )));
+        assert!(html.contains(&link(
+            &format!("#p000{source}"),
+            &format!("&gt;&gt;000{source}")
+        )));
+        assert!(html.contains(&link(
+            &format!("#p000{reply}"),
+            &format!("&gt;&gt;000{reply}")
+        )));
+        assert!(html.contains(&link(
+            &format!("/{board}/thread/{target}#p000{target_reply}"),
+            &format!("&gt;&gt;000{target_reply}")
+        )));
+        assert!(html.contains(&format!(
+            "<span class=\"deadlink\">&gt;&gt;000{missing}</span>"
+        )));
+        assert!(html.contains(&dead(0)));
         assert!(!html.contains(&format!("href=\"/zzzzzzzzzz/post/{target}")));
         assert!(!html.contains("<script>alert(1)</script>"));
     }
@@ -192,6 +208,7 @@ async fn exercise(owner: PgPool, public: PgPool, board: String, other: String) {
     let search = rendered(&get(&web, &format!("/search/api?q=resolutionneedle&b={board}")).await);
     assert!(!search.contains("class=\"deadlink\""));
     assert!(search.contains(&format!("&gt;&gt;{missing}")));
+    assert!(!search.contains(&format!("href=\"/{board}/post/0\"")));
 
     // A target changes while the source row and thread remain untouched. Every
     // full/tail API and native representation must revalidate from its body.
@@ -252,6 +269,16 @@ async fn exercise(owner: PgPool, public: PgPool, board: String, other: String) {
                 dead(missing)
             };
             assert!(html.contains(&expected), "{path}: {expected}");
+            let spelling = format!("&gt;&gt;000{missing}");
+            let lexical = if present {
+                link(
+                    &format!("/{board}/thread/{target}#p000{missing}"),
+                    &spelling,
+                )
+            } else {
+                format!("<span class=\"deadlink\">{spelling}</span>")
+            };
+            assert!(html.contains(&lexical), "{path}: {lexical}");
             tags[index] = headers["etag"].to_str().unwrap().into();
             assert_eq!(
                 request(
@@ -298,6 +325,9 @@ async fn exercise(owner: PgPool, public: PgPool, board: String, other: String) {
         let html = rendered(&get(&web, &format!("/{board}/thread/{source}.json")).await);
         assert!(html.contains(&dead(target)));
         assert!(html.contains(&dead(target_reply)));
+        assert!(html.contains(&format!(
+            "<span class=\"deadlink\">&gt;&gt;000{target}</span>"
+        )));
         sqlx::query("UPDATE content.posts SET deleted=false WHERE id=$1")
             .bind(target)
             .execute(&owner)

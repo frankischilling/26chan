@@ -105,6 +105,33 @@ test('isolated current-source inline quote DOM contracts', async t => {
       return { context, page, requests, errors };
     }
 
+    await t.test('leading-zero inline targets load remotely without bypassing ancestor or self limits', async () => {
+      const { page, context, requests, errors } = await setup({ remote: true,
+        messages: [['100', quote('000101', 'alias', '#p000101') + quote('000100', 'self', '#p000100')], ['101', 'Visible local target']],
+        handler: route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(envelope('101',
+          `Remote target ${quote('000100', '', '#p000100')}`)) }),
+      });
+      try {
+        await page.evaluate(() => window.fire('#alias'));
+        await page.waitForFunction(() => document.querySelector('[data-inline-state="ready"],[data-inline-state="error"]'));
+        assert.equal(await page.locator('.inlined').getAttribute('data-inline-state'), 'ready');
+        assert.match(await page.locator('.inlined').textContent(), /Remote target/);
+        assert.equal(await page.locator('.inlined [id],.inlined form,.inlined input').count(), 0);
+        assert.equal(await page.locator('#pc101').evaluate(node => node.style.display), '');
+        const request = requests.filter(row => row.url.includes('/_watch/'));
+        assert.equal(request.length, 1);
+        assert.equal(request[0].url, `${origin}/_watch/demo/post/101`);
+        assert.equal(request[0].headers.cookie, undefined);
+        const cycle = await page.evaluate(() => window.fire('.inlined a.quotelink'));
+        assert.equal(cycle.outcome, 'inlinehandled');
+        assert.equal(await page.locator('.inlined').count(), 1);
+        const self = await page.evaluate(() => window.fire('#self'));
+        assert.equal(self.outcome, 'ordinarynav');
+        assert.equal(requests.filter(row => row.url.includes('/_watch/')).length, 1);
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+
     await t.test('resolved dead spans remain inert through parsing, local copies and every quote consumer', async () => {
       for (const mobile of [false, true]) {
         const { context, page, requests, errors } = await setup({ mobile,

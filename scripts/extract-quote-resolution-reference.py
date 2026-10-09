@@ -41,6 +41,10 @@ def canonical(value):
     return isinstance(value, str) and re.fullmatch(r'[1-9][0-9]*', value) is not None and int(value) <= I64_MAX
 
 
+def decimal(value):
+    return isinstance(value, str) and re.fullmatch(r'[0-9]+', value) is not None and int(value) <= I64_MAX
+
+
 def capture(source):
     result = {}
     for name, (file, start, end, sha) in EXCERPTS.items():
@@ -60,7 +64,8 @@ def make_cases(allowlist):
     cases = []
 
     def add(id, kind='same_board', board='g', source='g', current='100', no='123', resto='100', absence=None):
-        require(canonical(no), f'noncanonical case: {id}')
+        require(decimal(no), f'nondecimal case: {id}')
+        require(int(no) > 0 or resto is None, 'post zero must be absent')
         require(resto is None or resto == '0' or canonical(resto), 'invalid controlled resto')
         label = '&gt;&gt;' + no if kind == 'same_board' else '&gt;&gt;&gt;/' + board + '/' + no
         if kind == 'cross_board' and board not in allowlist:
@@ -68,13 +73,13 @@ def make_cases(allowlist):
         elif resto is None or (kind == 'cross_board' and source == 'mlp' and board in ('b', 'co')):
             state, thread, href = 'dead', None, None
         else:
-            thread = no if resto == '0' else resto
-            if kind == 'same_board' and current and (current == resto or current == no):
+            thread = str(int(no)) if resto == '0' else resto
+            if kind == 'same_board' and current and (int(current) == int(resto) or int(current) == int(no)):
                 state, href = 'local', '#p' + no
             else:
                 state = 'thread'
                 prefix = '/' if kind == 'same_board' else '//boards.example.test/'
-                href = prefix + board + '/thread/' + thread + '#p' + no
+                href = prefix + board + '/thread/' + (no if resto == '0' else thread) + '#p' + no
         rendered = label if state == 'plain' else ('<span class="deadlink">' + label + '</span>' if state == 'dead' else '<a href="' + href + '" class="quotelink">' + label + '</a>')
         cases.append(dict(id=id, source_board=source, source_thread_id=current, token_kind=kind,
                           label_html=label, target_board=board, target_post_id=no, lookup_resto=resto,
@@ -106,6 +111,15 @@ def make_cases(allowlist):
     # Every exact allowlisted board is exercised, including names absent from navigation lists.
     for board in allowlist:
         add('allowlisted-' + board, kind='cross_board', board=board, resto='0')
+    for case in list(cases):
+        add('leading-zero-' + case['id'], kind=case['token_kind'], board=case['target_board'],
+            source=case['source_board'], current=case['source_thread_id'], no='000' + case['target_post_id'],
+            resto=case['lookup_resto'], absence=case['absence_reason'])
+    for no in ('0', '0000'):
+        add('zero-same-' + no, no=no, resto=None, absence='post-zero-invariant')
+        add('zero-cross-' + no, kind='cross_board', board='a', no=no, resto=None, absence='post-zero-invariant')
+        add('zero-unknown-' + no, kind='cross_board', board='unknown', no=no, resto=None)
+        add('zero-mlp-' + no, kind='cross_board', source='mlp', board='co', no=no, resto=None)
     return cases
 
 
@@ -126,15 +140,16 @@ def generate(captured):
     return dict(schema_version=1, source_revision=REVISION,
                 oracle_method='static-extraction-and-independently-derived-controlled-lookup-expectations',
                 source_execution='not performed while generating this fixture; optional --php-oracle validates extracted functions only',
-                limits=['Canonical positive decimal post IDs within signed i64 only.',
-                        'Leading-zero, signed, exponent, nondecimal, zero, and overflow IDs and MySQL coercion are explicitly unqualified.',
+                limits=['Decimal post spellings within signed i64, including leading zeroes, are qualified after source word wrapping.',
+                        'Post zero is qualified only as controlled absence; the Rust store cannot contain post zero.',
+                        'Signed, exponent, nondecimal and overflow IDs and general MySQL coercion are explicitly unqualified.',
                         'Same-board tokenizer consumes a digit prefix in >>123abc or >>1e3; that canonical prefix is qualified, not a claim about MySQL nondecimal coercion.',
                         'Lookup answers are controlled stubs. Private-as-missing is an absence presentation scenario, not evidence of source SQL RLS.',
                         'Source URL constants are controlled: NEW_HTML=true, RES_DIR2=thread/, PHP_EXT2=empty, L::d=example.test. Cross-host deployment mapping is not qualified.',
                         'Only already-escaped input is passed to auto_link; this is not an HTML sanitizer.'],
                 excerpts={n: dict(file=v[0], start_line=v[1], end_line=v[2], sha256=v[3]) for n,v in EXCERPTS.items()},
                 captured_sources=captured, allowlist=allowlist, cases=cases, lexical_cases=lexical,
-                unqualified_ids=['0', '01', '+1', '-1', '1e3', '1.0', '0x10', str(I64_MAX+1)])
+                unqualified_ids=['+1', '-1', '1e3', '1.0', '0x10', str(I64_MAX+1)])
 
 
 def load_fixture():
@@ -149,17 +164,32 @@ def php_oracle(fixture):
     require(php is not None, 'PHP unavailable; no PHP execution was performed')
     captured = fixture['captured_sources']
     validate_captured(captured)
-    functions = '\n'.join(captured[n] for n in ('allowlist', 'boards_matching', 'auto_link', 'same_render', 'cross_render'))
+    functions = '\n'.join(captured[n] for n in ('allowlist', 'same_lookup', 'cross_lookup', 'boards_matching', 'auto_link', 'same_render', 'cross_render'))
     harness = '''
 if (PHP_INT_SIZE !== 8) { throw new RuntimeException('oracle requires 64-bit PHP'); }
 const NEW_HTML = true;
 const RES_DIR2 = 'thread/';
 const PHP_EXT2 = '';
 class L { static function d($board) { return 'example.test'; } }
-function post_resto($no) { global $resto; return $resto; }
-function other_board_resto($board, $no) { global $resto; return $resto; }
+function mysql_global_call($query) { global $c; return $c['allowlist']; }
+function mysql_column_array($rows) { return $rows; }
+function mysql_board_call($format, $board, $no) {
+  global $resto, $c;
+  if ($board !== $c['lookup_board'] || (string)(int)$no !== $c['lookup_post_id']
+      || !in_array($format, ['SELECT resto FROM `%s` WHERE no=%d', 'select resto from `%s` where no=%d'], true)) {
+    throw new RuntimeException('controlled lookup identity mismatch');
+  }
+  // Execute the exact source %d boundary without issuing a database request.
+  if (sprintf('%d', $no) !== $c['lookup_post_id']) throw new RuntimeException('decimal conversion mismatch');
+  return $resto;
+}
+function mysql_num_rows($rows) { return $rows === false ? 0 : 1; }
+function mysql_fetch_row($rows) { return [$rows]; }
+function mysql_result($rows, $index) { return $rows; }
 $c = json_decode(stream_get_contents(STDIN), true);
 define('BOARD_DIR', $c['source_board']);
+define('SQLLOG', $c['source_board']);
+$log = [];
 $resto = $c['lookup_resto'] === null ? false : (int)$c['lookup_resto'];
 echo auto_link($c['input_html'], $c['source_thread_id'] === null ? 0 : (int)$c['source_thread_id']);
 '''
@@ -167,6 +197,13 @@ echo auto_link($c['input_html'], $c['source_thread_id'] === null ? 0 : (int)$c['
     for original in fixture['cases'] + fixture['lexical_cases']:
         case = dict(original)
         case['input_html'] = case.get('input_html', case.get('label_html'))
+        case['allowlist'] = fixture['allowlist']
+        digits = case.get('target_post_id')
+        if digits is None:
+            match = re.search(r'&gt;&gt;([0-9]+)', case['input_html'])
+            digits = match[1] if match else '0'
+        case['lookup_post_id'] = str(int(digits))
+        case['lookup_board'] = case.get('target_board', case['source_board'])
         expected = case.get('expected_html', case.get('expected', {}).get('html'))
         result = subprocess.run([php, '-n', '-d', 'memory_limit=32M', '-d', 'max_execution_time=2', '-r', functions + harness], input=json.dumps(case), text=True, capture_output=True, timeout=5, check=True)
         require(result.stdout == expected and not result.stderr, f'PHP oracle mismatch: {case["id"]}: {result.stdout!r} {result.stderr!r}')
