@@ -6,11 +6,11 @@ import path from 'node:path';
 import { lstat, realpath, writeFile } from 'node:fs/promises';
 import { themeLaunchPlan, runThemeChild, encodeEvidence, saveEvidence } from './windows-theme-stderr.mjs';
 import filter from './windows-theme-stderr-filter.cjs';
-import { CONTROL_SCHEMA, controlIdentity, diagnosticPlan, createTriggerCollector, bounded, encodeSummary, STARTUP_MS, NAVIGATION_MS, CLOSE_MS } from './windows-browser-control-core.mjs';
+import { CONTROL_SCHEMA, controlIdentity, diagnosticPlan, mediaVisualLaunchPlan, createTriggerCollector, bounded, encodeSummary, STARTUP_MS, NAVIGATION_MS, CLOSE_MS } from './windows-browser-control-core.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const NAVIGATION = new Set(['not-triggered', 'http-200', 'unexpected-response', 'failed-or-timeout', 'unavailable']);
-const NETLOG = new Set(['not-triggered', 'accepted', 'discarded-success', 'incomplete-close', 'unavailable', 'unsafe-path', 'size-limit', 'existing-path', 'incomplete', 'file-limit']);
+const NETLOG = new Set(['not-triggered', 'accepted', 'incomplete-close', 'unavailable', 'unsafe-path', 'size-limit', 'existing-path', 'incomplete', 'file-limit']);
 
 export async function saveControlSummary(root, value) {
   if (await realpath(root) !== root || !(await lstat(root)).isDirectory()) throw new Error('Unsafe control root');
@@ -24,7 +24,8 @@ export async function coordinate({ shard, startControl, runOriginal, now = () =>
     const value = now() - origin;
     return Number.isFinite(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER ? Math.floor(value) : null;
   };
-  const summary = { schema: CONTROL_SCHEMA, shard: identity.shard, diagnostic: 'one-shot-browser-control', phase: 'control-startup',
+  const summary = { schema: CONTROL_SCHEMA, shard: identity.shard, suite: identity.suite,
+    diagnostic: 'one-shot-browser-control', phase: 'control-startup',
     conclusion: 'inconclusive', trigger: 'not-observed', control: 'unavailable', package_version: null,
     trigger_receipt_ms: null, dispatch_ms: null, started_receipt_ms: null, completion_receipt_ms: null,
     trigger_to_completion_ms: null, clock: 'coordinator-monotonic-receipts',
@@ -105,7 +106,9 @@ export async function coordinate({ shard, startControl, runOriginal, now = () =>
 async function main() {
   const diagnostic = diagnosticPlan(process.env);
   const root = path.resolve(ROOT, diagnostic.output);
-  const plan = themeLaunchPlan(diagnostic.args, process.env);
+  const plan = diagnostic.suite === 'themes'
+    ? themeLaunchPlan(diagnostic.args, process.env)
+    : mediaVisualLaunchPlan(diagnostic.args, process.env);
   const cli = createRequire(import.meta.url).resolve('@playwright/test/cli');
   const preload = fileURLToPath(new URL('./windows-theme-stderr-preload.cjs', import.meta.url));
   const summary = await coordinate({
@@ -123,7 +126,8 @@ async function main() {
         finish: () => diagnosticCollector.finish(), snapshot: () => diagnosticCollector.snapshot() };
       const result = await runThemeChild({ command: process.execPath, args: ['--require', preload, cli, ...plan.args], env: plan.env, cwd: ROOT }, { collector });
       let evidenceSaved = false;
-      try { await saveEvidence(ROOT, plan.output, encodeEvidence(result)); evidenceSaved = true; } catch { }
+      try { await saveEvidence(ROOT, plan.output, encodeEvidence(result),
+        { allowMediaVisual: diagnostic.suite === 'media-visual' }); evidenceSaved = true; } catch { }
       return { ...result, evidenceSaved };
     },
   });

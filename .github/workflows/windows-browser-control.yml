@@ -4,11 +4,15 @@ on:
     paths:
       - '.github/workflows/windows-browser-control.yml'
       - 'scripts/windows-browser-control*'
+      - 'scripts/windows-theme-stderr*'
       - 'scripts/check-windows-browser-control.mjs'
       - 'tests/helpers/windows-browser-control*'
+      - 'tests/helpers/windows-theme-stderr*'
       - 'tests/helpers/browser-control-trigger*'
       - 'tests/helpers/visual-diagnostics.js'
       - 'tests/helpers/visual-netlog.js'
+      - 'tests/media-visual/**'
+      - 'playwright.media-visual.config.js'
       - 'tests/fixtures/windows-dual-stack-connect-probe/owned-process*'
   workflow_dispatch:
 permissions:
@@ -23,13 +27,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, media-visual]
     env:
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       WINDOWS_BROWSER_CONTROL: '1'
       WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS: '1'
       WINDOWS_VISUAL_NETLOG: '1'
       THEME_SHARD: ${{ matrix.shard }}
+      WINDOWS_BROWSER_CONTROL_SUITE: ${{ matrix.shard == 'media-visual' && 'media-visual' || 'themes' }}
+      ORIGINAL_OUTPUT: ${{ matrix.shard == 'media-visual' && 'windows-media-visual' || format('windows-themes-{0}', matrix.shard) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 1
@@ -78,7 +84,7 @@ jobs:
         timeout-minutes: 2
         shell: pwsh
         run: node --test tests/helpers/windows-browser-control.test.mjs
-      - name: Verify exact original shard coverage
+      - name: Verify exact original theme shard coverage
         timeout-minutes: 2
         shell: pwsh
         run: node scripts/check-windows-theme-shards.mjs
@@ -94,7 +100,7 @@ jobs:
         timeout-minutes: 9
         shell: pwsh
         run: cargo +1.94.0 build -p board-public --example visual-fixtures --locked
-      - name: Run original shard with one isolated browser control
+      - name: Run original theme or media-visual suite with one isolated browser control
         timeout-minutes: 20
         shell: pwsh
         run: |
@@ -120,17 +126,17 @@ jobs:
           retention-days: 3
           compression-level: 0
           include-hidden-files: false
-      - name: Retain original shard failure evidence
+      - name: Retain original suite failure evidence
         if: failure()
         timeout-minutes: 2
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: browser-control-original-failure-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            test-results/windows-themes-${{ matrix.shard }}/**/*.png
-            test-results/windows-themes-${{ matrix.shard }}/**/trace.zip
-            test-results/windows-themes-${{ matrix.shard }}/**/error-context.md
-            test-results/windows-themes-${{ matrix.shard }}/netlogs/*.json
+            test-results/${{ env.ORIGINAL_OUTPUT }}/**/*.png
+            test-results/${{ env.ORIGINAL_OUTPUT }}/**/trace.zip
+            test-results/${{ env.ORIGINAL_OUTPUT }}/**/error-context.md
+            test-results/${{ env.ORIGINAL_OUTPUT }}/netlogs/*.json
           if-no-files-found: ignore
           retention-days: 3
           compression-level: 0
@@ -142,8 +148,8 @@ jobs:
         with:
           name: browser-control-original-transport-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            test-results/windows-themes-${{ matrix.shard }}/transport-stderr.json
-            test-results/windows-themes-${{ matrix.shard }}/fixture-lifecycle.json
+            test-results/${{ env.ORIGINAL_OUTPUT }}/transport-stderr.json
+            test-results/${{ env.ORIGINAL_OUTPUT }}/fixture-lifecycle.json
           if-no-files-found: ignore
           retention-days: 3
           compression-level: 0

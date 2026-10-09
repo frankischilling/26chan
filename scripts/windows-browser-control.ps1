@@ -1,10 +1,12 @@
 #requires -Version 7.0
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
-if (-not $IsWindows -or $env:WINDOWS_BROWSER_CONTROL -ne '1' -or $env:THEME_SHARD -cnotmatch '\A[1-8]\z' -or
+if (-not $IsWindows -or $env:WINDOWS_BROWSER_CONTROL -ne '1' -or $env:THEME_SHARD -cnotmatch '\A(?:[1-8]|media-visual)\z' -or
     $env:WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS -ne '1' -or $env:WINDOWS_VISUAL_NETLOG -ne '1') {
     throw 'Owned browser control configuration rejected.'
 }
+$suite = if ($env:THEME_SHARD -ceq 'media-visual') { 'media-visual' } else { 'themes' }
+if ($env:WINDOWS_BROWSER_CONTROL_SUITE -cne $suite) { throw 'Owned browser control suite rejected.' }
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 . (Join-Path $PSScriptRoot 'windows-browser-control-cleanup.ps1')
 $shard = $env:THEME_SHARD
@@ -19,7 +21,7 @@ foreach ($segment in @('test-results', $controlDirectory)) {
     $item = Get-Item -LiteralPath $directory -Force
     if (-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Unsafe evidence directory.' }
 }
-$state = [ordered]@{ schema = 2; shard = $shard; phase = 'setup'; original_coordinator_exit = $null; hard_deadline = $false; forced_cleanup = $false; tree_exited = $false; cleanup_verified = $false }
+$state = [ordered]@{ schema = 3; shard = $shard; suite = $suite; phase = 'setup'; original_coordinator_exit = $null; hard_deadline = $false; forced_cleanup = $false; tree_exited = $false; cleanup_verified = $false }
 $owned = $null
 $exitCode = 1
 $priorOwned = $env:WINDOWS_BROWSER_CONTROL_OWNED

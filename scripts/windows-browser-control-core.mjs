@@ -1,4 +1,4 @@
-import { CONTROL_TRIGGER, validControlShard } from '../tests/helpers/browser-control-trigger.js';
+import { CONTROL_TRIGGER, validControlCase, validControlShard } from '../tests/helpers/browser-control-trigger.js';
 
 export const TARGET = 'http://127.0.0.1:3000/readyz';
 export const SUMMARY_BYTES = 8192;
@@ -6,21 +6,43 @@ export const STARTUP_MS = 30_000;
 export const NAVIGATION_MS = 5_000;
 export const CLOSE_MS = 5_000;
 
-export const CONTROL_SCHEMA = 2;
+export const CONTROL_SCHEMA = 3;
 
 export function controlIdentity(shard) {
-  if (!validControlShard(shard)) throw new Error('Control shard rejected');
-  return { shard, originalOutput: `test-results/windows-themes-${shard}`,
+  if (!validControlCase(shard)) throw new Error('Control case rejected');
+  const suite = validControlShard(shard) ? 'themes' : 'media-visual';
+  return { shard, suite,
+    originalOutput: suite === 'themes' ? `test-results/windows-themes-${shard}` : 'test-results/windows-media-visual',
     output: `test-results/windows-browser-control-${shard}` };
 }
 
 export function diagnosticPlan(env, platform = process.platform) {
   if (platform !== 'win32' || env.WINDOWS_BROWSER_CONTROL !== '1' ||
-      env.WINDOWS_BROWSER_CONTROL_OWNED !== '1' || !validControlShard(env.THEME_SHARD) ||
+      env.WINDOWS_BROWSER_CONTROL_OWNED !== '1' || !validControlCase(env.THEME_SHARD) ||
       env.WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS !== '1' || env.WINDOWS_VISUAL_NETLOG !== '1' ||
       env.VISUAL_FIXTURE_SERVER !== '1') throw new Error('Owned browser control configuration rejected');
   const identity = controlIdentity(env.THEME_SHARD);
-  return { ...identity, args: ['--shard', `${identity.shard}/8`, '--output', identity.originalOutput] };
+  if (env.WINDOWS_BROWSER_CONTROL_SUITE !== identity.suite) throw new Error('Control suite mismatch');
+  return { ...identity, args: identity.suite === 'themes'
+    ? ['--shard', `${identity.shard}/8`, '--output', identity.originalOutput]
+    : ['--output', identity.originalOutput] };
+}
+
+// Exactly the `npm run test:media-visual -- --output=...` Playwright invocation
+// from required CI, with the unchanged config, test directory, and timeouts.
+export function mediaVisualLaunchPlan(argv, env, platform = process.platform) {
+  const expected = ['--output', 'test-results/windows-media-visual'];
+  if (platform !== 'win32' || env.THEME_SHARD !== 'media-visual' ||
+      env.WINDOWS_BROWSER_CONTROL_SUITE !== 'media-visual' || env.WINDOWS_BROWSER_CONTROL !== '1' ||
+      env.WINDOWS_BROWSER_CONTROL_OWNED !== '1' || env.VISUAL_FIXTURE_SERVER !== '1' ||
+      env.WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS !== '1' || env.WINDOWS_VISUAL_NETLOG !== '1' ||
+      argv.length !== expected.length || argv.some((arg, index) => arg !== expected[index])) {
+    throw new Error('Media visual control configuration rejected');
+  }
+  const childEnv = { ...env, DEBUG: 'pw:browser', DEBUG_COLORS: '0', WINDOWS_THEME_STDERR_PROBE: '1' };
+  delete childEnv.DEBUG_FILE;
+  return { args: ['test', '--config', 'playwright.media-visual.config.js', ...expected],
+    env: childEnv, output: expected[1] };
 }
 
 // Bounded ASCII framing. Invalid/oversized lines stay poisoned until LF.
@@ -56,6 +78,24 @@ export function encodeSummary(value) {
   return body;
 }
 
+// Chromium must have closed and written an actual bounded, parseable NetLog.
+// This checks the pinned schema even when the control made no navigation.
+export function validControlCapture(log) {
+  if (!log || typeof log !== 'object' || Array.isArray(log) || !Array.isArray(log.events)) return false;
+  const constants = log.constants;
+  if (!constants || typeof constants !== 'object') return false;
+  for (const [table, names] of [
+    ['logSourceType', ['URL_REQUEST', 'HTTP_STREAM_JOB', 'SOCKET']],
+    ['logEventTypes', ['URL_REQUEST_START_JOB', 'HTTP_STREAM_REQUEST_BOUND_TO_JOB', 'SOCKET_POOL_BOUND_TO_SOCKET', 'TCP_CONNECT_ATTEMPT']],
+    ['logEventPhase', ['PHASE_BEGIN', 'PHASE_END', 'PHASE_NONE']],
+  ]) {
+    const types = constants[table];
+    if (!types || typeof types !== 'object' || names.some(name => !Number.isSafeInteger(types[name])) ||
+        new Set(names.map(name => types[name])).size !== names.length) return false;
+  }
+  return true;
+}
+
 // Only the winning HTTP job/socket bindings qualify; controller/alternate-job
 // edges are not proof that the response used a particular connection. Chromium
 // tcp_socket_win.cc emits an empty successful END; failure ENDs carry os_error.
@@ -87,6 +127,9 @@ export function inspectControlNetlog(log) {
   if (sockets.length !== 1 || sockets[0].params.source_dependency.type !== sources.SOCKET) return { ...none, request_time: String(request.time) };
   const socketKey = key(sockets[0].params.source_dependency), boundTime = numericTime(sockets[0].time);
   const boundIndex = log.events.indexOf(sockets[0]);
+  // In the pinned Windows Chromium log, the socket is connected and bound to
+  // its HTTP stream job before that job binds to the URL request. The exact
+  // source dependencies prove the chain; their recording order does not.
   let pending = null, attempts = 0, first = null, successful = null;
   for (let index = requestIndex + 1; index < boundIndex; index++) {
     const event = log.events[index];

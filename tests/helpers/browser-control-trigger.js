@@ -4,10 +4,16 @@ export function validControlShard(shard) {
   return typeof shard === 'string' && shard.length === 1 && /^[1-8]$/.test(shard);
 }
 
+export function validControlCase(value) {
+  return validControlShard(value) || value === 'media-visual';
+}
+
 export function browserControlEnabled(platform, env) {
   return platform === 'win32' && env.WINDOWS_BROWSER_CONTROL === '1' &&
     env.WINDOWS_BROWSER_CONTROL_OWNED === '1' && env.VISUAL_FIXTURE_SERVER === '1' &&
-    env.WINDOWS_VISUAL_NETLOG === '1' && env.WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS === '1' && validControlShard(env.THEME_SHARD);
+    env.WINDOWS_VISUAL_NETLOG === '1' && env.WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS === '1' &&
+    validControlCase(env.THEME_SHARD) &&
+    env.WINDOWS_BROWSER_CONTROL_SUITE === (validControlShard(env.THEME_SHARD) ? 'themes' : 'media-visual');
 }
 
 // The coordinator has a second latch covering replacement test workers.

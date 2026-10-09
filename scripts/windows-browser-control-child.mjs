@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readFile, rename, lstat } from 'node:fs/promises';
 import { visualNetlogPlan, prepareVisualNetlog, finishVisualNetlog } from '../tests/helpers/visual-netlog.js';
-import { TARGET, STARTUP_MS, NAVIGATION_MS, CLOSE_MS, diagnosticPlan, bounded, inspectControlNetlog } from './windows-browser-control-core.mjs';
+import { TARGET, STARTUP_MS, NAVIGATION_MS, CLOSE_MS, diagnosticPlan, bounded, inspectControlNetlog, validControlCapture } from './windows-browser-control-core.mjs';
 
 export async function runControl({ launch, send, messages, root, version }) {
   let browser, page, plan, triggered = false, stopping = false, navigation = null;
@@ -17,9 +17,12 @@ export async function runControl({ launch, send, messages, root, version }) {
     const closed = browser ? await bounded(browser.close().then(() => true), CLOSE_MS, false) : false;
     if (plan && closed) {
       try {
-        result.netlog = await finishVisualNetlog(plan, { failed: triggered });
+        // Keep the complete capture even if no original failure fired. Merely
+        // deleting an absent pending file is not evidence that logging worked.
+        result.netlog = await finishVisualNetlog(plan, { failed: true });
         if (result.netlog === 'accepted') {
           const log = JSON.parse(await readFile(plan.accepted, 'utf8'));
+          if (!validControlCapture(log)) throw new Error('Incomplete control capture');
           result.tcp = inspectControlNetlog(log);
           const destination = path.join(root, 'control-netlog.json');
           try { await lstat(destination); throw new Error('Existing artifact'); }
