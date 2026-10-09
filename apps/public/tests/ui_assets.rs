@@ -745,6 +745,12 @@ async fn catalog_and_page_controllers_are_bounded_fixed_code_and_absent_from_the
             "/static/page-chrome.js",
             "/static/page-chrome.v2.js",
         ),
+        (
+            "/static/native-blotter.v1.js",
+            include_bytes!("../static/native-blotter.v1.js").as_slice(),
+            "/static/native-blotter.js",
+            "/static/native-blotter.v2.js",
+        ),
     ] {
         assert!(expected.len() <= 32_768);
         assert!(std::str::from_utf8(expected).is_ok());
