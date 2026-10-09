@@ -40,7 +40,7 @@ for (const catalog of [false, true]) {
       }
       expect(await page.locator('#boardSelectMobile option:not([data-current-board-fallback])').evaluateAll(nodes => nodes.map(node => [node.value, node.textContent, node.className]))).toEqual(
         sourceHeaderGroups.flat().sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([slug, title]) => [slug, `/${slug}/ - ${title}`, headerNws.get(slug) ? 'nwsb' : '']));
-      await expect(page.locator('#boardSelectMobile option[data-current-board-fallback]')).toHaveValue('fixture');
+      await expect(page.locator('#boardSelectMobile option[data-current-board-fallback]')).toHaveAttribute('value', 'fixture');
       expect(directory.some(board => board.board === 'demo')).toBe(true);
       expect(sourceHeaderGroups.flat().some(([slug]) => slug === 'demo')).toBe(false);
       await expect(page.locator('#boardSelectMobile')).toHaveValue('fixture');
