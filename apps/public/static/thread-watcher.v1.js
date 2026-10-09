@@ -1,3 +1,4 @@
+import { mountNativeBlotter } from './native-blotter.v1.js';
 import { WATCH_LIMITS, reportURL, createReportRegistry, postId, watchKey, splitWatchKey, watchLabel, readWatches, writeWatches,
   sameEntry, orderedWatches, autoRefreshEligible, acknowledgedEntry,
   WatcherRefresh } from './thread-watcher-core.v1.js';
@@ -93,7 +94,10 @@ async function start(context) {
 
   // Main.init publishes context and preferences before any parser starts.
   // Upload forms share watcher storage but are not board parsing documents.
-  if (!catalog && document.querySelector('.board')) dispatchSourceEvent(document, '4chanMainInit');
+  if (!catalog && document.querySelector('.board')) {
+    mountNativeBlotter(document);
+    dispatchSourceEvent(document, '4chanMainInit');
+  }
   let mathModule = null;
   if (!catalog && document.body.dataset.mathTags === '1') {
     try { mathModule = await import('./native-math.v1.js'); } catch { /* Literal tags remain usable. */ }

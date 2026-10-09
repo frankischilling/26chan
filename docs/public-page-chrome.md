@@ -7,6 +7,13 @@ directory and keeps the catalog view when moving between boards, except for
 fallback; board and thread scripts bind those existing links to the native
 dialog. Archive pages load only the fixed navigation module.
 
+The [local blotter](local-blotter.md) adds the source-gated newest-three preview,
+timestamp dismissal and a local dated cursor-paginated page. Its database and
+focused Node checks pass; hosted browser qualification is pending. Remaining
+information pages, homepage, original footer destinations and blotter
+Atom/controller semantics stay open under
+[#194](https://github.com/frankischilling/26chan/issues/194).
+
 ## Public reference and limits
 
 The sanitized [DOM observations](public-page-chrome-dom.json) retain only

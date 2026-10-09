@@ -42,6 +42,7 @@
 <input type="hidden" name="resto" value="{{ parent }}">
 {% call posting::fields(parent, false, board.comment_spoiler_cleanup, board.text_only, board.forced_anon, board.country_flags, board.flag_options(), quote, drawing_allowed(), board.oekaki_width, board.oekaki_height) %}{% endcall %}
 <p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.reply_limit }} per thread. {% if media_origin.is_empty() || board.image_limit == 0 || board.text_only %}Media uploads are unavailable.{% else %}Use the upload form above to post with an image.{% endif %}</p>
+{% include "blotter_preview.html" %}
 </form>
 {% endif %}
 <hr>

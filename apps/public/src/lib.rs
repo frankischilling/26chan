@@ -4,6 +4,7 @@ mod anonymous_session;
 mod api;
 mod api_http;
 pub mod archive;
+mod blotter;
 pub mod catalog;
 mod derefer;
 mod handlers;
@@ -253,6 +254,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
         .merge(ui_assets::routes())
         .merge(search::routes())
         .merge(polls::routes())
+        .merge(blotter::routes())
         .route("/", get(handlers::home))
         .route("/derefer", get(derefer::get))
         .route("/healthz", get(|| async { "ok" }))

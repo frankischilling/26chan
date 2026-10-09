@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Blotter - Paperboard{% endblock %}
+{% block content %}
+<section class="blotterPage" aria-labelledby="blotter-title">
+<h1 id="blotter-title">Blotter</h1>
+<table id="entries" class="blotterEntries">
+<thead><tr><th scope="col" class="col-date">Date</th><th scope="col">Message</th></tr></thead>
+<tbody>
+{% for message in messages %}<tr id="msg-{{ message.id }}"><td class="col-date">{{ message.date() }}</td><td class="col-msg blotterMessage">{{ message.content }}</td></tr>
+{% else %}<tr><td colspan="2">No blotter messages.</td></tr>{% endfor %}
+</tbody>
+{% if let Some(offset) = next_offset %}<tfoot><tr><td colspan="2"><a href="/blotter?offset={{ offset }}" rel="next">Next</a></td></tr></tfoot>{% endif %}
+</table>
+</section>
+{% endblock %}
+{% block feature_notice %}Read-only blotter.{% endblock %}

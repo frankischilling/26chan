@@ -331,6 +331,8 @@ jobs:
         run: sudo bash scripts/test-reporter-clear-migration.sh
       - name: Qualify bounded report group clearing, inherited state and administrator restore
         run: sudo bash scripts/test-report-group-clear-migration.sh
+      - name: Qualify local blotter upgrade and reserved-route rollback
+        run: sudo bash scripts/test-blotter-migration.sh
       - name: Qualify public poll projections, publication boundaries and administrator restore
         run: sudo bash scripts/test-poll-read-migration.sh
       - name: Qualify proof-bound staff attachments and retained text authorities

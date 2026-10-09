@@ -1,0 +1,9 @@
+{% if board.show_blotter && !blotter.is_empty() %}
+<table id="blotter" class="desktop" aria-label="Blotter">
+<thead><tr><td colspan="2"><hr class="aboveMidAd"></td></tr></thead>
+<tbody id="blotter-msgs">
+{% for message in blotter %}<tr><td class="blotter-date" data-utc="{{ message.timestamp() }}">{{ message.date() }}</td><td class="blotter-content blotterMessage">{{ message.content }}</td></tr>{% endfor %}
+</tbody>
+<tfoot><tr><td colspan="2" class="blotterControls">[<a id="toggleBlotter" href="#" data-utc="{{ blotter_timestamp() }}" aria-controls="blotter-msgs" aria-expanded="true">Hide</a>]<span id="blotter-all"> [<a href="/blotter" target="_blank" rel="noopener">Show All</a>]</span></td></tr></tfoot>
+</table>
+{% endif %}

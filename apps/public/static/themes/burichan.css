@@ -146,3 +146,7 @@ body.publicPageChrome.is_catalog #boardNavDesktopFoot a:hover { color: rgb(221, 
 }
 
 :root { --archive-cell-size: 12pt; --archive-stripe: #e0e5f6; }
+
+/* Source leaves blotter table spacing, cell padding and divider to the UA. */
+:root { --blotter-spacing: 2px; --blotter-cell-padding: 1px; }
+#blotter .aboveMidAd { border: revert; height: revert; }

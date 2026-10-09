@@ -234,6 +234,11 @@ async fn read_board_snapshot(
     .fetch_all(&mut *tx)
     .await?;
     let navigation_boards = crate::read::snapshot_navigation(&mut tx, include_navigation).await?;
+    let blotter = crate::blotter::snapshot_blotter(
+        &mut tx,
+        include_navigation && board.show_blotter && !complete,
+    )
+    .await?;
     tx.commit().await?;
 
     let counts: BTreeMap<_, _> = counts
@@ -266,5 +271,6 @@ async fn read_board_snapshot(
             has_next,
         },
         navigation_boards,
+        blotter,
     })
 }

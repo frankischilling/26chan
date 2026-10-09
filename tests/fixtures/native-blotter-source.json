@@ -1,0 +1,8 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "path": "js/core.js",
+  "byte_start": 24430,
+  "byte_end": 25544,
+  "sha256": "f3048ef71fcbf44018ee623a9f581de91577135587871931a8072b99e91f5b72",
+  "text": "function initBlotter() {\r\n  var mTime, seenTime, el;\r\n  \r\n  el = document.getElementById('toggleBlotter');\r\n  \r\n  if (!el) {\r\n    return;\r\n  }\r\n  \r\n  el.addEventListener('click', toggleBlotter, false);\r\n  \r\n  seenTime = localStorage.getItem('4chan-blotter');\r\n  \r\n  if (!seenTime) {\r\n    return;\r\n  }\r\n  \r\n  mTime = +el.getAttribute('data-utc');\r\n  \r\n  if (mTime <= +seenTime) {\r\n    toggleBlotter();\r\n  }\r\n}\r\n\r\nfunction toggleBlotter(e) {\r\n  var el, btn;\r\n  \r\n  e && e.preventDefault();\r\n  \r\n  el = document.getElementById('blotter-msgs');\r\n  \r\n  if (!el) {\r\n    return;\r\n  }\r\n  \r\n  btn = document.getElementById('toggleBlotter');\r\n  \r\n  if (el.style.display == 'none') {\r\n    el.style.display = '';\r\n    localStorage.removeItem('4chan-blotter');\r\n    btn.textContent = 'Hide';\r\n    \r\n    el = btn.nextElementSibling;\r\n    \r\n    if (el.style.display) {\r\n      el.style.display = '';\r\n    }\r\n  }\r\n  else {\r\n    el.style.display = 'none';\r\n    localStorage.setItem('4chan-blotter', btn.getAttribute('data-utc'));\r\n    btn.textContent = 'Show Blotter';\r\n    btn.nextElementSibling.style.display = 'none';\r\n  }\r\n}\r\n\r\n"
+}

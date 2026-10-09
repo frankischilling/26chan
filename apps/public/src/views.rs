@@ -21,6 +21,7 @@ pub struct Home {
 #[derive(Template)]
 #[template(path = "board.html")]
 pub struct BoardPage {
+    pub blotter: Vec<board_store::BlotterMessage>,
     pub spoiler_thumbnail: String,
     pub navigation_boards: Vec<Board>,
     pub quote: String,
@@ -53,6 +54,11 @@ pub struct UploadForm {
 }
 
 impl BoardPage {
+    pub fn blotter_timestamp(&self) -> i64 {
+        self.blotter
+            .first()
+            .map_or(0, |message| message.timestamp())
+    }
     pub fn drawing_allowed(&self) -> bool {
         self.posting_allowed()
             && self

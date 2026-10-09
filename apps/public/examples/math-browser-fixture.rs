@@ -23,6 +23,7 @@ fn board() -> Board {
         slug: "sci".into(),
         title: "Paper craft".into(),
         description: "Discuss paper models, folding, and works in progress.".into(),
+        show_blotter: true,
         max_comment_chars: 4000,
         max_authorized_comment_chars: 10000,
         comment_code_spacing: false,
@@ -136,6 +137,7 @@ fn fixture(enabled: bool, empty: bool, catalog: bool, index: bool) -> axum::resp
         }));
     }
     let page = BoardPage {
+        blotter: Vec::new(),
         spoiler_thumbnail: "spoiler.png".into(),
         navigation_boards: vec![board.clone()],
         board,

@@ -27,6 +27,7 @@ async fn directory(api: &Router) -> Value {
 
 fn page(board: Board, media_enabled: bool) -> BoardPage {
     BoardPage {
+        blotter: Vec::new(),
         spoiler_thumbnail: "/static/spoiler.png".into(),
         navigation_boards: vec![],
         quote: String::new(),

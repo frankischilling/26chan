@@ -36,6 +36,8 @@ timeout 300s npm run test:drawing
 npx playwright test tests/browser/anonymous-session.spec.js
 node --test tests/browser/polls-fixture.test.mjs
 npm run test:polls
+npm run test:blotter
+npm run test:blotter-persisted
 npm run test:global-search
 npm run test:posting-randomizers
 npm run test:robot9000

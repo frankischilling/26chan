@@ -16,6 +16,7 @@ POLICY_KEYS.add("DISP_ID_NO_HEAVEN")
 POLICY_KEYS.update({"MAX_USER_THREADS", "MAX_USER_THREADS_PERIOD"})
 POLICY_KEYS.add("CAN_REPORT_POSTS")
 POLICY_KEYS.add("JSMATH")
+POLICY_KEYS.add("SHOW_BLOTTER")
 POLICY_KEYS.update({"ENABLE_PAINTERJS", "ENABLE_OEKAKI_REPLAYS", "PAINTERJS_DIMS"})
 
 
@@ -57,6 +58,7 @@ def extract(root, names_encoding="utf-8"):
             "description": html.unescape(values.get("META_DESCRIPTION", "")),
             "source_order": position, "listed": slug in slugs,
             "worksafe": values["CATEGORY"] == "ws",
+            "show_blotter": boolean("SHOW_BLOTTER"),
             "max_comment_chars": integer("MAX_COM_CHARS"),
             "comment_max_lines": integer("MAX_LINES"),
             "comment_code_spacing": boolean("CODE_TAGS"),
@@ -99,7 +101,7 @@ def migration(reference):
         "listed", "source_policy", "meta_board", "poster_id_no_heaven", "expire_neglected",
         "posting_reply_seconds", "posting_image_seconds", "posting_thread_seconds",
         "user_thread_limit", "user_thread_period_hours", "can_report_posts", "math_tags",
-        "oekaki", "oekaki_replays", "oekaki_width", "oekaki_height",
+        "oekaki", "oekaki_replays", "oekaki_width", "oekaki_height", "show_blotter",
     }]
     def sql(value):
         if isinstance(value, bool):

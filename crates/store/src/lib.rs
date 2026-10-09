@@ -3,7 +3,9 @@
 pub mod anonymous_session;
 mod archives;
 pub mod automatic_admission;
+pub mod blotter;
 mod board_snapshot;
+pub use blotter::BlotterMessage;
 mod content_admission;
 pub use archives::{
     ArchiveEntry, ArchivePageEntry, ArchivePageSnapshot, ArchiveSnapshot,
@@ -93,6 +95,7 @@ pub struct Board {
     pub rss_enabled: bool,
     pub title: String,
     pub description: String,
+    pub show_blotter: bool,
     pub max_comment_chars: i32,
     pub max_authorized_comment_chars: i32,
     pub comment_code_spacing: bool,

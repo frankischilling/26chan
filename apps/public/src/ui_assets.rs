@@ -1,6 +1,7 @@
 //! Release-owned public UI bytes, never upload storage or a filesystem server.
 use axum::{Router, http::header, routing::get};
 
+pub(crate) const NATIVE_BLOTTER_PATH: &str = "/static/native-blotter.v1.js";
 pub(crate) const REPORT_POPUP_PATH: &str = "/static/report-popup.v1.js";
 pub(crate) const CATALOG_SCRIPT_PATH: &str = "/static/catalog-preferences.v1.js";
 pub(crate) const CATALOG_FILTER_PATH: &str = "/static/catalog-filters.v1.js";
@@ -35,6 +36,11 @@ pub(crate) const TEGAKI_STYLE_PATH: &str = "/static/tegaki/tegaki-0.9.4.v1.css";
 pub(crate) const TEGAKI_FONT_PATH: &str = "/static/tegaki/tegaki-icons.v1.woff";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
+    (
+        NATIVE_BLOTTER_PATH,
+        "text/javascript; charset=utf-8",
+        include_bytes!("../static/native-blotter.v1.js"),
+    ),
     (
         TEGAKI_STYLE_PATH,
         "text/css; charset=utf-8",

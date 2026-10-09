@@ -802,3 +802,22 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 .painter-ctrl input[type="text"], #qr-painter-ctrl input[type="text"] { width: 30px !important; text-align: center; }
 #qr-painter-ctrl .oe-r-cb { vertical-align: sub; }
 #oe-canvas-preview { position: absolute; margin-left: 5px; margin-top: 3px; box-shadow: 0 0 1px 1px rgba(0, 0, 0, .25); }
+
+/* Shared pinned preview geometry; legacy themes retain their browser defaults. */
+#blotter, #blotter * { box-sizing: revert; }
+#blotter { width: 468px; margin: auto; border-spacing: var(--blotter-spacing, 1px); }
+#blotter td { margin: 0; padding: var(--blotter-cell-padding, 0); vertical-align: top; font-size: 11px; }
+#blotter .blotter-date { width: 50px; text-align: center; }
+#blotter tfoot { text-align: right; }
+#blotter .aboveMidAd { all: revert; width: 468px; max-width: var(--blotter-divider-max, 100%); border: none; border-top: 1px solid var(--blotter-divider-color, #d9bfb7); height: 0; }
+/* Plain-text replacement keeps line breaks and bounds untrusted long words. */
+.blotterMessage { white-space: pre-wrap; overflow-wrap: anywhere; }
+.blotterEntries .col-date { white-space: nowrap; }
+#blotter [hidden] { display: none; }
+.blotterPage { max-width: 900px; margin: 0 auto; }
+.blotterEntries { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.blotterEntries th, .blotterEntries td { padding: 6px; text-align: left; vertical-align: top; }
+.blotterEntries .col-date { width: 6em; }
+@media (max-width: 480px) {
+  #blotter.desktop { display: none; }
+}
