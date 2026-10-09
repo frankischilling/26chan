@@ -278,6 +278,12 @@ pub async fn check_identity(pool: &PgPool, expected: &str) -> Result<(), AppErro
     if cross {
         return Err(AppError::Forbidden);
     }
+    let cleanup: bool = sqlx::query_scalar(crate::robot9000_cleanup::READY_SQL)
+        .fetch_one(pool)
+        .await?;
+    if !cleanup {
+        return Err(AppError::Forbidden);
+    }
     let attachments: bool = sqlx::query_scalar(STAFF_ATTACHMENT_READY_SQL)
         .fetch_one(pool)
         .await?;

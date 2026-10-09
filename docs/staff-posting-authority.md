@@ -239,3 +239,7 @@ the posting owner's new column reads and private-table writes. Fresh bootstrap
 passes locally with all migrations; historical content remains unchanged.
 Migration 77 is unchanged by this correction. The corrected published head
 passes the complete hosted qualification linked above.
+
+Robot9000 text-history retention is available through the separate
+[staff cleanup interface](staff-robot9000-cleanup.md). Ordinary posting and its
+explicit bypass keep the authority rules described above.

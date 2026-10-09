@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Originality history cleanup</title></head><body><main>
+<h1>Originality history cleanup: /{{ board }}/</h1>
+<p><a href="/reports">Return to report queue</a></p>
+<p>Remove up to 1,000 text originality records last seen strictly more than two calendar years ago. The cutoff is calculated in UTC when the board is locked. This also works when Robot9000 is disabled.</p>
+<p>Removed text may be posted as original again. Posts, files and mute records are unchanged. Every submitted batch is audited.</p>
+{% if let Some(outcome) = result %}
+<p role="status">Removed {{ outcome.removed }} originality records before {{ outcome.cutoff }}.</p>
+{% if outcome.has_more %}<p>More eligible records remain. Submit another batch to continue.</p>{% else %}<p>No eligible records remain at this batch's cutoff.</p>{% endif %}
+{% endif %}
+{% if recent %}
+<form method="post" action="/robot9000-cleanup"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">Remove expired originality history</button></form>
+{% else %}<p>Authentication is older than ten minutes. <a href="/">Sign in again</a> before running cleanup.</p>{% endif %}
+</main></body></html>

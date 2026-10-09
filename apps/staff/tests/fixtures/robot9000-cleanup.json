@@ -1,0 +1,1074 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "admin.php": "4415d6684931efb93a9cc044bd69f770bd7bf1dc7b217e6f8cfffa0fe60418eb",
+    "lib/auth.php": "98138062957155f859c6c2650613117290feeb386c6deb3a1097f5b62cbb6019"
+  },
+  "scope": "Authenticated remote Board Cleanup permission checks only; no login, database, filesystem or local-auth execution",
+  "cases": [
+    {
+      "role": "janitor",
+      "allow": [],
+      "deny": [],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [],
+      "deny": [],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "all"
+      ],
+      "deny": [],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "all"
+      ],
+      "deny": [],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "janitor",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [],
+      "deny": [],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [],
+      "deny": [],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "all"
+      ],
+      "deny": [],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "all"
+      ],
+      "deny": [],
+      "flags": [
+        "developer"
+      ],
+      "allowed": true
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "mod",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [],
+      "deny": [],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [],
+      "deny": [],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [],
+      "flags": [],
+      "allowed": true
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [],
+      "flags": [
+        "developer"
+      ],
+      "allowed": true
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": true
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": true
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "all"
+      ],
+      "deny": [],
+      "flags": [],
+      "allowed": true
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "all"
+      ],
+      "deny": [],
+      "flags": [
+        "developer"
+      ],
+      "allowed": true
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": true
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": true
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "manager",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [],
+      "deny": [],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [],
+      "deny": [],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [],
+      "flags": [],
+      "allowed": true
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [],
+      "flags": [
+        "developer"
+      ],
+      "allowed": true
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": true
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": true
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "r9k"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "all"
+      ],
+      "deny": [],
+      "flags": [],
+      "allowed": true
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "all"
+      ],
+      "deny": [],
+      "flags": [
+        "developer"
+      ],
+      "allowed": true
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": true
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": true
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [],
+      "allowed": false
+    },
+    {
+      "role": "admin",
+      "allow": [
+        "all"
+      ],
+      "deny": [
+        "r9k",
+        "noboard"
+      ],
+      "flags": [
+        "developer"
+      ],
+      "allowed": false
+    }
+  ]
+}

@@ -219,7 +219,8 @@ BEGIN
           AND has_column_privilege('board_robot9000_owner','content.boards',c.column_name,'SELECT'))
      OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='content' AND c.table_name='boards'
           AND c.column_name<>'slug' AND has_column_privilege('board_robot9000_owner','content.boards',c.column_name,'UPDATE'))
-     OR has_table_privilege('board_robot9000_owner','post_secrets.robot9000_texts','DELETE,TRUNCATE,TRIGGER,REFERENCES')
+     OR NOT has_table_privilege('board_robot9000_owner','post_secrets.robot9000_texts','DELETE')
+     OR has_table_privilege('board_robot9000_owner','post_secrets.robot9000_texts','TRUNCATE,TRIGGER,REFERENCES')
      OR has_table_privilege('board_robot9000_owner','post_secrets.robot9000_mutes','DELETE,TRUNCATE,TRIGGER,REFERENCES')
      OR EXISTS (SELECT 1 FROM unnest(ARRAY['SELECT','INSERT','UPDATE']) privilege(name)
           WHERE NOT has_table_privilege('board_robot9000_owner','post_secrets.robot9000_texts',name)
@@ -241,6 +242,17 @@ BEGIN
      OR EXISTS (SELECT 1 FROM post_secrets.robot9000_texts)
      OR EXISTS (SELECT 1 FROM post_secrets.robot9000_mutes) THEN
     RAISE EXCEPTION 'Robot9000 runtime grants or historical state differ';
+  END IF;
+  IF NOT has_function_privilege('board_staff','content.cleanup_robot9000(text,bigint)','EXECUTE')
+     OR EXISTS(SELECT 1 FROM unnest(ARRAY['board_public','board_auth','board_media','board_media_read','board_media_intake','board_monitor']) runtime(name)
+        WHERE has_function_privilege(name,'content.cleanup_robot9000(text,bigint)','EXECUTE'))
+     OR EXISTS(SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media','board_media_read','board_media_intake','board_monitor']) runtime(name)
+        WHERE has_any_column_privilege(name,'content.board_cleanup_audit','SELECT,INSERT,UPDATE')
+          OR has_table_privilege(name,'content.board_cleanup_audit','DELETE,TRUNCATE,TRIGGER'))
+     OR has_any_column_privilege('board_robot9000_owner','content.board_cleanup_audit','SELECT,UPDATE')
+     OR has_table_privilege('board_robot9000_owner','content.board_cleanup_audit','DELETE,TRUNCATE,TRIGGER')
+     OR EXISTS(SELECT 1 FROM content.board_cleanup_audit) THEN
+    RAISE EXCEPTION 'Robot9000 cleanup grants or initial audit differ';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='board_staff_post_owner'
       AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))

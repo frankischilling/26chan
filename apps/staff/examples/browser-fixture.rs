@@ -71,6 +71,27 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 json!({"thread":thread,"post":post,"report":report,"tim":tim,"mediaRoot":media_root})
             );
         }
+        "robot9000-seed" => {
+            let mut tx = pool.begin().await?;
+            let owned: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.boards WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures')")
+                .bind(board).fetch_one(&mut *tx).await?;
+            if !owned {
+                return Err("Owned Robot9000 fixture board is missing".into());
+            }
+            // Leave Robot9000 disabled: cleanup must also work for dormant boards.
+            sqlx::query("INSERT INTO post_secrets.robot9000_texts(board,digest,seen_at) SELECT $1,decode(lpad(to_hex(n),64,'0'),'hex'),clock_timestamp()-interval '3 years' FROM generate_series(1,1007) n")
+                .bind(board).execute(&mut *tx).await?;
+            sqlx::query("INSERT INTO post_secrets.robot9000_texts(board,digest,seen_at) VALUES ($1,decode(repeat('ff',32),'hex'),clock_timestamp())")
+                .bind(board).execute(&mut *tx).await?;
+            sqlx::query("INSERT INTO post_secrets.robot9000_mutes(board,actor,timeout_power,mute_until,next_expire) VALUES ($1,decode(repeat('aa',32),'hex'),4,clock_timestamp()+interval '1 hour',clock_timestamp()+interval '2 hours')")
+                .bind(board).execute(&mut *tx).await?;
+            tx.commit().await?;
+        }
+        "robot9000-inspect" => {
+            let summary: serde_json::Value = sqlx::query_scalar("SELECT jsonb_build_object('texts',(SELECT count(*) FROM post_secrets.robot9000_texts WHERE board=$1),'old',(SELECT count(*) FROM post_secrets.robot9000_texts WHERE board=$1 AND seen_at<clock_timestamp()-interval '2 years'),'recent',(SELECT count(*) FROM post_secrets.robot9000_texts WHERE board=$1 AND digest=decode(repeat('ff',32),'hex')),'mutes',(SELECT coalesce(jsonb_agg(jsonb_build_array(timeout_power,mute_until::text,next_expire::text) ORDER BY actor),'[]'::jsonb) FROM post_secrets.robot9000_mutes WHERE board=$1),'audit',(SELECT coalesce(jsonb_agg(removed ORDER BY id),'[]'::jsonb) FROM content.board_cleanup_audit WHERE board=$1))")
+                .bind(board).fetch_one(&pool).await?;
+            println!("{summary}");
+        }
         "ordinary-policy" => {
             let changed=sqlx::query("UPDATE content.boards SET text_only=true,user_ids=true,country_flags=true,board_flags=ARRAY['AC'],op_markup=true,dice_roll=true,fortune_trip=true,deletion_known_min_seconds=0,deletion_unknown_min_seconds=0 WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures'")
                 .bind(board).execute(&pool).await?.rows_affected();
@@ -216,6 +237,18 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             sqlx::query("DELETE FROM staff_identity.invitations WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&mut *tx).await?;
             sqlx::query("DELETE FROM staff_identity.ceremonies WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&mut *tx).await?;
             sqlx::query("DELETE FROM staff_identity.accounts WHERE username=$1")
+                .bind(board)
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query("DELETE FROM content.board_cleanup_audit WHERE board=$1")
+                .bind(board)
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query("DELETE FROM post_secrets.robot9000_texts WHERE board=$1")
+                .bind(board)
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query("DELETE FROM post_secrets.robot9000_mutes WHERE board=$1")
                 .bind(board)
                 .execute(&mut *tx)
                 .await?;

@@ -315,3 +315,41 @@ async fn login_start_attempt_budget_is_bounded() {
         );
     }
 }
+
+#[tokio::test]
+async fn enrollment_and_login_share_the_start_attempt_budget() {
+    let app = app();
+    for attempt in 0..32 {
+        let enrollment = attempt % 2 == 0;
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(if enrollment {
+                        "/enroll/start"
+                    } else {
+                        "/login/start"
+                    })
+                    .header("origin", "http://localhost:3001")
+                    .header("sec-fetch-site", "same-origin")
+                    .header("content-type", "application/json")
+                    .body(Body::from(if enrollment {
+                        r#"{"invitation":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"#
+                    } else {
+                        r#"{"username":"synthetic"}"#
+                    }))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            if attempt < 30 {
+                StatusCode::SERVICE_UNAVAILABLE
+            } else {
+                StatusCode::TOO_MANY_REQUESTS
+            }
+        );
+    }
+}

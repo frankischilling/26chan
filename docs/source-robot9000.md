@@ -27,9 +27,10 @@ The source's image duplicate branch and old secret moderator commands are
 commented out. They do not form part of this active plugin. Authenticated
 capcoded staff posts bypass it without registering history. Public options,
 headers and cookies cannot confer that authority. Anonymous staff posting with
-the explicit janitor bypass belongs to the remaining staff workflow in #222.
-The source administrative cleanup interface also remains there; operators can
-apply its two-year history retention through the bounded SQL below.
+the explicit janitor bypass is implemented in the authenticated staff form; see
+[staff posting authority](staff-posting-authority.md). The
+[staff cleanup interface](staff-robot9000-cleanup.md) applies the source two-year
+text-history retention in bounded, audited batches.
 
 Rejections use the existing escaped HTML error page, or the source JSON posting
 envelope containing only `error`. Quick Reply keeps the failed draft and
@@ -42,8 +43,9 @@ lists the actual checks and failed attempts.
 History and mutes live in `post_secrets`, outside every runtime's direct table
 grants. A NOLOGIN `board_robot9000_owner` owns a fixed-search-path function and
 has only the board columns needed to lock/check policy and SELECT/INSERT/UPDATE
-on these two tables. It cannot read posts, deletion passwords, staff
-credentials, media or deployment settings. Only `board_public` can execute the
+on these two tables. Migration 0117 adds text-history DELETE and column-scoped
+cleanup-audit INSERT for the staff cleanup function. It cannot read posts, deletion passwords, staff
+credentials, media or deployment settings. `board_public` and `board_staff` can execute the
 bounded public-board check; runtime roles cannot assume its owner identity or
 change its policy. The ordinary public runtime retains its existing content
 authority, including the ability to see submitted comments.
@@ -96,8 +98,8 @@ binary will not apply the new robot rule, so reverting it changes posting policy
 Historical posts are neither rewritten nor treated as evidence of originality.
 
 The source cleanup removes text history older than two years; it does not prune
-mute records. An operator with migration credentials can remove a bounded batch
-under the same board lock. Repeat the transaction as needed and observe the
+mute records. Staff can use the authenticated cleanup interface. An operator with migration
+credentials can also remove a bounded batch under the same board lock. Repeat the transaction as needed and observe the
 configured database deadlines:
 
 ```sql
@@ -106,7 +108,7 @@ SELECT slug FROM content.boards WHERE slug='r9k' FOR UPDATE;
 DELETE FROM post_secrets.robot9000_texts
 WHERE board='r9k' AND digest IN (
     SELECT digest FROM post_secrets.robot9000_texts
-    WHERE board='r9k' AND seen_at<clock_timestamp()-interval '2 years'
+    WHERE board='r9k' AND seen_at<((clock_timestamp() AT TIME ZONE 'UTC')-interval '2 years') AT TIME ZONE 'UTC'
     ORDER BY seen_at,digest LIMIT 1000
 );
 COMMIT;
