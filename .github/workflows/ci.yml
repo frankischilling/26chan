@@ -592,7 +592,7 @@ jobs:
         run: npm run test:media-visual -- --output=test-results/windows-media-visual
       - name: Verify bounded Chromium NetLog diagnostics
         shell: pwsh
-        run: node --test tests/helpers/visual-netlog.test.mjs tests/helpers/windows-theme-shards.test.mjs tests/helpers/windows-theme-stderr-filter.test.mjs tests/helpers/windows-theme-stderr-launcher.test.mjs tests/browser/windows-visual-afd.test.mjs tests/browser/windows-afd-error-profile.test.mjs
+        run: node --test tests/helpers/windows-fixture-lifecycle.test.mjs tests/helpers/visual-netlog.test.mjs tests/helpers/windows-theme-shards.test.mjs tests/helpers/windows-theme-stderr-filter.test.mjs tests/helpers/windows-theme-stderr-launcher.test.mjs tests/browser/windows-visual-afd.test.mjs tests/browser/windows-afd-error-profile.test.mjs
       - name: Run public empty and error desktop/mobile states
         if: ${{ !cancelled() && steps.browser_dependencies.outcome == 'success' && steps.visual_fixture.outcome == 'success' }}
         shell: pwsh
@@ -708,6 +708,16 @@ jobs:
             test-results/**/error-context.md
             test-results/**/netlogs/*.json
             test-results/windows-afd/summary.json
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false
+      - name: Retain fixture lifecycle checkpoints
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-fixture-lifecycle-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/windows-themes-*/fixture-lifecycle.json
           if-no-files-found: ignore
           retention-days: 3
           compression-level: 0

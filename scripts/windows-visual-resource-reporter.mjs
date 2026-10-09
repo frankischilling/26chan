@@ -1,3 +1,4 @@
+import { createFixtureLifecycleCollector, saveFixtureLifecycleEvidence } from './windows-fixture-lifecycle.mjs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -9,11 +10,18 @@ const script = fileURLToPath(new URL('./windows-visual-resources.ps1', import.me
 // excludes command errors, paths, endpoints and all browser/application data.
 export default class WindowsVisualResourceReporter {
   constructor() {
+    this.lifecycle = createFixtureLifecycleCollector();
+    this.outputDir = null;
     this.completed = 0;
     this.pending = Promise.resolve();
   }
 
-  onBegin() { this.capture('suite-running'); }
+  onBegin(config) {
+    if (config?.projects?.length === 1) this.outputDir = config.projects[0].outputDir;
+    this.capture('suite-running');
+  }
+
+  onStdOut(chunk, test, result) { this.lifecycle.push(chunk, test, result); }
 
   onTestEnd(_test, result) {
     this.completed += 1;
@@ -41,5 +49,13 @@ export default class WindowsVisualResourceReporter {
     });
   }
 
-  async onEnd() { await this.pending; }
+  async onEnd() {
+    await this.pending;
+    if (process.platform !== 'win32' || process.env.WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS !== '1') return;
+    try {
+      // Playwright owns the output root and cleanup, just as for screenshots.
+      if (!this.outputDir) throw new Error();
+      await saveFixtureLifecycleEvidence(this.outputDir, this.lifecycle.finish());
+    } catch { process.stdout.write('Synthetic fixture lifecycle evidence unavailable.\n'); }
+  }
 }
