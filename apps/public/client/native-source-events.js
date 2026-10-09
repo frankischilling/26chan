@@ -81,3 +81,28 @@ export function createParsingBootstrap(settings) {
     },
   };
 }
+
+// Only the bootstrap owner uses this gate. Public lifecycle notifications do
+// not grant permission to mount. An import may finish while the page is away.
+export function createInitialMountLifecycle(window) {
+  let suspended = false, retired = false;
+  const waiting = new Set();
+  const release = () => { for (const resolve of waiting) resolve(!retired); waiting.clear(); };
+  const hide = event => {
+    suspended = true;
+    if (!event.persisted) { retired = true; release(); }
+  };
+  const show = event => {
+    if (event.persisted && !retired) { suspended = false; release(); }
+  };
+  window.addEventListener('pagehide', hide);
+  window.addEventListener('pageshow', show);
+  return {
+    active: () => !suspended && !retired,
+    wait: () => suspended && !retired ? new Promise(resolve => waiting.add(resolve)) : Promise.resolve(!retired),
+    disconnect() {
+      retired = true; release();
+      window.removeEventListener('pagehide', hide); window.removeEventListener('pageshow', show);
+    },
+  };
+}

@@ -28,7 +28,6 @@ const test = base.extend({
 // owned synthetic 10s/20s values. It never changes a board's database policy.
 // Real server projection and authoritative enforcement have separate HTTP tests.
 async function open(page, id, { persistent = true, timestamp = null, files = false } = {}) {
-  await page.clock.install({ time });
   await page.clock.pauseAt(time);
   await page.addInitScript(({ persistent, timestamp, key }) => {
     localStorage.setItem('4chan-settings', JSON.stringify({ persistentQR: persistent, threadWatcher: false }));

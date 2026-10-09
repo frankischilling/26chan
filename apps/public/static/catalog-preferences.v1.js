@@ -1,7 +1,7 @@
 import { NativeWatchLock, isSpoilerAssetPath } from './native-filter.v1.js';
 import { mountCatalogFilters } from './catalog-filters.v1.js';
 import { readCatalogTheme } from './native-settings.v1.js';
-import { updateCatalogSpoilers } from './catalog-theme.v1.js';
+import { updateCatalogSpoilers, catalogMainBootstrap } from './catalog-theme.v1.js';
 
 // The source catalog carries original board positions, rather than reconstructing
 // them from clocks. All rows (including GET-filtered rows) form one permutation.
@@ -63,6 +63,7 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
     return parsed.status === 'ok' ? parsed.theme : {};
   };
   const revealSpoilers = () => spoilerControl && spoilers.value === 'on';
+  const initialSpoilers = revealSpoilers();
   if (!(form instanceof HTMLFormElement) || !(order instanceof HTMLSelectElement)
       || !(size instanceof HTMLSelectElement) || !(teaser instanceof HTMLSelectElement)
       || !(reset instanceof HTMLAnchorElement)) return;
@@ -163,6 +164,8 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
   };
   let searchOpen = false;
   let catalogFilters = null;
+  let catalogLoaded = false;
+  let pendingDisplay = null, pendingSearch = null, pendingSpoilers = null;
   let catalogHadFilters = false;
   const filteredLabels = [];
   const originalEmpty = container?.querySelector(':scope > .empty');
@@ -209,8 +212,7 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
     persistState(name, values);
     return values;
   };
-  const pins = readState(pinKey, true);
-  const hiddenThreads = readState(hideKey, false);
+  let pins = new Map(), hiddenThreads = new Map();
   const remember = (values, id, value) => {
     if (!values.has(id) && values.size >= 1024) {
       const absent = Array.from(values.keys()).find(key => !byId.has(key));
@@ -585,8 +587,14 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
     }
     try { history.replaceState(null, '', url.href); } catch { /* Display still works without history. */ }
   };
+  const applyDisplay = value => {
+    order.value = value.orderby;
+    size.value = value.large ? 'large' : 'small';
+    teaser.value = value.extended ? 'on' : 'off';
+    container.className = textOnly ? 'catalog textCatalog' : `catalog ${value.extended ? 'extended-' : ''}${value.large ? 'large' : 'small'}`;
+  };
   const apply = (value, query = renderedQuery, persistPins = true) => {
-    if (entries === null || !valid(value) || (searchReady && !validQuery(query))) return false;
+    if (!catalogLoaded || entries === null || !valid(value) || (searchReady && !validQuery(query))) return false;
     hidePreview();
     closeMenu();
     document.body.classList.toggle('reveal-img-spoilers', revealSpoilers());
@@ -613,10 +621,7 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
       cachedQuery = query;
       pattern = query ? new RegExp(query.replace(escape, '\\$1'), 'i') : null;
     }
-    order.value = value.orderby;
-    size.value = value.large ? 'large' : 'small';
-    teaser.value = value.extended ? 'on' : 'off';
-    container.className = textOnly ? 'catalog textCatalog' : `catalog ${value.extended ? 'extended-' : ''}${value.large ? 'large' : 'small'}`;
+    applyDisplay(value);
     const fragment = document.createDocumentFragment();
     let count = 0, filteredCount = 0;
     const hits = filterSnapshot.rules.map(() => 0);
@@ -704,7 +709,7 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
   };
   const applySearch = () => {
     clearTimeout(timer);
-    if (!searchReady) return false;
+    if (!catalogLoaded || !searchReady) return false;
     if (!validQuery(search.value)) {
       search.setCustomValidity('Search accepts up to 128 characters without control characters.');
       search.reportValidity();
@@ -737,10 +742,10 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
     const theme = parsed.status === 'ok' ? parsed.theme : {};
     updateThemeLinks(theme);
     const initialOverride = event.detail.initial && new URL(location.href).searchParams.has('spoilers');
-    if (spoilerControl && !initialOverride) {
+    if (spoilerControl && !initialOverride && (catalogLoaded || pendingSpoilers === null)) {
       const changed = revealSpoilers() !== (theme.nospoiler === true);
       spoilers.value = theme.nospoiler === true ? 'on' : 'off';
-      if (changed && apply(current(), renderedQuery, false) && !event.detail.initial) updateURL(current());
+      if (catalogLoaded && changed && apply(current(), renderedQuery, false) && !event.detail.initial) updateURL(current());
     }
     document.body.classList.toggle('reveal-img-spoilers', revealSpoilers());
   });
@@ -752,11 +757,14 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
     });
   };
   form.addEventListener('submit', event => {
+    if (!catalogLoaded) return;
     if (searchControlsReady) { event.preventDefault(); return; }
     save();
     if (searchReady) { event.preventDefault(); applySearch(); }
   });
   if (spoilerControl) spoilers.addEventListener('change', () => {
+    if (entries === null) { if (livePreferenceControls()) form.requestSubmit(); return; }
+    if (!catalogLoaded) { pendingSpoilers = revealSpoilers(); return; }
     saveSpoilers(revealSpoilers());
     if (apply(current())) updateURL(current());
     else form.requestSubmit();
@@ -764,6 +772,9 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
   for (const control of [order, size, teaser]) {
     control.addEventListener('change', () => {
       const value = current();
+      // Rejected metadata uses GET immediately; it is not an unfinished bootstrap.
+      if (entries === null) { if (livePreferenceControls()) form.requestSubmit(); return; }
+      if (!catalogLoaded) { pendingDisplay = value; return; }
       if (!apply(value)) { form.requestSubmit(); return; }
       save();
       updateURL(value);
@@ -771,6 +782,7 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
   }
   if (searchReady) {
     const openSearch = () => {
+      if (!catalogLoaded) return;
       searchOpen = true;
       searchContainer.style.display = 'inline';
       searchToggle.classList.add('active');
@@ -780,6 +792,7 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
       search.focus();
     };
     const closeSearch = () => {
+      if (!catalogLoaded) return;
       searchOpen = false;
       searchContainer.style.display = 'none';
       searchToggle.classList.remove('active');
@@ -791,13 +804,10 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
       if (apply(current(), '')) { saveSearch('', true); updateURL(current()); }
     };
     if (searchControlsReady) {
-      form.classList.add('nativeCatalogControls');
-      searchToggle.hidden = false;
-      searchClose.hidden = false;
-      searchContainer.style.display = 'none';
       searchToggle.addEventListener('click', () => { if (searchOpen) closeSearch(); else openSearch(); });
       searchClose.addEventListener('click', closeSearch);
       document.addEventListener('keyup', event => {
+        if (!catalogLoaded) return;
         if (event.target?.nodeName === 'INPUT' || event.target?.nodeName === 'TEXTAREA') return;
         if (themePreferences().nobinds === true) return;
         if (event.keyCode === 83) openSearch();
@@ -808,6 +818,7 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
       });
     }
     container.addEventListener('click', event => {
+      if (!catalogLoaded) return;
       const link = event.target instanceof Element ? event.target.closest('.empty > a') : null;
       if (renderedQuery && link && container.contains(link)) {
         event.preventDefault();
@@ -817,7 +828,12 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
         event.preventDefault(); hiddenOnly = true; apply(current());
       }
     });
-    const schedule = () => { clearTimeout(timer); if (!composing) timer = setTimeout(applySearch, 250); };
+    search.addEventListener('input', () => { if (!catalogLoaded) pendingSearch = search.value; });
+    const schedule = () => {
+      clearTimeout(timer);
+      if (!catalogLoaded) { pendingSearch = search.value; return; }
+      if (!composing) timer = setTimeout(applySearch, 250);
+    };
     if (searchControlsReady) search.addEventListener('keyup', event => { if (event.key !== 'Escape') schedule(); });
     else {
       search.addEventListener('input', schedule);
@@ -825,6 +841,7 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
       search.addEventListener('compositionend', () => { composing = false; schedule(); });
     }
     search.addEventListener('keydown', event => {
+      if (!catalogLoaded) return;
       if (searchControlsReady && event.key === 'Enter') event.preventDefault();
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -834,6 +851,7 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
     });
   }
   reset.addEventListener('click', event => {
+    if (!catalogLoaded) return;
     clearTimeout(timer);
     persistPreference(null);
     saveSearch('');
@@ -882,6 +900,7 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
     preferenceLock.resume();
   });
   document.addEventListener('4chanPreferencesRestored', async event => {
+    if (!catalogLoaded) return;
     const restoredKeys = event.detail?.keys;
     const filtersRestored = Array.isArray(restoredKeys) && restoredKeys.includes('catalog-filters');
     if (Array.isArray(restoredKeys) && !filtersRestored && !restoredKeys.includes('catalog-settings')) return;
@@ -909,83 +928,131 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
       ? 'Stored catalog display preferences are invalid. Restored filters use the current display.' : '');
   });
 
-  if (stateReady) installThreadControls();
-  const stateChanged = stateReady && (pins.size > 0 || hiddenThreads.size > 0);
-  if (stateChanged) renderedOrder = null;
-  const url = new URL(location.href);
-  let spoilerChanged = false;
-  if (spoilerControl && !url.searchParams.has('spoilers')) {
-    if (themePreferences().nospoiler === true) {
-      spoilerChanged = !revealSpoilers(); spoilers.value = 'on';
-    }
-  }
-  let display = current();
-  if (!['order', 'size', 'teaser'].some(name => url.searchParams.has(name))) {
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw !== null && raw.length <= 1024) {
-        const saved = storedPreference(raw);
-        if (saved) display = saved;
+  let url, display, spoilerChanged, originalDisplay;
+  const prepareCatalog = () => {
+    originalDisplay = current();
+    url = new URL(location.href);
+    spoilerChanged = revealSpoilers() !== initialSpoilers;
+    if (spoilerControl && pendingSpoilers === null && !url.searchParams.has('spoilers')) {
+      if (themePreferences().nospoiler === true) {
+        spoilerChanged ||= !revealSpoilers(); spoilers.value = 'on';
       }
-    } catch { /* Ignore malformed or unavailable preferences. */ }
-  }
-  let query = renderedQuery;
-  if (searchReady && !url.searchParams.has('q')) {
-    if (url.hash.startsWith('#s=') && url.hash.length <= 2048) {
+    }
+    display = current();
+    if (!['order', 'size', 'teaser'].some(name => url.searchParams.has(name))) {
       try {
-        const decoded = decodeURIComponent(url.hash.slice(3).replace(/\+/g, ' '));
-        if (validQuery(decoded)) query = decoded;
-      } catch { /* Malformed fragment searches leave the rendered page usable. */ }
-    } else if (!url.hash) {
-      try {
-        const saved = sessionStorage.getItem(searchKey);
-        if (saved !== null) {
-          if (sessionStorage.getItem(boardKey) === board && validQuery(saved)) query = saved;
-          else saveSearch('');
+        const raw = localStorage.getItem(key);
+        if (raw !== null && raw.length <= 1024) {
+          const saved = storedPreference(raw);
+          if (saved) display = saved;
         }
-      } catch { /* Session restoration is optional. */ }
+      } catch { /* Ignore malformed or unavailable preferences. */ }
     }
-  }
-  const value = current();
-  const changed = display.orderby !== value.orderby || display.large !== value.large
-    || display.extended !== value.extended || query !== renderedQuery || stateChanged || spoilerChanged;
-  if (changed) {
-    if (searchReady) search.value = query;
-    if (apply(display, query)) updateURL(display);
-    else {
-      setOptions(url, display);
-      location.replace(url.href);
+    if (pendingDisplay) display = pendingDisplay;
+    // Malformed snapshots retain the existing navigation fallback, without
+    // announcing a preferences-ready boundary in the abandoned document.
+    if (entries === null) {
+      if (display.orderby !== originalDisplay.orderby || display.large !== originalDisplay.large
+          || display.extended !== originalDisplay.extended || spoilerChanged) {
+        setOptions(url, display); location.replace(url.href);
+      }
+      return false;
     }
-  }
-  if (searchReady && query) saveSearch(query);
-  if (searchControlsReady && query) {
-    searchOpen = true;
-    searchContainer.style.display = 'inline';
-    searchToggle.classList.add('active');
-    searchToggle.setAttribute('aria-expanded', 'true');
-    showSearchLabels(query);
-    search.focus();
-  }
-  if (searchControlsReady && entries.length <= 20001 && entries.every(entry => entry.filterCard !== null)
-    && filterToggle instanceof HTMLButtonElement && form.contains(filterToggle)) {
-    for (const suffix of ['', '-bottom']) {
-      const label = document.createElement('span'); label.id = `filtered-label${suffix}`;
-      label.style.display = 'none';
-      const count = document.createElement('span'); count.id = `filtered-count${suffix}`;
-      label.append('Filtered: ', count); filteredLabels.push({ label, count });
-      if (suffix) container.after(label); else form.querySelector('#info').append(' ', label);
+    applyDisplay(display);
+    return true;
+  };
+  const loadCatalog = () => {
+    catalogLoaded = true;
+    const queuedDisplay = pendingDisplay;
+    pendingDisplay = null;
+    if (queuedDisplay) display = queuedDisplay;
+    pins = readState(pinKey, true); hiddenThreads = readState(hideKey, false);
+    if (stateReady) installThreadControls();
+    const stateChanged = stateReady && (pins.size > 0 || hiddenThreads.size > 0);
+    if (stateChanged) renderedOrder = null;
+    let query = renderedQuery;
+    if (searchReady && !url.searchParams.has('q')) {
+      if (url.hash.startsWith('#s=') && url.hash.length <= 2048) {
+        try {
+          const decoded = decodeURIComponent(url.hash.slice(3).replace(/\+/g, ' '));
+          if (validQuery(decoded)) query = decoded;
+        } catch { /* Malformed fragment searches leave the rendered page usable. */ }
+      } else if (!url.hash) {
+        try {
+          const saved = sessionStorage.getItem(searchKey);
+          if (saved !== null) {
+            if (sessionStorage.getItem(boardKey) === board && validQuery(saved)) query = saved;
+            else saveSearch('');
+          }
+        } catch { /* Session restoration is optional. */ }
+      }
     }
-    catalogFilters = mountCatalogFilters({ board, cards: entries.map(entry => entry.filterCard),
-      form, container, opener: filterToggle,
-      changed: () => {
-        const active = (catalogFilters?.snapshot().rules.length ?? 0) > 0;
-        // An empty initial refresh has no effects to apply. Rendering again
-        // would consume the pin reply delta displayed by the original pass.
-        if (!active && !catalogHadFilters) return;
-        if (active || catalogHadFilters) renderedOrder = null;
-        catalogHadFilters = active;
-        apply(current());
-      },
+    const queuedSearch = pendingSearch !== null && validQuery(pendingSearch) ? pendingSearch : null;
+    if (queuedSearch !== null) query = queuedSearch;
+    pendingSearch = null;
+    const value = originalDisplay;
+    const changed = queuedDisplay !== null || pendingSpoilers !== null || display.orderby !== value.orderby || display.large !== value.large
+      || display.extended !== value.extended || query !== renderedQuery || stateChanged || spoilerChanged;
+    if (changed) {
+      if (searchReady) search.value = query;
+      if (apply(display, query)) updateURL(display);
+      else {
+        setOptions(url, display);
+        location.replace(url.href);
+      }
+    }
+    if (queuedDisplay) save();
+    if (pendingSpoilers !== null) { saveSpoilers(pendingSpoilers); pendingSpoilers = null; }
+    if (searchControlsReady) {
+      form.classList.add('nativeCatalogControls');
+      searchToggle.hidden = false;
+      searchClose.hidden = false;
+      searchContainer.style.display = 'none';
+    }
+    if (searchReady && (query || queuedSearch !== null)) saveSearch(query);
+    if (searchControlsReady && query) {
+      searchOpen = true;
+      searchContainer.style.display = 'inline';
+      searchToggle.classList.add('active');
+      searchToggle.setAttribute('aria-expanded', 'true');
+      showSearchLabels(query);
+      search.focus();
+    }
+    if (searchControlsReady && entries.length <= 20001 && entries.every(entry => entry.filterCard !== null)
+      && filterToggle instanceof HTMLButtonElement && form.contains(filterToggle)) {
+      for (const suffix of ['', '-bottom']) {
+        const label = document.createElement('span'); label.id = `filtered-label${suffix}`;
+        label.style.display = 'none';
+        const count = document.createElement('span'); count.id = `filtered-count${suffix}`;
+        label.append('Filtered: ', count); filteredLabels.push({ label, count });
+        if (suffix) container.after(label); else form.querySelector('#info').append(' ', label);
+      }
+      catalogFilters = mountCatalogFilters({ board, cards: entries.map(entry => entry.filterCard),
+        form, container, opener: filterToggle,
+        changed: () => {
+          const active = (catalogFilters?.snapshot().rules.length ?? 0) > 0;
+          // An empty initial refresh has no effects to apply. Rendering again
+          // would consume the pin reply delta displayed by the original pass.
+          if (!active && !catalogHadFilters) return;
+          if (active || catalogHadFilters) renderedOrder = null;
+          catalogHadFilters = active;
+          apply(current());
+        },
+      });
+    }
+  };
+  const bootstrap = catalogMainBootstrap(document.getElementById('watcher-context'));
+  if (bootstrap) {
+    bootstrap.preferences({
+      current: () => !preferenceDestroyed && form.isConnected && container?.isConnected
+        && document.getElementById('ctrl') === form && document.getElementById('threads') === container
+        && [order, size, teaser, reset].every(control => form.contains(control)), prepare: prepareCatalog, load: loadCatalog,
     });
+    // The module map shares the page's existing watcher load. Its actual
+    // rejection supplies the optional-UI failure continuation; public events
+    // cannot release this private gate. There is no transport retry.
+    void import('./thread-watcher.v1.js').catch(() => { void bootstrap.settings(() => null); });
   }
+  else if (prepareCatalog()) loadCatalog(); // Standalone controls have no page-init event.
+
 })();

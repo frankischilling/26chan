@@ -2,7 +2,7 @@
 
 Migration 0113 imports the effective JSMATH policy from all 82 supplied board
 configurations. It is disabled by default and enabled on `/sci/`. Enabled board
-and thread pages load a fixed local controller. Catalogs, disabled boards,
+and thread pages load a fixed local controller through watcher bootstrap. Catalogs, disabled boards,
 error responses and JSON responses receive no math-script or worker permission.
 `boards.json` includes `math_tags: 1` only for enabled boards.
 
@@ -10,7 +10,11 @@ The supplied PHP call to `jsmath_parse` is commented out. Stored comments and
 API responses therefore keep literal `[math]...[/math]` and `[eqn]...[/eqn]`
 tags. Rendering is a browser projection. Inline math and left-aligned block
 math use those explicit, case-sensitive delimiters; ordinary dollar signs do
-not activate it. Initial page rendering is independent of extension settings.
+not activate it. Initial page rendering is independent of extension settings. The module does
+not mount on import. Watcher first establishes preferences and publishes
+`4chanMainInit`, then explicitly mounts math before the other post features.
+A delayed import waits while the page is suspended and resumes once on persisted
+restoration; a terminal departure cancels mounting.
 Quick Reply has a separate TeX preview input with a 50 ms debounce. Its input
 does not alter the posting draft.
 

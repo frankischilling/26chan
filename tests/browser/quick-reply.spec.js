@@ -230,7 +230,7 @@ for (const additional of [false, true]) {
       await page.setViewportSize({ width: 1280, height: 400 }); await page.goto(`/fixture/thread/${id}`);
       const threadUrl = page.url();
       const title = await page.title();
-      const time = new Date('2026-09-14T00:00:00Z'); await page.clock.install({ time }); await page.clock.pauseAt(time);
+      const time = new Date('2026-09-14T00:00:00Z'); await page.clock.pauseAt(time);
       await page.locator('.threadNav.desktop input[data-cmd="auto"]').first().check(); await page.clock.runFor(9800);
       await page.locator('.open-qr-link').click();
       await page.locator('#qrCom').fill('Owned automatic Quick Reply'); await expect(page.locator('#qr-pwd')).toHaveValue('');
@@ -260,7 +260,7 @@ test('a Quick Reply committed during an in-flight update schedules one follow-up
   const path = `/_watch/fixture/thread/${id}/posts`;
   try {
     await page.goto(`/fixture/thread/${id}`); const snapshot = await (await request.get(path)).body();
-    const time = new Date('2026-09-14T00:00:00Z'); await page.clock.install({ time }); await page.clock.pauseAt(time);
+    const time = new Date('2026-09-14T00:00:00Z'); await page.clock.pauseAt(time);
     let held, calls = 0;
     await page.route(`**${path}`, route => { calls++; if (calls === 1) held = route; else return route.continue(); });
     await page.locator('.threadNav.desktop a[data-cmd="update"]').first().click(); await expect.poll(() => calls).toBe(1);

@@ -369,7 +369,7 @@ test('source length advice is debounced, typed, cancelable and does not hide ser
   await page.goto('/demo/'); await page.locator(':is(.postInfo, .postInfoM) > .postNum > a[title="Reply to this post"]:visible').first().click();
   await expect(page.locator('#qrResto')).toHaveValue('1000001');
   await expect(page.locator('#quickReply')).toHaveAttribute('data-trackpos', 'QR-position');
-  const time = new Date('2026-09-14T00:00:00Z'); await page.clock.install({ time }); await page.clock.pauseAt(time);
+  const time = new Date('2026-09-14T00:00:00Z'); await page.clock.pauseAt(time);
   const limit = Number(await page.locator('form.postEditor').first().getAttribute('data-comment-limit'));
   const value = '😀'.repeat(Math.floor(limit / 4) + 1), bytes = new TextEncoder().encode(value).length;
   const comment = page.locator('#qrCom'), error = page.locator('#qrError');

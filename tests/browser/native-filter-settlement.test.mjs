@@ -125,7 +125,7 @@ test('filter settlement follows bounded replacement work', async t => {
       const { context, page } = await setup();
       try {
         const time = new Date('2026-09-15T15:00:00Z');
-        await page.clock.install({ time }); await page.clock.pauseAt(time);
+        await page.clock.pauseAt(time);
         await page.evaluate(() => { window.ignoreAbort = true; window.begin(); });
         await page.waitForFunction(() => window.jobs.length === 1);
         await page.clock.runFor(60001);
