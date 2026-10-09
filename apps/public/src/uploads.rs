@@ -106,7 +106,8 @@ async fn settings(
         let thread = board_store::thread(&state.pool, board, resto).await?;
         if thread.archived_at.is_some()
             || thread.closed
-            || thread.reply_count >= settings.reply_limit
+            || (thread.reply_count >= settings.reply_limit
+                && !(thread.sticky && thread.undead && settings.reply_limit > 1))
         {
             return Err(AppError(
                 StatusCode::CONFLICT,

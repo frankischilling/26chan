@@ -41,6 +41,7 @@ mod report_target;
 pub use report_target::{ReportTarget, report_target};
 mod robot9000;
 mod rss;
+pub mod sticky_retention;
 mod thread_quota;
 mod thread_statistics;
 mod write;

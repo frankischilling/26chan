@@ -395,6 +395,12 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     if !archive_deletion_secrets {
         return Err(AppError::Internal);
     }
+    let sticky_retirement: bool = sqlx::query_scalar(board_store::sticky_retention::READINESS_SQL)
+        .fetch_one(&state.staff)
+        .await?;
+    if !sticky_retirement {
+        return Err(AppError::Internal);
+    }
     Ok("ready")
 }
 

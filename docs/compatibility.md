@@ -775,6 +775,15 @@ uses staff-authorized numbered snapshots, bounded by `threads_per_page` and the
 configured page count; older retained threads remain available by authorized
 thread URL. Public readers still cannot access private boards.
 
+The sticky and undead reply window now follows `imgboard.php:6484-6508`: retain
+the newest `STICKY_CAP - 1` existing reply IDs before adding the incoming post.
+Imported source boards use 1,000 replies. [Reply retention](sticky-reply-retention.md)
+covers atomic retirement, current counts, media and report visibility, removal
+of private ownership proofs, and numeric OP `sticky_cap` across both JSON
+listeners. Base post text retains the rewrite's soft-deletion policy. This
+completes that window's behavior without establishing complete archive lifecycle
+or frontend parity.
+
 ### Media
 
 `imgboard.php:4806-4815` constructs `tim` from request epoch seconds,

@@ -363,6 +363,16 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
             "Public automatic admission is unavailable.",
         ));
     }
+    let sticky_retirement: bool = sqlx::query_scalar(board_store::sticky_retention::READINESS_SQL)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(StoreError::from)?;
+    if !sticky_retirement {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public posting is unavailable.",
+        ));
+    }
     let report_admission: bool = sqlx::query_scalar(REPORT_ADMISSION_READY_SQL)
         .fetch_one(&state.pool)
         .await
