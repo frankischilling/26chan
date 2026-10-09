@@ -200,21 +200,30 @@ test('a different browser session receives the real denial and cannot mark or de
     const page = await stranger.newPage();
     await open(page, owned);
     await rememberDocument(page, owned.reply);
-    const observed = writes(page);
-    await withDeletionQuota(async () => {
-      const finished = page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'POST');
-      await choose(page, owned.reply, true);
-      const response = await finished;
-      expect(response.status()).toBe(403);
-      expect(await response.text()).toContain('Password incorrect.');
-      await expect(feedback(page)).toHaveText(`Post No.${owned.reply}: Deletion was rejected. Refresh the page before trying again.`);
-      await expect(page.locator(`#pc${owned.reply}`)).not.toHaveClass(/\bdeleted\b/);
-      await expect(page.locator(`#p${owned.reply}`)).not.toHaveAttribute('aria-busy');
-      await expectSameDocument(page, owned, owned.reply);
-      expect(await ids(request, owned)).toEqual([owned.id, owned.reply, owned.keep]);
-      expect(observed).toHaveLength(1);
-      expectNativeRequest(observed[0], owned.reply);
-    });
+    const observed = writes(page), held = await holdDeletion(page);
+    try {
+      await withDeletionQuota(async () => {
+        await choose(page, owned.reply, true);
+        // The client cancels its reader and aborts its fetch during settlement,
+        // so Chromium may discard the inspector body before response.text().
+        // Capture this real server response before delivering it unchanged.
+        const captured = await held.ready;
+        expect(captured.status).toBe(403);
+        expect(captured.body).toContain('Password incorrect.');
+        const finished = page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'POST');
+        held.release();
+        const response = await finished;
+        expect(response.status()).toBe(403);
+        expect(response.request()).toBe(captured.request);
+        await expect(feedback(page)).toHaveText(`Post No.${owned.reply}: Deletion was rejected. Refresh the page before trying again.`);
+        await expect(page.locator(`#pc${owned.reply}`)).not.toHaveClass(/\bdeleted\b/);
+        await expect(page.locator(`#p${owned.reply}`)).not.toHaveAttribute('aria-busy');
+        await expectSameDocument(page, owned, owned.reply);
+        expect(await ids(request, owned)).toEqual([owned.id, owned.reply, owned.keep]);
+        expect(observed).toHaveLength(1);
+        expectNativeRequest(observed[0], owned.reply);
+      });
+    } finally { await held.close(); }
   } finally { await stranger.close(); }
 });
 
