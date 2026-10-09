@@ -101,13 +101,21 @@ interaction remain unqualified here because Chromium is unavailable; no
 browser was installed.
 
 Hosted Windows screenshots from head `4188db1` exposed the expected removal of
-the generic board description. Fourteen baselines were reviewed against their
-expected, actual and diff images: the two catalog-limit views and twelve
-no-JavaScript theme views. Their dimensions, content and horizontal layout are
-unchanged. Content below the omitted description moves up 11px, or 16px in the
+the generic board description. Seventeen baselines were reviewed against their
+expected, actual and diff images: the two catalog-limit views, twelve
+no-JavaScript theme views, two board views and one catalog view. Their dimensions,
+content and horizontal layout are unchanged. Content below the omitted
+description moves up 11px, or 16px in the
 desktop Futaba and Burichan themes. The replacement PNGs are those captured
 images, not locally reconstructed pages.
 
 This review does not qualify the other screenshot suites or fix the separate
 Windows socket failure while loading the watcher script. Complete hosted
 checks remain required before merge.
+
+The Windows job now collects each independent full-page suite after an earlier
+qualification fails, provided browser installation and fixture compilation
+succeeded and the run was not cancelled. Separate output directories preserve
+each suite's images and traces. Every failed suite still fails the required
+check. Four regression tests cover scheduling, prerequisites, output isolation
+and unchanged strict screenshot settings.
