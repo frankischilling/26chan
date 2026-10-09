@@ -1,9 +1,11 @@
 import { test as base, expect } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
+import { writeSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { visualNetlogEnabled, visualNetlogPlan, prepareVisualNetlog, finishVisualNetlog, trackVisualNetlogFailure } from './visual-netlog.js';
+import { browserControlEnabled, createBrowserControlTrigger } from './browser-control-trigger.js';
 
 export { expect };
 
@@ -100,6 +102,15 @@ export const test = base.extend({
     }
   }, { scope: 'worker' }],
   visualDiagnostics: [async ({ context }, use, info) => {
+    // Only the opt-in owned launcher enables this observation. No request is
+    // retried, intercepted or reclassified. The control has a separate process.
+    const trigger = browserControlEnabled(process.platform, process.env)
+      ? createBrowserControlTrigger(line => {
+        // A bounded synchronous descriptor write throws into the trigger's
+        // catch on EPIPE; it cannot emit an unhandled Writable error event.
+        writeSync(2, line);
+      }) : null;
+    if (trigger) context.on('requestfailed', trigger);
     const errors = [], scripts = [], failedScripts = [], stylesheets = [], failedStylesheets = [];
     const observed = new Set();
     const observe = page => {
@@ -141,7 +152,8 @@ export const test = base.extend({
         if (window.ownedVisualEvents.length > 8) window.ownedVisualEvents.shift();
       }, { passive: true });
     });
-    await use({ failedScripts, failedStylesheets });
+    try { await use({ failedScripts, failedStylesheets }); }
+    finally { if (trigger) context.off('requestfailed', trigger); }
     if (info.status !== info.expectedStatus) {
       const pages = await Promise.all(context.pages().slice(0, 4)
         .map(page => readVisualState(page).catch(() => ({ unavailable: true }))));
