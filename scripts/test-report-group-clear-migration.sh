@@ -40,13 +40,12 @@ REVOKE ALL ON DATABASE :"database" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"database" TO board_migrator,board_public,board_staff,board_auth;
 SQL
 }
-# Extract current application readiness; no old application executes here.
+# Freeze the 0108 boundary from ebe59dec:crates/store/src/report_admission.rs.
+# The 0122 qualifier separately extracts and checks current application readiness.
 python3 - "$cluster" <<'PYREADINESS'
-import pathlib,re,sys
+import pathlib,sys
 root=pathlib.Path(sys.argv[1])
-match=re.search(r'pub const READINESS_SQL: &str = r#"(.*?)"#;',pathlib.Path('crates/store/src/report_admission.rs').read_text(),re.S)
-if not match: raise SystemExit('Cannot extract report readiness')
-query=match.group(1)
+query=pathlib.Path('scripts/fixtures/report-group-clear-0108-readiness.sql').read_text().strip().rstrip(';')
 if 'content.clear_report_group(text,bigint,bigint)' not in query: raise SystemExit('Missing group-clear readiness')
 (root/'readiness.sql').write_text("DO $check$ BEGIN IF ("+query+") IS DISTINCT FROM true THEN RAISE EXCEPTION 'Current readiness failed'; END IF; END $check$;")
 changes=[
