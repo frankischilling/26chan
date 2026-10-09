@@ -219,6 +219,7 @@ async fn private_and_missing_op_views(owner: &PgPool, fixture: &Fixture) {
     // branch with an in-memory copy, without changing the board's permissions.
     board.staff_only = true;
     let mut page = board_public::views::BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: String::new(),
         navigation_boards: Vec::new(),

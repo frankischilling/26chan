@@ -139,6 +139,7 @@ fn fixture(enabled: bool, empty: bool, catalog: bool, index: bool) -> axum::resp
         }));
     }
     let page = BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: "spoiler.png".into(),
         navigation_boards: vec![board.clone()],

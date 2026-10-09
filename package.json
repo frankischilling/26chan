@@ -17,7 +17,7 @@
     "test:files-core": "npm run check:native-filter && node --test tests/browser/native-file-presentation.test.mjs",
     "test:post-tooltips-core": "node --test tests/browser/native-post-tooltips.test.mjs",
     "test:post-tooltips": "npm run test:post-tooltips-core && playwright test tests/browser/native-post-tooltips.spec.js",
-    "test:settings-visibility-core": "node scripts/record-native-settings-panels.mjs --check && node --test tests/browser/native-settings-visibility.test.mjs tests/browser/native-settings-startup.test.mjs tests/browser/native-settings-panels.test.mjs",
+    "test:settings-visibility-core": "node scripts/record-native-settings-panels.mjs --check && node scripts/record-native-https-preference.mjs --check && node --test tests/browser/native-https-preference.test.mjs tests/browser/native-settings-visibility.test.mjs tests/browser/native-settings-startup.test.mjs tests/browser/native-settings-panels.test.mjs",
     "test:settings-categories": "npm run test:settings-visibility-core && playwright test --config playwright.settings-categories.config.js",
     "test:settings-transfer-core": "node --test tests/browser/native-settings-transfer.test.mjs",
     "test:catalog-preference-locks-core": "node --test tests/browser/catalog-positions.test.mjs tests/browser/catalog-preference-locks.test.mjs",

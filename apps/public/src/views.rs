@@ -31,6 +31,8 @@ impl Home {
 #[derive(Template)]
 #[template(path = "board.html")]
 pub struct BoardPage {
+    /// Fixed configured public origin; never derived from a request Host header.
+    pub public_origin: String,
     pub blotter: Vec<board_store::BlotterMessage>,
     pub spoiler_thumbnail: String,
     pub navigation_boards: Vec<Board>,
@@ -51,6 +53,7 @@ pub struct BoardPage {
 #[derive(Template)]
 #[template(path = "upload.html")]
 pub struct UploadPage {
+    pub public_origin: String,
     pub board: Board,
     pub form: UploadForm,
     pub ready: bool,
