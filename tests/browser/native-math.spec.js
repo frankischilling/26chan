@@ -471,11 +471,6 @@ test('malformed and over-budget nested input stays literal, cannot execute HTML,
     if (new URL(request.url()).pathname === '/math-injection') injectionRequests.push(request.url());
   });
   await page.addInitScript(() => {
-    // Core math stays enabled with extensions disabled. Ordinary linkification
-    // calls restoreMessage before decoration, deliberately releasing/replanning
-    // math even when its literal input is unchanged. Isolate this exact job
-    // accounting case from that separate, already-tested integration behavior.
-    localStorage.setItem('4chan-settings', JSON.stringify({ disableAll: true }));
     window.IntersectionObserver = undefined;
     window.nestedMathJobs = [];
     window.nestedMathExecuted = false;
@@ -497,9 +492,16 @@ test('malformed and over-budget nested input stays literal, cannot execute HTML,
     '[math]x[/math]'.padEnd(65537, ' '),
     hostile,
   ];
-  // Admit one immutable batch; no interleaved scrolling or source edits can
-  // legitimately invalidate an in-flight record during the accounting window.
-  await page.evaluate(inputs => {
+  // Exercise the released controller and real worker on a dedicated root
+  // outside the ordinary board's decoration ownership. Disabling extensions
+  // alone does not isolate it: linkification still restores/unlinks messages.
+  await page.evaluate(async ({ inputs, modulePath }) => {
+    const { mountNativeMath, pageNativeMath } = await import(modulePath);
+    const root = document.createElement('section');
+    root.id = 'nested-math-owned-root';
+    document.body.append(root);
+    const controller = mountNativeMath({ root, projection: pageNativeMath().projection });
+    if (!controller) throw new Error('Owned math controller was not admitted');
     const batch = document.createDocumentFragment();
     for (const [index, input] of [...inputs, '[math]z+1[/math]'].entries()) {
       const message = document.createElement('blockquote');
@@ -508,8 +510,8 @@ test('malformed and over-budget nested input stays literal, cannot execute HTML,
       message.textContent = input;
       batch.append(message);
     }
-    document.querySelector('.board').append(batch);
-  }, inputs);
+    root.append(batch);
+  }, { inputs, modulePath });
   const sentinel = page.locator('#nested-sentinel');
   await expect(sentinel.locator('.nativeMath > svg')).toHaveCount(1);
   for (const [index, input] of inputs.entries()) {
