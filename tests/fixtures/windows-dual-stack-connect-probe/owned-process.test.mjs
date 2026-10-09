@@ -46,7 +46,10 @@ test('post-root live descendant blocks completion and job kill must terminate it
 test('acknowledgement and survivor lifetime remain bounded', () => {
   assert.match(fixture, /Date\.now\(\) \+ 10000/);
   assert.match(fixture, /setTimeout\(\(\) => process\.exit\(0\), 30000\)/);
-  assert.equal((runner.match(/ElapsedMilliseconds -lt 5000/g) || []).length, 2);
+  assert.equal((runner.match(/ElapsedMilliseconds -lt 5000/g) || []).length, 3);
+  const settlement = runner.slice(runner.indexOf('An exited root'), runner.indexOf("Write-OwnedState -Stage 'after-parent-exit'"));
+  assert.doesNotMatch(settlement, /\$watch\.(Restart|Start)/);
+  assert.match(settlement, /UnknownRoleCount -eq 0/);
 });
 
 test('failed acknowledgement still reaches unconditional job and handle disposal', () => {

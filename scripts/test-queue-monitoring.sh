@@ -73,8 +73,10 @@ CREATE DATABASE board_queue_qualification OWNER board_migrator;
 REVOKE ALL ON DATABASE board_queue_qualification FROM PUBLIC;
 GRANT CONNECT ON DATABASE board_queue_qualification TO board_migrator, board_media, board_monitor;
 SQL
+migrator=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$port" -U board_migrator)
 for migration in migrations/*.sql; do
-  "${db[@]}" -d board_queue_qualification --single-transaction -c 'SET ROLE board_migrator' -f "$migration"
+  # Match the migration binary's actual login, including RESET ROLE and SCRAM.
+  PGPASSWORD="$BOARD_MIGRATION_PASSWORD" "${migrator[@]}" -d board_queue_qualification --single-transaction -f "$migration"
 done
 MONITOR_DATABASE_URL="postgres://board_monitor:$BOARD_MONITOR_PASSWORD@127.0.0.1:$port/board_queue_qualification"
 MEDIA_DATABASE_URL="postgres://board_media:$BOARD_MEDIA_PASSWORD@127.0.0.1:$port/board_queue_qualification"

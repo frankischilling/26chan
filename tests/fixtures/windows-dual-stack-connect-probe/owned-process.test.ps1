@@ -34,6 +34,7 @@ $roles.ConsoleHostRoleCount=16; $roles.ActiveProcesses=17; $roles.EnumeratedProc
 if ($roles.RolesQualified($false)) { throw 'Over-capacity role evidence admitted.' }
 $node=(Get-Command node.exe -ErrorAction Stop).Source
 $directory=Join-Path ([IO.Path]::GetTempPath()) ('dual-stack-job-test-' + [Guid]::NewGuid().ToString('N'))
+$ownedDirectory=[IO.Path]::GetFullPath($directory)
 New-Item -ItemType Directory -Path $directory | Out-Null
 $child=$null; $descendant=$null
 function Write-OwnedState {
@@ -76,6 +77,15 @@ try {
   while (-not $child.HasExited -and $watch.ElapsedMilliseconds -lt 5000) { Start-Sleep -Milliseconds 20 }
   if (-not $child.HasExited -or $child.ExitCode -ne 0) { throw 'Synthetic parent did not exit normally.' }
   $after=$child.InspectOwnership($descendant)
+  # An exited root can briefly remain in the native job accounting/list.
+  # Use the remainder of the existing parent-exit deadline for that transition;
+  # retain the exact role/membership assertion and fail if the descendant exits.
+  while ($after.RootExited -and -not $after.DescendantExited -and $after.DescendantInJob -and
+         $after.AccountingLayoutValid -and $after.UnknownRoleCount -eq 0 -and
+         -not $after.RolesQualified($false) -and $watch.ElapsedMilliseconds -lt 5000) {
+    Start-Sleep -Milliseconds 20
+    $after=$child.InspectOwnership($descendant)
+  }
   Write-OwnedState -Stage 'after-parent-exit' -State $after
   if (-not $after.RootExited -or -not $after.AccountingLayoutValid -or $after.DescendantExited -or -not $after.DescendantInJob -or -not $after.RolesQualified($false)) { throw 'Synthetic descendant did not survive root exit in the owned job.' }
   if ($child.TreeExited -or $child.WaitForExit(100)) { throw 'Live descendant incorrectly counted as completed.' }
@@ -95,6 +105,11 @@ try {
     }
   } finally {
     if ($null -ne $descendant) { $descendant.Dispose() }
-    Remove-Item -LiteralPath $directory -Recurse -Force
+    $item=Get-Item -LiteralPath $directory -Force
+    if ([IO.Path]::GetFullPath($item.FullName) -ne $ownedDirectory -or
+        [IO.Path]::GetDirectoryName($ownedDirectory) -ne ([IO.Path]::GetTempPath()).TrimEnd('\','/') -or
+        $item.Name -notmatch '^dual-stack-job-test-[0-9a-f]{32}$' -or
+        ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Owned test directory changed; refusing cleanup.' }
+    Remove-Item -LiteralPath $ownedDirectory -Recurse -Force
   }
 }
