@@ -712,7 +712,7 @@ async fn post_and_thread_deletion_remove_only_matching_reports_and_archive_only_
         let error = sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
             .bind(f.posts[0][1]).execute(&mut *incompatible).await.unwrap_err();
         assert_eq!(code(&error), "22023");
-        assert_eq!(error.as_database_error().unwrap().message(), "Report retirement requires Read Committed.");
+        assert_eq!(error.as_database_error().unwrap().message(), "Content erasure requires Read Committed.");
         incompatible.rollback().await.unwrap();
         let mut tx = f.owner.begin().await.unwrap();
         sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1").bind(f.posts[0][1]).execute(&mut *tx).await.unwrap();
@@ -1205,7 +1205,7 @@ async fn report_snapshot(f: &Fixture) -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn whole_deletion_cascades_all_states_and_unmembered_history_without_erasing_posts() {
+async fn whole_deletion_cascades_all_states_and_unmembered_history_and_erases_payload() {
     run(|f| async move {
         let mut removed = Vec::new();
         for target in 0..3 {
@@ -1257,7 +1257,7 @@ async fn whole_deletion_cascades_all_states_and_unmembered_history_without_erasi
         tx.rollback().await.unwrap();
         let comments:Vec<String>=sqlx::query_scalar("SELECT comment FROM content.posts WHERE board=$1 AND thread_id=$2 ORDER BY id")
             .bind(&f.boards[0]).bind(f.posts[0][0]).fetch_all(&f.owner).await.unwrap();
-        assert_eq!(comments,vec!["Owned report admission target";4],"Deletion retains post content");
+        assert_eq!(comments,vec!["";4],"Fresh whole deletion retains structural tombstones, not post content");
         for token in tokens {
             sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1").bind(token).execute(&f.owner).await.unwrap();
         }

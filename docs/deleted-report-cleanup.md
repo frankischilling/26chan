@@ -32,8 +32,9 @@ bindings, restricted privileges and evidence cascades.
 - The migration does not sweep reports whose targets were already deleted.
   The staff queue and resolve/dismiss lookup exclude these targets. Historical
   physical cleanup needs a separate bounded operator procedure.
-- Post text still uses the existing soft-deletion model. This change does not
-  establish complete public-schema erasure or close issue #214.
+- Migration 0122 alone retains post text. Migration 0123 adds
+  [fresh content erasure](fresh-content-erasure.md) while preserving structural
+  media tombstones. Historical retention and issue #214 remain open.
 - Archive transitions that do not delete the thread retain their separate
   report-group retirement rules. Actual archive expiration is whole deletion.
 

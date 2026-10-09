@@ -389,6 +389,12 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     if !op_bump_context {
         return Err(AppError::Internal);
     }
+    let content_erasure: bool = sqlx::query_scalar(board_store::content_erasure::READINESS_SQL)
+        .fetch_one(&state.staff)
+        .await?;
+    if !content_erasure {
+        return Err(AppError::Internal);
+    }
     let archive_deletion_secrets: bool = sqlx::query_scalar(ARCHIVE_DELETION_SECRETS_READY_SQL)
         .fetch_one(&state.staff)
         .await?;

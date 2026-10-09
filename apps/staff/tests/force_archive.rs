@@ -353,6 +353,42 @@ async fn scoped_moderator_archives_old_undead_thread_with_exact_snapshot_once() 
 
 #[tokio::test]
 async fn force_archive_rejects_invalid_targets_and_disabled_policy_without_changes() {
+    // Fresh whole deletion is irreversible. Each target-state rejection owns
+    // independent rows instead of resurrecting a previously deleted fixture.
+    for (statement, expected) in [
+        (
+            "UPDATE content.threads SET sticky=true WHERE id=$1",
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            "UPDATE content.threads SET deleted=true WHERE id=$1",
+            StatusCode::NOT_FOUND,
+        ),
+        (
+            "UPDATE content.posts SET deleted=true WHERE id=$1",
+            StatusCode::NOT_FOUND,
+        ),
+    ] {
+        let f = Fixture::new().await;
+        let result = tokio::spawn({
+            let f = f.clone();
+            async move {
+                f.ready().await;
+                sqlx::query(statement)
+                    .bind(f.posts[0])
+                    .execute(&f.owner)
+                    .await
+                    .unwrap();
+                let before = f.state().await;
+                assert_eq!(f.action(f.posts[0], "force-archive").await, expected);
+                assert_eq!(f.state().await, before);
+                assert_eq!(f.audit_count().await, 0);
+            }
+        })
+        .await;
+        f.cleanup().await;
+        result.unwrap();
+    }
     let f = Fixture::new().await;
     let result=tokio::spawn({let f=f.clone();async move {
         f.ready().await;
@@ -363,20 +399,6 @@ async fn force_archive_rejects_invalid_targets_and_disabled_policy_without_chang
             assert_eq!(f.action(target,"force-archive").await,StatusCode::NOT_FOUND);
             assert_eq!(f.state().await,before);
         }
-        for (statement,expected) in [
-            ("UPDATE content.threads SET sticky=true WHERE id=$1",StatusCode::BAD_REQUEST),
-            ("UPDATE content.threads SET sticky=false,deleted=true WHERE id=$1",StatusCode::NOT_FOUND),
-            ("UPDATE content.threads SET deleted=false WHERE id=$1",StatusCode::OK),
-            ("UPDATE content.posts SET deleted=true WHERE id=$1",StatusCode::NOT_FOUND),
-        ] {
-            sqlx::query(statement).bind(f.posts[0]).execute(&f.owner).await.unwrap();
-            if expected==StatusCode::OK {continue;}
-            let before=f.state().await;
-            assert_eq!(f.action(f.posts[0],"force-archive").await,expected);
-            assert_eq!(f.state().await,before);
-            assert_eq!(f.audit_count().await,0);
-        }
-        sqlx::query("UPDATE content.posts SET deleted=false WHERE id=$1").bind(f.posts[0]).execute(&f.owner).await.unwrap();
         sqlx::query("UPDATE content.boards SET archive_retention_seconds=0 WHERE slug=$1").bind(&f.boards[0]).execute(&f.owner).await.unwrap();
         let before=f.state().await;
         for target in [f.posts[0],i64::MAX] {

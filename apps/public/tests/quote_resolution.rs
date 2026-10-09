@@ -288,8 +288,20 @@ async fn exercise(owner: PgPool, public: PgPool, board: String, other: String) {
     for mutation in [
         "UPDATE content.posts SET deleted=true WHERE id=$1",
         "UPDATE content.threads SET deleted=true WHERE id=$1",
-        "UPDATE content.threads SET deleted=false,archived_at=clock_timestamp()-interval '2 days',archive_expires_at=clock_timestamp()-interval '1 day' WHERE id=$1",
+        "UPDATE content.threads SET archived_at=clock_timestamp()-interval '2 days',archive_expires_at=clock_timestamp()-interval '1 day' WHERE id=$1",
     ] {
+        // Fresh deletion is irreversible. Each visibility transition needs its
+        // own owned target instead of reviving an erased fixture.
+        let target = thread(&owner, &board).await;
+        let target_reply = number(&owner).await;
+        post(&owner, &board, target, target, "Independent target").await;
+        post(&owner, &board, target_reply, target, "Independent reply").await;
+        sqlx::query("UPDATE content.posts SET comment=$2 WHERE id=$1")
+            .bind(source)
+            .bind(format!(">>{target} >>{target_reply}"))
+            .execute(&owner)
+            .await
+            .unwrap();
         sqlx::query(mutation)
             .bind(target)
             .execute(&owner)
@@ -298,12 +310,18 @@ async fn exercise(owner: PgPool, public: PgPool, board: String, other: String) {
         let html = rendered(&get(&web, &format!("/{board}/thread/{source}.json")).await);
         assert!(html.contains(&dead(target)));
         assert!(html.contains(&dead(target_reply)));
-        sqlx::query("UPDATE content.posts SET deleted=false WHERE id=$1")
-            .bind(target)
-            .execute(&owner)
-            .await
-            .unwrap();
     }
+    sqlx::query("UPDATE content.posts SET comment=$2 WHERE id=$1")
+        .bind(source)
+        .bind(&text)
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1")
+        .bind(target)
+        .execute(&owner)
+        .await
+        .unwrap();
     // Persisted pre-source profiles retain their historical unconditional links.
     let historical = thread(&owner, &board).await;
     post(

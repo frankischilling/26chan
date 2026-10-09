@@ -337,6 +337,8 @@ jobs:
         run: sudo bash scripts/test-report-group-clear-migration.sh
       - name: Qualify deleted report cleanup, historical queue filtering and administrator restore
         run: sudo bash scripts/test-deleted-report-cleanup-migration.sh
+      - name: Qualify fresh content erasure, historical preservation and administrator restore
+        run: sudo bash scripts/test-fresh-erasure-migration.sh
       - name: Qualify guarded board title correction and preserved operator state
         run: sudo bash scripts/test-board-titles-migration.sh
       - name: Qualify source subtitle upgrade and preserved board state

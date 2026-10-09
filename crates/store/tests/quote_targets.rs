@@ -59,7 +59,8 @@ async fn paired_identity_only_lookup_honors_visibility_and_repeatable_read() {
         let expired=support::create_post(&public,a,0,&new_post()).await.unwrap();
         let other=support::create_post(&public,b,0,&new_post()).await.unwrap();
         let base=board_store::find_post(&public,a,op).await.unwrap();
-        let references=request(base.clone(),a,&[op,reply,expired]);
+        let live_reply=support::create_post(&public,a,op,&new_post()).await.unwrap();
+        let references=request(base.clone(),a,&[op,reply,live_reply,expired]);
         let mut tx=snapshot(&public).await;
         let targets=board_store::quote_targets::load(&mut tx,std::slice::from_ref(&references)).await.unwrap();
         assert_eq!(lookup(&targets,a,op),Some(op));
@@ -104,13 +105,13 @@ async fn paired_identity_only_lookup_honors_visibility_and_repeatable_read() {
         assert_eq!(lookup(&targets,b,other),None);
         tx.commit().await.unwrap();
         // A live reply under a deleted OP has no navigable public thread.
-        sqlx::query("UPDATE content.posts SET deleted=false WHERE board=$1 AND id=$2")
-            .bind(a).bind(reply).execute(&test_owner).await.unwrap();
         sqlx::query("UPDATE content.posts SET deleted=true WHERE board=$1 AND id=$2")
             .bind(a).bind(op).execute(&test_owner).await.unwrap();
         let mut tx=snapshot(&public).await;
         let targets=board_store::quote_targets::load(&mut tx,&requests).await.unwrap();
-        assert_eq!(lookup(&targets,a,reply),None,"deleted OP makes its live reply unavailable");
+        assert_eq!(lookup(&targets,a,live_reply),None,"deleted OP makes its live reply unavailable");
+        let still_live:bool=sqlx::query_scalar("SELECT NOT deleted FROM content.posts WHERE id=$1").bind(live_reply).fetch_one(&mut *tx).await.unwrap();
+        assert!(still_live,"This case tests a distinct live child, not a resurrected tombstone");
         tx.commit().await.unwrap();
         sqlx::query("UPDATE content.threads SET deleted=true WHERE board=$1 AND id=$2")
             .bind(a).bind(op).execute(&test_owner).await.unwrap();

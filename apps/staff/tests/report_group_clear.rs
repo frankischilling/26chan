@@ -579,7 +579,7 @@ impl Fixture {
 }
 
 #[tokio::test]
-async fn whole_deletion_removes_queue_and_clear_history_but_preserves_audit_and_content() {
+async fn whole_deletion_removes_queue_and_clear_history_preserves_audit_and_erases_content() {
     let _serial = TEST.lock().await;
     let f = Fixture::new().await;
     let result = tokio::spawn({
@@ -630,7 +630,7 @@ async fn whole_deletion_removes_queue_and_clear_history_but_preserves_audit_and_
                     .fetch_one(&f.owner)
                     .await
                     .unwrap();
-            assert_eq!(content, (true, "Scope fixture".into()));
+            assert_eq!(content, (true, String::new()));
         }
     })
     .await;
