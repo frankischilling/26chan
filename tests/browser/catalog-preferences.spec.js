@@ -129,6 +129,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
     'http://127.0.0.1:3000/static/native-quick-reply.v1.js',
     'http://127.0.0.1:3000/static/page-chrome.v1.js',
     'http://127.0.0.1:3000/static/native-post-deletion.v1.js',
+    'http://127.0.0.1:3000/static/native-blotter.v1.js',
   ];
   expect(response.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual([
     'http://127.0.0.1:3000/static/catalog-preferences.v1.js',

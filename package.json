@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check:generated": "npm run check:global-search && npm run check:native-filter && npm run check:native-images && npm run check:native-thread-controls && npm run check:native-backlinks && npm run check:native-quick-reply && npm run check:math && npm run check:native-post-deletion && npm run check:tegaki",
+    "check:generated": "npm run check:global-search && npm run check:native-filter && npm run check:native-images && npm run check:native-thread-controls && npm run check:native-backlinks && npm run check:native-quick-reply && npm run check:math && npm run check:native-post-deletion && npm run check:tegaki && npm run check:native-blotter",
     "build:global-search": "node scripts/build-global-search.mjs",
     "check:global-search": "node scripts/build-global-search.mjs --check",
     "test:global-search": "npm run check:global-search && node --test tests/browser/global-search.test.mjs tests/browser/global-search-response.test.mjs && playwright test tests/browser/global-search.spec.js",
@@ -93,7 +93,15 @@
     "test:replay-worker-probe": "npm run test:replay-worker-probe-core && npm run test:replay-worker-probe-state && playwright test --config playwright.replay-worker.config.js",
     "test:replay-worker-probe-state": "node tests/fixtures/replay-worker/run-state.mjs",
     "test:source-parsing-core": "node --test tests/browser/native-source-events.test.mjs tests/browser/native-source-updater-readiness.test.mjs tests/browser/native-main-init.test.mjs tests/browser/native-catalog-main-init.test.mjs",
-    "test:source-parsing": "npm run check:native-thread-controls && npm run test:source-parsing-core && playwright test tests/browser/source-parsing-events.spec.js tests/browser/catalog-main-init.spec.js"
+    "test:source-parsing": "npm run check:native-thread-controls && npm run test:source-parsing-core && playwright test tests/browser/source-parsing-events.spec.js tests/browser/catalog-main-init.spec.js",
+    "build:native-blotter": "node scripts/build-native-blotter.mjs",
+    "check:native-blotter": "node scripts/build-native-blotter.mjs --check",
+    "test:blotter-core": "npm run check:native-blotter && node --test tests/browser/native-blotter.test.mjs",
+    "test:blotter": "npm run test:blotter-core && playwright test --config playwright.blotter.config.js",
+    "test:blotter-persisted": "playwright test tests/browser/blotter-persisted.spec.js",
+    "test:board-subtitles-core": "python3 scripts/test-board-subtitle-import.py && node --test tests/browser/source-board-subtitles.test.mjs",
+    "test:board-subtitles": "npm run test:board-subtitles-core && playwright test --config playwright.source-board-subtitles.config.js",
+    "test:board-subtitles-http": "node tests/browser/source-board-subtitles-http.mjs"
   },
   "devDependencies": {
     "@mathjax/mathjax-tex-font": "4.1.3",

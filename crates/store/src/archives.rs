@@ -72,6 +72,7 @@ pub async fn archive_page_snapshot(
     Ok(PageSnapshot {
         snapshot: ArchivePageSnapshot { board, entries },
         navigation_boards,
+        blotter: Vec::new(),
     })
 }
 
@@ -99,6 +100,7 @@ async fn read_archive_snapshot(
     Ok(PageSnapshot {
         snapshot: ArchiveSnapshot { board, entries },
         navigation_boards,
+        blotter: Vec::new(),
     })
 }
 

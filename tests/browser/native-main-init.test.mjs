@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import vm from 'node:vm';
+import { mountNativeBlotter } from '../../apps/public/client/native-blotter.js';
 import { createInitialMountLifecycle, dispatchSourceEvent } from '../../apps/public/client/native-source-events.js';
 
 const oracle = JSON.parse(await readFile(new URL('../fixtures/native-main-init-source.json', import.meta.url)));
@@ -132,7 +133,7 @@ for (const kind of ['thread', 'board', 'disabled', 'catalog', 'upload', 'interru
   });
   const sandbox = {
     document, window, AbortController, navigator: { userAgent: '' },
-    createInitialMountLifecycle, createParsingBootstrap: () => ({}), dispatchSourceEvent,
+    createInitialMountLifecycle, createParsingBootstrap: () => ({}), dispatchSourceEvent, mountNativeBlotter,
     NativeWatchLock: class {}, postId: id => id === '0' ? null : id,
     readWatches: () => new Map(), sourceMobileLayout: value => value,
     matchMedia: () => ({ matches: false }),

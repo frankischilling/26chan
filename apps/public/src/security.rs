@@ -332,9 +332,11 @@ fn headers(
     };
     let script = if full_board_page {
         format!(
-            "{script} {}{}",
+            "{script} {}{} {}{}",
             state.origin,
-            crate::ui_assets::NATIVE_POST_DELETION_PATH
+            crate::ui_assets::NATIVE_POST_DELETION_PATH,
+            state.origin,
+            crate::ui_assets::NATIVE_BLOTTER_PATH
         )
     } else {
         script
@@ -736,6 +738,7 @@ mod tests {
                 let backlink = format!("{origin}/static/native-backlinks.v1.js");
                 for path in [
                     "native-embeds.v1.js",
+                    "native-blotter.v1.js",
                     "native-custom-css.v1.js",
                     "native-quick-reply.v1.js",
                     "native-post-tooltips.v1.js",

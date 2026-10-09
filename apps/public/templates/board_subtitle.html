@@ -1,0 +1,1 @@
+{% if board.board_subtitle.is_fiction() %}<div class="boardSubtitle">The stories and information posted here are artistic works of fiction and falsehood.<br>Only a fool would take anything posted here as fact.</div>{% else if board.board_subtitle.is_worksafe_gif() %}<div class="boardSubtitle">Worksafe Board: /<a href="/wsg/" title="Worksafe GIF">wsg</a>/</div>{% endif %}

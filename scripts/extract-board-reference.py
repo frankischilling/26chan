@@ -16,6 +16,8 @@ POLICY_KEYS.add("DISP_ID_NO_HEAVEN")
 POLICY_KEYS.update({"MAX_USER_THREADS", "MAX_USER_THREADS_PERIOD"})
 POLICY_KEYS.add("CAN_REPORT_POSTS")
 POLICY_KEYS.add("JSMATH")
+POLICY_KEYS.add("SHOW_BLOTTER")
+POLICY_KEYS.add("SUBTITLE")
 POLICY_KEYS.update({"ENABLE_PAINTERJS", "ENABLE_OEKAKI_REPLAYS", "PAINTERJS_DIMS"})
 
 
@@ -26,6 +28,31 @@ def policy(path):
         if match and match[1] in POLICY_KEYS:
             values[match[1]] = match[2].strip()
     return values
+
+
+FICTION_SUBTITLE = "The stories and information posted here are artistic works of fiction and falsehood.<br>Only a fool would take anything posted here as fact."
+WORKSAFE_SUBTITLE = 'Worksafe Board: /<a href="//boards.4chan.org/wsg/" title="Worksafe GIF">wsg</a>/'
+
+
+def subtitle_profile(values):
+    subtitle = values.get("SUBTITLE")
+    profiles = {None: "none", FICTION_SUBTITLE: "fiction", WORKSAFE_SUBTITLE: "worksafe_gif"}
+    if subtitle not in profiles:
+        raise ValueError("Unaudited source SUBTITLE; add a reviewed fixed profile before import.")
+    return profiles[subtitle]
+
+
+def subtitle_migration(reference):
+    rows = []
+    for board in reference["boards"]:
+        if board["board_subtitle"] != "none":
+            rows.append("('" + board["slug"] + "','" + board["board_subtitle"] + "')")
+    return ("-- Audited source SUBTITLE profiles; descriptions and existing policy stay unchanged.\n"
+            "-- Only fixed template markup may render these profiles.\n"
+            "ALTER TABLE content.boards ADD COLUMN board_subtitle text NOT NULL DEFAULT 'none'\n"
+            "    CONSTRAINT boards_subtitle_profile CHECK (board_subtitle IN ('none','fiction','worksafe_gif'));\n"
+            "UPDATE content.boards b SET board_subtitle=policy.profile FROM (VALUES\n" +
+            ",\n".join(rows) + ") policy(slug,profile) WHERE b.slug=policy.slug;\n")
 
 
 def extract(root, names_encoding="utf-8"):
@@ -57,6 +84,8 @@ def extract(root, names_encoding="utf-8"):
             "description": html.unescape(values.get("META_DESCRIPTION", "")),
             "source_order": position, "listed": slug in slugs,
             "worksafe": values["CATEGORY"] == "ws",
+            "show_blotter": boolean("SHOW_BLOTTER"),
+            "board_subtitle": subtitle_profile(values),
             "max_comment_chars": integer("MAX_COM_CHARS"),
             "comment_max_lines": integer("MAX_LINES"),
             "comment_code_spacing": boolean("CODE_TAGS"),
@@ -99,7 +128,7 @@ def migration(reference):
         "listed", "source_policy", "meta_board", "poster_id_no_heaven", "expire_neglected",
         "posting_reply_seconds", "posting_image_seconds", "posting_thread_seconds",
         "user_thread_limit", "user_thread_period_hours", "can_report_posts", "math_tags",
-        "oekaki", "oekaki_replays", "oekaki_width", "oekaki_height",
+        "oekaki", "oekaki_replays", "oekaki_width", "oekaki_height", "show_blotter", "board_subtitle",
     }]
     def sql(value):
         if isinstance(value, bool):
@@ -198,6 +227,7 @@ def main():
     parser.add_argument("--rss-migration", type=Path)
     parser.add_argument("--math-migration", type=Path)
     parser.add_argument("--drawing-migration", type=Path)
+    parser.add_argument("--subtitle-migration", type=Path)
     parser.add_argument("--wordfilter-migration", type=Path)
     parser.add_argument("--board-encoding-migration", type=Path)
     args = parser.parse_args()
@@ -207,6 +237,8 @@ def main():
     historical = extract(args.source, names_encoding="cp1252")
     data = json.dumps(reference, ensure_ascii=False, indent=2) + "\n"
     if args.check:
+        if args.subtitle_migration and args.subtitle_migration.read_bytes() != subtitle_migration(reference).encode("utf-8"):
+            raise SystemExit("Board subtitle migration differs from the extracted policy.")
         if args.output.read_text(encoding="utf-8") != data:
             raise SystemExit("Board reference differs from the supplied checkout.")
         if args.migration and args.migration.read_bytes() != migration(historical).encode("utf-8"):
@@ -227,6 +259,8 @@ def main():
         print("Board reference matches all listed and additional configuration files.")
     else:
         args.output.write_bytes(data.encode("utf-8"))
+        if args.subtitle_migration:
+            args.subtitle_migration.write_bytes(subtitle_migration(reference).encode("utf-8"))
         if args.migration:
             args.migration.write_bytes(migration(historical).encode("utf-8"))
         if args.drawing_migration:

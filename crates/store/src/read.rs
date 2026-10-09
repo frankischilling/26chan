@@ -44,6 +44,7 @@ pub async fn boards(pool: &PgPool) -> Result<Vec<Board>, StoreError> {
 pub struct PageSnapshot<T> {
     pub snapshot: T,
     pub navigation_boards: Vec<Board>,
+    pub blotter: Vec<crate::BlotterMessage>,
 }
 
 pub(crate) async fn snapshot_navigation(
@@ -152,7 +153,7 @@ async fn read_thread_snapshot(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
         .execute(&mut *tx)
         .await?;
-    let board = sqlx::query_as("SELECT * FROM content.boards WHERE slug=$1")
+    let board: Board = sqlx::query_as("SELECT * FROM content.boards WHERE slug=$1")
         .bind(slug)
         .fetch_optional(&mut *tx)
         .await?
@@ -207,6 +208,14 @@ async fn read_thread_snapshot(
         .fetch_one(&mut *tx)
         .await?;
     let navigation_boards = snapshot_navigation(&mut tx, include_navigation).await?;
+    let blotter = crate::blotter::snapshot_blotter(
+        &mut tx,
+        include_navigation
+            && board.show_blotter
+            && !metadata.closed
+            && metadata.archived_at.is_none(),
+    )
+    .await?;
     tx.commit().await?;
     Ok(PageSnapshot {
         snapshot: ThreadSnapshot {
@@ -220,6 +229,7 @@ async fn read_thread_snapshot(
             tail_id,
         },
         navigation_boards,
+        blotter,
     })
 }
 pub async fn threads(
@@ -450,7 +460,7 @@ pub async fn post_snapshot(pool: &PgPool, slug: &str, id: i64) -> Result<PostSna
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
         .execute(&mut *tx)
         .await?;
-    let board = sqlx::query_as("SELECT * FROM content.boards WHERE slug=$1")
+    let board: Board = sqlx::query_as("SELECT * FROM content.boards WHERE slug=$1")
         .bind(slug)
         .fetch_optional(&mut *tx)
         .await?

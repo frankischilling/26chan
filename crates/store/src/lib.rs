@@ -3,7 +3,9 @@
 pub mod anonymous_session;
 mod archives;
 pub mod automatic_admission;
+pub mod blotter;
 mod board_snapshot;
+pub use blotter::BlotterMessage;
 mod content_admission;
 pub use archives::{
     ArchiveEntry, ArchivePageEntry, ArchivePageSnapshot, ArchiveSnapshot,
@@ -81,6 +83,26 @@ pub enum StoreError {
     PostingCooldownRejected(PostingCooldownRejection),
 }
 
+/// Audited source SUBTITLE profiles. No stored HTML or configurable URL is rendered.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, sqlx::Type)]
+#[sqlx(type_name = "text", rename_all = "snake_case")]
+pub enum BoardSubtitle {
+    #[default]
+    None,
+    Fiction,
+    WorksafeGif,
+}
+
+impl BoardSubtitle {
+    pub fn is_fiction(self) -> bool {
+        self == Self::Fiction
+    }
+
+    pub fn is_worksafe_gif(self) -> bool {
+        self == Self::WorksafeGif
+    }
+}
+
 #[derive(Clone, sqlx::FromRow)]
 pub struct Board {
     pub slug: String,
@@ -93,6 +115,8 @@ pub struct Board {
     pub rss_enabled: bool,
     pub title: String,
     pub description: String,
+    pub show_blotter: bool,
+    pub board_subtitle: BoardSubtitle,
     pub max_comment_chars: i32,
     pub max_authorized_comment_chars: i32,
     pub comment_code_spacing: bool,

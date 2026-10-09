@@ -373,6 +373,16 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
             "Public reporting is unavailable.",
         ));
     }
+    let blotter_projection: bool = sqlx::query_scalar(board_store::blotter::BLOTTER_READINESS_SQL)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(StoreError::from)?;
+    if !blotter_projection {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public blotter is unavailable.",
+        ));
+    }
     let poll_projection: bool = sqlx::query_scalar(board_store::POLL_READINESS_SQL)
         .fetch_one(&state.pool)
         .await
@@ -490,6 +500,7 @@ pub async fn page(
             let board_store::PageSnapshot {
                 snapshot,
                 navigation_boards,
+                ..
             } = board_store::archive_page_snapshot(&state.pool, &board).await?;
             let entries = snapshot
                 .entries
@@ -545,6 +556,7 @@ async fn board_page(
     let board_store::PageSnapshot {
         mut snapshot,
         navigation_boards,
+        blotter,
     } = board_store::board_page_snapshot(
         &state.pool,
         slug,
@@ -609,6 +621,7 @@ async fn board_page(
         &BoardPage {
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
             navigation_boards,
+            blotter,
             quote: String::new(),
             catalog_hidden: hidden_views,
             board,
@@ -662,6 +675,7 @@ pub async fn thread(
     let board_store::PageSnapshot {
         snapshot,
         navigation_boards,
+        blotter,
     } = board_store::thread_page_snapshot(&state.pool, &board, id).await?;
     let board_store::ThreadSnapshot {
         board,
@@ -709,6 +723,7 @@ pub async fn thread(
         &BoardPage {
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
             navigation_boards,
+            blotter,
             quote,
             catalog_hidden: Vec::new(),
             board,

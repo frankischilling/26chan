@@ -121,6 +121,8 @@ impl Fixture {
             slug: "img".into(),
             title: "Paper image fixtures".into(),
             description: "Synthetic folds, thumbnails and file states.".into(),
+            show_blotter: true,
+            board_subtitle: board_store::BoardSubtitle::None,
             image_limit: 10,
             posting_reply_seconds: 0,
             posting_image_seconds: 0,
@@ -229,6 +231,7 @@ impl Fixture {
             }]
         };
         views::BoardPage {
+            blotter: Vec::new(),
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
             navigation_boards: crate::navigation_boards(),
             quote: String::new(),

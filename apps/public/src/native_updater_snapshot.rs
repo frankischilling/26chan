@@ -463,6 +463,7 @@ mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                blotter: Vec::new(),
                 spoiler_thumbnail: "/static/catalog/spoiler.png".into(),
                 navigation_boards: vec![],
                 quote: String::new(),
@@ -516,6 +517,7 @@ mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                blotter: Vec::new(),
                 spoiler_thumbnail: "spoiler.png".into(),
                 navigation_boards: vec![],
                 quote: String::new(),
@@ -561,6 +563,8 @@ mod tests {
             slug: "test".into(),
             title: "Test".into(),
             description: String::new(),
+            show_blotter: true,
+            board_subtitle: board_store::BoardSubtitle::None,
             max_comment_chars: 16_000,
             max_authorized_comment_chars: 10000,
             comment_code_spacing: true,

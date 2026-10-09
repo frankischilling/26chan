@@ -1,0 +1,47 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "themes": [
+    {
+      "theme": "yotsuba",
+      "source_path": "css/yotsubanew.css",
+      "source_sha256": "05d61b9a886aca60bd418b63a5b86d2ef3050d1d90c640da64f2206dda740db9",
+      "rules_sha256": "3579cef1082ed9ec9cf0e510a8e88db20e91213ac875f669f26a17b030f2f7f4",
+      "rules": "body {\r\n\tbackground: #FFFFEE url(/image/fade.png) top center repeat-x;\r\n\r\n\tcolor: #800000;\r\n\tfont-family: arial, helvetica, sans-serif;\r\n\tfont-size: 10pt;\r\n\r\n\tmargin-left: 0;\r\n\tmargin-right: 0;\r\n\tmargin-top: 5px;\r\n\r\n\tpadding-left: 5px;\r\n\tpadding-right: 5px;\r\n}\ntable {\r\n\tborder-spacing: 1px;\r\n\r\n\tmargin-left: auto;\r\n\tmargin-right: auto;\r\n}\ntd {\r\n\tmargin: 0px;\r\n\tpadding: 0px;\r\n\r\n\tfont-size: 10pt;\r\n}\nhr {\r\n\tborder: none;\r\n\tborder-top: 1px solid #D9BFB7;\r\n\r\n\theight: 0;\r\n}\n.aboveMidAd {\r\n  width: 468px;\r\n  max-width: 100%;\r\n}\n#blotter {\r\n  width: 468px;\r\n  margin: auto;\r\n}\n#blotter td {\r\n  vertical-align: top;\r\n  font-size: 11px;\r\n}\n.blotter-date {\r\n  width: 50px;\r\n  text-align: center;\r\n}\n#blotter tfoot {\r\n  text-align: right;\r\n}"
+    },
+    {
+      "theme": "yotsuba-b",
+      "source_path": "css/yotsubluenew.css",
+      "source_sha256": "d6abc7c9fb8c2d9c168554b39a54b4569f68243aa4bcb972b8452264cbdd1a65",
+      "rules_sha256": "7aa56453cb111a40ffde32f3609217064ceda66ccf67158d6f366d374f7c1fd6",
+      "rules": "body {\r\n\tbackground: #EEF2FF url(/image/fade-blue.png) top center repeat-x;\r\n\r\n\tcolor: #000000;\r\n\tfont-family: arial, helvetica, sans-serif;\r\n\tfont-size: 10pt;\r\n\r\n\tmargin-left: 0;\r\n\tmargin-right: 0;\r\n\tmargin-top: 5px;\r\n\r\n\tpadding-left: 5px;\r\n\tpadding-right: 5px;\r\n}\ntable {\r\n\tborder-spacing: 1px;\r\n\r\n\tmargin-left: auto;\r\n\tmargin-right: auto;\r\n}\ntd {\r\n\tmargin: 0px;\r\n\tpadding: 0px;\r\n\r\n\tfont-size: 10pt;\r\n}\nhr {\r\n\tborder: none;\r\n\tborder-top: 1px solid #B7C5D9;\r\n\r\n\theight: 0;\r\n}\n.aboveMidAd {\r\n  width: 468px;\r\n  max-width: 100%;\r\n}\n#blotter {\r\n  width: 468px;\r\n  margin: auto;\r\n}\n#blotter td {\r\n  vertical-align: top;\r\n  font-size: 11px;\r\n}\n.blotter-date {\r\n  width: 50px;\r\n  text-align: center;\r\n}\n#blotter tfoot {\r\n  text-align: right;\r\n}"
+    },
+    {
+      "theme": "futaba",
+      "source_path": "css/futabanew.css",
+      "source_sha256": "8beb159cfcf83d042a68b1037997511c7b0bb959289eb1b5757036cdd7aa0945",
+      "rules_sha256": "e918451fc2ea5c84ada444ad0ca583a5a354fb6c0f6bf7e9c6401779b166077d",
+      "rules": "body {\r\n\tbackground: #FFE;\r\n\r\n\tcolor: #800000;\r\n\tfont-size: 12pt;\r\n  font-family: 'Times New Roman', serif;\r\n\tmargin-left: 0;\r\n\tmargin-right: 0;\r\n\tmargin-top: 5px;\r\n\r\n\tpadding-left: 5px;\r\n\tpadding-right: 5px;\r\n}\n.aboveMidAd {\r\n  width: 468px;\r\n  max-width: 100%;\r\n}\n#blotter {\r\n  width: 468px;\r\n  margin: auto;\r\n}\n#blotter td {\r\n  vertical-align: top;\r\n  font-size: 11px;\r\n}\n.blotter-date {\r\n  width: 50px;\r\n  text-align: center;\r\n}\n#blotter tfoot {\r\n  text-align: right;\r\n}"
+    },
+    {
+      "theme": "burichan",
+      "source_path": "css/burichannew.css",
+      "source_sha256": "71a5a5b8362aa78269c19e89cacc249cda48f2af2393fda7d3638fa518307b18",
+      "rules_sha256": "ab4980f022d28e8dc6657b99c563e455cf1ec7c41d4ed026bdea1990f142e865",
+      "rules": "body {\r\n\tbackground: #EEF2FF;\r\n\r\n\tcolor: #000000;\r\n\tfont-size: 12pt;\r\n  font-family: 'Times New Roman', serif;\r\n\tmargin-left: 0;\r\n\tmargin-right: 0;\r\n\tmargin-top: 5px;\r\n\r\n\tpadding-left: 5px;\r\n\tpadding-right: 5px;\r\n}\n.aboveMidAd {\r\n  width: 468px;\r\n  max-width: 100%;\r\n}\n#blotter {\r\n  width: 468px;\r\n  margin: auto;\r\n}\n#blotter td {\r\n  vertical-align: top;\r\n  font-size: 11px;\r\n}\n.blotter-date {\r\n  width: 50px;\r\n  text-align: center;\r\n}\n#blotter tfoot {\r\n  text-align: right;\r\n}"
+    },
+    {
+      "theme": "photon",
+      "source_path": "css/photon.css",
+      "source_sha256": "a4741759760d959b4a2e29d9622ab63a91d1cdc49f10679335b71f5b16e9575d",
+      "rules_sha256": "a5d035b95cd1645460a05110ae214d4e5f5866adb1ebf02a20502971f8fb1ac1",
+      "rules": "body {\r\n\tbackground: #EEEEEE none;\r\n\tcolor: #333;\r\n\tfont-family: arial, helvetica, sans-serif;\r\n\tfont-size: 10pt;\r\n\tmargin-left: 0;\r\n\tmargin-right: 0;\r\n\tmargin-top: 5px;\r\n\tpadding-left: 5px;\r\n\tpadding-right: 5px;\r\n}\ntable {\r\n\tborder-spacing: 1px;\r\n\tmargin-left: auto;\r\n\tmargin-right: auto;\r\n}\ntd {\r\n\tmargin: 0px;\r\n\tpadding: 0px;\r\n\tfont-size: 10pt;\r\n}\nhr {\r\n\tborder: none;\r\n\tborder-top: 1px solid #DDD;\r\n\theight: 0;\r\n}\n.aboveMidAd {\r\n  width: 468px;\r\n}\n#blotter {\r\n  width: 468px;\r\n  margin: auto;\r\n}\n#blotter td {\r\n  vertical-align: top;\r\n  font-size: 11px;\r\n}\n.blotter-date {\r\n  width: 50px;\r\n  text-align: center;\r\n}\n#blotter tfoot {\r\n  text-align: right;\r\n}"
+    },
+    {
+      "theme": "tomorrow",
+      "source_path": "css/tomorrow.css",
+      "source_sha256": "40b4c474a93e87737811c77a50cce9af4fadc9b025a3863e126ca418a8f33a4a",
+      "rules_sha256": "34c10dd13e8654dd84252e3be1e54e9dca47ae71ea7c85f5786213e7a2015637",
+      "rules": "body {\r\n\tbackground: #1d1f21 none;\r\n\tcolor: #c5c8c6;\r\n\tfont-family: arial, helvetica, sans-serif;\r\n\tfont-size: 10pt;\r\n\tmargin-left: 0;\r\n\tmargin-right: 0;\r\n\tmargin-top: 5px;\r\n\tpadding-left: 5px;\r\n\tpadding-right: 5px;\r\n}\ntable {\r\n\tborder-spacing: 1px;\r\n\tmargin-left: auto;\r\n\tmargin-right: auto;\r\n}\ntd {\r\n\tmargin: 0px;\r\n\tpadding: 0px;\r\n\tfont-size: 10pt;\r\n}\nhr {\r\n\tborder: none;\r\n\tborder-top: 1px solid #282a2e;\r\n\theight: 0;\r\n}\n.aboveMidAd {\r\n  width: 468px;\r\n  max-width: 100%;\r\n}\n#blotter {\r\n  width: 468px;\r\n  margin: auto;\r\n}\n#blotter td {\r\n  vertical-align: top;\r\n  font-size: 11px;\r\n}\n.blotter-date {\r\n  width: 50px;\r\n  text-align: center;\r\n}\n#blotter tfoot {\r\n  text-align: right;\r\n}"
+    }
+  ]
+}
