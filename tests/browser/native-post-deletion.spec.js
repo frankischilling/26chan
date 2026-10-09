@@ -1,6 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 import { ownedDeletionMarker } from './helpers/deletion-fixture.js';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
+import { observeOwnedDeletionResponse } from './owned-upload-response.mjs';
 
 const origin = 'http://127.0.0.1:3000';
 const endpoint = `${origin}/fixture/imgboard.php`;
@@ -165,11 +166,16 @@ for (const target of ['reply', 'id']) {
     await page.locator(`#p${owned.keep} .postActions > summary`).click();
     await page.locator(`#delete${owned.keep}`).evaluate(input => { input.value = 'untouched control draft'; });
     await withDeletionQuota(async () => {
+      // Capture the real body before native deletion settles and aborts its
+      // fetch, which can discard Chromium's separate DevTools body copy.
+      const deleted = await observeOwnedDeletionResponse(page, endpoint);
       const finished = page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'POST');
       await choose(page, id, true);
       const response = await finished;
       expect(response.status()).toBe(200);
-      expect(await response.text()).toContain('The deletion was completed.');
+      const captured = await deleted();
+      expect(captured.status).toBe(response.status());
+      expect(captured.text).toContain('The deletion was completed.');
       await expect(feedback(page)).toHaveText(`Post No.${id}: Post deleted.`);
       await expect(page.locator(`#pc${id}`)).toHaveClass(/\bdeleted\b/);
       await expect(page.locator(`#pc${id}`)).toHaveCSS('opacity', '0.66');

@@ -1,5 +1,7 @@
+import { withFailurePreservingCleanup } from './helpers/preserve-cleanup-failure.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { parseUpdaterSnapshot, parseQuotePreviewSnapshot, parseBoardPageSnapshot,
   postLinkUrl, parsePostRecipe, validatePostTree, UPDATER_LIMITS, PREVIEW_LIMITS } from '../../apps/public/client/native-updater-snapshot.js';
 import { quoteTarget, localQuoteTree, prepareQuotePost } from '../../apps/public/client/native-quote-preview.js';
@@ -127,4 +129,46 @@ test('new quote recipes preserve node, depth and character budgets on parser and
     assert.throws(() => validatePostTree(tree, context, no, { nodes: 0 }, { ...limits, depth: 2 }));
     assert.throws(() => validatePostTree(tree, context, no, { nodes: 0, chars: limits.bytes }, limits));
   }
+});
+
+
+test('no-JavaScript quote lifecycle keeps hidden credentials on the real anonymous-session path', async () => {
+  const source = await readFile(new URL('./behavior.spec.js', import.meta.url), 'utf8');
+  const start = source.indexOf("test('cross-board quotes navigate persisted replies and respect deletion without JavaScript'");
+  assert.notEqual(start, -1);
+  const end = source.indexOf('\n});', start);
+  assert.ok(end > start);
+  const fixture = source.slice(start, end);
+  const fields = await readFile(new URL('../../apps/public/templates/post_fields.html', import.meta.url), 'utf8');
+  const post = await readFile(new URL('../../apps/public/templates/post_content.html', import.meta.url), 'utf8');
+  assert.match(fields, /id="postPassword" name="pwd" type="hidden"/);
+  assert.match(post, /id="delete\{\{ item\.post\.id \}\}" name="password" type="hidden"/);
+  assert.match(fixture, /javaScriptEnabled: false/);
+  assert.match(fixture, /cookie\.name === 'board-anon'/);
+  assert.match(fixture, /httpOnly: true/);
+  assert.match(fixture, /await post\('\/tg\/'/);
+  assert.match(fixture, /await post\('\/fixture\/'/);
+  assert.match(fixture, /deletionFixture\('age', 'tg', reply, marker\)/);
+  assert.match(fixture, /name: 'Delete post', exact: true/);
+  assert.doesNotMatch(fixture, /(?:postPassword|delete\$\{reply\})[^\n]*\.(?:fill|evaluate|pressSequentially)\(/,
+    'Hidden posting and deletion fields must not be edited by the browser fixture');
+  assert.doesNotMatch(fixture, /postTarget|pwd: password|form: \{ no, password \}/,
+    'Quote lifecycle setup and cleanup must retain automatic session ownership');
+});
+
+
+test('quote lifecycle cleanup preserves primary failures and never turns teardown failures into success', async () => {
+  const primary = new Error('action failed'), secondary = new Error('cleanup failed');
+  const recorded = [];
+  await assert.rejects(withFailurePreservingCleanup(async () => { throw primary; },
+    async () => { throw secondary; }, error => recorded.push(error)), error => error === primary);
+  assert.deepEqual(recorded, [secondary]);
+  await assert.rejects(withFailurePreservingCleanup(async () => 'ok',
+    async () => { throw secondary; }, error => recorded.push(error)), error => error === secondary);
+  assert.deepEqual(recorded, [secondary], 'A sole cleanup failure is thrown, not downgraded');
+  await assert.rejects(withFailurePreservingCleanup(async () => { throw primary; },
+    async () => {}, error => recorded.push(error)), error => error === primary);
+  assert.equal(await withFailurePreservingCleanup(async () => 'ok', async () => {}), 'ok');
+  await assert.rejects(withFailurePreservingCleanup(async () => { throw primary; },
+    async () => { throw secondary; }, () => { throw new Error('diagnostic failure'); }), error => error === primary);
 });
