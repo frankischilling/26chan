@@ -1,10 +1,19 @@
 import { PREVIEW_LIMITS, previewContext, previewUrl, validatePreviewMetadata, validatePostTree } from './native-updater-snapshot.js';
+import { quotePostId } from './native-quote-identity.js';
+
+function lookupContext(context) {
+  const post = quotePostId(context.post);
+  const thread = context.thread === null || context.thread === undefined ? null : quotePostId(context.thread);
+  if (!post || (context.thread !== null && context.thread !== undefined && !thread)) throw new TypeError('invalid-context');
+  return previewContext({ ...context, post, thread });
+}
 
 function cancel(body) { try { body?.cancel()?.catch(() => {}); } catch { /* A closed stream needs no further cleanup. */ } }
 
 export function checkedQuotePreview(result, context) {
   try {
     if (result?.status !== 'ok') throw new TypeError('invalid-preview');
+    context = lookupContext(context);
     const resolved = validatePreviewMetadata(result.snapshot, context, true);
     validatePostTree(result.snapshot.post.tree, resolved, context.post, { nodes: 0 }, PREVIEW_LIMITS);
     return { status: 'ok', snapshot: result.snapshot, context: resolved };
@@ -36,7 +45,7 @@ export class NativeQuotePreviewTransport {
     if (signal?.aborted) return Promise.resolve({ status: 'cancelled' });
     let context, url;
     try {
-      context = previewContext({ ...target, origin: this.origin, mediaOrigin: this.mediaOrigin });
+      context = lookupContext({ ...target, origin: this.origin, mediaOrigin: this.mediaOrigin });
       url = previewUrl(context);
     } catch { return Promise.resolve({ status: 'invalid-context' }); }
     if (this.active) return Promise.resolve({ status: 'busy' });

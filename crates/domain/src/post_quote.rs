@@ -97,16 +97,13 @@ impl PostQuote {
     /// full term, so `>>>/co/1e3` never produces a PostQuote.
     pub fn classify(&self, current_board: &str) -> QuoteClassification {
         let digits = self.digits();
-        if digits.starts_with('0') || !digits.bytes().all(|c| c.is_ascii_digit()) {
+        if !digits.bytes().all(|c| c.is_ascii_digit()) {
             return QuoteClassification::Unqualified;
         }
         let Ok(id) = digits.parse::<i64>() else {
             return QuoteClassification::Unqualified;
         };
         let board = self.board.as_deref().unwrap_or(current_board);
-        let Some(key) = QuoteTargetKey::new(board, id) else {
-            return QuoteClassification::Unqualified;
-        };
         if let Some(board) = self.board.as_deref() {
             if !crate::static_quote::reference_board(board) {
                 return QuoteClassification::Plain;
@@ -115,7 +112,12 @@ impl PostQuote {
                 return QuoteClassification::Dead;
             }
         }
-        QuoteClassification::Lookup(key)
+        // Post zero cannot exist in the Rust store. Its source lookup is an
+        // absence, after the cross-board allowlist and forced-dead branches.
+        match QuoteTargetKey::new(board, id) {
+            Some(key) => QuoteClassification::Lookup(key),
+            None => QuoteClassification::Dead,
+        }
     }
 
     /// Only a visible identity obtained in the caller's snapshot may be passed.
@@ -142,11 +144,16 @@ impl PostQuote {
 
     pub fn resolved_href(&self, current_board: &str) -> Option<String> {
         match self.presentation {
-            QuotePresentation::LocalFragment => Some(format!("#p{}", self.id)),
+            QuotePresentation::LocalFragment => Some(format!("#p{}", self.digits())),
             QuotePresentation::Thread { thread_id } => Some(format!(
-                "/{}/thread/{thread_id}#p{}",
+                "/{}/thread/{}#p{}",
                 self.board.as_deref().unwrap_or(current_board),
-                self.id
+                if thread_id as u64 == self.id {
+                    self.digits().to_owned()
+                } else {
+                    thread_id.to_string()
+                },
+                self.digits()
             )),
             _ => None,
         }
@@ -224,13 +231,36 @@ mod tests {
     }
 
     #[test]
-    fn leading_zero_and_unsupported_numeric_spellings_remain_unqualified() {
+    fn leading_zero_labels_resolve_numerically_and_keep_raw_destinations() {
         for input in [">>00042", ">>>/co/00042"] {
             let mut quote = quotes(input, 104, "g").remove(0);
-            assert_eq!(quote.classify("g"), QuoteClassification::Unqualified);
+            assert_eq!(
+                quote.classify("g"),
+                QuoteClassification::Lookup(
+                    QuoteTargetKey::new(quote.board().unwrap_or("g"), 42).unwrap()
+                )
+            );
             quote.resolve("g", Some(40), Some(40));
-            assert_eq!(quote.presentation(), &QuotePresentation::Unresolved);
+            assert_eq!(
+                quote.resolved_href("g").as_deref(),
+                Some(if quote.board().is_none() {
+                    "#p00042"
+                } else {
+                    "/co/thread/40#p00042"
+                })
+            );
             assert_eq!(quote.label(), input);
+            quote.resolve("g", None, Some(42));
+            assert_eq!(
+                quote.resolved_href("g").as_deref(),
+                Some(if quote.board().is_none() {
+                    "/g/thread/00042#p00042"
+                } else {
+                    "/co/thread/00042#p00042"
+                })
+            );
+            quote.resolve("g", Some(40), None);
+            assert_eq!(quote.presentation(), &QuotePresentation::Dead);
         }
         for input in [
             ">>>/co/+42",
@@ -248,6 +278,28 @@ mod tests {
             quotes(">>9223372036854775807", 104, "g")[0].classify("g"),
             QuoteClassification::Lookup(QuoteTargetKey::new("g", i64::MAX).unwrap())
         );
+    }
+
+    #[test]
+    fn zero_is_inert_and_long_zero_prefixes_follow_source_word_breaks() {
+        for profile in (104..=111).chain(120..=127) {
+            for input in [">>0", ">>0000", ">>>/co/0", ">>>/co/0000"] {
+                let mut quote = quotes(input, profile, "g").remove(0);
+                assert_eq!(quote.classify("g"), QuoteClassification::Dead);
+                assert_eq!(quote.presentation(), &QuotePresentation::Plain);
+                quote.resolve("g", Some(40), Some(40));
+                assert_eq!(quote.presentation(), &QuotePresentation::Dead);
+                assert_eq!(quote.label(), input);
+            }
+            let label = format!(">>{}42", "0".repeat(30));
+            let parsed = quotes(&label, profile, "g");
+            assert_eq!(parsed[0].label(), label);
+            assert_eq!(parsed[0].id(), 42);
+            let wrapped = quotes(&format!(">>{}42", "0".repeat(33)), profile, "g");
+            assert_eq!(wrapped.len(), 1);
+            assert_eq!(wrapped[0].id(), 0);
+            assert_eq!(wrapped[0].label(), format!(">>{}", "0".repeat(33)));
+        }
     }
 
     #[test]
@@ -312,7 +364,7 @@ mod tests {
                 let mut quote = parsed.remove(0);
                 let classification = if expected["kind"] == "plain" {
                     QuoteClassification::Plain
-                } else if board == "mlp" && matches!(target_board, "b" | "co") {
+                } else if target_id == 0 || (board == "mlp" && matches!(target_board, "b" | "co")) {
                     QuoteClassification::Dead
                 } else {
                     QuoteClassification::Lookup(

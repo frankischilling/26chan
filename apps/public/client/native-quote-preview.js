@@ -1,4 +1,5 @@
 import { sourceSpoilerPath } from './native-spoilers.js';
+import { quotePostId } from './native-quote-identity.js';
 import { isSpoilerAssetPath } from './native-spoiler-assets.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { FILTER_LIMITS } from './native-filter-limits.js';
@@ -248,12 +249,13 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
     if (!current(value)) return;
     // This check precedes every createElement and every resource assignment.
     const budget = { nodes: 0 };
-    validatePostTree(tree, context, value.ref.post, budget, PREVIEW_LIMITS);
+    const no = quotePostId(value.ref.post);
+    validatePostTree(tree, context, no, budget, PREVIEW_LIMITS);
     if (document.getElementById('quote-preview')) throw new TypeError('preview-exists');
-    const popup = prepareQuotePost(tree, context, value.ref.post).build(document);
+    const popup = prepareQuotePost(tree, context, no).build(document);
     popup.id = 'quote-preview'; popup.classList.add('preview');
     if (!value.link.closest('.backlink')) popup.classList.add('reveal-spoilers');
-    if (context.board === board && window.location.hash === `#p${value.ref.post}`) popup.classList.add('highlight');
+    if (context.board === board && window.location.hash === `#p${no}`) popup.classList.add('highlight');
     popup.style.pointerEvents = mobile ? 'auto' : 'none';
     if (value.target) decoratePreview?.(popup, value.target, value.link,
       { nodes: PREVIEW_LIMITS.nodes - budget.nodes, characters: PREVIEW_LIMITS.bytes - budget.chars });
@@ -298,7 +300,7 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
     const article = post?.closest('.postContainer'), section = post?.closest('.thread');
     const parent = section && postId(section.id.slice(1));
     if (post && root.contains(post) && article?.id === `pc${ref.post}` && parent
-      && BigInt(parent) <= BigInt(ref.post) && (ref.thread === null || ref.thread === parent)) {
+      && BigInt(parent) <= BigInt(ref.post) && (ref.thread === null || quotePostId(ref.thread) === parent)) {
       value.target = post;
       const rect = post.getBoundingClientRect();
       if (rect.top > 0 && rect.bottom < document.documentElement.clientHeight && post.getClientRects().length && !hidden(post)) {
