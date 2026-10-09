@@ -16,6 +16,8 @@ mod headers;
 mod listeners;
 #[path = "visual/media.rs"]
 mod media;
+#[path = "visual/transport_overlap.rs"]
+mod transport_overlap;
 use askama::Template;
 use axum::{Router, response::Html, routing::get};
 use board_store::{Board, Post, Thread};
@@ -583,6 +585,7 @@ async fn main() -> std::io::Result<()> {
             "http://127.0.0.1:3000".into(),
             false,
         ));
+    let app = transport_overlap::from_env(app);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
     let mut endpoints = vec![(listener, app)];
     endpoints.extend(

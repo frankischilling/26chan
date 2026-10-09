@@ -1,0 +1,103 @@
+name: Windows receive/connect overlap diagnostic
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/windows-receive-connect.yml'
+      - 'tests/fixtures/windows-receive-connect-probe/**'
+      - 'tests/fixtures/windows-dual-stack-connect-probe/owned-process*'
+      - 'apps/public/examples/visual-fixtures.rs'
+      - 'apps/public/examples/visual/**'
+      - 'apps/public/tests/visual_fixture_listeners.rs'
+      - 'apps/public/tests/visual_fixture_transport_overlap.rs'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  receive-connect-winsock:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [serialized, overlap]
+        randomize: ['false', 'true']
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Record candidate and runner identity
+        timeout-minutes: 1
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory -Path test-results/windows-receive-connect -Force | Out-Null
+          $head=git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $head -ne $env:CANDIDATE_SHA) { throw 'Candidate head mismatch.' }
+          @{ candidate=$head; image_version=$env:ImageVersion; image_os=$env:ImageOS; mode='${{ matrix.mode }}'; profile='receive-connect'; randomize='${{ matrix.randomize }}'; pools=20; lanes=6; starts=121 } | ConvertTo-Json -Compress | Set-Content test-results/windows-receive-connect/identity.json
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        timeout-minutes: 2
+        with:
+          node-version: '24.14.0'
+          package-manager-cache: false
+      - name: Install pinned Rust
+        timeout-minutes: 3
+        shell: pwsh
+        run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Install pinned Unicode normalization runtime
+        timeout-minutes: 3
+        shell: pwsh
+        run: ./scripts/install-windows-icu.ps1
+      - name: Cache Rust dependencies
+        timeout-minutes: 2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: windows-2025-${{ hashFiles('Cargo.toml') }}
+          cache-bin: false
+          cache-all-crates: false
+          cache-workspace-crates: false
+          cache-on-failure: true
+      - name: Build existing visual fixture and test evidence controls
+        timeout-minutes: 9
+        shell: pwsh
+        run: |
+          cargo +1.94.0 build -p board-public --example visual-fixtures --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo +1.94.0 test -p board-public --test visual_fixture_listeners --test visual_fixture_transport_overlap --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test tests/fixtures/windows-dual-stack-connect-probe/owned-process.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify owned process-tree containment
+        timeout-minutes: 1
+        shell: pwsh
+        run: |
+          ./tests/fixtures/windows-dual-stack-connect-probe/owned-process.test.ps1 | Tee-Object -FilePath test-results/windows-receive-connect/ownership.jsonl
+      - name: Run bounded receive/connect arm against owned fixture
+        timeout-minutes: 7
+        shell: pwsh
+        run: ./tests/fixtures/windows-receive-connect-probe/run-hosted.ps1 -Mode '${{ matrix.mode }}' -Randomize '${{ matrix.randomize }}'
+      - name: Retain bounded diagnostic evidence
+        if: always()
+        timeout-minutes: 2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: receive-connect-${{ matrix.mode }}-${{ matrix.randomize }}-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/windows-receive-connect/**/status.json
+            test-results/windows-receive-connect/**/manifest.json
+            test-results/windows-receive-connect/**/compiler-diagnostics.json
+            test-results/windows-receive-connect/**/output.jsonl
+            test-results/windows-receive-connect/**/fixture.jsonl
+            test-results/windows-receive-connect/**/validation.json
+            test-results/windows-receive-connect/identity.json
+            test-results/windows-receive-connect/ownership.jsonl
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false
