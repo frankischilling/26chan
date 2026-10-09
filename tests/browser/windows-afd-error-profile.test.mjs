@@ -169,7 +169,7 @@ test('offline module has no runtime entry point or capture-side integration', ()
   const ci = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
   const profileLines = ci.split('\n').filter(line => line.includes('windows-afd-error-profile'));
   assert.deepEqual(profileLines.map(line => line.trim()), [
-    'run: node --test tests/helpers/visual-netlog.test.mjs tests/helpers/windows-theme-shards.test.mjs tests/helpers/windows-theme-stderr-filter.test.mjs tests/helpers/windows-theme-stderr-launcher.test.mjs tests/browser/windows-visual-afd.test.mjs tests/browser/windows-afd-error-profile.test.mjs',
+    'run: node --test tests/helpers/windows-fixture-lifecycle.test.mjs tests/helpers/visual-netlog.test.mjs tests/helpers/windows-theme-shards.test.mjs tests/helpers/windows-theme-stderr-filter.test.mjs tests/helpers/windows-theme-stderr-launcher.test.mjs tests/browser/windows-visual-afd.test.mjs tests/browser/windows-afd-error-profile.test.mjs',
   ]);
   assert.ok(!ci.includes('scripts/windows-afd-error-profile.mjs'));
   assert.ok(!/EnableTraceEx2\s*\(|StartTrace\s*\(|logman\s+(?:create|start)|\*\.etl/i.test(ci + collector));

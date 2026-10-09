@@ -228,3 +228,68 @@ remain false. NTSTATUS stays separate from Winsock error 10055.
 
 No trace is enabled by this work. Native role correlation remains unverified,
 and the cause of Windows error 10055 remains unresolved.
+
+## Fixture lifetime checkpoints
+
+The browser NetLog is an 8 MiB rolling window, finalized after browser close.
+A source whose creation preceded that window cannot be reconstructed from the
+retained events. This pipeline has no live browser socket-lifecycle hook, so
+browser lifetime evidence remains `unavailable`. Ring-only event totals must
+not be described as lifetime counters.
+
+The visual fixture now keeps aggregate listener counters in memory from before
+its first accept. These are separate from NetLog and survive its rollover.
+They cover all fixture listeners together, not individual peers or browser
+processes. Collection requires Windows and the exact
+`WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS=1` flag. Production listeners are unchanged. This adds no diagnostic connections,
+retries or deliberate delays. Counter locking and stdout writes still add
+measurement overhead and can affect scheduling.
+
+The counters record accepted connections, active and peak ownership, successful
+HTTP connection completion, cancellation, accept errors, and four disjoint
+Hyper error classes: parse, incomplete message, timeout and other. A successful
+connection completion is not an HTTP request count or proof that every response
+was consumed. Cancellation includes dropped or aborted connection tasks. Ending
+ownership happens after dropping the connection future and its stream; it does
+not establish when Windows releases its kernel resources. No addresses, handles,
+request paths, payloads, credentials or raw error strings are recorded.
+
+The fixture emits startup, power-of-two accepted/ended checkpoints, at most 16
+error checkpoints, and a shutdown checkpoint after its owned listener and
+connection tasks drain. The fixed policy permits at most 82 records. Counters
+are unsigned 32-bit values. Overflow freezes them and marks the evidence
+incomplete; it never wraps, silently saturates, stops service or changes a test
+result. A failed output write also marks later evidence incomplete.
+
+These are sparse lifetime checkpoint totals, not exact observations at the time
+of a browser failure. A complete terminal record requires actual owned shutdown,
+zero active connections, reconciled counts, and no overflow or output failure.
+Force termination, missing startup, interrupted records, sequence gaps and
+unsupported schemas cannot establish completeness. Windows runner teardown can
+kill the fixture without a terminal record; those artifacts stay incomplete.
+Completeness describes counter coverage, not transport success or a resolution
+of Winsock 10055.
+
+The Windows resource reporter accepts only fixed-marker WebServer stdout with
+the exact pinned Playwright 1.62 framing. It reconstructs split callbacks,
+rejects malformed/oversized records and keeps no unrelated stdout in the
+artifact. This is an owned fixture provenance convention, not cryptographic
+source authentication. Each line is capped at 2,048 bytes, records at 82 and
+the artifact at 65,536 bytes. A separate always-run CI upload retains only
+`test-results/windows-themes-*/fixture-lifecycle.json` for three days. Ordinary
+stdout remains in the existing job log. The artifact always declares browser
+lifetime evidence unavailable, including when fixture shutdown is complete.
+
+Focused checks:
+
+```sh
+node --test tests/helpers/windows-fixture-lifecycle.test.mjs
+cargo test -p board-public --test visual_fixture_listeners --locked
+```
+
+Node coverage includes malformed, duplicate-key, oversized, partial and
+out-of-order records, counter bounds and reconciliation, output-path guards,
+ring-independent retention, and the real pinned Playwright reporter path without
+a browser. Rust checks cover guard completion/cancellation, overflow and the
+existing real TCP/HTTP listener shutdown contract. Hosted Windows qualification
+is still required before treating this collector as qualified on that platform.
