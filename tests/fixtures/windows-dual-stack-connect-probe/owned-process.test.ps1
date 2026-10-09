@@ -5,25 +5,42 @@ Add-Type -Path (Join-Path $PSScriptRoot 'owned-process.cs')
 $node=(Get-Command node.exe -ErrorAction Stop).Source
 $directory=Join-Path ([IO.Path]::GetTempPath()) ('dual-stack-job-test-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $directory | Out-Null
-$child=$null
+$child=$null; $descendant=$null
 try {
-  $script=Join-Path $directory 'parent.cjs'
-  # The root exits while its descendant stays alive. Root exit alone must fail
-  # the wrapper's completion test, and job termination must contain the child.
-  "require('node:child_process').spawn(process.execPath,['-e','setTimeout(()=>{},30000)'],{stdio:'ignore'}).unref();" | Set-Content -LiteralPath $script -Encoding utf8NoBOM
-  $child=[DualStackOwnedProcess]::Start($node,('"{0}"' -f $script),$directory,(Join-Path $directory 'stdout'),(Join-Path $directory 'stderr'))
+  $script=Join-Path $PSScriptRoot 'owned-process-fixture.cjs'
+  $child=[DualStackOwnedProcess]::Start($node,('"{0}" parent' -f $script),$directory,(Join-Path $directory 'stdout'),(Join-Path $directory 'stderr'))
+  $readyPath=Join-Path $directory 'parent-ready.json'
   $watch=[Diagnostics.Stopwatch]::StartNew()
+  while (-not (Test-Path -LiteralPath $readyPath) -and $watch.ElapsedMilliseconds -lt 5000) {
+    if ($child.HasExited) { throw 'Synthetic parent exited before child acknowledgement.' }
+    Start-Sleep -Milliseconds 20
+  }
+  if (-not (Test-Path -LiteralPath $readyPath)) { throw 'Synthetic child readiness timeout.' }
+  $ready=Get-Content -Raw -LiteralPath $readyPath | ConvertFrom-Json
+  if ($ready.schema -ne 1 -or $ready.child_ready -ne $true -or ($ready.pid -isnot [long] -and $ready.pid -isnot [int]) -or $ready.pid -le 0 -or $ready.pid -eq $child.Id) { throw 'Invalid synthetic child acknowledgement.' }
+  # Keep the live process handle across parent exit, avoiding PID reuse checks.
+  $descendant=Get-Process -Id $ready.pid -ErrorAction Stop
+  $null=$descendant.Handle
+  if ($descendant.HasExited -or -not $child.ContainsProcess($descendant) -or $child.ActiveProcessCount -ne 2) { throw 'Synthetic child is not alive in the exact owned job.' }
+  New-Item -ItemType File -Path (Join-Path $directory 'release-parent') | Out-Null
+  $watch.Restart()
   while (-not $child.HasExited -and $watch.ElapsedMilliseconds -lt 5000) { Start-Sleep -Milliseconds 20 }
   if (-not $child.HasExited -or $child.ExitCode -ne 0) { throw 'Synthetic parent did not exit normally.' }
-  if ($child.TreeExited -or $child.WaitForExit(100)) { throw 'Descendant escaped completion accounting.' }
+  if ($descendant.HasExited -or -not $child.ContainsProcess($descendant) -or $child.ActiveProcessCount -ne 1) { throw 'Synthetic descendant did not survive root exit in the owned job.' }
+  if ($child.TreeExited -or $child.WaitForExit(100)) { throw 'Live descendant incorrectly counted as completed.' }
   $child.Kill()
-  if (-not $child.WaitForExit(5000) -or -not $child.TreeExited) { throw 'Owned tree failed to terminate.' }
+  if (-not $child.WaitForExit(5000) -or -not $child.TreeExited -or -not $descendant.WaitForExit(5000)) { throw 'Owned tree failed to terminate.' }
+  if ($descendant.ExitCode -ne 1) { throw 'Descendant did not exit through owned job termination.' }
   $child.Dispose(); $child=$null
   Write-Output '{"type":"owned-process-test","schema":1,"passed":true}'
 } finally {
-  if ($null -ne $child) {
-    try { if (-not $child.TreeExited) { $child.Kill(); if (-not $child.WaitForExit(5000)) { throw 'Test cleanup unverified.' } } }
-    finally { $child.Dispose() }
+  try {
+    if ($null -ne $child) {
+      try { if (-not $child.TreeExited) { $child.Kill(); if (-not $child.WaitForExit(5000)) { throw 'Test cleanup unverified.' } } }
+      finally { $child.Dispose() }
+    }
+  } finally {
+    if ($null -ne $descendant) { $descendant.Dispose() }
+    Remove-Item -LiteralPath $directory -Recurse -Force
   }
-  Remove-Item -LiteralPath $directory -Recurse -Force
 }

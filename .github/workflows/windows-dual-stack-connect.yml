@@ -63,7 +63,7 @@ jobs:
         run: |
           cargo build -p board-public --example visual-fixtures --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test tests/fixtures/windows-dual-stack-connect-probe/validate-output.test.mjs
+          node --test tests/fixtures/windows-dual-stack-connect-probe/validate-output.test.mjs tests/fixtures/windows-dual-stack-connect-probe/owned-process.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify owned process-tree containment
         timeout-minutes: 1

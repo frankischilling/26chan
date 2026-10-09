@@ -49,3 +49,11 @@ node tests/fixtures/windows-dual-stack-connect-probe/validate-output.mjs path/to
 A complete run with zero close-before-handling exposure is inconclusive and exits nonzero. A qualifying run demonstrates only that this bounded native diagnostic completed without the checked failures and exercised unhandled-completion closes. It does not qualify browser behavior, prove a kernel cancellation race, eliminate the intermittent 10055 issue, or justify a production setting change.
 
 Native Windows results are pending until a hosted run produces valid evidence for both variants. Synthetic Node traces test evidence controls only.
+
+## Ownership-test correction
+
+The first PR #244 hosted run ([37909599159](https://github.com/frankischilling/26chan/actions/runs/37909599159)) failed in the process-ownership test before the socket probe ran. The synthetic Node parent used `unref()` without `detached: true`. In the [pinned Node 24.14.0 libuv implementation](https://github.com/nodejs/node/blob/v24.14.0/deps/uv/src/win/process.c#L65-L71), non-detached children join a kill-on-parent-exit job, so the test did not establish a surviving descendant. The reported failure did not prove a containment defect.
+
+The corrected fixture uses detached mode, which [Node documents as permitting Windows child survival after parent exit](https://nodejs.org/download/release/v24.14.0/docs/api/child_process.html#optionsdetached). Its [libuv creation path does not request job breakaway](https://github.com/nodejs/node/blob/v24.14.0/deps/uv/src/win/process.c#L988-L1035). The test waits for the child to acknowledge startup, verifies its retained process handle belongs to the exact enclosing Job Object, then allows the parent to exit. It requires two active job processes before release, one surviving child afterward, incomplete tree status while that child lives, and verified termination through the owned job. Readiness and exit waits are bounded; acknowledgement failure still closes the owned job. Child IDs remain in private temporary test files and never enter uploaded evidence.
+
+The added Node checks cover these test-source contracts statically. The corrected native ownership test and both socket variants still require a successful hosted run.

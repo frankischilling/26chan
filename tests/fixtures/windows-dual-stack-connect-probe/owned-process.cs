@@ -44,6 +44,7 @@ public sealed class DualStackOwnedProcess : IDisposable
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool SetInformationJobObject(IntPtr job, int informationClass, ref ExtendedLimits info, uint size);
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool QueryInformationJobObject(IntPtr job, int informationClass, out Accounting info, uint size, IntPtr returned);
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern bool IsProcessInJob(IntPtr process, IntPtr job, out bool member);
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool TerminateJobObject(IntPtr job, uint exitCode);
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool TerminateProcess(IntPtr process, uint exitCode);
     [DllImport("kernel32.dll", SetLastError = true)] static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
@@ -110,8 +111,13 @@ public sealed class DualStackOwnedProcess : IDisposable
             }
         }
     }
-    public bool TreeExited {
-        get { Accounting info; Check(QueryInformationJobObject(job, 1, out info, (uint)Marshal.SizeOf<Accounting>(), IntPtr.Zero)); return info.ActiveProcesses == 0; }
+    public uint ActiveProcessCount {
+        get { Accounting info; Check(QueryInformationJobObject(job, 1, out info, (uint)Marshal.SizeOf<Accounting>(), IntPtr.Zero)); return info.ActiveProcesses; }
+    }
+    public bool TreeExited { get { return ActiveProcessCount == 0; } }
+    // Read-only membership proof against this exact owned job, never any job.
+    public bool ContainsProcess(Process candidate) {
+        bool member; Check(IsProcessInJob(candidate.Handle, job, out member)); return member;
     }
     public bool WaitForExit(int milliseconds) {
         var watch = Stopwatch.StartNew();
