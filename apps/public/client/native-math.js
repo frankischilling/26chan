@@ -337,4 +337,3 @@ export function pageNativeMath() {
   const controller = mountNativeMath({ root, projection, board });
   return pageInstance = { projection, controller };
 }
-pageNativeMath();

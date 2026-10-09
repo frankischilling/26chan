@@ -200,7 +200,23 @@ test('pagehide restores literal comments and pageshow retypesets without retaini
 });
 
 test('hostile resource macros never introduce active DOM or resource requests; bounded failure preserves text', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.initialMathPageParsed = false;
+    document.addEventListener('4chanParsingDone', event => {
+      if (event.detail?.offset === 0 &&
+          event.detail.threadId === document.getElementById('watcher-context')?.dataset.thread) {
+        window.initialMathPageParsed = true;
+      }
+    });
+  });
   await page.goto('/sci/thread/1000002');
+  await expect.poll(() => page.evaluate(() => window.initialMathPageParsed)).toBe(true);
+  // Initial watcher decoration is unrelated to the hostile expression below.
+  // Finish its actual icon loads before measuring expression-triggered requests.
+  const icons = page.locator('#twPrune img, #twClose img');
+  await expect(icons).toHaveCount(2);
+  await icons.evaluateAll(images => Promise.all(images.map(image => image.decode())));
+  expect(await icons.evaluateAll(images => images.every(image => image.complete && image.naturalWidth > 0))).toBe(true);
   const requests = [];
   page.on('request', request => requests.push(new URL(request.url()).pathname));
   const hostile = String.raw`[math]\href{https://evil.invalid/x}{x}\includegraphics{https://evil.invalid/y}\require{https://evil.invalid/z}\class{owned}{x}\cssId{owned}{x}\style{background:url(https://evil.invalid/a)}{x}\def\x{\x}\x[/math]`;
@@ -303,4 +319,112 @@ test('real updater and expansion pipelines typeset literal math received in boun
   await expect(page.locator('#m1000002')).toBeHidden();
   await page.getByRole('button', { name: 'Expand thread 1000001', exact: true }).click();
   await expect(page.locator('#m1000002 .displayMath svg')).toHaveCount(1);
+});
+
+async function listenForMainInit(page, hideOnMain = false) {
+  await page.addInitScript(hide => {
+    window.mainInitTrace = [];
+    const Worker = window.Worker;
+    window.Worker = class extends Worker {
+      constructor(url, options) {
+        if (String(url).includes('native-math-worker')) mainInitTrace.push({ mathWorker: true });
+        super(url, options);
+      }
+    };
+    document.addEventListener('4chanMainInit', event => {
+      mainInitTrace.push({ main: true, constructor: event.constructor.name, target: event.target === document,
+        bubbles: event.bubbles, cancelable: event.cancelable, detail: Object.hasOwn(event, 'detail'),
+        math: document.querySelectorAll('.nativeMath').length, menus: document.querySelectorAll('[data-post-menu]').length,
+        board: document.getElementById('watcher-context').dataset.board });
+      if (hide) window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+    });
+    document.addEventListener('4chanParsingDone', () => mainInitTrace.push({ parsed: true }));
+  }, hideOnMain);
+}
+const mainSnapshot = board => ({ main: true, constructor: 'Event', target: true,
+  bubbles: false, cancelable: false, detail: false, math: 0, menus: 0, board });
+
+for (const [path, board, math] of [[pagePath, 'sci', true], ['/sci/', 'sci', true], ['/test/thread/1000001', 'test', false]]) {
+  test(`MainInit precedes real parser and math startup on ${path}`, async ({ page }) => {
+    await listenForMainInit(page); await page.goto(path);
+    await expect.poll(() => page.evaluate(() => mainInitTrace.some(row => row.parsed))).toBe(true);
+    if (math) await expect(page.locator('#m1000001 .nativeMath svg')).toHaveCount(2);
+    const trace = await page.evaluate(() => mainInitTrace);
+    expect(trace[0]).toEqual(mainSnapshot(board));
+    expect(trace.filter(row => row.main)).toHaveLength(1);
+    expect(trace.filter(row => row.mathWorker).length > 0).toBe(math);
+    await page.evaluate(() => {
+      document.dispatchEvent(new Event('4chanSettingsSaved'));
+      window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+    });
+    if (math) await expect(page.locator('#m1000001 .nativeMath svg')).toHaveCount(2);
+    expect(await page.evaluate(() => mainInitTrace.filter(row => row.main).length)).toBe(1);
+    expect(await page.evaluate(() => mainInitTrace.filter(row => row.parsed).length)).toBe(trace.filter(row => row.parsed).length);
+  });
+}
+
+test('disabled extension still initializes once before independent board math, without ParsingDone', async ({ page }) => {
+  await listenForMainInit(page);
+  await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ disableAll: true })));
+  await page.goto(pagePath); await expect(page.locator('#m1000001 .nativeMath svg')).toHaveCount(2);
+  const trace = await page.evaluate(() => mainInitTrace);
+  expect(trace[0]).toEqual(mainSnapshot('sci')); expect(trace.filter(row => row.main)).toHaveLength(1);
+  expect(trace.filter(row => row.parsed)).toHaveLength(0);
+  await page.goto('/sci/catalog');
+  await expect.poll(() => page.evaluate(() => mainInitTrace.filter(row => row.main).length)).toBe(1);
+  expect(await page.evaluate(() => mainInitTrace)).toEqual([mainSnapshot('sci')]);
+});
+
+for (const interruption of ['restore-before-import', 'restore-after-import', 'main-listener', 'terminal']) {
+  test(`delayed math import respects bootstrap interruption: ${interruption}`, async ({ page }) => {
+    await listenForMainInit(page, interruption === 'main-listener');
+    let release, requested;
+    const held = new Promise(resolve => { release = resolve; });
+    const started = new Promise(resolve => { requested = resolve; });
+    await page.route(`**${modulePath}`, async route => { requested(); await held; await route.continue(); });
+    try {
+      await page.goto(pagePath, { waitUntil: 'domcontentloaded' }); await started;
+      expect(await page.evaluate(() => mainInitTrace)).toEqual([mainSnapshot('sci')]);
+      if (interruption !== 'main-listener') await page.evaluate(() => {
+        window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+      });
+      if (interruption === 'restore-before-import') await page.evaluate(() => {
+        window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+      });
+      if (interruption === 'terminal') await page.evaluate(() => {
+        window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false }));
+      });
+      release();
+      // Observe the same module's evaluation without calling its page factory.
+      await page.evaluate(path => import(path).then(() => true), modulePath);
+      if (interruption !== 'restore-before-import') {
+        await expect(page.locator('.nativeMath')).toHaveCount(0);
+        await expect(page.locator('[data-post-menu]')).toHaveCount(0);
+        expect(await page.evaluate(() => mainInitTrace)).toEqual([mainSnapshot('sci')]);
+        await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
+      }
+      if (interruption === 'terminal') {
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        expect(await page.evaluate(() => mainInitTrace)).toEqual([mainSnapshot('sci')]);
+        await expect(page.locator('.nativeMath')).toHaveCount(0);
+      } else {
+        await expect(page.locator('#m1000001 .nativeMath svg')).toHaveCount(2);
+        await expect.poll(() => page.evaluate(() => mainInitTrace.filter(row => row.parsed).length)).toBe(1);
+        expect(await page.evaluate(() => mainInitTrace.filter(row => row.main).length)).toBe(1);
+        await expect(page.locator('#threadWatcher')).toHaveCount(1);
+        await page.locator('#pi1000001 a[title="Reply to this post"]').click();
+        await expect(page.getByRole('button', { name: 'Preview TeX equations' })).toHaveCount(1);
+      }
+    } finally { release(); }
+  });
+}
+
+test('failed math import keeps MainInit and ordinary initial parsing usable', async ({ page }) => {
+  await listenForMainInit(page); await page.route(`**${modulePath}`, route => route.abort());
+  await page.goto(pagePath);
+  await expect.poll(() => page.evaluate(() => mainInitTrace.filter(row => row.parsed).length)).toBe(1);
+  expect(await page.evaluate(() => mainInitTrace)).toEqual([mainSnapshot('sci'), { parsed: true }]);
+  await expect(page.locator('#m1000001')).toContainText('[math]');
+  await expect(page.locator('.nativeMath')).toHaveCount(0);
 });

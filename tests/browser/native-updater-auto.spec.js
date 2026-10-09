@@ -29,7 +29,7 @@ async function initialize(page, owned, settings = {}) {
 }
 async function freeze(page) {
   const time = new Date('2026-09-13T18:00:00Z');
-  await page.clock.install({ time }); await page.clock.pauseAt(time);
+  await page.clock.pauseAt(time);
 }
 async function advance(page, seconds) { await page.clock.runFor(seconds * 1000); }
 

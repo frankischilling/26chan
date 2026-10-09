@@ -799,7 +799,6 @@ test.describe('held real filter-worker timing during persisted updater work', ()
     // Freeze browser time while deliberately holding the public filter deadline,
     // then advance the updater's documented ten-second polling interval.
     const time = new Date('2026-09-15T18:00:00Z');
-    await page.clock.install({ time });
     await page.clock.pauseAt(time);
     await page.evaluate(id => {
       window.inlineFilterGate.holding = true;

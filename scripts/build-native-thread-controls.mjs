@@ -21,7 +21,7 @@ assert.deepEqual(output.imports.map(item => [item.path, item.kind, item.external
   ['../static/native-filter.v1.js', 'import-statement', true],
   ['../static/native-filter.v1.js', 'import-statement', true],
 ]);
-assert.deepEqual(output.exports.sort(), ['createParsingBootstrap', 'EXPANSION_LIMITS', 'mountNativeThreadExpansion', 'mountNativeThreadUpdater', 'planThreadExpansion', 'NativeBoardPageTransport', 'mountNativeDepager'].sort());
+assert.deepEqual(output.exports.sort(), ['createParsingBootstrap', 'createInitialMountLifecycle', 'dispatchSourceEvent', 'EXPANSION_LIMITS', 'mountNativeThreadExpansion', 'mountNativeThreadUpdater', 'planThreadExpansion', 'NativeBoardPageTransport', 'mountNativeDepager'].sort());
 for (const path of Object.keys(result.metafile.inputs)) assert.ok([
   'apps/public/client/native-thread-controls.js', 'apps/public/client/native-thread-expansion.js', 'apps/public/client/native-post-tree.js',
   'apps/public/client/native-thread-updater.js', 'apps/public/client/native-updater-schedule.js',
