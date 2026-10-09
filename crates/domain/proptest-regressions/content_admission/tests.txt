@@ -1,0 +1,2 @@
+# Persisted CI counterexample: valid input can produce invalid UTF-16 in ICU 74.
+cc 0416e6c06ed47898780e8d4bd9de15ea7d13104f7c1e3d02fde8dee3df8a07c1 # shrinks to input = "\u{16c10}ヽ"

@@ -47,20 +47,71 @@ fn post(comment: &str) -> Post<'_> {
 #[test]
 fn native_invalid_unicode_cannot_become_an_empty_matching_projection() {
     let policy = Policy::compile(vec![ordinary("paper", false)]).unwrap();
-    assert_eq!(
-        policy.evaluate(post("\u{10000}\u{309d}"), Actor::default()),
-        Err(AdmissionError::Normalization(
-            NormalizationError::InvalidOutput
-        ))
-    );
-    assert_eq!(
-        policy.evaluate(post("\u{10000}"), Actor::default()),
-        Ok(Decision::Allow)
-    );
-    assert_eq!(
-        policy.evaluate(post("\u{20000}\u{309d}"), Actor::default()),
-        Ok(Decision::Allow)
-    );
+    // ICU 74 Any-Latin repeats a lone high surrogate for these supplementary
+    // characters followed by a kana iteration mark. Strict UTF-8 conversion
+    // rejects the result; admission must preserve that fail-closed rejection.
+    for input in [
+        "\u{10000}\u{309d}",
+        "\u{16c10}\u{30fd}",
+        "\u{16c0f}\u{30fd}",
+        "\u{16c11}\u{30fd}",
+        "\u{16c10}\u{309d}",
+    ] {
+        let native = rust_icu_utrans::UTransliterator::new(
+            "Any-Latin",
+            None,
+            rust_icu_sys::UTransDirection::UTRANS_FORWARD,
+        )
+        .unwrap();
+        assert!(
+            native
+                .transliterate(input)
+                .unwrap_err()
+                .is_code(rust_icu_sys::UErrorCode::U_INVALID_CHAR_FOUND),
+            "{input:?}"
+        );
+        for comment in [
+            input.to_owned(),
+            format!("paper{input}"),
+            format!("{input}paper"),
+        ] {
+            for reply in [false, true] {
+                let mut post = post(&comment);
+                post.reply = reply;
+                assert_eq!(
+                    policy.evaluate(post, Actor::default()),
+                    Err(AdmissionError::Normalization(
+                        NormalizationError::InvalidOutput
+                    )),
+                    "{comment:?}, reply={reply}"
+                );
+            }
+        }
+    }
+    // Nearby valid projections still proceed through the ordinary policy.
+    for input in [
+        "\u{10000}",
+        "\u{16c10}",
+        "\u{30fd}",
+        "\u{20000}\u{309d}",
+        "\u{20000}\u{30fd}",
+        "カヽ",
+    ] {
+        assert_eq!(
+            policy.evaluate(post(input), Actor::default()),
+            Ok(Decision::Allow),
+            "{input:?}"
+        );
+        assert_eq!(
+            policy.evaluate(post(&format!("paper{input}")), Actor::default()),
+            Ok(Decision::Reject {
+                rule: 1,
+                ban_days: 0,
+                quiet: false
+            }),
+            "{input:?}"
+        );
+    }
 }
 
 #[test]
@@ -307,6 +358,27 @@ proptest::proptest! {
     fn bounded_unicode_projection_and_fixed_policy_do_not_panic(input in ".{0,256}") {
         let policy = Policy::compile(vec![ordinary("paper", false)]).unwrap();
         let result = policy.evaluate(post(&input), Actor::default());
-        proptest::prop_assert!(result.is_ok());
+        let normalizer = Normalizer::new().unwrap();
+        let comment = strip_matching_markup(&input);
+        let literal = normalizer.text(&format!("Anonymous{comment}"));
+        let autosage = normalizer.ascii(
+            &title_words(&format!(" {comment} Anonymous")), true,
+        );
+        let expected = match literal.and_then(|literal| autosage.map(|_| literal)) {
+            Ok(literal) if literal.contains("paper") => Ok(Decision::Reject {
+                rule: 1, ban_days: 0, quiet: false,
+            }),
+            Ok(_) => Ok(Decision::Allow),
+            Err(error) => {
+                // Valid input can yield malformed UTF-16 in ICU 74. Keep every
+                // generated case and require a verified projection failure;
+                // resource limits and other failures remain unexpected here.
+                proptest::prop_assert_eq!(&error, &NormalizationError::InvalidOutput);
+                Err(AdmissionError::Normalization(error))
+            }
+        };
+        // Successful projections must retain the exact fixed-rule decision.
+        // An invalid projection must never become an empty matching string.
+        proptest::prop_assert_eq!(result, expected);
     }
 }

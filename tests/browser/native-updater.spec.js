@@ -1,5 +1,6 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
+import { closeReportPopup } from './helpers/report-popup-close.js';
 const origin = 'http://127.0.0.1:3000';
 const test = base.extend({
   owned: async ({ request }, use) => {
@@ -88,9 +89,7 @@ test('manual update preserves the document, draft and focus, inserts escaped rep
   await expect(popup.getByText('You have already reported this post.', { exact: true })).toBeVisible();
   await expect(popup.locator('#report-form')).toHaveCount(0);
   expect(writes).toBe(1);
-  const closed = popup.waitForEvent('close');
-  await popup.locator('#report-popup-close').click();
-  await closed;
+  await closeReportPopup(popup, page);
   await expect(page).toHaveURL(`${origin}${owned.url}`);
   await expect(page.locator('#com')).toHaveValue('Unsubmitted draft');
   expect(await page.evaluate(() => window.keptDocument && !window.bad)).toBe(true);
