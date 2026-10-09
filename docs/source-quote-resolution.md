@@ -42,8 +42,10 @@ thread JSON, board/catalog JSON, native updater and board fragments, and
 single-post quote previews. Both JSON listeners share the same projection.
 
 Catalog search text and archive/catalog excerpts keep their existing
-pre-resolution representation. Search excerpts and RSS retain their existing
-rendering; they are not qualified by this slice. Staff previews remain inert.
+pre-resolution representation. Search excerpts retain their existing rendering
+and are not qualified by this slice. [RSS descriptions](rss-feeds.md) retain
+source-profile post numbers as saved text, without target lookup. Staff previews
+remain inert.
 
 Historical formatter profiles keep their previous behavior. Leading-zero
 tokens and unsupported cross-board numeric spellings retain the existing
@@ -86,4 +88,4 @@ so browser execution and the extracted PHP oracle still need hosted CI.
 Test discovery is not browser execution.
 
 This work does not settle every quote spelling, the missing historical database
-collation, external search rendering, RSS behavior or full rewrite parity.
+collation, external search rendering, every RSS field or full rewrite parity.

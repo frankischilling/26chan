@@ -203,6 +203,43 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
         .find(|node| node.has_tag_name("item"))
         .unwrap();
     assert_eq!(child(item, "title"), " A longer summary");
+    let target: i64 = sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Anonymous','','Target outside feed') RETURNING id")
+        .bind(board).bind(ids[0]).fetch_one(owner).await.unwrap();
+    let quote_text = format!(">>{target} >>>/g/34 >>0012 >>>/g/0034 >>>/g/catalog");
+    sqlx::query("UPDATE content.posts SET comment=$2 WHERE id=$1")
+        .bind(ids[24])
+        .bind(&quote_text)
+        .execute(owner)
+        .await
+        .unwrap();
+    let quotes = request(&app, board, Method::GET, None).await;
+    assert_eq!(quotes.status, StatusCode::OK, "{}", quotes.body);
+    let document = Document::parse(&quotes.body).unwrap();
+    let item = document
+        .descendants()
+        .find(|node| node.has_tag_name("item"))
+        .unwrap();
+    let description = child(item, "description");
+    assert!(description.contains(&format!("&#62;&#62;{target}")));
+    assert!(description.contains("&#62;&#62;&#62;/g/34 &#62;&#62;0012 &#62;&#62;&#62;/g/0034"));
+    assert!(!description.contains("/post/"));
+    assert!(!description.contains("deadlink"));
+    assert!(description.contains("href=\"http://127.0.0.1:3000/g/catalog\""));
+    // A target's visibility cannot change saved feed labels or their validator.
+    sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
+        .bind(target)
+        .execute(owner)
+        .await
+        .unwrap();
+    let unchanged = request(
+        &app,
+        board,
+        Method::GET,
+        Some(quotes.headers["etag"].to_str().unwrap()),
+    )
+    .await;
+    assert_eq!(unchanged.status, StatusCode::NOT_MODIFIED);
+
     sqlx::query("UPDATE content.posts SET comment='[spoilerx] owned hidden text' WHERE id=$1")
         .bind(ids[24])
         .execute(owner)
