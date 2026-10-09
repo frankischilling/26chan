@@ -320,6 +320,7 @@ pub(crate) fn tokenize_spanned(
                 found = Some((
                     if source_quotes {
                         Token::PostQuote(crate::post_quote::PostQuote {
+                            presentation: crate::post_quote::QuotePresentation::Unresolved,
                             board: Some(board.as_str().into()),
                             id,
                             label: tail[..consumed].into(),
@@ -335,6 +336,7 @@ pub(crate) fn tokenize_spanned(
                 found = Some((
                     if source_quotes {
                         Token::PostQuote(crate::post_quote::PostQuote {
+                            presentation: crate::post_quote::QuotePresentation::Unresolved,
                             board: None,
                             id,
                             label: tail[..len + 2].into(),

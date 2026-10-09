@@ -604,7 +604,16 @@ async fn board_page(
             tail_size: 0,
             latest_reply_id: preview.latest_reply_id,
             thread: preview.thread,
-            posts: posts.into_iter().map(PostView::new).collect(),
+            posts: posts
+                .into_iter()
+                .map(|post| {
+                    if catalog {
+                        PostView::new(post)
+                    } else {
+                        PostView::resolved(post, &snapshot.quote_targets, None)
+                    }
+                })
+                .collect(),
             omitted,
             image_replies: preview.visible_images,
         };
@@ -684,6 +693,7 @@ pub async fn thread(
         posts,
         tail_size,
         images,
+        quote_targets,
         ..
     } = snapshot;
     let latest_reply_id = posts
@@ -714,7 +724,10 @@ pub async fn thread(
             format!(">>{no}\n")
         }
     };
-    let posts = posts.into_iter().map(PostView::new).collect();
+    let posts = posts
+        .into_iter()
+        .map(|post| PostView::resolved(post, &quote_targets, Some(thread.id)))
+        .collect();
     let math_tags = board.math_tags;
     let drawing = !thread.closed
         && thread.archived_at.is_none()

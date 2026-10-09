@@ -30,7 +30,9 @@ pub use public_deletion::{
     PublicDeletionBatch, PublicDeletionContext, public_deletion_precheck,
     public_deletion_quota_precheck, public_deletion_target_exists,
 };
+pub mod quote_targets;
 mod read;
+pub use quote_targets::{MAX_QUOTE_TARGETS, QuoteTargets};
 pub mod report_admission;
 pub mod report_catalog;
 pub mod report_categories;

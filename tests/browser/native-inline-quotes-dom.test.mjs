@@ -105,6 +105,45 @@ test('isolated current-source inline quote DOM contracts', async t => {
       return { context, page, requests, errors };
     }
 
+    await t.test('resolved dead spans remain inert through parsing, local copies and every quote consumer', async () => {
+      for (const mobile of [false, true]) {
+        const { context, page, requests, errors } = await setup({ mobile,
+          messages: [['100', '<span class="deadlink">&gt;&gt;101</span> <span class="deadlink">&gt;&gt;&gt;/co/120</span>'], ['101', 'Target']],
+          config: { inlineQuotes: true, quotePreview: true, backlinks: true } });
+        try {
+          const parsed = await page.evaluate(async () => {
+            const quotes = await import('/apps/public/client/native-quote-preview.js');
+            const { parseQuotePreviewSnapshot } = await import('/apps/public/client/native-updater-snapshot.js');
+            const { buildPostTree } = await import('/apps/public/client/native-post-tree.js');
+            const input = { origin: location.origin, board: 'demo', thread: '100', post: '100' };
+            const article = document.getElementById('pc100');
+            const result = parseQuotePreviewSnapshot(JSON.stringify({ version: 1, board: 'demo', thread: '100',
+              post: { no: '100', file_deleted: false, html: article.outerHTML } }), input);
+            if (result.status !== 'ok') return result.status;
+            article.replaceWith(buildPostTree(result.snapshot.post.tree, document, input));
+            backlinks.refresh(); preview.refresh();
+            tracked.markNativeTrackedQuotes(document.getElementById('t100'), new Set(['101', '120']), true, { ...backlinks, projection });
+            const local = quotes.localQuoteTree(document.getElementById('pc100'), input, '100', projection);
+            const plan = quotes.prepareQuotePost(local, input, '100');
+            return { status: result.status, quotes: plan.quotes,
+              dead: plan.build(document).querySelectorAll('span.deadlink').length };
+          });
+          assert.deepEqual(parsed, { status: 'ok', quotes: [], dead: 2 });
+          await page.locator('#m100 .deadlink').first().hover();
+          await page.waitForTimeout(350);
+          await page.locator('#m100 .deadlink').first().click();
+          await page.locator('#m100 .deadlink').nth(1).click();
+          const result = await page.evaluate(() => ({ loads: loads.length, previewLoads,
+            open: inline.stats().open, pending: inline.stats().pending, navigation,
+            ui: document.querySelectorAll('.preview,.inlined,.backlink,.quoteLink,.ql-tracked,[data-native-tracked]').length,
+            labels: Array.from(document.querySelectorAll('#m100 .deadlink'), node => node.textContent) }));
+          assert.deepEqual(result, { loads: 0, previewLoads: 0, open: 0, pending: 0, navigation: [], ui: 0,
+            labels: ['>>101', '>>>/co/120'] });
+          assert.deepEqual(requests, []); assert.deepEqual(errors, []);
+        } finally { await context.close(); }
+      }
+    });
+
     await t.test('normal, nested, wrapper and spoiler placement preserves original links and strips nested copies', async () => {
       const { context, page, errors } = await setup({ messages: [
         ['100', `${quote('101', 'one')} ${quote('101', 'two')} <s><s><span class="quote">${quote('102', 'wrapped')}</span></s></s>`],

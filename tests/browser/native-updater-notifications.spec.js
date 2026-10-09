@@ -34,10 +34,11 @@ test('real posting receipts decorate initial and appended quote text once withou
   await initialize(page, owned);
   const quote = page.locator(`#m${existing} .quotelink`);
   await expect(quote).toHaveText(`>>${owned.id} (You) (OP)`); await expect(quote).toHaveClass(/ql-tracked/);
-  await expect(quote).toHaveAttribute('href', `/demo/post/${owned.id}`);
+  await expect(quote).toHaveAttribute('href', `#p${owned.id}`);
   const next = await owned.reply(`>>${owned.id}\n>>999999999`); await update(page);
   await expect(status(page)).toHaveText('1 new post');
-  await expect(page.locator(`#m${next} .quotelink`)).toHaveText([`>>${owned.id} (You) (OP)`, '>>999999999 →']);
+  await expect(page.locator(`#m${next} .quotelink`)).toHaveText([`>>${owned.id} (You) (OP)`]);
+  await expect(page.locator(`#m${next} span.deadlink`)).toHaveText('>>999999999');
   await tick(page, 1); await update(page); await expect(status(page)).toHaveText('No new posts');
   await expect(quote).toHaveText(`>>${owned.id} (You) (OP)`);
   const other = await context.newPage(); await other.goto(owned.url);

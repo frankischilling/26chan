@@ -159,6 +159,11 @@ pub async fn boards(
     response(&state.limits, BoardDirectory { boards }, None, &headers)
 }
 
+struct QuoteContext<'a> {
+    targets: &'a board_store::QuoteTargets,
+    current_thread: Option<i64>,
+}
+
 fn post_json(
     post: Post,
     thread: &Thread,
@@ -166,8 +171,9 @@ fn post_json(
     replies: usize,
     images: usize,
     unique_ips: Option<i32>,
+    quotes: QuoteContext<'_>,
 ) -> Result<Value, AppError> {
-    let post = PostView::new(post);
+    let post = PostView::resolved(post, quotes.targets, quotes.current_thread);
     let comment = Comment {
         lines: &post.lines,
         board: &board.slug,
@@ -342,6 +348,7 @@ pub async fn thread_selection(
         unique_ips,
         tail_size,
         tail_id,
+        quote_targets,
     } = board_store::thread_snapshot_selection(&state.pool, slug, id, tail).await?;
     require_json(&board, false)?;
     let capcode_replies = if board.meta_board && !tail {
@@ -356,7 +363,20 @@ pub async fn thread_selection(
     };
     let mut posts: Vec<Value> = posts
         .into_iter()
-        .map(|post| post_json(post, &thread, &board, replies, images, unique_ips))
+        .map(|post| {
+            post_json(
+                post,
+                &thread,
+                &board,
+                replies,
+                images,
+                unique_ips,
+                QuoteContext {
+                    targets: &quote_targets,
+                    current_thread: Some(thread.id),
+                },
+            )
+        })
         .collect::<Result<_, _>>()?;
     if tail {
         let original = &posts[0];
@@ -385,7 +405,7 @@ pub async fn thread_selection(
     response(
         &state.limits,
         json!({"posts": posts}),
-        Some(thread.http_modified_at),
+        (!quote_targets.has_dependencies()).then_some(thread.http_modified_at),
         headers,
     )
 }
@@ -404,6 +424,7 @@ pub async fn archive(
 fn preview_thread(
     board: &Board,
     preview: board_store::ThreadPreview,
+    quote_targets: &board_store::QuoteTargets,
 ) -> Result<Vec<Value>, AppError> {
     let posts = preview.posts;
     if posts.is_empty() {
@@ -432,6 +453,10 @@ fn preview_thread(
                 replies,
                 images,
                 preview.unique_ips,
+                QuoteContext {
+                    targets: quote_targets,
+                    current_thread: None,
+                },
             )
         })
         .collect::<Result<_, _>>()?;
@@ -504,7 +529,7 @@ pub async fn catalog(
         let mut entries = Vec::new();
         for preview in threads.by_ref().take(board.threads_per_page as usize) {
             let modified = preview.thread.modified_at;
-            let posts = match preview_thread(&board, preview) {
+            let posts = match preview_thread(&board, preview, &snapshot.quote_targets) {
                 Ok(posts) => posts,
                 Err(error) if error.0 == StatusCode::NOT_FOUND => continue,
                 Err(error) => return Err(error),
@@ -538,7 +563,7 @@ pub async fn index(
     require_json(&board, false)?;
     let mut entries = Vec::new();
     for preview in snapshot.threads {
-        let mut posts = match preview_thread(&board, preview) {
+        let mut posts = match preview_thread(&board, preview, &snapshot.quote_targets) {
             Ok(posts) => posts,
             Err(error) if error.0 == StatusCode::NOT_FOUND => continue,
             Err(error) => return Err(error),

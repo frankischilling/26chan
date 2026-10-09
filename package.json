@@ -44,7 +44,7 @@
     "test:linkification": "npm run check:native-filter && npm run test:linkification-core && playwright test tests/browser/native-linkification.spec.js",
     "test:linkification-core": "node --test tests/browser/native-linkification.test.mjs tests/browser/native-linkification-dom.test.mjs",
     "test:quote-preview": "npm run check:native-filter && npm run test:quote-preview-core && playwright test tests/browser/native-quote-preview.spec.js",
-    "test:quote-preview-core": "node --test tests/browser/native-quote-preview.test.mjs tests/browser/native-quote-preview-dom.test.mjs tests/browser/native-filter-settlement.test.mjs",
+    "test:quote-preview-core": "node --test tests/browser/native-quote-preview.test.mjs tests/browser/native-quote-preview-dom.test.mjs tests/browser/native-filter-settlement.test.mjs tests/browser/native-resolved-quotes.test.mjs",
     "test:backlinks": "npm run test:backlinks-core && playwright test tests/browser/native-backlinks.spec.js",
     "test:backlinks-core": "npm run check:native-backlinks && node --test tests/browser/native-backlinks.test.mjs tests/browser/native-backlinks-dom.test.mjs",
     "test:inline-quotes": "npm run test:inline-quotes-core && playwright test --config playwright.inline-quotes.config.js tests/browser/native-inline-quotes.spec.js",
