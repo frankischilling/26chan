@@ -158,7 +158,7 @@ test('updater raw replies, quote previews and bounded postMessage fixtures linki
   await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ linkify: true })));
   await page.goto(owned.url);
   const quote = page.locator(`#m${quoted} .quotelink`);
-  await expect(quote).toHaveAttribute('href', `/demo/post/${owned.id}`);
+  await expect(quote).toHaveAttribute('href', `#p${owned.id}`);
   await expect(page.locator(`#m${quoted} a[href="${internal}"]`)).toHaveCount(1);
   await page.evaluate(({ internal, quoted }) => {
     window.serverQuote = document.querySelector(`#m${quoted} .quotelink`);
@@ -214,7 +214,7 @@ test('updater raw replies, quote previews and bounded postMessage fixtures linki
       quote: currentQuote === window.serverQuote && currentQuote?.isConnected && currentQuote.getAttribute('href'),
       external: currentExternal === window.serverExternal && currentExternal?.isConnected && currentExternal.getAttribute('href'),
     };
-  }, { internal, quoted })).toEqual({ quote: `/demo/post/${owned.id}`, external: internal });
+  }, { internal, quoted })).toEqual({ quote: `#p${owned.id}`, external: internal });
 });
 
 test('persisted mixed-case URLs keep server anchors while the browser links uppercase text in initial HTML and updater replies', async ({ page, request }) => {

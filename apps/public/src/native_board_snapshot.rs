@@ -90,7 +90,11 @@ fn encode(
         let view = ThreadView {
             catalog_position: None,
             thread,
-            posts: preview.posts.into_iter().map(PostView::new).collect(),
+            posts: preview
+                .posts
+                .into_iter()
+                .map(|post| PostView::resolved(post, &snapshot.quote_targets, None))
+                .collect(),
             omitted,
             image_replies: images as i64,
             tail_size: 0,

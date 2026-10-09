@@ -404,14 +404,10 @@ async fn local_quotes(
             .find(|post| post["no"] == id)
             .unwrap();
         let markup = saved["com"].as_str().unwrap();
+        assert!(markup.contains(&format!("href=\"#p{target}\">&gt;&gt;{target}</a>")));
+        assert!(markup.contains(&format!("&gt;&gt;&gt;/other/{target}.")));
         assert!(markup.contains(&format!(
-            "href=\"/{slug}/post/{target}\">&gt;&gt;{target}</a>"
-        )));
-        assert!(markup.contains(&format!(
-            "href=\"/other/post/{target}\">&gt;&gt;&gt;/other/{target}</a>"
-        )));
-        assert!(markup.contains(&format!(
-            "[spoiler]<a class=\"quotelink\" href=\"/{slug}/post/{target}\">&gt;&gt;{target}</a>[/spoiler]"
+            "[spoiler]<a class=\"quotelink\" href=\"#p{target}\">&gt;&gt;{target}</a>[/spoiler]"
         )));
         let response = app
             .clone()
@@ -437,12 +433,8 @@ async fn local_quotes(
             .split("</blockquote>")
             .next()
             .unwrap();
-        assert!(fragment.contains(&format!(
-            "href=\"/{slug}/post/{target}\">&gt;&gt;{target}</a>"
-        )));
-        assert!(fragment.contains(&format!(
-            "href=\"/other/post/{target}\">&gt;&gt;&gt;/other/{target}</a>"
-        )));
+        assert!(fragment.contains(&format!("href=\"#p{target}\">&gt;&gt;{target}</a>")));
+        assert!(fragment.contains(&format!("&gt;&gt;&gt;/other/{target}.")));
         assert_eq!(
             board_store::find_post(public, slug, target)
                 .await

@@ -13,6 +13,8 @@ export APP_ENV=development
 : "${MONITOR_DATABASE_URL:?Set the disposable aggregate observer database URL}"
 : "${AUTH_DATABASE_URL:?Set the disposable authentication test database URL}"
 : "${STAFF_DATABASE_URL:?Set the disposable staff test database URL}"
+python3 scripts/extract-quote-resolution-reference.py
+python3 scripts/test-quote-resolution-reference.py
 python3 scripts/extract-navigation-reference.py
 python3 scripts/test-navigation-reference.py
 python3 scripts/extract-board-format-metadata-reference.py
@@ -49,7 +51,7 @@ npm run test:posting-randomizers
 npm run test:robot9000
 npm run test:wordfilters
 npm run test:linkification
-npx playwright test tests/browser/static-quotes.spec.js
+npx playwright test tests/browser/static-quotes.spec.js tests/browser/quote-resolution.spec.js
 npm run test:quote-preview
 npm run test:backlinks
 npm run test:inline-quotes

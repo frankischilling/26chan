@@ -133,7 +133,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
         assert_eq!(saved.comment_format, 104);
         let path = format!("/{board}/thread/{op}");
         let html = get(&app, &path).await;
-        assert!(html.contains(&format!("href=\"/{board}/post/{op}\">&gt;&gt;{op}</a>")));
+        assert!(html.contains(&format!("href=\"#p{op}\">&gt;&gt;{op}</a>")));
         assert!(html.contains("href=\"/po/post/42\">&gt;&gt;&gt;/po/00042</a>"));
         assert!(!html.contains("/po/catalog#s=1e2"));
         assert!(!html.contains("href=\"/po/post/1\""));
@@ -154,7 +154,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
             let value: serde_json::Value =
                 serde_json::from_str(&get(router, &format!("{path}.json")).await).unwrap();
             let comment = value["posts"][1]["com"].as_str().unwrap();
-            assert!(comment.contains(&format!("href=\"/{board}/post/{op}\"")));
+            assert!(comment.contains(&format!("href=\"#p{op}\"")));
             assert!(!comment.contains(&format!("href=\"{external}\"")));
             assert!(!comment.contains("boards.4chan.org"));
             assert!(comment.contains("&gt;&gt;&gt;/po/00042</a>"));
@@ -166,7 +166,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
             snapshot["posts"][1]["html"]
                 .as_str()
                 .unwrap()
-                .contains(&format!("href=\"/{board}/post/{op}\""))
+                .contains(&format!("href=\"#p{op}\""))
         );
         let before = html;
         sqlx::query("UPDATE content.boards SET comment_code_spacing=true,comment_sjis_spacing=true WHERE slug=$1").bind(board).execute(owner).await.unwrap();

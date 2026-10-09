@@ -29,6 +29,7 @@ pub struct CatalogReply {
 }
 
 pub struct BoardSnapshot {
+    pub quote_targets: crate::QuoteTargets,
     pub board: Board,
     pub threads: Vec<ThreadPreview>,
     pub has_next: bool,
@@ -226,6 +227,11 @@ async fn read_board_snapshot(
         Vec::new()
     };
     crate::post_media::load(&mut tx, &mut posts).await?;
+    let quote_targets = if board.staff_only {
+        crate::QuoteTargets::default()
+    } else {
+        crate::quote_targets::load(&mut tx, &posts).await?
+    };
     let poster_counts: Vec<(i64, Option<i32>)> = sqlx::query_as(
         "SELECT id,content.unique_posters($1,id) FROM unnest($2::bigint[]) selected(id)",
     )
@@ -266,6 +272,7 @@ async fn read_board_snapshot(
         .collect();
     Ok(PageSnapshot {
         snapshot: BoardSnapshot {
+            quote_targets,
             board,
             threads,
             has_next,

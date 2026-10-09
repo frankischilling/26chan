@@ -66,7 +66,23 @@ export function postMediaUrl(raw, context) {
   const prefix = `${context.mediaOrigin}/${context.board}/`;
   return raw.startsWith(prefix) && /^[1-9][0-9]{0,18}(?:\.png|s\.jpg)$/.test(raw.slice(prefix.length));
 }
+// Match the rewrite's post resolver and canonical same-origin thread anchors.
+// Do not resolve arbitrary relative paths, query strings or source-site URLs.
+export function quoteTarget(raw, { origin, board, thread = null }) {
+  if (typeof raw !== 'string' || raw.length > 512 || /[\u0000-\u0020\u007f\\]/.test(raw)
+    || typeof board !== 'string' || !/^[a-z0-9]{1,10}$/.test(board) || /[^a-z0-9]/.test(board)) return null;
+  if (raw.startsWith(`${origin}/`)) raw = raw.slice(origin.length);
+  const local = /^#p([1-9][0-9]{0,18})$/.exec(raw);
+  const route = /^\/([a-z0-9]{1,10})\/(?:post\/([1-9][0-9]{0,18})|thread\/([1-9][0-9]{0,18})#p([1-9][0-9]{0,18}))$/.exec(raw);
+  if ((!local && !route) || (local && thread === null)) return null;
+  const post = local ? local[1] : route[2] ?? route[4];
+  const parent = local ? thread : route[3] ?? null;
+  if (postId(post) !== post || (parent !== null && (postId(parent) !== parent || /\D/.test(parent) || BigInt(parent) > BigInt(post)))) return null;
+  return { board: local ? board : route[1], post, thread: parent };
+}
+
 export function postLinkUrl(raw, context) {
+  if (raw.startsWith('#')) return quoteTarget(raw, context) !== null;
   if (raw.startsWith('/')) {
     if (/^\/rules#[a-z0-9]{1,10}[a-z0-9+/,\-]*$/.test(raw)) return true;
     // OP Reply/View thread uses the server's ordinary semantic context. Match
@@ -86,7 +102,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
   budget.chars ??= 0;
   const charge = text => { budget.chars += text.length; require(budget.chars <= limits.bytes); };
   const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'pim', 'm', 'f', 'fT', 'delete', 'report'].map(prefix => prefix + no));
-  function visit(node, depth, form = null, comment = false) {
+  function visit(node, depth, form = null, comment = false, link = false) {
     require(++budget.nodes <= limits.nodes && depth <= limits.depth);
     if (typeof node === 'string') { charge(node); return; }
     exactKeys(node, ['tag', 'attrs', 'children']);
@@ -94,7 +110,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     require(node.attrs && typeof node.attrs === 'object' && !Array.isArray(node.attrs));
     if (comment && isWordfilterMarkup(node.tag, node.attrs)) {
       for (const [key, value] of Object.entries(node.attrs)) { charge(key); charge(value); }
-      for (const child of node.children) visit(child, depth + 1, form, true);
+      for (const child of node.children) visit(child, depth + 1, form, true, link);
       return;
     }
     require(Object.hasOwn(attributes, node.tag));
@@ -103,7 +119,8 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       // that size. Preserve those valid links within the aggregate wire budget.
       require(attributes[node.tag].includes(key) && typeof value === 'string' && value.length <= (key === 'href' ? 192000 : 4096));
       charge(value);
-      if (key === 'class') require(value.split(' ').every(token => classes.has(token) || isPostFlagToken(token) || isCapcodeToken(token)));
+      if (key === 'class') require(value.split(' ').every(token => classes.has(token) || isPostFlagToken(token) || isCapcodeToken(token))
+        || (comment && node.tag === 'span' && value === 'deadlink'));
       if (key === 'id') { require(expectedIds.has(value) && !ids.has(value)); ids.add(value); }
       if (key === 'href') require(postLinkUrl(value, context));
       if (key === 'src') require(postMediaUrl(value, context) || postIdentityUrl(value) || postFileAssetUrl(value));
@@ -136,6 +153,12 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
           require(/^[1-9][0-9]{0,3}$/.test(value) && Number(value) <= 1024);
         } else require(value === 'true');
       }
+    }
+    if (node.attrs.class === 'deadlink') {
+      // Source-resolved unavailable references are labels, never containers for
+      // nested links, resources or controls. Do not grant deadlink to anchors.
+      require(comment && !link && node.tag === 'span' && Object.keys(node.attrs).join(',') === 'class'
+        && node.children.every(child => typeof child === 'string'));
     }
     const mobileLabel = node.tag === 'span' && ['name', 'subject'].includes(node.attrs.class) && Object.hasOwn(node.attrs, 'title');
     const fileTitle = node.tag === 'div' && node.attrs.class === 'fileText' && Object.hasOwn(node.attrs, 'title');
@@ -179,10 +202,11 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     if (node.tag === 'img') require(typeof node.attrs.src === 'string' && typeof node.attrs.alt === 'string');
     if (node.tag === 'a') {
       require(typeof node.attrs.href === 'string');
-      if (!node.attrs.href.startsWith('/')) require(['noopener noreferrer', 'nofollow noreferrer noopener'].includes(node.attrs.rel));
+      if (node.attrs.href.startsWith('#')) require(comment && node.attrs.class === 'quotelink');
+      else if (!node.attrs.href.startsWith('/')) require(['noopener noreferrer', 'nofollow noreferrer noopener'].includes(node.attrs.rel));
     }
     const message = node.tag === 'blockquote' && node.attrs.class === 'postMessage' && node.attrs.id === `m${no}`;
-    for (const child of node.children) visit(child, depth + 1, form, comment || message);
+    for (const child of node.children) visit(child, depth + 1, form, comment || message, link || node.tag === 'a');
   }
   visit(tree, 0);
   validateCapcodeTree(tree, no);

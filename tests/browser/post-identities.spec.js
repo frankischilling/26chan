@@ -68,6 +68,7 @@ test('persisted tripcodes survive browser previews, filters and ordinary renderi
     const remote = await post('0', 'Plain name', `>>${target}\nOwned remote reference`);
     await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ quotePreview: true, threadStats: false, filter: true })));
     await page.goto(`/demo/thread/${remote}`);
+    await expect(page.locator(`#m${remote} a.quotelink`)).toHaveAttribute('href', `/demo/thread/${target}#p${target}`);
     await page.locator(`#m${remote} a.quotelink`).hover();
     const preview = page.locator('#quote-preview');
     await expect(preview).toBeVisible();
