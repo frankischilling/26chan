@@ -305,6 +305,20 @@ test('cross-board quotes navigate persisted replies and respect deletion without
   const password = 'cross-board-browser-password';
   const threads = [], importedThreads = [];
   const marker = ownedDeletionMarker();
+  // Imported source boards keep the posting password in a hidden `pwd` field.
+  // Seed only our target posts through the real endpoint with an explicit
+  // deletion password; the browser remains JavaScript-disabled throughout.
+  async function postTarget(resto, comment, subject) {
+    const response = await withPostingHistory(() => context.request.post(`${origin}/tg/post`, {
+      headers: { origin }, maxRedirects: 0,
+      form: { resto, com: comment, pwd: password, ...(subject ? { sub: subject } : {}) },
+    }));
+    expect(response.status(), 'Owned source-board target must persist').toBe(303);
+    const receipt = /^\/tg\/thread\/([1-9][0-9]*)#p([1-9][0-9]*)$/.exec(response.headers().location || '');
+    expect(receipt, 'Real posting redirect must identify the owned target').not.toBeNull();
+    expect(receipt[1]).toBe(resto === '0' ? receipt[2] : resto);
+    return receipt[2];
+  }
   async function post(path, comment, subject) {
     await page.goto(`${origin}${path}`);
     await page.locator('#com').fill(comment);
@@ -316,9 +330,9 @@ test('cross-board quotes navigate persisted replies and respect deletion without
     return /#p(\d+)$/.exec(page.url())[1];
   }
   try {
-    const target = await post('/tg/', 'Owned cross-board target', marker);
+    const target = await postTarget('0', 'Owned cross-board target', marker);
     importedThreads.push({ board: 'tg', id: target, marker });
-    const reply = await post(`/tg/thread/${target}`, 'Owned target reply');
+    const reply = await postTarget(target, 'Owned target reply');
     const source = await post('/fixture/', `See >>>/tg/${reply}.\n<script>window.quoteHostile = true</script>\n>>>/../42\n>>>/demo/${reply}\n[spoiler]>>>/tg/${reply}[/spoiler]`);
     threads.push(['fixture', source]);
     const sourceUrl = `${origin}/fixture/thread/${source}`;
