@@ -26,16 +26,16 @@ test('membership uses retained process handle and this exact owned job', () => {
   assert.match(helper, /IsProcessInJob\(candidate\.Handle, job, out member\)/);
   assert.doesNotMatch(helper, /IsProcessInJob\([^\n]*IntPtr\.Zero/);
   assert.match(runner, /\$null=\$descendant\.Handle/);
-  const before = runner.indexOf('$child.ContainsProcess($descendant)');
+  const before = runner.indexOf('$child.InspectOwnership($descendant)');
   const release = runner.indexOf("New-Item -ItemType File -Path (Join-Path $directory 'release-parent')");
-  const after = runner.lastIndexOf('$child.ContainsProcess($descendant)');
+  const after = runner.lastIndexOf('$child.InspectOwnership($descendant)');
   assert.ok(before >= 0 && release > before && after > release);
-  assert.match(runner, /\$child\.ActiveProcessCount -ne 2/);
-  assert.match(runner, /\$child\.ActiveProcessCount -ne 1/);
+  assert.match(runner, /\$before\.ActiveProcesses -ne 2/);
+  assert.match(runner, /\$after\.ActiveProcesses -ne 1/);
 });
 
 test('post-root live descendant blocks completion and job kill must terminate it', () => {
-  assert.match(runner, /\$descendant\.HasExited -or -not \$child\.ContainsProcess/);
+  assert.match(runner, /\$after\.DescendantExited -or -not \$after\.DescendantInJob/);
   assert.match(runner, /\$child\.TreeExited -or \$child\.WaitForExit\(100\)/);
   assert.match(runner, /\$child\.Kill\(\)/);
   assert.match(runner, /\$descendant\.WaitForExit\(5000\)/);
@@ -53,4 +53,26 @@ test('failed acknowledgement still reaches unconditional job and handle disposal
   assert.match(runner, /finally \{ \$child\.Dispose\(\) \}/);
   assert.match(runner, /finally \{\s+if \(\$null -ne \$descendant\) \{ \$descendant\.Dispose\(\) \}/);
   assert.match(helper, /JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE/);
+});
+
+
+test('ownership snapshots precede both hard assertions and preserve exact membership', () => {
+  assert.match(helper, /RootMembershipObserved = !rootExited/);
+  assert.match(helper, /RootInJob = !rootExited && ContainsProcess\(process\)/);
+  assert.match(helper, /DescendantInJob = ContainsProcess\(candidate\)/);
+  assert.match(helper, /Marshal.SizeOf<Accounting>\(\) == 48/);
+  assert.match(helper, /Marshal.OffsetOf<Accounting>\("ActiveProcesses"\).ToInt64\(\) == 40/);
+  assert.ok(runner.indexOf("Write-OwnedState -Stage 'before-parent-release'") < runner.indexOf('if ($before.RootExited'));
+  assert.ok(runner.indexOf("Write-OwnedState -Stage 'after-parent-exit'") < runner.indexOf('if (-not $after.RootExited'));
+  assert.match(runner, /-not \$before.RootInJob/);
+  assert.match(runner, /-not \$before.DescendantInJob/);
+  assert.match(runner, /-not \$after.DescendantInJob/);
+});
+
+test('ownership diagnostics expose only fixed enums, booleans and job counts', () => {
+  const diagnostic = runner.slice(runner.indexOf('function Write-OwnedState'), runner.indexOf('try {'));
+  const keys = [...diagnostic.matchAll(/(?:^|[;\n])\s*([a-z_]+)=/g)].map(match => match[1]);
+  assert.deepEqual(keys, ['type', 'schema', 'stage', 'root_exited', 'root_in_job', 'root_membership_observed', 'descendant_exited', 'descendant_in_job', 'accounting_layout_valid', 'active_processes', 'total_processes', 'terminated_processes']);
+  assert.doesNotMatch(diagnostic, /\.(Id|Handle|Path|Message)|\$_/);
+  assert.match(diagnostic, /ValidateSet\('before-parent-release','after-parent-exit'\)/);
 });

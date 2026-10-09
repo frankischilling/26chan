@@ -119,6 +119,27 @@ public sealed class DualStackOwnedProcess : IDisposable
     public bool ContainsProcess(Process candidate) {
         bool member; Check(IsProcessInJob(candidate.Handle, job, out member)); return member;
     }
+    public sealed class OwnershipSnapshot {
+        public bool RootExited, RootInJob, RootMembershipObserved, DescendantExited, DescendantInJob, AccountingLayoutValid;
+        public uint ActiveProcesses, TotalProcesses, TerminatedProcesses;
+    }
+    // Bounded read-only diagnostics. No process IDs, handles or paths are exposed.
+    public OwnershipSnapshot InspectOwnership(Process candidate) {
+        Accounting info;
+        Check(QueryInformationJobObject(job, 1, out info, (uint)Marshal.SizeOf<Accounting>(), IntPtr.Zero));
+        bool rootExited = process.HasExited;
+        return new OwnershipSnapshot {
+            RootExited = rootExited,
+            RootMembershipObserved = !rootExited,
+            RootInJob = !rootExited && ContainsProcess(process),
+            DescendantExited = candidate.HasExited,
+            DescendantInJob = ContainsProcess(candidate),
+            AccountingLayoutValid = Marshal.SizeOf<Accounting>() == 48 && Marshal.OffsetOf<Accounting>("ActiveProcesses").ToInt64() == 40,
+            ActiveProcesses = info.ActiveProcesses,
+            TotalProcesses = info.TotalProcesses,
+            TerminatedProcesses = info.TerminatedProcesses
+        };
+    }
     public bool WaitForExit(int milliseconds) {
         var watch = Stopwatch.StartNew();
         if (!process.WaitForExit(milliseconds)) return false;
