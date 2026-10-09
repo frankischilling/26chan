@@ -53,6 +53,7 @@ fn board() -> Board {
         title: "Paper craft".into(),
         description: "Discuss paper models, folding, and works in progress.".into(),
         show_blotter: true,
+        board_subtitle: board_store::BoardSubtitle::None,
         max_comment_chars: 4000,
         max_authorized_comment_chars: 10000,
         comment_code_spacing: false,
@@ -107,11 +108,13 @@ fn page(catalog: bool) -> String {
 
 fn chrome_page(catalog: bool, worksafe: bool) -> String {
     let boards = navigation_boards();
-    let current = boards
+    let mut current = boards
         .iter()
         .find(|board| board.slug == if worksafe { "demo" } else { "zed" })
         .unwrap()
         .clone();
+    // Existing component-style probes require an explicitly configured subtitle.
+    current.board_subtitle = board_store::BoardSubtitle::WorksafeGif;
     BoardPage {
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&current),

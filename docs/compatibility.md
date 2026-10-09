@@ -22,6 +22,12 @@ checks pass; hosted browser qualification is pending. The missing Atom/controlle
 semantics, original footer destinations, homepage and remaining information-page
 work stay open under [#194](https://github.com/frankischilling/26chan/issues/194).
 
+[Board subtitles](source-board-subtitles.md) use the three audited source profiles,
+including the two-line fiction notice and local Worksafe GIF link. Ordinary
+boards omit the subtitle; descriptions remain separate metadata. Archive lists
+and text layouts follow the common source header. Hosted browser checks remain
+pending.
+
 [Board definitions](original-board-inventory.md) install the 80 listed boards
 and both additional configurations. Their existing supported policy fields,
 order and route availability are checked against the pinned fixture. `/j/`

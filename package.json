@@ -98,7 +98,10 @@
     "check:native-blotter": "node scripts/build-native-blotter.mjs --check",
     "test:blotter-core": "npm run check:native-blotter && node --test tests/browser/native-blotter.test.mjs",
     "test:blotter": "npm run test:blotter-core && playwright test --config playwright.blotter.config.js",
-    "test:blotter-persisted": "playwright test tests/browser/blotter-persisted.spec.js"
+    "test:blotter-persisted": "playwright test tests/browser/blotter-persisted.spec.js",
+    "test:board-subtitles-core": "python3 scripts/test-board-subtitle-import.py && node --test tests/browser/source-board-subtitles.test.mjs",
+    "test:board-subtitles": "npm run test:board-subtitles-core && playwright test --config playwright.source-board-subtitles.config.js",
+    "test:board-subtitles-http": "node tests/browser/source-board-subtitles-http.mjs"
   },
   "devDependencies": {
     "@mathjax/mathjax-tex-font": "4.1.3",

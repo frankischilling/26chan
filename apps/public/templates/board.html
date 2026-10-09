@@ -17,7 +17,7 @@
 {% block board_navigation %}{% if catalog %}<div id="topnav" class="boardnav">{% endif %}{% call page_navigation::desktop(navigation(), catalog, board.worksafe, false) %}{% endcall %}{% if catalog %}</div>{% endif %}{% call page_navigation::mobile(navigation(), board) %}{% endcall %}{% endblock %}
 {% block page_footer %}{% call page_navigation::desktop(navigation(), catalog, board.worksafe, true) %}{% endcall %}<div id="absbot" class="absBotText"><div id="footer-links"><a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a> • <a href="/">All boards</a></div></div>{% if parent == 0 %}<div id="bottom"></div>{% endif %}<script type="module" src="/static/page-chrome.v1.js"></script>{% endblock %}
 {% block content %}
-<div class="boardBanner"{% if parent > 0 %} id="top"{% endif %}><div id="bannerCnt" class="title desktop"></div><div class="boardTitle" role="heading" aria-level="1">/{{ board.slug }}/ - {{ board.title }}</div><div class="boardSubtitle">{{ board.description }}</div></div>
+<div class="boardBanner"{% if parent > 0 %} id="top"{% endif %}><div id="bannerCnt" class="title desktop"></div><div class="boardTitle" role="heading" aria-level="1">/{{ board.slug }}/ - {{ board.title }}</div>{% include "board_subtitle.html" %}</div>
 {% if parent > 0 %}
 {% call thread_navigation::mobile(board.slug, parent, board.worksafe, false) %}{% endcall %}
 {% call thread_navigation::desktop(board.slug, false) %}{% endcall %}

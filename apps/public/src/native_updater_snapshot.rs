@@ -564,6 +564,7 @@ mod tests {
             title: "Test".into(),
             description: String::new(),
             show_blotter: true,
+            board_subtitle: board_store::BoardSubtitle::None,
             max_comment_chars: 16_000,
             max_authorized_comment_chars: 10000,
             comment_code_spacing: true,

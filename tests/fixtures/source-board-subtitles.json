@@ -1,0 +1,279 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "scope": "Only b/trash/gif define SUBTITLE. The common header includes it on index, live/archived thread and archive index; catalog has its own equivalent header. TEXT_ONLY changes body/control classes, not subtitle emission. Fixed source HTML is preserved except the GIF destination is mapped to local /wsg/.",
+  "boards": [
+    {
+      "board": "b",
+      "html": "The stories and information posted here are artistic works of fiction and falsehood.<br>Only a fool would take anything posted here as fact.",
+      "source": {
+        "path": "config/boards/b.config.ini",
+        "source_sha256": "6674a493d10c756b7c4683b3b38b17d33dc478100a333484f86f94aafa014b3a",
+        "byte_start": 2547,
+        "byte_end": 2700,
+        "sha256": "10b6cdfa6096edff63c1d411b1948bef94f951ebed8ac3783d967a886ac53d63",
+        "text": "SUBTITLE = The stories and information posted here are artistic works of fiction and falsehood.<br>Only a fool would take anything posted here as fact.\r\n"
+      }
+    },
+    {
+      "board": "gif",
+      "html": "Worksafe Board: /<a href=\"//boards.4chan.org/wsg/\" title=\"Worksafe GIF\">wsg</a>/",
+      "source": {
+        "path": "config/boards/gif.config.ini",
+        "source_sha256": "ffc9372f3e6d9e5b56029138c79cd3b23efce7922227804e3aba7387fbbcb887",
+        "byte_start": 882,
+        "byte_end": 975,
+        "sha256": "4e829f8616343860fa241e2f440c266c5f92adabd699e036bb5d5db0dbd8dbd0",
+        "text": "SUBTITLE = Worksafe Board: /<a href=\"//boards.4chan.org/wsg/\" title=\"Worksafe GIF\">wsg</a>/\r\n"
+      }
+    },
+    {
+      "board": "trash",
+      "html": "The stories and information posted here are artistic works of fiction and falsehood.<br>Only a fool would take anything posted here as fact.",
+      "source": {
+        "path": "config/boards/trash.config.ini",
+        "source_sha256": "1079782591e9b7c428931376d426e83ab3aa7414b437b4a1fc5d2b77bc006304",
+        "byte_start": 983,
+        "byte_end": 1136,
+        "sha256": "10b6cdfa6096edff63c1d411b1948bef94f951ebed8ac3783d967a886ac53d63",
+        "text": "SUBTITLE = The stories and information posted here are artistic works of fiction and falsehood.<br>Only a fool would take anything posted here as fact.\r\n"
+      }
+    }
+  ],
+  "excerpts": {
+    "board_builder": {
+      "path": "imgboard.php",
+      "source_sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+      "byte_start": 94482,
+      "byte_end": 94584,
+      "sha256": "ca31a89f4d565ccafd835e2a200a212083a2eb9af4f9a0dc15f0cedbf5f894cf",
+      "text": "\tif( defined( 'SUBTITLE' ) ) {\r\n\t\t$subtitle = '<div class=\"boardSubtitle\">' . SUBTITLE . '</div>';\r\n\t}"
+    },
+    "catalog_builder": {
+      "path": "catalog.php",
+      "source_sha256": "9e41cd26755f9cee12e3fffa2050952a227e16362310b9b888438eba307af946",
+      "byte_start": 9069,
+      "byte_end": 9175,
+      "sha256": "d08525074cebb77c0c2c50641b7f8e36fb8ff775f3888eebcd8184364d2dc301",
+      "text": "  if( defined( 'SUBTITLE' ) ) {\r\n    $subtitle = '<div class=\"boardSubtitle\">' . SUBTITLE . '</div>';\r\n  }"
+    },
+    "board_banner": {
+      "path": "imgboard.php",
+      "source_sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+      "byte_start": 109374,
+      "byte_end": 109487,
+      "sha256": "21e0faae9d3221f599e3d665558210284cba11e07198ed6383f40cdf18fe7687",
+      "text": "<div class=\"boardBanner\">\r\n\t$titlepart\r\n\t<div class=\"boardTitle\">$title</div>\r\n\t$subtitle\r\n</div>\r\n$abovePostForm"
+    },
+    "catalog_banner": {
+      "path": "catalog.php",
+      "source_sha256": "9e41cd26755f9cee12e3fffa2050952a227e16362310b9b888438eba307af946",
+      "byte_start": 13628,
+      "byte_end": 13756,
+      "sha256": "4b2186a8619bbbada33456ec0d4e2aab549d60bca62ddc861ce93d7ceb69f603",
+      "text": "<div class=\"boardBanner\">\r\n  $titlepart\r\n  <div class=\"boardTitle\">$title</div>\r\n  $subtitle\r\n</div>\r\n<hr class=\"abovePostForm\">"
+    },
+    "board_modes": {
+      "path": "imgboard.php",
+      "source_sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+      "byte_start": 108691,
+      "byte_end": 109069,
+      "sha256": "f1367864bdefa10c67d86894162dff7e411bd04d3c340e2da848b3a6a60eee68",
+      "text": "\tif (!$res) {\r\n\t  if ($is_arclist) {\r\n\t    $board_class = 'is_arclist ' . $board_class;\r\n\t  }\r\n\t  else {\r\n\t    $board_class = 'is_index ' . $board_class;\r\n\t  }\r\n\t}\r\n\telse {\r\n\t  $board_class = 'is_thread ' . $board_class;\r\n\t}\r\n\t\r\n\tif (TEXT_ONLY) {\r\n\t  $board_class = 'text_only ' . $board_class;\r\n\t}\r\n\t\r\n\tif (!$is_arclist) {\r\n\t  $abovePostForm = '<hr class=\"abovePostForm\">';\r\n\t}"
+    },
+    "catalog_text_mode": {
+      "path": "catalog.php",
+      "source_sha256": "9e41cd26755f9cee12e3fffa2050952a227e16362310b9b888438eba307af946",
+      "byte_start": 12317,
+      "byte_end": 12447,
+      "sha256": "19ebc5e599876c70d35e96af32b40f47371799e476aa3b8bf17c455c424bc49f",
+      "text": "  if (TEXT_ONLY) {\r\n    $text_only = 'var text_only = true;';\r\n    $body_text_css = ' text_only';\r\n    $ctrl_css = ' hidden';\r\n  }"
+    },
+    "archive_header": {
+      "path": "imgboard.php",
+      "source_sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+      "byte_start": 267861,
+      "byte_end": 267893,
+      "sha256": "40713036e7607e2ada3bc9cabc0496b367d13933ca1a587a5010bb56f0c4aee9",
+      "text": "  head($html, 0, 0, 0, 0, true);"
+    }
+  },
+  "styles": [
+    {
+      "theme": "yotsuba",
+      "mode": "index",
+      "source": {
+        "path": "css/yotsubanew.css",
+        "source_sha256": "05d61b9a886aca60bd418b63a5b86d2ef3050d1d90c640da64f2206dda740db9",
+        "byte_start": 9605,
+        "byte_end": 9667,
+        "sha256": "aaa9beb8d5d1afc38ec0390797e7d0f297c9582c1efd04fb54f33a9a0d62e73d",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n\tfont-size: x-small;\r\n}"
+      }
+    },
+    {
+      "theme": "yotsuba",
+      "mode": "catalog",
+      "source": {
+        "path": "css/catalog_yotsuba_new.css",
+        "source_sha256": "e1220c4d9428f6ca972ce9cbeb2189bc54042eb078cd63efab45908214d3c931",
+        "byte_start": 16361,
+        "byte_end": 16423,
+        "sha256": "aaa9beb8d5d1afc38ec0390797e7d0f297c9582c1efd04fb54f33a9a0d62e73d",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n\tfont-size: x-small;\r\n}"
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "mode": "index",
+      "source": {
+        "path": "css/yotsubluenew.css",
+        "source_sha256": "d6abc7c9fb8c2d9c168554b39a54b4569f68243aa4bcb972b8452264cbdd1a65",
+        "byte_start": 9851,
+        "byte_end": 9913,
+        "sha256": "aaa9beb8d5d1afc38ec0390797e7d0f297c9582c1efd04fb54f33a9a0d62e73d",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n\tfont-size: x-small;\r\n}"
+      }
+    },
+    {
+      "theme": "yotsuba-b",
+      "mode": "catalog",
+      "source": {
+        "path": "css/catalog_yotsuba_b_new.css",
+        "source_sha256": "97c245edbe8c2bfc904812439c1864c597bf3090a3334e75c04317d57a5eea1b",
+        "byte_start": 16549,
+        "byte_end": 16611,
+        "sha256": "aaa9beb8d5d1afc38ec0390797e7d0f297c9582c1efd04fb54f33a9a0d62e73d",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n\tfont-size: x-small;\r\n}"
+      }
+    },
+    {
+      "theme": "futaba",
+      "mode": "index",
+      "source": {
+        "path": "css/futabanew.css",
+        "source_sha256": "8beb159cfcf83d042a68b1037997511c7b0bb959289eb1b5757036cdd7aa0945",
+        "byte_start": 9570,
+        "byte_end": 9629,
+        "sha256": "6c6be0cdbb171b2c2fc2cd214ca9ff10ef59931ca9b9440f62e710ec02b96493",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n\tfont-size: 10pt;\r\n}"
+      }
+    },
+    {
+      "theme": "futaba",
+      "mode": "catalog",
+      "source": {
+        "path": "css/catalog_futaba_new.css",
+        "source_sha256": "b8138f14625c06e50734296c50ab4057569cff3c8ff811428cabcbcb25e903dc",
+        "byte_start": 15880,
+        "byte_end": 15939,
+        "sha256": "6c6be0cdbb171b2c2fc2cd214ca9ff10ef59931ca9b9440f62e710ec02b96493",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n\tfont-size: 10pt;\r\n}"
+      }
+    },
+    {
+      "theme": "burichan",
+      "mode": "index",
+      "source": {
+        "path": "css/burichannew.css",
+        "source_sha256": "71a5a5b8362aa78269c19e89cacc249cda48f2af2393fda7d3638fa518307b18",
+        "byte_start": 9600,
+        "byte_end": 9659,
+        "sha256": "6c6be0cdbb171b2c2fc2cd214ca9ff10ef59931ca9b9440f62e710ec02b96493",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n\tfont-size: 10pt;\r\n}"
+      }
+    },
+    {
+      "theme": "burichan",
+      "mode": "catalog",
+      "source": {
+        "path": "css/catalog_burichan_new.css",
+        "source_sha256": "f071dc2a691cd6e32aa18409603a37c62c5584de2e3ef2bd34d79b17c0e96f6a",
+        "byte_start": 16048,
+        "byte_end": 16107,
+        "sha256": "6c6be0cdbb171b2c2fc2cd214ca9ff10ef59931ca9b9440f62e710ec02b96493",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n\tfont-size: 10pt;\r\n}"
+      }
+    },
+    {
+      "theme": "photon",
+      "mode": "index",
+      "source": {
+        "path": "css/photon.css",
+        "source_sha256": "a4741759760d959b4a2e29d9622ab63a91d1cdc49f10679335b71f5b16e9575d",
+        "byte_start": 9143,
+        "byte_end": 9203,
+        "sha256": "a4fc3ffd93053caf7d4369a9d5bc9fbaa207320bb014e145e03cc5857f05c3a5",
+        "text": "div.boardBanner>div.boardSubtitle {\r\n\tfont-size: x-small;\r\n}"
+      }
+    },
+    {
+      "theme": "photon",
+      "mode": "catalog",
+      "source": {
+        "path": "css/catalog_photon.css",
+        "source_sha256": "09fd2921f41cedc9cdf6d78264cc53c45935d0a71c7585a5d46e7a8c2e572df5",
+        "byte_start": 16242,
+        "byte_end": 16304,
+        "sha256": "aaa9beb8d5d1afc38ec0390797e7d0f297c9582c1efd04fb54f33a9a0d62e73d",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n\tfont-size: x-small;\r\n}"
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "mode": "index",
+      "source": {
+        "path": "css/tomorrow.css",
+        "source_sha256": "40b4c474a93e87737811c77a50cce9af4fadc9b025a3863e126ca418a8f33a4a",
+        "byte_start": 9543,
+        "byte_end": 9603,
+        "sha256": "a4fc3ffd93053caf7d4369a9d5bc9fbaa207320bb014e145e03cc5857f05c3a5",
+        "text": "div.boardBanner>div.boardSubtitle {\r\n\tfont-size: x-small;\r\n}"
+      }
+    },
+    {
+      "theme": "tomorrow",
+      "mode": "catalog",
+      "source": {
+        "path": "css/catalog_tomorrow.css",
+        "source_sha256": "e270720e22e36ff13b67323086922be2ecef4f4ef07a3fe29881c070c9ceaca9",
+        "byte_start": 16444,
+        "byte_end": 16506,
+        "sha256": "aaa9beb8d5d1afc38ec0390797e7d0f297c9582c1efd04fb54f33a9a0d62e73d",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n\tfont-size: x-small;\r\n}"
+      }
+    },
+    {
+      "mode": "mobile",
+      "source": {
+        "path": "css/yotsubamobile.css",
+        "source_sha256": "872810133bc5dff715746b30127d531e7cd6d93d8405781af23dc7c4760eb023",
+        "byte_start": 10662,
+        "byte_end": 10726,
+        "sha256": "c2992036583530c5856bdfad3f4e1fc2005d54f686d3811445a24035a203c64e",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n\t\tfont-size: x-small;\r\n\t}"
+      }
+    },
+    {
+      "mode": "mobile",
+      "source": {
+        "path": "css/yotsubluemobile.css",
+        "source_sha256": "3cb6eb4ec8fcb261b2f0496390484fa613d27ec1bad26fc97127b7dcb848d6ff",
+        "byte_start": 11104,
+        "byte_end": 11168,
+        "sha256": "c2992036583530c5856bdfad3f4e1fc2005d54f686d3811445a24035a203c64e",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n\t\tfont-size: x-small;\r\n\t}"
+      }
+    },
+    {
+      "mode": "text",
+      "source": {
+        "path": "css/0ch.css",
+        "source_sha256": "a2ab0e9aa588564cfdf81d997cc82492749894f723e6ca6969e0aa419607b333",
+        "byte_start": 10725,
+        "byte_end": 10785,
+        "sha256": "aa22a75d6ca9958a9508a649003a50241c509909f9ae73421dfc4f00a1da2d3f",
+        "text": "div.boardBanner > div.boardSubtitle {\r\n  font-size: 10pt;\r\n}"
+      }
+    }
+  ]
+}
