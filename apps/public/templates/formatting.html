@@ -7,7 +7,13 @@
 {%- when Token::Text with (text) -%}{{ text }}
 {%- when Token::Quote with (id) -%}<a class="quotelink" href="{{ origin }}/{{ board }}/post/{{ id }}">&gt;&gt;{{ id }}</a>
 {%- when Token::CrossQuote with (target, id) -%}<a class="quotelink" href="{{ origin }}/{{ target }}/post/{{ id }}">&gt;&gt;&gt;/{{ target }}/{{ id }}</a>
-{%- when Token::PostQuote with (quote) -%}<a class="quotelink" href="{{ origin }}{{ quote.href(board) }}">{% if quote.board().is_some() %}&gt;&gt;&gt;/{{ quote.board_label() }}/{% else %}&gt;&gt;{% endif %}{{ quote.digits() }}</a>
+{%- when Token::PostQuote with (quote) -%}
+{%- match quote.presentation() -%}
+{%- when board_domain::post_quote::QuotePresentation::Plain -%}{% if quote.board().is_some() %}&gt;&gt;&gt;/{{ quote.board_label() }}/{% else %}&gt;&gt;{% endif %}{{ quote.digits() }}
+{%- when board_domain::post_quote::QuotePresentation::Dead -%}<span class="deadlink">{% if quote.board().is_some() %}&gt;&gt;&gt;/{{ quote.board_label() }}/{% else %}&gt;&gt;{% endif %}{{ quote.digits() }}</span>
+{%- when board_domain::post_quote::QuotePresentation::Unresolved -%}<a class="quotelink" href="{{ origin }}{{ quote.href(board) }}">{% if quote.board().is_some() %}&gt;&gt;&gt;/{{ quote.board_label() }}/{% else %}&gt;&gt;{% endif %}{{ quote.digits() }}</a>
+{%- else -%}{%- if let Some(href) = quote.resolved_href(board) -%}<a class="quotelink" href="{{ origin }}{{ href }}">{% if quote.board().is_some() %}&gt;&gt;&gt;/{{ quote.board_label() }}/{% else %}&gt;&gt;{% endif %}{{ quote.digits() }}</a>{%- endif -%}
+{%- endmatch -%}
 {%- when Token::StaticQuote with (quote, parts) -%}<a class="quotelink" href="{% if quote.href().starts_with("/") && !quote.href().starts_with("//") %}{{ origin }}{% endif %}{{ quote.href() }}"{% if quote.opens_new_tab() %} target="_blank" rel="noopener noreferrer"{% endif %}>{%- for part in parts -%}{%- match part -%}{%- when WordPart::Text with (text) -%}{{ text }}{%- when WordPart::Break -%}<wbr>{%- endmatch -%}{%- endfor -%}</a>
 {%- when Token::Spoiler with (text) -%}<span class="spoiler" tabindex="0" aria-label="Spoiler; focus to reveal">{{ text }}</span>
 {%- when Token::Link with (url) -%}<a href="{{ url }}" rel="nofollow noreferrer noopener">{{ url }}</a>

@@ -189,8 +189,8 @@ async fn coherent_during_commit(
                         value["threads"][0]["posts"][0]["unique_ips"].clone()
                     }
                 };
-                assert_eq!(opening(&before.1), 1);
-                assert_eq!(opening(&after.1), 2);
+                assert!(opening(&before.1).is_null());
+                assert!(opening(&after.1).is_null());
             }
             assert_ne!(before, after, "the committed control must change {suffix}");
             if during != before && during != after {
@@ -394,21 +394,26 @@ async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str, id: i64)
         let index: Value =
             serde_json::from_slice(&get(app, &format!("/{slug}/1.json")).await).unwrap();
         let posts = &index["threads"][0]["posts"];
-        assert_eq!(posts.as_array().unwrap().len(), 6);
+        assert_eq!(posts[0]["sticky"], 1);
+        assert_eq!(posts.as_array().unwrap().len(), 2);
         assert_eq!(posts[0]["replies"], 8);
-        assert_eq!(posts[0]["omitted_posts"], 3);
+        assert_eq!(posts[0]["omitted_posts"], 7);
+        assert_eq!(posts[0]["omitted_images"], 0);
+        assert!(posts[0].get("unique_ips").is_none());
+        assert_eq!(posts[1]["no"], *last.first().unwrap());
         let catalog: Value =
             serde_json::from_slice(&get(app, &format!("/{slug}/catalog.json")).await).unwrap();
         assert_eq!(catalog.as_array().unwrap().len(), 2);
         assert_eq!(catalog[0]["threads"].as_array().unwrap().len(), 2);
         assert_eq!(catalog[1]["threads"].as_array().unwrap().len(), 1);
-        assert_eq!(
-            catalog[0]["threads"][0]["last_replies"]
-                .as_array()
-                .unwrap()
-                .len(),
-            5
-        );
+        let catalog_op = &catalog[0]["threads"][0];
+        assert_eq!(catalog_op["sticky"], 1);
+        assert_eq!(catalog_op["replies"], 8);
+        assert_eq!(catalog_op["omitted_posts"], 7);
+        assert_eq!(catalog_op["omitted_images"], 0);
+        assert!(catalog_op.get("unique_ips").is_none());
+        assert_eq!(catalog_op["last_replies"].as_array().unwrap().len(), 1);
+        assert_eq!(catalog_op["last_replies"][0]["no"], *last.first().unwrap());
         let second: Value =
             serde_json::from_slice(&get(app, &format!("/{slug}/2.json")).await).unwrap();
         assert_eq!(second["threads"].as_array().unwrap().len(), 1);
@@ -472,8 +477,13 @@ async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str, id: i64)
         .unwrap();
         assert!(body.contains("Page not found."));
     }
-    assert_eq!(html.matches("replyContainer").count(), 3);
-    assert!(html.contains("5 posts omitted"));
+    assert_eq!(html.matches("replyContainer").count(), 1);
+    assert!(html.contains("7 posts omitted"));
+    assert!(html.contains(&format!("id=\"p{}\"", last[0])));
+    for earlier in &last[1..] {
+        assert!(!html.contains(&format!("id=\"p{earlier}\"")));
+    }
+    assert!(!html.contains(&format!("id=\"p{deleted}\"")));
     assert!(!catalog_html.contains("replyContainer"));
 
     let mut validators = Vec::new();

@@ -159,6 +159,11 @@ pub async fn boards(
     response(&state.limits, BoardDirectory { boards }, None, &headers)
 }
 
+struct QuoteContext<'a> {
+    targets: &'a board_store::QuoteTargets,
+    current_thread: Option<i64>,
+}
+
 fn post_json(
     post: Post,
     thread: &Thread,
@@ -166,8 +171,9 @@ fn post_json(
     replies: usize,
     images: usize,
     unique_ips: Option<i32>,
+    quotes: QuoteContext<'_>,
 ) -> Result<Value, AppError> {
-    let post = PostView::new(post);
+    let post = PostView::resolved(post, quotes.targets, quotes.current_thread);
     let comment = Comment {
         lines: &post.lines,
         board: &board.slug,
@@ -342,6 +348,7 @@ pub async fn thread_selection(
         unique_ips,
         tail_size,
         tail_id,
+        quote_targets,
     } = board_store::thread_snapshot_selection(&state.pool, slug, id, tail).await?;
     require_json(&board, false)?;
     let capcode_replies = if board.meta_board && !tail {
@@ -356,7 +363,20 @@ pub async fn thread_selection(
     };
     let mut posts: Vec<Value> = posts
         .into_iter()
-        .map(|post| post_json(post, &thread, &board, replies, images, unique_ips))
+        .map(|post| {
+            post_json(
+                post,
+                &thread,
+                &board,
+                replies,
+                images,
+                unique_ips,
+                QuoteContext {
+                    targets: &quote_targets,
+                    current_thread: Some(thread.id),
+                },
+            )
+        })
         .collect::<Result<_, _>>()?;
     if tail {
         let original = &posts[0];
@@ -385,7 +405,7 @@ pub async fn thread_selection(
     response(
         &state.limits,
         json!({"posts": posts}),
-        Some(thread.http_modified_at),
+        (!quote_targets.has_dependencies()).then_some(thread.http_modified_at),
         headers,
     )
 }
@@ -404,6 +424,7 @@ pub async fn archive(
 fn preview_thread(
     board: &Board,
     preview: board_store::ThreadPreview,
+    quote_targets: &board_store::QuoteTargets,
 ) -> Result<Vec<Value>, AppError> {
     let posts = preview.posts;
     if posts.is_empty() {
@@ -431,12 +452,28 @@ fn preview_thread(
                 board,
                 replies,
                 images,
-                preview.unique_ips,
+                None,
+                QuoteContext {
+                    targets: quote_targets,
+                    current_thread: None,
+                },
             )
         })
         .collect::<Result<_, _>>()?;
     if let Some(groups) = capcode_replies {
         posts[0]["capcode_replies"] = groups;
+    }
+    // Index and catalog share the same preview omissions. Only full/tail
+    // thread responses carry unique_ips in the source JSON contract.
+    let shown_replies = posts.len() - 1;
+    if replies > shown_replies {
+        posts[0]["omitted_posts"] = json!(replies - shown_replies);
+        let shown_images = posts
+            .iter()
+            .skip(1)
+            .filter(|post| post.get("ext").is_some())
+            .count();
+        posts[0]["omitted_images"] = json!(images.saturating_sub(shown_images));
     }
     Ok(posts)
 }
@@ -488,14 +525,26 @@ pub async fn thread_list(
     response(&state.limits, json!(pages), None, headers)
 }
 
+fn catalog_entry(posts: &[Value], modified: DateTime<Utc>) -> Value {
+    let mut op = posts[0].clone();
+    op["last_modified"] = json!(modified.timestamp());
+    if op["replies"].as_u64().is_some_and(|replies| replies > 0) {
+        op["last_replies"] = json!(posts[1..]);
+    }
+    op
+}
+
 pub async fn catalog(
     state: &AppState,
     slug: &str,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
-    let snapshot =
-        board_store::json_board_snapshot(&state.pool, slug, board_store::BoardSelection::All, 5)
-            .await?;
+    let snapshot = board_store::source_json_board_snapshot(
+        &state.pool,
+        slug,
+        board_store::BoardSelection::All,
+    )
+    .await?;
     let board = snapshot.board;
     require_json(&board, true)?;
     let mut pages = Vec::new();
@@ -504,17 +553,12 @@ pub async fn catalog(
         let mut entries = Vec::new();
         for preview in threads.by_ref().take(board.threads_per_page as usize) {
             let modified = preview.thread.modified_at;
-            let posts = match preview_thread(&board, preview) {
+            let posts = match preview_thread(&board, preview, &snapshot.quote_targets) {
                 Ok(posts) => posts,
                 Err(error) if error.0 == StatusCode::NOT_FOUND => continue,
                 Err(error) => return Err(error),
             };
-            let mut op = posts[0].clone();
-            op["last_modified"] = json!(modified.timestamp());
-            if posts.len() > 1 {
-                op["last_replies"] = json!(posts[posts.len().saturating_sub(5).max(1)..]);
-            }
-            entries.push(op);
+            entries.push(catalog_entry(&posts, modified));
         }
         pages.push(json!({"page": pages.len()+1, "threads": entries}));
     }
@@ -527,34 +571,21 @@ pub async fn index(
     page: i64,
     headers: &HeaderMap,
 ) -> Result<Response, AppError> {
-    let snapshot = board_store::json_board_snapshot(
+    let snapshot = board_store::source_json_board_snapshot(
         &state.pool,
         slug,
         board_store::BoardSelection::Page(page),
-        5,
     )
     .await?;
     let board = snapshot.board;
     require_json(&board, false)?;
     let mut entries = Vec::new();
     for preview in snapshot.threads {
-        let mut posts = match preview_thread(&board, preview) {
+        let posts = match preview_thread(&board, preview, &snapshot.quote_targets) {
             Ok(posts) => posts,
             Err(error) if error.0 == StatusCode::NOT_FOUND => continue,
             Err(error) => return Err(error),
         };
-        let total = posts[0]["replies"].as_u64().unwrap_or(0) as usize + 1;
-        if total > posts.len() {
-            let omitted = total - posts.len();
-            posts[0]["omitted_posts"] = json!(omitted);
-            let images = posts[0]["images"].as_u64().unwrap_or(0);
-            let shown = posts
-                .iter()
-                .skip(1)
-                .filter(|p| p.get("ext").is_some())
-                .count() as u64;
-            posts[0]["omitted_images"] = json!(images.saturating_sub(shown));
-        }
         entries.push(json!({"posts": posts}));
     }
     response(&state.limits, json!({"threads": entries}), None, headers)
@@ -675,5 +706,150 @@ mod tests {
                 .status(),
             StatusCode::OK
         );
+    }
+}
+
+#[cfg(test)]
+mod preview_reference_tests {
+    use super::*;
+    use board_store::post_media::PostAttachment;
+
+    fn post(template: &Post, id: i64, thread: i64, bytes: i64, deleted: bool) -> Post {
+        let mut post = template.clone();
+        post.id = id;
+        post.thread_id = thread;
+        post.comment = "Owned reference preview".into();
+        post.attachment = (bytes > 0).then(|| PostAttachment {
+            post_id: id,
+            asset_id: format!("{id:032x}"),
+            filename: "owned.png".into(),
+            bytes,
+            width: 10,
+            height: 10,
+            spoiler: false,
+            file_deleted: deleted,
+            tim: id,
+            md5: None,
+            thumbnail_width: Some(10),
+            thumbnail_height: Some(10),
+        });
+        post
+    }
+
+    fn extras(op: &Value) -> Value {
+        let keys = [
+            "replies",
+            "images",
+            "omitted_posts",
+            "omitted_images",
+            "unique_ips",
+        ];
+        Value::Object(
+            op.as_object()
+                .unwrap()
+                .iter()
+                .filter(|(key, _)| keys.contains(&key.as_str()))
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn preview_json_matches_independent_source_fixture() {
+        let reference: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/preview-policy-reference.json"
+        ))
+        .unwrap();
+        for case in reference["cases"].as_array().unwrap() {
+            let mut fixture = crate::native_updater_snapshot::tests::fixture();
+            let input = &case["input"];
+            let expected = &case["expected"];
+            let id = input["op_id"].as_str().unwrap().parse::<i64>().unwrap();
+            fixture.board.replies_shown = case["configured_limit"].as_i64().unwrap() as i32;
+            fixture.thread.id = id;
+            fixture.thread.sticky = case["sticky"].as_bool().unwrap();
+            let limit = fixture.board.preview_reply_limit(fixture.thread.sticky);
+            let mut replies: Vec<_> = input["replies"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|row| {
+                    post(
+                        &fixture.posts[0],
+                        row["id"].as_str().unwrap().parse().unwrap(),
+                        id,
+                        row["fsize"].as_i64().unwrap(),
+                        row["file_deleted"].as_bool().unwrap(),
+                    )
+                })
+                .collect();
+            // The captured cache input is deliberately unordered. Store
+            // snapshots supply selected posts in ascending post-ID order.
+            replies.sort_by_key(|post| post.id);
+            let images = replies
+                .iter()
+                .filter(|post| {
+                    post.attachment
+                        .as_ref()
+                        .is_some_and(|file| !file.file_deleted)
+                })
+                .count();
+            let start = replies.len().saturating_sub(limit);
+            let op = post(
+                &fixture.posts[0],
+                id,
+                id,
+                input["op_fsize"].as_i64().unwrap(),
+                false,
+            );
+            let selected = std::iter::once(op)
+                .chain(replies[start..].iter().cloned())
+                .collect();
+            let preview = board_store::ThreadPreview {
+                thread: fixture.thread.clone(),
+                posts: selected,
+                visible_posts: replies.len() as i64 + 1,
+                visible_images: images as i64,
+                unique_ips: Some(input["unique_ips"].as_i64().unwrap() as i32),
+                latest_reply_id: replies.last().map(|post| post.id),
+                catalog_last_reply: None,
+                capcode_replies: Vec::new(),
+            };
+            let actual = preview_thread(&fixture.board, preview, &fixture.quote_targets).unwrap();
+            let ids: Vec<_> = actual
+                .iter()
+                .map(|post| post["no"].as_i64().unwrap().to_string())
+                .collect();
+            assert_eq!(json!(ids), expected["index"]["post_ids"], "{}", case["id"]);
+            assert_eq!(
+                extras(&actual[0]),
+                expected["index"]["op_extra"],
+                "{}",
+                case["id"]
+            );
+            let catalog = catalog_entry(&actual, fixture.thread.modified_at);
+            assert_eq!(
+                extras(&catalog),
+                expected["catalog"]["op_extra"],
+                "{}",
+                case["id"]
+            );
+            let last = catalog.get("last_replies").map(|posts| {
+                json!(
+                    posts
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|post| post["no"].as_i64().unwrap().to_string())
+                        .collect::<Vec<_>>()
+                )
+            });
+            assert_eq!(
+                last.as_ref(),
+                expected["catalog"].get("last_reply_ids"),
+                "{}",
+                case["id"]
+            );
+        }
     }
 }

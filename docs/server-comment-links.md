@@ -36,12 +36,13 @@ URLs stay escaped text. The native Linkify URLs preference controls browser
 decoration, including its desktop/mobile defaults and live insertion. Changing
 that preference never changes persisted comments, server HTML or JSON.
 
-Board, catalog and rules references use local routes. Ordinary post references
-use the existing bounded post-resolution route. New-window links add
+Board, catalog and rules references use local routes. Canonical source-profile
+post references use [snapshot target resolution](source-quote-resolution.md);
+unqualified spellings retain the existing bounded post route. New-window links add
 `noopener` and `noreferrer`; user text never supplies HTML or executable URLs.
 Staff previews use the same parser, escape labels and keep quote navigation
-inert. The original rules page and remaining dead-quote behavior are part of
-#194 and #208, respectively.
+inert. The original rules page remains under #194. Remaining quote-resolution
+spellings and surfaces stay open under #165 and #208.
 
 Catalog search reconstructs the source's stored-comment representation before
 post-number resolution. Static-link spelling contributes to the `/b/` length

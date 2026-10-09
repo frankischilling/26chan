@@ -364,6 +364,17 @@ impl PostView {
             if large { 250 } else { 150 },
         )
     }
+    /// Resolve only the request-local presentation; saved parsing remains unchanged.
+    pub fn resolved(
+        post: Post,
+        targets: &board_store::QuoteTargets,
+        current_thread: Option<i64>,
+    ) -> Self {
+        let mut view = Self::new(post);
+        targets.resolve_lines(&mut view.lines, &view.post.board, current_thread);
+        view
+    }
+
     pub fn new(post: Post) -> Self {
         let lines = post.formatted_lines();
         let now = post
@@ -429,6 +440,63 @@ mod comment_tests {
         }
         .render()
         .unwrap()
+    }
+
+    #[test]
+    fn source_quote_resolution_matches_controlled_reference_presentations() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../fixtures/quote-resolution-reference.json"
+        ))
+        .unwrap();
+        for row in fixture["cases"].as_array().unwrap() {
+            let board = row["source_board"].as_str().unwrap();
+            let current = row["source_thread_id"]
+                .as_str()
+                .map(|id| id.parse::<i64>().unwrap());
+            let target_id = row["target_post_id"]
+                .as_str()
+                .unwrap()
+                .parse::<i64>()
+                .unwrap();
+            let target_thread = row["lookup_resto"].as_str().map(|id| {
+                if id == "0" {
+                    target_id
+                } else {
+                    id.parse::<i64>().unwrap()
+                }
+            });
+            let input = row["label_html"].as_str().unwrap().replace("&gt;", ">");
+            // A prefix avoids unrelated line-start greentext decoration.
+            let mut lines = parse_post_comment(&format!("x {input}"), 104);
+            for token in lines.iter_mut().flat_map(|line| &mut line.tokens) {
+                if let Token::PostQuote(quote) = token {
+                    quote.resolve(board, current, target_thread);
+                }
+            }
+            let html = Comment {
+                lines: &lines,
+                board,
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
+            }
+            .render()
+            .unwrap();
+            let expected = &row["expected"];
+            let label = row["label_html"].as_str().unwrap();
+            let expected = match expected["kind"].as_str().unwrap() {
+                "dead" => format!("<span class=\"deadlink\">{label}</span>"),
+                "plain" => label.to_owned(),
+                _ => {
+                    let href = expected["href"]
+                        .as_str()
+                        .unwrap()
+                        .trim_start_matches("//boards.example.test");
+                    format!("<a class=\"quotelink\" href=\"{href}\">{label}</a>")
+                }
+            };
+            assert_eq!(html, format!("x {expected}"), "{}", row["id"]);
+        }
     }
 
     #[test]

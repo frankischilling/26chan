@@ -1,3 +1,4 @@
+import { cleanupDeletionFixtures, ownedDeletionMarker } from './helpers/deletion-fixture.js';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { openSettingControl, openNativeSettingsCategory, openWatcherSettings, watcherSettingsOpener } from './helpers/watcher-settings.js';
@@ -20,16 +21,18 @@ const backlinkColors = {
 };
 const trailingLines = Array.from({ length: 30 }, (_, index) => `Owned backlink trailing line ${index + 1}`).join('\n');
 const absent = '9223372036854775807';
+const ownedPostThreads = new Map();
 
 const test = base.extend({
   owned: async ({ request, context }, use) => {
     const password = 'owned-native-backlinks-password', threads = [];
+    ownedPostThreads.clear();
     let last;
-    async function write(board, resto, com, { tracked = false } = {}) {
+    async function write(board, resto, com, { tracked = false, subject = 'Owned native backlinks' } = {}) {
       const client = tracked ? context.request : request;
       const response = await withPostingHistory(() => client.post(`/${board}/post`, {
         headers: fixtureHeaders, maxRedirects: 0,
-        form: { resto, com, password, ...(resto === '0' ? { sub: 'Owned native backlinks' } : {}), ...(tracked ? { track: '1' } : {}) },
+        form: { resto, com, password, ...(resto === '0' ? { sub: subject } : {}), ...(tracked ? { track: '1' } : {}) },
       }));
       expect(response.status(), 'The real form submission must persist successfully').toBe(303);
       expect(response.headers().connection, 'The fixture write must close its HTTP connection').toBe('close');
@@ -37,12 +40,14 @@ const test = base.extend({
       const ids = location?.match(/\/thread\/(\d+)#p(\d+)$/);
       expect(ids, 'The posting redirect must identify the actual thread and post').not.toBeNull();
       last = ids[2];
+      ownedPostThreads.set(`${board}:${last}`, ids[1]);
       return last;
     }
     async function createThread(board = 'demo', comment = 'Owned backlink original post', options) {
-      const id = await write(board, '0', comment, options);
+      const marker = board === 'tg' ? ownedDeletionMarker() : null;
+      const id = await write(board, '0', comment, { ...options, ...(marker ? { subject: marker } : {}) });
       const thread = {
-        id, board, url: `/${board}/thread/${id}`, path: `/_watch/${board}/thread/${id}/posts`,
+        id, board, marker, url: `/${board}/thread/${id}`, path: `/_watch/${board}/thread/${id}/posts`,
         reply: (comment, options) => write(board, id, comment, options),
       };
       threads.push(thread);
@@ -55,15 +60,21 @@ const test = base.extend({
         nextId: (offset = 1) => String(BigInt(last) + BigInt(offset)),
       });
     } finally {
-      for (const { board, id } of threads.reverse()) {
-        await withDeletionQuota(async () => {
-          const response = await request.post(`/${board}/delete`, {
-            headers: fixtureHeaders, maxRedirects: 0, form: { no: id, password },
+      const failures = [];
+      for (const { board, id } of threads.reverse().filter(thread => thread.board !== 'tg')) {
+        try {
+          await withDeletionQuota(async () => {
+            const response = await request.post(`/${board}/delete`, {
+              headers: fixtureHeaders, maxRedirects: 0, form: { no: id, password },
+            });
+            expect(response.status(), 'Cleanup removes only this case\'s owned threads').toBe(303);
+            expect(response.headers().connection, 'Fixture cleanup must close its HTTP connection').toBe('close');
           });
-          expect(response.status(), 'Only this test\'s owned threads are deleted').toBe(303);
-          expect(response.headers().connection, 'Fixture cleanup must close its HTTP connection').toBe('close');
-        });
+        } catch (error) { failures.push(error); }
       }
+      try { cleanupDeletionFixtures(threads.filter(thread => thread.board === 'tg')); }
+      catch (error) { failures.push(error); }
+      if (failures.length) throw new AggregateError(failures, 'Owned quote fixture cleanup failed');
     }
   },
 });
@@ -82,7 +93,14 @@ async function initialize(page, url, settings = {}, { rules, neverMobile } = {})
   await expect(watcherSettingsOpener(page)).toBeVisible();
 }
 
-const forward = (page, source, target, board = 'demo') => page.locator(`#m${source} a.quotelink[href="/${board}/post/${target}"]`);
+const forward = (page, source, target, board = 'demo') => {
+  const thread = ownedPostThreads.get(`${board}:${target}`);
+  expect(thread, 'Canonical quote expectations require the actual persisted target thread').toBeTruthy();
+  const targetUrl = `/${board}/thread/${thread}`;
+  const href = `${new URL(page.url()).pathname === targetUrl ? '' : targetUrl}#p${target}`;
+  return page.locator(`#m${source} a.quotelink[href="${href}"]`);
+};
+const deadQuote = (page, source, target) => page.locator(`#m${source} span.deadlink`).filter({ hasText: new RegExp(`^>>${target}$`) });
 const backlinkRow = (page, target) => page.locator(`#bl_${target}.backlink`);
 const backlink = (page, target, source, thread, board = 'demo') => backlinkRow(page, target).locator(`a.quotelink[href="/${board}/thread/${thread}#p${source}"]`);
 const rule = (pattern, changes = {}) => ({ type: 2, pattern, boards: 'demo', active: true, auto: false, hide: false, color: '#ff0000', ...changes });
@@ -229,30 +247,29 @@ test.describe('unmodified persisted backlink graph', () => {
     await expect(page.locator(`#m${reply}`)).toContainText('Cross-thread index reply');
   });
 
-  test('thread-only missing arrows follow stored same-board normalization and preserve cross-board labels without discovery fetches', async ({ page, owned }) => {
+  test('thread-only remote arrows and inert missing targets preserve canonical cross-board labels without discovery fetches', async ({ page, owned }) => {
     const remote = await owned.createThread('demo', 'Remote same-board target');
-    const otherBoard = await owned.createThread('fixture', 'Remote other-board target');
-    const reply = await owned.reply(`>>${remote.id}\n>>${absent}\n>>>/demo/${remote.id}\n>>>/fixture/${otherBoard.id}`);
+    const otherBoard = await owned.createThread('tg', 'Remote other-board target');
+    const reply = await owned.reply(`>>${remote.id}\n>>${absent}\n>>${remote.id}\n>>>/tg/${otherBoard.id}`);
     const requests = observeFetches(page);
     await initialize(page, owned.url, { quotePreview: false });
-    // The actual posting path normalizes >>>/current-board/id to >>id before
-    // storage. Preserved explicit same-board labels are covered as augmented DOM.
     await expect(forward(page, reply, remote.id)).toHaveText([`>>${remote.id} →`, `>>${remote.id} →`]);
-    await expect(forward(page, reply, absent)).toHaveText(`>>${absent} →`);
-    await expect(forward(page, reply, otherBoard.id, 'fixture')).toHaveText(`>>>/fixture/${otherBoard.id}`);
+    await expect(deadQuote(page, reply, absent)).toHaveText(`>>${absent}`);
+    await expect(forward(page, reply, otherBoard.id, 'tg')).toHaveText(`>>>/tg/${otherBoard.id}`);
     await expectRows(page, remote.id, [], owned.id);
     await settledDOM(page);
     expect(requests).toEqual([]);
     await page.goto('/demo/');
     await expectRows(page, remote.id, [reply], owned.id);
-    await expect(forward(page, reply, absent)).toHaveText(`>>${absent}`);
+    await expect(deadQuote(page, reply, absent)).toHaveText(`>>${absent}`);
     await expect(forward(page, reply, remote.id)).toHaveText([`>>${remote.id}`, `>>${remote.id}`]);
     expect(requests).toEqual([]);
   });
 
   test('omitted index posts do not acquire rows and missing index quotes do not gain arrows', async ({ page, owned }) => {
     const omitted = await owned.reply('Omitted target');
-    for (let i = 0; i < 3; i++) await owned.reply(`Newer visible reply ${i}`);
+    // Six replies put the target just outside the default five-reply preview.
+    for (let i = 0; i < 4; i++) await owned.reply(`Newer visible reply ${i}`);
     const reply = await owned.reply(`>>${omitted}\n>>${owned.id}\nVisible index source`);
     const requests = observeFetches(page);
     await initialize(page, '/demo/');
@@ -288,7 +305,7 @@ test.describe('unmodified persisted backlink graph', () => {
     await expectRows(page, original, [added], owned.id);
     await expectDesktopMenuOrder(page, [owned.id, original]);
     expect(await forward(page, original, owned.id).evaluate(node => node === window.ownedOriginalQuote)).toBe(true);
-    await expect(forward(page, original, owned.id)).toHaveAttribute('href', `/demo/post/${owned.id}`);
+    await expect(forward(page, original, owned.id)).toHaveAttribute('href', `#p${owned.id}`);
     await page.setViewportSize({ width: 1270, height: 900 });
     await page.setViewportSize({ width: 1280, height: 900 });
     await expectRows(page, owned.id, [original, added], owned.id);
@@ -301,14 +318,14 @@ test.describe('unmodified persisted backlink graph', () => {
     const source = await owned.reply(`>>${futureId}\nThis target is absent when this source is first parsed`);
     expect(source).toBe(sourceId);
     await update(page);
-    await expect(forward(page, source, futureId)).toHaveText(`>>${futureId} →`);
+    await expect(deadQuote(page, source, futureId)).toHaveText(`>>${futureId}`);
     const target = await owned.reply('The formerly absent target is now persisted');
     expect(target, 'The later persisted post must be the exact quoted ID').toBe(futureId);
     await page.waitForTimeout(1050);
     await update(page);
     await expect(page.locator(`#p${target}`)).toBeVisible();
     await expectRows(page, target, [], owned.id);
-    await expect(forward(page, source, target)).toHaveText(`>>${target} →`);
+    await expect(deadQuote(page, source, target)).toHaveText(`>>${target}`);
     const fresh = await owned.reply(`>>${target}\nA fresh source can now resolve this live target`);
     await page.waitForTimeout(1050);
     await update(page);
@@ -338,18 +355,22 @@ test.describe('unmodified persisted backlink graph', () => {
       await expect(link).toHaveText(`>>${tracked.id} (You) (OP)`);
       await expectRows(page, tracked.id, [reply], tracked.id);
       expect(await link.evaluate(node => node === window.ownedTrackedQuote)).toBe(true);
-      await expect(link).toHaveAttribute('href', `/demo/post/${tracked.id}`);
+      await expect(link).toHaveAttribute('href', `#p${tracked.id}`);
     } finally { await other.close(); }
     expect((await context.cookies()).some(cookie => cookie.name === `board-posted-${tracked.id}`)).toBe(false);
   });
 
-  test('new OP and missing-target annotations cannot become filter input, while literal text remains matchable', async ({ page, owned }) => {
+  test('new OP and remote-target annotations cannot become filter input, while missing text and literal text remain matchable', async ({ page, owned }) => {
     const opQuote = await owned.reply(`>>${owned.id}\nNo literal annotation here`);
+    const remote = await owned.createThread('demo', 'Owned remote arrow target');
     const missingQuote = await owned.reply(`>>${absent}\nNo literal arrow here`);
+    const remoteQuote = await owned.reply(`>>${remote.id}\nNo literal remote arrow here`);
     const literal = await owned.reply('Literal annotation control (OP) →');
     await initialize(page, owned.url, { filter: true }, { rules: [rule('/\\(OP\\)|→/')] });
     await expect(forward(page, opQuote, owned.id)).toHaveText(`>>${owned.id} (OP)`);
-    await expect(forward(page, missingQuote, absent)).toHaveText(`>>${absent} →`);
+    await expect(deadQuote(page, missingQuote, absent)).toHaveText(`>>${absent}`);
+    await expect(forward(page, remoteQuote, remote.id)).toHaveText(`>>${remote.id} →`);
+    await expect(page.locator(`#p${remoteQuote}`)).not.toHaveClass(/filter-hl|post-hidden/);
     await expect(page.locator(`#p${literal}`)).toHaveClass(/filter-hl/);
     await expect(page.locator('.nativeFilterNotice')).toBeEmpty();
     await expect(page.locator(`#p${opQuote}, #p${missingQuote}`).filter({ has: page.locator('.postMessage') })).toHaveCount(2);
@@ -373,7 +394,8 @@ test.describe('unmodified persisted backlink graph', () => {
   });
 
   test('real cross-tab setting saves disable and restore owned rows and suffixes without replacing the document', async ({ page, context, owned }) => {
-    const source = await owned.reply(`>>${owned.id}\n>>${absent}\nSetting changes`);
+    const remote = await owned.createThread('demo', 'Owned cross-tab arrow target');
+    const source = await owned.reply(`>>${owned.id}\n>>${absent}\n>>${remote.id}\nSetting changes`);
     await initialize(page, owned.url);
     await expectRows(page, owned.id, [source], owned.id);
     await expectDesktopMenuOrder(page, [owned.id]);
@@ -386,12 +408,14 @@ test.describe('unmodified persisted backlink graph', () => {
         await saveSettings(other, { [key]: key === 'disableAll' });
         await expectRows(page, owned.id, [], owned.id);
         await expect(forward(page, source, owned.id)).toHaveText(`>>${owned.id}`);
-        await expect(forward(page, source, absent)).toHaveText(`>>${absent}`);
+        await expect(deadQuote(page, source, absent)).toHaveText(`>>${absent}`);
+        await expect(forward(page, source, remote.id)).toHaveText(`>>${remote.id}`);
         await saveSettings(other, { [key]: key !== 'disableAll' });
         await expectRows(page, owned.id, [source], owned.id);
         await expectDesktopMenuOrder(page, [owned.id]);
         await expect(forward(page, source, owned.id)).toHaveText(`>>${owned.id} (OP)`);
-        await expect(forward(page, source, absent)).toHaveText(`>>${absent} →`);
+        await expect(deadQuote(page, source, absent)).toHaveText(`>>${absent}`);
+        await expect(forward(page, source, remote.id)).toHaveText(`>>${remote.id} →`);
       }
       expect(await page.evaluate(() => window.ownedBacklinkDocument === document)).toBe(true);
       expect(await forward(page, source, owned.id).evaluate(node => node === window.ownedBacklinkAnchor)).toBe(true);
@@ -758,7 +782,7 @@ test.describe('explicitly augmented DOM and graph bounds', () => {
       { id: explicit, quotes: [{ href: `/demo/post/${absent}`, text: `>>>/demo/${absent}` }] },
     ]);
     await expectRows(page, target, [healthy, canonical], owned.id);
-    await expect(forward(page, explicit, absent)).toHaveText(`>>>/demo/${absent}`);
+    await expect(page.locator(`#m${explicit} a.quotelink[href="/demo/post/${absent}"]`)).toHaveText(`>>>/demo/${absent}`);
     await expectRows(page, absent, [], owned.id);
     for (const { id, quotes } of invalid) await expect(page.locator(`#m${id} a`)).toHaveAttribute('href', quotes[0].href);
     await settledDOM(page);
