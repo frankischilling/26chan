@@ -72,6 +72,9 @@ const quoteText = (target, board = 'demo') => target.board === board ? `>>${targ
 // Copied quote trees rebase fragment links to canonical thread routes. Original
 // server anchors retain their page-context fragment only on the target thread.
 const quoteSelector = (target, sourceUrl = null) => `a.quotelink[href="${sourceUrl === target.url ? '' : target.url}#p${target.id}"]`;
+// Select comment content, including its greentext/spoiler wrappers. Header
+// backlinks can now share the exact canonical href, so never select panel-wide.
+const copiedQuote = (panel, target) => panel.locator(':scope > .postMessage').locator(quoteSelector(target));
 const originalQuote = (page, source, target) => page.locator(`#m${source} ${quoteSelector(target, new URL(page.url()).pathname)}:not(.inlined a)`);
 const backlink = (page, owner, target) => page.locator(`#bl_${owner} > span > a.quotelink[href="${target.url}#p${target.id}"]`);
 // Find the nearest observable panel around its canonical post-number link. This
@@ -281,9 +284,12 @@ test.describe('unmodified persisted inline quotes', () => {
     const outerLink = originalQuote(page, source, first), requests = network(page);
     await outerLink.click();
     const outer = await expectInline(page.locator(`#m${source}`), first, 'Cycle first post');
-    await outer.locator(quoteSelector(second)).click();
+    const forward = copiedQuote(outer, second);
+    await expect(forward).toHaveCount(1);
+    await forward.click();
     const inner = await expectInline(outer, second, 'Cycle second post');
-    const cycle = inner.locator(quoteSelector(first)), location = page.url();
+    const cycle = copiedQuote(inner, first), location = page.url();
+    await expect(cycle).toHaveCount(1);
     await cycle.click();
     await expect(page.locator('.inlined')).toHaveCount(2);
     await expect(cycle).not.toHaveClass(/linkfade/);
@@ -344,7 +350,7 @@ test.describe('unmodified persisted inline quotes', () => {
     await outerLink.click();
     const outer = await expectInline(page.locator(`#m${source}`), middle, 'Owned nesting middle');
     await expect(outer.locator('.inlined')).toHaveCount(0);
-    const innerLink = outer.locator(quoteSelector(leaf));
+    const innerLink = copiedQuote(outer, leaf);
     await expect(innerLink).not.toHaveClass(/linkfade/);
     await innerLink.click();
     await expectInline(outer, leaf, 'Owned nesting leaf');
@@ -745,7 +751,7 @@ test.describe('held genuine responses and real cross-tab cancellation', () => {
     const outer = await expectInline(page, middle, 'Local parent of remote request');
     const held = await holdResponse(page, remote.path);
     try {
-      await outer.locator(quoteSelector(remote, owned.url)).click();
+      await copiedQuote(outer, remote).click();
       await held.arrived;
       await expect(outer.locator('.inlined')).toContainText(/loading/i);
       await outerLink.click();
@@ -756,7 +762,7 @@ test.describe('held genuine responses and real cross-tab cancellation', () => {
       expect(await page.evaluate(() => window.inlineCommits.some(text => text.includes('Late descendant must not return')))).toBe(false);
       await outerLink.click();
       const fresh = await expectInline(page, middle, 'Local parent of remote request');
-      await fresh.locator(quoteSelector(remote, owned.url)).click();
+      await copiedQuote(fresh, remote).click();
       await expectInline(fresh, remote, 'Late descendant must not return');
     } finally { await held.release(); }
   });
@@ -1008,10 +1014,17 @@ test.describe('finite admission with owned persisted posts', () => {
       await expect(page.locator('.inlined')).toHaveCount(index + 1);
     }
     await expect(links.nth(limits.open)).not.toHaveClass(/linkfade/);
+    await page.locator('.inlined').evaluateAll(nodes => { window.inlineBudgetCopies = nodes; });
     await links.nth(limits.open).click();
     await expect(page).toHaveURL(`${origin}${target.url}#p${target.id}`);
-    await expect(page.locator('.inlined')).toHaveCount(0);
+    // Ordinary same-document fragment navigation does not tear down existing
+    // copies. Overflow must leave them intact without admitting a seventeenth.
+    await expect(page.locator('.inlined')).toHaveCount(limits.open);
+    await expect(links.nth(limits.open)).not.toHaveClass(/linkfade/);
+    expect(await page.evaluate(() => window.inlineBudgetCopies.every(node => node.isConnected))).toBe(true);
+    await page.reload();
     await waitForQuoteControls(page);
+    await expect(page.locator('.inlined')).toHaveCount(0);
     await originalQuote(page, source, target).first().click();
     await expectInline(page, target, 'Owned inline original post');
 
@@ -1028,11 +1041,15 @@ test.describe('finite admission with owned persisted posts', () => {
       await link.click();
       await expect(page.locator('.inlined')).toHaveCount(depth);
       const panel = inlineFor(page, target);
-      link = panel.locator(quoteSelector(chain[chain.length - depth - 2]));
+      link = copiedQuote(panel, chain[chain.length - depth - 2]);
     }
     await expect(link).not.toHaveClass(/linkfade/);
     await link.click();
     await expect(page).toHaveURL(`${origin}${chainThread.url}#p${chain[0].id}`);
+    await expect(page.locator('.inlined')).toHaveCount(limits.depth);
+    await expect(link).not.toHaveClass(/linkfade/);
+    await page.reload();
+    await waitForQuoteControls(page);
     await expect(page.locator('.inlined')).toHaveCount(0);
   });
 
