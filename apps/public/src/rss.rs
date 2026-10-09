@@ -154,6 +154,17 @@ struct Description<'a> {
     color: Option<&'a str>,
 }
 
+// lib/rss.php emits saved comment HTML without calling the page's post-number
+// callbacks. Keep those labels inert while retaining stored navigation links.
+fn saved_comment_lines(mut lines: Vec<Line>) -> Vec<Line> {
+    for token in lines.iter_mut().flat_map(|line| &mut line.tokens) {
+        if let board_domain::Token::PostQuote(quote) = token {
+            *token = board_domain::Token::Text(quote.label().into());
+        }
+    }
+    lines
+}
+
 fn write_feed(
     writer: &mut impl Write,
     snapshot: &board_store::RssSnapshot,
@@ -173,7 +184,7 @@ fn write_feed(
     xml(writer, &format!("{board_url}index.rss"))?;
     writer.write_str("\" rel=\"self\" type=\"application/rss+xml\"/>")?;
     for post in &snapshot.posts {
-        let lines = post.formatted_lines();
+        let lines = saved_comment_lines(post.formatted_lines());
         let mut stored =
             crate::catalog::teaser::stored_comment(&lines, &post.board, post.comment_format);
         if let Some(dice) = &post.dice_result {
@@ -303,11 +314,11 @@ mod tests {
 
     #[test]
     fn feed_descriptions_keep_links_usable_outside_the_board_origin() {
-        let lines = board_domain::parse_post_comment_on_board(
+        let lines = saved_comment_lines(board_domain::parse_post_comment_on_board(
             ">>12 >>>/g/34 >>>/g/catalog >>>/g/rules/3 https://www.4chan.org/faq <script>",
             104,
             "test",
-        );
+        ));
         let description = Description {
             lines: &lines,
             board: "test",
@@ -322,8 +333,6 @@ mod tests {
         .render()
         .unwrap();
         for href in [
-            "https://boards.example/test/post/12",
-            "https://boards.example/g/post/34",
             "https://boards.example/g/catalog",
             "https://boards.example/rules#g3",
             "https://www.4chan.org/faq",
@@ -336,6 +345,52 @@ mod tests {
         }
         assert!(description.contains("src=\"https://media.example/test/42s.jpg\""));
         assert!(!description.contains("<script>"));
+        assert!(!description.contains("/post/"));
+        assert!(description.contains("&#62;&#62;12 &#62;&#62;&#62;/g/34"));
+    }
+
+    #[test]
+    fn numeric_feed_quotes_match_the_extracted_saved_comment_boundary() {
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../../../fixtures/rss-reference.json")).unwrap();
+        let row = fixture["rows"].as_array().unwrap().last().unwrap();
+        assert_eq!(row["sub"], "Stored quotes");
+        let source = row["com"].as_str().unwrap();
+        assert!(fixture["feed"].as_str().unwrap().contains(source));
+        let input = source_text(source.split(" <a ").next().unwrap());
+        for format in (104..=111).chain(120..=127) {
+            let parsed = board_domain::parse_post_comment_on_board(&input, format, "test");
+            // Page parsing retains identities for snapshot resolution.
+            assert!(
+                parsed
+                    .iter()
+                    .flat_map(|line| &line.tokens)
+                    .any(|token| { matches!(token, board_domain::Token::PostQuote(_)) })
+            );
+            let lines = saved_comment_lines(parsed);
+            let description = Description {
+                lines: &lines,
+                board: "test",
+                origin: "https://boards.example",
+                source: String::new(),
+                thumbnail: String::new(),
+                spoilers: false,
+                dice: None,
+                fortune: None,
+                color: None,
+            }
+            .render()
+            .unwrap();
+            assert!(!description.contains("<a"), "{format}: {description}");
+            assert!(!description.contains("deadlink"));
+            let xml = format!("<root>{description}</root>");
+            let document = roxmltree::Document::parse(&xml).unwrap();
+            assert_eq!(
+                document.root_element().text().unwrap().trim(),
+                input,
+                "{format}"
+            );
+        }
     }
 
     #[test]
