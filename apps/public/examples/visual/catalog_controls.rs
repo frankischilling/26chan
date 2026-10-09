@@ -71,6 +71,7 @@ pub fn page() -> String {
         catalog_hidden: Vec::new(),
         board,
         threads,
+        page_number: 1,
         parent: 0,
         previous: String::new(),
         next: String::new(),

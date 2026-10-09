@@ -34,6 +34,7 @@ fn page(board: Board, media_enabled: bool) -> BoardPage {
         catalog_hidden: vec![],
         board,
         threads: vec![],
+        page_number: 1,
         parent: 0,
         previous: String::new(),
         next: String::new(),

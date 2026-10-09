@@ -154,6 +154,7 @@ fn fixture(enabled: bool, empty: bool, catalog: bool, index: bool) -> axum::resp
             omitted: usize::from(index),
             image_replies: 0,
         }],
+        page_number: 1,
         parent: if index { 0 } else { 1000001 },
         previous: String::new(),
         next: String::new(),

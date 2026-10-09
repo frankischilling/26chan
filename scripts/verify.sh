@@ -38,6 +38,7 @@ node --test tests/browser/polls-fixture.test.mjs
 npm run test:polls
 npm run test:blotter
 npm run test:blotter-persisted
+npm run test:page-identity-core
 npm run test:board-subtitles
 npm run test:global-search
 npm run test:posting-randomizers

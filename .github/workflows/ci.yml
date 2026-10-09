@@ -46,6 +46,8 @@ jobs:
           key: ubuntu-24.04-${{ hashFiles('Cargo.toml') }}
           cache-bin: false
           cache-on-failure: true
+      - name: Qualify isolated source page-title function
+        run: python3 scripts/extract-page-title-reference.py --fixture-check fixtures/page-title-reference.json --php php
       - name: Start disposable database and migrate
         run: |
           python3 scripts/test-dev-db-env.py
@@ -331,6 +333,8 @@ jobs:
         run: sudo bash scripts/test-reporter-clear-migration.sh
       - name: Qualify bounded report group clearing, inherited state and administrator restore
         run: sudo bash scripts/test-report-group-clear-migration.sh
+      - name: Qualify guarded board title correction and preserved operator state
+        run: sudo bash scripts/test-board-titles-migration.sh
       - name: Qualify source subtitle upgrade and preserved board state
         run: sudo bash scripts/test-board-subtitles-migration.sh
       - name: Qualify local blotter upgrade and reserved-route rollback

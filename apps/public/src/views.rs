@@ -9,6 +9,8 @@ mod catalog_identity;
 mod file_label;
 #[path = "views/mobile_label.rs"]
 mod mobile_label;
+#[path = "views/page_identity.rs"]
+mod page_identity;
 #[path = "views/spoilers.rs"]
 pub mod spoilers;
 
@@ -28,6 +30,8 @@ pub struct BoardPage {
     pub catalog_hidden: Vec<ThreadView>,
     pub board: Board,
     pub threads: Vec<ThreadView>,
+    /// One-based index page, supplied by the route rather than parsed from links.
+    pub page_number: i64,
     pub parent: i64,
     pub previous: String,
     pub next: String,
@@ -54,6 +58,28 @@ pub struct UploadForm {
 }
 
 impl BoardPage {
+    pub fn heading(&self) -> String {
+        page_identity::heading(&self.board)
+    }
+
+    pub fn browser_title(&self) -> String {
+        let view = if self.parent > 0 {
+            page_identity::Page::Thread {
+                id: self.parent,
+                op: self
+                    .threads
+                    .iter()
+                    .flat_map(|thread| &thread.posts)
+                    .find(|post| post.post.id == self.parent),
+            }
+        } else if self.catalog {
+            page_identity::Page::Catalog
+        } else {
+            page_identity::Page::Index(self.page_number)
+        };
+        page_identity::browser_title(&self.board, view)
+    }
+
     pub fn blotter_timestamp(&self) -> i64 {
         self.blotter
             .first()
@@ -100,6 +126,14 @@ pub struct ArchivePage {
 }
 
 impl ArchivePage {
+    pub fn heading(&self) -> String {
+        page_identity::heading(&self.board)
+    }
+
+    pub fn browser_title(&self) -> String {
+        page_identity::browser_title(&self.board, page_identity::Page::Archive)
+    }
+
     pub fn count_label(&self) -> String {
         let count = self.entries.len();
         if count >= 1000 {

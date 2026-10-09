@@ -6,6 +6,13 @@ revision `545b7812d1849f7958d914950c91fdbbe38f6b22`.
 [The fixture](../fixtures/board-reference.json) records the source-file hashes,
 names, descriptions, order, category and effective supported settings.
 
+The source runtime takes its default title from `boardlist.name` in the database
+(`yotsuba_config.php:86-102`) before applying category and board configuration.
+That database snapshot is not supplied. The importer uses the static directory
+names in `www.4chan/data/boards.php`, with configuration `TITLE` overrides and
+description fallbacks for unlisted names. These imported defaults do not prove
+the source runtime database names were identical.
+
 The extractor applies global, category and board overrides in that order.
 The migration upserts definitions without replacing posts, threads, credentials
 or saved formatter profiles. Existing synthetic boards remain available.
@@ -17,6 +24,14 @@ the UTF-8 Pokémon title that the old Windows-default extractor decoded
 incorrectly. It preserves the applied import checksum and operator-edited
 titles. The extractor now reads board names explicitly as UTF-8 and verifies
 the historical import together with that additive correction.
+
+Migration 0120 corrects the stored `/s4s/` short name to `Sh*t 4chan Says`.
+Its source override is `TITLE = [s4s] - Sh*t 4chan Says`; the importer previously
+removed only slash-form prefixes. The update requires both slug `s4s` and the
+exact old title, so operator edits remain intact. The fixture keeps the full
+override in `source_policy.TITLE` and the short name in `title`. Historical
+title extraction remains separate from the current import so regeneration
+preserves migrations 0045 and 0064 byte for byte.
 
 Migration 0069 imports all 82 authorized comment budgets: 10,000 characters on
 81 boards and 50,000 on `/j/`. Its separate hash-pinned
@@ -72,8 +87,18 @@ To compare the fixture and migration with the supplied checkout:
 python3 scripts/extract-board-reference.py 4chan-old fixtures/board-reference.json \
   --migration migrations/0045_original_boards.sql --rss-migration migrations/0047_rss_feeds.sql \
   --wordfilter-migration migrations/0063_post_wordfilters.sql \
-  --board-encoding-migration migrations/0064_board_reference_encoding.sql --check
+  --board-encoding-migration migrations/0064_board_reference_encoding.sql \
+  --board-title-migration migrations/0120_board_short_titles.sql --check
 ```
+
+`python3 scripts/test-board-title-import.py` checks prefix handling, independent
+historical encoding and title extraction, CLI regeneration and the guarded
+title update. Its in-memory SQL check covers unchanged operator titles, other
+boards and descriptions, including a repeated application of migration 0120.
+`sudo bash scripts/test-board-titles-migration.sh` applies the correction to a
+populated disposable PostgreSQL database and checks all board fields, retained
+posts and threads, ownership, grants and row policies. It reapplies the migration
+to both the corrected title and an operator-edited title.
 
 `board_inventory.rs` checks every installed field and public route with actual
 database credentials. It creates healthy private rows, proves that public reads

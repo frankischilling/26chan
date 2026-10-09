@@ -123,6 +123,7 @@ fn chrome_page(catalog: bool, worksafe: bool) -> String {
         quote: String::new(),
         catalog_hidden: vec![],
         threads: vec![],
+        page_number: 1,
         parent: 0,
         previous: String::new(),
         next: String::new(),
@@ -284,6 +285,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             omitted: usize::from(catalog),
             image_replies: 0,
         }],
+        page_number: 1,
         parent: 0,
         previous: String::new(),
         next: String::new(),
@@ -317,6 +319,7 @@ fn empty_page(catalog: bool) -> String {
             ..board()
         },
         threads: vec![],
+        page_number: 1,
         parent: 0,
         previous: String::new(),
         next: String::new(),
@@ -448,6 +451,7 @@ fn archived_thread() -> String {
         navigation_boards: crate::navigation_boards(),
         quote: String::new(),
         catalog_hidden: Vec::new(),
+        page_number: 1,
         parent: thread.id,
         board,
         threads: vec![ThreadView {

@@ -8,6 +8,7 @@ pub mod country;
 pub mod drawing_annotation;
 pub mod identity;
 pub mod name_trip_admission;
+pub mod page_title;
 pub mod poster_id;
 pub mod public_deletion;
 pub mod semantic_context;

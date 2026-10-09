@@ -55,7 +55,14 @@ def subtitle_migration(reference):
             ",\n".join(rows) + ") policy(slug,profile) WHERE b.slug=policy.slug;\n")
 
 
-def extract(root, names_encoding="utf-8"):
+def short_title(slug, title, historical_titles=False):
+    prefix = rf"/{slug}/"
+    if slug == "s4s" and not historical_titles:
+        prefix = rf"(?:{prefix}|\[s4s\])"
+    return re.sub(rf"^{prefix}\s*-\s*", "", title)
+
+
+def extract(root, names_encoding="utf-8", historical_titles=False):
     slugs = (root / "boardlist.txt").read_text(encoding="utf-8").split()
     if len(slugs) != len(set(slugs)) or any(not re.fullmatch(r"[a-z0-9]{1,10}", slug) for slug in slugs):
         raise ValueError("Board list has duplicate or invalid identifiers.")
@@ -75,7 +82,7 @@ def extract(root, names_encoding="utf-8"):
             match = re.search(rf"/{slug}/\s*-\s*([^\";]+)", html.unescape(values.get("META_DESCRIPTION", "")))
             title = match[1].strip() if match else values.get("TITLE", f"/{slug}/")
         if "TITLE" in overrides:
-            title = re.sub(rf"^/{slug}/\s*-\s*", "", overrides["TITLE"])
+            title = short_title(slug, overrides["TITLE"], historical_titles)
         # These finite limits are the application's existing response budget.
         # /j/'s unbounded source history needs a separate staff-only interface.
         maximum = integer("PAGE_MAX") * integer("DEF_PAGES") if integer("PAGE_MAX") else min(integer("LOG_MAX"), 1000)
@@ -153,7 +160,7 @@ def rss_migration(reference):
             ",\n".join(rows) + ") policy(slug,enabled) WHERE b.slug=policy.slug;\n")
 
 
-def board_encoding_migration(reference, historical):
+def board_title_updates(reference, historical):
     rows = []
     for board, original in zip(reference["boards"], historical["boards"], strict=True):
         if board["slug"] != original["slug"]:
@@ -163,8 +170,19 @@ def board_encoding_migration(reference, historical):
             rows.append("UPDATE content.boards SET title=" + quote(board["title"]) +
                         " WHERE slug=" + quote(board["slug"]) +
                         " AND title=" + quote(original["title"]) + ";\n")
+    return "".join(rows)
+
+
+def board_encoding_migration(reference, historical):
     return ("-- Correct source board titles decoded with the historical Windows default.\n"
-            "-- Preserve the applied migration checksum and operator-edited titles.\n" + "".join(rows))
+            "-- Preserve the applied migration checksum and operator-edited titles.\n" +
+            board_title_updates(reference, historical))
+
+
+def board_title_migration(reference, historical):
+    return ("-- Store the short name from the source [s4s] TITLE override.\n"
+            "-- Preserve the applied import checksum and operator-edited titles.\n" +
+            board_title_updates(reference, historical))
 
 
 def wordfilter_policy(reference, source):
@@ -223,18 +241,20 @@ def main():
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--migration", type=Path, help="Historical board import using the original Windows name decoding")
+    parser.add_argument("--migration", type=Path, help="Historical board import using the original name decoding and title extraction")
     parser.add_argument("--rss-migration", type=Path)
     parser.add_argument("--math-migration", type=Path)
     parser.add_argument("--drawing-migration", type=Path)
     parser.add_argument("--subtitle-migration", type=Path)
     parser.add_argument("--wordfilter-migration", type=Path)
     parser.add_argument("--board-encoding-migration", type=Path)
+    parser.add_argument("--board-title-migration", type=Path)
     args = parser.parse_args()
     reference = extract(args.source)
-    # Migration 0045 was generated with the old Windows cp1252 default. Keep
-    # that applied SQL unchanged and verify the additive UTF-8 correction.
-    historical = extract(args.source, names_encoding="cp1252")
+    # Migrations 0045 and 0064 predate the square-bracket title correction.
+    # Reproduce each applied migration with its original extraction behavior.
+    historical = extract(args.source, names_encoding="cp1252", historical_titles=True)
+    historical_utf8 = extract(args.source, historical_titles=True)
     data = json.dumps(reference, ensure_ascii=False, indent=2) + "\n"
     if args.check:
         if args.subtitle_migration and args.subtitle_migration.read_bytes() != subtitle_migration(reference).encode("utf-8"):
@@ -254,8 +274,10 @@ def main():
             actual = args.wordfilter_migration.read_text(encoding="utf-8")
             if marker not in actual or actual[actual.index(marker):] != wordfilter_policy(reference, args.source):
                 raise SystemExit("Wordfilter migration differs from the extracted policy.")
-        if args.board_encoding_migration and args.board_encoding_migration.read_bytes() != board_encoding_migration(reference, historical).encode("utf-8"):
+        if args.board_encoding_migration and args.board_encoding_migration.read_bytes() != board_encoding_migration(historical_utf8, historical).encode("utf-8"):
             raise SystemExit("Board encoding migration differs from the extracted policy.")
+        if args.board_title_migration and args.board_title_migration.read_bytes() != board_title_migration(reference, historical_utf8).encode("utf-8"):
+            raise SystemExit("Board title migration differs from the extracted policy.")
         print("Board reference matches all listed and additional configuration files.")
     else:
         args.output.write_bytes(data.encode("utf-8"))
@@ -270,7 +292,9 @@ def main():
         if args.rss_migration:
             args.rss_migration.write_bytes(rss_migration(reference).encode("utf-8"))
         if args.board_encoding_migration:
-            args.board_encoding_migration.write_bytes(board_encoding_migration(reference, historical).encode("utf-8"))
+            args.board_encoding_migration.write_bytes(board_encoding_migration(historical_utf8, historical).encode("utf-8"))
+        if args.board_title_migration:
+            args.board_title_migration.write_bytes(board_title_migration(reference, historical_utf8).encode("utf-8"))
 
 
 if __name__ == "__main__":
