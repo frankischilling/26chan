@@ -1,9 +1,26 @@
 import { test, expect } from '@playwright/test';
+import { createStaffAuthBudget, completeStaffAuthStart, STAFF_AUTH_MAX_WAIT_MS } from './helpers/staff-auth-budget.mjs';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { spawn, spawnSync } from 'node:child_process';
 import { lstatSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
+// Shared by browser clicks and direct fetch/API starts across all four cases.
+const authBudget = createStaffAuthBudget();
+test.beforeAll(async ({}, workerInfo) => {
+  // A replacement worker would lose the shared server's earlier start history.
+  expect(workerInfo.config.workers, 'Staff authentication pacing requires one worker').toBe(1);
+  expect(workerInfo.project.retries, 'Staff authentication pacing requires retries disabled').toBe(0);
+  expect(workerInfo.workerIndex, 'Staff authentication pacing requires the original worker').toBe(0);
+});
+async function startAuthentication(page, kind, action) {
+  const response = await authBudget.run(async () => {
+    const received = page.waitForResponse(response => response.url() === `http://localhost:3001/${kind}/start`
+      && response.request().method() === 'POST');
+    return completeStaffAuthStart(received, action);
+  });
+  expect(response.status(), `Staff ${kind} start status`).toBe(200);
+}
 const binary = process.platform === 'win32' ? '.exe' : '';
 const debugDir = path.resolve(process.env.CARGO_TARGET_DIR || 'target', 'debug');
 function run(name, args, input, expected = 0) {
@@ -259,12 +276,12 @@ test('Robot9000 cleanup is scoped, script-free, batched and preserves recent his
     await cdp.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', transport: 'usb', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
     await page.goto('/');
     await page.getByLabel('Invitation', { exact: true }).fill(readFileSync(invitationFile, 'utf8').trim());
-    await page.getByRole('button', { name: 'Enroll passkey' }).click();
+    await startAuthentication(page, 'enroll', () => page.getByRole('button', { name: 'Enroll passkey' }).click());
     await expect(page.getByRole('status')).toHaveText('Passkey enrolled. Sign in with your account.');
     const login = async () => {
       await page.goto('/');
       await page.getByLabel('Account', { exact: true }).fill(board);
-      await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      await startAuthentication(page, 'login', () => page.getByRole('button', { name: 'Sign in', exact: true }).click());
       await expect(page).toHaveURL(/\/reports$/);
     };
     const review = page.getByRole('button', { name: 'Review originality cleanup', exact: true });
@@ -360,12 +377,12 @@ test('ordinary staff posts keep public IDs, flags, live filtering and password d
     await cdp.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', transport: 'usb', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
     await page.goto('/');
     await page.getByLabel('Invitation', { exact: true }).fill(readFileSync(invitationFile, 'utf8').trim());
-    await page.getByRole('button', { name: 'Enroll passkey' }).click();
+    await startAuthentication(page, 'enroll', () => page.getByRole('button', { name: 'Enroll passkey' }).click());
     await expect(page.getByRole('status')).toHaveText('Passkey enrolled. Sign in with your account.');
     for (const [index, role] of ['janitor', 'moderator', 'manager', 'admin'].entries()) {
       if (index > 0) run('staff-operator', ['role', board, role]);
       await page.goto('/'); await page.getByLabel('Account', { exact: true }).fill(board);
-      await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      await startAuthentication(page, 'login', () => page.getByRole('button', { name: 'Sign in', exact: true }).click());
       await expect(page).toHaveURL(/\/reports$/);
       await page.getByRole('link', { name: 'Post', exact: true }).click();
       await expect(page).toHaveURL(/\/post$/);
@@ -449,7 +466,10 @@ test('ordinary staff posts keep public IDs, flags, live filtering and password d
     rmSync(mediaRoot, { recursive: true });
   }
 });
-test('synthetic WebAuthn enrollment, login, audited moderation, recovery and logout', async ({ page, context }) => {
+test('synthetic WebAuthn enrollment, login, audited moderation, recovery and logout', async ({ page, context }, testInfo) => {
+  // This case crosses the shared 30-start budget after the preceding cases.
+  // Allow bounded budget waiting without raising other test timeouts.
+  test.setTimeout(testInfo.timeout + STAFF_AUTH_MAX_WAIT_MS);
   const board = `s${randomBytes(5).toString('hex').slice(0, 9)}`;
   const invitationDir = path.resolve(`.local/staff-browser-${board}`);
   const recoveryDir = path.resolve(`.local/staff-recovery-${board}`);
@@ -495,14 +515,14 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect((await page.request.get('/reports')).status()).toBe(401);
     await page.goto('/');
     await page.getByLabel('Invitation', { exact: true }).fill(invitation);
-    await page.getByRole('button', { name: 'Enroll passkey' }).click();
+    await startAuthentication(page, 'enroll', () => page.getByRole('button', { name: 'Enroll passkey' }).click());
     await expect(page.getByRole('status')).toHaveText('Passkey enrolled. Sign in with your account.');
     expect(fixture('inspect', board).credentials).toBe(1);
-    const consumed = await page.evaluate(async token => (await fetch('/enroll/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invitation: token }) })).status, invitation);
+    const consumed = await authBudget.run(() => page.evaluate(async token => (await fetch('/enroll/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invitation: token }) })).status, invitation));
     expect(consumed).toBe(401);
     async function login() {
       await page.goto('/'); await page.getByLabel('Account', { exact: true }).fill(board);
-      await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      await startAuthentication(page, 'login', () => page.getByRole('button', { name: 'Sign in', exact: true }).click());
       await expect(page).toHaveURL(/\/reports$/);
     }
     const originalFinish = page.waitForRequest(request => request.url().endsWith('/login/finish'));
@@ -516,14 +536,14 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await context.addCookies([{ name: 'staff-ceremony', value: originalHandle, domain: 'localhost', path: '/', httpOnly: true, sameSite: 'Strict' }]);
     const replay = await page.evaluate(async body => (await fetch('/login/finish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })).status, assertion);
     expect(replay).toBe(401);
-    const currentAssertion = await page.evaluate(async username => {
+    const currentAssertion = await authBudget.run(() => page.evaluate(async username => {
       const response = await fetch('/login/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }) });
       if (!response.ok) throw new Error('Synthetic ceremony start failed');
       const challenge = await response.json();
       const publicKey = PublicKeyCredential.parseRequestOptionsFromJSON(challenge.publicKey);
       const credential = await navigator.credentials.get({ publicKey });
       return JSON.stringify(credential.toJSON());
-    }, board);
+    }, board));
     const currentHandle = (await context.cookies()).find(cookie => cookie.name === 'staff-ceremony').value;
     const expiration = fixture('expire-ceremony', board, createHash('sha256').update(currentHandle).digest('hex'));
     expect(expiration.expired).toBe(1);
@@ -911,7 +931,17 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     expect(fixture('inspect', board).credentials).toBe(0); expect(fixture('inspect', board).sessions).toBe(0);
     const replacement = readFileSync(path.join(recoveryDir, 'invitation.txt'), 'utf8').trim();
     await page.goto('/'); await page.getByLabel('Invitation', { exact: true }).fill(replacement);
-    await page.getByRole('button', { name: 'Enroll passkey' }).click();
+    let replacementFinish;
+    await startAuthentication(page, 'enroll', () => {
+      // Start the response timeout after admission, so it excludes budget waiting.
+      replacementFinish = page.waitForResponse(response => response.url() === 'http://localhost:3001/enroll/finish'
+        && response.request().method() === 'POST');
+      // Retain the original rejection for the finish assertion, while owning it
+      // if an earlier click or start-status assertion fails.
+      replacementFinish.catch(() => {});
+      return page.getByRole('button', { name: 'Enroll passkey' }).click();
+    });
+    expect((await replacementFinish).status(), 'Replacement enrollment finish status').toBe(200);
     await expect(page.getByRole('status')).toHaveText('Passkey enrolled. Sign in with your account.');
     await login();
     run('staff-operator', ['revoke', board]);

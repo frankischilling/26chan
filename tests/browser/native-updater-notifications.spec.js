@@ -23,7 +23,9 @@ async function initialize(page, owned, settings = {}) {
   await page.addInitScript(settings => localStorage.setItem('4chan-settings', JSON.stringify(settings)), settings);
   await page.setViewportSize({ width: 1280, height: 400 }); await page.goto(owned.url);
   await expect.poll(() => page.evaluate(id => JSON.parse(localStorage.getItem(`4chan-track-demo-${id}`) || '{}')[`>>${id}`], owned.id)).toBe(1);
-  const time = new Date('2026-09-13T19:00:00Z'); await page.clock.install({ time }); await page.clock.pauseAt(time);
+  // pauseAt installs the clock itself; installing a running clock at the same
+  // timestamp first can advance it past the pause target before the next call.
+  await page.clock.pauseAt(new Date('2026-09-13T19:00:00Z'));
 }
 async function tick(page, seconds = 10) { await page.clock.runFor(seconds * 1000); }
 
