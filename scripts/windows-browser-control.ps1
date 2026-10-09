@@ -6,6 +6,7 @@ if (-not $IsWindows -or $env:WINDOWS_BROWSER_CONTROL -ne '1' -or $env:THEME_SHAR
     throw 'Owned browser control configuration rejected.'
 }
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+. (Join-Path $PSScriptRoot 'windows-browser-control-cleanup.ps1')
 $evidence = Join-Path $repo 'test-results/windows-browser-control-7'
 # Refuse stale evidence and reparse traversal. Only these two directories are created.
 $directory = $repo
@@ -43,13 +44,11 @@ finally {
     $env:VISUAL_FIXTURE_SERVER = $priorFixture
     if ($null -ne $owned) {
         try {
-            if (-not $owned.TreeExited) {
-                $state.forced_cleanup = $true
-                $owned.Kill()
-                if (-not $owned.WaitForExit(5000)) { throw 'Owned cleanup deadline.' }
-            }
-            $state.tree_exited = $owned.TreeExited
-            $state.cleanup_verified = $state.tree_exited
+            $cleanupWatch = [Diagnostics.Stopwatch]::StartNew()
+            $cleanup = Complete-OwnedBrowserTree -RootExited { $owned.HasExited } -TreeExited { $owned.TreeExited } -WaitForExit { param($milliseconds) $owned.WaitForExit($milliseconds) } -Kill { $owned.Kill() } -ElapsedMilliseconds { $cleanupWatch.ElapsedMilliseconds } -State $state
+            $state.forced_cleanup = $cleanup.forced_cleanup
+            $state.tree_exited = $cleanup.tree_exited
+            $state.cleanup_verified = $cleanup.cleanup_verified
         } catch { $state.cleanup_verified = $false }
         finally { try { $owned.Dispose() } catch { $state.cleanup_verified = $false } }
     }

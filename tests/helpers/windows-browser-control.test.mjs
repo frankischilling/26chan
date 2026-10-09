@@ -307,3 +307,23 @@ test('signaled original outcome retains its signal and normalized fatal code', a
   assert.equal(summary.trigger, 'not-observed');
   assert.equal(summary.conclusion, 'inconclusive');
 });
+
+test('owned cleanup grace shares one five-second budget and still requires actual zero processes', async () => {
+  const cleanup = await readFile(new URL('../../scripts/windows-browser-control-cleanup.ps1', import.meta.url), 'utf8');
+  const wrapper = await readFile(new URL('../../scripts/windows-browser-control.ps1', import.meta.url), 'utf8');
+  const controls = await readFile(new URL('../../scripts/windows-browser-control-cleanup.test.ps1', import.meta.url), 'utf8');
+  assert.match(cleanup, /\$rootHasExited = & \$RootExited\s+\$remaining = \[Math\]::Max\(0, 5000 - \(& \$ElapsedMilliseconds\)\)\s+if \(\$rootHasExited -and \$remaining -gt 0\)/);
+  assert.match(cleanup, /\$grantedGrace = \[int\]\[Math\]::Min\(250, \[Math\]::Max\(0, 5000 - \$graceStarted\)\)/);
+  assert.match(cleanup, /\$graceDeadline = \$graceStarted \+ \$grantedGrace/);
+  assert.equal((cleanup.match(/5000 - \(& \$ElapsedMilliseconds\)/g) ?? []).length, 2);
+  assert.match(cleanup, /if \(-not \(& \$TreeExited\)\) \{\s+\$result.forced_cleanup = \$true\s+& \$Kill/);
+  assert.match(cleanup, /\$result.tree_exited = \[bool\]\(& \$TreeExited\)/);
+  assert.match(cleanup, /\$graceOnTime = \$null -eq \$graceDeadline -or \$finishedAt -le \$graceDeadline/);
+  assert.match(cleanup, /\$result.cleanup_verified = \$result.tree_exited -and \$graceOnTime -and \$finishedAt -lt 5000/);
+  assert.ok(cleanup.indexOf('$finishedAt = & $ElapsedMilliseconds') > cleanup.indexOf('$result.tree_exited = [bool](& $TreeExited)'));
+  assert.match(wrapper, /\$cleanupWatch = \[Diagnostics.Stopwatch\]::StartNew\(\)/);
+  assert.match(wrapper, /-WaitForExit \{ param\(\$milliseconds\) \$owned.WaitForExit\(\$milliseconds\) \} -Kill \{ \$owned.Kill\(\) \}/);
+  assert.match(wrapper, /-ElapsedMilliseconds \{ \$cleanupWatch.ElapsedMilliseconds \} -State \$state/);
+  assert.doesNotMatch(cleanup + wrapper, /Stop-Process|taskkill|\.Kill\([^)]*Id/);
+  for (const name of ['already-empty', 'settled', 'persistent', 'live-root', 'misleading-wait', 'expired', 'near-deadline', 'survivor', 'late-zero', 'slow-grace-zero', 'slow-zero-read', 'unavailable']) assert.ok(controls.includes(`'${name}'`));
+});

@@ -82,6 +82,10 @@ jobs:
         timeout-minutes: 1
         shell: pwsh
         run: ./tests/fixtures/windows-dual-stack-connect-probe/owned-process.test.ps1
+      - name: Verify cleanup grace and deadline controls
+        timeout-minutes: 1
+        shell: pwsh
+        run: ./scripts/windows-browser-control-cleanup.test.ps1
       - name: Build visual fixture before the original startup deadline
         timeout-minutes: 9
         shell: pwsh

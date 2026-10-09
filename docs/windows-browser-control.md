@@ -18,7 +18,7 @@ The control runs outside Playwright's test workers. Creating another browser ins
 
 Control evidence lives under a separate owned output root. Playwright can clean the original project output when starting its runner; control output must not live there. Primary and control captures also have separate admission limits, so the control cannot consume a primary failure-capture slot.
 
-The launcher contains its descendants in an owned Windows Job Object. It attempts graceful browser cleanup and verifies owned-tree termination. It never terminates processes by executable name. Forced termination or incomplete logging cannot qualify complete control evidence.
+The launcher contains its descendants in an owned Windows Job Object and attempts graceful browser cleanup. Once the coordinator exits, it allows up to 250 ms for job accounting to settle within the existing five-second cleanup budget. It still requires proof that the owned job has zero active processes. If any remain, it terminates that exact job and waits only for the remaining budget. It never terminates processes by executable name. Forced termination, missing or late cleanup proof, and incomplete logging cannot qualify complete control evidence.
 
 Only admitted structured summaries and a complete, bounded Default-mode NetLog are retained. Pending chunks, private raw child output, arbitrary exception messages, cookies, storage, request bodies, and response bodies are not diagnostic artifacts. Existing original-shard evidence keeps its existing rules.
 
