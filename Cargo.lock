@@ -580,6 +580,8 @@ dependencies = [
  "futures-util",
  "http-body-util",
  "httpdate",
+ "hyper",
+ "hyper-util",
  "proptest",
  "rand_core 0.6.4",
  "roxmltree",
