@@ -32,6 +32,27 @@ test('actual source detector requires lowercase explicit tags, supports initial 
   assert.equal(sandbox.pageHasMath(), false);
 });
 
+test('source detection admits nested and malformed lowercase openers without assigning display semantics', () => {
+  let posts = [];
+  const sandbox = { document: { getElementsByClassName: () => posts } };
+  vm.createContext(sandbox);
+  vm.runInContext(snippets.core, sandbox, { timeout: 100 });
+  for (const input of ['[math]a[math]b[/math]c[/math]', '[eqn]a[eqn]b[/eqn]c[/eqn]',
+    '[math]a[eqn]b[/eqn]c[/math]', '[eqn]a[math]b[/math]c[/eqn]',
+    '[math]a[eqn]b[/math]c[/eqn]', '[math]a[eqn]b[/eqn]',
+    '[math]'.repeat(4096), '[eqn]a[/math]']) {
+    posts = [{ innerHTML: input }];
+    assert.equal(sandbox.pageHasMath(), true, input.slice(0, 80));
+  }
+  for (const input of ['[/math][/eqn]', '[MATH][EQN]a[/EQN][/MATH]']) {
+    posts = [{ innerHTML: input }];
+    assert.equal(sandbox.pageHasMath(), false, input);
+  }
+  // The server invocation is disabled; the dormant PHP depth-two helper does
+  // not specify how the remote renderer would have displayed nested tags.
+  assert.match(snippets.server_disabled_call, /^  \/\*[\s\S]*jsmath_parse[\s\S]*\*\//);
+});
+
 test('actual source loader configures explicit delimiters and disables unsafe macro capabilities', () => {
   const appended = [];
   const sandbox = { document: {
