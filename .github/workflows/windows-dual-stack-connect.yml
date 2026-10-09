@@ -1,0 +1,90 @@
+name: Windows dual-stack connect diagnostic
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/windows-dual-stack-connect.yml'
+      - 'tests/fixtures/windows-dual-stack-connect-probe/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  dual-stack-winsock:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [plain, randomized]
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Record candidate and runner identity
+        timeout-minutes: 1
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory -Path test-results/windows-dual-stack-connect -Force | Out-Null
+          $head=git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $head -ne $env:CANDIDATE_SHA) { throw 'Candidate head mismatch.' }
+          @{ candidate=$head; image_version=$env:ImageVersion; image_os=$env:ImageOS; mode='${{ matrix.mode }}'; profile='dual-stack-connect'; groups=40; lanes=6 } | ConvertTo-Json -Compress | Set-Content test-results/windows-dual-stack-connect/identity.json
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        timeout-minutes: 2
+        with:
+          node-version: '24.14.0'
+          package-manager-cache: false
+      - name: Install pinned Rust
+        timeout-minutes: 3
+        shell: pwsh
+        run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Install pinned Unicode normalization runtime
+        timeout-minutes: 3
+        shell: pwsh
+        run: ./scripts/install-windows-icu.ps1
+      - name: Cache Rust dependencies
+        timeout-minutes: 2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: windows-2025-${{ hashFiles('Cargo.toml') }}
+          cache-bin: false
+          cache-all-crates: false
+          cache-workspace-crates: false
+          cache-on-failure: true
+      - name: Build existing visual fixture and test evidence controls
+        timeout-minutes: 9
+        shell: pwsh
+        run: |
+          cargo build -p board-public --example visual-fixtures --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test tests/fixtures/windows-dual-stack-connect-probe/validate-output.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify owned process-tree containment
+        timeout-minutes: 1
+        shell: pwsh
+        run: ./tests/fixtures/windows-dual-stack-connect-probe/owned-process.test.ps1
+      - name: Run bounded dual-stack variant against owned media fixture
+        timeout-minutes: 5
+        shell: pwsh
+        run: ./tests/fixtures/windows-dual-stack-connect-probe/run-hosted.ps1 -Mode '${{ matrix.mode }}'
+      - name: Retain bounded diagnostic evidence
+        if: always() && env.DUAL_STACK_EVIDENCE != ''
+        timeout-minutes: 2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dual-stack-winsock-${{ matrix.mode }}-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.DUAL_STACK_EVIDENCE }}/status.json
+            ${{ env.DUAL_STACK_EVIDENCE }}/output.jsonl
+            ${{ env.DUAL_STACK_EVIDENCE }}/validation.json
+            test-results/windows-dual-stack-connect/identity.json
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false
