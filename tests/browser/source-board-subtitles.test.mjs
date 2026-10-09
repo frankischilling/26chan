@@ -86,3 +86,19 @@ test('persisted fixture rejects remote, production, visual and wrong-role databa
     assert.throws(() => subtitleDatabaseEnvironment({ ...valid, ...change }), /loopback development/);
   }
 });
+
+
+test('subtitle checks preserve source board headings in every mode, including archives and s4s', () => {
+  for (const slug of ['owned', 's4s']) {
+    const board = { slug, kind: 'none', title: 'Owned & title', description: 'Description is not a heading', textOnly: false };
+    const prefix = slug === 's4s' ? '[s4s]' : `/${slug}/`;
+    const html = heading => `<body><div class="boardBanner"><div class="boardTitle">${heading}</div></div></body>`;
+    const expected = html(`${prefix} - Owned &amp; title`);
+    for (const mode of ['index', 'thread', 'archived-thread', 'catalog', 'archive-index']) {
+      assert.doesNotThrow(() => assertSubtitleDocument(expected, board, mode));
+      assert.throws(() => assertSubtitleDocument(html(`${prefix} - Archive`), board, mode));
+    }
+    assert.throws(() => assertSubtitleDocument(expected, board, 'unknown'));
+    if (slug === 's4s') assert.throws(() => assertSubtitleDocument(html('/s4s/ - Owned &amp; title'), board, 'archive-index'));
+  }
+});

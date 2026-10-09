@@ -34,7 +34,9 @@ export function assertSubtitleDocument(html, board, mode) {
   }
   assert.equal(descendants(banner).filter(node => ['script', 'img', 'svg', 'iframe'].includes(node.tagName)).length, 0, 'Board title/description cannot inject elements');
   const text = node => node.nodeName === '#text' ? node.value : (node.childNodes ?? []).map(text).join('');
-  assert.equal(text(titles[0]), `/${board.slug}/ - ${mode === 'archive-index' ? 'Archive' : board.title}`);
+  assert.ok(['index', 'thread', 'archived-thread', 'catalog', 'archive-index'].includes(mode), 'Known public page mode');
+  const prefix = board.slug === 's4s' ? '[s4s]' : `/${board.slug}/`;
+  assert.equal(text(titles[0]), `${prefix} - ${board.title}`, 'Archive and ordinary pages retain the source board heading');
   assert.ok(!text(banner).includes(board.description), 'Board description is not banner content');
   const body = nodes.find(node => node.tagName === 'body');
   assert.equal(hasClass(body, 'text_only'), board.textOnly, 'Text layout does not change subtitle policy');
