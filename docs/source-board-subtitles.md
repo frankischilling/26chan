@@ -99,3 +99,15 @@ The standalone HTTP runner passes all 28 real persisted-page checks, including
 Playwright discovers all 15 subtitle tests. Browser geometry and browser
 interaction remain unqualified here because Chromium is unavailable; no
 browser was installed.
+
+Hosted Windows screenshots from head `4188db1` exposed the expected removal of
+the generic board description. Fourteen baselines were reviewed against their
+expected, actual and diff images: the two catalog-limit views and twelve
+no-JavaScript theme views. Their dimensions, content and horizontal layout are
+unchanged. Content below the omitted description moves up 11px, or 16px in the
+desktop Futaba and Burichan themes. The replacement PNGs are those captured
+images, not locally reconstructed pages.
+
+This review does not qualify the other screenshot suites or fix the separate
+Windows socket failure while loading the watcher script. Complete hosted
+checks remain required before merge.
