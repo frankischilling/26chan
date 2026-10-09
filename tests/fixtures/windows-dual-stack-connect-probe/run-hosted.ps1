@@ -64,7 +64,16 @@ foreach ($name in @('PATH','INCLUDE','LIB','LIBPATH')) {
   # Fail before launching if any fixture port is occupied. No other process is stopped.
   foreach ($port in @(3000,3004)) { if (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count) { throw 'Fixture port already occupied.' } }
   $fixtureExe=Join-Path $repo 'target/debug/examples/visual-fixtures.exe'
-  $fixture=[DualStackOwnedProcess]::Start($fixtureExe,'',$repo,(Join-Path $private 'fixture.out'),(Join-Path $private 'fixture.err'))
+  # Preserve this diagnostic's IPv6-refusal/fallback workload even though normal
+  # browser fixtures now cover both localhost address families. Scope the setting
+  # to child creation; never persist it in the runner or change machine settings.
+  $previousMediaProfile=[Environment]::GetEnvironmentVariable('VISUAL_FIXTURE_MEDIA_PROFILE','Process')
+  try {
+    [Environment]::SetEnvironmentVariable('VISUAL_FIXTURE_MEDIA_PROFILE','ipv4-only','Process')
+    $fixture=[DualStackOwnedProcess]::Start($fixtureExe,'',$repo,(Join-Path $private 'fixture.out'),(Join-Path $private 'fixture.err'))
+  } finally {
+    [Environment]::SetEnvironmentVariable('VISUAL_FIXTURE_MEDIA_PROFILE',$previousMediaProfile,'Process')
+  }
   $watch=[Diagnostics.Stopwatch]::StartNew(); $ready=$false
   while ($watch.ElapsedMilliseconds -lt 20000) {
     if ($fixture.HasExited) { throw 'Fixture exited during startup.' }

@@ -12,6 +12,8 @@ mod catalog_limits;
 mod flags;
 #[path = "visual/headers.rs"]
 mod headers;
+#[path = "visual/listeners.rs"]
+mod listeners;
 #[path = "visual/media.rs"]
 mod media;
 use askama::Template;
@@ -467,7 +469,10 @@ fn archived_thread() -> String {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> std::io::Result<()> {
+    // Validate the finite profile before constructing or binding any listener.
+    let profile =
+        listeners::MediaProfile::parse(std::env::var_os(listeners::PROFILE_ENV).as_deref())?;
     // Construct the other shared templates too; this keeps this include honest
     // when production views change and avoids unused-item warning suppression.
     let _ = views::Home { boards: vec![] }.render().unwrap();
@@ -494,11 +499,7 @@ async fn main() {
     .render()
     .unwrap();
     let (media_fixture, media_app) = media::Fixture::build().await;
-    let media_listener = tokio::net::TcpListener::bind("127.0.0.1:3004")
-        .await
-        .unwrap();
-    let media_server =
-        tokio::spawn(async move { axum::serve(media_listener, media_app).await.unwrap() });
+    let media_listeners = listeners::bind_media(profile, 3004).await?;
     // The fallback uses actual public routing, middleware and error rendering.
     // Closing a lazy pool makes storage unavailable without touching a service,
     // making a connection or loading any database credential.
@@ -569,11 +570,12 @@ async fn main() {
             "http://127.0.0.1:3000".into(),
             false,
         ));
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .unwrap();
-    tokio::select! {
-        result = axum::serve(listener, app) => result.unwrap(),
-        result = media_server => { result.unwrap(); panic!("fixture media server stopped"); }
-    }
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
+    let mut endpoints = vec![(listener, app)];
+    endpoints.extend(
+        media_listeners
+            .into_iter()
+            .map(|listener| (listener, media_app.clone())),
+    );
+    listeners::serve(endpoints, tokio::signal::ctrl_c()).await
 }

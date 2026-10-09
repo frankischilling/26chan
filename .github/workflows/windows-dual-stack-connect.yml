@@ -4,6 +4,9 @@ on:
     paths:
       - '.github/workflows/windows-dual-stack-connect.yml'
       - 'tests/fixtures/windows-dual-stack-connect-probe/**'
+      - 'apps/public/examples/visual-fixtures.rs'
+      - 'apps/public/examples/visual/**'
+      - 'apps/public/tests/visual_fixture_listeners.rs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -62,6 +65,8 @@ jobs:
         shell: pwsh
         run: |
           cargo build -p board-public --example visual-fixtures --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test -p board-public --test visual_fixture_listeners --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node --test tests/fixtures/windows-dual-stack-connect-probe/validate-output.test.mjs tests/fixtures/windows-dual-stack-connect-probe/owned-process.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -112,3 +112,15 @@ test('hosted classifier tests cover path impostors and incomplete synthetic role
   for (const value of ['ProcessListComplete', 'ProcessCountsConsistent', 'UnknownRoleCount', 'UnavailableRoleCount', 'RootRoleCount', 'DescendantRoleCount', 'ConsoleHostRoleCount', 'ActiveProcesses', 'EnumeratedProcesses']) assert.ok(runner.includes(`'${value}'`));
   assert.match(runner, /Over-capacity role evidence admitted/);
 });
+
+
+test('native diagnostic explicitly preserves IPv4-only fixture and restores the process setting', () => {
+  const launcher = read('run-hosted.ps1');
+  const save = launcher.indexOf("$previousMediaProfile=[Environment]::GetEnvironmentVariable('VISUAL_FIXTURE_MEDIA_PROFILE','Process')");
+  const set = launcher.indexOf("[Environment]::SetEnvironmentVariable('VISUAL_FIXTURE_MEDIA_PROFILE','ipv4-only','Process')");
+  const spawn = launcher.indexOf("$fixture=[DualStackOwnedProcess]::Start($fixtureExe");
+  const restore = launcher.indexOf("[Environment]::SetEnvironmentVariable('VISUAL_FIXTURE_MEDIA_PROFILE',$previousMediaProfile,'Process')");
+  assert.ok(save >= 0 && set > save && spawn > set && restore > spawn);
+  assert.match(launcher.slice(spawn, restore), /} finally {/);
+  assert.match(launcher, /\$listeners.Count -ne 1 -or \$listeners\[0\].LocalAddress -ne '127\.0\.0\.1'/);
+});
