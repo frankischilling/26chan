@@ -105,13 +105,28 @@ the generic board description. Seventeen baselines were reviewed against their
 expected, actual and diff images: the two catalog-limit views, twelve
 no-JavaScript theme views, two board views and one catalog view. Their dimensions,
 content and horizontal layout are unchanged. Content below the omitted
-description moves up 11px, or 16px in the
-desktop Futaba and Burichan themes. The replacement PNGs are those captured
+description moves up 11px, or 16px in the desktop Futaba and Burichan themes.
+The replacement PNGs are those captured
 images, not locally reconstructed pages.
 
-This review does not qualify the other screenshot suites or fix the separate
-Windows socket failure while loading the watcher script. Complete hosted
-checks remain required before merge.
+Those core and theme comparisons passed on hosted head `ce3970b`. That run
+also reached the archive, attachment and empty-state suites. Their 24 changed
+screenshots were individually reviewed: six archive views, fourteen media
+views and four empty board/catalog views. All omit the source-absent subtitle
+and move following content up 11px. Nine long media pages become 11px shorter;
+the others retain their canvas dimensions. Thumbnails, placeholders, forms,
+archive rows, wrapping and footer content remain intact. Each old baseline
+matched its hosted expected image byte-for-byte before replacement.
+
+The archive-list source calls the common header with its archive flag. That
+header initializes an empty subtitle and emits one only when `SUBTITLE` is
+defined; it never substitutes the board name or description. This separately
+supports removing the old repeated archive subtitle while leaving its heading
+unchanged.
+
+All 41 replacements are captured hosted images with reviewed source reasons.
+Complete checks on the updated baselines remain required before merge. These
+changes do not fix the separate intermittent Windows socket failure.
 
 The Windows job now collects each independent full-page suite after an earlier
 qualification fails, provided browser installation and fixture compilation
