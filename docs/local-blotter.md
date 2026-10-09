@@ -58,3 +58,10 @@ tests reject actual family-list changes; all 30 Node cases pass. The corrected
 browser comparison and persisted operator scenario still require hosted
 qualification. A separate Windows shard also reported socket 10055; this
 comparison correction does not address that transport failure.
+
+
+Hosted qualification passed all 14 checks on head `4d0ef1e`, including the
+persisted operator scenario, all blotter geometry cases and Windows visual
+checks. Merging the qualified Settings changes from main required retaining
+both independent Tomorrow theme variables: the blotter divider and Settings
+list border. The combined head requires a fresh CI run before merge.

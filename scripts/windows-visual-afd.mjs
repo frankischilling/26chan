@@ -2,9 +2,9 @@ import { openSync, readSync, closeSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // Microsoft documents the event semantics, not a versioned Windows 2025
-// manifest or its address byte order. No live manifest has been verified here.
-// This phase inspects metadata only. Actual capture needs a reviewed profile
-// covering every level 0..4 template AND a verified raw-event decoder.
+// manifest or its address byte order. Retained manifest inventory is metadata
+// only. Live capture still needs verified collection-side event-ID filtering
+// and a qualified native decoder; the offline candidate profile enables neither.
 export const LIMITS = Object.freeze({ metadataBytes: 262144, outputBytes: 65536, events: 256, fields: 16, attributes: 16, keywords: 64, rawDescriptors: 512 });
 export const AFD_PROVIDER_GUID = 'e53c6823-7bb8-44bb-90dc-3f86090d48a6';
 const fields = new Set(['Process', 'Endpoint', 'SocketType', 'Protocol', 'UserModePid',

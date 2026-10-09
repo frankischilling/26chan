@@ -21,6 +21,8 @@
   --watcher-refresh: url('/static/watcher/futaba/refresh.png');
   --watcher-rotate: url('/static/watcher/futaba/post_expand_rotate.gif');
   --watcher-cross: url('/static/watcher/futaba/cross.png');
+  --settings-plus: url('/static/watcher/futaba/post_expand_plus.png');
+  --settings-minus: url('/static/watcher/futaba/post_expand_minus.png');
 }
 @media (min-resolution: 2dppx) {
   :root {
@@ -29,6 +31,8 @@
     --watcher-refresh: url('/static/watcher/futaba/refresh@2x.png');
     --watcher-rotate: url('/static/watcher/futaba/post_expand_rotate@2x.gif');
     --watcher-cross: url('/static/watcher/futaba/cross@2x.png');
+  --settings-plus: url('/static/watcher/futaba/post_expand_plus@2x.png');
+  --settings-minus: url('/static/watcher/futaba/post_expand_minus@2x.png');
   }
 }
 
