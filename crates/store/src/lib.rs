@@ -156,6 +156,7 @@ pub struct Board {
     pub thread_limit: i32,
     pub expire_neglected: bool,
     pub threads_per_page: i32,
+    pub replies_shown: i32,
     pub worksafe: bool,
     pub archive_retention_seconds: i32,
     pub archive_limit: i32,
@@ -224,6 +225,12 @@ pub struct Thread {
     pub deleted: bool,
     pub archived_at: Option<DateTime<Utc>>,
     pub archive_expires_at: Option<DateTime<Utc>>,
+}
+
+impl Board {
+    pub fn preview_reply_limit(&self, sticky: bool) -> usize {
+        board_domain::preview::reply_limit(self.replies_shown as usize, sticky)
+    }
 }
 
 #[derive(Clone, sqlx::FromRow)]

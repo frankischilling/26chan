@@ -139,9 +139,9 @@ async fn exercise(owner: sqlx::PgPool, public: sqlx::PgPool, board: String) {
         assert_eq!(tail["posts"][1]["no"], other);
         assert!(tail["posts"][1].get("unique_ips").is_none());
         let page = get(listener, &format!("/{board}/1.json")).await;
-        assert_eq!(page["threads"][0]["posts"][0]["unique_ips"], 2);
+        assert!(page["threads"][0]["posts"][0].get("unique_ips").is_none());
         let catalog = get(listener, &format!("/{board}/catalog.json")).await;
-        assert_eq!(catalog[0]["threads"][0]["unique_ips"], 2);
+        assert!(catalog[0]["threads"][0].get("unique_ips").is_none());
     }
     assert_eq!(
         get(&app, &format!("/_watch/{board}/thread/{thread}/stats")).await["unique_ips"],

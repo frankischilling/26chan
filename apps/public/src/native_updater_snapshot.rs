@@ -397,7 +397,7 @@ async fn selected(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use board_store::{Board, Post, Thread, ThreadSnapshot, post_media::PostAttachment};
 
@@ -554,10 +554,11 @@ mod tests {
         }
     }
 
-    fn fixture() -> ThreadSnapshot {
+    pub(crate) fn fixture() -> ThreadSnapshot {
         let now = chrono::DateTime::from_timestamp(1_767_225_600, 0).unwrap();
         let id = i64::MAX - 1;
         let board = Board {
+            replies_shown: 5,
             source_order: 1000,
             catalog_enabled: true,
             json_enabled: true,

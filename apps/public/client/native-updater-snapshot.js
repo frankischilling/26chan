@@ -120,7 +120,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       require(attributes[node.tag].includes(key) && typeof value === 'string' && value.length <= (key === 'href' ? 192000 : 4096));
       charge(value);
       if (key === 'class') require(value.split(' ').every(token => classes.has(token) || isPostFlagToken(token) || isCapcodeToken(token))
-        || (comment && node.tag === 'span' && value === 'deadlink'));
+        || value === 'deadlink'); // Its exact inert placement is checked below.
       if (key === 'id') { require(expectedIds.has(value) && !ids.has(value)); ids.add(value); }
       if (key === 'href') require(postLinkUrl(value, context));
       if (key === 'src') require(postMediaUrl(value, context) || postIdentityUrl(value) || postFileAssetUrl(value));
@@ -306,8 +306,9 @@ export function boardPageContext({ origin, board, page, mediaOrigin = '' }) {
 
 export function validateBoardPageSnapshot(snapshot, input, parsed = true) {
   const context = boardPageContext(input);
-  exactKeys(snapshot, ['version', 'board', 'page', 'next_page', 'threads']);
-  require(snapshot.version === 1 && snapshot.board === context.board && snapshot.page === context.page
+  exactKeys(snapshot, ['version', 'board', 'page', 'next_page', 'replies_shown', 'threads']);
+  require(snapshot.version === 2 && snapshot.board === context.board && snapshot.page === context.page
+    && Number.isInteger(snapshot.replies_shown) && snapshot.replies_shown >= 0 && snapshot.replies_shown <= 5
     && (snapshot.next_page === null || (context.page < 999 && snapshot.next_page === context.page + 1))
     && Array.isArray(snapshot.threads) && snapshot.threads.length <= 20
     && (snapshot.threads.length > 0 || snapshot.next_page === null));
@@ -319,7 +320,7 @@ export function validateBoardPageSnapshot(snapshot, input, parsed = true) {
     require(typeof thread.closed === 'boolean' && typeof thread.sticky === 'boolean' && thread.archived === false
       && Number.isInteger(thread.replies) && thread.replies >= 0 && thread.replies <= 1000
       && Number.isInteger(thread.images) && thread.images >= 0 && thread.images <= thread.replies
-      && Array.isArray(thread.posts) && thread.posts.length === Math.min(4, thread.replies + 1)
+      && Array.isArray(thread.posts) && thread.posts.length === 1 + Math.min(thread.replies, snapshot.replies_shown, thread.sticky ? 1 : 5)
       && thread.omitted === thread.replies - (thread.posts.length - 1));
     const postContext = updaterContext({ ...context, thread: thread.thread });
     let previous = 0n;

@@ -94,6 +94,7 @@ fn board() -> Board {
         thread_limit: 100,
         expire_neglected: true,
         threads_per_page: 10,
+        replies_shown: 5,
         worksafe: true,
         archive_retention_seconds: 0,
         archive_limit: 1000,

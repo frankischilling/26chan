@@ -24,7 +24,7 @@ test('index expansion preserves the tail and drafts while fetched replies retain
     }, replies[1]);
     await page.goto('/fixture/');
     const section = page.locator(`#t${thread}`);
-    await expect(section.locator(':scope > .replyContainer')).toHaveCount(3);
+    await expect(section.locator(':scope > .replyContainer')).toHaveCount(5);
     await section.locator(`#pc${replies.at(-1)} details.postActions`).evaluate(element => { element.open = true; });
     await section.locator(`#report${replies.at(-1)}`).fill('owned-tail-form-draft');
     await page.evaluate(thread => { window.ownedTail = [...document.getElementById(`t${thread}`).querySelectorAll(':scope > .postContainer')]; }, thread);
@@ -39,12 +39,12 @@ test('index expansion preserves the tail and drafts while fetched replies retain
     await expect(section.locator(`#p${replies[1]}`)).toHaveClass(/filter-hl/);
     expect(await page.evaluate(() => ownedTail.every(node => document.getElementById(node.id) === node))).toBe(true);
     await expect(section.locator(`#report${replies.at(-1)}`)).toHaveValue('owned-tail-form-draft');
-    for (const id of replies.slice(0, 5)) {
+    for (const id of replies.slice(0, 3)) {
       await expect(section.locator(`#m${id}`)).toBeVisible();
       await expect(section.locator(`#pi${id} > [data-post-menu]`)).toHaveCount(1);
     }
     await section.getByRole('button', { name: `Collapse thread ${thread}`, exact: true }).click();
-    await expect(section.locator(':scope > .replyContainer:visible')).toHaveCount(3);
+    await expect(section.locator(':scope > .replyContainer:visible')).toHaveCount(5);
     await page.setViewportSize({ width: 390, height: 844 });
     await section.getByRole('button', { name: `Expand thread ${thread}`, exact: true }).click();
     await expect(section.locator(':scope > .replyContainer:visible')).toHaveCount(8);
@@ -53,7 +53,7 @@ test('index expansion preserves the tail and drafts while fetched replies retain
       localStorage.setItem('4chan-settings', JSON.stringify({ filter: true, threadExpansion: false }));
       document.dispatchEvent(new Event('4chanSettingsSaved'));
     });
-    await expect(section.locator(':scope > .replyContainer')).toHaveCount(3);
+    await expect(section.locator(':scope > .replyContainer')).toHaveCount(5);
     await expect(section.locator('.rExpanded')).toHaveCount(0);
     expect(await page.evaluate(() => window.ownedTail.every(node => node.isConnected && document.getElementById(node.id) === node))).toBe(true);
     await page.evaluate(() => {

@@ -149,9 +149,10 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .unwrap();
         ids.push((id, reply, expected));
     }
-    // Force a real omitted-reply control in the board HTML. Its destination
-    // remains canonical even when the OP's Reply link carries source context.
-    for _ in 0..2 {
+    // The two existing replies plus four more exceed the default five-reply
+    // preview by one. The omission link stays canonical even when the OP's
+    // Reply link carries source context.
+    for _ in 0..4 {
         posting_fixture::create_post(
             &public,
             &slug,

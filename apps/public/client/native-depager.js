@@ -5,7 +5,7 @@ import { buildPostTree, checkPostTreeIds } from './native-post-tree.js';
 
 export const DEPAGER_PAGE_LIMITS = Object.freeze({
   threads: 20,
-  posts: 80,
+  posts: 120, // At most 20 threads, each with its OP and five preview replies.
   nodes: 100000,
   bytes: 4 * 1024 * 1024,
 });

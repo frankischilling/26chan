@@ -268,7 +268,8 @@ test.describe('unmodified persisted backlink graph', () => {
 
   test('omitted index posts do not acquire rows and missing index quotes do not gain arrows', async ({ page, owned }) => {
     const omitted = await owned.reply('Omitted target');
-    for (let i = 0; i < 3; i++) await owned.reply(`Newer visible reply ${i}`);
+    // Six replies put the target just outside the default five-reply preview.
+    for (let i = 0; i < 4; i++) await owned.reply(`Newer visible reply ${i}`);
     const reply = await owned.reply(`>>${omitted}\n>>${owned.id}\nVisible index source`);
     const requests = observeFetches(page);
     await initialize(page, '/demo/');

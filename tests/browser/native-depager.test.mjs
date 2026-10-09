@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { parseBoardPageSnapshot } from '../../apps/public/client/native-updater-snapshot.js';
-import { DEPAGER_LIMITS, validateDepagerSnapshot } from '../../apps/public/client/native-depager.js';
+import { DEPAGER_LIMITS, DEPAGER_PAGE_LIMITS, validateDepagerSnapshot } from '../../apps/public/client/native-depager.js';
 import { NativeBoardPageTransport } from '../../apps/public/client/native-depager-transport.js';
 
 const origin = 'https://depager.example';
@@ -22,17 +22,17 @@ function post(no, thread, image = false) {
     + '</div></article>';
 }
 
-function wireThread(thread, { image = false, replies = 3 } = {}) {
-  const ids = Array.from({ length: Math.min(4, replies + 1) }, (_, index) => String(BigInt(thread) + BigInt(index)));
+function wireThread(thread, { image = false, replies = 3, repliesShown = 3, sticky = false } = {}) {
+  const ids = Array.from({ length: 1 + Math.min(replies, repliesShown, sticky ? 1 : 5) }, (_, index) => String(BigInt(thread) + BigInt(index)));
   return {
-    thread, closed: false, sticky: false, archived: false, replies, images: image ? 1 : 0,
+    thread, closed: false, sticky, archived: false, replies, images: image ? 1 : 0,
     omitted: replies - (ids.length - 1),
     posts: ids.map((no, index) => ({ no, file_deleted: false, html: post(no, thread, image && index === 1) })),
   };
 }
 
-function wirePage(page = 1, nextPage = null, threads = [wireThread('100')]) {
-  return { version: 1, board, page, next_page: nextPage, threads };
+function wirePage(page = 1, nextPage = null, threads = [wireThread('100')], repliesShown = 3) {
+  return { version: 2, board, page, next_page: nextPage, replies_shown: repliesShown, threads };
 }
 
 function parsedPage(page = 1, nextPage = null, threads = [wireThread('100')], media = '') {
@@ -61,6 +61,63 @@ test('parsed page contract is exact, bounded and uses canonical page progression
     const changed = structuredClone(snapshot); mutate(changed);
     assert.throws(() => validateDepagerSnapshot(changed, { origin, board, page: 1, mediaOrigin: '' }));
   }
+});
+
+test('board preview policy accepts exact configured and sticky counts through raw and parsed validation', () => {
+  for (const repliesShown of [0, 1, 2, 3, 4, 5]) for (const sticky of [false, true]) {
+    for (const replies of [0, 1, 2, 3, 4, 5, 6, 1000]) {
+      const value = wirePage(1, null, [wireThread('9007199254740993', { replies, repliesShown, sticky })], repliesShown);
+      const parsed = parseBoardPageSnapshot(JSON.stringify(value), { origin, board, page: 1 });
+      assert.equal(parsed.status, 'ok', JSON.stringify({ repliesShown, sticky, replies }));
+      const count = 1 + Math.min(replies, repliesShown, sticky ? 1 : 5);
+      assert.equal(parsed.snapshot.replies_shown, repliesShown);
+      assert.equal(parsed.snapshot.threads[0].posts.length, count);
+      assert.equal(parsed.snapshot.threads[0].omitted, replies - count + 1);
+      assert.equal(validateDepagerSnapshot(parsed.snapshot, { origin, board, page: 1 }).cost.posts, count);
+    }
+  }
+});
+
+test('board preview policy rejects stale envelopes and inconsistent counts before DOM work', () => {
+  const healthy = () => wirePage(1, null, [wireThread('100', { replies: 8, repliesShown: 5 })], 5);
+  const mutations = [
+    value => { value.version = 1; },
+    value => { delete value.replies_shown; },
+    ...[-1, 6, 1000, 1.5, '5', null, false].map(limit => value => { value.replies_shown = limit; }),
+    value => { value.extra = 1; },
+    value => { value.threads[0].sticky = true; },
+    value => { value.replies_shown = 3; },
+    value => { value.threads[0].posts.pop(); value.threads[0].omitted++; },
+    value => { value.threads[0].posts.push({ no: '106', file_deleted: false, html: post('106', '100') }); value.threads[0].omitted--; },
+    value => { value.threads[0].omitted++; },
+    value => { value.threads[0].replies = 4; value.threads[0].omitted = -1; },
+    value => { value.threads[0].posts[5].no = '104'; },
+    value => { value.threads[0].posts[5].html = post('105', '100').replace('</blockquote>', '<img src="https://evil.example/tracker" alt=""></blockquote>'); },
+  ];
+  for (const mutate of mutations) {
+    const raw = healthy(); mutate(raw);
+    assert.equal(parseBoardPageSnapshot(JSON.stringify(raw), { origin, board, page: 1 }).status, 'invalid-snapshot');
+  }
+  // The main-thread consumer revalidates the worker result independently.
+  const parsed = parseBoardPageSnapshot(JSON.stringify(healthy()), { origin, board, page: 1 }).snapshot;
+  for (const mutate of mutations.slice(0, -1)) {
+    const changed = structuredClone(parsed); mutate(changed);
+    assert.throws(() => validateDepagerSnapshot(changed, { origin, board, page: 1 }));
+  }
+});
+
+test('board preview maximum is derived from twenty OP-plus-five threads without raising other budgets', () => {
+  const threads = Array.from({ length: 20 }, (_, index) => wireThread(String(100 + 10 * index), { replies: 8, repliesShown: 5 }));
+  const raw = wirePage(1, null, threads, 5);
+  const parsed = parseBoardPageSnapshot(JSON.stringify(raw), { origin, board, page: 1 });
+  assert.equal(parsed.status, 'ok');
+  assert.equal(validateDepagerSnapshot(parsed.snapshot, { origin, board, page: 1 }).cost.posts, 120);
+  assert.deepEqual(DEPAGER_PAGE_LIMITS, { threads: 20, posts: 120, nodes: 100000, bytes: 4194304 });
+  raw.threads.push(wireThread('1000', { replies: 8, repliesShown: 5 }));
+  assert.equal(parseBoardPageSnapshot(JSON.stringify(raw), { origin, board, page: 1 }).status, 'invalid-snapshot');
+  const tooLarge = wirePage(1, null, [wireThread('100', { repliesShown: 5 })], 5);
+  tooLarge.threads[0].posts[0].html += ' '.repeat(4194304);
+  assert.equal(parseBoardPageSnapshot(JSON.stringify(tooLarge), { origin, board, page: 1 }).status, 'invalid-snapshot');
 });
 
 test('Depager aggregate limits keep the public page family finite', () => {
@@ -106,6 +163,27 @@ function parserWorker() {
 function response(url, body, headers = { 'content-type': 'application/json' }) {
   return { status: 200, redirected: false, url, headers: new Headers(headers), body };
 }
+
+test('board-page transport rejects stale raw and forged worker policy metadata', async () => {
+  const url = `${origin}/_watch/${board}/page/1`;
+  for (const source of ['wire', 'worker']) {
+    const raw = wirePage();
+    if (source === 'wire') { raw.version = 1; delete raw.replies_shown; }
+    const transport = new NativeBoardPageTransport({ origin, board,
+      fetcher: async () => response(url, new Response(JSON.stringify(raw)).body),
+      createWorker: () => {
+        const worker = parserWorker();
+        if (source === 'worker') worker.postMessage = function(job) {
+          const parsed = parseBoardPageSnapshot(job.raw, job.context);
+          parsed.snapshot.replies_shown = 0;
+          queueMicrotask(() => this.onmessage?.({ data: parsed }));
+        };
+        return worker;
+      } });
+    assert.deepEqual(await transport.refresh({ page: 1 }), { status: 'invalid-snapshot' });
+    assert.equal(transport.active, null);
+  }
+});
 
 test('board-page transport accepts bounded empty chunks and counts an empty-chunk flood', async () => {
   const url = `${origin}/_watch/${board}/page/1`;
@@ -241,6 +319,38 @@ test('isolated Depager DOM and fixed worker transport behavior', async t => {
       }, { snapshot, config, nextPage, limits, apply, real, media });
       return { context, page, requests, errors };
     }
+
+    await t.test('configured zero and five replies commit complete previews including sticky policy', async () => {
+      for (const repliesShown of [0, 5]) {
+        const raw = wirePage(1, null, [
+          wireThread('100', { replies: 8, repliesShown }),
+          wireThread('200', { replies: 8, repliesShown, sticky: true }),
+        ], repliesShown);
+        const { context, page, errors } = await setup({ raw, real: true });
+        try {
+          await page.evaluate(() => depager.loadMore());
+          assert.equal(await page.locator('#t100 > .postContainer').count(), 1 + repliesShown);
+          assert.equal(await page.locator('#t200 > .postContainer').count(), 1 + Math.min(1, repliesShown));
+          assert.equal(await page.locator('#t100 > .omitted').textContent(), `${8 - repliesShown} posts omitted. View thread`);
+          assert.equal(await page.locator('#t200 > .omitted').textContent(), `${8 - Math.min(1, repliesShown)} posts omitted. View thread`);
+          assert.equal(await page.locator('#owned-draft').inputValue(), 'preserve-me');
+          assert.deepEqual(errors, []);
+        } finally { await context.close(); }
+      }
+    });
+
+    await t.test('stale preview-policy snapshots leave ordinary page navigation and original posts intact', async () => {
+      const raw = wirePage(); raw.version = 1; delete raw.replies_shown;
+      const { context, page, errors } = await setup({ raw, real: true });
+      try {
+        await page.evaluate(() => depager.loadMore());
+        assert.equal(await page.locator('.board > .thread').count(), 1);
+        assert.equal(await page.locator('#owned-draft').inputValue(), 'preserve-me');
+        assert.equal(await page.locator('nav.pages a[rel="next"]').getAttribute('href'), '/demo/1');
+        assert.equal(await page.evaluate(() => originalThread === document.getElementById('t10')), true);
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
 
     await t.test('real transport crosses the fixed worker, omits credentials and preserves original nodes and drafts', async () => {
       const raw = wirePage(1, null, [wireThread('100')]);
