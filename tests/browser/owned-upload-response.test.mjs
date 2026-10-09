@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { chromium } from '@playwright/test';
+import { sendNativeDeletion } from '../../apps/public/client/native-post-deletion.js';
 import { assertOwnedThreadResponse, observeOwnedDeletionResponse, observeOwnedUploadResponse, ownedDeletionResponse, ownedUploadResponse } from './owned-upload-response.mjs';
 
 const response = (status, type, json) => ({ status: () => status, headers: () => ({ 'content-type': type }), json });
@@ -150,6 +151,38 @@ test('invalid deletion statuses cannot enter safe diagnostics', async () => {
       /^Error: Invalid owned response status\.$/);
   }
   assert.deepEqual(messages, []);
+});
+
+test('deletion page capture survives deterministic native transport consumption and abort', async () => {
+  const saved = globalThis.window;
+  const html = (await readFile(new URL('../../apps/public/templates/delete_success.html', import.meta.url), 'utf8'))
+    .replace('{{ board }}', 'demo');
+  const original = new Response(html, { headers: { 'content-type': 'text/html' } });
+  const calls = [], diagnostics = [];
+  const fetcher = async (url, options) => { calls.push({ url, options }); return original; };
+  try {
+    globalThis.window = { fetch: fetcher };
+    const page = { evaluate: async (fn, argument) => fn(argument) };
+    const captured = await observeOwnedDeletionResponse(page, 'http://owned.invalid/demo/imgboard.php',
+      value => diagnostics.push(value));
+    assert.equal(await sendNativeDeletion({ board: 'demo', id: '11', origin: 'http://owned.invalid',
+      fetcher: window.fetch }), true);
+    assert.equal(original.bodyUsed, true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].options.signal.aborted, true);
+    assert.equal(calls[0].url, 'http://owned.invalid/demo/imgboard.php');
+    assert.equal(calls[0].options.method, 'POST');
+    assert.deepEqual([...calls[0].options.body], [['11', 'delete'], ['mode', 'usrdel']]);
+    assert.equal(window.fetch, fetcher);
+    // Read only after the real transport has consumed the original response
+    // and aborted its controller. Observation must not re-fetch the mutation.
+    assert.deepEqual(await captured(), { status: 200, text: html });
+    assert.equal(calls.length, 1);
+    assert.deepEqual(diagnostics, []);
+  } finally {
+    if (saved === undefined) delete globalThis.window;
+    else globalThis.window = saved;
+  }
 });
 
 test('browser capture retains native deletion HTML after actual transport cleanup without another POST', { timeout: 30000 }, async () => {
