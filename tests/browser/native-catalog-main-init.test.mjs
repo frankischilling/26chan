@@ -186,3 +186,40 @@ for (const scenario of ['spoiler', 'clear-search']) test(`actual catalog loader 
   assert.deepEqual(trace, []); sandbox.load();
   assert.deepEqual(trace, scenario === 'spoiler' ? [['render', ''], ['spoilers', true]] : [['search', '']]);
 });
+
+for (const controlName of ['order', 'size', 'teaser', 'spoilers']) test(`rejected catalog snapshots submit ${controlName} changes through the real GET handler`, async () => {
+  const h = fixture(), form = new EventTarget(), submissions = [];
+  const controls = Object.fromEntries(['order', 'size', 'teaser', 'spoilers'].map(name => [name, new EventTarget()]));
+  Object.assign(controls.order, { value: 'alt' }); Object.assign(controls.size, { value: 'small' });
+  Object.assign(controls.teaser, { value: 'on' }); Object.assign(controls.spoilers, { value: 'off' });
+  const current = () => ({ orderby: controls.order.value, large: controls.size.value === 'large', extended: controls.teaser.value === 'on' });
+  form.requestSubmit = () => {
+    const event = new Event('submit', { cancelable: true }); form.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, false, 'the browser must perform the validated GET submission');
+    submissions.push({ ...current(), spoilers: controls.spoilers.value });
+  };
+  let live = true;
+  const forbidden = () => { throw new Error('a rejected catalog must not render, persist or load'); };
+  const sandbox = { ...controls, form, URL, location: { href: 'https://example.test/fixture/catalog', replace: forbidden },
+    current, entries: null, initialSpoilers: false, spoilerControl: true, revealSpoilers: () => controls.spoilers.value === 'on',
+    themePreferences: () => ({}), key: 'catalog-settings', localStorage: { getItem: () => null },
+    livePreferenceControls: () => live, apply: forbidden, applyDisplay: forbidden, save: forbidden, saveSpoilers: forbidden,
+    updateURL: forbidden, searchReady: false, searchControlsReady: false };
+  const submit = preferenceSource.slice(preferenceSource.indexOf("  form.addEventListener('submit'"), preferenceSource.indexOf("  if (spoilerControl) spoilers.addEventListener('change'"));
+  const spoilerHandler = preferenceSource.slice(preferenceSource.indexOf("  if (spoilerControl) spoilers.addEventListener('change'"), preferenceSource.indexOf('  for (const control of [order, size, teaser])'));
+  vm.createContext(sandbox);
+  vm.runInContext('let catalogLoaded = false, pendingDisplay = null, pendingSearch = null, pendingSpoilers = null;\n'
+    + submit + spoilerHandler + displayHandlers + initializers
+    + '\nthis.prepare = prepareCatalog; this.pending = () => [catalogLoaded, pendingDisplay, pendingSpoilers];', sandbox);
+  h.bootstrap.preferences({ current: () => true, prepare: sandbox.prepare, load: forbidden });
+  h.bootstrap.settings(() => null); await tick();
+  assert.deepEqual(h.trace, [], 'failed preparation must not emit MainInit');
+  const control = controls[controlName];
+  control.value = { order: 'r', size: 'large', teaser: 'off', spoilers: 'on' }[controlName];
+  control.dispatchEvent(new Event('change'));
+  assert.equal(submissions.length, 1, 'a rejected snapshot is GET fallback, not a pending native bootstrap');
+  assert.deepEqual(submissions[0], { ...current(), spoilers: controls.spoilers.value });
+  assert.equal(JSON.stringify(sandbox.pending()), '[false,null,null]');
+  live = false; control.dispatchEvent(new Event('change'));
+  assert.equal(submissions.length, 1, 'suspended, replaced or departed controls cannot submit');
+});

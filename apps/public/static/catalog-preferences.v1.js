@@ -763,6 +763,7 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
     if (searchReady) { event.preventDefault(); applySearch(); }
   });
   if (spoilerControl) spoilers.addEventListener('change', () => {
+    if (entries === null) { if (livePreferenceControls()) form.requestSubmit(); return; }
     if (!catalogLoaded) { pendingSpoilers = revealSpoilers(); return; }
     saveSpoilers(revealSpoilers());
     if (apply(current())) updateURL(current());
@@ -771,6 +772,8 @@ export function compareCatalogPriority(a, b, textOnly, aTop, bTop) {
   for (const control of [order, size, teaser]) {
     control.addEventListener('change', () => {
       const value = current();
+      // Rejected metadata uses GET immediately; it is not an unfinished bootstrap.
+      if (entries === null) { if (livePreferenceControls()) form.requestSubmit(); return; }
       if (!catalogLoaded) { pendingDisplay = value; return; }
       if (!apply(value)) { form.requestSubmit(); return; }
       save();
