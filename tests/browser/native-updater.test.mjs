@@ -207,7 +207,7 @@ test('paired staff trip headers survive updater, preview and board-page validati
     for (const post of result.snapshot.posts) assert.doesNotThrow(() => validatePostTree(post.tree, context, post.no));
     assert.equal(parseQuotePreviewSnapshot(JSON.stringify({ version: 1, board: context.board,
       thread: context.thread, post: value.posts[0] }), { ...context, post: context.thread }).status, 'ok');
-    assert.equal(parseBoardPageSnapshot(JSON.stringify({ version: 1, board: context.board, page: 0, next_page: null,
+    assert.equal(parseBoardPageSnapshot(JSON.stringify({ version: 2, board: context.board, page: 0, next_page: null, replies_shown: 3,
       threads: [{ thread: context.thread, closed: false, sticky: false, archived: false, replies: 1,
         images: 0, omitted: 0, posts: value.posts }] }), { ...context, page: 0 }).status, 'ok');
     const mismatched = structuredClone(value);
@@ -243,7 +243,7 @@ test('authorized names and subjects survive worker parsing and live tree validat
     for (const post of result.snapshot.posts) assert.doesNotThrow(() => validatePostTree(post.tree, context, post.no));
     const preview = { version: 1, board: context.board, thread: context.thread, post: value.posts[0] };
     assert.equal(parseQuotePreviewSnapshot(JSON.stringify(preview), { ...context, post: context.thread }).status, 'ok');
-    const page = { version: 1, board: context.board, page: 0, next_page: null, threads: [{
+    const page = { version: 2, board: context.board, page: 0, next_page: null, replies_shown: 3, threads: [{
       thread: context.thread, closed: false, sticky: false, archived: false, replies: 1,
       images: 0, omitted: 0, posts: value.posts,
     }] };

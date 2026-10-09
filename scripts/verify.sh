@@ -13,6 +13,8 @@ export APP_ENV=development
 : "${MONITOR_DATABASE_URL:?Set the disposable aggregate observer database URL}"
 : "${AUTH_DATABASE_URL:?Set the disposable authentication test database URL}"
 : "${STAFF_DATABASE_URL:?Set the disposable staff test database URL}"
+python3 scripts/extract-preview-policy-reference.py
+python3 scripts/test-preview-policy-reference.py
 python3 scripts/extract-quote-resolution-reference.py
 python3 scripts/test-quote-resolution-reference.py
 python3 scripts/extract-navigation-reference.py

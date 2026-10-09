@@ -50,7 +50,7 @@ async fn page(app: &Router, path: &str) -> (serde_json::Value, String) {
 }
 
 #[tokio::test]
-async fn native_pages_keep_coherent_order_three_reply_previews_exact_ids_and_private_authority() {
+async fn native_pages_keep_coherent_source_previews_exact_ids_and_private_authority() {
     let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -81,14 +81,15 @@ async fn native_pages_keep_coherent_order_three_reply_previews_exact_ids_and_pri
         let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
         let first_path = format!("/_watch/{fixture}/page/0");
         let (first, initial_tag) = page(&app, &first_path).await;
-        assert_eq!(first.as_object().unwrap().len(), 5);
+        assert_eq!(first.as_object().unwrap().len(), 6);
+        assert_eq!(first["version"], 2); assert_eq!(first["replies_shown"], 5);
         assert_eq!(first["page"], 0); assert_eq!(first["next_page"], 1);
         let first_thread = &first["threads"][0];
         assert_eq!(first_thread["thread"], (base+10).to_string());
         assert_eq!(first_thread["sticky"], true);
-        assert_eq!(first_thread["replies"], 5); assert_eq!(first_thread["images"], 0); assert_eq!(first_thread["omitted"], 2);
+        assert_eq!(first_thread["replies"], 5); assert_eq!(first_thread["images"], 0); assert_eq!(first_thread["omitted"], 4);
         assert_eq!(first_thread["posts"].as_array().unwrap().iter().map(|post| post["no"].as_str().unwrap()).collect::<Vec<_>>(),
-            [base+10,base+13,base+14,base+16].map(|id| id.to_string()));
+            [base+10,base+16].map(|id| id.to_string()));
         let html = first_thread["posts"][0]["html"].as_str().unwrap();
         assert!(html.contains("<s>")); assert!(!html.contains("<img src=x")); assert!(!html.contains("<script>subject"));
         assert!(html.contains(&format!("action=\"/{fixture}/delete\"")));
@@ -111,8 +112,8 @@ async fn native_pages_keep_coherent_order_three_reply_previews_exact_ids_and_pri
         let preview_html = response(&app, "GET", &format!("/{fixture}/0"), None).await.2;
         assert!(std::str::from_utf8(&preview_html).unwrap().contains(html));
         let (json_page, _) = page(&app, &format!("/{fixture}/1.json")).await;
-        assert_eq!(json_page["threads"][0]["posts"].as_array().unwrap().len(), 6,
-            "The public JSON five-reply contract is distinct from native HTML previews");
+        assert_eq!(json_page["threads"][0]["posts"].as_array().unwrap().len(), 2,
+            "Public JSON and native HTML share the source sticky-one preview policy");
 
         let mut tx = admin.begin().await.unwrap();
         sqlx::query("UPDATE content.threads SET sticky=false WHERE id=$1").bind(base+10).execute(&mut *tx).await.unwrap();
@@ -124,7 +125,7 @@ async fn native_pages_keep_coherent_order_three_reply_previews_exact_ids_and_pri
         assert_eq!(serde_json::from_slice::<serde_json::Value>(&changed.2).unwrap()["threads"][0]["thread"], (base+20).to_string());
         let (changed_tail, _) = page(&app, &format!("/_watch/{fixture}/page/1")).await;
         assert_eq!(changed_tail["threads"][0]["replies"], 4);
-        assert_eq!(changed_tail["threads"][0]["omitted"], 1);
+        assert_eq!(changed_tail["threads"][0]["omitted"], 0);
 
         let limits = board_config::PublicRequestLimits::from_lookup(|name| {
             (name == "PUBLIC_MAX_RESPONSE_BYTES").then(|| "4096".to_owned())

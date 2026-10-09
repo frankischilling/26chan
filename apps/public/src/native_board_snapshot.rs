@@ -18,6 +18,7 @@ const MAX_BYTES: usize = 4_194_304;
 #[derive(Serialize)]
 struct Page {
     version: u8,
+    replies_shown: i32,
     board: String,
     page: u16,
     next_page: Option<u16>,
@@ -52,7 +53,11 @@ fn encode(
 ) -> Result<board_http::EncodedResponse, AppError> {
     let board = snapshot.board;
     let spoiler_thumbnail = crate::views::spoilers::choose_thumbnail(&board);
-    if page > 999 || snapshot.threads.len() > 20 || (page == 999 && snapshot.has_next) {
+    if !(0..=5).contains(&board.replies_shown)
+        || page > 999
+        || snapshot.threads.len() > 20
+        || (page == 999 && snapshot.has_next)
+    {
         return Err(unavailable());
     }
     let mut threads = Vec::with_capacity(snapshot.threads.len());
@@ -60,6 +65,7 @@ fn encode(
     let mut ids = BTreeSet::new();
     for preview in snapshot.threads {
         let thread = preview.thread;
+        let maximum_posts = 1 + board.preview_reply_limit(thread.sticky);
         if thread.id <= 0
             || thread.deleted
             || thread.archived_at.is_some()
@@ -67,10 +73,11 @@ fn encode(
             || !(1..=1001).contains(&preview.visible_posts)
             || !(0..preview.visible_posts).contains(&preview.visible_images)
             || preview.posts.is_empty()
-            || preview.posts.len() > 4
+            || preview.posts.len() > maximum_posts
             || preview.posts[0].id != thread.id
             || preview.posts.len()
-                != usize::try_from(preview.visible_posts.min(4)).map_err(|_| unavailable())?
+                != usize::try_from(preview.visible_posts.min(maximum_posts as i64))
+                    .map_err(|_| unavailable())?
             || preview.posts.iter().any(|post| {
                 post.deleted
                     || post.board != board.slug
@@ -119,7 +126,8 @@ fn encode(
         });
     }
     let result = Page {
-        version: 1,
+        version: 2,
+        replies_shown: board.replies_shown,
         board: board.slug,
         page,
         next_page: snapshot.has_next.then_some(page + 1),
@@ -145,11 +153,10 @@ pub(crate) async fn get(
         .ok()
         .filter(|page| *page <= 999 && page.to_string() == key)
         .ok_or(AppError(StatusCode::NOT_FOUND, "Page not found."))?;
-    let snapshot = board_store::board_snapshot(
+    let snapshot = board_store::source_board_snapshot(
         &state.pool,
         &board,
         board_store::BoardSelection::Page(i64::from(page) + 1),
-        Some(3),
     )
     .await?;
     let media = state

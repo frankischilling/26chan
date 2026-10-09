@@ -16,7 +16,7 @@ function updater(context, value) {
     sticky: false, replies: 0, images: 0, posts: [value], tail_size: 0, tail_id: null };
 }
 function page(context, value) {
-  return { version: 1, board: context.board, page: 0, next_page: null, threads: [{ thread: context.thread,
+  return { version: 2, board: context.board, page: 0, next_page: null, replies_shown: 3, threads: [{ thread: context.thread,
     closed: false, sticky: false, archived: false, replies: 0, images: 0, omitted: 0, posts: [value] }] };
 }
 function replyLink(tree) {
