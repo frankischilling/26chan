@@ -30,8 +30,8 @@ test('membership uses retained process handle and this exact owned job', () => {
   const release = runner.indexOf("New-Item -ItemType File -Path (Join-Path $directory 'release-parent')");
   const after = runner.lastIndexOf('$child.InspectOwnership($descendant)');
   assert.ok(before >= 0 && release > before && after > release);
-  assert.match(runner, /\$before\.ActiveProcesses -ne 2/);
-  assert.match(runner, /\$after\.ActiveProcesses -ne 1/);
+  assert.match(runner, /-not \$before\.RolesQualified\(\$true\)/);
+  assert.match(runner, /-not \$after\.RolesQualified\(\$false\)/);
 });
 
 test('post-root live descendant blocks completion and job kill must terminate it', () => {
@@ -59,7 +59,7 @@ test('failed acknowledgement still reaches unconditional job and handle disposal
 test('ownership snapshots precede both hard assertions and preserve exact membership', () => {
   assert.match(helper, /RootMembershipObserved = !rootExited/);
   assert.match(helper, /RootInJob = !rootExited && ContainsProcess\(process\)/);
-  assert.match(helper, /DescendantInJob = ContainsProcess\(candidate\)/);
+  assert.match(helper, /DescendantInJob = !descendantExited && ContainsProcess\(candidate\)/);
   assert.match(helper, /Marshal.SizeOf<Accounting>\(\) == 48/);
   assert.match(helper, /Marshal.OffsetOf<Accounting>\("ActiveProcesses"\).ToInt64\(\) == 40/);
   assert.ok(runner.indexOf("Write-OwnedState -Stage 'before-parent-release'") < runner.indexOf('if ($before.RootExited'));
@@ -72,7 +72,43 @@ test('ownership snapshots precede both hard assertions and preserve exact member
 test('ownership diagnostics expose only fixed enums, booleans and job counts', () => {
   const diagnostic = runner.slice(runner.indexOf('function Write-OwnedState'), runner.indexOf('try {'));
   const keys = [...diagnostic.matchAll(/(?:^|[;\n])\s*([a-z_]+)=/g)].map(match => match[1]);
-  assert.deepEqual(keys, ['type', 'schema', 'stage', 'root_exited', 'root_in_job', 'root_membership_observed', 'descendant_exited', 'descendant_in_job', 'accounting_layout_valid', 'active_processes', 'total_processes', 'terminated_processes']);
+  assert.deepEqual(keys, ['type', 'schema', 'stage', 'root_exited', 'root_in_job', 'root_membership_observed', 'descendant_exited', 'descendant_in_job', 'accounting_layout_valid', 'active_processes', 'total_processes', 'terminated_processes', 'process_list_complete', 'process_counts_consistent', 'enumerated_processes', 'root_role_count', 'descendant_role_count', 'console_host_role_count', 'unknown_role_count', 'unavailable_role_count']);
   assert.doesNotMatch(diagnostic, /\.(Id|Handle|Path|Message)|\$_/);
-  assert.match(diagnostic, /ValidateSet\('before-parent-release','after-parent-exit'\)/);
+  assert.match(diagnostic, /ValidateSet\('before-parent-release','after-parent-exit','after-job-termination'\)/);
+});
+
+
+test('exact job enumeration is fixed-capacity, complete and race-checked', () => {
+  assert.match(helper, /const int capacity = 16/);
+  assert.match(helper, /QueryJobProcessIds\(job, 3, buffer/);
+  assert.match(helper, /assigned != listed \|\| listed > capacity/);
+  assert.match(helper, /!seen.Add\(id\)/);
+  assert.match(helper, /listed == snapshot.ActiveProcesses && after.ActiveProcesses == snapshot.ActiveProcesses/);
+  assert.match(helper, /after.TotalProcesses == snapshot.TotalProcesses && after.TerminatedProcesses == snapshot.TerminatedProcesses/);
+  assert.match(helper, /finally \{ Marshal.FreeHGlobal\(buffer\); \}/);
+});
+
+test('console-host classification requires a live exact-job member and full OS system image path', () => {
+  assert.match(helper, /OpenProcess\(0x00101000, false/);
+  assert.match(helper, /IsProcessInJob\(member, job, out belongs\)/);
+  assert.match(helper, /WaitForSingleObject\(member, 0\) != 258/);
+  assert.match(helper, /GetSystemDirectoryW\(system/);
+  assert.match(helper, /QueryFullProcessImageNameW\(member, 0, image/);
+  assert.match(helper, /String.Equals\(image, Path.Combine\(systemDirectory, "conhost.exe"\), StringComparison.OrdinalIgnoreCase\)/);
+  assert.doesNotMatch(helper, /GetFileName|EndsWith|StartsWith/);
+  assert.match(helper, /finally \{ Check\(CloseHandle\(member\)\); \}/);
+});
+
+test('role guards reject unknown or unavailable members and require all roles gone after kill', () => {
+  assert.match(helper, /ProcessListComplete && ProcessCountsConsistent && EnumeratedProcesses <= 16/);
+  assert.match(helper, /UnknownRoleCount == 0 && UnavailableRoleCount == 0/);
+  assert.match(helper, /RootRoleCount == \(rootExpected \? 1u : 0u\) && DescendantRoleCount == 1/);
+  assert.match(helper, /EnumeratedProcesses == RootRoleCount \+ DescendantRoleCount \+ ConsoleHostRoleCount/);
+  assert.match(runner, /\$stopped.ActiveProcesses -ne 0 -or \$stopped.EnumeratedProcesses -ne 0/);
+});
+
+test('hosted classifier tests cover path impostors and incomplete synthetic role evidence', () => {
+  for (const value of ['conhost.exe.evil', 'evilconhost.exe', 'sub\\conhost.exe', 'C:\\fake\\conhost.exe', '..\\System32\\conhost.exe']) assert.ok(runner.includes(value));
+  for (const value of ['ProcessListComplete', 'ProcessCountsConsistent', 'UnknownRoleCount', 'UnavailableRoleCount', 'RootRoleCount', 'DescendantRoleCount', 'ConsoleHostRoleCount', 'ActiveProcesses', 'EnumeratedProcesses']) assert.ok(runner.includes(`'${value}'`));
+  assert.match(runner, /Over-capacity role evidence admitted/);
 });

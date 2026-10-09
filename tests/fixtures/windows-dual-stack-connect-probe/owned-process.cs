@@ -2,6 +2,8 @@
 // kill-on-close Job Object; no child code runs before containment is established.
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
+using System.IO;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -45,6 +47,10 @@ public sealed class DualStackOwnedProcess : IDisposable
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool QueryInformationJobObject(IntPtr job, int informationClass, out Accounting info, uint size, IntPtr returned);
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool IsProcessInJob(IntPtr process, IntPtr job, out bool member);
+    [DllImport("kernel32.dll", EntryPoint = "QueryInformationJobObject", SetLastError = true)] static extern bool QueryJobProcessIds(IntPtr job, int informationClass, IntPtr info, uint size, IntPtr returned);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr OpenProcess(uint access, bool inherit, uint id);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool QueryFullProcessImageNameW(IntPtr process, uint flags, StringBuilder path, ref uint size);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern uint GetSystemDirectoryW(StringBuilder path, uint size);
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool TerminateJobObject(IntPtr job, uint exitCode);
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool TerminateProcess(IntPtr process, uint exitCode);
     [DllImport("kernel32.dll", SetLastError = true)] static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
@@ -122,23 +128,96 @@ public sealed class DualStackOwnedProcess : IDisposable
     public sealed class OwnershipSnapshot {
         public bool RootExited, RootInJob, RootMembershipObserved, DescendantExited, DescendantInJob, AccountingLayoutValid;
         public uint ActiveProcesses, TotalProcesses, TerminatedProcesses;
+        public bool ProcessListComplete, ProcessCountsConsistent;
+        public uint EnumeratedProcesses, RootRoleCount, DescendantRoleCount, ConsoleHostRoleCount, UnknownRoleCount, UnavailableRoleCount;
+        public bool RolesQualified(bool rootExpected) {
+            return ProcessListComplete && ProcessCountsConsistent && EnumeratedProcesses <= 16 &&
+                UnknownRoleCount == 0 && UnavailableRoleCount == 0 &&
+                RootRoleCount == (rootExpected ? 1u : 0u) && DescendantRoleCount == 1 &&
+                ConsoleHostRoleCount <= 16 &&
+                EnumeratedProcesses == RootRoleCount + DescendantRoleCount + ConsoleHostRoleCount &&
+                ActiveProcesses == EnumeratedProcesses;
+        }
     }
     // Bounded read-only diagnostics. No process IDs, handles or paths are exposed.
     public OwnershipSnapshot InspectOwnership(Process candidate) {
         Accounting info;
         Check(QueryInformationJobObject(job, 1, out info, (uint)Marshal.SizeOf<Accounting>(), IntPtr.Zero));
         bool rootExited = process.HasExited;
-        return new OwnershipSnapshot {
+        bool descendantExited = candidate.HasExited;
+        var snapshot = new OwnershipSnapshot {
             RootExited = rootExited,
             RootMembershipObserved = !rootExited,
             RootInJob = !rootExited && ContainsProcess(process),
-            DescendantExited = candidate.HasExited,
-            DescendantInJob = ContainsProcess(candidate),
+            DescendantExited = descendantExited,
+            DescendantInJob = !descendantExited && ContainsProcess(candidate),
             AccountingLayoutValid = Marshal.SizeOf<Accounting>() == 48 && Marshal.OffsetOf<Accounting>("ActiveProcesses").ToInt64() == 40,
             ActiveProcesses = info.ActiveProcesses,
             TotalProcesses = info.TotalProcesses,
             TerminatedProcesses = info.TerminatedProcesses
         };
+        InspectRoles(snapshot, candidate);
+        return snapshot;
+    }
+    public static bool IsExpectedConsoleHost(string image, string systemDirectory) {
+        return !String.IsNullOrEmpty(systemDirectory) && String.Equals(image, Path.Combine(systemDirectory, "conhost.exe"), StringComparison.OrdinalIgnoreCase);
+    }
+    void InspectRoles(OwnershipSnapshot snapshot, Process candidate) {
+        // Single fixed-capacity query. A larger or changing job is inconclusive;
+        // never resize/retry or enumerate unrelated system processes.
+        const int capacity = 16;
+        int bytes = 8 + capacity * IntPtr.Size;
+        IntPtr buffer = Marshal.AllocHGlobal(bytes);
+        try {
+            if (!QueryJobProcessIds(job, 3, buffer, (uint)bytes, IntPtr.Zero)) return;
+            uint assigned = unchecked((uint)Marshal.ReadInt32(buffer, 0));
+            uint listed = unchecked((uint)Marshal.ReadInt32(buffer, 4));
+            if (assigned != listed || listed > capacity) return;
+            snapshot.ProcessListComplete = true;
+            snapshot.EnumeratedProcesses = listed;
+            var seen = new HashSet<long>();
+            var system = new StringBuilder(1024);
+            uint systemLength = GetSystemDirectoryW(system, (uint)system.Capacity);
+            string systemDirectory = systemLength > 0 && systemLength < system.Capacity ? system.ToString() : null;
+            for (int index = 0; index < listed; index++) {
+                long id = Marshal.ReadIntPtr(buffer, 8 + index * IntPtr.Size).ToInt64();
+                if (id <= 0 || id > int.MaxValue || !seen.Add(id)) {
+                    snapshot.ProcessListComplete = false; snapshot.UnavailableRoleCount++; continue;
+                }
+                if (id == process.Id) {
+                    if (!snapshot.RootExited && snapshot.RootInJob) snapshot.RootRoleCount++;
+                    else snapshot.UnavailableRoleCount++;
+                    continue;
+                }
+                if (id == candidate.Id) {
+                    if (!snapshot.DescendantExited && snapshot.DescendantInJob) snapshot.DescendantRoleCount++;
+                    else snapshot.UnavailableRoleCount++;
+                    continue;
+                }
+                // Query-only plus synchronization rights; this handle is never
+                // used to terminate a process. Only the owned job is terminated.
+                IntPtr member = OpenProcess(0x00101000, false, (uint)id);
+                if (member == IntPtr.Zero) { snapshot.UnavailableRoleCount++; continue; }
+                try {
+                    bool belongs;
+                    if (!IsProcessInJob(member, job, out belongs) || !belongs || WaitForSingleObject(member, 0) != 258) {
+                        snapshot.UnavailableRoleCount++; continue;
+                    }
+                    var image = new StringBuilder(1024);
+                    uint length = (uint)image.Capacity;
+                    if (systemDirectory == null || !QueryFullProcessImageNameW(member, 0, image, ref length) || length == 0 || length >= image.Capacity) {
+                        snapshot.UnavailableRoleCount++; continue;
+                    }
+                    // Full OS-resolved system path only. A basename or prefix
+                    // match must never admit a different image.
+                    if (IsExpectedConsoleHost(image.ToString(), systemDirectory)) snapshot.ConsoleHostRoleCount++;
+                    else snapshot.UnknownRoleCount++;
+                } finally { Check(CloseHandle(member)); }
+            }
+            Accounting after;
+            Check(QueryInformationJobObject(job, 1, out after, (uint)Marshal.SizeOf<Accounting>(), IntPtr.Zero));
+            snapshot.ProcessCountsConsistent = listed == snapshot.ActiveProcesses && after.ActiveProcesses == snapshot.ActiveProcesses && after.TotalProcesses == snapshot.TotalProcesses && after.TerminatedProcesses == snapshot.TerminatedProcesses;
+        } finally { Marshal.FreeHGlobal(buffer); }
     }
     public bool WaitForExit(int milliseconds) {
         var watch = Stopwatch.StartNew();
