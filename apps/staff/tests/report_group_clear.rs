@@ -532,18 +532,289 @@ async fn authority_expiry_while_waiting_rolls_back_clear_and_audit() {
 async fn cleared_history_is_board_scoped_bounded_and_ignores_live_post_state() {
     let _serial = TEST.lock().await;
     let f = Fixture::new().await;
+    let result = tokio::spawn({
+        let f = f.clone();
+        async move {
+            let mut ids = Vec::new();
+            for _ in 0..101 {
+                ids.push(f.report(0, "open", 61, true, true).await);
+            }
+            assert_eq!(f.clear(0).await.0, StatusCode::OK);
+            sqlx::query("UPDATE content.posts SET comment='PRIVATE LIVE POST CONTENT' WHERE id=$1")
+                .bind(f.posts[0])
+                .execute(&f.owner)
+                .await
+                .unwrap();
+            let response = f
+                .request(&format!("/reports/cleared?board={}", f.boards[0]), None)
+                .await;
+            assert_eq!(response.0, StatusCode::OK);
+            assert!(!response.1.contains("PRIVATE LIVE POST CONTENT"));
+            assert_eq!(
+                response.1.matches("Originating clear account:").count(),
+                100
+            );
+            // Use unique report IDs, not repeated reasons, to prove newest-first cap.
+            assert!(!response.1.contains(&format!("id=\"report-{}\"", ids[0])));
+            assert!(response.1.contains(&format!("id=\"report-{}\"", ids[100])));
+        }
+    })
+    .await;
+    f.cleanup().await;
+    result.unwrap();
+}
+
+impl Fixture {
+    async fn moderate(&self, board: usize, target: i64, action: &str) -> StatusCode {
+        self.request(
+            "/moderate",
+            Some(format!(
+                "csrf={}&board={}&target={target}&action={action}",
+                self.csrf, self.boards[board]
+            )),
+        )
+        .await
+        .0
+    }
+}
+
+#[tokio::test]
+async fn whole_deletion_removes_queue_and_clear_history_but_preserves_audit_and_content() {
+    let _serial = TEST.lock().await;
+    let f = Fixture::new().await;
+    let result = tokio::spawn({
+        let f = f.clone();
+        async move {
+            let mut deleted = Vec::new();
+            for (index, state) in ["open", "resolved", "dismissed"].iter().enumerate() {
+                deleted.push(f.report(0, state, 70 + index as u8, true, true).await);
+            }
+            assert_eq!(f.clear(0).await.0, StatusCode::OK);
+            deleted.push(f.report(0, "open", 74, false, false).await);
+            let other = f.report(1, "open", 75, true, true).await;
+            let queue = f.request("/reports", None).await;
+            assert!(queue.1.contains(&format!("id=\"report-{}\"", deleted[3])));
+            assert_eq!(
+                f.moderate(0, f.posts[0], "remove-thread").await,
+                StatusCode::SEE_OTHER
+            );
+            let queue = f.request("/reports", None).await;
+            assert_eq!(queue.0, StatusCode::OK);
+            assert!(queue.1.contains(&format!("id=\"report-{other}\"")));
+            for id in deleted {
+                assert!(!queue.1.contains(&format!("id=\"report-{id}\"")));
+            }
+            let history = f
+                .request(&format!("/reports/cleared?board={}", f.boards[0]), None)
+                .await;
+            assert_eq!(history.0, StatusCode::OK);
+            assert!(!history.1.contains("Originating clear account:"));
+            let rows: i64 =
+                sqlx::query_scalar("SELECT count(*) FROM content.reports WHERE board=$1")
+                    .bind(&f.boards[0])
+                    .fetch_one(&f.owner)
+                    .await
+                    .unwrap();
+            assert_eq!(rows, 0);
+            let actions: Vec<String> = sqlx::query_scalar(
+                "SELECT action FROM content.moderation_audit WHERE account_id=$1 ORDER BY id",
+            )
+            .bind(f.account)
+            .fetch_all(&f.owner)
+            .await
+            .unwrap();
+            assert_eq!(actions, vec!["report-group-clear", "remove-thread"]);
+            let content: (bool, String) =
+                sqlx::query_as("SELECT deleted,comment FROM content.posts WHERE id=$1")
+                    .bind(f.posts[0])
+                    .fetch_one(&f.owner)
+                    .await
+                    .unwrap();
+            assert_eq!(content, (true, "Scope fixture".into()));
+        }
+    })
+    .await;
+    f.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn historical_deleted_targets_are_hidden_and_reject_stale_disposition_actions() {
+    let _serial = TEST.lock().await;
+    let f = Fixture::new().await;
+    let result = tokio::spawn({
+        let f = f.clone();
+        async move {
+            // Seed legacy retained records AFTER transitions, without membership.
+            // One post flag and one thread flag independently hide the queue entry.
+            sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
+                .bind(f.posts[0])
+                .execute(&f.owner)
+                .await
+                .unwrap();
+            sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1")
+                .bind(f.posts[1])
+                .execute(&f.owner)
+                .await
+                .unwrap();
+            let ids = [
+                f.report(0, "open", 80, false, false).await,
+                f.report(1, "resolved", 81, false, false).await,
+            ];
+            let before = f.snapshot(false).await;
+            let queue = f.request("/reports", None).await;
+            assert_eq!(queue.0, StatusCode::OK);
+            for (board, id) in ids.into_iter().enumerate() {
+                assert!(!queue.1.contains(&format!("id=\"report-{id}\"")));
+                for action in ["resolve", "dismiss"] {
+                    assert_eq!(f.moderate(board, id, action).await, StatusCode::NOT_FOUND);
+                }
+            }
+            assert_eq!(
+                f.snapshot(false).await,
+                before,
+                "Read guards do not perform a historical sweep"
+            );
+            assert_eq!(f.audit_count().await, 0);
+            sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
+                .bind(f.posts[0])
+                .execute(&f.owner)
+                .await
+                .unwrap();
+            sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1")
+                .bind(f.posts[1])
+                .execute(&f.owner)
+                .await
+                .unwrap();
+            assert_eq!(
+                f.snapshot(false).await,
+                before,
+                "Only fresh false-to-true transitions clean rows"
+            );
+        }
+    })
+    .await;
+    f.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn deletion_audit_failure_rolls_back_reports_cascades_and_clear_history() {
+    let _serial = TEST.lock().await;
+    let f = Fixture::new().await;
+    let function = format!("report_delete_fault_{}", f.boards[0]);
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE FUNCTION content.{function}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'owned deletion audit failure'; END $$; CREATE TRIGGER {function} BEFORE INSERT ON content.moderation_audit FOR EACH ROW WHEN (NEW.board='{}' AND NEW.action='remove-thread') EXECUTE FUNCTION content.{function}()",f.boards[0]))).execute(&f.owner).await.unwrap();
     let result=tokio::spawn({let f=f.clone();async move {
-        let mut ids=Vec::new();
-        for _ in 0..101 {ids.push(f.report(0,"open",61,true,true).await);}
+        f.report(0,"dismissed",90,true,true).await;
         assert_eq!(f.clear(0).await.0,StatusCode::OK);
-        sqlx::query("UPDATE content.posts SET comment='PRIVATE LIVE POST CONTENT',deleted=true WHERE id=$1").bind(f.posts[0]).execute(&f.owner).await.unwrap();
-        let response=f.request(&format!("/reports/cleared?board={}",f.boards[0]),None).await;
-        assert_eq!(response.0,StatusCode::OK);
-        assert!(!response.1.contains("PRIVATE LIVE POST CONTENT"));
-        assert_eq!(response.1.matches("Originating clear account:").count(),100);
-        // Use unique report IDs, not repeated reasons, to prove newest-first cap.
-        assert!(!response.1.contains(&format!("id=\"report-{}\"",ids[0])));
-        assert!(response.1.contains(&format!("id=\"report-{}\"",ids[100])));
+        let before=f.snapshot(false).await;
+        assert_eq!(f.moderate(0,f.posts[0],"remove-thread").await,StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(f.snapshot(false).await,before);
+        assert_eq!(f.audit_count().await,1);
+        let deleted:bool=sqlx::query_scalar("SELECT p.deleted OR t.deleted FROM content.posts p JOIN content.threads t ON t.id=p.thread_id WHERE p.id=$1").bind(f.posts[0]).fetch_one(&f.owner).await.unwrap();
+        assert!(!deleted);
+    }}).await;
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+        "DROP TRIGGER {function} ON content.moderation_audit; DROP FUNCTION content.{function}()"
+    )))
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    assert_eq!(
+        f.moderate(0, f.posts[0], "remove-thread").await,
+        StatusCode::SEE_OTHER
+    );
+    f.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn group_clear_and_whole_deletion_serialize_in_both_lock_orders() {
+    let _serial = TEST.lock().await;
+    let f = Fixture::new().await;
+    let result = tokio::spawn({
+        let f = f.clone();
+        async move {
+            for board in 0..2 {
+                f.report(board, "open", 100 + board as u8, true, true).await;
+                let mut first = f.staff.begin().await.unwrap();
+                let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+                    .fetch_one(&mut *first)
+                    .await
+                    .unwrap();
+                sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+                    .bind(&f.boards[board])
+                    .execute(&mut *first)
+                    .await
+                    .unwrap();
+                if board == 0 {
+                    // Hold the production clear's board lock through its commit.
+                    sqlx::query("SELECT content.clear_report_group($1,$2,$3)")
+                        .bind(&f.boards[board])
+                        .bind(f.posts[board])
+                        .bind(f.account)
+                        .execute(&mut *first)
+                        .await
+                        .unwrap();
+                    let pending = tokio::spawn({
+                        let f = f.clone();
+                        async move { f.moderate(0, f.posts[0], "remove-thread").await }
+                    });
+                    wait_for_content_lock(&f.owner, blocker).await;
+                    first.commit().await.unwrap();
+                    assert_eq!(pending.await.unwrap(), StatusCode::SEE_OTHER);
+                } else {
+                    sqlx::query("UPDATE content.threads SET deleted=true WHERE board=$1 AND id=$2")
+                        .bind(&f.boards[board])
+                        .bind(f.posts[board])
+                        .execute(&mut *first)
+                        .await
+                        .unwrap();
+                    let pending = tokio::spawn({
+                        let f = f.clone();
+                        async move { f.clear(1).await }
+                    });
+                    wait_for_content_lock(&f.owner, blocker).await;
+                    first.commit().await.unwrap();
+                    assert_eq!(pending.await.unwrap().0, StatusCode::NOT_FOUND);
+                }
+                let reports: i64 =
+                    sqlx::query_scalar("SELECT count(*) FROM content.reports WHERE board=$1")
+                        .bind(&f.boards[board])
+                        .fetch_one(&f.owner)
+                        .await
+                        .unwrap();
+                assert_eq!(reports, 0);
+            }
+        }
+    })
+    .await;
+    f.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn archive_and_file_only_keep_report_rows_visible_and_actionable() {
+    let _serial = TEST.lock().await;
+    let f = Fixture::new().await;
+    let result=tokio::spawn({let f=f.clone();async move {
+        let archived=f.report(0,"open",110,true,true).await;
+        let file=f.report(1,"open",111,true,true).await;
+        sqlx::query("UPDATE content.boards SET archive_retention_seconds=3600 WHERE slug=$1").bind(&f.boards[0]).execute(&f.owner).await.unwrap();
+        sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1").bind(f.posts[0]).execute(&f.owner).await.unwrap();
+        sqlx::query("INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler) VALUES($1,replace(gen_random_uuid()::text,'-',''),replace(gen_random_uuid()::text,'-',''),'owned.png',1,1,1,false)")
+            .bind(f.posts[1]).execute(&f.owner).await.unwrap();
+        assert_eq!(f.moderate(1,f.posts[1],"remove-file").await,StatusCode::SEE_OTHER);
+        let queue=f.request("/reports",None).await;
+        assert_eq!(queue.0,StatusCode::OK);
+        for (board,id) in [archived,file].into_iter().enumerate() {
+            assert!(queue.1.contains(&format!("id=\"report-{id}\"")));
+            for action in ["resolve","dismiss"] {
+                assert_eq!(f.moderate(board,id,action).await,StatusCode::SEE_OTHER);
+            }
+            let state:String=sqlx::query_scalar("SELECT state FROM content.reports WHERE id=$1").bind(id).fetch_one(&f.owner).await.unwrap();
+            assert_eq!(state,"dismissed");
+        }
     }}).await;
     f.cleanup().await;
     result.unwrap();
