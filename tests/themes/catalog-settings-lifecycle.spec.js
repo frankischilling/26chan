@@ -246,7 +246,11 @@ test('catalog watcher and drop-down options apply and clear the actual mounted c
   const boardList = page.getByRole('dialog', { name: 'Custom Board List', exact: true }); await expect(boardList).toBeVisible();
   await boardList.getByLabel('Boards', { exact: true }).fill('settingsui demo');
   await boardList.getByRole('button', { name: 'Save board list', exact: true }).click(); await expect(boardList).toHaveCount(0);
-  expect(await bar.locator('option').evaluateAll(options => options.map(option => option.value))).toEqual(['demo', 'f', 'settingsui', 'zed']);
+  // The dropdown follows source-header membership plus its marked current-board
+  // fallback. Saving a custom list changes the separate shortcut links only.
+  expect(await bar.locator('option').evaluateAll(options => options.map(option => option.value))).toEqual(['f', 'settingsui']);
+  await expect(bar.locator('option[data-current-board-fallback]')).toHaveCount(1);
+  await expect(bar.locator('option[data-current-board-fallback]')).toHaveAttribute('value', 'settingsui');
   expect(await bar.locator('.nativeCustomBoardLinks a').evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual(['/settingsui/', '/demo/']);
   expect(JSON.parse((await stored(page)).settings).customMenuList).toBe('settingsui demo');
   await bar.getByRole('button', { name: 'Settings', exact: true }).click();
