@@ -576,7 +576,7 @@ jobs:
         run: npm run test:media-visual
       - name: Verify bounded Chromium NetLog diagnostics
         shell: pwsh
-        run: node --test tests/helpers/visual-netlog.test.mjs tests/helpers/windows-theme-shards.test.mjs tests/helpers/windows-theme-stderr-filter.test.mjs tests/helpers/windows-theme-stderr-launcher.test.mjs tests/browser/windows-visual-afd.test.mjs
+        run: node --test tests/helpers/visual-netlog.test.mjs tests/helpers/windows-theme-shards.test.mjs tests/helpers/windows-theme-stderr-filter.test.mjs tests/helpers/windows-theme-stderr-launcher.test.mjs tests/browser/windows-visual-afd.test.mjs tests/browser/windows-afd-error-profile.test.mjs
       - name: Run public empty and error desktop/mobile states
         shell: pwsh
         run: npm run test:states

@@ -31,6 +31,8 @@
   --watcher-refresh: url('/static/watcher/tomorrow/refresh.png');
   --watcher-rotate: url('/static/watcher/tomorrow/post_expand_rotate.gif');
   --watcher-cross: url('/static/watcher/tomorrow/cross.png');
+  --settings-plus: url('/static/watcher/tomorrow/post_expand_plus.png');
+  --settings-minus: url('/static/watcher/tomorrow/post_expand_minus.png');
 }
 @media (min-resolution: 2dppx) {
   :root {
@@ -39,6 +41,8 @@
     --watcher-refresh: url('/static/watcher/tomorrow/refresh@2x.png');
     --watcher-rotate: url('/static/watcher/tomorrow/post_expand_rotate@2x.gif');
     --watcher-cross: url('/static/watcher/tomorrow/cross@2x.png');
+  --settings-plus: url('/static/watcher/tomorrow/post_expand_plus@2x.png');
+  --settings-minus: url('/static/watcher/tomorrow/post_expand_minus@2x.png');
   }
 }
 :root { --catalog-preview-paper: #000; --catalog-preview-subject: #b294bb; }
@@ -132,3 +136,4 @@ body.publicPageChrome.is_catalog #boardNavDesktopFoot a:hover { color: rgb(95, 1
 :root { --archive-header-border: 0; --archive-stripe: rgba(255, 255, 255, .1); }
 
 :root { --blotter-divider-color: #282a2e; }
+:root { --settings-list-border: 1px solid #282a2e; }
