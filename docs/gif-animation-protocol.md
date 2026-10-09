@@ -2,8 +2,11 @@
 
 The `gif-v3` transport carries a GIF upload to the disposable guest and returns
 uncompressed `IBGIF001` frame data. It does not replace the `image-v1` or
-`paired-v2` contracts. The public upload coordinator has not been switched to
-this transport yet; durable GIF approval and serving remain to be integrated.
+`paired-v2` contracts. The coordinator selects it from the sealed upload's fixed
+GIF87a/GIF89a signature, then independently validates its stopped output. Runtime
+media admission remains subject to the existing development and deployment
+guards. The new mode passes disposable native dispatch qualification; production
+activation still requires the existing operator qualification.
 
 The guest accepts GIF87a/GIF89a, at most 8 MiB of input, a canvas up to 1024 by
 1024, at most 512 frames and at most 16 MiB of decoded indexed pixels across all
@@ -68,13 +71,35 @@ Publication accepts only the host encoder's `EncodedGif` type, installs a fixed
 contents on replay. A reservation cannot switch between PNG and GIF while its
 file exists. GIF readers check the same fixed name and a 20 MiB limit; thumbnails
 retain their PNG format and limit. Cleanup removes only the known output names.
-These storage primitives still require durable approval from their caller.
+Migration 0123 records the output format in the immutable reservation and
+restricted approval views. PNG retains its 5 MiB limit; GIF has a 20 MiB limit
+because bounded literal encoding can exceed the input file's size. Thumbnails
+remain PNG. Approval, lease completion and cleanup use the existing transaction
+and publication lock. Source GIF cleanup provenance remains unknown.
+
+Both opaque and board/timestamp routes require the requested suffix to match
+the approved format. They check actual file size and SHA-256 before a conditional
+response. GIF responses use `image/gif`; PNG thumbnails use `image/png`.
+Pages, JSON, RSS and staff links take their format from approved metadata rather
+than the submitted filename. Image controls and the updater accept only the fixed
+PNG and GIF paths on the configured media origin. Spoiler links remain usable
+without JavaScript, and GIF URL retirement closes active image copies.
 
 These output bytes do not establish the source's post-cleanup checksum. The
 supplied PHP conditionally invokes an external `gifsicle` binary whose version
 and implementation are absent from the supplied tree. Source cleanup/checksum
-qualification, board admission, approved `.gif` routes, deletion, browser playback
-and JavaScript-disabled presentation remain required for issue #203.
+qualification, board admission and thumbnail comparison remain required for
+issue #203. The controlled browser tests verify visible animation and retirement;
+source timing/disposal/loop qualification remains incomplete. The native dispatch
+check uses actual Firecracker output
+for static, transparent, interlaced, animated and partial-canvas GIFs through the
+nonroot gateway and coordinator, root broker, fenced approval and checked reader.
+It also retains revoked-certificate, invalid-output, expired/replaced-lease and
+live-VM cancellation checks. The native HTTP qualification sends an independent
+red/blue animation through public HTML upload, authenticated intake, the actual
+guest, durable attachment and separate reader. A browser with scripts disabled
+checks GIF and thumbnail responses, JSON, visible frame changes, deletion and
+removal of both files while retaining the attachment tombstone.
 
 References: [GIF89a specification](https://www.w3.org/Graphics/GIF/spec-gif89a.txt)
 and the pinned [weezl buffer API](https://docs.rs/weezl/0.1.12/weezl/decode/struct.Decoder.html).

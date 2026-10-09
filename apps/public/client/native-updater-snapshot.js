@@ -64,7 +64,7 @@ export function validateSnapshotMetadata(snapshot, context) {
 export function postMediaUrl(raw, context) {
   if (!context.mediaOrigin) return false;
   const prefix = `${context.mediaOrigin}/${context.board}/`;
-  return raw.startsWith(prefix) && /^[1-9][0-9]{0,18}(?:\.png|s\.jpg)$/.test(raw.slice(prefix.length));
+  return raw.startsWith(prefix) && /^[1-9][0-9]{0,18}(?:\.png|\.gif|s\.jpg)$/.test(raw.slice(prefix.length));
 }
 // Match the rewrite's post resolver and canonical same-origin thread anchors.
 // Do not resolve arbitrary relative paths, query strings or source-site URLs.

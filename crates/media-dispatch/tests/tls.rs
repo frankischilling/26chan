@@ -866,6 +866,60 @@ mod root_gateway {
         assert_eq!(running.calls.load(Ordering::SeqCst), 0);
     }
 
+    #[tokio::test]
+    async fn gif_gateway_preserves_version_three_and_rejects_both_older_responses() {
+        if !enabled() {
+            return;
+        }
+        use board_media_dispatch::protocol::{
+            GIF_OUTPUT_LENGTH, Request, read_versioned_request, write_gif_response,
+        };
+        for version in [3, 1, 2] {
+            let mut f = Fixture::new();
+            let backend = UnixListener::bind(&f.gateway.broker_socket).unwrap();
+            let listener = TcpListener::bind(f.gateway.listen).await.unwrap();
+            f.settings.endpoint = listener.local_addr().unwrap();
+            let gateway = tokio::spawn(Gateway::new(&f.gateway).unwrap().serve(listener));
+            let broker = tokio::spawn(async move {
+                let (mut socket, _) = backend.accept().await.unwrap();
+                assert_eq!(
+                    read_versioned_request(&mut socket).await.unwrap(),
+                    Request::GifV3(b"GIF89a explicit fixture".to_vec())
+                );
+                if version == 3 {
+                    write_gif_response(&vec![0x5a; GIF_OUTPUT_LENGTH as usize], &mut socket)
+                        .await
+                        .unwrap();
+                } else {
+                    let magic = if version == 1 {
+                        b"IBOUT001"
+                    } else {
+                        b"IBOUT002"
+                    };
+                    let _ = socket.write_all(magic).await;
+                    let _ = socket.write_all(&4_194_816_u64.to_be_bytes()).await;
+                    let _ = socket.shutdown().await;
+                }
+                assert!(
+                    tokio::time::timeout(Duration::from_millis(100), backend.accept())
+                        .await
+                        .is_err()
+                );
+            });
+            let result = DispatchClient::new(&f.settings)
+                .unwrap()
+                .process_gif(b"GIF89a explicit fixture".as_slice(), 23)
+                .await;
+            if version == 3 {
+                assert_eq!(result.unwrap(), vec![0x5a; GIF_OUTPUT_LENGTH as usize]);
+            } else {
+                assert!(result.is_err());
+            }
+            broker.await.unwrap();
+            gateway.abort();
+        }
+    }
+
     struct Child(std::process::Child);
     impl Drop for Child {
         fn drop(&mut self) {
@@ -1061,6 +1115,30 @@ mod root_gateway {
             .await
             .unwrap();
         assert_eq!(control.await.unwrap().unwrap(), vec![0x5a; 4_194_816]);
+        let client = DispatchClient::new(&f.settings).unwrap();
+        let control =
+            tokio::spawn(async move { client.process_gif(b"GIF89a".as_slice(), 6).await });
+        let (mut socket, _) = tokio::time::timeout(Duration::from_secs(4), backend.accept())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(socket.peer_cred().unwrap().uid(), 65534);
+        assert_eq!(
+            board_media_dispatch::protocol::read_versioned_request(&mut socket)
+                .await
+                .unwrap(),
+            board_media_dispatch::protocol::Request::GifV3(b"GIF89a".to_vec())
+        );
+        board_media_dispatch::protocol::write_gif_response(
+            &vec![0x5a; board_media_dispatch::protocol::GIF_OUTPUT_LENGTH as usize],
+            &mut socket,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            control.await.unwrap().unwrap(),
+            vec![0x5a; board_media_dispatch::protocol::GIF_OUTPUT_LENGTH as usize]
+        );
     }
 }
 

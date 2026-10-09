@@ -60,6 +60,7 @@ pub struct Attachment {
     pub thumbnail_height: Option<i32>,
     pub available: bool,
     pub md5: Option<String>,
+    pub output_format: board_store::media_assets::MediaFormat,
 }
 impl Attachment {
     pub fn file_md5(&self) -> Option<&str> {
@@ -85,7 +86,7 @@ pub async fn reports(pool: &PgPool, session: &Session) -> Result<Vec<Report>, Ap
         .fetch_all(&mut *tx).await?;
     let ids: Vec<i64> = reports.iter().map(|r| r.post_id).collect();
     let attachments: Vec<Attachment> =
-        sqlx::query_as("SELECT post_id,filename,bytes,width,height,spoiler,tim,thumbnail_width,thumbnail_height,available,md5 FROM content.staff_post_media WHERE post_id=ANY($1)")
+        sqlx::query_as("SELECT post_id,filename,bytes,width,height,spoiler,tim,thumbnail_width,thumbnail_height,available,md5,output_format FROM content.staff_post_media WHERE post_id=ANY($1)")
             .bind(ids)
             .fetch_all(&mut *tx)
             .await?;

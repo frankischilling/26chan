@@ -1,6 +1,6 @@
 import { isSpoilerAssetPath } from './native-spoiler-assets.js';
 
-// Uploaded filenames remain display metadata. PNG describes the approved bytes.
+// Uploaded filenames remain display metadata. The approved URL supplies format.
 export function postFileAssetUrl(value) {
   return isSpoilerAssetPath(value) || ['/static/catalog/filedeleted-res.gif', '/static/catalog/filedeleted-res@2x.gif'].includes(value);
 }
@@ -28,7 +28,7 @@ export function validateFilePresentation(tree, context, no) {
         && link.children.every(child => typeof child === 'string'));
       const prefix = `${context.mediaOrigin}/${context.board}/`;
       require(context.mediaOrigin && link.attrs.href?.startsWith(prefix)
-        && /^[1-9][0-9]{0,18}\.png$/.test(link.attrs.href.slice(prefix.length)));
+        && /^[1-9][0-9]{0,18}\.(?:png|gif)$/.test(link.attrs.href.slice(prefix.length)));
       const thumb = elements(parent).find(child => ['fileThumb', 'fileThumb imgspoiler'].includes(child.attrs.class));
       if (thumb) {
         require(elements(thumb).length === 2 && elements(thumb).filter(child => child.attrs.class === 'mFileInfo mobile').length === 1);
@@ -57,7 +57,8 @@ export function validateFilePresentation(tree, context, no) {
       const header = elements(grandparent).find(child => child.attrs.class === 'fileText');
       require(header && parent.attrs.href === header.children[1]?.attrs.href);
       const size = /^ \(([^,]+),/.exec(header.children[2]);
-      require(size && node.children[0] === `${size[1]} PNG`);
+      const extension = /\.(png|gif)$/.exec(parent.attrs.href);
+      require(size && extension && node.children[0] === `${size[1]} ${extension[1].toUpperCase()}`);
     }
     if ((node.attrs.class || '').split(' ').includes('imgspoiler')) {
       require(node.tag === 'a' && node.attrs.class === 'fileThumb imgspoiler'

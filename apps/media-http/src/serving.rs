@@ -7,6 +7,7 @@ use axum::{
 };
 use board_media::ObjectId;
 use board_store::StoreError;
+use board_store::media_assets::MediaFormat;
 
 pub async fn image(
     State(state): State<AppState>,
@@ -15,7 +16,13 @@ pub async fn image(
     headers: HeaderMap,
 ) -> Response {
     let thumbnail = name.ends_with(".thumb.png");
-    let suffix = if thumbnail { ".thumb.png" } else { ".png" };
+    let (suffix, format) = if thumbnail {
+        (".thumb.png", MediaFormat::Png)
+    } else if name.ends_with(".gif") {
+        (".gif", MediaFormat::Gif)
+    } else {
+        (".png", MediaFormat::Png)
+    };
     let Some(id) = name
         .strip_suffix(suffix)
         .and_then(|s| s.parse::<ObjectId>().ok())
@@ -30,7 +37,7 @@ pub async fn image(
     } else {
         state.reader.get(&id.to_string()).await
     };
-    serve(state, asset, thumbnail, headers).await
+    serve(state, asset, thumbnail, format, headers).await
 }
 
 pub async fn post_image(
@@ -40,7 +47,13 @@ pub async fn post_image(
     headers: HeaderMap,
 ) -> Response {
     let thumbnail = name.ends_with("s.jpg");
-    let suffix = if thumbnail { "s.jpg" } else { ".png" };
+    let (suffix, format) = if thumbnail {
+        ("s.jpg", MediaFormat::Png)
+    } else if name.ends_with(".gif") {
+        (".gif", MediaFormat::Gif)
+    } else {
+        (".png", MediaFormat::Png)
+    };
     let Some(tim) = name
         .strip_suffix(suffix)
         .and_then(|n| n.parse::<i64>().ok())
@@ -51,13 +64,14 @@ pub async fn post_image(
         return error(StatusCode::NOT_FOUND);
     }
     let asset = state.reader.get_post(&board, tim, thumbnail).await;
-    serve(state, asset, thumbnail, headers).await
+    serve(state, asset, thumbnail, format, headers).await
 }
 
 async fn serve(
     state: AppState,
     asset: Result<board_store::media_assets::Asset, StoreError>,
     thumbnail: bool,
+    format: MediaFormat,
     headers: HeaderMap,
 ) -> Response {
     let asset = match asset {
@@ -65,6 +79,9 @@ async fn serve(
         Err(StoreError::NotFound) => return error(StatusCode::NOT_FOUND),
         Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE),
     };
+    if asset.output_format != format {
+        return error(StatusCode::NOT_FOUND);
+    }
     let Ok(id) = asset.id.parse::<ObjectId>() else {
         return error(StatusCode::SERVICE_UNAVAILABLE);
     };
@@ -78,6 +95,8 @@ async fn serve(
                 .map_err(|_| board_media::MediaError::Conflict)?;
             if thumbnail {
                 files.read_thumbnail(id, &asset.sha256, size)
+            } else if format == MediaFormat::Gif {
+                files.read_gif(id, &asset.sha256, size)
             } else {
                 files.read(id, &asset.sha256, size)
             }
@@ -108,10 +127,14 @@ async fn serve(
         "etag",
         HeaderValue::from_str(&etag).expect("bounded hex etag"),
     );
-    h.insert("content-type", HeaderValue::from_static("image/png"));
+    h.insert(
+        "content-type",
+        HeaderValue::from_static(format.content_type()),
+    );
     h.insert(
         "content-disposition",
-        HeaderValue::from_str(&format!("inline; filename=\"{id}.png\"")).expect("opaque filename"),
+        HeaderValue::from_str(&format!("inline; filename=\"{id}.{}\"", format.extension()))
+            .expect("opaque filename"),
     );
     h.insert("accept-ranges", HeaderValue::from_static("none"));
     if !unchanged {

@@ -34,6 +34,16 @@ test('real updater grammar binds file header, caption, original filename and med
   assert.doesNotThrow(() => validateFilePresentation(parsed, context, '1'));
 });
 
+test('GIF presentation uses approved URL format while filename and thumbnail remain independent', () => {
+  const gif = original.replaceAll('/demo/1.png', '/demo/1.gif').replace('2 KB PNG', '2 KB GIF');
+  assert.equal(parse(gif).status, 'ok');
+  assert.equal(parse(gif.replace('2 KB GIF', '2 KB PNG')).status, 'invalid-snapshot');
+  assert.equal(parse(original.replace('2 KB PNG', '2 KB GIF')).status, 'invalid-snapshot');
+  assert.equal(parse(gif.replaceAll('/demo/1.gif', '/demo/1.GIF')).status, 'invalid-snapshot');
+  assert.equal(parse(gif.replace('/demo/1s.jpg', '/demo/2s.jpg')).status, 'invalid-snapshot');
+  assert.equal(parse(gif.replace('/demo/1s.jpg', '/demo/1.gif')).status, 'ok');
+});
+
 test('fixed spoiler and deleted assets require their complete original file recipe', () => {
   const wrap = file => original.slice(0, original.indexOf('<div id="f1"')) + file + original.slice(original.indexOf('<blockquote'));
   const spoiler = '<div class="file" id="f1"><div class="fileText" id="fT1" title="Owned.png">File: <a href="https://media.test/demo/1.png" rel="noopener noreferrer">Spoiler Image</a> (2 KB, 600x360)</div><a class="fileThumb imgspoiler" href="https://media.test/demo/1.png" rel="noopener noreferrer"><img src="/static/catalog/spoiler.png" alt="2 KB" width="100" height="100" loading="lazy"><div class="mFileInfo mobile">2 KB PNG</div></a></div>';

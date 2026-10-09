@@ -235,7 +235,12 @@ fn write_feed(
         }
         let (source, thumbnail) = match &post.attachment {
             Some(file) if !file.file_deleted => (
-                format!("{media_origin}/{}/{}.png", board.slug, file.tim),
+                format!(
+                    "{media_origin}/{}/{}.{}",
+                    board.slug,
+                    file.tim,
+                    file.output_format.extension()
+                ),
                 if file.spoiler {
                     format!("{origin}/static/catalog/spoiler.png")
                 } else {

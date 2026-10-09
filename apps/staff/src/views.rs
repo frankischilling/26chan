@@ -155,6 +155,7 @@ mod tests {
                 tim: 1,
                 thumbnail_width: Some(250),
                 thumbnail_height: Some(150),
+                output_format: board_store::media_assets::MediaFormat::Png,
                 available,
                 md5: raw.map(str::to_owned),
             });

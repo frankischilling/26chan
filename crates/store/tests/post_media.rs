@@ -1961,6 +1961,10 @@ async fn exercise_waits_and_moderation(f: &Fixture) {
         .execute(&mut *moderation)
         .await
         .unwrap();
+    let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *moderation)
+        .await
+        .unwrap();
     let pool = f.public.clone();
     let board = f.board.clone();
     let waiting_attachment = NewAttachment {
@@ -1970,14 +1974,20 @@ async fn exercise_waits_and_moderation(f: &Fixture) {
         },
         spoiler: a.spoiler,
     };
-    let waiting = tokio::spawn(async move {
+    let mut waiting = tokio::spawn(async move {
         create_post_with_attachment(&pool, &board, thread, &post(), Some(&waiting_attachment)).await
     });
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    assert!(
-        !waiting.is_finished(),
-        "Posting must wait for staff's board lock"
-    );
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let blocked: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid)))")
+                .bind(blocker).fetch_one(&f.admin).await.unwrap();
+            if blocked { break; }
+            if waiting.is_finished() {
+                panic!("Attachment exited before staff's board-lock witness: {:?}", (&mut waiting).await.unwrap());
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }).await.expect("Posting must reach staff's held board lock");
     sqlx::query("UPDATE content.threads SET deleted=true,modified_at=clock_timestamp() WHERE board=$1 AND id=$2")
         .bind(&f.board).bind(thread).execute(&mut *moderation).await.unwrap();
     moderation.commit().await.unwrap();

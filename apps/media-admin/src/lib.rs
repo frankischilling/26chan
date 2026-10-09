@@ -6,6 +6,7 @@ pub mod backfill;
 pub mod paired;
 use board_media::{
     ApprovedFiles, InputSnapshot, MAX_INPUT_BYTES, PublicationStore, Quarantine, ValidatedOutput,
+    animation::ValidatedAnimation,
     source_digest::{
         PngSourceDigestLimits, SourceDigestError, SourceDigestProfile, png_source_processed_digest,
     },
@@ -14,7 +15,8 @@ use board_media_dispatch::DispatchClient;
 use board_store::{
     media::{Failure, MediaQueue},
     media_assets::{
-        Asset, MediaReader, OutputMetadata, OutputVariants, SourceProfile, SourceProvenance,
+        Asset, MediaFormat, MediaReader, OutputMetadata, OutputVariants, SourceProfile,
+        SourceProvenance,
     },
 };
 
@@ -48,13 +50,18 @@ pub async fn dispatch(
             .await
             .map_err(|_| "private input rejected")?;
         let provenance = source_provenance(&snapshot).map_err(|_| "private input rejected")?;
-        let disk = client
-            .process(snapshot.bytes(), length)
-            .await
-            .map_err(|_| "dispatch processing failed")?;
-        Ok::<_, &str>((disk, provenance))
+        // Fixed signature selects an explicit transport. Complex GIF admission
+        // and decoding remain in the disposable guest.
+        let gif = matches!(snapshot.bytes().get(..6), Some(b"GIF87a" | b"GIF89a"));
+        let disk = if gif {
+            client.process_gif(snapshot.bytes(), length).await
+        } else {
+            client.process(snapshot.bytes(), length).await
+        }
+        .map_err(|_| "dispatch processing failed")?;
+        Ok::<_, &str>((disk, provenance, gif))
     };
-    let (disk, provenance) =
+    let (disk, provenance, gif) =
         match tokio::time::timeout(std::time::Duration::from_secs(29), processed).await {
             Ok(Ok(disk)) => disk,
             _ => {
@@ -64,6 +71,20 @@ pub async fn dispatch(
                 return Err("dispatch processing failed".into());
             }
         };
+    if gif {
+        let animation = match ValidatedAnimation::read_disk(std::io::Cursor::new(disk)).await {
+            Ok(animation) => animation,
+            Err(_) => {
+                let _ = queue
+                    .fail(&job.id, token, Failure::InvalidOutput, false)
+                    .await;
+                return Err("dispatch output rejected".into());
+            }
+        };
+        return publish_animation(queue, store, &job.id, token, &animation)
+            .await
+            .map_err(|_| "dispatch approval unavailable".into());
+    }
     let output = match ValidatedOutput::read_disk(std::io::Cursor::new(disk)).await {
         Ok(output) => output,
         Err(_) => {
@@ -88,6 +109,52 @@ pub async fn publish(
     output: &ValidatedOutput,
 ) -> PublicationResult<Asset> {
     publish_with_provenance(queue, store, job_id, token, output, None).await
+}
+
+/// Publish only independently validated frames, with the same lease and
+/// uncertain-commit recovery rules as PNG output.
+pub async fn publish_animation(
+    queue: &MediaQueue,
+    store: &PublicationStore,
+    job_id: &str,
+    token: &str,
+    animation: &ValidatedAnimation,
+) -> PublicationResult<Asset> {
+    let encoded = animation.encode()?;
+    let thumbnail = animation.first_frame()?.thumbnail()?;
+    let metadata = OutputMetadata {
+        sha256: encoded.sha256().to_owned(),
+        bytes: encoded.len() as i64,
+        width: encoded.dimensions().0 as i32,
+        height: encoded.dimensions().1 as i32,
+    };
+    let variants = OutputVariants {
+        md5: encoded.md5().to_owned(),
+        thumbnail: OutputMetadata {
+            sha256: thumbnail.sha256().to_owned(),
+            bytes: thumbnail.len() as i64,
+            width: thumbnail.dimensions().0 as i32,
+            height: thumbnail.dimensions().1 as i32,
+        },
+    };
+    let guard = store.try_lock()?;
+    let pending = queue
+        .prepare_gif_output(job_id, token, &metadata, &variants)
+        .await?;
+    let receipt = guard.install_gif(pending.id.parse()?, &encoded)?;
+    if pending.output_format != MediaFormat::Gif
+        || receipt.sha256 != pending.sha256
+        || receipt.bytes != pending.bytes as u64
+    {
+        return Err("output reservation differs from installed bytes".into());
+    }
+    let receipt = guard.install_thumbnail(pending.id.parse()?, &thumbnail)?;
+    if receipt.sha256 != variants.thumbnail.sha256
+        || receipt.bytes != variants.thumbnail.bytes as u64
+    {
+        return Err("thumbnail reservation differs from installed bytes".into());
+    }
+    Ok(queue.approve_output(job_id, token, &pending.id).await?)
 }
 
 // Only the coordinator may attach source provenance, after guest output passed
@@ -159,11 +226,12 @@ pub async fn read_approved(
     id: &str,
 ) -> PublicationResult<Vec<u8>> {
     let approved = reader.get(id).await?;
-    Ok(files.read(
-        approved.id.parse()?,
-        &approved.sha256,
-        approved.bytes.try_into()?,
-    )?)
+    let id = approved.id.parse()?;
+    let size = approved.bytes.try_into()?;
+    Ok(match approved.output_format {
+        MediaFormat::Png => files.read(id, &approved.sha256, size)?,
+        MediaFormat::Gif => files.read_gif(id, &approved.sha256, size)?,
+    })
 }
 
 // Bounded framing only: PNG decoder admission stays inside the isolated guest.
