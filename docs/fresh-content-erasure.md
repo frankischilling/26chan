@@ -15,7 +15,9 @@ for that post. A whole-thread deletion applies this to every descendant, includi
 replies that were already soft-deleted, and clears the thread's metadata.
 
 An irreversible marker prevents restoring the cleared payload, undeleting the
-row or attaching new author authority to it. A live thread's remaining posts and
+row or attaching new author authority to it. Post IDs and thread IDs/boards
+cannot be reassigned, including by the migration role. Guarded live-post moves
+revalidate author-link targets after any lock wait. A live thread's remaining posts and
 normal update behavior are preserved. Thread expiry and rollover use the same
 whole-deletion path. Archiving without deletion and file-only deletion retain their
 existing behavior.
