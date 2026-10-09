@@ -238,6 +238,7 @@ impl Fixture {
             catalog_hidden: Vec::new(),
             board,
             threads,
+            page_number: 1,
             parent: if kind == "thread" || kind == "closed" || archived {
                 1_000_201
             } else {

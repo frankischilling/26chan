@@ -626,6 +626,7 @@ async fn board_page(
             catalog_hidden: hidden_views,
             board,
             threads: views,
+            page_number: page,
             parent: 0,
             previous: if page > 1 {
                 format!("/{slug}/{}", page - 2)
@@ -737,6 +738,7 @@ pub async fn thread(
                 omitted: 0,
                 image_replies: images as i64,
             }],
+            page_number: 1,
             parent: id,
             previous: String::new(),
             next: String::new(),

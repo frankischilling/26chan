@@ -1,0 +1,962 @@
+{
+  "reference": "operator-supplied 4chan-old checkout",
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "files": {
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+    "catalog.php": "9e41cd26755f9cee12e3fffa2050952a227e16362310b9b888438eba307af946"
+  },
+  "source_excerpts": {
+    "generate_page_title": {
+      "file": "imgboard.php",
+      "first_line": 7990,
+      "last_line": 8029,
+      "sha256": "cd113985a2e5a63fe4939edf677686d1d64cf27f1aa69972730d73f4e5e6a321",
+      "text": "function generate_page_title($thread_id, $sub, $com) {\n  if (JANITOR_BOARD) {\n    return strip_tags(TITLE);\n  }\n  \n  if (UPLOAD_BOARD) {\n    $sub = preg_replace('/^(\\d+)\\|/', '', $sub);\n  }\n  \n  $context = '';\n  \n  if (strpos($sub, 'SPOILER<>') === 0) {\n    $sub = substr($sub, 9);\n  }\n  \n  if ($sub !== '') {\n    $context = $sub;\n  }\n  \n  if ($context === '' && $com !== '') {\n    if (SJIS_TAGS && strpos($com, '<span class=\"sjis\"') !== false) {\n      $com = preg_replace('/<span class=\"sjis\".+?<\\/span>/', '[SJIS]', $com);\n    }\n    $context = str_replace('<br>', ' ', $com);\n    $context = htmlspecialchars_decode($context, ENT_QUOTES);\n    $context = mb_substr(strip_tags($context), 0, 50);\n    $context = htmlspecialchars($context, ENT_QUOTES);\n  }\n  \n  if ($context === '') {\n    $context = 'No.' . $thread_id;\n  }\n  \n  if (BOARD_DIR === 's4s') {\n    return '[' . BOARD_DIR . '] - ' . $context;\n  }\n  else {\n    return '/' . BOARD_DIR . '/ - ' . $context;\n  }\n}\n"
+    },
+    "page_title_composition": {
+      "file": "imgboard.php",
+      "first_line": 3628,
+      "last_line": 3659,
+      "sha256": "23b1452310103cf369d66bbc6cdbe8ec246cc1f949e3457c7f7baebad61784b3",
+      "text": "\t$clean_title = strip_tags(TITLE);\n\t\n  if ($res) {\n    $page_metatags = generate_page_metatags($log[$res]['sub'], $log[$res]['com']);\n    \n    if ($page_metatags) {\n      $page_description = $page_metatags[0] . ' - ' . META_DESCRIPTION;\n      $page_keywords = META_KEYWORDS . $page_metatags[1];\n    }\n    else {\n      $page_description = META_DESCRIPTION;\n      $page_keywords = META_KEYWORDS;\n    }\n    \n    $page_title = generate_page_title($res, $log[$res]['sub'], $log[$res]['com'])\n      . ' - ' . preg_replace('/^[\\[\\/][a-z0-9]+[\\]\\/] - /i', '', $clean_title);\n  }\n  else {\n    $page_description = META_DESCRIPTION;\n    $page_keywords = META_KEYWORDS;\n    \n    $page_title = $clean_title;\n    \n    if ($is_arclist) {\n      $page_title .= ' - Archive';\n    }\n    else if ($page > 0) {\n      $page_title .= ' - Page ' . (($page / DEF_PAGES) + 1);\n    }\n  }\n  \n  $page_title .= ' - 4chan';\n"
+    },
+    "visible_title_assignment": {
+      "file": "imgboard.php",
+      "first_line": 3427,
+      "last_line": 3427,
+      "sha256": "ddbdca4973761a392d2ba337f6c36b02fc48f291c4418192c5ca32753a2c8b8e",
+      "text": "  $title = TITLE;\n"
+    },
+    "visible_title_heading": {
+      "file": "imgboard.php",
+      "first_line": 3728,
+      "last_line": 3728,
+      "sha256": "5ed8e0dc9ae910add0bbf704ca524c27e782411fda68213d8e32838c4697d613",
+      "text": "\t<div class=\"boardTitle\">$title</div>\n"
+    },
+    "catalog_title_assignment": {
+      "file": "catalog.php",
+      "first_line": 195,
+      "last_line": 195,
+      "sha256": "d77f7e4425db830dcc09100db11c3b8835a187753928ee3d399902cacf405578",
+      "text": "  $title = strip_tags( TITLE );\n"
+    },
+    "catalog_title_element": {
+      "file": "catalog.php",
+      "first_line": 426,
+      "last_line": 426,
+      "sha256": "48e148512211ca6da7b7a0c74eb3382cd2fd12b077a728c6a4965cd336506824",
+      "text": "  <title>$title - Catalog - 4chan</title>\n"
+    }
+  },
+  "expected_origin": "Expected results transcribed from pinned source; this file does not claim a PHP execution. Run --fixture-check to qualify against the installed runtime.",
+  "scope": "Thread subject/comment context plus captured title, visible heading and catalog title composition.",
+  "execution_boundary": "Only the hash-pinned generate_page_title function executes. Board, upload and SJIS constants and two synthetic thread IDs are provided by the harness.",
+  "excludes": [
+    "original application and includes",
+    "database and network",
+    "actual board configuration",
+    "full HTML rendering",
+    "metatag generation",
+    "unbounded or non-UTF-8 historical data"
+  ],
+  "cases": [
+    {
+      "id": "empty_falls_back",
+      "subject": "",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "",
+        "fallback": true,
+        "title": "/g/ - No.420"
+      }
+    },
+    {
+      "id": "subject_precedence",
+      "subject": "Preferred",
+      "comment": "Ignored",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "Preferred",
+        "fallback": false,
+        "title": "/g/ - Preferred"
+      }
+    },
+    {
+      "id": "subject_not_truncated",
+      "subject": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "fallback": false,
+        "title": "/g/ - aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "id": "subject_whitespace_wins",
+      "subject": " \t ",
+      "comment": "Ignored",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": " \t ",
+        "fallback": false,
+        "title": "/g/ -  \t "
+      }
+    },
+    {
+      "id": "subject_entity_decode_once",
+      "subject": "&amp;lt;b&amp;gt; &amp; &quot; &#039;",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "&lt;b&gt; & \" '",
+        "fallback": false,
+        "title": "/g/ - &amp;lt;b&amp;gt; &amp; &quot; &#039;"
+      }
+    },
+    {
+      "id": "subject_literal_markup_is_text",
+      "subject": "&lt;script&gt;x&lt;/script&gt;",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "<script>x</script>",
+        "fallback": false,
+        "title": "/g/ - &lt;script&gt;x&lt;/script&gt;"
+      }
+    },
+    {
+      "id": "subject_html401_entities",
+      "subject": "&apos; &nbsp; &#65;",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "&apos; &nbsp; &#65;",
+        "fallback": false,
+        "title": "/g/ - &apos; &nbsp; &#65;"
+      }
+    },
+    {
+      "id": "subject_unicode",
+      "subject": "\u96ea \ud83d\ude00 e\u0301",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "\u96ea \ud83d\ude00 e\u0301",
+        "fallback": false,
+        "title": "/g/ - \u96ea \ud83d\ude00 e\u0301"
+      }
+    },
+    {
+      "id": "internal_spoiler",
+      "subject": "SPOILER<>Hidden",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "Hidden",
+        "fallback": false,
+        "title": "/g/ - Hidden"
+      }
+    },
+    {
+      "id": "empty_spoiler_uses_comment",
+      "subject": "SPOILER<>",
+      "comment": "Comment",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "Comment",
+        "fallback": false,
+        "title": "/g/ - Comment"
+      }
+    },
+    {
+      "id": "literal_spoiler_is_preserved",
+      "subject": "SPOILER&lt;&gt;Literal",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "SPOILER<>Literal",
+        "fallback": false,
+        "title": "/g/ - SPOILER&lt;&gt;Literal"
+      }
+    },
+    {
+      "id": "one_spoiler_marker_only",
+      "subject": "SPOILER<>SPOILER&lt;&gt;Again",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "SPOILER<>Again",
+        "fallback": false,
+        "title": "/g/ - SPOILER&lt;&gt;Again"
+      }
+    },
+    {
+      "id": "upload_numeric_prefix",
+      "subject": "0012|Upload",
+      "comment": "",
+      "upload_board": true,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "Upload",
+        "fallback": false,
+        "title": "/g/ - Upload"
+      }
+    },
+    {
+      "id": "upload_then_spoiler",
+      "subject": "123|SPOILER<>Hidden",
+      "comment": "",
+      "upload_board": true,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "Hidden",
+        "fallback": false,
+        "title": "/g/ - Hidden"
+      }
+    },
+    {
+      "id": "upload_empty_prefix_result",
+      "subject": "123|",
+      "comment": "Comment",
+      "upload_board": true,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "Comment",
+        "fallback": false,
+        "title": "/g/ - Comment"
+      }
+    },
+    {
+      "id": "numeric_prefix_outside_upload",
+      "subject": "123|Title",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "123|Title",
+        "fallback": false,
+        "title": "/g/ - 123|Title"
+      }
+    },
+    {
+      "id": "upload_requires_ascii_digits",
+      "subject": "\uff11\uff12|Title",
+      "comment": "",
+      "upload_board": true,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "\uff11\uff12|Title",
+        "fallback": false,
+        "title": "/g/ - \uff11\uff12|Title"
+      }
+    },
+    {
+      "id": "upload_requires_leading_digits",
+      "subject": "|Title",
+      "comment": "",
+      "upload_board": true,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "|Title",
+        "fallback": false,
+        "title": "/g/ - |Title"
+      }
+    },
+    {
+      "id": "upload_requires_unsigned_prefix",
+      "subject": "-2|Title",
+      "comment": "",
+      "upload_board": true,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "-2|Title",
+        "fallback": false,
+        "title": "/g/ - -2|Title"
+      }
+    },
+    {
+      "id": "upload_prefix_once",
+      "subject": "1|2|Title",
+      "comment": "",
+      "upload_board": true,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "2|Title",
+        "fallback": false,
+        "title": "/g/ - 2|Title"
+      }
+    },
+    {
+      "id": "upload_order_before_spoiler",
+      "subject": "SPOILER<>12|Title",
+      "comment": "",
+      "upload_board": true,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "12|Title",
+        "fallback": false,
+        "title": "/g/ - 12|Title"
+      }
+    },
+    {
+      "id": "comment_exact_br",
+      "subject": "",
+      "comment": "first<br>second",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "first second",
+        "fallback": false,
+        "title": "/g/ - first second"
+      }
+    },
+    {
+      "id": "comment_other_break_tags",
+      "subject": "",
+      "comment": "a<br/>b<BR>c<br />d",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "abcd",
+        "fallback": false,
+        "title": "/g/ - abcd"
+      }
+    },
+    {
+      "id": "comment_encoded_br_joins",
+      "subject": "",
+      "comment": "first&lt;br&gt;second",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "firstsecond",
+        "fallback": false,
+        "title": "/g/ - firstsecond"
+      }
+    },
+    {
+      "id": "comment_keeps_whitespace",
+      "subject": "",
+      "comment": " \tfirst<br><br>second\n third\r\n",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": " \tfirst  second\n third\r\n",
+        "fallback": false,
+        "title": "/g/ -  \tfirst  second\n third\r\n"
+      }
+    },
+    {
+      "id": "comment_strips_without_spaces",
+      "subject": "",
+      "comment": "alpha<s>beta</s>gamma",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "alphabetagamma",
+        "fallback": false,
+        "title": "/g/ - alphabetagamma"
+      }
+    },
+    {
+      "id": "comment_html_only_falls_back",
+      "subject": "",
+      "comment": "<s></s><div></div>",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "",
+        "fallback": true,
+        "title": "/g/ - No.420"
+      }
+    },
+    {
+      "id": "comment_comments_only_fall_back",
+      "subject": "",
+      "comment": "<!-- hidden <b>x</b> -->",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "",
+        "fallback": true,
+        "title": "/g/ - No.420"
+      }
+    },
+    {
+      "id": "comment_script_body_is_text",
+      "subject": "",
+      "comment": "<script>alert(1)</script>after",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "alert(1)after",
+        "fallback": false,
+        "title": "/g/ - alert(1)after"
+      }
+    },
+    {
+      "id": "comment_quoted_tag_attributes",
+      "subject": "",
+      "comment": "<a title=\"x>y\" data-q='a>b'>visible</a>",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "visible",
+        "fallback": false,
+        "title": "/g/ - visible"
+      }
+    },
+    {
+      "id": "comment_encoded_quoted_attributes",
+      "subject": "",
+      "comment": "&lt;a title=&quot;x&gt;y&quot;&gt;visible&lt;/a&gt;",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "visible",
+        "fallback": false,
+        "title": "/g/ - visible"
+      }
+    },
+    {
+      "id": "comment_encoded_markup_removed",
+      "subject": "",
+      "comment": "&lt;b&gt;visible&lt;/b&gt;",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "visible",
+        "fallback": false,
+        "title": "/g/ - visible"
+      }
+    },
+    {
+      "id": "comment_decode_once",
+      "subject": "",
+      "comment": "&amp;lt;b&amp;gt;visible&amp;lt;/b&amp;gt;",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "&lt;b&gt;visible&lt;/b&gt;",
+        "fallback": false,
+        "title": "/g/ - &amp;lt;b&amp;gt;visible&amp;lt;/b&amp;gt;"
+      }
+    },
+    {
+      "id": "comment_html401_entities",
+      "subject": "",
+      "comment": "&apos; &nbsp; &#65; &#x41;",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "&apos; &nbsp; &#65; &#x41;",
+        "fallback": false,
+        "title": "/g/ - &amp;apos; &amp;nbsp; &amp;#65; &amp;#x41;"
+      }
+    },
+    {
+      "id": "comment_special_numeric_entities",
+      "subject": "",
+      "comment": "&#38; &#x22; &#00039; &#62;",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "& \" ' >",
+        "fallback": false,
+        "title": "/g/ - &amp; &quot; &#039; &gt;"
+      }
+    },
+    {
+      "id": "comment_special_named_entities",
+      "subject": "",
+      "comment": "&amp; &quot; &#039; &gt;",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "& \" ' >",
+        "fallback": false,
+        "title": "/g/ - &amp; &quot; &#039; &gt;"
+      }
+    },
+    {
+      "id": "comment_less_than_space",
+      "subject": "",
+      "comment": "a &lt; b &gt; c",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "a < b > c",
+        "fallback": false,
+        "title": "/g/ - a &lt; b &gt; c"
+      }
+    },
+    {
+      "id": "comment_null_removed",
+      "subject": "",
+      "comment": "a\u0000b",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "ab",
+        "fallback": false,
+        "title": "/g/ - ab"
+      }
+    },
+    {
+      "id": "comment_trailing_unclosed_tag",
+      "subject": "",
+      "comment": "before<unfinished",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "before",
+        "fallback": false,
+        "title": "/g/ - before"
+      }
+    },
+    {
+      "id": "comment_unclosed_quoted_tag",
+      "subject": "",
+      "comment": "before<a title=\"x>after",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "before",
+        "fallback": false,
+        "title": "/g/ - before"
+      }
+    },
+    {
+      "id": "comment_nested_angle_brackets",
+      "subject": "",
+      "comment": "a<<b>>b</b>c",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "abc",
+        "fallback": false,
+        "title": "/g/ - abc"
+      }
+    },
+    {
+      "id": "comment_declaration",
+      "subject": "",
+      "comment": "<!DOCTYPE html>visible",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "visible",
+        "fallback": false,
+        "title": "/g/ - visible"
+      }
+    },
+    {
+      "id": "comment_declaration_quoted_gt",
+      "subject": "",
+      "comment": "<!THING \"a>b\">visible",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "visible",
+        "fallback": false,
+        "title": "/g/ - visible"
+      }
+    },
+    {
+      "id": "comment_comment_quoted_gt",
+      "subject": "",
+      "comment": "before<!-- \"a>b\" <b>hidden</b> -->after",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "beforeafter",
+        "fallback": false,
+        "title": "/g/ - beforeafter"
+      }
+    },
+    {
+      "id": "comment_title_breakout",
+      "subject": "",
+      "comment": "&lt;/title&gt;&lt;script&gt;alert(1)&lt;/script&gt;visible",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "alert(1)visible",
+        "fallback": false,
+        "title": "/g/ - alert(1)visible"
+      }
+    },
+    {
+      "id": "comment_php_unclosed_parenthesis",
+      "subject": "",
+      "comment": "before<?php ( ?>after",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "before",
+        "fallback": false,
+        "title": "/g/ - before"
+      }
+    },
+    {
+      "id": "comment_php_quoted_terminator",
+      "subject": "",
+      "comment": "before<?php echo \"?>\"; ?>after",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "beforeafter",
+        "fallback": false,
+        "title": "/g/ - beforeafter"
+      }
+    },
+    {
+      "id": "comment_processing_instruction",
+      "subject": "",
+      "comment": "before<?php echo \"hidden\";?>after",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "beforeafter",
+        "fallback": false,
+        "title": "/g/ - beforeafter"
+      }
+    },
+    {
+      "id": "comment_xml_after_text",
+      "subject": "",
+      "comment": "before<?xml version=\"1.0\">after",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "beforeafter",
+        "fallback": false,
+        "title": "/g/ - beforeafter"
+      }
+    },
+    {
+      "id": "comment_50_ascii",
+      "subject": "",
+      "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "fallback": false,
+        "title": "/g/ - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+    {
+      "id": "comment_50_unicode_scalars",
+      "subject": "",
+      "comment": "\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\ud83d\ude00after",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\ud83d\ude00",
+        "fallback": false,
+        "title": "/g/ - \u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\u96ea\ud83d\ude00"
+      }
+    },
+    {
+      "id": "comment_combining_scalar_boundary",
+      "subject": "",
+      "comment": "e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301",
+        "fallback": false,
+        "title": "/g/ - e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301"
+      }
+    },
+    {
+      "id": "comment_entity_count_after_decode",
+      "subject": "",
+      "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&amp;after",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&",
+        "fallback": false,
+        "title": "/g/ - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&amp;"
+      }
+    },
+    {
+      "id": "comment_entity_literal_count",
+      "subject": "",
+      "comment": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&nbsp;after",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&",
+        "fallback": false,
+        "title": "/g/ - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&amp;"
+      }
+    },
+    {
+      "id": "sjis_replacement",
+      "subject": "",
+      "comment": "before<span class=\"sjis\">\u96ea</span>after",
+      "upload_board": false,
+      "sjis": true,
+      "board": "g",
+      "source": {
+        "context": "before[SJIS]after",
+        "fallback": false,
+        "title": "/g/ - before[SJIS]after"
+      }
+    },
+    {
+      "id": "sjis_disabled",
+      "subject": "",
+      "comment": "before<span class=\"sjis\">\u96ea</span>after",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "before\u96eaafter",
+        "fallback": false,
+        "title": "/g/ - before\u96eaafter"
+      }
+    },
+    {
+      "id": "sjis_empty_span",
+      "subject": "",
+      "comment": "<span class=\"sjis\"></span>",
+      "upload_board": false,
+      "sjis": true,
+      "board": "g",
+      "source": {
+        "context": "[SJIS]",
+        "fallback": false,
+        "title": "/g/ - [SJIS]"
+      }
+    },
+    {
+      "id": "sjis_multiple_spans",
+      "subject": "",
+      "comment": "<span class=\"sjis\">one</span> <span class=\"sjis\">two</span>",
+      "upload_board": false,
+      "sjis": true,
+      "board": "g",
+      "source": {
+        "context": "[SJIS] [SJIS]",
+        "fallback": false,
+        "title": "/g/ - [SJIS] [SJIS]"
+      }
+    },
+    {
+      "id": "sjis_newline_does_not_match",
+      "subject": "",
+      "comment": "<span class=\"sjis\">a\nb</span>",
+      "upload_board": false,
+      "sjis": true,
+      "board": "g",
+      "source": {
+        "context": "a\nb",
+        "fallback": false,
+        "title": "/g/ - a\nb"
+      }
+    },
+    {
+      "id": "sjis_br_matches_before_replacement",
+      "subject": "",
+      "comment": "<span class=\"sjis\">a<br>b</span>",
+      "upload_board": false,
+      "sjis": true,
+      "board": "g",
+      "source": {
+        "context": "[SJIS]",
+        "fallback": false,
+        "title": "/g/ - [SJIS]"
+      }
+    },
+    {
+      "id": "sjis_single_quote_does_not_match",
+      "subject": "",
+      "comment": "<span class='sjis'>text</span>",
+      "upload_board": false,
+      "sjis": true,
+      "board": "g",
+      "source": {
+        "context": "text",
+        "fallback": false,
+        "title": "/g/ - text"
+      }
+    },
+    {
+      "id": "sjis_case_sensitive",
+      "subject": "",
+      "comment": "<span class=\"SJIS\">text</span>",
+      "upload_board": false,
+      "sjis": true,
+      "board": "g",
+      "source": {
+        "context": "text",
+        "fallback": false,
+        "title": "/g/ - text"
+      }
+    },
+    {
+      "id": "sjis_encoded_marker_does_not_match",
+      "subject": "",
+      "comment": "&lt;span class=&quot;sjis&quot;&gt;text&lt;/span&gt;",
+      "upload_board": false,
+      "sjis": true,
+      "board": "g",
+      "source": {
+        "context": "text",
+        "fallback": false,
+        "title": "/g/ - text"
+      }
+    },
+    {
+      "id": "sjis_regex_accepts_suffix",
+      "subject": "",
+      "comment": "<span class=\"sjis\"extra>text</span>",
+      "upload_board": false,
+      "sjis": true,
+      "board": "g",
+      "source": {
+        "context": "[SJIS]",
+        "fallback": false,
+        "title": "/g/ - [SJIS]"
+      }
+    },
+    {
+      "id": "sjis_non_greedy_close",
+      "subject": "",
+      "comment": "<span class=\"sjis\"><span>x</span>tail</span>",
+      "upload_board": false,
+      "sjis": true,
+      "board": "g",
+      "source": {
+        "context": "[SJIS]tail",
+        "fallback": false,
+        "title": "/g/ - [SJIS]tail"
+      }
+    },
+    {
+      "id": "subject_wins_over_sjis",
+      "subject": "Subject",
+      "comment": "<span class=\"sjis\">ignored</span>",
+      "upload_board": false,
+      "sjis": true,
+      "board": "g",
+      "source": {
+        "context": "Subject",
+        "fallback": false,
+        "title": "/g/ - Subject"
+      }
+    },
+    {
+      "id": "literal_no_id_is_not_fallback",
+      "subject": "No.420",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "g",
+      "source": {
+        "context": "No.420",
+        "fallback": false,
+        "title": "/g/ - No.420"
+      }
+    },
+    {
+      "id": "s4s_bracket_prefix",
+      "subject": "Subject",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "s4s",
+      "source": {
+        "context": "Subject",
+        "fallback": false,
+        "title": "[s4s] - Subject"
+      }
+    },
+    {
+      "id": "s4s_empty_fallback",
+      "subject": "",
+      "comment": "",
+      "upload_board": false,
+      "sjis": false,
+      "board": "s4s",
+      "source": {
+        "context": "",
+        "fallback": true,
+        "title": "[s4s] - No.420"
+      }
+    }
+  ]
+}

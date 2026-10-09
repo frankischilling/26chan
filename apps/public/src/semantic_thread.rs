@@ -58,6 +58,14 @@ pub(crate) fn context(post: &PostView, board: &Board) -> Result<String, AppError
     if !context.is_empty() {
         return Ok(context);
     }
+    let comment = stored_comment(post);
+    // Stored subjects are normalized text. Escape once before source decoding;
+    // literal submitted entity spellings must not become generated entities.
+    board_domain::semantic_context::generate(&subject, &comment, false).map_err(projection_error)
+}
+
+/// Reconstruct saved source formatting as data for escaped text projections.
+pub(crate) fn stored_comment(post: &PostView) -> String {
     let mut comment = crate::catalog::teaser::stored_comment(
         &post.lines,
         &post.post.board,
@@ -81,9 +89,7 @@ pub(crate) fn context(post: &PostView, board: &Board) -> Result<String, AppError
             board_domain::source_html_entities(text)
         ));
     }
-    // Stored subjects are normalized text. Escape once before source decoding;
-    // literal submitted entity spellings must not become generated entities.
-    board_domain::semantic_context::generate(&subject, &comment, false).map_err(projection_error)
+    comment
 }
 
 pub async fn get(

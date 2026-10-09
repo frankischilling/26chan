@@ -6,7 +6,7 @@
 {% import "catalog_text_row.html" as catalog_text_rows %}
 {% import "thread_navigation.html" as thread_navigation %}
 {% import "page_navigation.html" as page_navigation %}
-{% block title %}/{{ board.slug }}/ - {{ board.title }}{% endblock %}
+{% block title %}{{ browser_title() }}{% endblock %}
 {% block alternate_feed %}{% if board.rss_enabled %}<link rel="alternate" title="RSS feed" href="/{{ board.slug }}/index.rss" type="application/rss+xml">{% endif %}{% endblock %}
 {% block body_attributes %}{% if board.math_tags && !catalog %} data-math-tags="1"{% endif %} data-worksafe="{{ board.worksafe }}" data-page-catalog="{{ catalog }}"{% if !catalog %} data-post-headers="true"{% endif %} class="publicPageChrome {% if board.worksafe %}ws{% else %}nws{% endif %}{% if catalog %} is_catalog{% endif %}{% if board.text_only %} text_only{% endif %}"{% endblock %}
 {% block favicon %}<link rel="shortcut icon" type="image/x-icon" href="/static/notifications/favicon{% if board.worksafe %}-ws{% endif %}.ico">{% endblock %}
@@ -17,7 +17,7 @@
 {% block board_navigation %}{% if catalog %}<div id="topnav" class="boardnav">{% endif %}{% call page_navigation::desktop(navigation(), catalog, board.worksafe, false) %}{% endcall %}{% if catalog %}</div>{% endif %}{% call page_navigation::mobile(navigation(), board) %}{% endcall %}{% endblock %}
 {% block page_footer %}{% call page_navigation::desktop(navigation(), catalog, board.worksafe, true) %}{% endcall %}<div id="absbot" class="absBotText"><div id="footer-links"><a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a> • <a href="/">All boards</a></div></div>{% if parent == 0 %}<div id="bottom"></div>{% endif %}<script type="module" src="/static/page-chrome.v1.js"></script>{% endblock %}
 {% block content %}
-<div class="boardBanner"{% if parent > 0 %} id="top"{% endif %}><div id="bannerCnt" class="title desktop"></div><div class="boardTitle" role="heading" aria-level="1">/{{ board.slug }}/ - {{ board.title }}</div>{% include "board_subtitle.html" %}</div>
+<div class="boardBanner"{% if parent > 0 %} id="top"{% endif %}><div id="bannerCnt" class="title desktop"></div><div class="boardTitle" role="heading" aria-level="1">{{ heading() }}</div>{% include "board_subtitle.html" %}</div>
 {% if parent > 0 %}
 {% call thread_navigation::mobile(board.slug, parent, board.worksafe, false) %}{% endcall %}
 {% call thread_navigation::desktop(board.slug, false) %}{% endcall %}

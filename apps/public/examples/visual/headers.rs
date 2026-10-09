@@ -89,6 +89,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
         catalog_hidden: Vec::new(),
         board,
         threads,
+        page_number: 1,
         parent: 0,
         previous: String::new(),
         next: String::new(),
