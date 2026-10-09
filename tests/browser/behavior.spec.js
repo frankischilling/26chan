@@ -1,3 +1,4 @@
+import { withFailurePreservingCleanup } from './helpers/preserve-cleanup-failure.js';
 import { cleanupDeletionFixtures, deletionFixture, ownedDeletionMarker } from './helpers/deletion-fixture.js';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { fillCatalogSearch } from './catalog-actions.js';
@@ -302,37 +303,26 @@ test('cross-board quotes navigate persisted replies and respect deletion without
   const origin = 'http://127.0.0.1:3000';
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
-  const password = 'cross-board-browser-password';
   const threads = [], importedThreads = [];
   const marker = ownedDeletionMarker();
-  // Imported source boards keep the posting password in a hidden `pwd` field.
-  // Seed only our target posts through the real endpoint with an explicit
-  // deletion password; the browser remains JavaScript-disabled throughout.
-  async function postTarget(resto, comment, subject) {
-    const response = await withPostingHistory(() => context.request.post(`${origin}/tg/post`, {
-      headers: { origin }, maxRedirects: 0,
-      form: { resto, com: comment, pwd: password, ...(subject ? { sub: subject } : {}) },
-    }));
-    expect(response.status(), 'Owned source-board target must persist').toBe(303);
-    const receipt = /^\/tg\/thread\/([1-9][0-9]*)#p([1-9][0-9]*)$/.exec(response.headers().location || '');
-    expect(receipt, 'Real posting redirect must identify the owned target').not.toBeNull();
-    expect(receipt[1]).toBe(resto === '0' ? receipt[2] : resto);
-    return receipt[2];
-  }
+  // All normal source forms intentionally carry blank hidden passwords. The
+  // real HttpOnly anonymous session owns these posts and authorizes deletion;
+  // keep the JavaScript-disabled browser on that native path end to end.
   async function post(path, comment, subject) {
     await page.goto(`${origin}${path}`);
     await page.locator('#com').fill(comment);
     if (subject) await page.locator('#sub').fill(subject);
+    await expect(page.locator('#postPassword')).toHaveAttribute('type', 'hidden');
     await expect(page.locator('#postPassword')).toHaveValue('');
-    await page.locator('#postPassword').fill(password);
     await withPostingHistory(() => page.getByRole('button', { name: 'Post', exact: true }).click());
     await expect(page).toHaveURL(/\/thread\/\d+#p\d+$/);
     return /#p(\d+)$/.exec(page.url())[1];
   }
-  try {
-    const target = await postTarget('0', 'Owned cross-board target', marker);
+  await withFailurePreservingCleanup(async () => {
+    const target = await post('/tg/', 'Owned cross-board target', marker);
     importedThreads.push({ board: 'tg', id: target, marker });
-    const reply = await postTarget(target, 'Owned target reply');
+    expect((await context.cookies(origin)).find(cookie => cookie.name === 'board-anon')).toMatchObject({ httpOnly: true });
+    const reply = await post(`/tg/thread/${target}`, 'Owned target reply');
     const source = await post('/fixture/', `See >>>/tg/${reply}.\n<script>window.quoteHostile = true</script>\n>>>/../42\n>>>/demo/${reply}\n[spoiler]>>>/tg/${reply}[/spoiler]`);
     threads.push(['fixture', source]);
     const sourceUrl = `${origin}/fixture/thread/${source}`;
@@ -367,10 +357,12 @@ test('cross-board quotes navigate persisted replies and respect deletion without
     // Age only the exact owned reply; imported /tg/ deletion policy remains unchanged.
     deletionFixture('age', 'tg', reply, marker);
     await page.locator(`#p${reply} summary`).click();
+    await expect(page.locator(`#delete${reply}`)).toHaveAttribute('type', 'hidden');
     await expect(page.locator(`#delete${reply}`)).toHaveValue('');
-    await page.locator(`#delete${reply}`).fill(password);
     await withDeletionQuota(async () => {
+      const deleted = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${origin}/tg/delete`);
       await page.locator(`#p${reply}`).getByRole('button', { name: 'Delete post', exact: true }).click();
+      expect((await deleted).status()).toBe(303);
       expect((await context.request.get(`${origin}/tg/post/${reply}`)).status()).toBe(404);
     });
     await page.goto(sourceUrl);
@@ -379,12 +371,12 @@ test('cross-board quotes navigate persisted replies and respect deletion without
     const deletedJson = await (await context.request.get(`${origin}/fixture/thread/${source}.json`)).json();
     expect(deletedJson.posts[0].com).toContain(`<span class="deadlink">&gt;&gt;&gt;/tg/${reply}</span>`);
     await expect(page.getByText('Owned target reply', { exact: true })).toHaveCount(0);
-  } finally {
+  }, async () => {
     try {
       for (const [board, no] of threads.reverse()) {
         await withDeletionQuota(async () => {
           const deleted = await context.request.post(`${origin}/${board}/delete`, {
-            headers: { origin }, form: { no, password }, maxRedirects: 0,
+            headers: { origin }, form: { no, password: '' }, maxRedirects: 0,
           });
           expect(deleted.status()).toBe(303);
         });
@@ -392,7 +384,11 @@ test('cross-board quotes navigate persisted replies and respect deletion without
     } finally {
       try { cleanupDeletionFixtures(importedThreads); } finally { await context.close(); }
     }
-  }
+  }, error => {
+    const detail = error instanceof Error ? error.stack || error.message : String(error);
+    test.info().annotations.push({ type: 'secondary-cleanup-error', description: detail });
+    console.error('Secondary quote-lifecycle cleanup failure:', detail);
+  });
 });
 
 test('release UI images have a narrow CSP with a healthy denied-origin control', async ({ page }) => {
