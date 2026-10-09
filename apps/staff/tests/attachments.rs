@@ -640,17 +640,38 @@ async fn exercise_attachment(f: &Fixture) {
             "thumbnail_width",
             "thumbnail_height",
             "available",
-            "md5"
+            "md5",
+            "output_format"
         ]
     );
     let privileges: (bool,bool,bool,bool) = sqlx::query_as("SELECT has_table_privilege(current_user,'content.staff_post_media','SELECT'),has_table_privilege(current_user,'content.staff_post_media','INSERT'),has_table_privilege(current_user,'content.staff_post_media','UPDATE'),has_table_privilege(current_user,'content.staff_post_media','DELETE')")
         .fetch_one(&f.state.staff).await.unwrap();
     assert_eq!(privileges, (true, false, false, false));
+    let format: String =
+        sqlx::query_scalar("SELECT output_format FROM content.staff_post_media WHERE post_id=$1")
+            .bind(f.post)
+            .fetch_one(&f.state.staff)
+            .await
+            .unwrap();
+    assert_eq!(format, "png");
     for (pool, sql) in [
         (&public, "SELECT * FROM content.staff_post_media LIMIT 0"),
+        (&public, "SELECT md5 FROM content.staff_post_media LIMIT 0"),
+        (
+            &public,
+            "SELECT output_format FROM content.staff_post_media LIMIT 0",
+        ),
         (
             &f.state.auth,
             "SELECT * FROM content.staff_post_media LIMIT 0",
+        ),
+        (
+            &f.state.auth,
+            "SELECT md5 FROM content.staff_post_media LIMIT 0",
+        ),
+        (
+            &f.state.auth,
+            "SELECT output_format FROM content.staff_post_media LIMIT 0",
         ),
         (&f.state.staff, "SELECT * FROM content.post_media LIMIT 0"),
         (&f.state.staff, "SELECT * FROM media.assets LIMIT 0"),

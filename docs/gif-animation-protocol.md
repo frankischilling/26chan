@@ -85,6 +85,12 @@ than the submitted filename. Image controls and the updater accept only the fixe
 PNG and GIF paths on the configured media origin. Spoiler links remain usable
 without JavaScript, and GIF URL retirement closes active image copies.
 
+Staff readiness requires the approved-format column used by the report queue.
+The queue keeps GIF original links even when the submitted filename ends in
+`.png`. Its legacy `s.jpg` thumbnail route serves PNG bytes. Public and
+authentication database roles cannot select individual columns from the staff
+attachment view; staff cannot read the raw media table.
+
 These output bytes do not establish the source's post-cleanup checksum. The
 supplied PHP conditionally invokes an external `gifsicle` binary whose version
 and implementation are absent from the supplied tree. Source cleanup/checksum
