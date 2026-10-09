@@ -557,13 +557,11 @@ async fn board_page(
         mut snapshot,
         navigation_boards,
         blotter,
-    } = board_store::board_page_snapshot(
-        &state.pool,
-        slug,
-        selection,
-        Some(if catalog { 0 } else { 3 }),
-    )
-    .await?;
+    } = if catalog {
+        board_store::board_page_snapshot(&state.pool, slug, selection, Some(0)).await?
+    } else {
+        board_store::source_board_page_snapshot(&state.pool, slug, selection).await?
+    };
     if catalog && !snapshot.board.catalog_enabled {
         return Err(AppError(StatusCode::NOT_FOUND, "Catalog not found."));
     }

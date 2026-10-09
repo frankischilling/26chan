@@ -13,7 +13,7 @@ function post(comment) {
 const updater = value => ({ version: 2, board: context.board, thread: no, closed: false, archived: false,
   sticky: false, replies: 0, images: 0, posts: [value], tail_size: 0, tail_id: null });
 const preview = value => ({ version: 1, board: context.board, thread: no, post: value });
-const page = value => ({ version: 1, board: context.board, page: 0, next_page: null, threads: [{ thread: no,
+const page = value => ({ version: 2, board: context.board, page: 0, next_page: null, replies_shown: 3, threads: [{ thread: no,
   closed: false, sticky: false, archived: false, replies: 0, images: 0, omitted: 0, posts: [value] }] });
 const search = value => ({ threads: [{ board: context.board, thread: no, posts: [{ no, html: value.html }] }], offset: 0, nhits: 1 });
 const message = tree => tree.children[0].children[1];
