@@ -122,6 +122,67 @@ impl Fixture {
             .unwrap();
     }
 
+    async fn get(&self, path: &str) -> String {
+        let response = self
+            .app
+            .clone()
+            .oneshot(Request::get(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK, "{path}");
+        String::from_utf8(
+            response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes()
+                .to_vec(),
+        )
+        .unwrap()
+    }
+
+    async fn assert_file_projection(&self, id: i64, attached: bool) {
+        let json: serde_json::Value = serde_json::from_str(
+            &self
+                .get(&format!("/_watch/{}/thread/{id}.json", self.board))
+                .await,
+        )
+        .unwrap();
+        let post = &json["posts"][0];
+        assert_eq!(post["filedeleted"], 1);
+        assert_eq!(post["com"], "Synthetic selected post");
+        for field in [
+            "tim", "filename", "ext", "fsize", "w", "h", "tn_w", "tn_h", "md5",
+        ] {
+            assert!(post.get(field).is_none(), "Unexpected {field}: {post}");
+        }
+        let html = self.get(&format!("/{}/thread/{id}", self.board)).await;
+        assert!(html.contains("Synthetic selected post"));
+        assert_eq!(html.contains("File deleted."), attached);
+        assert!(!html.contains("owned.png"));
+        let preview: serde_json::Value =
+            serde_json::from_str(&self.get(&format!("/_watch/{}/post/{id}", self.board)).await)
+                .unwrap();
+        assert_eq!(preview["post"]["file_deleted"], true);
+        let html = preview["post"]["html"].as_str().unwrap();
+        assert_eq!(html.contains("File deleted."), attached);
+        assert!(html.contains("Synthetic selected post"));
+        if !attached {
+            assert!(!html.contains("class=\"file\""));
+            let rows: i64 =
+                sqlx::query_scalar("SELECT count(*) FROM content.post_media WHERE post_id=$1")
+                    .bind(id)
+                    .fetch_one(&self.owner)
+                    .await
+                    .unwrap();
+            assert_eq!(
+                rows, 0,
+                "Text-only deletion must not fabricate attachment rows"
+            );
+        }
+    }
+
     async fn exercise(&self) {
         for multipart in [false, true] {
             self.reset_deletion_case().await;
@@ -329,10 +390,75 @@ impl Fixture {
             self.attachment(attached).await;
             assert_eq!(
                 self.batch(&[attached, text_only], multipart, true).await.0,
-                StatusCode::NOT_FOUND
+                StatusCode::OK
             );
             assert!(self.file_deleted(attached).await);
             assert!(!self.deleted(text_only).await);
+            for (id, attached) in [(attached, true), (text_only, false)] {
+                self.assert_file_projection(id, attached).await;
+                sqlx::query("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Preserved file-only report')")
+                    .bind(&self.board).bind(id).execute(&self.owner).await.unwrap();
+            }
+            // Repeated file-only actions still authenticate, touch the thread and
+            // preserve both text and reports. Reset only the owned flood actor.
+            self.reset_deletion_case().await;
+            let before: chrono::DateTime<chrono::Utc> =
+                sqlx::query_scalar("SELECT modified_at FROM content.threads WHERE id=$1")
+                    .bind(text_only)
+                    .fetch_one(&self.owner)
+                    .await
+                    .unwrap();
+            assert_eq!(
+                self.batch(&[attached, text_only], multipart, true).await.0,
+                StatusCode::OK
+            );
+            let after: chrono::DateTime<chrono::Utc> =
+                sqlx::query_scalar("SELECT modified_at FROM content.threads WHERE id=$1")
+                    .bind(text_only)
+                    .fetch_one(&self.owner)
+                    .await
+                    .unwrap();
+            assert!(after > before);
+            for (id, attached) in [(attached, true), (text_only, false)] {
+                self.assert_file_projection(id, attached).await;
+                let reports: i64 = sqlx::query_scalar(
+                    "SELECT count(*) FROM content.reports WHERE post_id=$1 AND state='open'",
+                )
+                .bind(id)
+                .fetch_one(&self.owner)
+                .await
+                .unwrap();
+                assert_eq!(reports, 1);
+            }
+            let mut wrong = fields(&[text_only], true);
+            wrong.iter_mut().find(|(key, _)| key == "pwd").unwrap().1 = "wrong-password".into();
+            assert_eq!(
+                self.submit(&wrong, multipart, Some(ORIGIN)).await.0,
+                StatusCode::FORBIDDEN
+            );
+            self.assert_file_projection(text_only, false).await;
+
+            // The modern route has the same text-only and repeat semantics.
+            self.reset_deletion_case().await;
+            let modern_text = self.post(0).await;
+            for _ in 0..2 {
+                let response = self
+                    .app
+                    .clone()
+                    .oneshot(
+                        Request::post(format!("/{}/delete", self.board))
+                            .header("origin", ORIGIN)
+                            .header("content-type", "application/x-www-form-urlencoded")
+                            .body(Body::from(format!(
+                                "no={modern_text}&password={PASSWORD}&file_only=true"
+                            )))
+                            .unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(response.status(), StatusCode::SEE_OTHER);
+                self.assert_file_projection(modern_text, false).await;
+            }
 
             // Invalid syntax is rejected before any item mutates storage.
             self.reset_deletion_case().await;
@@ -445,6 +571,7 @@ async fn legacy_batches_commit_in_submission_order_and_stop_at_the_first_error()
     })
     .await;
     for statement in [
+        "DELETE FROM content.reports WHERE board=$1",
         "DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",
         "DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",
         "DELETE FROM content.posts WHERE board=$1",

@@ -176,7 +176,7 @@ impl Fixture {
         let html = self.queue_html().await;
         assert!(
             !html.contains(&format!("<article id=\"report-{}\">", self.report)),
-            "Whole deletion removes the exact report article from the successful queue response"
+            "Administrative deletion removes the exact report article from the successful queue response"
         );
         let exists: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM content.reports WHERE board=$1 AND id=$2 AND post_id=$3)",
@@ -187,12 +187,28 @@ impl Fixture {
         .fetch_one(&self.owner)
         .await
         .unwrap();
-        assert!(!exists, "Whole deletion physically removes the report row");
+        assert!(
+            !exists,
+            "Administrative deletion physically removes the report row"
+        );
     }
     async fn unchanged(&self) {
-        let state: (bool, bool, bool, String, i64) = sqlx::query_as("SELECT m.file_deleted,p.deleted,t.deleted,p.comment,(SELECT count(*) FROM content.moderation_audit WHERE board=$1) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id JOIN content.threads t ON t.id=p.thread_id WHERE p.id=$2")
+        let state: (bool, bool, bool, String, i64, bool) = sqlx::query_as("SELECT m.file_deleted,p.deleted,t.deleted,p.comment,(SELECT count(*) FROM content.moderation_audit WHERE board=$1),p.file_deleted FROM content.post_media m JOIN content.posts p ON p.id=m.post_id JOIN content.threads t ON t.id=p.thread_id WHERE p.id=$2")
             .bind(&self.board).bind(self.post).fetch_one(&self.owner).await.unwrap();
-        assert_eq!(state, (false, false, false, "Keep this text".into(), 0));
+        assert_eq!(
+            state,
+            (false, false, false, "Keep this text".into(), 0, false)
+        );
+        let present: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.reports WHERE id=$1)")
+                .bind(self.report)
+                .fetch_one(&self.owner)
+                .await
+                .unwrap();
+        assert!(
+            present,
+            "Report cleanup must roll back with file state and audit"
+        );
     }
     async fn cleanup(&self) {
         for sql in [
@@ -769,10 +785,7 @@ async fn exercise_attachment(f: &Fixture) {
         f.request(&f.board, &f.csrf, &f.token),
         f.request(&f.board, &f.csrf, &f.token)
     );
-    assert!(
-        (one == StatusCode::SEE_OTHER && two == StatusCode::NOT_FOUND)
-            || (two == StatusCode::SEE_OTHER && one == StatusCode::NOT_FOUND)
-    );
+    assert_eq!((one, two), (StatusCode::SEE_OTHER, StatusCode::SEE_OTHER));
     let state: (bool, bool, bool, String, chrono::DateTime<chrono::Utc>) = sqlx::query_as("SELECT m.file_deleted,p.deleted,t.deleted,p.comment,t.modified_at FROM content.post_media m JOIN content.posts p ON p.id=m.post_id JOIN content.threads t ON t.id=p.thread_id WHERE p.id=$1")
         .bind(f.post).fetch_one(&f.owner).await.unwrap();
     assert_eq!(
@@ -787,7 +800,7 @@ async fn exercise_attachment(f: &Fixture) {
     .fetch_all(&f.owner)
     .await
     .unwrap();
-    assert_eq!(audit, vec![(f.account, f.post, "remove-file".into())]);
+    assert_eq!(audit, vec![(f.account, f.post, "remove-file".into()); 2]);
     let reader = pool("MEDIA_READ_DATABASE_URL").await;
     let count: i64 = sqlx::query_scalar("SELECT count(*) FROM media.approved_assets WHERE id=$1")
         .bind(&f.asset)
@@ -795,12 +808,7 @@ async fn exercise_attachment(f: &Fixture) {
         .await
         .unwrap();
     assert_eq!(count, 0);
-    let html = f.html().await;
-    assert!(html.contains("File unavailable"));
-    assert!(!html.contains("<img "));
-    assert!(!html.contains("Open spoiler"));
-    assert!(!html.contains("Remove file only"));
-    assert!(html.contains("Keep this text"));
+    f.assert_deleted_report_absent().await;
     store::moderate(&f.state.staff, &session, &f.board, f.post, "remove-thread")
         .await
         .unwrap();
@@ -815,6 +823,7 @@ async fn exercise_attachment(f: &Fixture) {
     assert_eq!(
         audits,
         vec![
+            (f.account, f.post, "remove-file".into()),
             (f.account, f.post, "remove-file".into()),
             (f.account, f.post, "remove-thread".into()),
         ],
@@ -864,4 +873,124 @@ async fn interrupted_audit_rolls_back_file_removal(f: &Fixture) {
     assert!(waiting, "Moderation never reached the audit lock");
     assert!(stopped.unwrap_err().is_cancelled());
     f.unchanged().await;
+}
+
+#[tokio::test]
+async fn deletion_gate_matches_rank_target_and_valid_archive_states() {
+    for role in ["janitor", "moderator", "manager", "admin"] {
+        for action in ["remove-file", "remove-post", "remove-thread"] {
+            for scenario in ["sticky-op", "sticky-reply", "archived-op", "ordinary-op"] {
+                if scenario == "sticky-reply" && action == "remove-thread" {
+                    continue;
+                }
+                let f = Arc::new(Fixture::new().await);
+                let exercise = f.clone();
+                let result = tokio::spawn(async move {
+                    let f = exercise;
+                    sqlx::query("UPDATE staff_identity.accounts SET role=$2 WHERE id=$1")
+                        .bind(f.account).bind(role).execute(&f.owner).await.unwrap();
+                    sqlx::query("UPDATE content.threads SET sticky=$2 WHERE id=$1")
+                        .bind(f.post).bind(matches!(scenario, "sticky-op" | "sticky-reply")).execute(&f.owner).await.unwrap();
+                    if scenario == "archived-op" {
+                        sqlx::query("UPDATE content.boards SET archive_retention_seconds=3600 WHERE slug=$1")
+                            .bind(&f.board).execute(&f.owner).await.unwrap();
+                        sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1")
+                            .bind(f.post).execute(&f.owner).await.unwrap();
+                    }
+                    let target = if scenario == "sticky-reply" {
+                        sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Synthetic','','Owned reply') RETURNING id")
+                            .bind(&f.board).bind(f.post).fetch_one(&f.owner).await.unwrap()
+                    } else { f.post };
+                    let denied = scenario == "sticky-op" && role != "admin";
+                    assert_eq!(
+                        f.action(&f.board, &f.csrf, &f.token, target, action).await,
+                        if denied { StatusCode::FORBIDDEN } else { StatusCode::SEE_OTHER },
+                        "{role} {action} {scenario}",
+                    );
+                    if denied {
+                        f.unchanged().await;
+                    } else {
+                        let audits: i64 = sqlx::query_scalar("SELECT count(*) FROM content.moderation_audit WHERE board=$1 AND target_id=$2 AND action=$3")
+                            .bind(&f.board).bind(target).bind(action).fetch_one(&f.owner).await.unwrap();
+                        assert_eq!(audits, 1, "{role} {action} {scenario}");
+                    }
+                }).await;
+                f.cleanup().await;
+                result.unwrap();
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn administrative_file_repeat_and_text_only_clear_new_reports_on_exact_target() {
+    let f = Arc::new(Fixture::new().await);
+    let exercise = f.clone();
+    let result = tokio::spawn(async move {
+        let f = exercise;
+        let reply: i64 = sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Synthetic','','Owned text-only reply') RETURNING id")
+            .bind(&f.board).bind(f.post).fetch_one(&f.owner).await.unwrap();
+        let sibling: i64 = sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Keep sibling report') RETURNING id")
+            .bind(&f.board).bind(reply).fetch_one(&f.owner).await.unwrap();
+        for target in [f.post, f.post, reply, reply] {
+            // Every deletion receives a fresh report lifetime, including a repeat
+            // on an already absent file and a post which never carried media.
+            for disposition in ["open", "resolved", "dismissed"] {
+                sqlx::query("INSERT INTO content.reports(board,post_id,reason,state) VALUES($1,$2,'Owned fresh report lifetime',$3)")
+                    .bind(&f.board).bind(target).bind(disposition).execute(&f.owner).await.unwrap();
+            }
+            let before: chrono::DateTime<chrono::Utc> = sqlx::query_scalar("SELECT modified_at FROM content.threads WHERE id=$1")
+                .bind(f.post).fetch_one(&f.owner).await.unwrap();
+            assert_eq!(f.action(&f.board,&f.csrf,&f.token,target,"remove-file").await,StatusCode::SEE_OTHER);
+            let state: (bool,bool,String,i64,chrono::DateTime<chrono::Utc>) = sqlx::query_as("SELECT p.file_deleted,p.deleted,p.comment,(SELECT count(*) FROM content.reports WHERE post_id=p.id),t.modified_at FROM content.posts p JOIN content.threads t ON t.id=p.thread_id WHERE p.id=$1")
+                .bind(target).fetch_one(&f.owner).await.unwrap();
+            assert!(state.0 && !state.1);
+            assert_eq!(state.2, if target == f.post {"Keep this text"} else {"Owned text-only reply"});
+            assert_eq!(state.3,0);
+            assert!(state.4 > before);
+            if target == f.post {
+                let present: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.reports WHERE id=$1)")
+                    .bind(sibling).fetch_one(&f.owner).await.unwrap();
+                assert!(present,"Deleting OP file must preserve reply reports");
+            }
+        }
+        let audits: i64 = sqlx::query_scalar("SELECT count(*) FROM content.moderation_audit WHERE board=$1 AND action='remove-file'")
+            .bind(&f.board).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(audits,4);
+    }).await;
+    f.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn file_deletion_rechecks_sticky_eligibility_after_thread_lock_wait() {
+    let f = Arc::new(Fixture::new().await);
+    let exercise = f.clone();
+    let result = tokio::spawn(async move {
+        let f = exercise;
+        for sticky in [true, false] {
+            let mut blocker = f.owner.begin().await.unwrap();
+            let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+                .fetch_one(&mut *blocker).await.unwrap();
+            sqlx::query("UPDATE content.threads SET sticky=$2 WHERE id=$1")
+                .bind(f.post).bind(sticky).execute(&mut *blocker).await.unwrap();
+            let pending = tokio::spawn({
+                let f = f.clone();
+                async move { f.request(&f.board, &f.csrf, &f.token).await }
+            });
+            let mut waiting = false;
+            for _ in 0..200 {
+                waiting = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE usename='board_staff' AND $1=ANY(pg_blocking_pids(pid)))")
+                    .bind(pid).fetch_one(&mut *blocker).await.unwrap();
+                if waiting { break; }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            blocker.commit().await.unwrap();
+            assert!(waiting,"Deletion never reached the held thread lock");
+            assert_eq!(pending.await.unwrap(), if sticky { StatusCode::FORBIDDEN } else { StatusCode::SEE_OTHER });
+            if sticky { f.unchanged().await; }
+        }
+    }).await;
+    f.cleanup().await;
+    result.unwrap();
 }

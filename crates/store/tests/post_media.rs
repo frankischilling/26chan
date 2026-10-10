@@ -463,6 +463,7 @@ async fn exercise(f: &Fixture) {
         "SELECT * FROM deployment.settings",
         "UPDATE media.assets SET state=state WHERE false",
         "UPDATE content.post_media SET file_deleted=false WHERE false",
+        "UPDATE content.posts SET file_deleted=false WHERE false",
         "DELETE FROM content.post_media WHERE false",
         "UPDATE content.boards SET image_limit=100 WHERE false",
         "SELECT * FROM content.media_clock",
@@ -804,10 +805,23 @@ async fn exercise(f: &Fixture) {
     assert!(after.http_modified_at > revision.http_modified_at);
     assert!((before_delete..=after_delete).contains(&after.modified_at));
     assert!(after.modified_at < revision.modified_at);
-    assert!(matches!(
-        delete_attachment(&f.public, &f.board, id).await,
-        Err(StoreError::NotFound)
-    ));
+    let repeat_start: chrono::DateTime<chrono::Utc> =
+        sqlx::query_scalar("SELECT clock_timestamp()")
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
+    delete_attachment(&f.public, &f.board, id).await.unwrap();
+    let repeated = board_store::thread(&f.public, &f.board, thread)
+        .await
+        .unwrap();
+    assert!(repeated.modified_at >= repeat_start);
+    assert!(repeated.http_modified_at > after.http_modified_at);
+    assert!(
+        board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap()
+            .file_deleted
+    );
     assert!(matches!(
         f.insert(thread, &a).await,
         Err(StoreError::Conflict(_))
@@ -2270,9 +2284,148 @@ async fn exercise_waits_and_moderation(f: &Fixture) {
         f.reader.get(&c_asset).await,
         Err(StoreError::NotFound)
     ));
+    file_deletion_rechecks_archive_after_post_lock(f, &staff).await;
     staff.close().await;
     cancellation(f).await;
     retention(f).await;
+}
+
+// The blocker owns only the reply tuple. The file action must already hold
+// board -> thread before it waits here, exercising the final expiry check after
+// the post lock rather than merely its earlier thread-visibility lookup.
+async fn file_deletion_rechecks_archive_after_post_lock(f: &Fixture, staff: &PgPool) {
+    let actual: String = sqlx::query_scalar("SELECT current_user::text")
+        .fetch_one(staff)
+        .await
+        .unwrap();
+    assert_eq!(actual, "board_staff");
+    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let receipt = f.reserve().await;
+    f.approve(&receipt).await;
+    let reply = f.insert(thread, &receipt).await.unwrap();
+    sqlx::query("UPDATE content.boards SET archive_retention_seconds=60 WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp()-interval '1 second',archive_expires_at=clock_timestamp()+interval '10 seconds' WHERE id=$1")
+        .bind(thread).execute(&f.admin).await.unwrap();
+    let mut holder = f.admin.begin().await.unwrap();
+    sqlx::query("SELECT id FROM content.posts WHERE id=$1 FOR UPDATE")
+        .bind(reply)
+        .fetch_one(&mut *holder)
+        .await
+        .unwrap();
+    let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *holder)
+        .await
+        .unwrap();
+    const STATE: &str = "SELECT jsonb_build_object('post',(SELECT to_jsonb(p) FROM content.posts p WHERE id=$1),'media',(SELECT to_jsonb(m) FROM content.post_media m WHERE post_id=$1),'thread',(SELECT to_jsonb(t) FROM content.threads t WHERE id=$2))";
+    let before: serde_json::Value = sqlx::query_scalar(STATE)
+        .bind(reply)
+        .bind(thread)
+        .fetch_one(&f.admin)
+        .await
+        .unwrap();
+    let mut deletion = staff.begin().await.unwrap();
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *deletion)
+        .await
+        .unwrap();
+    // This controlled lock wait crosses a ten-second archive deadline. Keep
+    // production connection defaults unchanged; only this test transaction
+    // needs enough time to reach the function's post-wait expiry rejection.
+    sqlx::raw_sql("SET LOCAL lock_timeout='15s'; SET LOCAL statement_timeout='20s'")
+        .execute(&mut *deletion)
+        .await
+        .unwrap();
+    let waiter: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *deletion)
+        .await
+        .unwrap();
+    let board = f.board.clone();
+    let mut waiting = tokio::spawn(async move {
+        let result = sqlx::query("SELECT content.staff_delete_post_attachment($1,$2)")
+            .bind(board)
+            .bind(reply)
+            .execute(&mut *deletion)
+            .await;
+        deletion.rollback().await.unwrap();
+        result
+    });
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let blocked: bool = sqlx::query_scalar("SELECT $1=ANY(pg_blocking_pids($2))")
+                .bind(blocker)
+                .bind(waiter)
+                .fetch_one(&f.admin)
+                .await
+                .unwrap();
+            if blocked {
+                break;
+            }
+            assert!(
+                !waiting.is_finished(),
+                "File action must reach the held post tuple before expiry"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("File action must wait on this exact post-only blocker");
+    // Independently witness that the waiting action already owns the thread.
+    let mut probe = f.admin.begin().await.unwrap();
+    let locked = sqlx::query("SELECT id FROM content.threads WHERE id=$1 FOR UPDATE NOWAIT")
+        .bind(thread)
+        .fetch_one(&mut *probe)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        locked.as_database_error().unwrap().code().as_deref(),
+        Some("55P03")
+    );
+    probe.rollback().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(15), async {
+        loop {
+            let expired: bool = sqlx::query_scalar(
+                "SELECT archive_expires_at<=clock_timestamp() FROM content.threads WHERE id=$1",
+            )
+            .bind(thread)
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
+            if expired {
+                break;
+            }
+            assert!(
+                !waiting.is_finished(),
+                "Post lock must remain held until archive expiry"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("Database wall clock must cross this owned archive deadline");
+    holder.commit().await.unwrap();
+    let error = tokio::time::timeout(Duration::from_secs(5), &mut waiting)
+        .await
+        .expect("Expired file action must finish after releasing its post lock")
+        .unwrap()
+        .unwrap_err();
+    assert_eq!(
+        error.as_database_error().unwrap().code().as_deref(),
+        Some("P0002")
+    );
+    let after: serde_json::Value = sqlx::query_scalar(STATE)
+        .bind(reply)
+        .bind(thread)
+        .fetch_one(&f.admin)
+        .await
+        .unwrap();
+    assert_eq!(
+        after, before,
+        "Expired file action cannot change marker, media identity or thread clocks"
+    );
 }
 
 async fn retention(f: &Fixture) {

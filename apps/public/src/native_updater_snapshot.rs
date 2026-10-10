@@ -225,11 +225,7 @@ fn render_post(
     .map_err(|_| unavailable())?;
     Ok(RenderedPost {
         no: item.post.id.to_string(),
-        file_deleted: item
-            .post
-            .attachment
-            .as_ref()
-            .is_some_and(|file| file.file_deleted),
+        file_deleted: item.post.file_deleted(),
         html: String::from_utf8(output.bytes).map_err(|_| unavailable())?,
     })
 }
@@ -290,11 +286,7 @@ fn encode_preview(
         thread: view.thread.id.to_string(),
         post: RenderedPost {
             no: item.post.id.to_string(),
-            file_deleted: item
-                .post
-                .attachment
-                .as_ref()
-                .is_some_and(|file| file.file_deleted),
+            file_deleted: item.post.file_deleted(),
             html: String::from_utf8(output.bytes).map_err(|_| unavailable())?,
         },
     };
@@ -667,6 +659,7 @@ pub(crate) mod tests {
                 drawing_source_post_id: None,
                 created_at: now,
                 deleted: false,
+                file_deleted: false,
                 attachment: None,
             })
             .collect();
@@ -784,6 +777,108 @@ pub(crate) mod tests {
                 assert!(!html.contains("private-asset-id"));
                 assert!(!html.contains("not-a-public-hash-field"));
             }
+        }
+    }
+
+    #[test]
+    fn text_only_file_deletion_preserves_text_and_has_no_fabricated_file_placeholder() {
+        for deleted in [false, true] {
+            let mut preview = preview_fixture(false);
+            preview.post.file_deleted = deleted;
+            preview.post.comment = "Preserved text-only comment".into();
+            let value: serde_json::Value = serde_json::from_slice(
+                &encode_preview(preview, "https://media.example", MAX_PREVIEW_BYTES).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(value["post"]["file_deleted"], deleted);
+            let html = value["post"]["html"].as_str().unwrap();
+            assert!(html.contains("Preserved text-only comment"));
+            assert!(!html.contains("File deleted."));
+            assert!(!html.contains("class=\"file\""));
+            assert!(!html.contains("https://media.example/"));
+
+            let mut thread = fixture();
+            thread.posts[1].file_deleted = deleted;
+            let value: serde_json::Value = serde_json::from_slice(
+                &encode(thread, "https://media.example", MAX_BYTES).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(value["posts"][1]["file_deleted"], deleted);
+            assert!(
+                !value["posts"][1]["html"]
+                    .as_str()
+                    .unwrap()
+                    .contains("File deleted.")
+            );
+        }
+    }
+
+    #[test]
+    fn catalog_uses_deleted_marker_for_text_only_posts_without_file_metadata() {
+        use board_domain::{Token, comment_markup::Tag, word_break::WordPart};
+
+        #[derive(Template)]
+        #[template(
+            source = "{% import \"catalog_card.html\" as cards %}{% call cards::card(view, board, media_origin, options, spoiler_thumbnail) %}{% endcall %}",
+            ext = "html"
+        )]
+        struct Card<'a> {
+            view: &'a ThreadView,
+            board: &'a board_store::Board,
+            media_origin: &'a str,
+            options: &'a crate::catalog::Options,
+            spoiler_thumbnail: &'a str,
+        }
+        for deleted in [false, true] {
+            let mut snapshot = fixture();
+            snapshot.posts[0].file_deleted = deleted;
+            let view = ThreadView {
+                catalog_position: None,
+                catalog_last_reply: None,
+                tail_size: 0,
+                latest_reply_id: None,
+                thread: snapshot.thread,
+                posts: snapshot.posts.into_iter().map(PostView::new).collect(),
+                omitted: 0,
+                image_replies: 0,
+            };
+            let html = Card {
+                view: &view,
+                board: &snapshot.board,
+                media_origin: "https://media.example",
+                options: &crate::catalog::Options::default(),
+                spoiler_thumbnail: "/static/catalog/spoiler.png",
+            }
+            .render()
+            .unwrap();
+            assert_eq!(html.contains("filedeleted-res.gif"), deleted);
+            assert_eq!(html.contains("nofile.png"), !deleted);
+            assert!(html.contains("data-has-file=\"false\""));
+            assert!(html.contains("data-search-file=\"\""));
+            assert!(!html.contains("https://media.example/"));
+        }
+    }
+
+    #[test]
+    fn post_level_marker_hides_attachment_metadata_even_before_historical_flag() {
+        let mut preview = preview_fixture(false);
+        preview.post.file_deleted = true;
+        preview.post.attachment = Some(attachment());
+        let value: serde_json::Value = serde_json::from_slice(
+            &encode_preview(preview, "https://media.example", MAX_PREVIEW_BYTES).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(value["post"]["file_deleted"], true);
+        let html = value["post"]["html"].as_str().unwrap();
+        assert!(html.contains("File deleted."));
+        for hidden in [
+            "https://media.example/",
+            "private-asset-id",
+            "not-a-public-hash-field",
+            "&lt;img&gt;.jpg",
+            "file_only",
+        ] {
+            assert!(!html.contains(hidden), "Leaked {hidden}: {html}");
         }
     }
 

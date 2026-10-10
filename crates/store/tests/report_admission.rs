@@ -7,8 +7,12 @@ mod support;
 use board_domain::{anonymous_session::Capability, poster_id::PublicReportRateIdentity};
 use board_store::{NewPost, StoreError, anonymous_session::PostingSession};
 use chrono::{DateTime, Utc};
+use serde_json::Value;
 use sqlx::{PgConnection, PgPool, Postgres, Transaction};
-use std::{future::Future, sync::Arc};
+use std::{
+    future::Future,
+    sync::{Arc, Mutex},
+};
 
 const DUPLICATE: &str = "You have already reported this post.";
 const FLOOD: &str = "You have to wait a while before reporting another post.";
@@ -26,6 +30,7 @@ struct Fixture {
     boards: [String; 2],
     // One OP and three replies per board; all created through real admission.
     posts: [[i64; 4]; 2],
+    report_tokens: Arc<Mutex<Vec<[u8; 32]>>>,
 }
 
 impl Fixture {
@@ -37,6 +42,16 @@ impl Fixture {
             board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
                 .await
                 .unwrap();
+        for (pool, expected) in [(&owner, "board_migrator"), (&public, "board_public")] {
+            let actual: String = sqlx::query_scalar("SELECT current_user::text")
+                .fetch_one(pool)
+                .await
+                .unwrap();
+            assert_eq!(
+                actual, expected,
+                "Coverage requires actual restricted logins"
+            );
+        }
         let seed: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
             .fetch_one(&owner)
             .await
@@ -67,16 +82,38 @@ impl Fixture {
             public,
             boards,
             posts,
+            report_tokens: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
+    fn report_capability(&self) -> Capability {
+        let capability = Capability::generate().unwrap();
+        self.report_tokens
+            .lock()
+            .unwrap()
+            .push(capability.storage_hash());
+        capability
+    }
+
     async fn cleanup(&self) {
-        let tokens: Vec<Vec<u8>> = sqlx::query_scalar("SELECT a.token_hash FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board=ANY($1)")
+        let mut tokens: Vec<Vec<u8>> = sqlx::query_scalar("SELECT a.token_hash FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board=ANY($1)")
             .bind(self.boards.to_vec()).fetch_all(&self.owner).await.unwrap();
+        // Report deletion cascades ownership links, so retain owned tokens
+        // independently of the remaining reports for panic-safe teardown.
+        tokens.extend(
+            self.report_tokens
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|token| token.to_vec()),
+        );
+        tokens.sort();
+        tokens.dedup();
         for board in &self.boards {
             support::cleanup_posting(&self.owner, board).await;
             for query in [
                 "DELETE FROM content.reports WHERE board=$1",
+                "DELETE FROM content.moderation_audit WHERE board=$1",
                 "DELETE FROM content.post_media WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",
                 "DELETE FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",
                 "DELETE FROM content.posts WHERE board=$1",
@@ -140,13 +177,59 @@ impl Fixture {
         actor: &PublicReportRateIdentity,
     ) -> Result<i64, sqlx::Error> {
         let mut connection = self.public.acquire().await.unwrap();
-        admit(
+        let capability = self.report_capability();
+        admit_session(
             &mut connection,
             &self.boards[board],
             self.posts[board][target],
-            actor.as_bytes(),
+            Some("Owned admission fixture"),
+            Some(actor.as_bytes()),
+            session(&capability, true, Utc::now()),
         )
         .await
+    }
+
+    async fn report_graph(&self, report: i64) -> (bool, bool, bool, bool) {
+        let mut tx = self.owner.begin().await.unwrap();
+        let (record, ownership): (bool, bool) = sqlx::query_as("SELECT EXISTS(SELECT 1 FROM content.reports WHERE id=$1),EXISTS(SELECT 1 FROM post_secrets.anonymous_reports WHERE report_id=$1)")
+            .bind(report).fetch_one(&mut *tx).await.unwrap();
+        private_role(&mut tx).await;
+        let (membership, evidence): (bool, bool) = sqlx::query_as("SELECT EXISTS(SELECT 1 FROM post_secrets.report_membership WHERE report_id=$1),EXISTS(SELECT 1 FROM post_secrets.report_weight_evidence WHERE report_id=$1)")
+            .bind(report).fetch_one(&mut *tx).await.unwrap();
+        tx.rollback().await.unwrap();
+        (record, ownership, membership, evidence)
+    }
+
+    async fn group_exists(&self, board: usize, target: usize) -> bool {
+        let mut tx = self.owner.begin().await.unwrap();
+        private_role(&mut tx).await;
+        let exists = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM post_secrets.report_group WHERE board=$1 AND post_id=$2)",
+        )
+        .bind(&self.boards[board])
+        .bind(self.posts[board][target])
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+        tx.rollback().await.unwrap();
+        exists
+    }
+
+    async fn file_action_snapshot(&self) -> Value {
+        let mut tx = self.owner.begin().await.unwrap();
+        let ids: Vec<i64> =
+            sqlx::query_scalar("SELECT id FROM content.reports WHERE board=ANY($1)")
+                .bind(self.boards.to_vec())
+                .fetch_all(&mut *tx)
+                .await
+                .unwrap();
+        let mut snapshot: Value = sqlx::query_scalar("SELECT jsonb_build_object('posts',(SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM content.posts p WHERE board=ANY($1)),'threads',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM content.threads t WHERE board=ANY($1)),'media',(SELECT jsonb_agg(to_jsonb(m) ORDER BY post_id) FROM content.post_media m WHERE post_id IN(SELECT id FROM content.posts WHERE board=ANY($1))),'reports',(SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM content.reports r WHERE board=ANY($1)),'links',(SELECT jsonb_agg(to_jsonb(a) ORDER BY report_id) FROM post_secrets.anonymous_reports a WHERE report_id=ANY($2)),'deletion',(SELECT jsonb_agg(to_jsonb(d) ORDER BY post_id) FROM post_secrets.deletion d WHERE post_id IN(SELECT id FROM content.posts WHERE board=ANY($1))),'audit',(SELECT jsonb_agg(to_jsonb(a) ORDER BY id) FROM content.moderation_audit a WHERE board=ANY($1)))")
+            .bind(self.boards.to_vec()).bind(&ids).fetch_one(&mut *tx).await.unwrap();
+        private_role(&mut tx).await;
+        snapshot["private"] = sqlx::query_scalar::<_,Value>("SELECT jsonb_build_object('members',(SELECT jsonb_agg(to_jsonb(m) ORDER BY report_id) FROM post_secrets.report_membership m WHERE board=ANY($1)),'groups',(SELECT jsonb_agg(to_jsonb(g) ORDER BY board,post_id) FROM post_secrets.report_group g WHERE board=ANY($1)),'evidence',(SELECT jsonb_agg(to_jsonb(e) ORDER BY report_id) FROM post_secrets.report_weight_evidence e WHERE report_id=ANY($2)))")
+            .bind(self.boards.to_vec()).bind(&ids).fetch_one(&mut *tx).await.unwrap();
+        tx.rollback().await.unwrap();
+        snapshot
     }
 }
 
@@ -735,38 +818,352 @@ async fn post_and_thread_deletion_remove_only_matching_reports_and_archive_only_
     }).await;
 }
 
+async fn staff_file_pool() -> PgPool {
+    let pool = PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let actual: String = sqlx::query_scalar("SELECT current_user::text")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(actual, "board_staff");
+    pool
+}
+
+async fn file_action(
+    connection: &mut PgConnection,
+    board: &str,
+    post: i64,
+    staff: bool,
+) -> Result<(), sqlx::Error> {
+    let query = if staff {
+        "SELECT content.staff_delete_post_attachment($1,$2)"
+    } else {
+        "SELECT content.delete_post_attachment($1,$2)"
+    };
+    sqlx::query(query)
+        .bind(board)
+        .bind(post)
+        .execute(connection)
+        .await
+        .map(|_| ())
+}
+
 #[tokio::test]
-async fn public_file_only_retains_staff_fresh_removal_retires_and_repeat_does_not() {
+async fn public_file_only_preserves_reports_and_every_staff_removal_clears_exact_target() {
     run(|f| async move {
-        let staff = PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap()).await.unwrap();
-        // Owned metadata fixture, not a forged upload capability or a new media
-        // approval. The production file-removal functions need only this row.
+        let staff = staff_file_pool().await;
+        // Owned metadata only: no fabricated approval, file or upload authority.
         for target in [1, 2] {
             sqlx::query("INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler) VALUES($1,replace(gen_random_uuid()::text,'-',''),replace(gen_random_uuid()::text,'-',''),'owned.png',1,1,1,false)")
                 .bind(f.posts[0][target]).execute(&f.owner).await.unwrap();
         }
         let public_report = f.admit(0, 1, &actor()).await.unwrap();
-        let staff_report = f.admit(0, 2, &actor()).await.unwrap();
-        sqlx::query("SELECT content.delete_post_attachment($1,$2)").bind(&f.boards[0]).bind(f.posts[0][1]).execute(&f.public).await.unwrap();
-        assert!(f.member(public_report).await);
-        let mut tx = staff.begin().await.unwrap();
-        sqlx::query("SELECT content.staff_delete_post_attachment($1,$2)").bind(&f.boards[0]).bind(f.posts[0][2]).execute(&mut *tx).await.unwrap();
-        tx.commit().await.unwrap();
-        assert!(!f.member(staff_report).await);
-        assert!(f.member(public_report).await);
-        // New reports on the surviving post must not disappear on a repeated
-        // staff click, nor on staff removal of an already publicly removed file.
-        let after_removal = f.admit(0, 2, &actor()).await.unwrap();
-        for target in [1, 2] {
-            let mut tx = staff.begin().await.unwrap();
-            let error = sqlx::query("SELECT content.staff_delete_post_attachment($1,$2)").bind(&f.boards[0]).bind(f.posts[0][target]).execute(&mut *tx).await.unwrap_err();
-            assert_eq!(code(&error), "P0002");
-            tx.rollback().await.unwrap();
+        let staff_actor = actor();
+        let staff_report = f.admit(0, 2, &staff_actor).await.unwrap();
+        let sibling_report = f.admit(0, 3, &actor()).await.unwrap();
+        let other_board_report = f.admit(1, 2, &actor()).await.unwrap();
+        // All report states, including historical rows without membership,
+        // belong to the same exact-target cleanup scope.
+        sqlx::query("UPDATE content.reports SET state='resolved' WHERE id=$1")
+            .bind(staff_report).execute(&f.owner).await.unwrap();
+        let historical: i64 = sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason,state) VALUES($1,$2,'Owned historical report','dismissed') RETURNING id")
+            .bind(&f.boards[0]).bind(f.posts[0][2]).fetch_one(&f.owner).await.unwrap();
+        sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES(1,$1,$2,'resolve')")
+            .bind(&f.boards[0]).bind(f.posts[0][2]).execute(&f.owner).await.unwrap();
+        let audit = f.file_action_snapshot().await["audit"].clone();
+        for _ in 0..2 {
+            board_store::post_media::delete_attachment(&f.public, &f.boards[0], f.posts[0][1]).await.unwrap();
+            assert_eq!(f.report_graph(public_report).await, (true, true, true, true));
+            assert!(f.group_exists(0, 1).await);
         }
-        assert!(f.member(public_report).await);
-        assert!(f.member(after_removal).await);
-        assert_eq!(f.counts().await, (3, 2));
+        for (target, report) in [(2, staff_report), (1, public_report)] {
+            let mut connection = staff.acquire().await.unwrap();
+            file_action(&mut connection, &f.boards[0], f.posts[0][target], true).await.unwrap();
+            assert_eq!(f.report_graph(report).await, (false, false, false, false));
+            assert!(!f.group_exists(0, target).await);
+        }
+        assert_eq!(f.report_graph(historical).await, (false, false, false, false));
+        // A repeated staff click also removes newly admitted reports and frees
+        // the original actor's duplicate/flood membership for a new lifetime.
+        for _ in 0..2 {
+            let report = f.admit(0, 2, &staff_actor).await.unwrap();
+            assert_eq!(f.report_graph(report).await, (true, true, true, true));
+            let mut connection = staff.acquire().await.unwrap();
+            file_action(&mut connection, &f.boards[0], f.posts[0][2], true).await.unwrap();
+            assert_eq!(f.report_graph(report).await, (false, false, false, false));
+            assert!(!f.group_exists(0, 2).await);
+        }
+        for report in [sibling_report, other_board_report] {
+            assert_eq!(f.report_graph(report).await, (true, true, true, true));
+        }
+        assert_eq!(f.file_action_snapshot().await["audit"], audit);
+        assert_eq!(f.counts().await, (2, 2));
+        staff.close().await;
     }).await;
+}
+
+#[tokio::test]
+async fn public_file_only_retains_cleared_history_and_staff_removes_only_target_history() {
+    run(|f| async move {
+        let staff = staff_file_pool().await;
+        let target_actor = actor();
+        let targets = [(0, 1), (0, 2), (1, 1)];
+        let mut cleared = Vec::new();
+        for (board, target) in targets {
+            let identity = if cleared.is_empty() { target_actor } else { actor() };
+            let report = f.admit(board, target, &identity).await.unwrap();
+            let count: Option<i64> = sqlx::query_scalar("SELECT content.clear_reporter($1,$2)")
+                .bind(&f.boards[board]).bind(report).fetch_one(&staff).await.unwrap();
+            assert_eq!(count, Some(1));
+            assert_eq!(f.report_graph(report).await, (true, true, false, true));
+            assert!(!f.group_exists(board, target).await);
+            cleared.push(report);
+        }
+        let mut historical = Vec::new();
+        for target in [1, 2] {
+            // Owned retained group-clear history has no active membership.
+            // Its marker is historical fixture data, not invented authority
+            // for clearing a present unknown-weight group.
+            historical.push(sqlx::query_scalar::<_, i64>("INSERT INTO content.reports(board,post_id,reason,state,group_cleared_at,group_cleared_by,group_clear_inherited) VALUES($1,$2,'Owned retained group-clear history','dismissed',clock_timestamp(),42,false) RETURNING id")
+                .bind(&f.boards[0]).bind(f.posts[0][target]).fetch_one(&f.owner).await.unwrap());
+        }
+        sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action,reporter_clear_count) VALUES(42,$1,$2,'reporter-clear',1)")
+            .bind(&f.boards[0]).bind(f.posts[0][1]).execute(&f.owner).await.unwrap();
+        let before = report_snapshot(&f).await;
+        let audit = f.file_action_snapshot().await["audit"].clone();
+        assert!(before["reports"].as_array().unwrap().iter()
+            .filter(|row| cleared.contains(&row["id"].as_i64().unwrap()))
+            .all(|row| !row["reporter_cleared_at"].is_null()));
+        for _ in 0..2 {
+            board_store::post_media::delete_attachment(&f.public, &f.boards[0], f.posts[0][1]).await.unwrap();
+            assert_eq!(report_snapshot(&f).await, before, "Public file-only preserves retired report rows, clear markers, ownership and evidence");
+        }
+        let removed = [cleared[0], historical[0]];
+        let mut expected = before;
+        expected["reports"].as_array_mut().unwrap()
+            .retain(|row| !removed.contains(&row["id"].as_i64().unwrap()));
+        expected["anonymous"].as_array_mut().unwrap()
+            .retain(|row| !removed.contains(&row["report_id"].as_i64().unwrap()));
+        expected["private"]["evidence"].as_array_mut().unwrap()
+            .retain(|row| !removed.contains(&row["report_id"].as_i64().unwrap()));
+        let mut connection = staff.acquire().await.unwrap();
+        file_action(&mut connection, &f.boards[0], f.posts[0][1], true).await.unwrap();
+        drop(connection);
+        for report in removed {
+            assert_eq!(f.report_graph(report).await, (false, false, false, false));
+        }
+        assert_eq!(report_snapshot(&f).await, expected, "Unrelated retained clear history stays byte-for-byte unchanged");
+        assert_eq!(f.file_action_snapshot().await["audit"], audit);
+        let fresh = f.admit(0, 1, &target_actor).await.unwrap();
+        let unmarked: bool = sqlx::query_scalar("SELECT reporter_cleared_at IS NULL AND group_cleared_at IS NULL AND group_cleared_by IS NULL AND group_clear_inherited IS NULL FROM content.reports WHERE id=$1")
+            .bind(fresh).fetch_one(&f.owner).await.unwrap();
+        assert!(unmarked, "Removed clear history must not seed the new group lifetime");
+        assert_eq!(f.report_graph(fresh).await, (true, true, true, true));
+        let mut connection = staff.acquire().await.unwrap();
+        file_action(&mut connection, &f.boards[0], f.posts[0][1], true).await.unwrap();
+        drop(connection);
+        assert_eq!(f.report_graph(fresh).await, (false, false, false, false));
+        assert_eq!(report_snapshot(&f).await, expected);
+        assert_eq!(f.file_action_snapshot().await["audit"], audit);
+        staff.close().await;
+    }).await;
+}
+
+#[tokio::test]
+async fn text_only_file_actions_mark_op_and_reply_refresh_mtime_and_preserve_payload() {
+    run(|f| async move {
+        let staff = staff_file_pool().await;
+        for target in [0, 1] {
+            let id = f.posts[0][target];
+            let identity = actor();
+            let report = f.admit(0, target, &identity).await.unwrap();
+            let before: Value =
+                sqlx::query_scalar("SELECT to_jsonb(p) FROM content.posts p WHERE id=$1")
+                    .bind(id)
+                    .fetch_one(&f.owner)
+                    .await
+                    .unwrap();
+            assert_eq!(before["file_deleted"], false);
+            let mut expected = before;
+            expected["file_deleted"] = Value::Bool(true);
+            for is_staff in [false, false, true] {
+                let pool = if is_staff { &staff } else { &f.public };
+                let previous: (DateTime<Utc>, DateTime<Utc>) = sqlx::query_as(
+                    "SELECT modified_at,http_modified_at FROM content.threads WHERE id=$1",
+                )
+                .bind(f.posts[0][0])
+                .fetch_one(&f.owner)
+                .await
+                .unwrap();
+                let start: DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
+                    .fetch_one(&f.owner)
+                    .await
+                    .unwrap();
+                let mut connection = pool.acquire().await.unwrap();
+                file_action(&mut connection, &f.boards[0], id, is_staff)
+                    .await
+                    .unwrap();
+                drop(connection);
+                let row: Value =
+                    sqlx::query_scalar("SELECT to_jsonb(p) FROM content.posts p WHERE id=$1")
+                        .bind(id)
+                        .fetch_one(&f.owner)
+                        .await
+                        .unwrap();
+                assert_eq!(row, expected, "Only the post-level file marker changes");
+                let after: (DateTime<Utc>, DateTime<Utc>) = sqlx::query_as(
+                    "SELECT modified_at,http_modified_at FROM content.threads WHERE id=$1",
+                )
+                .bind(f.posts[0][0])
+                .fetch_one(&f.owner)
+                .await
+                .unwrap();
+                assert!(after.0 >= start && after.0 > previous.0);
+                assert!(after.1 > previous.1);
+                assert!(
+                    board_store::post_media::attachment(&f.public, id)
+                        .await
+                        .unwrap()
+                        .is_none()
+                );
+                let raw_media: i64 =
+                    sqlx::query_scalar("SELECT count(*) FROM content.post_media WHERE post_id=$1")
+                        .bind(id)
+                        .fetch_one(&f.owner)
+                        .await
+                        .unwrap();
+                assert_eq!(
+                    raw_media, 0,
+                    "Text-only marking cannot fabricate media rows"
+                );
+                let retained = !is_staff;
+                assert_eq!(
+                    f.report_graph(report).await,
+                    (retained, retained, retained, retained)
+                );
+                if !is_staff {
+                    rejected(f.admit(0, target, &identity).await.unwrap_err(), DUPLICATE);
+                }
+            }
+            let report = f.admit(0, target, &identity).await.unwrap();
+            let mut connection = staff.acquire().await.unwrap();
+            file_action(&mut connection, &f.boards[0], id, true)
+                .await
+                .unwrap();
+            assert_eq!(f.report_graph(report).await, (false, false, false, false));
+            assert!(!f.group_exists(0, target).await);
+        }
+        staff.close().await;
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn file_only_marker_report_cleanup_and_thread_clock_roll_back_together() {
+    run(|f| async move {
+        let staff = staff_file_pool().await;
+        sqlx::query("INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler) VALUES($1,replace(gen_random_uuid()::text,'-',''),replace(gen_random_uuid()::text,'-',''),'owned.png',1,1,1,false)")
+            .bind(f.posts[0][1]).execute(&f.owner).await.unwrap();
+        for target in [1, 2] {
+            let report = f.admit(0, target, &actor()).await.unwrap();
+            for is_staff in [false, true] {
+                let before = f.file_action_snapshot().await;
+                let pool = if is_staff { &staff } else { &f.public };
+                let mut tx = pool.begin().await.unwrap();
+                file_action(&mut tx, &f.boards[0], f.posts[0][target], is_staff).await.unwrap();
+                let marked: bool = sqlx::query_scalar("SELECT file_deleted FROM content.posts WHERE id=$1")
+                    .bind(f.posts[0][target]).fetch_one(&mut *tx).await.unwrap();
+                assert!(marked, "The marker is visible before commit");
+                assert_eq!(code(&sqlx::query("SELECT 1/0").execute(&mut *tx).await.unwrap_err()), "22012");
+                tx.rollback().await.unwrap();
+                assert_eq!(f.file_action_snapshot().await, before);
+                assert_eq!(f.report_graph(report).await, (true, true, true, true));
+            }
+        }
+        staff.close().await;
+    }).await;
+}
+
+#[tokio::test]
+async fn file_only_cleanup_serializes_before_and_after_actual_report_admission() {
+    run(|f| async move {
+        let staff = staff_file_pool().await;
+        let identity = actor();
+        let old_report = f.admit(0, 1, &identity).await.unwrap();
+        let mut deleting = staff.begin().await.unwrap();
+        let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *deleting)
+            .await
+            .unwrap();
+        file_action(&mut deleting, &f.boards[0], f.posts[0][1], true)
+            .await
+            .unwrap();
+        let mut admission = f.public.acquire().await.unwrap();
+        let waiter: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *admission)
+            .await
+            .unwrap();
+        let cap = f.report_capability();
+        let board = f.boards[0].clone();
+        let id = f.posts[0][1];
+        let incoming = tokio::spawn(async move {
+            admit_session(
+                &mut admission,
+                &board,
+                id,
+                Some("Report queued after file-only"),
+                Some(identity.as_bytes()),
+                session(&cap, true, Utc::now()),
+            )
+            .await
+        });
+        wait_for_row_blocker(&f.owner, waiter, blocker).await;
+        deleting.commit().await.unwrap();
+        let new_report = incoming.await.unwrap().unwrap();
+        assert_eq!(
+            f.report_graph(old_report).await,
+            (false, false, false, false)
+        );
+        assert_eq!(f.report_graph(new_report).await, (true, true, true, true));
+
+        // Opposite order: admission commits first; the queued repeated action
+        // must see and remove that report rather than leave stale membership.
+        let mut admission = f.public.begin().await.unwrap();
+        let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *admission)
+            .await
+            .unwrap();
+        let cap = f.report_capability();
+        let actor = actor();
+        let earlier_report = admit_session(
+            &mut admission,
+            &f.boards[0],
+            id,
+            Some("Report committed before repeated file-only"),
+            Some(actor.as_bytes()),
+            session(&cap, true, Utc::now()),
+        )
+        .await
+        .unwrap();
+        let mut deleting = staff.acquire().await.unwrap();
+        let waiter: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *deleting)
+            .await
+            .unwrap();
+        let board = f.boards[0].clone();
+        let removal =
+            tokio::spawn(async move { file_action(&mut deleting, &board, id, true).await });
+        wait_for_row_blocker(&f.owner, waiter, blocker).await;
+        admission.commit().await.unwrap();
+        removal.await.unwrap().unwrap();
+        for report in [new_report, earlier_report] {
+            assert_eq!(f.report_graph(report).await, (false, false, false, false));
+        }
+        assert!(!f.group_exists(0, 1).await);
+        staff.close().await;
+    })
+    .await;
 }
 
 #[tokio::test]

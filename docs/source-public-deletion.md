@@ -59,8 +59,9 @@ At most three successful requests per hour and eleven per day are admitted,
 including the exact hourly/daily boundary. A modern request has one server-owned
 batch; one legacy submission shares one batch across its ordered selections.
 Only the first successful mutation charges that batch. Failed authorization,
-ineligible targets, no-op file requests and a single missing legacy target do
-not charge it. Earlier committed selections remain deleted and charged if a
+ineligible targets and a single missing legacy target do not charge it.
+A successful file-only action on a live text-only or already-marked post does
+charge the batch; it sets the post marker and refreshes thread modification time. Earlier committed selections remain deleted and charged if a
 later selection fails. This intentionally closes the source's partial-failure
 bypass: its action log was written only after the entire batch finished.
 No client batch token is accepted.
@@ -101,6 +102,8 @@ limits of happy-path browser qualification.
 This slice does not complete issue #214. [Legacy batches](legacy-actions.md#multiple-selections)
 now preserve submitted order and partial success. The source's peer-address-only authority,
 physical file erasure and historical cleanup remain separate work.
+[File-only actions](file-deletion-actions.md) also cover repeated and text-only
+requests and administrative report cleanup. Staff-self proof remains separate.
 [Fresh whole-deletion report cleanup](deleted-report-cleanup.md) removes target
 report rows transactionally while preserving independent staff audit records.
 [Fresh content erasure](fresh-content-erasure.md) clears payload and per-post author

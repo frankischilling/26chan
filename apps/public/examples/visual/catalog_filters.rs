@@ -90,6 +90,7 @@ fn page(slug: &str, sorted: bool) -> String {
                 drawing_source_post_id: None,
                 created_at: time("2026-09-08T12:00:00Z"),
                 deleted: false,
+                file_deleted: false,
                 attachment: filename.map(|filename| PostAttachment {
                     post_id: id,
                     asset_id: format!("{id:032x}"),
