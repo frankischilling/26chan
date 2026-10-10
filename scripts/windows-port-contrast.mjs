@@ -3,7 +3,7 @@ import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { arch, release } from 'node:os';
-import { armName, binding, checkEnvironment, demand, qualifyPair, runnerIdentity } from './windows-port-contrast-core.mjs';
+import { armName, binding, checkEnvironment, contrastPreflight, demand, qualifyPair, runnerIdentity } from './windows-port-contrast-core.mjs';
 import { checkedFile, contrastDirectory, installedBrowser, verifiedFixture } from '../tests/helpers/windows-port-contrast.js';
 import { copyContrastNetlogs, verifyAdmittedCopies } from './windows-port-contrast-netlog.mjs';
 import { normalizeChildOutcome } from './windows-theme-stderr.mjs';
@@ -43,14 +43,20 @@ function fixture() {
   console.log(`Shared fixture SHA-256: ${info.sha256}`);
 }
 async function run() {
-  checkEnvironment(process.env, process.platform);
-  const runBinding = binding();
-  runnerIdentity(process.env, release(), arch(), process.version);
-  verifiedFixture();
-  const browser = installedBrowser();
-  const directory = contrastDirectory();
-  mkdirSync(path.dirname(directory), { recursive: true });
-  mkdirSync(directory); // Reject stale proofs or a second arm execution.
+  const verified = contrastPreflight({
+    environment: () => checkEnvironment(process.env, process.platform),
+    binding: () => binding(),
+    runner: () => runnerIdentity(process.env, release(), arch(), process.version),
+    fixture: () => verifiedFixture(),
+    browser: () => installedBrowser(),
+    output: () => {
+      const directory = contrastDirectory();
+      mkdirSync(path.dirname(directory), { recursive: true });
+      mkdirSync(directory); // Reject stale proofs or a second arm execution.
+      return directory;
+    },
+  }, message => console.error(message));
+  const runBinding = verified.binding, browser = verified.browser, directory = verified.output;
   const env = { ...process.env, WINDOWS_PORT_CONTRAST_OWNED: '1', WINDOWS_PORT_BROWSER_SHA256: browser.sha256 };
   const launcher = path.join(root, 'scripts/windows-theme-stderr.mjs');
   const args = [launcher, '--shard', '7/8', '--output', 'test-results/windows-themes-7'];

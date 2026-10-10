@@ -128,3 +128,27 @@ arms, nonzero exits and the narrow NetLog redaction. Actual Windows/CDP executio
 still needs exact-head hosted qualification. Every exact-head check must be
 green before merge; a passing pair-check job does not erase a failed arm or a
 failed required check.
+
+## First hosted preflight failure
+
+At `b9c841a`, [run 38078132595](https://github.com/frankischilling/26chan/actions/runs/38078132595)
+passed admission, the shared fixture build and full shard discovery. Both arms
+then stopped in preflight before tests or browser proofs were created. The pair
+remains failed and provides no feature comparison.
+
+The recorded runner image was `windows-2025-vs2026` version `20260925.250.1`,
+with Windows build `26100.33438`. Its
+[exact image template](https://github.com/actions/runner-images/blob/win25-vs2026/20260925.250/images/windows/templates/build.windows-2025-vs2026.pkr.hcl)
+runs the [Selenium installer](https://github.com/actions/runner-images/blob/win25-vs2026/20260925.250/images/windows/scripts/build/Install-Selenium.ps1),
+which sets the machine-level `SELENIUM_JAR_PATH` inventory marker. The original
+environment guard rejected every `SELENIUM_` variable, including that marker.
+The pinned Playwright bundle has no consumer for it; its Selenium launch inputs
+are `SELENIUM_REMOTE_URL`, `SELENIUM_REMOTE_CAPABILITIES` and
+`SELENIUM_REMOTE_HEADERS`.
+
+The guard now permits only that inert JAR marker. Remote-launch inputs, unknown
+Selenium overrides and debug aliases remain rejected. All other admission checks
+remain in place. A preflight failure reports one fixed stage name: environment, binding,
+runner, fixture, browser or output. No environment value, exception, path or
+argument is included. These changes repair a reproduced preflight bug; another
+exact-head hosted qualification is still required.

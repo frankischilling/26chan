@@ -253,3 +253,39 @@ test('reporter rejects duplicate, skipped, retried and interrupted cases', () =>
   reporter.onTestEnd(tests[0], { retry: 0, workerIndex: 0, status: 'passed' });
   reporter.onTestEnd(tests[0], { retry: 0, workerIndex: 0, status: 'passed' }); assert.equal(reporter.valid, false);
 });
+import { contrastPreflight } from '../../scripts/windows-port-contrast-core.mjs';
+test('hosted Windows Selenium JAR inventory marker is inert without allowing launch overrides', () => {
+  for (const key of ['SELENIUM_JAR_PATH', 'selenium_jar_path', 'npm_config_selenium_jar_path']) {
+    const input = { ...env, [key]: 'PRIVATE_INVENTORY_PATH' }, before = JSON.stringify(input);
+    checkEnvironment(input, 'win32');
+    assert.equal(JSON.stringify(input), before);
+  }
+  for (const key of ['SELENIUM_REMOTE_URL', 'SELENIUM_REMOTE_CAPABILITIES', 'SELENIUM_REMOTE_HEADERS', 'SELENIUM_OTHER', 'npm_config_selenium_remote_url', 'selenium_remote_headers']) {
+    assert.throws(() => checkEnvironment({ ...env, SELENIUM_JAR_PATH: 'PRIVATE_INVENTORY_PATH', [key]: 'PRIVATE_OVERRIDE' }, 'win32'));
+  }
+});
+test('preflight failure emits only one fixed stage and preserves admission order', () => {
+  const stages = ['environment', 'binding', 'runner', 'fixture', 'browser', 'output'];
+  for (const failed of stages) {
+    const visited = [], messages = [];
+    const checks = Object.fromEntries(stages.map(stage => [stage, () => {
+      visited.push(stage);
+      if (stage === failed) throw new Error('PRIVATE_PATH PRIVATE_ARGUMENT PRIVATE_ENV');
+      return 'PRIVATE_INTERNAL_VALUE';
+    }]));
+    assert.throws(() => contrastPreflight(checks, message => messages.push(message)), error => error.message === 'Port contrast preflight unavailable');
+    assert.deepEqual(visited, stages.slice(0, stages.indexOf(failed) + 1));
+    assert.deepEqual(messages, [`Port contrast preflight rejected: ${failed}.`]);
+    assert.ok(!messages.join('').includes('PRIVATE'));
+  }
+});
+test('successful preflight returns internal values without logging them; missing stages fail closed', () => {
+  const stages = ['environment', 'binding', 'runner', 'fixture', 'browser', 'output'];
+  const checks = Object.fromEntries(stages.map(stage => [stage, () => 'PRIVATE_INTERNAL_VALUE']));
+  const messages = [];
+  const result = contrastPreflight(checks, message => messages.push(message));
+  assert.equal(result.fixture, 'PRIVATE_INTERNAL_VALUE'); assert.deepEqual(messages, []);
+  delete checks.fixture;
+  assert.throws(() => contrastPreflight(checks, message => messages.push(message)));
+  assert.deepEqual(messages, ['Port contrast preflight rejected: fixture.']);
+});

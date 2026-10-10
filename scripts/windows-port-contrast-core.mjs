@@ -48,11 +48,32 @@ export function checkEnvironment(env, platform) {
   demand(env.THEME_SHARD === '7' && env.WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS === '1' && env.WINDOWS_VISUAL_NETLOG === '1');
   for (const key of Object.keys(env)) {
     const normalized = key.replace(/^npm_(?:config|package_config)_/i, '').toUpperCase();
+    // Hosted Windows images set this inventory marker. The pinned Playwright
+    // bundle never reads it; only Selenium REMOTE_* variables affect launch.
+    // Keep every other Selenium/debug/launch override rejected.
+    if (normalized === 'SELENIUM_JAR_PATH') continue;
     if (/^(?:PW_|PWDEBUG|PWTEST_|PLAYWRIGHT_|SELENIUM_)/.test(normalized) || ['NODE_OPTIONS', 'DEBUG', 'DEBUG_FILE', 'WINDOWS_BROWSER_CONTROL', 'WINDOWS_BROWSER_CONTROL_OWNED'].includes(normalized)) {
       demand(env[key] === undefined || env[key] === '');
     }
   }
 }
+const PREFLIGHT_STAGES = Object.freeze(['environment', 'binding', 'runner', 'fixture', 'browser', 'output']);
+export function contrastPreflight(checks, report = () => {}) {
+  const values = {};
+  for (const stage of PREFLIGHT_STAGES) {
+    try {
+      demand(typeof checks?.[stage] === 'function');
+      values[stage] = checks[stage]();
+    } catch {
+      // Emit one owned enum only. Never inspect or retain the exception, inputs,
+      // environment values, executable/profile paths or browser arguments.
+      try { report(`Port contrast preflight rejected: ${stage}.`); } catch {}
+      throw new Error('Port contrast preflight unavailable');
+    }
+  }
+  return values;
+}
+
 export function featureLists(arm) {
   armName(arm);
   return {
