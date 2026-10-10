@@ -102,3 +102,53 @@ export async function withOwnedPolls(callback) {
   if (failures.length > 1) throw new AggregateError(failures, 'Poll browser checks and fixture cleanup failed');
   return value;
 }
+
+export async function withOwnedVotingPoll(callback) {
+  const env = databaseEnvironment(), marker = `OwnedPollVoteBrowser${randomBytes(16).toString('hex')}`;
+  const poll = String(30_000_000_000 + randomBytes(5).readUIntBE(0, 5));
+  const fixture = {
+    poll,
+    title: `${marker} <img src="/poll-vote-unexpected" onerror="window.pollInjected=1"> & '.`.padEnd(512, 'T'),
+    description: 'Owned voting description <svg onload="window.pollInjected=1"> & text\n'.padEnd(16384, 'D'),
+    captions: ['Owned <script>window.pollInjected=1</script> & first '.padEnd(1024, 'C'), 'Owned second choice'],
+  };
+  const variables = { poll, title: fixture.title, description: fixture.description, caption: fixture.captions[0] };
+  const failures = [];
+  let value;
+  try {
+    sql(env, variables, `BEGIN;
+      SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='10s';
+      SELECT pg_advisory_xact_lock(2250109);
+      INSERT INTO poll_private.polls(id,title,description,vote_count,published,accepting_votes)
+        VALUES(:'poll'::bigint,:'title',:'description',6,true,true);
+      INSERT INTO poll_private.options(poll_id,id,ordinal,caption,score)
+        VALUES(:'poll'::bigint,41,1,:'caption',2),
+              (:'poll'::bigint,17,2,'Owned second choice',4);
+      COMMIT;`);
+    fixture.snapshot = () => JSON.parse(sql(env, variables, `SELECT json_build_object(
+      'votes',vote_count,'newVotes',new_vote_count,'open',accepting_votes,
+      'receipts',(SELECT count(*) FROM poll_private.votes WHERE poll_id=:'poll'::bigint),
+      'scores',(SELECT json_agg(score ORDER BY ordinal) FROM poll_private.options WHERE poll_id=:'poll'::bigint))
+      FROM poll_private.polls WHERE id=:'poll'::bigint AND title=:'title';`));
+    fixture.close = () => {
+      const result = sql(env, variables, `UPDATE poll_private.polls SET accepting_votes=false
+        WHERE id=:'poll'::bigint AND title=:'title' AND published AND accepting_votes
+        RETURNING id=:'poll'::bigint;`);
+      assert.equal(result, 't', 'Only the owned, open poll can be closed');
+    };
+    value = await callback(fixture);
+    assert.deepEqual(fixture.snapshot(), { votes: 8, newVotes: 2, open: false, receipts: 2, scores: [3, 5] });
+  } catch (error) { failures.push(error); }
+  finally {
+    try {
+      sql(env, variables, `BEGIN;
+        SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='10s';
+        SELECT pg_advisory_xact_lock(2250109);
+        DELETE FROM poll_private.polls WHERE id=:'poll'::bigint AND title=:'title';
+        COMMIT;`);
+    } catch (error) { failures.push(error); }
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) throw new AggregateError(failures, 'Poll voting checks and owned fixture cleanup failed');
+  return value;
+}

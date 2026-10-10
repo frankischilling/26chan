@@ -13,9 +13,13 @@ checks, exact-head hosted results and remaining source gaps are recorded separat
 they do not establish overall completion. Group clearing requires captured effective
 weights and does not work for the default unknown-weight free-text path.
 
-[Public poll browsing](public-polls.md) adds operator-published catalogues,
-options and results with no runtime write access. The archive lacks the poll
-controller and voting contract, so voting remains explicitly unavailable.
+[Public polls](public-polls.md) provide catalogues, options, native vote forms and
+results. A narrow database function records one vote per signed browser identity
+and poll. The missing controller contract is reconstructed explicitly; existing
+polls remain closed by default. Fresh/upgrade migrations, restricted-role and
+concurrent database tests, both HTTP cases and four desktop/mobile browser cases
+pass locally. Hosted results and remaining source work are tracked in
+[#225](https://github.com/frankischilling/26chan/issues/225).
 
 The [staff attachment boundary](staff-post-attachments.md) has a published 0110
 backend for proof-bound ordinary and badged posts. Its 0111 continuation adds

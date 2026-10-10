@@ -13,11 +13,12 @@ async function inertPage(page, response) {
     expect(csp).toContain(directive);
   }
   await expect(page.locator('.pollPage')).toBeVisible();
-  await expect(page.locator('.pollPage')).toContainText('Voting is unavailable.');
+  const notice = new URL(response.url()).pathname === '/polls'
+    ? 'Choose a poll to view its options or results.' : 'Voting is unavailable.';
   for (const element of await page.locator('.pollPage h1, #poll-desc, #entries li, #entries a, #entries caption, #entries th, #entries td, .pollTotal').all()) {
     await expect(element).toBeVisible();
   }
-  await expect(page.locator('.pollPage p').filter({ hasText: 'Voting is unavailable.' })).toBeVisible();
+  await expect(page.locator('.pollPage p').filter({ hasText: notice })).toBeVisible();
   await expect(page.locator('script, form, input, button, select, textarea, iframe, object, embed, svg, img, [data-tkn], [data-cmd], [role="button"]')).toHaveCount(0);
   expect(await page.evaluate(() => ({
     injected: window.pollInjected === undefined,

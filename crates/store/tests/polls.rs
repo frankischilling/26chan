@@ -88,6 +88,7 @@ async fn actual_public_reads_are_ordered_bounded_private_and_immutable() {
         assert_eq!(owned, vec![ids[1], ids[0]]);
         let snapshot = poll_snapshot(&test_public, ids[0]).await.unwrap();
         assert_eq!(snapshot.vote_count, 10);
+        assert!(!snapshot.accepting_votes, "historical polls must stay closed after 0128");
         assert_eq!(snapshot.description, "Owned description");
         assert_eq!(snapshot.options.iter().map(|o| o.id).collect::<Vec<_>>(), vec![3,90]);
         assert_eq!(snapshot.options[0].score, None);
@@ -132,7 +133,7 @@ async fn actual_public_reads_are_ordered_bounded_private_and_immutable() {
             "GRANT SELECT ON content.published_polls TO board_public WITH GRANT OPTION",
             "GRANT SELECT(caption) ON content.published_poll_options TO board_public WITH GRANT OPTION",
             "ALTER VIEW content.published_polls SET (security_barrier=false)",
-            "CREATE OR REPLACE VIEW content.published_polls WITH (security_barrier=true) AS SELECT id,title,description,vote_count,catalogue_ordinal FROM poll_private.polls",
+            "CREATE OR REPLACE VIEW content.published_polls WITH (security_barrier=true) AS SELECT id,title,description,vote_count,catalogue_ordinal,accepting_votes FROM poll_private.polls",
             "CREATE OR REPLACE VIEW content.published_poll_options WITH (security_barrier=true) AS SELECT o.poll_id,o.id,o.ordinal,o.caption,o.score FROM poll_private.options o JOIN poll_private.polls p ON p.id=o.poll_id",
             "ALTER TABLE content.boards DROP CONSTRAINT boards_reserved_polls_route",
             "ALTER TABLE poll_private.polls DROP CONSTRAINT polls_title_check",

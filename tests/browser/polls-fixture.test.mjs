@@ -9,7 +9,8 @@ import test from 'node:test';
 const moduleUrl = pathToFileURL(path.resolve('tests/browser/helpers/poll-fixture.js')).href;
 const secret = 'synthetic-credential-and-private-diagnostic';
 
-function fixture(source, { environment = {}, failures = [], receipt = '7', scores = [2, 3, null] } = {}) {
+function fixture(source, { environment = {}, failures = [], receipt = '7', scores = [2, 3, null], voting = false,
+  votingState = { votes: 8, newVotes: 2, open: false, receipts: 2, scores: [3, 5] } } = {}) {
   const directory = mkdtempSync(path.join(tmpdir(), 'poll-helper-unit-'));
   const log = path.join(directory, 'commands');
   const executable = path.join(directory, 'psql');
@@ -17,20 +18,22 @@ function fixture(source, { environment = {}, failures = [], receipt = '7', score
   writeFileSync(executable, `#!${process.execPath}
     const fs = require('node:fs');
     const input = fs.readFileSync(0, 'utf8');
-    const command = input.includes('CREATE TEMP TABLE owned_poll_slots') ? 'seed'
-      : input.includes('DELETE FROM poll_private.polls') ? 'cleanup' : 'inspect';
+    const command = input.includes('CREATE TEMP TABLE owned_poll_slots') || input.includes('INSERT INTO poll_private.polls') ? 'seed'
+      : input.includes('DELETE FROM poll_private.polls') ? 'cleanup'
+      : input.includes('UPDATE poll_private.polls') ? 'close' : 'inspect';
     fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({ command, input, args: process.argv.slice(2) }) + '\\n');
     if (${JSON.stringify(failures)}.includes(command)) {
       console.error(${JSON.stringify(secret)}); process.exit(1);
     }
     if (command === 'seed') console.log(${JSON.stringify(receipt)});
-    if (command === 'inspect') console.log(JSON.stringify({ vote_count: 6, scores: ${JSON.stringify(scores)} }));
+    if (command === 'close') console.log('t');
+    if (command === 'inspect') console.log(JSON.stringify(${JSON.stringify(voting ? votingState : { vote_count: 6, scores })}));
   `);
   chmodSync(executable, 0o700);
   try {
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
       import assert from 'node:assert/strict';
-      import { withOwnedPolls } from ${JSON.stringify(moduleUrl)};
+      import { withOwnedPolls, withOwnedVotingPoll } from ${JSON.stringify(moduleUrl)};
       ${source}
     `], {
       encoding: 'utf8', timeout: 10_000,
@@ -86,6 +89,7 @@ test('production, remote, wrong-role and visual backends are rejected before any
   ]) {
     const commands = fixture(`
       await assert.rejects(withOwnedPolls(() => { throw new Error('Callback must not run'); }), /Poll fixtures require/);
+      await assert.rejects(withOwnedVotingPoll(() => { throw new Error('Callback must not run'); }), /Poll fixtures require/);
     `, { environment });
     assert.deepEqual(commands, []);
   }
@@ -154,4 +158,74 @@ test('changed supplied results fail the read-only invariant and still clean up',
   `, { scores: [2, 4, null] });
   assert.deepEqual(commands.map(command => command.command), ['seed', 'inspect', 'cleanup']);
   ownedCleanup(commands);
+});
+
+function votingCleanup(commands) {
+  const seed = commands.find(command => command.command === 'seed');
+  const cleanup = commands.find(command => command.command === 'cleanup');
+  assert.ok(cleanup, 'Voting cleanup must be attempted');
+  assert.deepEqual(cleanup.args, seed.args, 'Voting cleanup must retain the original ownership values');
+  assert.match(cleanup.input, /id=:'poll'::bigint AND title=:'title'/);
+  assert.match(cleanup.input, /SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='10s'/);
+  assert.equal((cleanup.input.match(/DELETE FROM/g) || []).length, 1);
+  assert.doesNotMatch(seed.input, /ON CONFLICT/);
+}
+
+test('owned voting checks final totals and removes its exact poll after closing', () => {
+  const commands = fixture(`
+    const result = await withOwnedVotingPoll(async fixture => {
+      assert.ok(BigInt(fixture.poll) >= 30_000_000_000n);
+      assert.equal(Buffer.byteLength(fixture.title), 512);
+      assert.equal(Buffer.byteLength(fixture.description), 16384);
+      assert.equal(Buffer.byteLength(fixture.captions[0]), 1024);
+      fixture.close();
+      return 'owned vote result';
+    });
+    assert.equal(result, 'owned vote result');
+  `, { voting: true });
+  assert.deepEqual(commands.map(command => command.command), ['seed', 'close', 'inspect', 'cleanup']);
+  votingCleanup(commands);
+});
+
+test('voting callback failure still cleans up its owned poll once', () => {
+  const commands = fixture(`
+    const failure = new Error('Owned voting callback failure');
+    await assert.rejects(withOwnedVotingPoll(() => { throw failure; }), error => error === failure);
+  `, { voting: true });
+  assert.deepEqual(commands.map(command => command.command), ['seed', 'cleanup']);
+  votingCleanup(commands);
+});
+
+test('an uncertain voting seed still cleans up without calling the browser or retrying', () => {
+  const commands = fixture(`
+    let calls = 0;
+    await assert.rejects(withOwnedVotingPoll(() => { calls++; }), /Owned poll fixture database command failed/);
+    assert.equal(calls, 0);
+  `, { voting: true, failures: ['seed'] });
+  assert.deepEqual(commands.map(command => command.command), ['seed', 'cleanup']);
+  votingCleanup(commands);
+});
+
+test('voting callback and cleanup failures retain both errors with private diagnostics omitted', () => {
+  const commands = fixture(`
+    const failure = new Error('Owned voting callback failure');
+    await assert.rejects(withOwnedVotingPoll(() => { throw failure; }), error => {
+      assert.ok(error instanceof AggregateError);
+      assert.equal(error.errors.length, 2);
+      assert.equal(error.errors[0], failure);
+      assert.equal(error.errors[1].message, 'Owned poll fixture database command failed');
+      console.log(error.errors.map(value => value.stack).join('\\n'));
+      return true;
+    });
+  `, { voting: true, failures: ['cleanup'] });
+  assert.deepEqual(commands.map(command => command.command), ['seed', 'cleanup']);
+  votingCleanup(commands);
+});
+
+test('incorrect final vote totals fail qualification while preserving exact cleanup', () => {
+  const commands = fixture(`
+    await assert.rejects(withOwnedVotingPoll(() => {}), /Expected values to be strictly deep-equal/);
+  `, { voting: true, votingState: { votes: 9, newVotes: 3, open: false, receipts: 3, scores: [4, 5] } });
+  assert.deepEqual(commands.map(command => command.command), ['seed', 'inspect', 'cleanup']);
+  votingCleanup(commands);
 });

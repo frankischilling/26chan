@@ -403,6 +403,16 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
             "Public polls are unavailable.",
         ));
     }
+    let poll_voting: bool = sqlx::query_scalar(board_store::POLL_VOTE_READINESS_SQL)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(StoreError::from)?;
+    if !poll_voting {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public poll voting is unavailable.",
+        ));
+    }
     let posting_cooldowns: bool = sqlx::query_scalar(
         "SELECT coalesce(has_function_privilege(current_user, to_regprocedure('content.lock_posting_actor(bytea,boolean)'), 'EXECUTE'), false)
          AND coalesce(has_function_privilege(current_user, to_regprocedure('content.check_posting_cooldown(bytea,text,bigint,boolean,bigint)'), 'EXECUTE'), false)
