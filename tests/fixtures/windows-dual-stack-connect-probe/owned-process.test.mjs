@@ -127,21 +127,26 @@ test('native diagnostic explicitly preserves IPv4-only fixture and restores the 
   assert.match(launcher, /\$listeners.Count -ne 1 -or \$listeners\[0\].LocalAddress -ne '127\.0\.0\.1'/);
 });
 
-test('exited-root accounting waits only for its exact retained identity and keeps it unavailable', () => {
+test('settlement observation is bounded by previously qualified ownership and keeps unavailable roles unsafe', () => {
   assert.match(helper, /if \(id == process.Id\) \{\s+snapshot.RootListed = true;/);
   assert.match(helper, /if \(!snapshot.RootExited && snapshot.RootInJob\) snapshot.RootRoleCount\+\+;\s+else snapshot.UnavailableRoleCount\+\+;/);
-  for (const guard of ['RootExited', 'RootListed', 'AccountingLayoutValid', 'DescendantInJob', 'ProcessListComplete', 'ProcessCountsConsistent']) assert.ok(accounting.includes(`$state.${guard}`));
-  assert.match(accounting, /\$state.UnknownRoleCount -eq 0 -and \$state.UnavailableRoleCount -eq 1/);
+  for (const guard of ['RootExited', 'AccountingLayoutValid', 'DescendantInJob', 'ProcessListComplete', 'ProcessCountsConsistent']) assert.ok(accounting.includes(`$state.${guard}`));
+  assert.match(accounting, /\$state.UnknownRoleCount -eq 0 -and \$state.UnavailableRoleCount -ge 1/);
   assert.match(accounting, /\$state.EnumeratedProcesses -le 16/);
-  assert.match(accounting, /\$state.EnumeratedProcesses -eq \(1 \+ \$state.DescendantRoleCount \+ \$state.ConsoleHostRoleCount\)/);
-  assert.doesNotMatch(accounting, /RolesQualified|\.Kill|Get-Process|Remove-Item/);
+  assert.match(accounting, /\$state.EnumeratedProcesses -eq \(\$state.UnavailableRoleCount \+ \$state.DescendantRoleCount \+ \$state.ConsoleHostRoleCount\)/);
+  assert.match(accounting, /-not \$Before.RolesQualified\(\$true\)/);
+  assert.match(accounting, /\$state.TotalProcesses -eq \$Before.TotalProcesses/);
+  assert.match(accounting, /\$state.EnumeratedProcesses -le \$Before.EnumeratedProcesses/);
+  assert.match(accounting, /\$state.ConsoleHostRoleCount -le \$Before.ConsoleHostRoleCount/);
+  assert.match(accounting, /\$state.UnavailableRoleCount -le \(\[int\]\$state.RootListed \+ \$Before.ConsoleHostRoleCount - \$state.ConsoleHostRoleCount\)/);
+  assert.doesNotMatch(accounting, /\$state\.RolesQualified|\.Kill|Get-Process|Remove-Item/);
 });
 
 test('settlement shares the original five-second exit window and never replaces final assertions', () => {
   const release = runner.indexOf("New-Item -ItemType File -Path (Join-Path $directory 'release-parent')");
   const snapshot = runner.indexOf('$after=Wait-OwnedRootAccounting');
   assert.equal((runner.slice(release, snapshot).match(/\$watch.Restart\(\)/g) ?? []).length, 1);
-  assert.match(runner, /\$after=Wait-OwnedRootAccounting -ReadSnapshot \{ \$child.InspectOwnership\(\$descendant\) \} -ElapsedMilliseconds \{ \$watch.ElapsedMilliseconds \}/);
+  assert.match(runner, /\$after=Wait-OwnedRootAccounting -Before \$before -ReadSnapshot \{ \$child.InspectOwnership\(\$descendant\) \} -ElapsedMilliseconds \{ \$watch.ElapsedMilliseconds \}/);
   assert.match(accounting, /\(& \$ElapsedMilliseconds\) -lt 5000/);
   assert.match(accounting, /if \(\(& \$ElapsedMilliseconds\) -ge 5000\) \{ return \$state \}/);
   assert.ok(runner.indexOf('if (-not $child.HasExited -or $child.ExitCode -ne 0)', release) < snapshot);
@@ -155,7 +160,7 @@ test('hosted deterministic controls cover delayed accounting, deadline expiry an
   assert.match(runner, /\$expired.RolesQualified\(\$false\)/);
   assert.match(runner, /Unrelated or unverified role was retried/);
   assert.match(runner, /Pending root accounting was admitted/);
-  assert.match(runner, /'RootExited','RootListed','AccountingLayoutValid','DescendantInJob','ProcessListComplete','ProcessCountsConsistent','UnknownRoleCount','UnavailableRoleCount'/);
+  assert.match(runner, /'RootExited','RootListed','AccountingLayoutValid','DescendantInJob','ProcessListComplete','ProcessCountsConsistent','UnknownRoleCount','UnavailableRoleCount','TotalProcesses','EnumeratedProcesses','ConsoleHostRoleCount'/);
 });
 
 test('the first snapshot is rejected before reading and after completion when the original deadline expires', () => {
@@ -165,4 +170,26 @@ test('the first snapshot is rejected before reading and after completion when th
   assert.match(runner, /foreach \(\$finishedAt in @\(5000,5001\)\)/);
   assert.match(runner, /\$clock.elapsed=\$finishedAt; return \$settled/);
   assert.match(runner, /A late initial snapshot was admitted/);
+});
+
+
+test('hosted controls reproduce two unavailable roles and either settlement order without accepting transients', () => {
+  assert.match(runner, /\$bothPending.ConsoleHostRoleCount=0; \$bothPending.UnavailableRoleCount=2/);
+  assert.match(runner, /\$consolePending.RootListed=\$false; \$consolePending.ConsoleHostRoleCount=0/);
+  assert.match(runner, /\$sequence.Enqueue\(\$bothPending\); \$sequence.Enqueue\(\$consolePending\); \$sequence.Enqueue\(\$allSettled\)/);
+  assert.match(runner, /\$bothPending.RolesQualified\(\$false\) -or \$consolePending.RolesQualified\(\$false\)/);
+  assert.match(runner, /foreach \(\$unsettled in @\(\$bothPending,\$consolePending,\$rootPending\)\)/);
+  assert.match(runner, /\$sequence.Enqueue\(\$bothPending\); \$sequence.Enqueue\(\$rootPending\); \$sequence.Enqueue\(\$allSettled\)/);
+  assert.match(runner, /Console-before-root settlement bypassed final role proof/);
+  assert.match(runner, /Unavailable roles bypassed the original deadline/);
+  assert.match(runner, /Unqualified baseline admitted settlement observation/);
+});
+
+
+test('prior counts bound transient polling without changing the existing settled lifetime-growth policy', () => {
+  assert.match(runner, /\$settledGrowth.ActiveProcesses=2; \$settledGrowth.EnumeratedProcesses=2; \$settledGrowth.TotalProcesses=4/);
+  assert.match(runner, /\$settledGrowth.RootListed=\$false; \$settledGrowth.UnavailableRoleCount=0/);
+  assert.match(runner, /Qualified terminal evidence was retried/);
+  assert.match(runner, /\$clock.reads -ne 1 -or -not \[object\]::ReferenceEquals\(\$observed,\$settledGrowth\)/);
+  assert.match(runner, /Existing terminal role policy changed for lifetime growth/);
 });
