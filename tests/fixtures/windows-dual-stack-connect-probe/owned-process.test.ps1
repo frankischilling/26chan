@@ -34,15 +34,18 @@ if (-not $roles.RolesQualified($false) -or $roles.RolesQualified($true)) { throw
 $roles.ConsoleHostRoleCount=16; $roles.ActiveProcesses=17; $roles.EnumeratedProcesses=17
 if ($roles.RolesQualified($false)) { throw 'Over-capacity role evidence admitted.' }
 # Deterministic state-settlement controls. The exited root remains unavailable
-# until a later complete snapshot removes it; the role policy stays unchanged.
+# until a later complete snapshot removes it; console-host queries can also
+# become unavailable during teardown. Neither transient is qualified evidence.
 function New-PendingRootState {
   $state=[DualStackOwnedProcess+OwnershipSnapshot]::new()
   $state.RootExited=$true; $state.RootListed=$true; $state.AccountingLayoutValid=$true
   $state.DescendantInJob=$true; $state.ProcessListComplete=$true; $state.ProcessCountsConsistent=$true
   $state.DescendantRoleCount=1; $state.ConsoleHostRoleCount=1; $state.UnavailableRoleCount=1
-  $state.ActiveProcesses=3; $state.EnumeratedProcesses=3
+  $state.ActiveProcesses=3; $state.EnumeratedProcesses=3; $state.TotalProcesses=3
   return $state
 }
+$prior=New-PendingRootState
+$prior.RootExited=$false; $prior.RootInJob=$true; $prior.RootRoleCount=1; $prior.UnavailableRoleCount=0
 $pending=New-PendingRootState
 if ($pending.RolesQualified($false)) { throw 'Pending root accounting was admitted.' }
 $settled=New-PendingRootState
@@ -50,13 +53,13 @@ $settled.RootListed=$false; $settled.UnavailableRoleCount=0; $settled.ActiveProc
 $sequence=[Collections.Generic.Queue[object]]::new()
 $sequence.Enqueue($pending); $sequence.Enqueue($pending); $sequence.Enqueue($settled)
 $clock=@{ elapsed=4900; pauses=0 }
-$observed=Wait-OwnedRootAccounting -ReadSnapshot { $sequence.Dequeue() } -ElapsedMilliseconds { $clock.elapsed } -Pause { $clock.elapsed+=20; $clock.pauses++ }
+$observed=Wait-OwnedRootAccounting -Before $prior -ReadSnapshot { $sequence.Dequeue() } -ElapsedMilliseconds { $clock.elapsed } -Pause { $clock.elapsed+=20; $clock.pauses++ }
 if (-not [object]::ReferenceEquals($observed,$settled) -or $clock.pauses -ne 2 -or -not $observed.RolesQualified($false)) { throw 'Delayed root accounting observation failed.' }
 $clock=@{ elapsed=4980; pauses=0 }
-$expired=Wait-OwnedRootAccounting -ReadSnapshot { $pending } -ElapsedMilliseconds { $clock.elapsed } -Pause { $clock.elapsed+=20; $clock.pauses++ }
+$expired=Wait-OwnedRootAccounting -Before $prior -ReadSnapshot { $pending } -ElapsedMilliseconds { $clock.elapsed } -Pause { $clock.elapsed+=20; $clock.pauses++ }
 if ($clock.pauses -ne 1 -or $clock.elapsed -ne 5000 -or $expired.RolesQualified($false)) { throw 'Root accounting deadline was extended or bypassed.' }
 $clock=@{ elapsed=4980; pauses=0; reads=0 }
-$expired=Wait-OwnedRootAccounting -ReadSnapshot {
+$expired=Wait-OwnedRootAccounting -Before $prior -ReadSnapshot {
   $clock.reads++
   if ($clock.reads -eq 1) { return $pending }
   $clock.elapsed=5001
@@ -66,7 +69,7 @@ if ($clock.reads -ne 2 -or $expired.RolesQualified($false)) { throw 'A snapshot 
 $clock=@{ elapsed=5000; reads=0 }
 $rejected=$false
 try {
-  $null=Wait-OwnedRootAccounting -ReadSnapshot { $clock.reads++; return $settled } -ElapsedMilliseconds { $clock.elapsed } -Pause { throw 'Expired observation was paused.' }
+  $null=Wait-OwnedRootAccounting -Before $prior -ReadSnapshot { $clock.reads++; return $settled } -ElapsedMilliseconds { $clock.elapsed } -Pause { throw 'Expired observation was paused.' }
 } catch {
   if ($_.Exception.Message -ne 'Root accounting observation deadline.') { throw }
   $rejected=$true
@@ -76,21 +79,74 @@ foreach ($finishedAt in @(5000,5001)) {
   $clock=@{ elapsed=4999; reads=0 }
   $rejected=$false
   try {
-    $null=Wait-OwnedRootAccounting -ReadSnapshot { $clock.reads++; $clock.elapsed=$finishedAt; return $settled } -ElapsedMilliseconds { $clock.elapsed } -Pause { throw 'Late initial evidence was paused.' }
+    $null=Wait-OwnedRootAccounting -Before $prior -ReadSnapshot { $clock.reads++; $clock.elapsed=$finishedAt; return $settled } -ElapsedMilliseconds { $clock.elapsed } -Pause { throw 'Late initial evidence was paused.' }
   } catch {
     if ($_.Exception.Message -ne 'Root accounting observation deadline.') { throw }
     $rejected=$true
   }
   if (-not $rejected -or $clock.reads -ne 1) { throw 'A late initial snapshot was admitted.' }
 }
-foreach ($field in @('RootExited','RootListed','AccountingLayoutValid','DescendantInJob','ProcessListComplete','ProcessCountsConsistent','UnknownRoleCount','UnavailableRoleCount')) {
+foreach ($field in @('RootExited','RootListed','AccountingLayoutValid','DescendantInJob','ProcessListComplete','ProcessCountsConsistent','UnknownRoleCount','UnavailableRoleCount','TotalProcesses','EnumeratedProcesses','ConsoleHostRoleCount')) {
   $invalid=New-PendingRootState
   if ($field -eq 'UnknownRoleCount') { $invalid.$field=1 }
   elseif ($field -eq 'UnavailableRoleCount') { $invalid.$field=2 }
+  elseif ($field -eq 'TotalProcesses') { $invalid.$field=4 }
+  elseif ($field -eq 'EnumeratedProcesses') { $invalid.$field=4 }
+  elseif ($field -eq 'ConsoleHostRoleCount') { $invalid.$field=2 }
   else { $invalid.$field=$false }
-  $observed=Wait-OwnedRootAccounting -ReadSnapshot { $invalid } -ElapsedMilliseconds { 0 } -Pause { throw 'Unrelated or unverified role was retried.' }
+  $observed=Wait-OwnedRootAccounting -Before $prior -ReadSnapshot { $invalid } -ElapsedMilliseconds { 0 } -Pause { throw 'Unrelated or unverified role was retried.' }
   if (-not [object]::ReferenceEquals($observed,$invalid) -or $observed.RolesQualified($false)) { throw 'Unverified accounting state was accepted.' }
 }
+# Prior counts bound transient observation only. Preserve the existing terminal
+# role policy: a fully qualified snapshot returns immediately even if the job's
+# lifetime total grew; that counter is not part of RolesQualified.
+$settledGrowth=New-PendingRootState
+$settledGrowth.RootListed=$false; $settledGrowth.UnavailableRoleCount=0
+$settledGrowth.ActiveProcesses=2; $settledGrowth.EnumeratedProcesses=2; $settledGrowth.TotalProcesses=4
+$clock=@{ reads=0 }
+$observed=Wait-OwnedRootAccounting -Before $prior -ReadSnapshot { $clock.reads++; return $settledGrowth } -ElapsedMilliseconds { 0 } -Pause { throw 'Qualified terminal evidence was retried.' }
+if ($clock.reads -ne 1 -or -not [object]::ReferenceEquals($observed,$settledGrowth) -or
+    -not $observed.RolesQualified($false)) { throw 'Existing terminal role policy changed for lifetime growth.' }
+# Reproduce the hosted transition without claiming an unavailable member is a
+# console host. Its count only permits another read; final role proof is strict.
+$bothPending=New-PendingRootState
+$bothPending.ConsoleHostRoleCount=0; $bothPending.UnavailableRoleCount=2
+$consolePending=New-PendingRootState
+$consolePending.RootListed=$false; $consolePending.ConsoleHostRoleCount=0
+$consolePending.ActiveProcesses=2; $consolePending.EnumeratedProcesses=2
+$rootPending=New-PendingRootState
+$rootPending.ConsoleHostRoleCount=0; $rootPending.ActiveProcesses=2; $rootPending.EnumeratedProcesses=2
+$allSettled=New-PendingRootState
+$allSettled.RootListed=$false; $allSettled.ConsoleHostRoleCount=0; $allSettled.UnavailableRoleCount=0
+$allSettled.ActiveProcesses=1; $allSettled.EnumeratedProcesses=1
+$sequence=[Collections.Generic.Queue[object]]::new()
+$sequence.Enqueue($bothPending); $sequence.Enqueue($consolePending); $sequence.Enqueue($allSettled)
+$clock=@{ elapsed=4900; pauses=0 }
+$observed=Wait-OwnedRootAccounting -Before $prior -ReadSnapshot { $sequence.Dequeue() } -ElapsedMilliseconds { $clock.elapsed } -Pause { $clock.elapsed+=20; $clock.pauses++ }
+if ($bothPending.RolesQualified($false) -or $consolePending.RolesQualified($false) -or
+    -not [object]::ReferenceEquals($observed,$allSettled) -or $clock.pauses -ne 2 -or
+    -not $observed.RolesQualified($false)) { throw 'Root and console settlement bypassed final role proof.' }
+# Also cover the reverse order: the console role disappears before the root.
+$sequence=[Collections.Generic.Queue[object]]::new()
+$sequence.Enqueue($bothPending); $sequence.Enqueue($rootPending); $sequence.Enqueue($allSettled)
+$clock=@{ elapsed=4900; pauses=0 }
+$observed=Wait-OwnedRootAccounting -Before $prior -ReadSnapshot { $sequence.Dequeue() } -ElapsedMilliseconds { $clock.elapsed } -Pause { $clock.elapsed+=20; $clock.pauses++ }
+if ($rootPending.RolesQualified($false) -or -not [object]::ReferenceEquals($observed,$allSettled) -or
+    $clock.pauses -ne 2 -or -not $observed.RolesQualified($false)) { throw 'Console-before-root settlement bypassed final role proof.' }
+foreach ($unsettled in @($bothPending,$consolePending,$rootPending)) {
+  $clock=@{ elapsed=4980; pauses=0 }
+  $expired=Wait-OwnedRootAccounting -Before $prior -ReadSnapshot { $unsettled } -ElapsedMilliseconds { $clock.elapsed } -Pause { $clock.elapsed+=20; $clock.pauses++ }
+  if ($clock.pauses -ne 1 -or $clock.elapsed -ne 5000 -or $expired.RolesQualified($false)) { throw 'Unavailable roles bypassed the original deadline.' }
+}
+$invalidPrior=New-PendingRootState
+$rejected=$false
+try {
+  $null=Wait-OwnedRootAccounting -Before $invalidPrior -ReadSnapshot { throw 'Unqualified baseline was read.' } -ElapsedMilliseconds { 0 } -Pause { throw 'Unqualified baseline was paused.' }
+} catch {
+  if ($_.Exception.Message -ne 'Root accounting observation requires qualified live ownership.') { throw }
+  $rejected=$true
+}
+if (-not $rejected) { throw 'Unqualified baseline admitted settlement observation.' }
 $node=(Get-Command node.exe -ErrorAction Stop).Source
 $directory=Join-Path ([IO.Path]::GetTempPath()) ('dual-stack-job-test-' + [Guid]::NewGuid().ToString('N'))
 $ownedDirectory=[IO.Path]::GetFullPath($directory)
@@ -138,7 +194,7 @@ try {
   if (-not $child.HasExited -or $child.ExitCode -ne 0) { throw 'Synthetic parent did not exit normally.' }
   # Reuse the release/exit deadline. A signaled root handle does not establish
   # that job accounting has removed that exact retained process yet.
-  $after=Wait-OwnedRootAccounting -ReadSnapshot { $child.InspectOwnership($descendant) } -ElapsedMilliseconds { $watch.ElapsedMilliseconds } -Pause { Start-Sleep -Milliseconds 20 }
+  $after=Wait-OwnedRootAccounting -Before $before -ReadSnapshot { $child.InspectOwnership($descendant) } -ElapsedMilliseconds { $watch.ElapsedMilliseconds } -Pause { Start-Sleep -Milliseconds 20 }
   Write-OwnedState -Stage 'after-parent-exit' -State $after
   if (-not $after.RootExited -or -not $after.AccountingLayoutValid -or $after.DescendantExited -or -not $after.DescendantInJob -or -not $after.RolesQualified($false)) { throw 'Synthetic descendant did not survive root exit in the owned job.' }
   if ($child.TreeExited -or $child.WaitForExit(100)) { throw 'Live descendant incorrectly counted as completed.' }
