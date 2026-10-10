@@ -34,6 +34,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/windows-port-contrast.mjs admit
+      - name: Install pinned packages for source-derived launch checks
+        run: npm ci --ignore-scripts
       - name: Verify portable contrast rejection paths
         run: node --test tests/helpers/windows-port-contrast.test.mjs
 

@@ -114,8 +114,22 @@ export function contrastLaunchOptions(options, arm) {
   // Ignore only the changed ORIGINAL switch. The replacement must differ.
   return { ...options,
     ignoreDefaultArgs: [`--${kind}-features=${original.join(',')}`],
-    args: [`--${kind}-features=${[...original, FEATURE].join(',')}`],
+    // Pinned Playwright does not set this. Chromium requires it for the
+    // in-memory command-line proof; both diagnostic arms add it identically.
+    args: [`--${kind}-features=${[...original, FEATURE].join(',')}`, '--enable-automation'],
   };
+}
+const BROWSER_PROOF_STAGES = Object.freeze(['ownership', 'worker', 'project', 'binary', 'session',
+  'command-line', 'executable', 'version', 'features', 'cleanup', 'binary-match', 'record']);
+export async function browserProofStage(stage, operation, report = () => {}) {
+  demand(BROWSER_PROOF_STAGES.includes(stage));
+  try { return await operation(); }
+  catch {
+    // The owned enum is the entire diagnostic. Never inspect the exception or
+    // report arguments, returned CDP data, paths, environment or browser logs.
+    try { report(`Port contrast browser proof rejected: ${stage}.`); } catch {}
+    throw new Error('Port contrast browser proof unavailable');
+  }
 }
 export function verifyCommandLine(args, arm, version) {
   demand(version === BROWSER_VERSION && Array.isArray(args) && args.length > 10 && args.length <= 128);
@@ -132,7 +146,8 @@ export function verifyCommandLine(args, arm, version) {
   }
   const expected = featureLists(arm);
   demand(same(lists.enabled, expected.enabled.sort()) && same(lists.disabled, expected.disabled.sort()));
-  demand(args.includes('--disable-field-trial-config') && args.includes('--headless') && args.includes('--enable-automation'));
+  demand(args.includes('--disable-field-trial-config') && args.includes('--headless'));
+  demand(args.filter(arg => /^--enable-automation(?:=|$)/.test(arg)).length === 1 && args.includes('--enable-automation'));
   demand(!args.some(arg => /^--(?:force-fieldtrials|force-fieldtrial-params|variations|enable-field-trial-config|proxy-server|proxy-pac-url|host-resolver-rules)(?:=|$)/.test(arg)));
   return { browser_version: version, command_line_verified: true,
     feature_enabled: arm === 'enabled', feature_disabled: arm === 'disabled',

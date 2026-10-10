@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { armName, binding, contrastEnabled, checkEnvironment, contrastLaunchOptions, DEFAULT_DISABLED,
   DEFAULT_ENABLED, FEATURE, BROWSER_VERSION, featureLists, verifyCommandLine, validateManifest, qualifyPair,
-  runnerIdentity } from '../../scripts/windows-port-contrast-core.mjs';
+  runnerIdentity, browserProofStage, CORE_BUNDLE_SHA256 } from '../../scripts/windows-port-contrast-core.mjs';
 import { contrastServerCommand, portContrastOptions } from './windows-port-contrast.js';
 
 const run = { head: 'a'.repeat(40), run: '12345', attempt: 1 };
@@ -35,6 +36,7 @@ for (const arm of ['enabled', 'disabled']) {
     assert.equal(final.filter(arg => arg.startsWith('--enable-features=')).length, 1);
     assert.equal(final.filter(arg => arg.startsWith('--disable-features=')).length, 1);
     assert.ok(final.includes('--headless'));
+    assert.equal(final.filter(arg => arg === '--enable-automation').length, 1);
     const expected = featureLists(arm);
     assert.ok(final.includes(`--enable-features=${expected.enabled.join(',')}`));
     assert.ok(final.includes(`--disable-features=${expected.disabled.join(',')}`));
@@ -66,6 +68,84 @@ for (const arm of ['enabled', 'disabled']) {
 test('disabling only the target must retain all original disabled features', () => {
   const args = command('disabled').map(arg => arg.startsWith('--disable-features=') ? `--disable-features=${FEATURE}` : arg);
   assert.throws(() => verifyCommandLine(args, 'disabled', BROWSER_VERSION), error => !error.message.includes('PRIVATE'));
+});
+test('pinned Playwright defaults need the shared automation prerequisite and preserve every unrelated argument', async () => {
+  const require = createRequire(import.meta.url);
+  const packageRoot = path.dirname(require.resolve('playwright-core/package.json'));
+  assert.equal(sha256(readFileSync(path.join(packageRoot, 'lib/coreBundle.js'))), CORE_BUNDLE_SHA256);
+  // Only construct the server-side argument generator. No browser, transport,
+  // subprocess, profile or fixture is created by defaultArgs.
+  const { server } = require('playwright-core/lib/coreBundle');
+  const chromium = server.createPlaywright({ sdkLanguage: 'javascript', isServer: true }).chromium;
+  const defaults = await chromium.defaultArgs({ headless: true }, false, 'PRIVATE_PROFILE');
+  assert.equal(defaults.includes('--enable-automation'), false);
+  assert.ok(defaults.includes('--headless'));
+  const observe = args => {
+    // Chromium 151.0.7922.34 browser_handler.cc:674-692 gates this CDP
+    // response on kEnableAutomation. Never fall back to requested arguments.
+    if (!args.includes('--enable-automation')) throw new Error('PRIVATE_CDP_ERROR');
+    return { arguments: args };
+  };
+  for (const arm of ['enabled', 'disabled']) {
+    const options = contrastLaunchOptions({}, arm);
+    const generated = await chromium.defaultArgs({ ...options, headless: true }, false, 'PRIVATE_PROFILE');
+    // Exact pinned _launchProcess filtering: coreBundle.js:39515-39516.
+    const final = generated.filter(arg => !options.ignoreDefaultArgs.includes(arg));
+    const unchanged = defaults.filter(arg => !options.ignoreDefaultArgs.includes(arg));
+    const additions = options.args;
+    assert.deepEqual(final.filter(arg => !additions.includes(arg)), unchanged);
+    assert.equal(final.filter(arg => arg === '--enable-automation').length, 1);
+    const observed = observe(['PRIVATE_EXECUTABLE', ...final]);
+    assert.equal(verifyCommandLine(observed.arguments, arm, BROWSER_VERSION).command_line_verified, true);
+    const missing = final.filter(arg => arg !== '--enable-automation');
+    assert.throws(() => observe(missing), { message: 'PRIVATE_CDP_ERROR' });
+    assert.throws(() => verifyCommandLine(['PRIVATE_EXECUTABLE', ...missing], arm, BROWSER_VERSION));
+  }
+});
+test('command-line proof rejects missing, duplicate and valued automation switches', () => {
+  for (const arm of ['enabled', 'disabled']) {
+    const args = command(arm);
+    for (const bad of [args.filter(arg => arg !== '--enable-automation'),
+      [...args, '--enable-automation'], [...args, '--enable-automation=PRIVATE'],
+      args.map(arg => arg === '--enable-automation' ? '--enable-automation=PRIVATE' : arg)]) {
+      assert.throws(() => verifyCommandLine(bad, arm, BROWSER_VERSION));
+    }
+  }
+});
+test('browser-proof failures report only fixed owned stages and suppress raw exceptions and responses', async () => {
+  const stages = ['ownership', 'worker', 'project', 'binary', 'session', 'command-line',
+    'executable', 'version', 'features', 'cleanup', 'binary-match', 'record'];
+  for (const stage of stages) {
+    const messages = [];
+    const privateError = new Error('PRIVATE_PROFILE PRIVATE_ARGUMENT PRIVATE_CDP_RESPONSE');
+    await assert.rejects(browserProofStage(stage, () => { throw privateError; }, message => messages.push(message)),
+      error => error.message === 'Port contrast browser proof unavailable' && error.cause === undefined);
+    assert.deepEqual(messages, [`Port contrast browser proof rejected: ${stage}.`]);
+    assert.ok(messages[0].length < 80 && !messages[0].includes('PRIVATE'));
+    messages.length = 0;
+    const response = { arguments: ['PRIVATE_PROFILE'] };
+    assert.equal(await browserProofStage(stage, () => response, message => messages.push(message)), response);
+    assert.deepEqual(messages, []);
+  }
+  let invoked = false;
+  await assert.rejects(browserProofStage('PRIVATE_STAGE', () => { invoked = true; }, () => { invoked = true; }),
+    error => !error.message.includes('PRIVATE'));
+  assert.equal(invoked, false);
+  await assert.rejects(browserProofStage('cleanup', () => { throw new Error('PRIVATE'); }, () => { throw new Error('PRIVATE_REPORT'); }),
+    { message: 'Port contrast browser proof unavailable' });
+});
+test('browser-proof enum messages use the pinned reporter and inherited stdout route', () => {
+  const require = createRequire(import.meta.url);
+  const packageRoot = path.dirname(require.resolve('playwright/package.json'));
+  assert.equal(require('playwright/package.json').version, '1.62.0');
+  const reporter = readFileSync(path.join(packageRoot, 'lib/runner/index.js'), 'utf8');
+  const dot = reporter.slice(reporter.indexOf('var DotReporter = class'), reporter.indexOf('var DotReporter = class') + 1200);
+  assert.match(dot, /onStdOut\(chunk, test, result\)\s*\{[^}]*this\.screen\.stdout\.write\(chunk\)/);
+  const helper = readFileSync(new URL('./windows-port-contrast.js', import.meta.url), 'utf8');
+  assert.ok(helper.includes('browserProofStage(name, operation, message => process.stdout.write(`${message}\\n`))'));
+  const launcher = readFileSync(new URL('../../scripts/windows-theme-stderr.mjs', import.meta.url), 'utf8');
+  assert.ok(launcher.includes("stdio: ['inherit', 'inherit', 'pipe']"));
+  assert.ok(launcher.includes("child.stderr.on('data', chunk => collector.push(chunk))"));
 });
 test('duplicate, parametrized, conflicting and unsupported feature overrides are rejected', () => {
   for (const suffix of [`,${FEATURE}`, `<${FEATURE}`, `:${FEATURE}`, ',A/B', ',']) {
@@ -146,6 +226,13 @@ test('workflow retains one build, two unweakened arms and separate always-run qu
   assert.match(source, /fail-fast: false/);
   assert.match(source, /qualify-matched-pair:/);
   assert.doesNotMatch(source, /continue-on-error:|--retries|--workers|--timeout|netsh|Set-ItemProperty/);
+  const admission = source.slice(source.indexOf('  admit-pair:'), source.indexOf('  build-fixture-once:'));
+  const gate = admission.indexOf('run: node scripts/windows-port-contrast.mjs admit');
+  const dependencies = admission.indexOf('run: npm ci --ignore-scripts');
+  const checks = admission.indexOf('run: node --test tests/helpers/windows-port-contrast.test.mjs');
+  assert.ok(gate >= 0 && dependencies > gate && checks > dependencies);
+  assert.equal((admission.match(/npm ci --ignore-scripts/g) ?? []).length, 1);
+  assert.doesNotMatch(admission, /playwright install|continue-on-error|if: always/);
 });
 for (const field of ['fixture_bytes', 'runner.image_os', 'runner.image_version', 'runner.windows_build', 'runner.release', 'runner.arch', 'runner.node']) {
   test(`pair rejects ${field} missing in both arms`, () => {

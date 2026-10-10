@@ -66,6 +66,15 @@ arm does the equivalent for the disable-feature switch. The opposite original
 switch remains intact. Removing both originals, adding a second competing switch
 or filtering out the replacement would invalidate the comparison.
 
+Both arms also add exactly one `--enable-automation` switch. The pinned
+Playwright defaults do not include it, and Chromium's
+[`Browser.getBrowserCommandLine` implementation](https://github.com/chromium/chromium/blob/151.0.7922.34/content/browser/devtools/protocol/browser_handler.cc#L674-L692)
+requires it before returning the command line. This is shared diagnostic
+instrumentation beyond ordinary CI, not part of the feature contrast. It may
+affect browser behavior; equal instrumentation does not establish equivalence
+to the ordinary baseline. No other default argument is removed or changed
+apart from the arm's single feature-list replacement.
+
 The checked Playwright core bundle has SHA-256
 `3258d1cf334c6afc95f22aa9c292436cb976b391e0437f1359c83b84f0cb9d66`.
 The helper rejects a changed bundle, browser pin, existing caller launch options,
@@ -80,6 +89,11 @@ version, worker ordinal and content hashes. The proof never copies the raw CDP r
 into errors or artifacts. Session creation,
 the command and detach each have a five-second diagnostic bound. Failure rejects
 the proof without retrying a test or relaxing its deadline.
+Failures report only a fixed stage: ownership, worker, project, binary, session,
+command-line, executable, version, features, cleanup, binary-match or record.
+A cleanup failure can add its own stage after the original rejection. Neither
+message includes the exception or rejected value. These fixed messages use
+inherited stdout; the existing transport-only stderr collector is unchanged.
 
 Executable hashing and CDP verification add host load and affect scheduling.
 Results apply to this instrumented pair. Each executable read is bounded at
@@ -128,6 +142,13 @@ arms, nonzero exits and the narrow NetLog redaction. Actual Windows/CDP executio
 still needs exact-head hosted qualification. Every exact-head check must be
 green before merge; a passing pair-check job does not erase a failed arm or a
 failed required check.
+
+The portable launch regression calls only the pinned Playwright argument
+generator. It verifies that ordinary defaults lack the automation prerequisite,
+both arms add it once, and every unrelated argument survives the exact default
+filter. It does not launch a browser or substitute requested arguments for the
+hosted CDP proof. After the single-head admission gate, the admission job runs
+`npm ci --ignore-scripts` for this source check; it does not install a browser.
 
 ## First hosted preflight failure
 
@@ -183,3 +204,21 @@ numeric patterns; architecture has a fixed enum. Missing, unknown, malformed
 or oversized values become null. No other environment variable, path,
 exception or argument is included. This record explains a future rejected
 profile without admitting it or creating passing browser evidence.
+
+## Browser-proof prerequisite failure
+
+At `c9b7cef`, [run 38079718611](https://github.com/frankischilling/26chan/actions/runs/38079718611)
+reached browser launch in both arms, but all 148 cases in each arm failed in
+worker setup with `Port contrast browser proof unavailable`. The original test
+bodies did not run. This failed run provides no feature-outcome comparison and
+cannot be treated as a transport failure or a passing arm.
+
+The checked Playwright bundle does not add `--enable-automation`; the original
+contrast options did not add it either. Chromium's pinned command-line method
+requires that switch, so the launch could never provide the required proof.
+The generic hosted error does not establish which guard failed first or exclude
+another rejected condition. Both arms now add the shared prerequisite and emit
+the fixed browser-proof stages above. They still require successful CDP proof,
+the exact executable and feature lists, and every existing admission check.
+The current failed run remains rejected; a repaired exact head needs its own
+first-attempt pair and green checks before merge.

@@ -2,7 +2,7 @@ import { readFileSync, lstatSync, realpathSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { armName, binding, contrastEnabled, contrastLaunchOptions, demand, sha256,
+import { armName, binding, browserProofStage, contrastEnabled, contrastLaunchOptions, demand, sha256,
   verifyCommandLine, validateManifest, PLAYWRIGHT_VERSION, BROWSER_VERSION, BROWSER_REVISION, CORE_BUNDLE_SHA256 } from '../../scripts/windows-port-contrast-core.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -60,30 +60,43 @@ export function portContrastOptions(options, env = process.env) {
   return contrastLaunchOptions(options, env.WINDOWS_PORT_ARM);
 }
 async function verifyPortContrastBrowserInner(browser, workerInfo, env) {
-  if (!contrastEnabled(env)) return;
-  owned(env);
-  demand(Number.isInteger(workerInfo.workerIndex) && workerInfo.workerIndex >= 0 && workerInfo.workerIndex < 148);
-  demand(workerInfo.project.use.browserName === 'chromium' && workerInfo.project.use.channel === undefined && workerInfo.project.use.headless !== false);
-  const expected = installedBrowser();
+  // Worker stderr is intentionally consumed by the transport-only collector.
+  // Only these fixed enum messages use the reporter's inherited stdout route.
+  const stage = (name, operation) => browserProofStage(name, operation, message => process.stdout.write(`${message}\n`));
+  const enabled = await stage('ownership', () => {
+    if (!contrastEnabled(env)) return false;
+    owned(env); return true;
+  });
+  if (!enabled) return;
+  await stage('worker', () => demand(Number.isInteger(workerInfo.workerIndex) && workerInfo.workerIndex >= 0 && workerInfo.workerIndex < 148));
+  await stage('project', () => demand(workerInfo.project.use.browserName === 'chromium' && workerInfo.project.use.channel === undefined && workerInfo.project.use.headless !== false));
+  const expected = await stage('binary', () => installedBrowser());
   let session;
   let proof;
   try {
-    session = await boundedProof(browser.newBrowserCDPSession());
-    const response = await boundedProof(session.send('Browser.getBrowserCommandLine'));
+    session = await stage('session', () => boundedProof(browser.newBrowserCDPSession()));
+    const response = await stage('command-line', () => boundedProof(session.send('Browser.getBrowserCommandLine')));
     // Arguments, profile locations and executable paths never leave memory.
-    demand(Array.isArray(response.arguments) && typeof response.arguments[0] === 'string');
-    demand(path.resolve(response.arguments[0]).toLowerCase() === path.resolve(expected.executable).toLowerCase());
-    proof = verifyCommandLine(response.arguments, env.WINDOWS_PORT_ARM, browser.version());
+    await stage('executable', () => {
+      demand(Array.isArray(response.arguments) && typeof response.arguments[0] === 'string');
+      demand(path.resolve(response.arguments[0]).toLowerCase() === path.resolve(expected.executable).toLowerCase());
+    });
+    const version = await stage('version', () => {
+      const actual = browser.version(); demand(actual === BROWSER_VERSION); return actual;
+    });
+    proof = await stage('features', () => verifyCommandLine(response.arguments, env.WINDOWS_PORT_ARM, version));
   } catch { throw new Error('Port contrast browser verification unavailable'); }
   finally {
     if (session) {
-      try { await boundedProof(session.detach()); } catch { throw new Error('Port contrast browser cleanup unavailable'); }
+      await stage('cleanup', () => boundedProof(session.detach()));
     }
   }
-  demand(expected.sha256 === env.WINDOWS_PORT_BROWSER_SHA256);
-  const record = { schema: 1, binding: binding(env), arm: armName(env.WINDOWS_PORT_ARM),
-    worker: workerInfo.workerIndex, browser_sha256: expected.sha256, ...proof };
-  writeFileSync(path.join(contrastDirectory(env), `browser-${workerInfo.workerIndex}.json`), JSON.stringify(record), { flag: 'wx' });
+  await stage('binary-match', () => demand(expected.sha256 === env.WINDOWS_PORT_BROWSER_SHA256));
+  await stage('record', () => {
+    const record = { schema: 1, binding: binding(env), arm: armName(env.WINDOWS_PORT_ARM),
+      worker: workerInfo.workerIndex, browser_sha256: expected.sha256, ...proof };
+    writeFileSync(path.join(contrastDirectory(env), `browser-${workerInfo.workerIndex}.json`), JSON.stringify(record), { flag: 'wx' });
+  });
 }
 
 async function boundedProof(promise) {
