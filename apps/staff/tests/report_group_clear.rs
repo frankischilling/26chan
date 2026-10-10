@@ -329,7 +329,10 @@ async fn janitor_clears_one_group_atomically_preserving_original_dispositions_an
         }
         let history=f.request(&format!("/reports/cleared?board={}",f.boards[0]),None).await;
         assert_eq!(history.0,StatusCode::OK,"{}",history.1);
-        for word in ["resolved","dismissed","originating clear time:","inherited clear:"] {assert!(history.1.contains(word),"{word}: {}",history.1);}
+        assert!(history.1.contains("Original report disposition: dismissed"));
+        assert!(!history.1.contains("Original report disposition: resolved"));
+        assert_eq!(history.1.matches("<article ").count(),1);
+        for word in ["originating clear time:","inherited clear:"] {assert!(history.1.contains(word),"{word}: {}",history.1);}
         assert!(!history.1.contains("Originating clear account:"));
         assert!(!history.1.contains("Reason:"));
         assert!(!history.1.contains("Category:"));
@@ -553,11 +556,10 @@ async fn cleared_history_is_board_scoped_bounded_and_ignores_live_post_state() {
                 .await;
             assert_eq!(response.0, StatusCode::OK);
             assert!(!response.1.contains("PRIVATE LIVE POST CONTENT"));
-            assert_eq!(
-                response.1.matches("Originating clear account:").count(),
-                100
-            );
-            // Use unique report IDs, not repeated reasons, to prove newest-first cap.
+            assert_eq!(response.1.matches("Originating clear account:").count(), 16);
+            // One group exposes the newest 16 records and a member-overflow notice.
+            assert!(response.1.contains("cleared-members-truncated"));
+            assert!(!response.1.contains("cleared-groups-truncated"));
             assert!(!response.1.contains(&format!("id=\"report-{}\"", ids[0])));
             assert!(response.1.contains(&format!("id=\"report-{}\"", ids[100])));
         }
@@ -865,17 +867,21 @@ async fn cleared_history_redacts_sql_and_full_response_by_role_and_preserves_sco
                 assert_eq!(rows[0].group_cleared_at, rows[1].group_cleared_at);
                 let (status, html) = f.request(&path, None).await;
                 assert_eq!(status, StatusCode::OK, "{role}: {html}");
-                assert_eq!(html.matches("<article ").count(), 2);
+                assert_eq!(
+                    html.matches("<article ").count(),
+                    if role == "janitor" { 1 } else { 2 }
+                );
                 for visible in [
-                    "Original report disposition: resolved",
                     "Original report disposition: dismissed",
                     "originating clear time:",
                     "inherited clear: true",
-                    "inherited clear: false",
                 ] {
                     assert!(html.contains(visible), "{role}: missing {visible}");
                 }
                 if role == "janitor" {
+                    assert!(!html.contains("Original report disposition: resolved"));
+                    assert!(!html.contains("inherited clear: false"));
+                    assert!(!html.contains(&format!("id=\"report-{first}\"")));
                     for row in &rows {
                         assert!(row.reason.is_none());
                         assert!(row.category_id.is_none());
@@ -895,6 +901,8 @@ async fn cleared_history_redacts_sql_and_full_response_by_role_and_preserves_sco
                         );
                     }
                 } else {
+                    assert!(html.contains("Original report disposition: resolved"));
+                    assert!(html.contains("inherited clear: false"));
                     assert_eq!(rows[0].reason.as_deref(), Some("Owned group report 92"));
                     assert_eq!(rows[0].category_id, Some(31));
                     assert_eq!(rows[0].group_cleared_by, Some(f.account));

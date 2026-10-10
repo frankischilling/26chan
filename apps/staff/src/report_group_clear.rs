@@ -165,7 +165,8 @@ fn clear_error(error: sqlx::Error) -> AppError {
 struct History {
     board: String,
     moderator: bool,
-    reports: Vec<crate::store::ClearedReport>,
+    groups: Vec<crate::cleared_report_queue::ClearedReportGroup>,
+    has_more: bool,
 }
 
 fn history_board(query: Option<&str>) -> Result<String, AppError> {
@@ -189,10 +190,11 @@ pub(crate) async fn history(
 ) -> Result<Html<String>, AppError> {
     let mut authority = auth::guard(&state, &headers).await?;
     let board = history_board(query.as_deref())?;
-    let reports = crate::store::cleared_reports(&state.staff, &authority.session, &board).await?;
+    let page = crate::cleared_report_queue::load(&state.staff, &authority.session, &board).await?;
     let html = History {
         board,
-        reports,
+        groups: page.groups,
+        has_more: page.has_more,
         moderator: authority.session.at_least(crate::access::Level::Moderator),
     }
     .render()
@@ -259,15 +261,43 @@ mod tests {
         let mut history = History {
             board: "test".into(),
             moderator: true,
-            reports: vec![crate::store::ClearedReport {
-                id: 1,
+            has_more: true,
+            groups: vec![crate::cleared_report_queue::ClearedReportGroup {
                 post_id: 42,
-                reason: Some("<script>alert(1)</script>".into()),
-                category_id: Some(3),
-                state: "open".into(),
-                group_cleared_at: chrono::DateTime::from_timestamp(1_700_000_000, 0).unwrap(),
-                group_cleared_by: Some(7654321),
-                group_clear_inherited: true,
+                representative: crate::store::ClearedReport {
+                    id: 2,
+                    post_id: 42,
+                    reason: Some("<script>alert(1)</script>".into()),
+                    category_id: Some(3),
+                    state: "open".into(),
+                    group_cleared_at: chrono::DateTime::from_timestamp(1_700_000_000, 0).unwrap(),
+                    group_cleared_by: Some(7654321),
+                    group_clear_inherited: true,
+                },
+                moderator_summary: Some(
+                    crate::cleared_report_queue::ModeratorClearedReportSummary {
+                        report_count: 98765,
+                        additional_members: vec![crate::store::ClearedReport {
+                            id: 1,
+                            post_id: 42,
+                            reason: Some("<img src=x onerror=additional-record>".into()),
+                            category_id: Some(4),
+                            state: "dismissed".into(),
+                            group_cleared_at: chrono::DateTime::from_timestamp(1_600_000_000, 0)
+                                .unwrap(),
+                            group_cleared_by: Some(6543210),
+                            group_clear_inherited: false,
+                        }],
+                        members_truncated: true,
+                        categories: vec![crate::report_queue::CapturedCategory {
+                            revision: 87654,
+                            id: 76543,
+                            kind: 2,
+                            title: "<script>captured-category-only</script>".into(),
+                        }],
+                        categories_truncated: true,
+                    },
+                ),
             }],
         };
         let html = history.render().unwrap();
@@ -279,15 +309,42 @@ mod tests {
             "Reason:",
             "Category:",
             "alert(1)",
+            "98765",
+            "87654",
+            "76543",
+            "6543210",
+            "additional-record",
+            "captured-category-only",
+            "cleared-report-count",
+            "cleared-members-truncated",
+            "cleared-report-categories",
+            "cleared-categories-truncated",
+            "id=\"report-1\"",
+            "Original report disposition: dismissed",
         ] {
             assert!(!janitor.contains(forbidden), "Janitor leaked {forbidden}");
         }
         assert!(janitor.contains("Original report disposition: open"));
         assert!(janitor.contains("originating clear time:"));
         assert!(janitor.contains("inherited clear: true"));
+        assert!(janitor.contains("id=\"report-2\""));
+        assert_eq!(janitor.matches("<article ").count(), 1);
+        assert!(janitor.contains("cleared-groups-truncated"));
         assert!(html.contains("Original report disposition: open"));
         assert!(html.contains("Originating clear account: 7654321"));
         assert!(html.contains("inherited clear: true"));
+        assert!(html.contains("Original report disposition: dismissed"));
+        assert!(html.contains("Originating clear account: 6543210"));
+        assert!(html.contains("inherited clear: false"));
+        assert_eq!(html.matches("<article ").count(), 2);
+        assert!(html.contains("id=\"cleared-report-group-42\""));
+        assert!(html.contains("Cleared retained reports: 98765."));
+        assert!(html.contains("alert(1)"));
+        assert!(html.contains("additional-record"));
+        assert!(html.contains("revision 87654, ID 76543, kind 2:"));
+        assert!(html.contains("captured-category-only"));
+        assert!(html.contains("cleared-members-truncated"));
+        assert!(html.contains("cleared-categories-truncated"));
         assert!(html.contains("not a saved post snapshot"));
         assert!(!html.contains("<script>"));
         assert!(!html.contains("<form"));

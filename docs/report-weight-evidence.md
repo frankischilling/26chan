@@ -46,6 +46,40 @@ That requires authoritative DDL and the deployed adapter/runtime contract,
 including formatting and storage conversion. This boundary does not change the
 current exact-0.5 proof or enable arbitrary-base evidence.
 
+## Queue scoring boundaries
+
+The source uses several different calculations. `ReportQueue.php:790–820` groups
+stored weights and applies the raw-sum threshold for cross-board filter access.
+Its display path then conditionally applies a board coefficient, multiplies
+thread starters by 1.25, separates adjusted totals below 1 into the ignored view,
+and rounds other totals upward (`2356–2376`). Sorting uses displayed weight and
+a representative timestamp (`2465–2473`). The 3000-group cap precedes that sort.
+
+Board counts apply coefficients without the display path's illegal-report
+exception (`447–506`). Cross-board clear eligibility uses
+`CEIL(SUM(IF(resto > 0, weight, weight * 1.25)))` without a board coefficient
+(`733–755`). A single shared score would change at least one of these paths.
+
+Three further inputs remain unresolved:
+
+- `get_board_coefficients` reads `report_settings` without an ordering clause and
+  overwrites repeated board keys (`703–718`). No authoritative table definition
+  or configuration is supplied.
+- Display scoring reads `num_illegal` from each grouped report, but
+  `fetch_reports` selects `reports` without joining `reports_for_posts`.
+  The reconstructed schema places `num_illegal` only in the latter table
+  (`README2.txt:248–255`), which admission updates at `modes/report.php:648–653`.
+  The source does not establish whether a deployed report column is missing from
+  that reconstruction or the expression reads an undefined field. Current
+  category kinds or the rewrite's lifetime counter cannot fill this gap.
+- The grouped query selects report fields, timestamp and saved JSON without
+  choosing a representative or ordering its results (`813–820`). Exact timestamp
+  tie-breaks and selection under the cap therefore remain unspecified.
+
+These gaps also affect cleared-only and ignored queue membership. The grouped
+active and cleared inventories use documented unweighted rules and do not expose
+numeric weight proofs or use their displayed counts to authorize clearing.
+
 ## One-sided threat proofs
 
 `lib/postfilter.php:2094–2097` adds 1.0 for its non-browser User-Agent expression.

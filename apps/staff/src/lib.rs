@@ -2,6 +2,7 @@
 pub mod access;
 mod audit_snapshot;
 pub mod auth;
+pub mod cleared_report_queue;
 pub mod config;
 mod discussion;
 mod handlers;

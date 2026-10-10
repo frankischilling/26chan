@@ -78,10 +78,10 @@ from a displayed count or category base.
 
 ## Remaining work
 
-Full source priority, ignored and cleared-only queue modes, captured report
-snapshots, source weighted counts, the larger source cap and global unlock remain
-separate. Cleared history remains a bounded per-report list rather than the
-source's grouped cleared-only queue.
+Full source priority, ignored membership, exact weighted cleared-only membership,
+captured report snapshots, source weighted counts, the larger source cap and
+global unlock remain separate. [Cleared history](grouped-cleared-report-history.md)
+groups retained clear evidence with its own bounded, unweighted semantics.
 The source's developer-only explicit `test` filter also needs separate policy
 work; this slice does not silently change access to local fixture boards.
 
