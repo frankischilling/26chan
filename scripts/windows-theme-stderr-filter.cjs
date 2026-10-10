@@ -10,6 +10,8 @@ const EVENT_MARKER = '[owned-windows-transport] synchronous-connect-error 10055'
 const TRUNCATED_MARKER = '[owned-windows-transport] synchronous-connect-events-truncated';
 const UNAVAILABLE_MARKER = '[owned-windows-transport] probe-unavailable';
 const SETUP_REFUSED_MARKER = '[owned-windows-transport] probe-setup-refused';
+const CONTROL_COORDINATOR_READY_MARKER = '[owned-browser-control] stderr-probe-coordinator-ready';
+const CONTROL_WORKER_READY_MARKER = '[owned-browser-control] stderr-probe-worker-ready';
 const COUNTER_LIMIT = 0xffffffff;
 
 // Chromium 151 uses a colon before the source line, not parentheses. Accept
@@ -54,6 +56,8 @@ function createStderrCollector({ now = Date.now } = {}) {
   let truncated = false;
   let probeUnavailable = false;
   let setupRefused = false;
+  let controlCoordinatorReadyCount = 0;
+  let controlWorkerReadyCount = 0;
   let carryLength = 0;
   let lineLength = 0;
   let oversized = false;
@@ -136,6 +140,10 @@ function createStderrCollector({ now = Date.now } = {}) {
     } else if (terminated && !oversized && !invalid && isMarker(SETUP_REFUSED_MARKER)) {
       increment('setup_refused_markers');
       setupRefused = true;
+    } else if (terminated && !oversized && !invalid && isMarker(CONTROL_COORDINATOR_READY_MARKER)) {
+      controlCoordinatorReadyCount = Math.min(COUNTER_LIMIT, controlCoordinatorReadyCount + 1);
+    } else if (terminated && !oversized && !invalid && isMarker(CONTROL_WORKER_READY_MARKER)) {
+      controlWorkerReadyCount = Math.min(COUNTER_LIMIT, controlWorkerReadyCount + 1);
     } else increment('discarded_lines');
     clearCarry();
     lineLength = 0;
@@ -205,6 +213,8 @@ function createStderrCollector({ now = Date.now } = {}) {
       truncated,
       probe_unavailable: probeUnavailable,
       setup_refused: setupRefused,
+      ...(controlCoordinatorReadyCount ? { control_probe_coordinator_count: controlCoordinatorReadyCount } : {}),
+      ...(controlWorkerReadyCount ? { control_probe_worker_count: controlWorkerReadyCount } : {}),
     };
   }
 
@@ -222,6 +232,6 @@ function createStderrCollector({ now = Date.now } = {}) {
 
 module.exports = Object.freeze({
   CARRY_BYTES, EVENT_LIMIT, ARTIFACT_BYTES, EVENT_MARKER, TRUNCATED_MARKER, UNAVAILABLE_MARKER,
-  SETUP_REFUSED_MARKER,
+  SETUP_REFUSED_MARKER, CONTROL_COORDINATOR_READY_MARKER, CONTROL_WORKER_READY_MARKER,
   recognizeChromiumConnectLine, createStderrCollector,
 });
