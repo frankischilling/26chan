@@ -149,6 +149,37 @@ are `SELENIUM_REMOTE_URL`, `SELENIUM_REMOTE_CAPABILITIES` and
 The guard now permits only that inert JAR marker. Remote-launch inputs, unknown
 Selenium overrides and debug aliases remain rejected. All other admission checks
 remain in place. A preflight failure reports one fixed stage name: environment, binding,
-runner, fixture, browser or output. No environment value, exception, path or
-argument is included. These changes repair a reproduced preflight bug; another
+runner, fixture, browser or output. Stage messages contain no exception, path
+or argument. Runner rejection also has the bounded identity record described
+below. These changes repair a reproduced preflight bug; another
 exact-head hosted qualification is still required.
+
+
+## Runner identity rejection
+
+At `fe2b552`, [run 38078934033](https://github.com/frankischilling/26chan/actions/runs/38078934033)
+passed the environment check and stopped at runner verification before any
+tests. The recorded OS release, Windows build, architecture, Node version and
+image version match the required profile. The failed process did not record
+its `ImageOS` value, so the exact rejected value remains unproven. This run
+provides no browser-feature comparison.
+
+The job identifies the official `windows-2025-vs2026` image and links its
+[`win25-vs2026/20260925.250` release](https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260925.250).
+The image-family allowlist now contains exactly `win25` and `win25-vs2026`.
+The latter spelling is inferred from the published family; it has not yet
+been read from the failed process's environment. Admitting that reviewed
+Windows 2025 family does not establish that it caused the rejection. Unknown
+family names still fail. Each arm retains its actual identifier, and a pair
+with different identifiers fails even when both families are individually
+admitted. Windows build 26100, the full build match, x64, Node 24.14.0 and all
+browser and fixture checks remain required.
+
+A runner rejection now emits at most 512 bytes with a fixed schema and only
+the six identity fields already retained in successful evidence: image family,
+image version, Windows build, OS release, architecture and Node version. The
+family has the two-value allowlist. Version and build fields have bounded
+numeric patterns; architecture has a fixed enum. Missing, unknown, malformed
+or oversized values become null. No other environment variable, path,
+exception or argument is included. This record explains a future rejected
+profile without admitting it or creating passing browser evidence.

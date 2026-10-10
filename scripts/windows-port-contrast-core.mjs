@@ -34,13 +34,37 @@ export function binding(env = process.env) {
   demand(env.GITHUB_RUN_ATTEMPT === '1');
   return { head: env.CANDIDATE_SHA, run: env.GITHUB_RUN_ID, attempt: 1 };
 }
-export function runnerIdentity(env, release, arch, nodeVersion) {
-  demand(env.ImageOS === 'win25');
-  demand(/^[0-9]{8}\.[0-9]+\.[0-9]+$/.test(env.ImageVersion ?? ''));
-  demand(/^26100\.[0-9]{1,8}$/.test(env.WINDOWS_PORT_RUNNER_BUILD ?? ''));
-  demand(release === '10.0.26100' && arch === 'x64' && nodeVersion === 'v24.14.0');
-  return { image_os: env.ImageOS, image_version: env.ImageVersion,
-    windows_build: env.WINDOWS_PORT_RUNNER_BUILD, release, arch, node: nodeVersion };
+// Both are official Windows 2025 runner-image families. Preserve the exact
+// value in evidence: this is an allowlist, never an alias/canonicalization.
+export const RUNNER_IMAGE_FAMILIES = Object.freeze(['win25', 'win25-vs2026']);
+export const RUNNER_DIAGNOSTIC_BYTES = 512;
+const boundedValue = (value, maximum, pattern) => typeof value === 'string' &&
+  value.length <= maximum && pattern.test(value) ? value : null;
+export function runnerIdentityDiagnostic(env, release, arch, nodeVersion) {
+  // Only these six already-retained identity fields can enter this record.
+  // Unknown image names, missing values, paths and malformed strings become null.
+  const identity = {
+    image_os: RUNNER_IMAGE_FAMILIES.includes(env.ImageOS) ? env.ImageOS : null,
+    image_version: boundedValue(env.ImageVersion, 22, /^[0-9]{8}\.[0-9]{1,6}\.[0-9]{1,6}$/),
+    windows_build: boundedValue(env.WINDOWS_PORT_RUNNER_BUILD, 15, /^[0-9]{1,6}\.[0-9]{1,8}$/),
+    release: boundedValue(release, 11, /^10\.0\.[0-9]{1,6}$/),
+    arch: ['x64', 'arm64', 'ia32'].includes(arch) ? arch : null,
+    node: boundedValue(nodeVersion, 12, /^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/),
+  };
+  return { schema: 1, stage: 'runner', identity };
+}
+export function runnerIdentity(env, release, arch, nodeVersion, report = () => {}) {
+  const record = runnerIdentityDiagnostic(env, release, arch, nodeVersion);
+  const identity = record.identity;
+  if (identity.image_os === null || identity.image_version === null ||
+      identity.windows_build === null || !/^26100\.[0-9]{1,8}$/.test(identity.windows_build) ||
+      identity.release !== '10.0.26100' || identity.arch !== 'x64' || identity.node !== 'v24.14.0') {
+    const message = `Port contrast runner identity rejected: ${JSON.stringify(record)}`;
+    demand(Buffer.byteLength(message) <= RUNNER_DIAGNOSTIC_BYTES);
+    try { report(message); } catch {}
+    throw new Error('Port contrast runner identity rejected');
+  }
+  return identity;
 }
 export function checkEnvironment(env, platform) {
   demand(platform === 'win32' && contrastEnabled(env));

@@ -46,7 +46,7 @@ async function run() {
   const verified = contrastPreflight({
     environment: () => checkEnvironment(process.env, process.platform),
     binding: () => binding(),
-    runner: () => runnerIdentity(process.env, release(), arch(), process.version),
+    runner: () => runnerIdentity(process.env, release(), arch(), process.version, message => console.error(message)),
     fixture: () => verifiedFixture(),
     browser: () => installedBrowser(),
     output: () => {

@@ -289,3 +289,56 @@ test('successful preflight returns internal values without logging them; missing
   assert.throws(() => contrastPreflight(checks, message => messages.push(message)));
   assert.deepEqual(messages, ['Port contrast preflight rejected: fixture.']);
 });
+import { runnerIdentityDiagnostic, RUNNER_DIAGNOSTIC_BYTES, RUNNER_IMAGE_FAMILIES } from '../../scripts/windows-port-contrast-core.mjs';
+test('both reviewed Windows 2025 image families retain exact identity; unknown families remain rejected', () => {
+  assert.deepEqual(RUNNER_IMAGE_FAMILIES, ['win25', 'win25-vs2026']);
+  const base = { ImageOS: 'win25', ImageVersion: '20260925.250.1', WINDOWS_PORT_RUNNER_BUILD: '26100.33438' };
+  for (const family of RUNNER_IMAGE_FAMILIES) {
+    const identity = runnerIdentity({ ...base, ImageOS: family }, '10.0.26100', 'x64', 'v24.14.0');
+    assert.equal(identity.image_os, family);
+  }
+  for (const family of ['win22', 'win25-vs2027', 'windows-2025-vs2026', 'win25-vs2026-extra', 'WIN25-VS2026', '', undefined]) {
+    assert.throws(() => runnerIdentity({ ...base, ImageOS: family }, '10.0.26100', 'x64', 'v24.14.0'));
+  }
+  const enabled = evidence('enabled'), disabled = evidence('disabled');
+  disabled.runner = { ...disabled.runner, image_os: 'win25-vs2026' };
+  assert.throws(() => qualifyPair(enabled, disabled, run));
+  enabled.runner = { ...enabled.runner, image_os: 'win25-vs2026' };
+  assert.equal(qualifyPair(enabled, disabled, run).qualified, true);
+});
+test('runner rejection emits only bounded six-field identity with unsafe inputs replaced by null', () => {
+  const sentinel = 'PRIVATE_PATH/--PRIVATE_ARGUMENT=PRIVATE_ENV\n';
+  const input = { ImageOS: sentinel, ImageVersion: sentinel, WINDOWS_PORT_RUNNER_BUILD: sentinel, SECRET: sentinel };
+  const messages = [];
+  assert.throws(() => runnerIdentity(input, sentinel, sentinel, sentinel, message => messages.push(message)), error => error.message === 'Port contrast runner identity rejected');
+  assert.equal(messages.length, 1);
+  const record = JSON.parse(messages[0].slice('Port contrast runner identity rejected: '.length));
+  assert.deepEqual(record, { schema: 1, stage: 'runner', identity: {
+    image_os: null, image_version: null, windows_build: null, release: null, arch: null, node: null,
+  } });
+  assert.ok(!messages[0].includes('PRIVATE'));
+  assert.ok(Buffer.byteLength(messages[0]) <= RUNNER_DIAGNOSTIC_BYTES);
+  assert.deepEqual(Object.keys(record.identity), ['image_os', 'image_version', 'windows_build', 'release', 'arch', 'node']);
+});
+test('runner diagnostics retain safe mismatches without accepting changed build, architecture or Node', () => {
+  const input = { ImageOS: 'win25-vs2026', ImageVersion: '20260925.250.1', WINDOWS_PORT_RUNNER_BUILD: '20348.1234' };
+  const messages = [];
+  assert.throws(() => runnerIdentity(input, '10.0.20348', 'arm64', 'v24.14.1', message => messages.push(message)));
+  const record = JSON.parse(messages[0].slice('Port contrast runner identity rejected: '.length));
+  assert.deepEqual(record.identity, { image_os: 'win25-vs2026', image_version: '20260925.250.1', windows_build: '20348.1234', release: '10.0.20348', arch: 'arm64', node: 'v24.14.1' });
+  const valid = { ...input, WINDOWS_PORT_RUNNER_BUILD: '26100.33438' };
+  assert.throws(() => runnerIdentity(valid, '10.0.26100', 'arm64', 'v24.14.0'));
+  assert.throws(() => runnerIdentity(valid, '10.0.26100', 'x64', 'v24.14.1'));
+  assert.throws(() => runnerIdentity(valid, '10.0.20348', 'x64', 'v24.14.0'));
+});
+test('runner diagnostic size, scalar types and exact patterns have hard boundaries', () => {
+  const record = runnerIdentityDiagnostic({ ImageOS: 'win25-vs2026', ImageVersion: '99999999.999999.999999', WINDOWS_PORT_RUNNER_BUILD: '999999.99999999' }, '10.0.999999', 'arm64', 'v999.999.999');
+  assert.ok(Buffer.byteLength(`Port contrast runner identity rejected: ${JSON.stringify(record)}`) <= RUNNER_DIAGNOSTIC_BYTES);
+  let coerced = false;
+  const hostile = { toString() { coerced = true; return 'PRIVATE'; } };
+  const rejected = runnerIdentityDiagnostic({ ImageOS: hostile, ImageVersion: hostile, WINDOWS_PORT_RUNNER_BUILD: hostile }, hostile, hostile, hostile);
+  assert.equal(coerced, false);
+  assert.ok(Object.values(rejected.identity).every(value => value === null));
+  const oversized = runnerIdentityDiagnostic({ ImageOS: 'win25'.repeat(1000), ImageVersion: '20260925.1234567.1', WINDOWS_PORT_RUNNER_BUILD: '26100.123456789' }, '10.0.1234567', 'x64\n', 'v24.14.0\n');
+  assert.ok(Object.values(oversized.identity).every(value => value === null));
+});
