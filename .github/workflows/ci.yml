@@ -19,10 +19,9 @@ permissions:
 jobs:
   rust-and-browser:
     runs-on: ubuntu-24.04
-    # Privileged qualification runs independently below, with its own database.
-    # The last green full suite took 59m45s before poll browser coverage.
-    # Leave startup/cache variance headroom; individual test deadlines stay bounded.
-    timeout-minutes: 75
+    # Rust tests include real browser-backed upload qualification.
+    # Public browser suites run on separate disposable databases below.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -69,7 +68,7 @@ jobs:
         run: |
           source .local/database.env
           cargo test -p board-public --lib --test proxy_https --all-features --locked
-      - name: Rust, database permissions, concurrency, and browser behavior
+      - name: Rust, database permissions, concurrency, and browser-backed uploads
         run: |
           source .local/database.env
           source .local/media.env
@@ -77,12 +76,84 @@ jobs:
           source .local/intake.env
           source .local/monitor.env
           source .local/staff.env
-          bash scripts/verify.sh
+          bash scripts/verify.sh rust
       - name: Retain synthetic Linux browser failure evidence
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-browser-failure-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/**/trace.zip
+            test-results/**/error-context.md
+            test-results/**/attachments/mobile-quote-events-*.json
+            test-results/**/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false
+  browser-suites:
+    # Each lane owns its database, roles, fixtures, and serial browser worker.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [content, interactions]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.14.0'
+          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install pinned Rust and PostgreSQL
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal --component rustfmt --component clippy
+          test -f /etc/apt/sources.list.d/ubuntu.sources
+          sudo install -m 0644 scripts/ci-ubuntu-sources.conf /etc/apt/apt.conf.d/99board-ci-sources
+          sudo apt-get update
+          sudo apt-get install -y postgresql-16 postgresql-client-16 perl make gcc iproute2 util-linux openssl nginx-light libicu-dev libpcre2-dev
+      - name: Restore Rust dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          # Reuse the Rust job's namespace; that job remains the only writer.
+          shared-key: ubuntu-24.04-${{ hashFiles('Cargo.toml') }}-rust-and-browser
+          cache-bin: false
+          save-if: false
+      - name: Start disposable database and migrate
+        run: |
+          python3 scripts/test-dev-db-env.py
+          python3 scripts/test-dev-staff-db-env.py
+          sudo bash scripts/test-role-bootstrap.sh
+          sudo bash scripts/dev-db.sh
+          sudo bash scripts/dev-media-db.sh
+          sudo bash scripts/dev-media-reader-db.sh
+          sudo bash scripts/dev-intake-db.sh
+          sudo bash scripts/dev-monitor-db.sh
+          sudo bash scripts/dev-staff-db.sh
+          sudo chown -R "$(id -u):$(id -g)" .local
+          source .local/database.env
+          cargo run -p board-store --bin board-migrate --locked
+          bash scripts/seed.sh
+      - name: Verify the selected Linux browser suite
+        env:
+          BROWSER_SUITE: ${{ matrix.suite }}
+        run: |
+          source .local/database.env
+          source .local/media.env
+          source .local/media-reader.env
+          source .local/intake.env
+          source .local/monitor.env
+          source .local/staff.env
+          bash scripts/verify.sh "browser-$BROWSER_SUITE"
+      - name: Retain synthetic Linux browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: linux-browser-${{ matrix.suite }}-failure-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             test-results/**/trace.zip
             test-results/**/error-context.md
@@ -420,23 +491,36 @@ jobs:
             fi
           done
   rust-and-postgres:
-    # Keep the existing Linux check responsible for every qualification.
-    needs: [rust-and-browser, media-and-operations]
+    # Every Linux lane must succeed, including both browser matrix entries.
+    needs: [rust-and-browser, browser-suites, media-and-operations]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Require application and privileged qualification
+      - name: Require Rust, browser, and privileged qualification
         env:
           APPLICATION_RESULT: ${{ needs.rust-and-browser.result }}
+          BROWSER_RESULT: ${{ needs.browser-suites.result }}
           QUALIFICATION_RESULT: ${{ needs.media-and-operations.result }}
         run: |
           test "$APPLICATION_RESULT" = success
+          test "$BROWSER_RESULT" = success
           test "$QUALIFICATION_RESULT" = success
   visual-windows:
-    # Preserve the existing Windows check as a gate for every theme shard.
-    needs: [visual-windows-themes]
-    if: ${{ !cancelled() }}
+    # Retain the existing required check while core and themes run concurrently.
+    needs: [visual-windows-core, visual-windows-themes]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require Windows core and every isolated theme shard
+        env:
+          CORE_RESULT: ${{ needs.visual-windows-core.result }}
+          THEMES_RESULT: ${{ needs.visual-windows-themes.result }}
+        run: |
+          test "$CORE_RESULT" = success
+          test "$THEMES_RESULT" = success
+  visual-windows-core:
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
@@ -458,7 +542,8 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          key: windows-2025-${{ hashFiles('Cargo.toml') }}
+          # Preserve the namespace restored by theme and diagnostic jobs.
+          shared-key: windows-2025-${{ hashFiles('Cargo.toml') }}-visual-windows
           cache-bin: false
           cache-all-crates: false
           cache-workspace-crates: false
@@ -627,13 +712,6 @@ jobs:
         if: always()
         shell: pwsh
         run: ./scripts/windows-visual-resources.ps1 -Phase after-visual
-      - name: Require every isolated Windows theme shard
-        if: always()
-        shell: pwsh
-        env:
-          THEMES_RESULT: ${{ needs.visual-windows-themes.result }}
-        run: |
-          if ($env:THEMES_RESULT -ne 'success') { throw "Windows theme shards did not all succeed: $env:THEMES_RESULT" }
   visual-windows-themes:
     # Measured isolation experiment: split three independent reference matrices
     # across fresh runners, with one worker and no retries. Discovery caps each
@@ -663,12 +741,12 @@ jobs:
       - name: Restore Rust dependencies
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          # Match the original job's key, including rust-cache's job suffix.
+          # Match the Windows core job's explicit dependency namespace.
           shared-key: windows-2025-${{ hashFiles('Cargo.toml') }}-visual-windows
           cache-bin: false
           cache-all-crates: false
           cache-workspace-crates: false
-          # The original Windows job remains the only cache writer.
+          # The Windows core job remains the only cache writer.
           save-if: false
       - name: Install browser dependencies
         shell: pwsh
