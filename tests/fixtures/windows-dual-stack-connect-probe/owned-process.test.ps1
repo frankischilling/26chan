@@ -93,6 +93,7 @@ foreach ($field in @('RootExited','RootListed','AccountingLayoutValid','Descenda
 }
 $node=(Get-Command node.exe -ErrorAction Stop).Source
 $directory=Join-Path ([IO.Path]::GetTempPath()) ('dual-stack-job-test-' + [Guid]::NewGuid().ToString('N'))
+$ownedDirectory=[IO.Path]::GetFullPath($directory)
 New-Item -ItemType Directory -Path $directory | Out-Null
 $child=$null; $descendant=$null
 function Write-OwnedState {
@@ -157,6 +158,11 @@ try {
     }
   } finally {
     if ($null -ne $descendant) { $descendant.Dispose() }
-    Remove-Item -LiteralPath $directory -Recurse -Force
+    $item=Get-Item -LiteralPath $directory -Force
+    if ([IO.Path]::GetFullPath($item.FullName) -ne $ownedDirectory -or
+        [IO.Path]::GetDirectoryName($ownedDirectory) -ne ([IO.Path]::GetTempPath()).TrimEnd('\','/') -or
+        $item.Name -notmatch '^dual-stack-job-test-[0-9a-f]{32}$' -or
+        ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Owned test directory changed; refusing cleanup.' }
+    Remove-Item -LiteralPath $ownedDirectory -Recurse -Force
   }
 }

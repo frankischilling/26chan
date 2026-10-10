@@ -1,3 +1,4 @@
+use crate::animation::{EncodedGif, MAX_GIF_BYTES};
 use crate::{EncodedOutput, MAX_PNG_BYTES, MediaError, ObjectId, Promotion, Quarantine};
 use sha2::{Digest, Sha256};
 use std::{
@@ -26,6 +27,33 @@ pub struct PublicationGuard<'a> {
 /// before each read. This type does not create directories or lock files.
 pub struct ApprovedFiles {
     root: PathBuf,
+}
+
+#[derive(Clone, Copy)]
+enum Format {
+    Png,
+    Gif,
+}
+
+impl Format {
+    fn extension(self) -> &'static str {
+        match self {
+            Self::Png => "png",
+            Self::Gif => "gif",
+        }
+    }
+    fn opposite(self) -> &'static str {
+        match self {
+            Self::Png => "gif",
+            Self::Gif => "png",
+        }
+    }
+    fn byte_limit(self) -> u64 {
+        match self {
+            Self::Png => MAX_PNG_BYTES as u64,
+            Self::Gif => MAX_GIF_BYTES as u64,
+        }
+    }
 }
 
 impl PublicationStore {
@@ -109,6 +137,12 @@ impl PublicationGuard<'_> {
         self.install_variant(id, output, false)
     }
 
+    /// GIF bytes must come from the independent neutral animation validator and
+    /// host encoder. The caller must reserve GIF metadata before this operation.
+    pub fn install_gif(&self, id: ObjectId, output: &EncodedGif) -> Result<Promotion, MediaError> {
+        self.install_bytes(id, output.bytes(), output.sha256(), Format::Gif, false)
+    }
+
     pub fn install_thumbnail(
         &self,
         id: ObjectId,
@@ -126,6 +160,28 @@ impl PublicationGuard<'_> {
         output: &EncodedOutput,
         thumbnail: bool,
     ) -> Result<Promotion, MediaError> {
+        self.install_bytes(id, &output.bytes, output.sha256(), Format::Png, thumbnail)
+    }
+
+    fn install_bytes(
+        &self,
+        id: ObjectId,
+        bytes: &[u8],
+        sha256: &str,
+        format: Format,
+        thumbnail: bool,
+    ) -> Result<Promotion, MediaError> {
+        if bytes.is_empty() || bytes.len() as u64 > format.byte_limit() {
+            return Err(MediaError::InvalidOutput);
+        }
+        if !thumbnail {
+            let opposite = self.store.root.join(format!("{id}.{}", format.opposite()));
+            match fs::symlink_metadata(opposite) {
+                Ok(_) => return Err(MediaError::Conflict),
+                Err(error) if error.kind() == io::ErrorKind::NotFound => (),
+                Err(error) => return Err(error.into()),
+            }
+        }
         let suffix = if thumbnail { ".thumb" } else { "" };
         let staging = self.store.root.join(format!("{id}{suffix}.part"));
         remove_regular(&staging)?;
@@ -137,7 +193,7 @@ impl PublicationGuard<'_> {
             options.mode(0o600);
         }
         let mut file = options.open(&staging)?;
-        file.write_all(&output.bytes)?;
+        file.write_all(bytes)?;
         // Shared output is deliberate and independent of the publisher's umask.
         // The preprovisioned setgid directory selects its nonroot reader group.
         #[cfg(unix)]
@@ -147,12 +203,20 @@ impl PublicationGuard<'_> {
         }
         file.sync_all()?;
         drop(file);
-        let destination = self.store.root.join(format!("{id}{suffix}.png"));
+        let destination = self
+            .store
+            .root
+            .join(format!("{id}{suffix}.{}", format.extension()));
         let already_published = match fs::hard_link(&staging, &destination) {
             Ok(()) => false,
             Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
-                let actual = read_checked(&destination, output.sha256(), output.len())?;
-                if actual != output.bytes {
+                let actual = read_checked(
+                    &destination,
+                    sha256,
+                    bytes.len() as u64,
+                    format.byte_limit(),
+                )?;
+                if actual != bytes {
                     return Err(MediaError::Conflict);
                 }
                 true
@@ -162,8 +226,8 @@ impl PublicationGuard<'_> {
         remove_regular(&staging)?;
         sync_directory(&self.store.root)?;
         Ok(Promotion {
-            sha256: output.sha256().to_owned(),
-            bytes: output.len(),
+            sha256: sha256.to_owned(),
+            bytes: bytes.len() as u64,
             already_published,
         })
     }
@@ -171,7 +235,7 @@ impl PublicationGuard<'_> {
     /// Caller must first durably mark this reservation deleting while holding
     /// this guard. Approved or currently leased objects must never reach here.
     pub fn remove(&self, id: ObjectId) -> Result<(), MediaError> {
-        for suffix in ["part", "png", "thumb.part", "thumb.png"] {
+        for suffix in ["part", "png", "gif", "thumb.part", "thumb.png"] {
             remove_regular(&self.store.root.join(format!("{id}.{suffix}")))?;
         }
         sync_directory(&self.store.root)?;
@@ -195,7 +259,22 @@ impl ApprovedFiles {
     }
 
     pub fn read(&self, id: ObjectId, sha256: &str, bytes: u64) -> Result<Vec<u8>, MediaError> {
-        read_checked(&self.root.join(format!("{id}.png")), sha256, bytes)
+        read_checked(
+            &self.root.join(format!("{id}.png")),
+            sha256,
+            bytes,
+            MAX_PNG_BYTES as u64,
+        )
+    }
+
+    /// Call only after obtaining approval for this ID, GIF format, hash and size.
+    pub fn read_gif(&self, id: ObjectId, sha256: &str, bytes: u64) -> Result<Vec<u8>, MediaError> {
+        read_checked(
+            &self.root.join(format!("{id}.gif")),
+            sha256,
+            bytes,
+            MAX_GIF_BYTES as u64,
+        )
     }
 
     pub fn read_thumbnail(
@@ -204,12 +283,17 @@ impl ApprovedFiles {
         sha256: &str,
         bytes: u64,
     ) -> Result<Vec<u8>, MediaError> {
-        read_checked(&self.root.join(format!("{id}.thumb.png")), sha256, bytes)
+        read_checked(
+            &self.root.join(format!("{id}.thumb.png")),
+            sha256,
+            bytes,
+            MAX_PNG_BYTES as u64,
+        )
     }
 }
 
-fn read_checked(path: &Path, sha256: &str, bytes: u64) -> Result<Vec<u8>, MediaError> {
-    if !(1..=MAX_PNG_BYTES as u64).contains(&bytes)
+fn read_checked(path: &Path, sha256: &str, bytes: u64, limit: u64) -> Result<Vec<u8>, MediaError> {
+    if !(1..=limit).contains(&bytes)
         || sha256.len() != 64
         || !sha256
             .bytes()

@@ -22,6 +22,7 @@ runuser -u postgres -- "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.l
   -o "-c listen_addresses='' -c unix_socket_directories='$cluster'" -w start > /dev/null
 started=1
 db=(runuser -u postgres -- "$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h "$cluster")
+migrator=(runuser -u postgres -- "$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h "$cluster" -U board_migrator)
 "${db[@]}" -d postgres -f deploy/roles.sql
 "${db[@]}" -d postgres <<'SQL'
 CREATE DATABASE bootstrap_test OWNER board_migrator;
@@ -50,7 +51,9 @@ CREATE TABLE public.owned_meta_acls_before AS SELECT oid,relowner,relacl::text A
     WHERE oid IN ('content.boards'::regclass,'content.threads'::regclass,'content.posts'::regclass,'content.visible_threads'::regclass);
 SQL
   fi
-  "${db[@]}" -d bootstrap_test --single-transaction -c 'SET ROLE board_migrator' -f "$migration"
+  # RESET ROLE inside a migration must return to its actual login, just as in
+  # board-migrate. A superuser session with SET ROLE gives different ownership.
+  "${migrator[@]}" -d bootstrap_test --single-transaction -f "$migration"
   if [[ $migration = migrations/0072_meta_board_policy.sql ]]; then
     "${db[@]}" -d bootstrap_test <<'SQL'
 BEGIN;
@@ -75,6 +78,17 @@ ROLLBACK;
 SQL
   fi
 done
+"${migrator[@]}" -d bootstrap_test <<'SQL'
+DO $$ BEGIN
+  IF session_user<>'board_migrator' OR current_user<>'board_migrator'
+     OR EXISTS(SELECT 1 FROM pg_class WHERE oid=ANY(ARRAY[
+         'content.visible_post_media'::regclass,'content.staff_post_media'::regclass,
+         'media.approved_assets'::regclass,'media.approved_post_assets'::regclass])
+         AND relowner<>(SELECT oid FROM pg_roles WHERE rolname='board_migrator')) THEN
+    RAISE EXCEPTION 'Migration login or approved media view ownership differs';
+  END IF;
+END $$;
+SQL
 "${db[@]}" -d bootstrap_test <<'SQL'
 DO $$ DECLARE v_role text; BEGIN
   FOREACH v_role IN ARRAY ARRAY['board_public','board_staff','board_auth','board_media',

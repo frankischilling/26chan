@@ -4,6 +4,7 @@
 //! execute workers, decode uploads, expose public routes, or establish process
 //! isolation. Deployment permissions and job deadlines belong to the caller.
 
+pub mod animation;
 mod block;
 mod id;
 mod output;

@@ -3,7 +3,7 @@
 use board_store::{
     StoreError,
     media::{Failure, MediaQueue},
-    media_assets::{MediaReader, OutputMetadata},
+    media_assets::{MediaFormat, MediaReader, OutputMetadata, OutputVariants},
 };
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::sync::{Arc, Mutex};
@@ -35,7 +35,8 @@ async fn durable_approval_schema_exists() {
             "thumbnail_sha256",
             "thumbnail_bytes",
             "thumbnail_width",
-            "thumbnail_height"
+            "thumbnail_height",
+            "output_format"
         ]
     );
     let post_barrier: bool = sqlx::query_scalar("SELECT 'security_barrier=true' = ANY(reloptions) FROM pg_class WHERE oid='media.approved_post_assets'::regclass").fetch_one(&admin).await.unwrap();
@@ -54,7 +55,8 @@ async fn durable_approval_schema_exists() {
             "thumbnail_sha256",
             "thumbnail_bytes",
             "thumbnail_width",
-            "thumbnail_height"
+            "thumbnail_height",
+            "output_format"
         ]
     );
     let installed_migration: bool =
@@ -141,6 +143,7 @@ async fn exercise_approval(f: Fixture) {
     let reader = MediaReader::connect(&std::env::var("MEDIA_READ_DATABASE_URL").unwrap())
         .await
         .unwrap();
+    exercise_gif_bounds(&f, &reader).await;
     let mut writer = PgConnection::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -650,6 +653,90 @@ async fn exercise_approval(f: Fixture) {
     assert_eq!(minimum_asset.bytes, 1);
     f.queue
         .approve_output(&job, &token, &minimum_asset.id)
+        .await
+        .unwrap();
+}
+
+async fn exercise_gif_bounds(f: &Fixture, reader: &MediaReader) {
+    let (job, token) = f.claim().await;
+    let meta = OutputMetadata {
+        bytes: 6 * 1024 * 1024,
+        ..metadata()
+    };
+    let variants = OutputVariants {
+        md5: "b".repeat(32),
+        thumbnail: OutputMetadata {
+            sha256: "c".repeat(64),
+            bytes: 100,
+            width: 1,
+            height: 1,
+        },
+    };
+    for bytes in [0, 20_971_521] {
+        assert!(matches!(
+            f.queue
+                .prepare_gif_output(
+                    &job,
+                    &token,
+                    &OutputMetadata {
+                        bytes,
+                        ..meta.clone()
+                    },
+                    &variants
+                )
+                .await,
+            Err(StoreError::Invalid(_))
+        ));
+    }
+    assert!(matches!(
+        f.queue.prepare_output(&job, &token, &meta).await,
+        Err(StoreError::Invalid(_))
+    ));
+    let pending = f
+        .queue
+        .prepare_gif_output(&job, &token, &meta, &variants)
+        .await
+        .unwrap();
+    assert_eq!(pending.output_format, MediaFormat::Gif);
+    assert_eq!(
+        f.queue
+            .prepare_gif_output(&job, &token, &meta, &variants)
+            .await
+            .unwrap(),
+        pending
+    );
+    assert!(matches!(
+        reader.get(&pending.id).await,
+        Err(StoreError::NotFound)
+    ));
+    let error = sqlx::query("UPDATE media.assets SET output_format='png' WHERE id=$1")
+        .bind(&pending.id)
+        .execute(&f.admin)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.as_database_error().unwrap().code().as_deref(),
+        Some("42501")
+    );
+    f.expire(&job).await;
+    assert!(
+        f.queue
+            .approve_output(&job, &token, &pending.id)
+            .await
+            .is_err()
+    );
+    assert!(
+        f.queue
+            .prepare_gif_output(&job, &token, &meta, &variants)
+            .await
+            .is_err()
+    );
+    assert!(f.queue.begin_output_deletion(&pending.id).await.unwrap());
+    assert!(f.queue.forget_output(&pending.id).await.unwrap());
+    // This expired fixture must not be requeued ahead of the next owned case.
+    sqlx::query("DELETE FROM media.jobs WHERE id=$1")
+        .bind(&job)
+        .execute(&f.admin)
         .await
         .unwrap();
 }

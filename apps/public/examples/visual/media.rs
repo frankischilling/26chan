@@ -89,6 +89,7 @@ impl Fixture {
                 md5: (index != 3).then(|| full.md5().to_owned()),
                 thumbnail_width: (index != 3).then_some(thumbnail.dimensions().0 as i32),
                 thumbnail_height: (index != 3).then_some(thumbnail.dimensions().1 as i32),
+                output_format: board_store::media_assets::MediaFormat::Png,
             });
         }
         // Spoiler pixels are available as a healthy reveal control, but default

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { imageTarget, imageSize, IMAGE_LIMITS } from '../../apps/public/client/native-images.js';
 import { parseUpdaterSnapshot } from '../../apps/public/client/native-updater-snapshot.js';
 
-test('images require exact normalized PNG routes on the configured media origin', () => {
+test('images require exact approved PNG or GIF routes on the configured media origin', () => {
   const origin = 'https://media.example';
-  for (const path of ['/a/1.png', '/demo/9007199254740993.png', '/0123456789/9223372036854775807.png']) {
+  for (const path of ['/a/1.png', '/a/1.gif', '/demo/9007199254740993.gif', '/demo/9007199254740993.png', '/0123456789/9223372036854775807.png']) {
     assert.deepEqual(imageTarget(origin + path, origin), { url: origin + path, thumbnail: origin + path.slice(0, -4) + 's.jpg' });
   }
   for (const value of [null, 1, '/a/1.png', '//media.example/a/1.png', 'https://other.example/a/1.png',
@@ -15,6 +15,9 @@ test('images require exact normalized PNG routes on the configured media origin'
     `${origin}/a/%31.png`, `${origin}/a/1s.jpg`, `${origin}/a/1.svg`, `${origin}/a/1.webm`,
     `${origin}/a/1.jpg`, `${origin}/A/1.png`, `${origin}/abcdefghijk/1.png`, 'data:image/png,bytes']) {
     assert.equal(imageTarget(value, origin), null, String(value));
+  }
+  for (const path of ['/a/1.GIF', '/a/1.gif?x', '/a/1.gif#x', '/a/01.gif', '/a/0.gif', '/a/1.thumb.gif', '/a/1.gif.png', '/a/9223372036854775808.gif']) {
+    assert.equal(imageTarget(origin + path, origin), null, path);
   }
   for (const origin of ['', 'file://media.example', 'https://user@media.example', 'https://media.example/',
     'https://media.example/path', 'https://media.example:443', 'https://media.example?x']) {

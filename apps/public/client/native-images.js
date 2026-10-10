@@ -10,7 +10,7 @@ export function imageTarget(raw, mediaOrigin) {
   try {
     const origin = new URL(mediaOrigin);
     if (!['http:', 'https:'].includes(origin.protocol) || origin.origin !== mediaOrigin) return null;
-    const match = /^\/([a-z0-9]{1,10})\/([1-9][0-9]{0,18})\.png$/.exec(raw.slice(mediaOrigin.length));
+    const match = /^\/([a-z0-9]{1,10})\/([1-9][0-9]{0,18})\.(?:png|gif)$/.exec(raw.slice(mediaOrigin.length));
     if (!raw.startsWith(mediaOrigin) || !match || BigInt(match[2]) > 9223372036854775807n) return null;
     return { url: raw, thumbnail: raw.slice(0, -4) + 's.jpg' };
   } catch { return null; }

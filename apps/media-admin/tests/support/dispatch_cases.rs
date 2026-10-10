@@ -1,6 +1,10 @@
 //! Controlled real TLS responses isolate coordinator fencing. The native harness
 //! separately qualifies the real gateway, root broker and Firecracker decoder.
-use board_media_dispatch::{config::GatewaySettings, protocol::read_request, tls::server_config};
+use board_media_dispatch::{
+    config::GatewaySettings,
+    protocol::{GIF_OUTPUT_LENGTH, OUTPUT_LENGTH, Request, read_versioned_request},
+    tls::server_config,
+};
 use board_store::media::MediaQueue;
 use rcgen::{BasicConstraints, CertificateParams, ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair};
 use std::{
@@ -80,6 +84,11 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
         "snapshot-mutation",
         "jpeg",
         "gif",
+        "gif-invalid",
+        "gif-downgrade",
+        "gif-expired",
+        "gif-replaced",
+        "gif-snapshot-mutation",
         "malformed-png",
         "truncated-png",
         "excess-chunk",
@@ -101,6 +110,7 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
         "replaced",
         "changed-input",
     ] {
+        let gif = case.starts_with("gif");
         let environment_denial = match case {
             "production" => Some(("APP_ENV", "production")),
             name if name.ends_with("DATABASE_URL") => {
@@ -129,7 +139,7 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
         ids.lock().unwrap().push(job.id.clone());
         let input = match case {
             "jpeg" => b"\xff\xd8synthetic decoder fixture".to_vec(),
-            "gif" => b"GIF89asynthetic decoder fixture".to_vec(),
+            case if case.starts_with("gif") => b"GIF89asynthetic decoder fixture".to_vec(),
             "malformed-png" => b"\x89PNG\r\n\x1a\n".to_vec(),
             "truncated-png" => source_png()[..43].to_vec(),
             "excess-chunk" => b"\x89PNG\r\n\x1a\n\xff\xff\xff\xffIDAT".to_vec(),
@@ -168,7 +178,11 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
             let (socket, _) = server_listener.accept().await.unwrap();
             server_accepted.store(true, Ordering::SeqCst);
             let mut stream = acceptor.accept(socket).await.unwrap();
-            let received_input = read_request(&mut stream).await.unwrap();
+            let received_input = match read_versioned_request(&mut stream).await.unwrap() {
+                Request::ImageV1(input) if !gif => input,
+                Request::GifV3(input) if gif => input,
+                request => panic!("unexpected dispatch format: {request:?}"),
+            };
             assert_eq!(received_input, input);
             received.send(()).unwrap();
             // The environment cases must have a working full response if a
@@ -179,15 +193,35 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
             if case == "transport" {
                 return;
             }
-            let mut disk = vec![0; 4_194_816];
-            if !["invalid", "decoder-rejection"].contains(&case) {
-                disk[..20].copy_from_slice(b"IBRGBA01\0\0\0\x01\0\0\0\x01\xff\0\0\xff");
+            if case == "gif-downgrade" {
+                let _ = stream.write_all(b"IBOUT001").await;
+                let _ = stream.write_all(&OUTPUT_LENGTH.to_be_bytes()).await;
+                let _ = stream.shutdown().await;
+                return;
             }
-            stream.write_all(b"IBOUT001").await.unwrap();
+            let length = if gif {
+                GIF_OUTPUT_LENGTH
+            } else {
+                OUTPUT_LENGTH
+            };
+            let mut disk = vec![0; length as usize];
+            if !["invalid", "decoder-rejection", "gif-invalid"].contains(&case) {
+                if gif {
+                    let wire = animation_wire();
+                    disk[..wire.len()].copy_from_slice(&wire);
+                } else {
+                    disk[..20].copy_from_slice(b"IBRGBA01\0\0\0\x01\0\0\0\x01\xff\0\0\xff");
+                }
+            }
             stream
-                .write_all(&4_194_816_u64.to_be_bytes())
+                .write_all(if gif && case != "gif-downgrade" {
+                    b"IBOUT003"
+                } else {
+                    b"IBOUT001"
+                })
                 .await
                 .unwrap();
+            stream.write_all(&length.to_be_bytes()).await.unwrap();
             stream.write_all(&disk).await.unwrap();
             stream.shutdown().await.unwrap();
         });
@@ -277,18 +311,18 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
                 .await
                 .expect("dispatch command must reach authenticated transport")
                 .unwrap();
-            if case == "snapshot-mutation" {
+            if ["snapshot-mutation", "gif-snapshot-mutation"].contains(&case) {
                 let input_path = path("quarantine").join(format!("{}.input", job.id));
                 std::fs::write(&input_path, b"mutation after snapshot").unwrap();
                 std::fs::rename(&input_path, path("replaced-input")).unwrap();
                 std::fs::write(&input_path, b"new pathname contents").unwrap();
             }
-            let expired_at = if case == "expired" {
+            let expired_at = if ["expired", "gif-expired"].contains(&case) {
                 Some(super::expire(admin, &job.id).await)
             } else {
                 None
             };
-            if case == "replaced" {
+            if ["replaced", "gif-replaced"].contains(&case) {
                 sqlx::query("UPDATE media.jobs SET lease_token=replace(gen_random_uuid()::text,'-','') WHERE id=$1")
                     .bind(&job.id).execute(admin).await.unwrap();
             }
@@ -302,11 +336,26 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
                     .unwrap();
             assert_eq!(
                 result.status.success(),
-                ["valid", "snapshot-mutation", "jpeg", "gif"].contains(&case),
+                [
+                    "valid",
+                    "snapshot-mutation",
+                    "jpeg",
+                    "gif",
+                    "gif-snapshot-mutation"
+                ]
+                .contains(&case),
                 "case {case}: {}; expired_at={expired_at:?}; observed_database_clock={observed_at}",
                 String::from_utf8_lossy(&result.stderr)
             );
-            if ["valid", "snapshot-mutation", "jpeg", "gif"].contains(&case) {
+            if [
+                "valid",
+                "snapshot-mutation",
+                "jpeg",
+                "gif",
+                "gif-snapshot-mutation",
+            ]
+            .contains(&case)
+            {
                 let id = String::from_utf8(result.stdout).unwrap();
                 let id = id.trim();
                 assert!(id.parse::<board_media::ObjectId>().is_ok());
@@ -314,7 +363,7 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
                 let source: SourceProvenanceRow =
                     sqlx::query_as("SELECT source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5 FROM media.assets WHERE id=$1")
                         .bind(id).fetch_one(admin).await.unwrap();
-                if ["jpeg", "gif"].contains(&case) {
+                if case == "jpeg" || gif {
                     assert_eq!(source, SourceProvenanceRow::default());
                 } else {
                     assert_eq!(
@@ -341,7 +390,11 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
                     board_media_admin::read_approved(&reader, &files, id)
                         .await
                         .unwrap()
-                        .starts_with(b"\x89PNG")
+                        .starts_with(if gif {
+                            b"GIF89a".as_slice()
+                        } else {
+                            b"\x89PNG".as_slice()
+                        })
                 );
                 assert!(
                     board_media_admin::read_approved(&reader, &files, &job.id)
@@ -359,10 +412,12 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
                 assert_eq!(count, 0, "case {case}");
                 let job = queue.get(&job.id).await.unwrap();
                 match case {
-                    "invalid" | "decoder-rejection" => {
+                    "invalid" | "decoder-rejection" | "gif-invalid" => {
                         assert_eq!(job.failure.as_deref(), Some("invalid_output"))
                     }
-                    "transport" => assert_eq!(job.failure.as_deref(), Some("processing_failed")),
+                    "transport" | "gif-downgrade" => {
+                        assert_eq!(job.failure.as_deref(), Some("processing_failed"))
+                    }
                     _ => {
                         assert_eq!(job.state, "processing");
                         assert!(job.failure.is_none());
@@ -374,4 +429,23 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
         sqlx::query("UPDATE media.jobs SET state='failed',lease_token=NULL,expires_at=NULL,failure='abandoned' WHERE id=$1 AND state <> 'published'")
             .bind(&job.id).execute(admin).await.unwrap();
     }
+}
+
+// Independent uncompressed two-frame fixture; no credentialed GIF parser.
+fn animation_wire() -> Vec<u8> {
+    let mut wire = b"IBGIF001".to_vec();
+    for value in [1u16, 1, 2, 0, 256] {
+        wire.extend_from_slice(&value.to_be_bytes());
+    }
+    wire.extend_from_slice(&0u32.to_be_bytes());
+    wire.extend_from_slice(&[0; 10]);
+    for pixel in [0, 1] {
+        for value in [0u16, 0, 1, 1, 10, 2, 256] {
+            wire.extend_from_slice(&value.to_be_bytes());
+        }
+        wire.extend_from_slice(&[2, 0]);
+        wire.extend_from_slice(&1u32.to_be_bytes());
+        wire.extend_from_slice(&[255, 0, 0, 0, 0, 255, pixel]);
+    }
+    wire
 }

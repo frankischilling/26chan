@@ -236,7 +236,7 @@ class DrawingQuotaBoundaryTest(unittest.TestCase):
         fixture.completed_jobs = [format(i, '032x') for i in range(1, 10)]
         fixture.f.ids = list(fixture.completed_jobs)
         fixture.filenames = [f'public-upload-{fixture.board}.{suffix}' for suffix in
-                            ('png', 'baseline.jpg', 'progressive.jpg', 'static.gif', 'tracking.png',
+                            ('png', 'baseline.jpg', 'progressive.jpg', 'animated.gif', 'tracking.png',
                              'quick-reply.png', 'quick-reply-inline.png', 'quick-reply-disabled.png',
                              'quick-reply-inline-disabled.png')]
         fixture.browser = SimpleNamespace(poll=lambda: 0)

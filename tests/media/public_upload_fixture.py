@@ -176,7 +176,9 @@ class PublicUpload:
         cases = [('png', red_png(), False)]
         cases.extend((name + '.jpg', (REPO / 'tests/media/fixtures/jpeg' / (name + '.jpg')).read_bytes(), False)
                      for name in ('baseline', 'progressive'))
-        cases.append(('static.gif', (REPO / 'tests/media/fixtures/gif/static.gif').read_bytes(), False))
+        # Independent red/blue 200 ms animation, infinite loop; no guest encoder.
+        animated = bytes.fromhex('47494638396101000100800000ff00000000ff21ff0b4e45545343415045322e30030100000021f90404140000002c000000000100010000020244010021f90404140000002c00000000010001000002024c01003b')
+        cases.append(('animated.gif', animated, False))
         cases.append(('tracking.png', red_png(), True))
         for suffix, data, javascript in cases:
             self.upload_one(suffix, data, javascript)
@@ -280,15 +282,16 @@ class PublicUpload:
         mode = b'JavaScript' if javascript else b'no-JavaScript'
         assert output.startswith(b'PASS ' + mode + b' upload, isolated approval, persisted posting')
         assert sql(f"SELECT count(*) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.board='{self.board}' AND m.asset_id='{asset}' AND m.file_deleted AND NOT p.deleted;") == '1'
-        assert f.http(f'/media/{asset}.png')[0] == 404
-        assert (f.objects / f'{asset}.png').is_file()
+        extension = 'gif' if suffix.endswith('.gif') else 'png'
+        assert f.http(f'/media/{asset}.{extension}')[0] == 404
+        assert (f.objects / f'{asset}.{extension}').is_file()
         assert (f.objects / f'{asset}.thumb.png').is_file()
         cleaned = f.finish(f.launch([f.bin / 'media-publish', 'reconcile', f.objects], env=f.writer))
         assert int(cleaned.strip()) >= 1
-        assert not (f.objects / f'{asset}.png').exists()
+        assert not (f.objects / f'{asset}.{extension}').exists()
         assert not (f.objects / f'{asset}.thumb.png').exists()
         assert sql(f"SELECT count(*) FROM content.post_media WHERE asset_id='{asset}' AND file_deleted;") == '1'
-        assert f.http(f'/media/{asset}.png')[0] == 404
+        assert f.http(f'/media/{asset}.{extension}')[0] == 404
         assert f.http(f'/media/{asset}.thumb.png')[0] == 404
         self.completed_jobs.append(job)
         print(f'PASS {suffix}: real nonroot public browser -> authenticated intake -> Firecracker -> persisted attachment -> browser image -> deletion revokes reader -> both files removed with tombstone retained', flush=True)
@@ -304,7 +307,7 @@ class PublicUpload:
             self.reset_deletion_quota()
             self.reset_posting_history()
             for filename in self.filenames:
-                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|static\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png|quick-reply-disabled\.png|quick-reply-inline-disabled\.png)', filename)
+                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|animated\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png|quick-reply-disabled\.png|quick-reply-inline-disabled\.png)', filename)
                 for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():
                     assert HEX.fullmatch(job)
                     if job not in self.f.ids:

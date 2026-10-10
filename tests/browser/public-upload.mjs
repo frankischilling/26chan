@@ -9,6 +9,8 @@ import { saveWatcherSettings } from './helpers/watcher-settings.js';
 const origin = new URL(process.argv[2]);
 const board = process.argv[3];
 const source = process.argv[4];
+const outputExtension = path.extname(source) === '.gif' ? '.gif' : '.png';
+const outputMime = outputExtension === '.gif' ? 'image/gif' : 'image/png';
 const flags = process.argv.slice(5);
 assert.ok(flags.length <= 2 && new Set(flags).size === flags.length
   && flags.every(flag => ['--attachment-only', '--javascript'].includes(flag)));
@@ -134,7 +136,7 @@ try {
     revealedSource = await hidden.getAttribute('data-spoiler-src');
     assert.ok(revealedSource);
     assert.ok(!requests.includes(revealedSource), 'hidden spoiler must not fetch the thumbnail');
-    assert.ok(!requests.includes(revealedSource.replace(/s\.jpg$/, '.png')), 'hidden spoiler must not fetch full media');
+    assert.ok(!requests.includes(revealedSource.replace(/s\.jpg$/, outputExtension)), 'hidden spoiler must not fetch full media');
     await page.getByLabel('Spoilers:', { exact: true }).selectOption('on');
     if (!javascript) await page.getByRole('button', { name: 'Apply', exact: true }).click();
   }
@@ -143,15 +145,15 @@ try {
   await expect.poll(() => img.evaluate(image => image.naturalWidth)).toBe(1);
   assert.equal(await img.evaluate(image => image.naturalHeight), 1);
   const thumbnailUrl = new URL(await img.getAttribute('src'));
-  const mediaUrl = new URL(attachmentOnly ? revealedSource.replace(/s\.jpg$/, '.png') : await page.locator('.fileThumb').getAttribute('href'));
+  const mediaUrl = new URL(attachmentOnly ? revealedSource.replace(/s\.jpg$/, outputExtension) : await page.locator('.fileThumb').getAttribute('href'));
   assert.notEqual(mediaUrl.origin, origin.origin);
-  assert.match(mediaUrl.pathname, new RegExp(`^/${board}/[0-9]+\\.png$`));
-  assert.equal(thumbnailUrl.pathname, mediaUrl.pathname.replace('.png', 's.jpg'));
+  assert.match(mediaUrl.pathname, new RegExp(`^/${board}/[0-9]+\\${outputExtension}$`));
+  assert.equal(thumbnailUrl.pathname, mediaUrl.pathname.replace(outputExtension, 's.jpg'));
   const media = await page.request.get(mediaUrl.href);
   if (attachmentOnly) await page.goto(threadUrl);
   await screenshot('attached-thread');
   assert.equal(media.status(), 200);
-  assert.equal(media.headers()['content-type'], 'image/png');
+  assert.equal(media.headers()['content-type'], outputMime);
   assert.equal(media.headers()['cross-origin-resource-policy'], 'cross-origin');
   const etag = media.headers().etag;
   assert.ok(etag);
@@ -166,15 +168,28 @@ try {
   const post = (await api.json()).posts[0];
   if (attachmentOnly) assert.equal(post.com, undefined);
   else assert.match(post.com, /A synthetic one-pixel image/);
-  assert.equal(post.ext, '.png');
-  assert.equal(post.tim, Number(mediaUrl.pathname.split('/').at(-1).replace('.png', '')));
+  assert.equal(post.ext, outputExtension);
+  assert.equal(post.tim, Number(mediaUrl.pathname.split('/').at(-1).replace(outputExtension, '')));
   assert.equal(post.md5, createHash('md5').update(await media.body()).digest('base64'));
   assert.equal(post.fsize, (await media.body()).length);
   assert.deepEqual([post.w, post.h, post.tn_w, post.tn_h, post.images], [1, 1, 1, 1, 0]);
+  if (outputExtension === '.gif') {
+    await page.goto(mediaUrl.href);
+    const animated = page.locator('img');
+    await expect.poll(() => animated.evaluate(image => image.naturalWidth)).toBe(1);
+    const first = await animated.screenshot();
+    let changed = false;
+    for (let attempt = 0; attempt < 20 && !changed; attempt++) {
+      await page.waitForTimeout(60);
+      changed = !(await animated.screenshot()).equals(first);
+    }
+    assert.equal(changed, true, 'published GIF must visibly advance between red and blue frames');
+    await page.goto(threadUrl);
+  }
   for (const url of [mediaUrl, thumbnailUrl]) {
     const head = await page.request.head(url.href);
     assert.equal(head.status(), 200);
-    assert.equal(head.headers()['content-type'], 'image/png');
+    assert.equal(head.headers()['content-type'], url === mediaUrl ? outputMime : 'image/png');
     assert.equal((await head.body()).length, 0);
     assert.equal((await page.request.get(url.href, { headers: { 'If-None-Match': head.headers().etag } })).status(), 304);
     for (const path of [url.pathname.replace(`/${board}/`, '/wrongboard/'), url.pathname.replace(`/${board}/`, `/${board}/0`), url.pathname.replace(`/${board}/`, `/${board}/%31`)]) {

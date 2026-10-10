@@ -20,7 +20,7 @@ import uuid
 
 from job_lifecycle import ENV, JOBS, locked_jobs, reconcile_jobs, remove_workspace, run_service, stop_job
 
-from dispatch_protocol import (IMAGE_V1, PAIRED_V2, INPUT_BYTES, OUTPUT_BYTES,
+from dispatch_protocol import (IMAGE_V1, PAIRED_V2, GIF_V3, INPUT_BYTES, OUTPUT_BYTES,
                                PAIRED_INPUT_BYTES, output_bytes, request_kind)
 
 
@@ -99,10 +99,10 @@ def input_disk(source, destination, *, input_kind=IMAGE_V1):
     descriptor = os.open(source, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(descriptor, 'rb') as reader, destination.open('xb') as writer:
         info = os.fstat(reader.fileno())
-        maximum = INPUT_BYTES if input_kind == IMAGE_V1 else 48 + PAIRED_INPUT_BYTES
+        maximum = INPUT_BYTES if input_kind in (IMAGE_V1, GIF_V3) else 48 + PAIRED_INPUT_BYTES
         if not stat.S_ISREG(info.st_mode) or not 1 <= info.st_size <= maximum:
             raise ValueError('input size or file type rejected')
-        if input_kind == IMAGE_V1:
+        if input_kind in (IMAGE_V1, GIF_V3):
             writer.write(info.st_size.to_bytes(8, 'big'))
             disk_size = info.st_size + 8
             remaining = info.st_size
@@ -227,7 +227,7 @@ def run(config, source, destination, *, input_kind=IMAGE_V1):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--input-kind', choices=(IMAGE_V1, PAIRED_V2), default=IMAGE_V1,
+    parser.add_argument('--input-kind', choices=(IMAGE_V1, PAIRED_V2, GIF_V3), default=IMAGE_V1,
                         help='explicit input contract; paired-v2 takes a complete IBJOB002 request')
     parser.add_argument('--reconcile', action='store_true', help='recover abandoned operator jobs without collecting output')
     parser.add_argument('config', nargs='?')
@@ -257,6 +257,8 @@ def main():
             config = configuration(args.config)
             if args.input_kind == PAIRED_V2:
                 run(config, args.input, args.output, input_kind=PAIRED_V2)
+            elif args.input_kind == GIF_V3:
+                run(config, args.input, args.output, input_kind=GIF_V3)
             else:
                 run(config, args.input, args.output)
     except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:

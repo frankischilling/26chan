@@ -75,6 +75,11 @@ and [layout/theme preferences](native-layout.md). [Click-to-load provider player
 and [bounded Custom CSS](native-custom-css.md) add the corresponding public
 settings with documented security restrictions. Animation, remaining
 original-server rules and the production requirements below remain open.
+[Bounded GIF animation](gif-animation-protocol.md) now has an explicit guest
+transport, independently checked frames, host encoding, immutable GIF approvals
+and PNG thumbnails. Its controlled native dispatch and posted HTTP checks pass.
+Source cleanup/checksum rules, board file policy, thumbnail comparison and
+animation timing/disposal/loop parity still require qualification for #203.
 [Settings transfer](native-settings-transfer.md) adds explicit review and restore
 of supported local preferences. [Catalog preference locking](catalog-preference-locks.md)
 prevents an older queued catalog change from overwriting a completed restore.

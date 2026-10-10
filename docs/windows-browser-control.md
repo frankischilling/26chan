@@ -4,6 +4,8 @@ This opt-in experiment asks whether a second Chromium process can make a fresh c
 
 The native receive/connect experiment completed all four arms without reproducing 10055. Those results cover its bounded workload, not Chromium's process and socket lifecycle. This control keeps the actual pinned browser in the experiment.
 
+The later [randomized dual-stack probe](https://github.com/frankischilling/26chan/actions/runs/38002593263/job/114063950992) did capture native error 10055 during an IPv6 connect. Its socket and event counts balanced at cleanup, and its validator correctly rejected qualification. This separate result does not identify the Windows resource involved or establish the cause of Chromium's earlier failures. The [recorded result](windows-socket-diagnostics.md#native-dual-stack-result) retains the counts and limits of that evidence.
+
 ## What changes
 
 The separate Windows workflow runs all eight original theme shards and one complete media-visual suite, each on its own runner. The media suite uses the same `playwright.media-visual.config.js` and output directory as the required attachment visual check. The original arguments, one worker, retries, assertions, and test deadlines remain intact. A failure in one matrix job does not cancel the others. Required CI jobs remain unchanged. The diagnostic has an 18-minute owned-run bound inside a 20-minute execution step, with a separate 60-minute job ceiling for installation, building, and cleanup. A second Node process owns one additional Chromium process, one context, and an unused page. It makes no warm-up request.

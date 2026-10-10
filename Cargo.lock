@@ -476,12 +476,15 @@ dependencies = [
 name = "board-media-guest"
 version = "0.1.0"
 dependencies = [
+ "board-media",
  "flate2",
  "gif",
  "jpeg-encoder",
  "png",
  "proptest",
  "rustix",
+ "tokio",
+ "weezl",
  "zune-jpeg",
 ]
 
@@ -491,6 +494,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "board-config",
+ "board-domain",
  "board-http",
  "board-media",
  "board-media-admin",

@@ -15,6 +15,26 @@ async fn pixels(red: u8) -> ValidatedOutput {
     ValidatedOutput::read(bytes.as_slice()).await.unwrap()
 }
 
+async fn animation(red: u8) -> board_media::animation::ValidatedAnimation {
+    let mut wire = b"IBGIF001".to_vec();
+    for word in [1u16, 1, 2, 0, 256] {
+        wire.extend_from_slice(&word.to_be_bytes());
+    }
+    wire.extend_from_slice(&0u32.to_be_bytes());
+    wire.extend_from_slice(&[0; 10]);
+    for index in [0u8, 1] {
+        for word in [0u16, 0, 1, 1, 10, 2, 256] {
+            wire.extend_from_slice(&word.to_be_bytes());
+        }
+        wire.extend_from_slice(&[2, 0]);
+        wire.extend_from_slice(&1u32.to_be_bytes());
+        wire.extend_from_slice(&[red, 0, 0, 0, 0, 255, index]);
+    }
+    board_media::animation::ValidatedAnimation::read(wire.as_slice())
+        .await
+        .unwrap()
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn shared_publication_requires_a_provisioned_root_and_preserves_private_default() {
@@ -41,6 +61,15 @@ async fn shared_publication_requires_a_provisioned_root_and_preserves_private_de
         .install(id, &pixels(19).await.encode().unwrap())
         .unwrap();
     let metadata = fs::metadata(root.join(format!("{id}.png"))).unwrap();
+    assert_eq!(metadata.mode() & 0o777, 0o640);
+    assert_eq!(metadata.gid(), fs::metadata(&root).unwrap().gid());
+    let gif_id = ObjectId::generate().unwrap();
+    shared
+        .try_lock()
+        .unwrap()
+        .install_gif(gif_id, &animation(21).await.encode().unwrap())
+        .unwrap();
+    let metadata = fs::metadata(root.join(format!("{gif_id}.gif"))).unwrap();
     assert_eq!(metadata.mode() & 0o777, 0o640);
     assert_eq!(metadata.gid(), fs::metadata(&root).unwrap().gid());
     let private = PublicationStore::new(directory.path().join("private"), &quarantine).unwrap();
@@ -92,6 +121,115 @@ async fn complete_files_replay_without_overwrite_and_recover_fixed_staging() {
     fs::write(root.join(format!("{pending}.part")), b"partial").unwrap();
     guard.remove(pending).unwrap();
     assert!(!root.join(format!("{pending}.part")).exists());
+}
+
+#[tokio::test]
+async fn gif_publication_is_atomic_idempotent_checked_and_cannot_change_format() {
+    let directory = tempfile::tempdir().unwrap();
+    let quarantine = Quarantine::new(directory.path().join("input")).unwrap();
+    let root = directory.path().join("objects");
+    let store = PublicationStore::new(&root, &quarantine).unwrap();
+    let guard = store.try_lock().unwrap();
+    let id = ObjectId::generate().unwrap();
+    let animation = animation(42).await;
+    let gif = animation.encode().unwrap();
+    let thumbnail = animation.first_frame().unwrap().thumbnail().unwrap();
+    fs::write(root.join(format!("{id}.part")), b"abandoned output").unwrap();
+    let receipt = guard.install_gif(id, &gif).unwrap();
+    assert!(!receipt.already_published);
+    assert_eq!(receipt.sha256, gif.sha256());
+    assert_eq!(receipt.bytes, gif.len());
+    assert!(guard.install_gif(id, &gif).unwrap().already_published);
+    assert!(!root.join(format!("{id}.part")).exists());
+    guard.install_thumbnail(id, &thumbnail).unwrap();
+    let reader = ApprovedFiles::open(&root).unwrap();
+    assert_eq!(
+        reader.read_gif(id, gif.sha256(), gif.len()).unwrap(),
+        gif.bytes()
+    );
+    assert!(reader.read_gif(id, &"0".repeat(64), gif.len()).is_err());
+    assert!(reader.read_gif(id, gif.sha256(), gif.len() + 1).is_err());
+    assert!(
+        reader
+            .read_gif(id, gif.sha256(), 20 * 1024 * 1024 + 1)
+            .is_err()
+    );
+    assert!(reader.read(id, gif.sha256(), gif.len()).is_err());
+    assert!(
+        reader
+            .read_thumbnail(id, thumbnail.sha256(), thumbnail.len())
+            .unwrap()
+            .starts_with(b"\x89PNG\r\n\x1a\n")
+    );
+    let png = pixels(42).await.encode().unwrap();
+    assert!(matches!(guard.install(id, &png), Err(MediaError::Conflict)));
+    assert!(!root.join(format!("{id}.png")).exists());
+    assert_eq!(
+        reader.read_gif(id, gif.sha256(), gif.len()).unwrap(),
+        gif.bytes()
+    );
+    let different = self::animation(43).await.encode().unwrap();
+    assert!(matches!(
+        guard.install_gif(id, &different),
+        Err(MediaError::Conflict)
+    ));
+    assert_eq!(
+        reader.read_gif(id, gif.sha256(), gif.len()).unwrap(),
+        gif.bytes()
+    );
+    fs::write(root.join("unrelated.gif"), b"preserve").unwrap();
+    guard.remove(id).unwrap();
+    guard.remove(id).unwrap();
+    assert!(!root.join(format!("{id}.gif")).exists());
+    assert!(!root.join(format!("{id}.thumb.png")).exists());
+    assert!(!root.join(format!("{id}.part")).exists());
+    assert_eq!(fs::read(root.join("unrelated.gif")).unwrap(), b"preserve");
+    guard.install(id, &png).unwrap();
+    assert!(matches!(
+        guard.install_gif(id, &gif),
+        Err(MediaError::Conflict)
+    ));
+    assert!(
+        reader
+            .read(id, png.sha256(), png.len())
+            .unwrap()
+            .starts_with(b"\x89PNG\r\n\x1a\n")
+    );
+    assert!(!root.join(format!("{id}.gif")).exists());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn gif_symlinks_and_nonregular_entries_are_never_followed_or_cleaned() {
+    use std::os::unix::fs::symlink;
+    let directory = tempfile::tempdir().unwrap();
+    let quarantine = Quarantine::new(directory.path().join("input")).unwrap();
+    let root = directory.path().join("objects");
+    let store = PublicationStore::new(&root, &quarantine).unwrap();
+    let guard = store.try_lock().unwrap();
+    let id = ObjectId::generate().unwrap();
+    let target = directory.path().join("witness");
+    fs::write(&target, b"preserve").unwrap();
+    let path = root.join(format!("{id}.gif"));
+    symlink(&target, &path).unwrap();
+    let gif = animation(42).await.encode().unwrap();
+    let reader = ApprovedFiles::open(&root).unwrap();
+    assert!(reader.read_gif(id, gif.sha256(), gif.len()).is_err());
+    assert!(guard.install_gif(id, &gif).is_err());
+    assert!(
+        guard
+            .install(id, &pixels(42).await.encode().unwrap())
+            .is_err()
+    );
+    assert!(guard.remove(id).is_err());
+    assert_eq!(fs::read(&target).unwrap(), b"preserve");
+    fs::remove_file(&path).unwrap();
+    fs::create_dir(&path).unwrap();
+    assert!(reader.read_gif(id, gif.sha256(), gif.len()).is_err());
+    assert!(guard.install_gif(id, &gif).is_err());
+    assert!(guard.remove(id).is_err());
+    assert!(path.is_dir());
+    assert_eq!(fs::read(&target).unwrap(), b"preserve");
 }
 
 #[test]

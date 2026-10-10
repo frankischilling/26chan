@@ -35,7 +35,8 @@ def request(payload=None):
 class PairedTransportTest(unittest.TestCase):
     def test_runner_cli_keeps_v1_default_and_selects_v2_explicitly(self):
         for options, keywords in (([], {}), (['--input-kind', protocol.IMAGE_V1], {}),
-                                  (['--input-kind', protocol.PAIRED_V2], {'input_kind': protocol.PAIRED_V2})):
+                                  (['--input-kind', protocol.PAIRED_V2], {'input_kind': protocol.PAIRED_V2}),
+                                  (['--input-kind', protocol.GIF_V3], {'input_kind': protocol.GIF_V3})):
             argv = ['run-job.py', *options, 'owned-config', 'owned-input', 'owned-output']
             with self.subTest(options=options), mock.patch.object(sys, 'argv', argv), \
                     mock.patch.dict(os.environ, {}, clear=True), \
@@ -57,13 +58,14 @@ class PairedTransportTest(unittest.TestCase):
 
     def test_explicit_versions_and_caps(self):
         for magic, low, high, kind in ((b'IBJOB001', 1, 8_388_608, protocol.IMAGE_V1),
-                                       (b'IBJOB002', 57, 16_777_272, protocol.PAIRED_V2)):
+                                       (b'IBJOB002', 57, 16_777_272, protocol.PAIRED_V2),
+                                       (b'IBJOB003', 1, 8_388_608, protocol.GIF_V3)):
             for size in (low, high):
                 self.assertEqual(protocol.request_kind(magic + size.to_bytes(8, 'big')), (kind, size))
             for size in (0, low - 1, high + 1, 2**64 - 1):
                 with self.assertRaises(ValueError):
                     protocol.request_kind(magic + size.to_bytes(8, 'big'))
-        for magic in (b'IBJOB003', b'IBPAIR02', b'IBOUT002'):
+        for magic in (b'IBJOB004', b'IBPAIR02', b'IBOUT002'):
             with self.assertRaises(ValueError):
                 protocol.request_kind(magic + (57).to_bytes(8, 'big'))
         with self.assertRaises(ValueError):
@@ -74,7 +76,9 @@ class PairedTransportTest(unittest.TestCase):
             for index, (data, kind, payload) in enumerate((
                     (request(), protocol.PAIRED_V2, request()),
                     (b'IBJOB001' + len(request()).to_bytes(8, 'big') + request(),
-                     protocol.IMAGE_V1, request()))):
+                     protocol.IMAGE_V1, request()),
+                    (b'IBJOB003' + len(request()).to_bytes(8, 'big') + request(),
+                     protocol.GIF_V3, request()))):
                 target = pathlib.Path(directory) / str(index)
                 self.assertEqual(self.receive(data, target), kind)
                 self.assertEqual(target.read_bytes(), payload)
@@ -193,7 +197,8 @@ class PairedTransportTest(unittest.TestCase):
 
     def test_mocked_runner_preserves_limits_and_retains_output_inode(self):
         cases = ((kind, size, mutation)
-                 for kind, size in ((protocol.IMAGE_V1, 4_194_816), (protocol.PAIRED_V2, 4_456_960))
+                 for kind, size in ((protocol.IMAGE_V1, 4_194_816), (protocol.PAIRED_V2, 4_456_960),
+                                    (protocol.GIF_V3, 17_825_792))
                  for mutation in ('rename', 'truncate', 'grow'))
         for kind, size, mutation in cases:
             with self.subTest(kind=kind, mutation=mutation), tempfile.TemporaryDirectory() as directory:
