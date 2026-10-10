@@ -54,10 +54,12 @@ database permissions apply.
 
 ## Verification
 
-The local full staff suite passed 227 tests, including eight new grouped-history
-integration cases and the updated inline rendering controls. Formatting and
-strict all-target/all-feature staff Clippy passed. An independent static review
-found no remaining access, bounding or snapshot defects.
+The initial local full staff suite passed 227 tests, including eight new
+grouped-history integration cases and the updated inline rendering controls.
+After replacing repeated per-group scans with bounded one-pass projections, all
+73 focused unit and history tests passed. Formatting and strict
+all-target/all-feature staff Clippy passed. An independent static review found
+no remaining access, bounding or snapshot defects.
 
 Two Unix-socket tests remain blocked by the local environment, and one explicitly
 ignored browser-backed upload test requires pinned Chromium. No local browser

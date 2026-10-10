@@ -64,23 +64,17 @@ const SELECT_GROUPS: &str = r#"
     LIMIT 101
 "#;
 
-// LIMIT 1 is also the Janitor materialization boundary. A Janitor never reads a
-// member sentinel, a member count, or any category/reason/clear-account values.
+// Selected IDs are already the newest eligible representatives. Fetch only
+// those at-most-100 records; never materialize member sentinels for Janitors.
 const SELECT_REPRESENTATIVES: &str = r#"
-    SELECT r.*
-    FROM unnest($2::bigint[]) AS g(post_id)
-    CROSS JOIN LATERAL (
-        SELECT id,post_id,CASE WHEN $3::boolean THEN reason ELSE NULL::text END AS reason,
-               CASE WHEN $3::boolean THEN category_id ELSE NULL::bigint END AS category_id,
-               state,group_cleared_at,
-               CASE WHEN $3::boolean THEN group_cleared_by ELSE NULL::bigint END AS group_cleared_by,
-               group_clear_inherited
-        FROM content.reports
-        WHERE board=$1 AND post_id=g.post_id
-          AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL
-        ORDER BY id DESC
-        LIMIT 1
-    ) r
+    SELECT id,post_id,CASE WHEN $3::boolean THEN reason ELSE NULL::text END AS reason,
+           CASE WHEN $3::boolean THEN category_id ELSE NULL::bigint END AS category_id,
+           state,group_cleared_at,
+           CASE WHEN $3::boolean THEN group_cleared_by ELSE NULL::bigint END AS group_cleared_by,
+           group_clear_inherited
+    FROM content.reports
+    WHERE board=$1 AND id=ANY($2::bigint[])
+      AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL
 "#;
 
 const SELECT_COUNTS: &str = r#"
@@ -94,36 +88,49 @@ const SELECT_COUNTS: &str = r#"
 // The representative plus 15 additional records is the display budget. The
 // sixteenth additional record is a sentinel and is never returned to rendering.
 const SELECT_ADDITIONAL_MEMBERS: &str = r#"
-    SELECT r.*
-    FROM unnest($2::bigint[],$3::bigint[]) AS g(post_id,representative_id)
-    CROSS JOIN LATERAL (
+    WITH retained AS MATERIALIZED (
         SELECT id,post_id,reason,category_id,state,group_cleared_at,
                group_cleared_by,group_clear_inherited
         FROM content.reports
-        WHERE board=$1 AND post_id=g.post_id AND id<g.representative_id
+        WHERE board=$1 AND post_id=ANY($2::bigint[])
           AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL
-        ORDER BY id DESC
-        LIMIT 16
-    ) r
-    ORDER BY r.post_id,r.id DESC
+    ), ranked AS (
+        SELECT r.*,row_number() OVER (
+            PARTITION BY r.post_id ORDER BY r.id DESC
+        ) AS member_rank
+        FROM retained r
+        JOIN unnest($2::bigint[],$3::bigint[]) AS g(post_id,representative_id)
+          ON r.post_id=g.post_id AND r.id<g.representative_id
+    )
+    SELECT id,post_id,reason,category_id,state,group_cleared_at,
+           group_cleared_by,group_clear_inherited
+    FROM ranked WHERE member_rank<=16
+    ORDER BY post_id,id DESC
 "#;
 
 // Categories have their own bound across ALL eligible retained members, rather
 // than only the small member preview. Captured revisions/titles stay distinct.
+// The cleared-history index starts with board/id, not post_id. Materialize
+// eligible selected rows once instead of rescanning that board for each group.
 const SELECT_CATEGORIES: &str = r#"
-    SELECT g.post_id,c.revision,c.id,c.kind,c.title
-    FROM unnest($2::bigint[]) AS g(post_id)
-    CROSS JOIN LATERAL (
-        SELECT DISTINCT category_revision AS revision,category_id AS id,
-                        category_kind AS kind,reason AS title
+    WITH retained AS MATERIALIZED (
+        SELECT post_id,category_revision AS revision,category_id AS id,
+               category_kind AS kind,reason AS title
         FROM content.reports
-        WHERE board=$1 AND post_id=g.post_id
+        WHERE board=$1 AND post_id=ANY($2::bigint[])
           AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL
           AND category_id IS NOT NULL
-        ORDER BY revision,id,kind,title
-        LIMIT 17
-    ) c
-    ORDER BY g.post_id,c.revision,c.id,c.kind,c.title
+    ), categories AS (
+        SELECT DISTINCT post_id,revision,id,kind,title FROM retained
+    ), ranked AS (
+        SELECT *,row_number() OVER (
+            PARTITION BY post_id ORDER BY revision,id,kind,title
+        ) AS category_rank
+        FROM categories
+    )
+    SELECT post_id,revision,id,kind,title
+    FROM ranked WHERE category_rank<=17
+    ORDER BY post_id,revision,id,kind,title
 "#;
 
 pub async fn load(
@@ -194,9 +201,10 @@ async fn load_inner(
     }
 
     let post_ids: Vec<i64> = selected.iter().map(|g| g.post_id).collect();
+    let representative_ids: Vec<i64> = selected.iter().map(|g| g.representative_id).collect();
     let representatives: Vec<ClearedReport> = sqlx::query_as(SELECT_REPRESENTATIVES)
         .bind(board)
-        .bind(&post_ids)
+        .bind(&representative_ids)
         .bind(moderator)
         .fetch_all(&mut *tx)
         .await?;
@@ -215,7 +223,6 @@ async fn load_inner(
             .fetch_all(&mut *tx)
             .await?;
         counts.extend(rows.into_iter().map(|r| (r.post_id, r.report_count)));
-        let representative_ids: Vec<i64> = selected.iter().map(|g| g.representative_id).collect();
         let rows: Vec<ClearedReport> = sqlx::query_as(SELECT_ADDITIONAL_MEMBERS)
             .bind(board)
             .bind(&post_ids)
