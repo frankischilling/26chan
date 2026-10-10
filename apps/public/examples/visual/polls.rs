@@ -93,6 +93,7 @@ fn page(name: &str) -> String {
         OptionsPage {
             poll,
             form_token: data.token,
+            recorded_vote: false,
             copyright_year: data.copyright_year,
         }
         .render()

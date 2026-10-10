@@ -148,7 +148,11 @@ It stores no selected option, raw cookie, token, IP address or posting identity.
 The same browser produces different receipt hashes for different polls. A repeat
 submission acknowledges its existing vote and leaves all totals unchanged, even
 if the submitted option changed or the poll closed after the original vote.
-An active poll revisited by its voter displays results and a recorded-vote notice.
+An active poll revisited by its voter displays read-only options and a recorded-vote
+notice, with no form token or replacement cookie. This personalized response uses
+`private, no-store`. Results retain the source's Back to Options link; the read-only
+options page provides Back to Polls and View Results. This receipt-aware navigation
+is rewrite behavior because the supplied archive has no already-voted controller.
 
 Successful and duplicate submissions return 303 to `/polls/results/{id}`.
 A vote with an invalid, expired or mismatched credential returns 403; malformed fields or
@@ -214,7 +218,10 @@ results and exact fixture retirement.
 `npm run test:polls` includes closed-poll reads and active voting at desktop and
 mobile widths, with JavaScript both enabled and disabled. Its four browser cases
 check missing-selection rejection, two independent votes, repeated submissions,
-closed states, escaping, overflow, allowed requests and stored totals. The source
+and results-to-options-to-catalogue navigation with the original browser credential
+and unchanged receipt counts and totals. They also cover closed states, escaping,
+overflow and allowed requests. HTTP checks compare the stored receipt hashes and
+timestamps before and after navigation. The source
 page comparisons above qualify appearance separately. Current qualification and
 hosted CI results are tracked in [#225](https://github.com/frankischilling/26chan/issues/225).
 

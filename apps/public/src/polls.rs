@@ -186,6 +186,7 @@ async fn options(
             &OptionsPage {
                 poll,
                 form_token: String::new(),
+                recorded_vote: false,
                 copyright_year: chrono::Utc::now().year(),
             },
         );
@@ -207,7 +208,18 @@ async fn options(
             other => AppError::from(other),
         })?
     {
-        return render_results(&state, poll).map(private);
+        // The rewrite's receipt keeps these options read-only while preserving
+        // the source results page's Back to Options route to the catalogue.
+        return crate::output::html(
+            &state,
+            &OptionsPage {
+                poll,
+                form_token: String::new(),
+                recorded_vote: true,
+                copyright_year: chrono::Utc::now().year(),
+            },
+        )
+        .map(private);
     }
     // An operator must supply scores before opening an imported result set.
     // Do not offer a form that the atomic vote function cannot accept.
@@ -222,6 +234,7 @@ async fn options(
         &OptionsPage {
             poll,
             form_token,
+            recorded_vote: false,
             copyright_year: chrono::Utc::now().year(),
         },
     )?);

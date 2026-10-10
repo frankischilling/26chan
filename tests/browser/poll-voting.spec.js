@@ -30,12 +30,34 @@ async function boundedPage(page, response) {
   expect(overflow.storage).toEqual([0, 0]);
 }
 
+async function follow(page, label, url) {
+  const navigation = page.waitForResponse(response => response.url() === url && response.request().isNavigationRequest());
+  await page.getByRole('link', { name: label, exact: true }).click();
+  await page.waitForURL(url);
+  await page.waitForLoadState('load');
+  const response = await navigation;
+  expect(response.headers()['set-cookie']).toBeUndefined();
+  await boundedPage(page, response);
+  return response;
+}
+
+async function recordedOptions(page, fixture, response) {
+  expect(response.headers()['cache-control']).toBe('private, no-store');
+  expect(response.headers()['set-cookie']).toBeUndefined();
+  await expect(page.locator('#poll-title')).toHaveText(fixture.title);
+  expect(await page.locator('#poll-desc').textContent()).toBe(fixture.description);
+  await expect(page.locator('.pollOptions li')).toHaveText(fixture.captions);
+  await expect(page.locator('.pollPage')).toContainText('Your vote has been recorded. These options are read-only.');
+  await expect(page.locator('.pollPage')).not.toContainText('Voting is unavailable.');
+  await expect(page.locator('form, input, button, select, textarea, [data-tkn], .pollResults')).toHaveCount(0);
+}
+
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
   test(`native poll voting works with and without scripts at ${viewport.width}px`, async ({ browser }) => {
     test.setTimeout(90_000);
     await withOwnedVotingPoll(async fixture => {
-      const contexts = [], pages = [], unexpected = [], errors = [], failed = [], posts = [];
-      const pollUrl = `${origin}/polls/${fixture.poll}`, resultUrl = `${origin}/polls/results/${fixture.poll}`;
+      const contexts = [], pages = [], credentials = [], unexpected = [], errors = [], failed = [], posts = [];
+      const catalogueUrl = `${origin}/polls`, pollUrl = `${origin}/polls/${fixture.poll}`, resultUrl = `${origin}/polls/results/${fixture.poll}`;
       try {
         for (const javascript of [true, false]) {
           const context = await browser.newContext({ viewport, javaScriptEnabled: javascript,
@@ -43,7 +65,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           contexts.push(context);
           context.on('request', request => {
             const url = new URL(request.url());
-            const document = request.resourceType() === 'document' && [pollUrl, resultUrl].includes(url.href)
+            const document = request.resourceType() === 'document' && [catalogueUrl, pollUrl, resultUrl].includes(url.href)
               && (request.method() === 'GET' || (request.method() === 'POST' && url.href === pollUrl));
             const resource = request.method() === 'GET' && ((request.resourceType() === 'stylesheet' && styles.has(url.pathname))
               || (request.resourceType() === 'image' && images.has(url.pathname)));
@@ -65,6 +87,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           const token = await page.locator('[name=_ptkn]').inputValue();
           expect(await page.locator('body').getAttribute('data-tkn')).toBe(token);
           const cookies = await context.cookies();
+          credentials.push(cookies);
           expect(cookies).toHaveLength(1);
           expect(cookies[0]).toMatchObject({ name: 'board-poll', domain: '127.0.0.1', path: '/', httpOnly: true, sameSite: 'Strict', secure: false });
         }
@@ -84,7 +107,9 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           const submitted = page.waitForResponse(response => response.url() === pollUrl && response.request().method() === 'POST');
           const displayed = page.waitForResponse(response => response.url() === resultUrl && response.request().isNavigationRequest());
           await page.getByRole('button', { name: 'Vote', exact: true }).click();
-          expect((await submitted).status()).toBe(303);
+          const accepted = await submitted;
+          expect(accepted.status()).toBe(303);
+          expect(accepted.headers()['set-cookie']).toBeUndefined();
           await page.waitForURL(resultUrl);
           await boundedPage(page, await displayed);
           const post = posts[index + 1];
@@ -93,12 +118,30 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           expect(post.get('_ptkn')).toBe(token);
           await expect(page.locator('form, [data-tkn]')).toHaveCount(0);
           await expect(page.locator('.pollTotal')).toHaveText(`Total votes: ${7 + index}`);
+          await expect(page.locator('.pollResults th')).toHaveText(index
+            ? ['37.5% (3)', '62.5% (5)'] : ['42.86% (3)', '57.14% (4)']);
+          const recorded = fixture.snapshot();
+          expect(recorded).toEqual({ votes: 7 + index, newVotes: 1 + index,
+            open: true, receipts: 1 + index, scores: [3, 4 + index] });
+          const options = await follow(page, 'Back to Options', pollUrl);
+          await recordedOptions(page, fixture, options);
+          expect(await contexts[index].cookies()).toEqual(credentials[index]);
+          expect(fixture.snapshot()).toEqual(recorded);
+          await follow(page, 'Back to Polls', catalogueUrl);
+          await expect(page.locator('#intro')).toContainText('artistic works of fiction and falsehood.');
+          await expect(page.locator('form, input, button, [data-tkn]')).toHaveCount(0);
+          expect(await contexts[index].cookies()).toEqual(credentials[index]);
+          expect(fixture.snapshot()).toEqual(recorded);
+          // A direct revisit also stays read-only and keeps the same receipt.
           const returned = await page.goto(pollUrl);
-          expect(returned.headers()['set-cookie']).toBeUndefined();
           await boundedPage(page, returned);
+          await recordedOptions(page, fixture, returned);
+          await follow(page, 'View Results', resultUrl);
           await expect(page.locator('.pollResults')).toBeVisible();
           await expect(page.locator('.pollTotal')).toHaveText(`Total votes: ${7 + index}`);
           await expect(page.locator('form, [data-tkn]')).toHaveCount(0);
+          expect(await contexts[index].cookies()).toEqual(credentials[index]);
+          expect(fixture.snapshot()).toEqual(recorded);
         }
         expect(fixture.snapshot()).toEqual({ votes: 8, newVotes: 2, open: true, receipts: 2, scores: [3, 5] });
         await expect(pages[1].locator('.pollResults th')).toHaveText(['37.5% (3)', '62.5% (5)']);

@@ -14,7 +14,11 @@
 <button class="vote-btn" name="action" value="vote" type="submit">Vote</button><a class="res-link" href="/polls">Back to Polls</a><a class="res-link" href="/polls/results/{{ poll.id }}">View Results</a>
 </form>
 {% else %}
+{% if recorded_vote %}
+<p>Your vote has been recorded. These options are read-only.</p>
+{% else %}
 <p>Voting is unavailable. These options are read-only.</p>
+{% endif %}
 <h2>Options</h2>
 <ol id="entries" class="pollOptions">
 {% for option in poll.options %}<li>{{ option.caption }}</li>

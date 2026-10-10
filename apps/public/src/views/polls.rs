@@ -14,6 +14,7 @@ pub struct CataloguePage {
 pub struct OptionsPage {
     pub poll: PollSnapshot,
     pub form_token: String,
+    pub recorded_vote: bool,
     pub copyright_year: i32,
 }
 
