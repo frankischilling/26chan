@@ -18,7 +18,9 @@ pub mod media_intake;
 pub mod monitoring;
 mod op_bump;
 pub mod paired_candidates;
+mod poll_voting;
 mod polls;
+pub use poll_voting::{POLL_VOTE_READINESS_SQL, PollVoteOutcome, cast_poll_vote, has_poll_vote};
 pub use polls::{
     POLL_READINESS_SQL, PollOption, PollSnapshot, PollSummary, poll_catalogue, poll_snapshot,
 };

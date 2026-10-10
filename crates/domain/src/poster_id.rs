@@ -63,6 +63,12 @@ impl PosterIdKey {
         }
         Ok(Self(key))
     }
+    /// Poll credentials use their own derived keys. Neither poster labels nor
+    /// transport-peer rate identities can be reused as a voting credential.
+    pub fn poll_voting_key(&self) -> crate::poll_voting::PollVotingKey {
+        crate::poll_voting::PollVotingKey::derive(&self.0)
+    }
+
     /// The caller must supply the verified current transport peer, never a
     /// request field. Cookies, boards and environment cannot change this key.
     /// Missing transport identity must be handled by the caller, not fabricated.

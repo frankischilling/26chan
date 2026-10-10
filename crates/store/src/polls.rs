@@ -1,4 +1,5 @@
-//! Bounded operator-published projections, not a voting or publication API.
+//! Bounded operator-published poll projections. Vote mutations have their own
+//! narrow private owner boundary; these reads never expose ballot identities.
 use crate::{PgPool, StoreError};
 
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
@@ -20,6 +21,7 @@ pub struct PollSnapshot {
     pub title: String,
     pub description: String,
     pub vote_count: i64,
+    pub accepting_votes: bool,
     pub options: Vec<PollOption>,
 }
 
@@ -47,8 +49,8 @@ pub async fn poll_snapshot(pool: &PgPool, id: i64) -> Result<PollSnapshot, Store
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
         .execute(&mut *tx)
         .await?;
-    let (id, title, description, vote_count): (i64, String, String, i64) = sqlx::query_as(
-        "SELECT id,title,description,vote_count FROM content.published_polls WHERE id=$1",
+    let (id, title, description, vote_count, accepting_votes): (i64, String, String, i64, bool) = sqlx::query_as(
+        "SELECT id,title,description,vote_count,accepting_votes FROM content.published_polls WHERE id=$1",
     )
     .bind(id)
     .fetch_optional(&mut *tx)
@@ -82,6 +84,7 @@ pub async fn poll_snapshot(pool: &PgPool, id: i64) -> Result<PollSnapshot, Store
         title,
         description,
         vote_count,
+        accepting_votes,
         options,
     })
 }
@@ -154,7 +157,11 @@ AND EXISTS (
 -- pg_get_viewdef adds whitespace/parentheses; ignore only those decorations.
 AND NOT EXISTS (
     SELECT 1 FROM (VALUES
-        ('published_polls', 'SELECT id,title,description,vote_count,catalogue_ordinal FROM poll_private.polls WHERE published;'),
+        ('published_polls', CASE WHEN NOT EXISTS (
+            SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='poll_private' AND c.relname='votes')
+            THEN 'SELECT id,title,description,vote_count,catalogue_ordinal FROM poll_private.polls WHERE published;'
+            ELSE 'SELECT id,title,description,vote_count,catalogue_ordinal,accepting_votes FROM poll_private.polls WHERE published;' END),
         ('published_poll_options', 'SELECT o.poll_id,o.id,o.ordinal,o.caption,o.score FROM poll_private.options o JOIN poll_private.polls p ON p.id=o.poll_id WHERE p.published;')
     ) expected(name,definition)
     LEFT JOIN relations r ON r.nspname='content' AND r.relname=expected.name

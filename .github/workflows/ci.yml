@@ -351,6 +351,8 @@ jobs:
         run: sudo bash scripts/test-blotter-migration.sh
       - name: Qualify public poll projections, publication boundaries and administrator restore
         run: sudo bash scripts/test-poll-read-migration.sh
+      - name: Qualify poll voting upgrade, private receipts and existing role bootstrap
+        run: sudo bash scripts/test-poll-vote-migration.sh
       - name: Qualify proof-bound staff attachments and retained text authorities
         run: sudo bash scripts/test-staff-post-attachment-migration.sh
       - name: Upgrade existing content with scoped poster IDs

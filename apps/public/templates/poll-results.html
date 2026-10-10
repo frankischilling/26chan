@@ -4,7 +4,7 @@
 <section class="pollPage" aria-labelledby="poll-title">
 <header><h1 id="poll-title">{{ title }}</h1></header>
 {% if !description.is_empty() %}<p id="poll-desc" class="pollDescription">{{ description }}</p>{% endif %}
-<p>Voting is unavailable. These are the published results.</p>
+{% if vote_recorded %}<p>Your vote has been recorded.</p>{% else if !accepting_votes %}<p>Voting is unavailable. These are the published results.</p>{% endif %}
 <table id="entries" class="pollResults">
 <caption>Results</caption>
 <thead><tr><th scope="col">Share (votes)</th><th scope="col">Option</th></tr></thead>
@@ -17,4 +17,4 @@
 <nav class="pollNavigation" aria-label="Poll navigation"><a href="/polls/{{ id }}">Back to Options</a><a href="/polls">Back to Polls</a></nav>
 </section>
 {% endblock %}
-{% block feature_notice %}Read-only polls.{% endblock %}
+{% block feature_notice %}Polls.{% endblock %}

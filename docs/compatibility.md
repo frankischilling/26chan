@@ -10,10 +10,11 @@ desktop/mobile presentation and optional features. The
 lists the remaining work. Public release references below provide additional
 evidence; matching a newer public component alone does not establish snapshot parity.
 
-[Public poll browsing](public-polls.md) follows the supplied catalogue, options
-and results templates with bounded operator-published data. The missing voting
-controller and policy are not reconstructed from those templates; voting remains
-unavailable. This read-side foundation does not complete the polls workflow.
+[Public polls](public-polls.md) follow the supplied catalogue, form and results
+templates with operator-published data. Native voting adds signed browser
+credentials, expiring forms and atomic duplicate protection. The missing
+controller contract is reconstructed explicitly; exact original poll styling
+remains unqualified. Existing polls stay closed until an operator enables voting.
 
 [Local blotter](local-blotter.md) implements operator-published messages, the
 source-gated newest-three preview and timestamp dismissal, and a local dated
