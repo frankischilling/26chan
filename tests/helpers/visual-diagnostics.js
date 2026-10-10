@@ -6,6 +6,8 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { visualNetlogEnabled, visualNetlogPlan, prepareVisualNetlog, finishVisualNetlog, trackVisualNetlogFailure } from './visual-netlog.js';
 import { browserControlEnabled, createBrowserControlTrigger } from './browser-control-trigger.js';
+import { portContrastOptions, verifyPortContrastBrowser } from './windows-port-contrast.js';
+import { contrastEnabled } from '../../scripts/windows-port-contrast-core.mjs';
 
 export { expect };
 
@@ -74,6 +76,12 @@ export async function readVisualState(page) {
 }
 
 export const test = base.extend({
+  ...(contrastEnabled() ? {
+    browser: [async ({ browser }, use, workerInfo) => {
+      await verifyPortContrastBrowser(browser, workerInfo);
+      await use(browser);
+    }, { scope: 'worker', timeout: 0 }],
+  } : {}),
   visualNetlogState: [async ({}, use) => {
     await use({ failed: false });
   }, { scope: 'worker' }],
@@ -83,6 +91,7 @@ export const test = base.extend({
     await trackVisualNetlogFailure(visualNetlogState, use, info);
   }, { auto: true }],
   launchOptions: [async ({ launchOptions, visualNetlogState }, use, workerInfo) => {
+    launchOptions = portContrastOptions(launchOptions);
     let plan = null;
     if (visualNetlogEnabled(process.platform, process.env)) {
       try {

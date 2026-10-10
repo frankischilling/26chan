@@ -1,0 +1,204 @@
+name: Windows Chromium port randomization contrast
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/windows-port-randomization.yml'
+      - 'scripts/windows-port-contrast*'
+      - 'tests/helpers/windows-port-contrast*'
+      - 'docs/windows-port-randomization.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: windows-port-contrast-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
+env:
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  admit-pair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.14.0'
+          package-manager-cache: false
+      - name: Admit exactly one pair on this head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/windows-port-contrast.mjs admit
+      - name: Verify portable contrast rejection paths
+        run: node --test tests/helpers/windows-port-contrast.test.mjs
+
+  build-fixture-once:
+    needs: admit-pair
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+      - name: Verify exact head
+        shell: pwsh
+        run: |
+          $head=git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $head -ne $env:CANDIDATE_SHA) { throw 'Candidate head mismatch.' }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.14.0'
+          package-manager-cache: false
+      - name: Install pinned Rust
+        shell: pwsh
+        run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Install pinned Unicode runtime
+        shell: pwsh
+        run: ./scripts/install-windows-icu.ps1
+      - name: Restore Rust dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: windows-2025-${{ hashFiles('Cargo.toml') }}-visual-windows
+          cache-bin: false
+          cache-all-crates: false
+          cache-workspace-crates: false
+          save-if: false
+      - name: Build the unchanged fixture exactly once
+        shell: pwsh
+        run: |
+          cargo +1.94.0 build -p board-public --example visual-fixtures --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/windows-port-contrast.mjs fixture
+          exit $LASTEXITCODE
+      - name: Share the exact fixture executable and digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: port-contrast-fixture-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .local/windows-port-contrast-fixture/visual-fixtures.exe
+            .local/windows-port-contrast-fixture/manifest.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: true
+
+  chromium-shard-seven:
+    needs: build-fixture-once
+    runs-on: windows-2025
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        arm: [enabled, disabled]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+      - name: Verify exact head and record actual Windows build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $head=git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $head -ne $env:CANDIDATE_SHA) { throw 'Candidate head mismatch.' }
+          $version=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+          "WINDOWS_PORT_RUNNER_BUILD=$($version.CurrentBuildNumber).$($version.UBR)" | Out-File -LiteralPath $env:GITHUB_ENV -Encoding utf8 -Append
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.14.0'
+          package-manager-cache: false
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install the same pinned Unicode runtime
+        shell: pwsh
+        run: ./scripts/install-windows-icu.ps1
+      - name: Install the pinned browser
+        shell: pwsh
+        run: |
+          npm ci --ignore-scripts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx playwright install chromium
+          exit $LASTEXITCODE
+      - name: Verify unchanged theme discovery
+        shell: pwsh
+        run: node scripts/check-windows-theme-shards.mjs
+      - name: Download the single shared fixture build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: port-contrast-fixture-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .local/windows-port-contrast-fixture
+      - name: Run original full shard seven once
+        shell: pwsh
+        env:
+          WINDOWS_PORT_CONTRAST: '1'
+          WINDOWS_PORT_ARM: ${{ matrix.arm }}
+          WINDOWS_VISUAL_RESOURCE_DIAGNOSTICS: '1'
+          WINDOWS_VISUAL_NETLOG: '1'
+          THEME_SHARD: '7'
+        run: |
+          node scripts/windows-port-contrast.mjs run
+          exit $LASTEXITCODE
+      - name: Retain bounded normalized feature and original-exit proofs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: port-contrast-${{ matrix.arm }}-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/windows-port-contrast-${{ matrix.arm }}/evidence.json
+            test-results/windows-port-contrast-${{ matrix.arm }}/original.json
+            test-results/windows-port-contrast-${{ matrix.arm }}/netlog-status.json
+            test-results/windows-port-contrast-${{ matrix.arm }}/netlogs/netlog-*.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - name: Retain original bounded diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: port-contrast-original-${{ matrix.arm }}-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/windows-themes-7/transport-stderr.json
+            test-results/windows-themes-7/fixture-lifecycle.json
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+
+  qualify-matched-pair:
+    needs: chromium-shard-seven
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.14.0'
+          package-manager-cache: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: port-contrast-enabled-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/windows-port-contrast-enabled
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: always()
+        with:
+          name: port-contrast-disabled-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/windows-port-contrast-disabled
+      - name: Reject unmatched or incomplete evidence
+        if: always()
+        run: node scripts/windows-port-contrast.mjs qualify
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: port-contrast-pair-${{ env.CANDIDATE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/windows-port-contrast-pair/summary.json
+          if-no-files-found: error
+          retention-days: 3
