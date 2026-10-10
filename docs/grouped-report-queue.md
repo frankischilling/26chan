@@ -29,6 +29,10 @@ and produces a notice asking the operator to narrow the filter. The source caps
 preview bound and has no pagination. Moderator category summaries show at most
 16 distinct captured entries, with an explicit notice if more exist.
 
+Category summaries scan the selected retained inventory once, deduplicate captured
+entries, and rank them per group inside PostgreSQL. The query returns at most 17
+entries per group, including its sentinel; Janitors do not execute it.
+
 Selection, report projections, categories and media use one read-only Repeatable
 Read snapshot. The handler revalidates current staff authority before returning
 the response. A retained report can outlive private active membership, so its
@@ -97,3 +101,10 @@ The explicitly ignored browser-backed upload test remains for hosted CI. The
 local staff browser suite could not launch because the pinned Chromium download
 returned an invalid archive; no browser pass is claimed here. Hosted CI must run
 those checks before merge.
+
+A synthetic plan check with 50,100 uncategorized reports and 100 selected groups
+confirmed one report-table scan after the category-query change, replacing 100
+scans. Local execution fell from about 370 ms to 9 ms. This identifies avoidable
+work; it does not establish the exact cause of the earlier hosted 503 because
+that run did not retain a database error code. Database-test builds now report
+only a sanitized SQLSTATE or an internal-failure label, never SQL or bind values.

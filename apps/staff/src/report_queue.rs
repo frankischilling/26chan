@@ -117,20 +117,31 @@ const SELECT_PREVIEWS: &str = r#"
 
 // Captured reason is the admitted category title. Do not re-label old reports
 // from a current catalog, or conflate equal IDs from different revisions/titles.
+// Scan the selected retained inventory once. A correlated query per group
+// would repeatedly scan content.reports, which has no uncleared board/post
+// index. Keep DISTINCT and the per-group sentinel bound inside PostgreSQL.
 const SELECT_CATEGORIES: &str = r#"
-    SELECT g.board,g.post_id,c.revision,c.id,c.kind,c.title
-    FROM unnest($1::text[],$2::bigint[]) AS g(board,post_id)
-    CROSS JOIN LATERAL (
-        SELECT DISTINCT r.category_revision AS revision,r.category_id AS id,
-                        r.category_kind AS kind,r.reason AS title
+    WITH retained AS MATERIALIZED (
+        SELECT r.board,r.post_id,r.category_revision AS revision,
+               r.category_id AS id,r.category_kind AS kind,r.reason AS title
         FROM content.reports r
-        WHERE r.board=g.board AND r.post_id=g.post_id
-          AND r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL
+        WHERE r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL
           AND r.category_id IS NOT NULL
-        ORDER BY revision,id,kind,title
-        LIMIT 17
-    ) c
-    ORDER BY g.board,g.post_id,c.revision,c.id,c.kind,c.title
+          AND r.board=ANY($1::text[]) AND r.post_id=ANY($2::bigint[])
+    ), categories AS (
+        SELECT DISTINCT r.board,r.post_id,r.revision,r.id,r.kind,r.title
+        FROM retained r
+        JOIN unnest($1::text[],$2::bigint[]) AS g(board,post_id)
+          ON r.board=g.board AND r.post_id=g.post_id
+    ), ranked AS (
+        SELECT *,row_number() OVER (
+            PARTITION BY board,post_id ORDER BY revision,id,kind,title
+        ) AS category_rank
+        FROM categories
+    )
+    SELECT board,post_id,revision,id,kind,title
+    FROM ranked WHERE category_rank<=17
+    ORDER BY board,post_id,revision,id,kind,title
 "#;
 
 pub async fn load(
