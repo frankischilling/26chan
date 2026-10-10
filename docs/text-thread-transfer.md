@@ -118,6 +118,7 @@ dump/restore checks pass, including changed caller timestamp settings. Fresh
 role bootstrap and the existing deleted-report cleanup upgrade/restore checks
 also pass.
 
-PHP is unavailable locally, so the PHP oracle has not run. Browser assertions
-have only passed syntax validation. The full regression suite and hosted CI
-remain required. Issue #222 and the complete rewrite remain open.
+The isolated PHP 8.4 oracle passes all 22 pinned replacement cases. The browser
+assertions have passed syntax validation but have not run locally because the
+browser installation is unavailable. The full database-feature regression suite
+and hosted CI remain required. Issue #222 and the complete rewrite remain open.

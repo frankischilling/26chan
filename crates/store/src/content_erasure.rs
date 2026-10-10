@@ -146,7 +146,8 @@ AND CASE WHEN EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_names
       AND has_function_privilege('board_staff',p.oid,'EXECUTE')
       AND NOT EXISTS(SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
           WHERE a.privilege_type<>'EXECUTE' OR a.is_grantable
-            OR a.grantee NOT IN(p.proowner,'board_public'::regrole,'board_staff'::regrole)))
+            OR a.grantee NOT IN(p.proowner,'board_public'::regrole,'board_staff'::regrole,
+                'board_thread_transfer_owner'::regrole)))
     THEN content.erasure_visibility_ready() ELSE false END
 AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member IN(SELECT oid FROM owner_role))
 AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.roleid IN(SELECT oid FROM owner_role)

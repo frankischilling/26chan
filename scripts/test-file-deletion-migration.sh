@@ -178,8 +178,28 @@ for migration in migrations/*.sql; do
  [[ $(basename "$migration") > 0130_file_deletion_actions.sql ]] || continue
  "${migrator[@]}" --single-transaction -f - < "$migration"
 done
+# Preserve every pre-0131 field in the saved expectation. Only the documented
+# NULL columns and separately verified new capability singletons are additive.
+"${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object(
+ 'saved_presentation',NULL,'saved_presentation_search',NULL)
+WHERE relation='content.posts';
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
+ OR content.text_thread_transfer_ready() IS DISTINCT FROM true
+ OR (SELECT count(*) FROM post_secrets.thread_transfer_gate)<>1
+ OR (SELECT count(*) FROM post_secrets.thread_transfer_catalog)<>1
+ OR EXISTS(SELECT 1 FROM public.capture_rows() WHERE relation LIKE 'post_secrets.thread_transfer_%'
+  AND relation NOT IN('post_secrets.thread_transfer_gate','post_secrets.thread_transfer_catalog'))
+ THEN RAISE EXCEPTION 'Additive transfer schema changed historical content or created transfer activity'; END IF;
+END $$;
+INSERT INTO public.upgraded_rows SELECT * FROM public.capture_rows()
+WHERE relation IN('post_secrets.thread_transfer_gate','post_secrets.thread_transfer_catalog');
+SQL
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
+ THEN RAISE EXCEPTION 'File action created frozen presentation content'; END IF;
  -- Only live targets 2/3, their thread clocks, media flag 2 and reports on
  -- exact administrative target 2 may differ from the populated upgrade.
  IF EXISTS(
