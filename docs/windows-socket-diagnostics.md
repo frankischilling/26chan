@@ -26,6 +26,27 @@ The [failure artifact](https://github.com/frankischilling/26chan/actions/runs/37
 retains the bounded NetLog, trace, screenshot and resource evidence. Assertions,
 image prerequisites, screenshot tolerances and retries were not relaxed.
 
+## Native dual-stack result
+
+At `819c45d`, the [randomized native job](https://github.com/frankischilling/26chan/actions/runs/38002593263/job/114063950992)
+captured error 10055 without Chromium. In group 35, lane 2, socket 424 returned
+`-1/10055` from IPv6 connect at 10,901 ms. Socket creation, event setup, event
+selection, and the randomization option's set/readback had succeeded. The two
+earlier IPv6 attempts were pending with 10035.
+
+The probe started 423 of 480 planned attempts and recorded 210 of 240 planned
+IPv4 successes. Its peak was seven live sockets. All 423 opened sockets and
+423 opened events were closed. The native probe and validator both exited 1;
+`qualified=false` is the correct result. The runner's `complete=true` records
+its completed lifecycle, not a successful network probe. There was no compiler,
+probe, or validator timeout, and owned-process cleanup completed without force.
+
+The plain arm passed. Balanced userspace handles do not explain the failed
+kernel allocation or show that this is the same cause as the earlier Chromium
+failure. The [bounded artifact](https://github.com/frankischilling/26chan/actions/runs/38002593263/artifacts/11649919057)
+preserves the experiment. The original pacing, counts, socket options, deadlines,
+and failure qualification remain unchanged. Follow-up remains in [#139](https://github.com/frankischilling/26chan/issues/139).
+
 ## Read-only manifest descriptors
 
 The previous inventory retained all 72 eligible templates and 417 field

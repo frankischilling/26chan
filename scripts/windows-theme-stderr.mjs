@@ -87,8 +87,10 @@ export function encodeEvidence(result) {
   return body;
 }
 
-export async function saveEvidence(projectRoot, output, body) {
-  if (!/^test-results\/windows-themes-[1-8]$/.test(output) || Buffer.byteLength(body, 'utf8') > ARTIFACT_BYTES) {
+export async function saveEvidence(projectRoot, output, body, { allowMediaVisual = false } = {}) {
+  const allowed = /^test-results\/windows-themes-[1-8]$/.test(output) ||
+    (allowMediaVisual === true && output === 'test-results/windows-media-visual');
+  if (!allowed || Buffer.byteLength(body, 'utf8') > ARTIFACT_BYTES) {
     throw new Error('Owned stderr artifact rejected');
   }
   const canonicalRoot = await realpath(projectRoot);
