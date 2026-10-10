@@ -329,7 +329,10 @@ async fn janitor_clears_one_group_atomically_preserving_original_dispositions_an
         }
         let history=f.request(&format!("/reports/cleared?board={}",f.boards[0]),None).await;
         assert_eq!(history.0,StatusCode::OK,"{}",history.1);
-        for word in ["resolved","dismissed","Originating clear account:","inherited clear:"] {assert!(history.1.contains(word),"{word}: {}",history.1);}
+        for word in ["resolved","dismissed","originating clear time:","inherited clear:"] {assert!(history.1.contains(word),"{word}: {}",history.1);}
+        assert!(!history.1.contains("Originating clear account:"));
+        assert!(!history.1.contains("Reason:"));
+        assert!(!history.1.contains("Category:"));
         assert!(!history.1.contains("Scope fixture"));
         assert!(!history.1.contains("Owned group report 4"));
         assert!(!history.1.contains("Owned group report 5"));
@@ -819,6 +822,197 @@ async fn archive_keeps_reports_but_administrative_file_deletion_clears_them() {
             assert_eq!(state,"dismissed");
         }
     }}).await;
+    f.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn cleared_history_redacts_sql_and_full_response_by_role_and_preserves_scope() {
+    let _serial = TEST.lock().await;
+    let f = Fixture::new().await;
+    let result = tokio::spawn({
+        let f = f.clone();
+        async move {
+            let first = f.report(0, "resolved", 91, true, true).await;
+            assert_eq!(f.clear(0).await.0, StatusCode::OK);
+            let inherited = f.report(0, "dismissed", 92, true, true).await;
+            let before = f.snapshot(false).await;
+            let audit_before = f.audit_count().await;
+            let path = format!("/reports/cleared?board={}", f.boards[0]);
+            for role in ["moderator", "manager", "admin", "janitor"] {
+                f.role(role, &f.boards, &[]).await;
+                let session = auth::Session {
+                    account_id: f.account,
+                    role: role.into(),
+                    csrf_hash: auth::hash(&f.csrf),
+                    recent: true,
+                    permissions: board_staff::access::Permissions {
+                        allow_boards: f.boards.to_vec(),
+                        deny_boards: vec![],
+                        flags: vec![],
+                    },
+                };
+                let rows = board_staff::store::cleared_reports(&f.staff, &session, &f.boards[0])
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    rows.iter().map(|r| r.id).collect::<Vec<_>>(),
+                    vec![inherited, first]
+                );
+                assert_eq!(rows[0].state, "dismissed");
+                assert!(rows[0].group_clear_inherited);
+                assert!(!rows[1].group_clear_inherited);
+                assert_eq!(rows[0].group_cleared_at, rows[1].group_cleared_at);
+                let (status, html) = f.request(&path, None).await;
+                assert_eq!(status, StatusCode::OK, "{role}: {html}");
+                assert_eq!(html.matches("<article ").count(), 2);
+                for visible in [
+                    "Original report disposition: resolved",
+                    "Original report disposition: dismissed",
+                    "originating clear time:",
+                    "inherited clear: true",
+                    "inherited clear: false",
+                ] {
+                    assert!(html.contains(visible), "{role}: missing {visible}");
+                }
+                if role == "janitor" {
+                    for row in &rows {
+                        assert!(row.reason.is_none());
+                        assert!(row.category_id.is_none());
+                        assert!(row.group_cleared_by.is_none());
+                    }
+                    for forbidden in [
+                        "Owned group report",
+                        "Category:",
+                        "Reason:",
+                        "Originating clear account:",
+                        "group_cleared_by",
+                        "category_id",
+                    ] {
+                        assert!(
+                            !html.contains(forbidden),
+                            "Janitor response leaked {forbidden}"
+                        );
+                    }
+                } else {
+                    assert_eq!(rows[0].reason.as_deref(), Some("Owned group report 92"));
+                    assert_eq!(rows[0].category_id, Some(31));
+                    assert_eq!(rows[0].group_cleared_by, Some(f.account));
+                    assert!(html.contains("Owned group report 92"));
+                    assert!(html.contains("Category: 31"));
+                    assert!(html.contains(&format!("Originating clear account: {}", f.account)));
+                }
+            }
+            for (allow, deny) in [
+                (vec![f.boards[1].clone()], vec![]),
+                (vec!["all".into()], vec![f.boards[0].clone()]),
+            ] {
+                f.role("moderator", &allow, &deny).await;
+                let (status, html) = f.request(&path, None).await;
+                assert_eq!(status, StatusCode::FORBIDDEN);
+                assert!(!html.contains("<article"));
+                assert!(!html.contains("Owned group report"));
+            }
+            f.role("moderator", &f.boards, &[]).await;
+            sqlx::query(
+                "UPDATE staff_identity.accounts SET revoked_at=clock_timestamp() WHERE id=$1",
+            )
+            .bind(f.account)
+            .execute(&f.owner)
+            .await
+            .unwrap();
+            let (status, html) = f.request(&path, None).await;
+            assert_eq!(status, StatusCode::UNAUTHORIZED);
+            assert!(!html.contains("<article"));
+            assert!(!html.contains("Owned group report"));
+            assert_eq!(f.snapshot(false).await, before);
+            assert_eq!(f.audit_count().await, audit_before);
+        }
+    })
+    .await;
+    f.cleanup().await;
+    result.unwrap();
+}
+
+// Pause only this fixture's pool acquisition, after the HTTP authority guard.
+// No global relation lock, runtime timeout override, or scheduling guess is used.
+async fn history_gated_pool() -> (
+    PgPool,
+    Arc<std::sync::atomic::AtomicBool>,
+    Arc<tokio::sync::Notify>,
+    Arc<tokio::sync::Notify>,
+) {
+    let armed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let reached = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .min_connections(1)
+        .before_acquire({
+            let armed = armed.clone();
+            let reached = reached.clone();
+            let release = release.clone();
+            move |_, _| {
+                let pause = armed.swap(false, std::sync::atomic::Ordering::SeqCst);
+                let reached = reached.clone();
+                let release = release.clone();
+                Box::pin(async move {
+                    if pause {
+                        reached.notify_one();
+                        release.notified().await;
+                    }
+                    Ok(true)
+                })
+            }
+        })
+        .connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    // sqlx connect() opens and releases a connection before returning. The
+    // before_acquire hook runs only for idle connections, so establish that
+    // witness explicitly and prevent a second connection bypassing this gate.
+    assert_eq!(pool.num_idle(), 1);
+    (pool, armed, reached, release)
+}
+
+#[tokio::test]
+async fn cleared_history_rechecks_expiry_before_releasing_sensitive_response() {
+    let _serial = TEST.lock().await;
+    let (pool, armed, reached, release) = history_gated_pool().await;
+    let f = Fixture::with_staff_pool(Some(pool)).await;
+    let result = tokio::spawn({ let f = f.clone(); let release = release.clone(); async move {
+        f.report(0, "open", 93, true, true).await;
+        assert_eq!(f.clear(0).await.0, StatusCode::OK);
+        sqlx::query("UPDATE staff_identity.sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE token_hash=$1")
+            .bind(auth::hash(&f.token)).execute(&f.owner).await.unwrap();
+        armed.store(true, std::sync::atomic::Ordering::SeqCst);
+        let pending = tokio::spawn({ let f = f.clone(); async move {
+            f.request(&format!("/reports/cleared?board={}", f.boards[0]), None).await
+        }});
+        tokio::time::timeout(Duration::from_secs(2), reached.notified()).await
+            .expect("history reached content pool under authority guard");
+        // The read must keep account authority locked until its final check.
+        let mut tx = f.owner.begin().await.unwrap();
+        let error = sqlx::query("SELECT id FROM staff_identity.accounts WHERE id=$1 FOR UPDATE NOWAIT")
+            .bind(f.account).execute(&mut *tx).await.unwrap_err();
+        assert_eq!(error.as_database_error().unwrap().code().as_deref(), Some("55P03"));
+        tx.rollback().await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                let expired: bool = sqlx::query_scalar("SELECT expires_at<=clock_timestamp() FROM staff_identity.sessions WHERE token_hash=$1")
+                    .bind(auth::hash(&f.token)).fetch_one(&f.owner).await.unwrap();
+                if expired { break; }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        }).await.expect("database clock reaches fixture expiry");
+        release.notify_one();
+        let (status, html) = tokio::time::timeout(Duration::from_secs(2), pending).await.unwrap().unwrap();
+        assert_eq!(status, StatusCode::UNAUTHORIZED, "{html}");
+        assert!(!html.contains("Owned group report"));
+        assert!(!html.contains("Originating clear account:"));
+        assert!(!html.contains("<article"));
+    }}).await;
+    release.notify_one();
     f.cleanup().await;
     result.unwrap();
 }

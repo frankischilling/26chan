@@ -8,6 +8,8 @@ mod handlers;
 mod latest;
 mod posting_password;
 mod report_group_clear;
+pub mod report_queue;
+mod report_queue_query;
 mod reporter_clear;
 mod robot9000_cleanup;
 pub mod store;
