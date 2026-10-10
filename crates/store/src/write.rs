@@ -759,7 +759,10 @@ async fn create_post_in_context(
         let thread: Thread = sqlx::query_as("SELECT * FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS(SELECT 1 FROM content.visible_threads WHERE board=$1 AND id=$2) FOR UPDATE")
             .bind(slug).bind(parent).fetch_optional(&mut *tx).await?.ok_or(StoreError::NotFound)?;
         if thread.archived_at.is_some()
-            || (!authorized_staff && (thread.closed || thread.reply_count >= board.reply_limit))
+            || (!authorized_staff
+                && (thread.closed
+                    || (thread.reply_count >= board.reply_limit
+                        && !(thread.sticky && thread.undead && board.reply_limit > 1))))
         {
             return Err(StoreError::Conflict(
                 "This thread is closed or has reached its reply limit.",
@@ -1204,6 +1207,39 @@ async fn create_post_in_context(
     };
     if parent > 0 {
         let thread = reply_target.expect("validated locked reply target");
+        // imgboard.php keeps the newest STICKY_CAP - 1 existing replies before
+        // inserting into an undead sticky. Imported source boards use the same
+        // 1,000-reply bound as STICKY_CAP; synthetic boards may set a smaller
+        // reply_limit for the identical policy. The locked board and thread are
+        // held through the commit, so this window cannot change under us.
+        //
+        // This executes after admission/proof/cooldowns and within the Robot9000
+        // savepoint. Every deletion (including private proof retirement) rolls
+        // back if media insertion or Robot9000 rejects the new reply.
+        if thread.sticky && thread.undead && board.reply_limit > 1 {
+            sqlx::query("SELECT set_config('board.sticky_prune_thread',$1,true)")
+                .bind(parent.to_string())
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query(
+                "WITH retained AS MATERIALIZED (
+                    SELECT id FROM content.posts
+                    WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted
+                    ORDER BY id DESC LIMIT $3
+                 ), boundary AS (SELECT min(id) AS first_retained FROM retained)
+                 UPDATE content.posts p SET deleted=true FROM boundary b
+                 WHERE p.board=$1 AND p.thread_id=$2 AND p.id<>$2 AND NOT p.deleted
+                   AND b.first_retained IS NOT NULL AND p.id < b.first_retained",
+            )
+            .bind(slug)
+            .bind(parent)
+            .bind(i64::from(board.reply_limit - 1))
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query("SELECT set_config('board.sticky_prune_thread','',true)")
+                .execute(&mut *tx)
+                .await?;
+        }
         // Count under the same board lock as posting/deletion. The incoming
         // row is not inserted yet; the source's decision includes that reply.
         let (replies, op_created): (i64, DateTime<Utc>) = sqlx::query_as("SELECT (SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted),created_at FROM content.posts WHERE board=$1 AND id=$2 AND NOT deleted")
@@ -1244,7 +1280,19 @@ async fn create_post_in_context(
                 board.permasage_hours as u32,
             ),
         );
-        sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
+        // Source sticky windows use the surviving count. All other threads
+        // retain their existing cumulative cached increment behavior.
+        let visible_after = i32::try_from(replies + 1)
+            .map_err(|_| StoreError::Invalid("Thread reply count exceeds storage limits."))?;
+        sqlx::query("UPDATE content.threads SET reply_count=CASE WHEN $6 THEN $4 ELSE reply_count+1 END, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE board=$5 AND id=$1")
+            .bind(parent)
+            .bind(bump)
+            .bind(posted_at)
+            .bind(visible_after)
+            .bind(slug)
+            .bind(thread.sticky && thread.undead && board.reply_limit > 1)
+            .execute(&mut *tx)
+            .await?;
     }
     sqlx::query("SELECT set_config('board.post_image_spoiler',$1,true)")
         .bind(if staff.is_none() && spoiler {

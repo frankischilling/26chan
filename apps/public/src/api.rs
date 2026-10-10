@@ -239,6 +239,9 @@ fn post_json(
         }
         if thread.sticky {
             value["sticky"] = json!(1);
+            if thread.undead {
+                value["sticky_cap"] = json!(board.reply_limit);
+            }
         }
         if thread.closed || thread.archived_at.is_some() {
             value["closed"] = json!(1);
@@ -386,6 +389,7 @@ pub async fn thread_selection(
             "tail_size": tail_size, "tail_id": tail_id});
         for key in [
             "sticky",
+            "sticky_cap",
             "closed",
             "archived",
             "unique_ips",
