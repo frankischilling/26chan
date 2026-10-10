@@ -1,14 +1,15 @@
-{% extends "base.html" %}
-{% block title %}Polls - Paperboard{% endblock %}
+{% extends "poll-base.html" %}
 {% block content %}
-<section class="pollPage" aria-labelledby="polls-title">
-<header><h1 id="polls-title">Polls</h1></header>
-<p>Choose a poll to view its options or results.</p>
-<h2>Current polls</h2>
-<ul id="entries" class="pollCatalogue">
-{% for poll in polls %}<li><a href="/polls/{{ poll.id }}">{{ poll.title }}</a></li>
-{% else %}<li>No polls are available yet.</li>{% endfor %}
-</ul>
-</section>
+<div id="intro">
+<p>The stories and information found here are artistic works of fiction and falsehood.<br>Only a fool would take anything found here as fact.</p>
+</div>
+{% if !polls.is_empty() %}
+<h3 class="event-hdr">Current Polls</h3>
+<table id="entries" class="event-tbl pollCatalogue">
+<tbody>
+{% for poll in polls %}<tr><td><a href="/polls/{{ poll.id }}">{{ poll.title }}</a></td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% endif %}
 {% endblock %}
-{% block feature_notice %}Polls.{% endblock %}

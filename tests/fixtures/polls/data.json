@@ -1,0 +1,19 @@
+{
+  "copyright_year": 2026,
+  "token": "synthetic-poll-visual-token",
+  "catalogue": [
+    {"id": 72, "title": "Summer feature survey"},
+    {"id": 18, "title": "Site feedback"}
+  ],
+  "poll": {
+    "id": 72,
+    "title": "Summer feature survey",
+    "description": "Choose a feature for the next release.\n\nResults are updated after each vote.",
+    "vote_count": 6,
+    "options": [
+      {"id": 41, "caption": "Better thread navigation", "score": 2},
+      {"id": 17, "caption": "More drawing tools", "score": 3},
+      {"id": 93, "caption": "Something else", "score": null}
+    ]
+  }
+}

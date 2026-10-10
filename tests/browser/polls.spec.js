@@ -2,8 +2,7 @@ import { test, expect } from '@playwright/test';
 import { withOwnedPolls } from './helpers/poll-fixture.js';
 
 const origin = 'http://127.0.0.1:3000';
-const stylesheets = new Set(['/static/board.css', '/static/theme.css',
-  '/static/flags/flags.css', '/static/flags/board-types.css']);
+const stylesheets = new Set(['/static/polls.v1.css']);
 
 async function inertPage(page, response) {
   expect(response.status()).toBe(200);
@@ -13,12 +12,13 @@ async function inertPage(page, response) {
     expect(csp).toContain(directive);
   }
   await expect(page.locator('.pollPage')).toBeVisible();
-  const notice = new URL(response.url()).pathname === '/polls'
-    ? 'Choose a poll to view its options or results.' : 'Voting is unavailable.';
-  for (const element of await page.locator('.pollPage h1, #poll-desc, #entries li, #entries a, #entries caption, #entries th, #entries td, .pollTotal').all()) {
+  const path = new URL(response.url()).pathname;
+  await expect(page.locator('#title')).toHaveText('4chan Polls');
+  if (path === '/polls') await expect(page.locator('#intro')).toContainText('artistic works of fiction and falsehood.');
+  else if (!path.startsWith('/polls/results/')) await expect(page.locator('.pollPage')).toContainText('Voting is unavailable.');
+  for (const element of await page.locator('.poll-hdr, #poll-desc, #entries li, #entries a, #entries th, #entries td, .pollTotal').all()) {
     await expect(element).toBeVisible();
   }
-  await expect(page.locator('.pollPage p').filter({ hasText: notice })).toBeVisible();
   await expect(page.locator('script, form, input, button, select, textarea, iframe, object, embed, svg, img, [data-tkn], [data-cmd], [role="button"]')).toHaveCount(0);
   expect(await page.evaluate(() => ({
     injected: window.pollInjected === undefined,
@@ -87,8 +87,8 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
         await follow(page.getByRole('link', { name: 'View Results', exact: true }), `/polls/results/${fixture.first}`);
         await expect(page.locator('#poll-title')).toHaveText(fixture.title);
         expect(await page.locator('#poll-desc').textContent()).toBe(fixture.description);
-        await expect(page.locator('.pollResults tbody th')).toHaveText(fixture.captions);
-        await expect(page.locator('.pollResults tbody td')).toHaveText(['33.33% (2)', '50% (3)', '0% (0)']);
+        await expect(page.locator('.pollResults tr:not(.poll-res-total) td')).toHaveText(fixture.captions);
+        await expect(page.locator('.pollResults th')).toHaveText(['33.33% (2)', '50% (3)', '0% (0)']);
         await expect(page.locator('.pollTotal')).toHaveText('Total votes: 6');
         await follow(page.getByRole('link', { name: 'Back to Options', exact: true }), `/polls/${fixture.first}`);
         await follow(page.getByRole('link', { name: 'Back to Polls', exact: true }), '/polls');

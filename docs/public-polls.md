@@ -6,7 +6,7 @@ polls stay closed until an operator enables voting. No production polls or votes
 are seeded. Feedback, staff applications and banner contests remain open under
 [#225](https://github.com/frankischilling/26chan/issues/225).
 
-## Source and missing evidence
+## Source and presentation
 
 The supplied snapshot `545b7812d1849f7958d914950c91fdbbe38f6b22` contains
 `www.4chan/views/polls.tpl.php` and `polls-view.tpl.php`. Their links establish
@@ -17,13 +17,72 @@ Missing scores display as zero.
 The options template supplies a POST form named `poll-form`, radio fields named
 `id`, a hidden `_ptkn`, and an `action=vote` submit button. It puts the same token
 in `body[data-tkn]` and links to Back to Polls and View Results. The rewrite keeps
-those fields and destinations, adds labels and required selection, and accepts
-the form without JavaScript.
+those fields and destinations and gives radios accessible names through their
+caption cells. Clicking a caption leaves selection unchanged, as in the source.
+The source radios have no `required` attribute. An empty
+selection reaches the server and returns 422 without changing votes or receipts.
+The form works with JavaScript enabled or disabled.
 
-The matching controller, schema, voting script and poll stylesheet are absent.
-The cookie, token, duplicate-vote and publication rules below reconstruct that
-missing backend contract. They are explicit rewrite decisions; the templates do
-not prove the original rules. Exact original styling is still unqualified.
+The supplied archive does not contain the matching controller, schema, voting
+script or poll stylesheet. The templates reference
+[`polls.css?15`](https://s.4cdn.org/css/polls.css?15) and
+[`polls.js?4`](https://s.4cdn.org/js/polls.js?4); both were recovered on 2026-10-10.
+These are the bytes returned by those versioned URLs on that date, not proof of
+their contents when the supplied snapshot was made. The recovered script only
+copies the body token into an `_ptkn` cookie on form submission. It does not
+render controls, send asynchronous votes or require a selected option.
+
+Poll pages have a separate layout and stylesheet. The header, catalogue intro,
+table geometry, colors, native button, navigation and footer follow the supplied
+templates and recovered CSS. Results put the percentage and count in the colored
+left cell, the caption in the right cell and the total in the final table row.
+An empty catalogue omits the Current Polls heading and table. The original pages
+have no viewport meta element; that mobile layout behavior is preserved.
+
+Only the poll rules from the recovered stylesheet are shipped. Its background
+points to the existing local `fade.png`, whose bytes match the recovered image.
+Pages do not load board styles, theme controls, analytics or external scripts.
+Operator text is escaped and can wrap at the storage limits. Caption references
+give radios accessible names without changing their appearance. The signed HttpOnly cookie
+replaces the script-written source-domain cookie. Historical closed polls retain
+an explicit read-only options page because no source controller was supplied.
+The cookie, token, duplicate-vote and publication rules below are documented
+rewrite decisions; the templates and recovered script do not establish the
+original backend rules. Footer destinations that are not implemented remain
+separate work under [#194](https://github.com/frankischilling/26chan/issues/194).
+
+### Reference fixtures
+
+`tests/fixtures/polls` retains both original PHP templates, the recovered CSS and
+script, synthetic inputs, and six generated HTML pages. The raw captures are
+preserved byte for byte. SHA-256 digests are:
+
+| Input | SHA-256 |
+| --- | --- |
+| `polls.tpl.php` | `e75ae9df16eee5e471a1000155ffa14bf3170aaae084c8f76fecf241ff49037d` |
+| `polls-view.tpl.php` | `4281918d8734fdfaf5758f8963b0453ff857a2ed6d0cc171c1741c8704c2fd14` |
+| `polls.css?15` | `6baf99fbbb66468b8e10f1c9b333c942cd49b6d22570c6edbf6f988b4da275fb` |
+| `polls.js?4` | `4b480887bc189760a5dbb38bbe8422e6964c69470b5791a2bf0eff1155cb33d6` |
+| `fade.png` | `5f7a2be79027d3a5c7207de3e7efe510bcc4a66f105e174d1000cbffd6e4a274` |
+
+Run `php -n -d allow_url_fopen=0 -d allow_url_include=0 scripts/render-poll-reference.php`
+to regenerate the reference HTML, or append `--check` to verify it without writes.
+The script checks input digests before evaluating the two reviewed templates.
+It removes their exact unavailable footer include, fixes the request year at
+2026, removes analytics and the cookie-writing script, relocates the stylesheet
+and favicon, and normalizes HTML line endings. It does not recreate the source
+markup from the Rust templates. The fixture stylesheet retains all captured CSS
+rules and only relocates the fade image.
+
+`npm run test:themes -- tests/themes/poll-source.spec.js` compares complete page
+pixels and native form/link contracts against the production views in the same
+browser. It covers populated and empty catalogues, options with and without a
+description, results with a missing score, and empty results at 1280 by 900 and
+390 by 844. The mobile cases use a mobile browser context. Both screenshots are
+retained on a mismatch. Linux CI also regenerates and checks the PHP references;
+the existing Linux and Windows theme jobs run the page comparisons. These cases
+qualify the supplied templates plus the captured assets, not an unseen original
+controller or historical asset version.
 
 The `polls` board name is reserved for these site routes. The supplied board
 inventory does not use it. Migration 0109 rejects an existing conflicting board
@@ -152,12 +211,12 @@ voting and three existing read tests pass. Both public HTTP integration cases pa
 and cover native forms, cookie and token binding, request limits, publication states,
 results and exact fixture retirement.
 
-`npm run test:polls` includes the earlier closed-poll read checks and active voting
-at desktop and mobile widths, with JavaScript both enabled and disabled. All four
-browser cases pass. They check required selection, two independent votes,
-repeated submissions, closed states,
-escaping, overflow, allowed requests and the stored totals. These are functional
-browser checks; no original poll-page screenshot baseline is claimed.
+`npm run test:polls` includes closed-poll reads and active voting at desktop and
+mobile widths, with JavaScript both enabled and disabled. Its four browser cases
+check missing-selection rejection, two independent votes, repeated submissions,
+closed states, escaping, overflow, allowed requests and stored totals. The source
+page comparisons above qualify appearance separately. Current qualification and
+hosted CI results are tracked in [#225](https://github.com/frankischilling/26chan/issues/225).
 
 Fixtures require explicit development mode and a loopback migrator connection.
 Their random ownership markers and IDs constrain setup, inspection and cleanup.
@@ -168,73 +227,11 @@ guards; PostgreSQL and browser tests establish the actual storage and page
 behavior. Rust formatting and strict Clippy across the workspace, targets and
 features pass. Every local qualification cluster was stopped and removed.
 
-## Earlier read-only qualification
-
-Three store integration cases and the public HTTP case pass on a fresh database.
-They cover explicit order, publication isolation, escaped maximum-sized output,
-percentage boundaries, method denial, real runtime privileges, readiness drift
-and a concurrent operator update across one read snapshot. The public library's
-127 supported cases, the domain suite, formatting and strict workspace Clippy
-also pass. The known local Unix-socket exclusion remains enabled in CI.
-
-Populated 0108-to-0109 and fresh installation exercises pass, including rejection
-of a conflicting `polls` board without partial changes and administrator
+The earlier read-model migration checks remain part of qualification. They cover
+populated 0108-to-0109 upgrades, a conflicting `polls` board, and administrator
 dump/restore with exact row, definition and privilege comparisons. PostgreSQL
 rejects mutations of the joined options view with 55000 before checking grants;
 the exercise independently requires absent write privileges and accepts that
-code only for that view. Other denied operations still require 42501.
-
-The local script adaptation uses loopback TCP; hosted qualification runs its
-original isolated Unix-socket setup. On `6e31833`, the full Linux job and
-media/operations job passed. Poll-specific rendered-page comparisons remain
-unqualified. No real poll or voter data is used.
-
-On `6e31833`, Windows passed its preceding checks and eight of ten public-state
-cases. The two empty-directory comparisons changed exactly where expected: the
-new Polls link and the resulting downward movement of the directory/footer.
-The retained desktop (1280 by 900) and mobile (390 by 844) captures were inspected
-beside their original baselines; neither shows overflow or unexpected content
-or layout changes. Pixel comparison also finds ten changed glyph-edge pixels
-in unchanged top text in each viewport; their cause is not established by this
-capture. The subsequent exact-pixel run on `1d80a98` passed both captures.
-Only those two baselines were updated from the actual hosted PNGs. Exact pixel
-comparisons remain enforced. All ten public-state cases passed in the
-[Windows job](https://github.com/frankischilling/26chan/actions/runs/37589648036/job/112690920590).
-The full build, monitoring and dependency checks also passed on that head;
-this does not explain the earlier glyph-edge change or establish poll-page parity.
-
-### Earlier read-only browser checks
-
-The original read-only suite exercises the real public server and a disposable
-migrated PostgreSQL database at desktop and mobile widths. Its fixture uses
-explicit operator-owned rows and leaves voting closed.
-The checks cover catalogue and option order, escaped hostile text, options and
-results navigation, visible content, overflow, inert controls, restricted
-requests and unchanged stored results. These are functional browser checks,
-not comparisons against original-page screenshots.
-
-The fixture requires explicit development mode, a loopback `board_migrator`
-connection and the normal browser harness prerequisites. Setup commits its rows
-atomically; cleanup matches this run's random ownership markers and IDs, including
-after an uncertain setup result. Test and cleanup failures are both retained.
-
-Local validation passes all eight fixture-unit cases, JavaScript and shell syntax
-checks, Rust formatting and Playwright discovery of both browser cases. The
-existing generated-asset checks and 22 deletion-quota fixture cases also pass.
-On a fresh PostgreSQL 16.15 database with all migrations applied, the real poll
-fixture passes its success and callback-failure paths. Both retire their owned
-polls/options while preserving an unrelated poll and its result count.
-
-The browser cases have not run locally; the qualified browser environment is
-unavailable. Test discovery and the real SQL fixture check do not establish
-rendering or navigation behavior. Hosted CI must qualify both cases against the
-published commit. The aggregate verification script includes the new checks. The Linux CI job allows 75 minutes because its previous successful run
-took 59m45s before these additions; per-test timeouts and assertions are unchanged
-for the existing suites.
-
-The first hosted run on `2de4676` reached both poll browser cases and passed their
-rendering, navigation, visibility, overflow and inertness checks. Its final network
-assertion rejected the normal local `fade.png` background. The allowlist includes
-that exact same-origin image; methods, query strings, resource types, unexpected
-requests and HTTP failures remain checked. The current local qualification above
-passes both complete closed-poll browser cases as well as active voting.
+code only for that view. Other denied operations still require 42501. The local
+adaptation uses loopback TCP; hosted qualification uses isolated Unix sockets.
+Fixtures use synthetic rows and no real poll or voter data.

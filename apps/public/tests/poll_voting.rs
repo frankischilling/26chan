@@ -315,7 +315,11 @@ async fn exercise(owner: &PgPool, public: &PgPool, ids: [i64; 5]) {
         (7, 1, 1, vec![Some(3), Some(4)])
     );
     let own_results = get(&app, first, Some(&saved_cookie)).await;
-    assert!(own_results.body.contains("Your vote has been recorded."));
+    assert!(
+        own_results
+            .body
+            .contains("class=\"poll-res-tbl pollResults\"")
+    );
     assert!(own_results.body.contains("42.86% (3)"));
     assert!(!own_results.body.contains("<form") && own_results.headers.get("set-cookie").is_none());
     private(&own_results);
