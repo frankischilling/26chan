@@ -89,7 +89,12 @@ async fn exercise(owner: &PgPool, public: &PgPool, ids: &[i64], low_id_owned: bo
     if listed == 0 {
         let empty = request(&app, Method::GET, "/polls").await;
         assert_eq!(empty.status, StatusCode::OK);
-        assert!(empty.body.contains("No polls are available yet."));
+        assert!(
+            empty
+                .body
+                .contains("artistic works of fiction and falsehood.")
+        );
+        assert!(!empty.body.contains("Current Polls") && !empty.body.contains("id=\"entries\""));
         inert(&empty);
     }
     let [first, second, hidden, unlisted] = <[i64; 4]>::try_from(ids).unwrap();

@@ -154,6 +154,16 @@ async fn counts(owner: &PgPool, poll: i64) -> (i64, i32, i64, Vec<Option<i64>>) 
     (total, new, receipts, scores)
 }
 
+async fn receipts(owner: &PgPool, poll: i64) -> Vec<(Vec<u8>, chrono::DateTime<chrono::Utc>)> {
+    sqlx::query_as(
+        "SELECT voter_hash,voted_at FROM poll_private.votes WHERE poll_id=$1 ORDER BY voter_hash",
+    )
+    .bind(poll)
+    .fetch_all(owner)
+    .await
+    .unwrap()
+}
+
 async fn exercise(owner: &PgPool, public: &PgPool, ids: [i64; 5]) {
     let [first, second, closed, hidden, unlisted] = ids;
     let app = router(public);
@@ -308,17 +318,20 @@ async fn exercise(owner: &PgPool, public: &PgPool, ids: [i64; 5]) {
         counts(owner, first).await,
         (7, 1, 1, vec![Some(3), Some(4)])
     );
+    let recorded_receipts = receipts(owner, first).await;
+    assert_eq!(recorded_receipts.len(), 1);
     let duplicate = post(&app, first, &saved_cookie, &form(&saved_token, "9")).await;
     assert_eq!(duplicate.status, StatusCode::SEE_OTHER);
+    assert_eq!(
+        duplicate.headers["location"],
+        format!("/polls/results/{first}")
+    );
+    assert!(duplicate.headers.get("set-cookie").is_none());
+    private(&duplicate);
     assert_eq!(
         counts(owner, first).await,
         (7, 1, 1, vec![Some(3), Some(4)])
     );
-    let own_results = get(&app, first, Some(&saved_cookie)).await;
-    assert!(own_results.body.contains("Your vote has been recorded."));
-    assert!(own_results.body.contains("42.86% (3)"));
-    assert!(!own_results.body.contains("<form") && own_results.headers.get("set-cookie").is_none());
-    private(&own_results);
     let public_results = send(
         &app,
         Method::GET,
@@ -328,8 +341,91 @@ async fn exercise(owner: &PgPool, public: &PgPool, ids: [i64; 5]) {
     )
     .await;
     assert_eq!(public_results.status, StatusCode::OK);
+    assert!(
+        public_results
+            .body
+            .contains("class=\"poll-res-tbl pollResults\"")
+    );
+    assert!(public_results.body.contains("42.86% (3)"));
     assert!(public_results.body.contains("Total votes: 7"));
     assert!(public_results.headers.get("set-cookie").is_none());
+    assert!(
+        public_results
+            .body
+            .contains(&format!("href=\"/polls/{first}\">Back to Options</a>"))
+    );
+    let own_results = send(
+        &app,
+        Method::GET,
+        &format!("/polls/results/{first}"),
+        "",
+        &[("cookie", &saved_cookie)],
+    )
+    .await;
+    assert_eq!(own_results.status, StatusCode::OK);
+    assert_eq!(own_results.body, public_results.body);
+    assert!(!own_results.body.contains("<form") && own_results.headers.get("set-cookie").is_none());
+    private(&own_results);
+
+    // Results must lead through read-only options back to the catalogue, even
+    // when this browser has already voted. No form or new identity is issued.
+    let own_options = get(&app, first, Some(&saved_cookie)).await;
+    assert_eq!(own_options.status, StatusCode::OK);
+    assert!(own_options.headers.get("location").is_none());
+    assert!(own_options.headers.get("set-cookie").is_none());
+    assert_eq!(own_options.headers["cache-control"], "private, no-store");
+    private(&own_options);
+    assert!(
+        own_options
+            .body
+            .contains("Your vote has been recorded. These options are read-only.")
+    );
+    assert!(!own_options.body.contains("Voting is unavailable."));
+    assert!(
+        own_options
+            .body
+            .contains("<li>Owned &#60;caption&#62; &#38; first</li>")
+    );
+    assert!(
+        own_options.body.find("&#38; first</li>").unwrap()
+            < own_options.body.find("<li>Owned second</li>").unwrap()
+    );
+    for markup in [
+        "<form",
+        "<input",
+        "<button",
+        "data-tkn=",
+        "name=\"_ptkn\"",
+        "pollResults",
+    ] {
+        assert!(!own_options.body.contains(markup), "{markup}");
+    }
+    assert!(
+        own_options
+            .body
+            .contains("href=\"/polls\">Back to Polls</a>")
+    );
+    assert!(
+        own_options
+            .body
+            .contains(&format!("href=\"/polls/results/{first}\">View Results</a>"))
+    );
+    let catalogue = send(
+        &app,
+        Method::GET,
+        "/polls",
+        "",
+        &[("cookie", &saved_cookie)],
+    )
+    .await;
+    assert_eq!(catalogue.status, StatusCode::OK);
+    assert!(catalogue.body.contains("id=\"intro\""));
+    assert!(catalogue.headers.get("set-cookie").is_none());
+    assert_eq!(
+        counts(owner, first).await,
+        (7, 1, 1, vec![Some(3), Some(4)])
+    );
+    assert_eq!(receipts(owner, first).await, recorded_receipts);
 
     // A fresh router supplies an independent process rate budget for the
     // remaining admission cases; vote identities still live in PostgreSQL.
