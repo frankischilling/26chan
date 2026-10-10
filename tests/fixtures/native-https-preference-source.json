@@ -1,0 +1,23 @@
+{
+  "source": "js/extension.js",
+  "revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "sha256": "05b3b34f68377a44c071e4f74f629d2700fef61e064dcd2e836b161ee9ee0c31",
+  "snippets": {
+    "load": {
+      "sha256": "e5e0d540f606556c71f14490f1f3a89ff8b692758f4d5cf4541e901731e7a975",
+      "text": "Config.load = function() {\n  var storage;\n  \n  if (storage = localStorage.getItem('4chan-settings')) {\n    storage = JSON.parse(storage);\n    $.extend(Config, storage);\n    \n    if (Main.getCookie('https') === '1') {\n      Config.forceHTTPS = true;\n    }\n    else {\n      Config.forceHTTPS = false;\n    }\n  }\n  else {\n    Main.firstRun = true;\n  }\n};"
+    },
+    "save": {
+      "sha256": "177f3e36e61b15ed1f0968138288ced1a17544b76fba05976db32cd1abce98ad",
+      "text": "Config.save = function(old) {\n  localStorage.setItem('4chan-settings', JSON.stringify(Config));\n  \n  //StorageSync.sync('4chan-settings');\n  \n  if (!old) {\n    return;\n  }\n  \n  if (Config.forceHTTPS) {\n    Main.setCookie('https', 1);\n  }\n  else {\n    Main.removeCookie('https');\n  }\n  \n  if (old.darkTheme != Config.darkTheme) {\n    if (Config.darkTheme) {\n      Main.setCookie('nws_style', 'Tomorrow', '.' + $L.d(Main.board));\n      Main.setCookie('ws_style', 'Tomorrow', '.' + $L.d(Main.board));\n    }\n    else {\n      Main.removeCookie('nws_style', '.' + $L.d(Main.board));\n      Main.removeCookie('ws_style', '.' + $L.d(Main.board));\n    }\n  }\n};"
+    },
+    "init": {
+      "sha256": "ce56a44b2060bb30060296edd8ec4651b0917612c838fab5dd4a0974608fffa0",
+      "text": "Main.init = function() {\n  var params;\n  \n  document.addEventListener('DOMContentLoaded', Main.run, false);\n  \n  Main.now = Date.now();\n  \n  Main.is_4channel = location.host === 'boards.4channel.org';\n  \n  UA.init();\n  \n  Config.load();\n  \n  if (Config.forceHTTPS && location.protocol != 'https:') {\n    location.href = location.href.replace(/^http:/, 'https:');\n    return;\n  }\n  \n};"
+    },
+    "setting": {
+      "sha256": "0095210d7f6b83a458a9ec87add1ffb56d58391675a610e9b15b8893a59f3898",
+      "text": "    forceHTTPS: [ 'Always use HTTPS', 'Rewrite 4chan URLs to always use HTTPS', true ]"
+    }
+  }
+}

@@ -1,51 +1,82 @@
 # CI runtime
 
-`Build and test` runs application verification and privileged qualification on
-independent Ubuntu 24.04 runners. Each runner creates its own disposable database,
-roles, credentials and seed data. The media and operations steps retain their
-original order because guest provisioning, dispatch, intake and monitoring share
-fixtures within that job.
+`Build and test` runs Rust verification, two Linux browser suites, and privileged
+qualification on independent Ubuntu 24.04 runners. Every runner creates its own
+disposable database, roles, credentials, and seed data. Browser suites keep one
+worker and zero retries. The media and operations steps run in their established
+order because guest provisioning, dispatch, intake, and monitoring share fixtures
+within that job.
 
-The `rust-and-postgres` check succeeds only when both `rust-and-browser` and
-`media-and-operations` succeed. A failed, cancelled or skipped child cannot make
-that check pass. `visual-windows` retains every Windows screenshot and browser
-check. No test is selected out, retried automatically or given a weaker assertion
-by this split.
+The `rust-and-postgres` check requires `rust-and-browser`, both `browser-suites`
+matrix entries, and `media-and-operations` to succeed. Failed, cancelled, or skipped
+lanes fail the aggregate. On Windows, `visual-windows-core` and all eight
+`visual-windows-themes` shards start independently; `visual-windows` requires both
+results. The core job still collects its independent screenshot suites after
+another qualification fails, provided browser installation and fixture
+compilation succeeded.
 
-Both build and monitoring workflows run on pull requests, pushes to `main`, tags
-and manual dispatch. Feature branches can use a pull request or manual dispatch
-without running duplicate push and pull-request jobs for the same change. New
-runs cancel superseded runs within the same workflow, event and PR/ref.
+## Local and CI verification
+
+`bash scripts/verify.sh` runs the complete local sequence in its existing order.
+CI selects one of these explicit modes:
+
+| Mode | Work |
+| --- | --- |
+| `rust` | Source references, generated assets, runner guards, formatting, Clippy, workspace builds and tests, and the explicit staff upload and fixture tests |
+| `browser-content` | Math and settings checks, drawing, polls, blotter, page identity, search, posting policies, quotes, images, file labels, spoilers, and board flags |
+| `browser-interactions` | Display, updater, navigation, embeds, settings transfer, quick reply, catalog and watcher behavior, remaining posting policies, and staff browser tests |
+
+Both browser modes build the workspace binaries and examples, build the quota
+fixture with its browser feature, and run the two dedicated deletion fixture
+tests before starting their browser workloads. They use the existing npm
+commands, including the generated-file checks and Node tests inside those
+commands. The full workspace test suite runs in the Rust lane and remains
+required by the aggregate.
+
+Every mode requires development mode and all seven disposable database role
+URLs. Unknown modes and extra arguments fail before executing verification
+commands. The Rust lane also installs Chromium because some Rust tests invoke a
+real browser. The drawing and math commands retain their five-minute bounds.
+
+Both build and monitoring workflows run on pull requests, pushes to `main`,
+tags, and manual dispatch. New runs cancel superseded runs within the same
+workflow, event, and PR/ref.
 
 ## Dependency caches
 
-The pinned Rust cache action stores dependency artifacts separately for each job,
-operating system, architecture and Rust environment. Keys also include the root
-`Cargo.toml`, whose workspace dependency and profile settings affect every crate.
+The pinned Rust cache action includes the toolchain, operating system,
+architecture, compiler environment, manifests, lockfile, and Cargo configuration
+in its cache identity. The existing Rust job writes its dependency cache; the
+Linux browser lanes restore that same namespace without competing to save it.
+The Windows core job uses the explicit namespace already restored by theme and
+diagnostic jobs, and remains its only writer.
+
 Workspace outputs and incremental artifacts are pruned before saving; installed
-Cargo binaries are excluded. Valid dependency artifacts can be saved after a test
-failure. Privileged Cargo commands disable incremental compilation explicitly,
-and the qualification job returns build/cache ownership to the runner before the
-cache action prunes and saves it.
+Cargo binaries are excluded. Valid dependency artifacts can be saved after a
+test failure. Privileged Cargo commands disable incremental compilation
+explicitly, and the qualification job returns cache ownership to the runner
+before saving.
 
-Node setup caches npm downloads using `package-lock.json`. Every consuming job
-still runs `npm ci --ignore-scripts`. `scripts/verify.sh` installs dependencies once
-and, in CI, installs Chromium before Cargo tests that invoke the browser. Local
-verification retains the existing separately installed browser prerequisite.
+Node setup caches npm downloads using `package-lock.json`. Every consuming
+runner still executes `npm ci --ignore-scripts`. Databases, credentials, browser
+profiles, test results, and VM fixtures are not cached. System packages and
+Chromium are installed on each runner.
 
-Databases, `.local` credentials, browser profiles, test results and VM fixtures
-are not cached. Browser installation and system-package setup still run normally.
+## Runtime comparison
 
-## Baseline and comparison
+The successful [poll-voting run 38022559067](https://github.com/frankischilling/26chan/actions/runs/38022559067)
+on October 10, 2026 is the baseline for this scheduling change:
 
-Successful runs on September 15, 2026, before this change:
+| Measurement | Before splitting the application suites |
+| --- | --- |
+| Whole workflow | 54m 48s |
+| Linux Rust and browser job | 54m 41s |
+| Its verification-script step | 52m 47s |
+| Media and operations | 19m 51s |
+| Slowest Windows theme shard | 5m 50s |
+| Windows core after waiting for themes | 8m 52s |
 
-| Run | Linux job | Application verification step | Later qualification steps |
-| --- | --- | --- | --- |
-| [PR 34981142168](https://github.com/frankischilling/26chan/actions/runs/34981142168) | 31m 57s | 19m 06s | 10m 55s |
-| [Push 34981137738](https://github.com/frankischilling/26chan/actions/runs/34981137738) | 36m 39s | 23m 15s | 11m 12s |
-
-Compare completed successful runs using the whole workflow duration, both Linux
-child durations and cache hit/save logs. The short aggregate check is not a
-replacement for the old Linux runtime measurement. Report cold and warm cache
-results separately; early failures and skipped qualification are not speedups.
+Compare complete successful runs using workflow duration, every lane's duration,
+and cache hit/save logs. Record cold and warm caches separately. The short
+aggregate checks do not measure the workload, and failed or skipped tests do not
+count as a speed improvement.

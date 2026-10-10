@@ -292,8 +292,16 @@ async fn exercise(owner: &PgPool, public: &PgPool, ids: &[i64], low_id_owned: bo
         format!("/polls/results/{first}"),
     ] {
         for method in [Method::POST, Method::PUT, Method::PATCH, Method::DELETE] {
+            let vote = method == Method::POST && path == format!("/polls/{first}");
             let response = request(&app, method, &path).await;
-            assert_eq!(response.status, StatusCode::METHOD_NOT_ALLOWED, "{path}");
+            // The historical reader has no configured signing key. The new
+            // vote route must fail closed while the other writes stay absent.
+            let expected = if vote {
+                StatusCode::SERVICE_UNAVAILABLE
+            } else {
+                StatusCode::METHOD_NOT_ALLOWED
+            };
+            assert_eq!(response.status, expected, "{path}");
             inert(&response);
         }
         for method in [

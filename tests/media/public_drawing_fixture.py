@@ -1,5 +1,6 @@
 """Receipt/private-input-bound Tegaki qualification with a separate actor witness."""
 import os
+import json
 import pwd
 import re
 import secrets
@@ -22,8 +23,10 @@ class PublicDrawingUpload(PublicUpload):
         self.marker = secrets.token_hex(16)
         self.receipts = {}
         self.mode = None
-        self.approved = None
+        self.approved = []
+        self.reconciled = set()
         self.recovery_baseline = None
+        self.completed_modes = set()
 
     def create_board(self):
         super().create_board()
@@ -45,7 +48,7 @@ class PublicDrawingUpload(PublicUpload):
             JOIN content.posts p ON p.board=b.slug
             JOIN post_secrets.posting_history h ON h.board=p.board AND h.post_id=p.id
             WHERE b.slug='{self.board}' AND b.title='Drawing qualification' AND b.description='{self.marker}'
-            AND b.oekaki AND NOT b.oekaki_replays AND b.oekaki_width=400 AND b.oekaki_height=400
+            AND NOT b.staff_only AND b.oekaki AND {'b.oekaki_replays' if self.mode == 'image-edit' else 'NOT b.oekaki_replays'} AND b.oekaki_width=400 AND b.oekaki_height=400
             AND p.id={owner_thread} AND p.thread_id=p.id AND NOT p.deleted
             AND p.comment='Drawing ownership {self.marker}' AND h.thread_id=p.id
             AND h.actor_hash=decode('{self._posting_actor_hex()}','hex'))"""
@@ -104,9 +107,33 @@ class PublicDrawingUpload(PublicUpload):
         assert result.splitlines()[-1] == '0'
         receipt['revoked'] = True
 
+    def approval_source_sql(self, receipt):
+        self._validate_owned()
+        assert len(self.approved) < (2 if self.mode == 'image-edit' else 1)
+        if not self.approved:
+            return 'true'
+        source_job, source_asset = self.approved[0]
+        assert HEX.fullmatch(source_job) and HEX.fullmatch(source_asset)
+        assert receipt['target'] == receipt['owner_thread']
+        self._ownership_sql(receipt['owner_thread'])
+        # A second dispatch is only the edit of this browser's first posted PNG.
+        # This is disposable harness evidence, never application provenance.
+        return f"""EXISTS (SELECT 1 FROM content.posts p
+            JOIN content.boards b ON b.slug=p.board
+            JOIN content.post_media m ON m.post_id=p.id
+            JOIN media.assets a ON a.id=m.asset_id AND a.job_id=m.job_id
+            JOIN post_secrets.posting_history h ON h.post_id=p.id
+            WHERE p.board='{self.board}' AND p.thread_id={receipt['owner_thread']}
+            AND p.comment='Drawing qualification {self.marker}' AND NOT p.deleted AND NOT b.staff_only
+            AND m.job_id='{source_job}' AND m.asset_id='{source_asset}'
+            AND NOT m.file_deleted AND m.width=400 AND m.height=400
+            AND a.state='approved' AND a.output_format='png' AND h.board=p.board AND h.thread_id=p.thread_id
+            AND h.actor_hash=decode('{self._posting_actor_hex()}','hex'))"""
+
     def approve_receipt(self, marker, job):
         receipt = self._receipt(marker, job)
-        assert self.approved is None
+        assert job not in [item[0] for item in self.approved]
+        source = self.approval_source_sql(receipt)
         assert self.input_witness(job) == receipt['input']
         ownership = self._ownership_sql(receipt['owner_thread'])
         # Reservations take this existing singleton lock. Holding it through
@@ -115,7 +142,7 @@ class PublicDrawingUpload(PublicUpload):
         # become queued without reacquiring the reservation lock.
         with OwnedQueueGate() as gate:
             gate.sole_live_job(job)
-            assert gate.query(f"""SELECT ({ownership}) AND EXISTS (SELECT 1 FROM media.jobs j
+            assert gate.query(f"""SELECT ({ownership}) AND ({source}) AND EXISTS (SELECT 1 FROM media.jobs j
                 JOIN media_intake.handles h ON h.job_id=j.id WHERE j.id='{job}' AND j.state='queued'
                 AND j.lease_token IS NULL AND j.attempts=0 AND j.filename='tegaki.png'
                 AND j.input_bytes={receipt['input'][2]} AND j.expires_at>clock_timestamp()
@@ -136,7 +163,7 @@ class PublicDrawingUpload(PublicUpload):
                         dispatch.communicate(timeout=5)
                 assert dispatch.poll() is not None, 'drawing dispatcher outlived its gate'
         self.f.clean_vm()
-        self.approved = (job, asset)
+        self.approved.append((job, asset))
 
     def recover_unregistered_inputs(self):
         if self.recovery_baseline is None:
@@ -200,7 +227,7 @@ class PublicDrawingUpload(PublicUpload):
             self.mode = mode
             self.reset_deletion_quota()
             self.reset_posting_history()
-            self.approved = None
+            self.approved = []
             self.run_browser(mode)
 
     def run_browser(self, mode):
@@ -245,7 +272,12 @@ class PublicDrawingUpload(PublicUpload):
                     text = line.decode('ascii')
                     receipt = re.fullmatch(r'DRAWING_RECEIPT ([a-f0-9]{32}) ([a-f0-9]{32}) ([a-f0-9]{64}) (0|[1-9][0-9]{0,18}) ([1-9][0-9]{0,18})', text)
                     action = re.fullmatch(r'DRAWING_(REVOKED|APPROVE) ([a-f0-9]{32}) ([a-f0-9]{32})', text)
-                    if receipt:
+                    owner = re.fullmatch(r'DRAWING_OWNER ([a-f0-9]{32}) ([1-9][0-9]{0,18})', text)
+                    if owner:
+                        assert mode == 'image-edit'
+                        self.register_owner(*owner.groups())
+                        marker, job = owner.groups()
+                    elif receipt:
                         self.register_receipt(*receipt.groups())
                         marker, job = receipt.group(1, 2)
                     elif action:
@@ -260,16 +292,185 @@ class PublicDrawingUpload(PublicUpload):
         process.stdin.close()
         process.stdin = None
         finish_browser(process, script)
-        assert self.approved is not None
-        job, asset = self.approved
-        assert sql(f"SELECT count(*) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id JOIN post_secrets.posting_history h ON h.post_id=p.id WHERE p.board='{self.board}' AND p.comment='Drawing qualification {self.marker}' AND m.job_id='{job}' AND m.asset_id='{asset}' AND m.width=400 AND m.height=400 AND m.file_deleted AND NOT p.deleted AND h.actor_hash=decode('{self._posting_actor_hex()}','hex');") == '1'
-        assert sql(f"SELECT count(*) FROM post_secrets.posting_history WHERE board='{self.board}' AND actor_hash=decode('{self._posting_actor_hex()}','hex');") == '2'
-        assert sql(f"SELECT cardinality(events) FROM post_secrets.public_deletion_actors WHERE actor_hash=decode('{self._actor_hex()}','hex');") == '1'
-        assert self.f.http(f'/media/{asset}.png')[0] == 404
+        expected = 2 if mode == 'image-edit' else 1
+        assert len(self.approved) == expected
+        for index, (job, asset) in enumerate(self.approved):
+            comment = ('Drawing edit qualification ' if index else 'Drawing qualification ') + self.marker
+            assert sql(f"SELECT count(*) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id JOIN post_secrets.posting_history h ON h.post_id=p.id WHERE p.board='{self.board}' AND p.comment='{comment}' AND m.job_id='{job}' AND m.asset_id='{asset}' AND m.width=400 AND m.height=400 AND m.file_deleted AND NOT p.deleted AND h.actor_hash=decode('{self._posting_actor_hex()}','hex');") == '1'
+            assert self.f.http(f'/media/{asset}.png')[0] == 404
+        assert sql(f"SELECT count(*) FROM post_secrets.posting_history WHERE board='{self.board}' AND actor_hash=decode('{self._posting_actor_hex()}','hex');") == str(expected + 1)
+        assert sql(f"SELECT cardinality(events) FROM post_secrets.public_deletion_actors WHERE actor_hash=decode('{self._actor_hex()}','hex');") == str(expected)
         self.f.finish(self.f.launch([self.f.bin / 'media-publish', 'reconcile', self.f.objects], env=self.f.writer))
-        assert not (self.f.objects / f'{asset}.png').exists()
-        assert not (self.f.objects / f'{asset}.thumb.png').exists()
+        for _, asset in self.approved:
+            assert not (self.f.objects / f'{asset}.png').exists()
+            assert not (self.f.objects / f'{asset}.thumb.png').exists()
+            assert sql(f"SELECT NOT EXISTS (SELECT 1 FROM media.assets WHERE id='{asset}');") == 't'
+        # Record retirement only after the real reconciler removed both outputs
+        # and approval metadata for every already-verified owned attachment.
+        self.reconciled.update(self.approved)
         remaining = private_inputs(self.f.root, self.f.quarantine, self.f.intake_user.pw_uid) - self.recovery_baseline
         assert all(name.removesuffix('.input') in self.f.ids for name in remaining), 'unregistered completed drawing intake remains'
         self.recovery_baseline = None
+        self.completed_modes.add(mode)
+        self.browser = None
         print(f'PASS drawing {mode}: real pointer canvas -> exact receipt -> isolated decoder -> persisted 400x400 PNG -> owned deletion', flush=True)
+
+
+class PublicDrawingEdit(PublicDrawingUpload):
+    """Own an empty disposable /i/ board during its source-specific browser case."""
+    _changed = ('title', 'description', 'posting_reply_seconds', 'posting_image_seconds',
+                'posting_thread_seconds', 'deletion_known_min_seconds', 'deletion_unknown_min_seconds')
+
+    def __init__(self, host):
+        super().__init__(host)
+        self.board = self._owned_board = 'i'
+        self.mode = 'image-edit'
+        self.lease = None
+        self.lease_phase = None
+        self.owner_thread = None
+
+    @staticmethod
+    def _json_sql(value):
+        # The SQL transactions set standard_conforming_strings before using this
+        # literal. Values are saved public policy rows, never service credentials.
+        return "'" + json.dumps(value, sort_keys=True, separators=(',', ':')).replace("'", "''") + "'::jsonb"
+
+    def create_board(self):
+        assert not self.created and self.lease is None
+        assert self.board == self._owned_board == 'i' and re.fullmatch('[a-f0-9]{32}', self.marker)
+        before = json.loads(sql("SELECT to_jsonb(b) FROM content.boards b WHERE slug='i';"))
+        active = {**before, 'title': 'Drawing qualification', 'description': self.marker,
+                  **{name: 0 for name in self._changed[2:]}}
+        # Save the exact recovery data BEFORE the mutation. An ambiguous psql
+        # result after COMMIT must still leave cleanup able to identify the lease.
+        self.lease = dict(before=before,active=active)
+        self.created = True
+        self.lease_phase = 'prepared'
+        self._validate_owned()
+        original = self._json_sql(before)
+        expected = self._json_sql(active)
+        sql(f"""BEGIN; SET LOCAL standard_conforming_strings=on; SET LOCAL lock_timeout='1s';
+            DO $owned_edit$ BEGIN
+                PERFORM 1 FROM content.boards WHERE slug='i' FOR UPDATE NOWAIT;
+                IF (SELECT to_jsonb(b) FROM content.boards b WHERE slug='i') IS DISTINCT FROM {original}
+                    OR EXISTS (SELECT 1 FROM content.posts WHERE board='i')
+                    OR EXISTS (SELECT 1 FROM content.threads WHERE board='i')
+                    OR EXISTS (SELECT 1 FROM post_secrets.posting_history WHERE board='i')
+                    OR EXISTS (SELECT 1 FROM post_secrets.posting_thread_actions WHERE board='i')
+                THEN RAISE EXCEPTION 'Drawing Edit requires an untouched disposable source board'; END IF;
+                UPDATE content.boards SET title='Drawing qualification',description='{self.marker}',
+                    posting_reply_seconds=0,posting_image_seconds=0,posting_thread_seconds=0,
+                    deletion_known_min_seconds=0,deletion_unknown_min_seconds=0 WHERE slug='i';
+                IF (SELECT to_jsonb(b) FROM content.boards b WHERE slug='i') IS DISTINCT FROM {expected}
+                THEN RAISE EXCEPTION 'Drawing Edit changed unrelated policy'; END IF;
+            END $owned_edit$; COMMIT;""")
+        self.lease_phase = 'active'
+
+    def _validate_owned(self):
+        assert self.created and self.board == self._owned_board == 'i' and self.mode == 'image-edit'
+        assert re.fullmatch('[a-f0-9]{32}', self.marker)
+        assert type(self.lease) is dict and set(self.lease) == {'before', 'active'}
+        before, active = self.lease['before'], self.lease['active']
+        assert before['slug'] == active['slug'] == 'i'
+        assert before['title'] == 'Oekaki' and active['title'] == 'Drawing qualification'
+        assert active['description'] == self.marker
+        assert {key: value for key, value in before.items() if key not in self._changed} == {
+            key: value for key, value in active.items() if key not in self._changed}
+        assert active['oekaki'] is True and active['oekaki_replays'] is True
+        assert active['staff_only'] is False and active['text_only'] is False
+        assert active['oekaki_width'] == active['oekaki_height'] == 400 and active['image_limit'] > 0
+        assert all(active[name] == 0 for name in self._changed[2:])
+
+    def _policy_guard(self):
+        self._validate_owned()
+        return f"EXISTS (SELECT 1 FROM content.boards b WHERE slug='i' AND to_jsonb(b)={self._json_sql(self.lease['active'])})"
+
+    def _ownership_sql(self, owner_thread):
+        return f"({super()._ownership_sql(owner_thread)}) AND ({self._policy_guard()})"
+
+    def register_owner(self, marker, owner_thread):
+        self._validate_owned()
+        assert marker == self.marker and self.owner_thread is None
+        ownership = self._ownership_sql(owner_thread)
+        assert sql(f"SELECT ({ownership}) AND (SELECT count(*) FROM content.posts WHERE board='i')=1 AND (SELECT count(*) FROM content.threads WHERE board='i')=1;") == 't'
+        self.owner_thread = owner_thread
+
+    def register_receipt(self, marker, job, capability_hash, target, owner_thread):
+        assert self.owner_thread is not None and owner_thread == target == self.owner_thread
+        super().register_receipt(marker, job, capability_hash, target, owner_thread)
+
+    def reset_deletion_quota(self):
+        guard = self._policy_guard()
+        sql(f"""BEGIN; SET LOCAL standard_conforming_strings=on;
+            DO $owned_edit$ BEGIN
+                PERFORM 1 FROM content.boards WHERE slug='i' FOR UPDATE NOWAIT;
+                IF NOT ({guard}) THEN RAISE EXCEPTION 'Drawing Edit policy ownership changed'; END IF;
+                DELETE FROM post_secrets.public_deletion_actors WHERE actor_hash=decode('{self._actor_hex()}','hex');
+            END $owned_edit$; COMMIT;""")
+
+    def cleanup_board(self):
+        guard = self._policy_guard()
+        original = self._json_sql(self.lease['before'])
+        if self.lease_phase == 'prepared' and self.owner_thread is None and not self.receipts and not self.approved:
+            if json.loads(sql("SELECT to_jsonb(b) FROM content.boards b WHERE slug='i';")) == self.lease['before']:
+                # The guarded mutation never took effect. Leave all later work
+                # untouched, including rows that caused its initial refusal.
+                self.created = False
+                return
+        owner = self.owner_thread or '0'
+        assert re.fullmatch('0|[1-9][0-9]{0,18}', owner) and int(owner) <= 9223372036854775807
+        approved = []
+        assert self.reconciled <= set(self.approved)
+        for index, (job, asset) in enumerate(self.approved):
+            assert index < 2 and HEX.fullmatch(job) and HEX.fullmatch(asset) and job in self.receipts
+            assert not self.receipts[job]['revoked'] and self.receipts[job]['owner_thread'] == owner
+            comment = ('Drawing edit qualification ' if index else 'Drawing qualification ') + self.marker
+            proof = "EXISTS (SELECT 1 FROM media.assets a WHERE a.id=m.asset_id AND a.job_id=m.job_id AND a.state='approved' AND a.output_format='png')"
+            if (job, asset) in self.reconciled:
+                proof = f"({proof} OR (m.file_deleted AND NOT EXISTS (SELECT 1 FROM media.assets a WHERE a.id=m.asset_id)))"
+            approved.append(f"(m.job_id='{job}' AND m.asset_id='{asset}' AND p.comment='{comment}' AND {proof})")
+        attachment = ' OR '.join(approved) or 'false'
+        assignments = ','.join(f"{name}=original.{name}" for name in self._changed)
+        # Keep all ownership checks, deletion and policy restoration under the
+        # board lock. A foreign row or changed policy leaves all evidence intact.
+        sql(f"""BEGIN; SET LOCAL standard_conforming_strings=on; SET LOCAL lock_timeout='1s';
+            DO $owned_edit$ DECLARE original content.boards; BEGIN
+                PERFORM 1 FROM content.boards WHERE slug='i' FOR UPDATE NOWAIT;
+                IF NOT ({guard}) THEN RAISE EXCEPTION 'Drawing Edit policy ownership changed'; END IF;
+                IF EXISTS (SELECT 1 FROM content.posts p WHERE p.board='i' AND
+                    (p.deleted OR p.thread_id<>{owner}
+                    OR NOT EXISTS (SELECT 1 FROM post_secrets.posting_history h WHERE h.post_id=p.id
+                        AND h.board=p.board AND h.thread_id=p.thread_id
+                        AND h.actor_hash=decode('{self._posting_actor_hex()}','hex'))
+                    OR NOT ((p.id={owner} AND p.comment='Drawing ownership {self.marker}'
+                        AND NOT EXISTS (SELECT 1 FROM content.post_media m WHERE m.post_id=p.id))
+                        OR (p.id<>{owner} AND EXISTS (SELECT 1 FROM content.post_media m
+                            WHERE m.post_id=p.id AND m.width=400 AND m.height=400
+                                AND ({attachment}))))))
+                    OR EXISTS (SELECT 1 FROM content.threads t WHERE t.board='i' AND (t.id<>{owner}
+                        OR NOT EXISTS (SELECT 1 FROM content.posts p WHERE p.board='i' AND p.id=t.id AND p.thread_id=t.id)))
+                    OR EXISTS (SELECT 1 FROM post_secrets.posting_history h WHERE h.board='i'
+                        AND (h.actor_hash<>decode('{self._posting_actor_hex()}','hex')
+                            OR NOT EXISTS (SELECT 1 FROM content.posts p WHERE p.id=h.post_id AND p.board='i')))
+                    OR EXISTS (SELECT 1 FROM post_secrets.posting_thread_actions WHERE board='i'
+                        AND actor_hash<>decode('{self._posting_actor_hex()}','hex'))
+                    OR EXISTS (SELECT 1 FROM content.reports r JOIN content.posts p ON p.id=r.post_id WHERE p.board='i')
+                THEN RAISE EXCEPTION 'Drawing Edit found unowned posts or attachments'; END IF;
+                DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board='i');
+                DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board='i');
+                DELETE FROM content.posts WHERE board='i';
+                DELETE FROM content.threads WHERE board='i';
+                DELETE FROM post_secrets.posting_history WHERE board='i' AND actor_hash=decode('{self._posting_actor_hex()}','hex');
+                DELETE FROM post_secrets.posting_thread_actions WHERE board='i' AND actor_hash=decode('{self._posting_actor_hex()}','hex');
+                DELETE FROM post_secrets.public_deletion_actors WHERE actor_hash=decode('{self._actor_hex()}','hex');
+                SELECT * INTO original FROM jsonb_populate_record(NULL::content.boards,{original});
+                UPDATE content.boards SET {assignments} WHERE slug='i';
+                IF (SELECT to_jsonb(b) FROM content.boards b WHERE slug='i') IS DISTINCT FROM {original}
+                THEN RAISE EXCEPTION 'Drawing Edit did not restore source policy'; END IF;
+            END $owned_edit$; COMMIT;""")
+        self.created = False
+
+    def exercise(self):
+        self.create_board()
+        self.reset_deletion_quota()
+        self.run_browser('image-edit')

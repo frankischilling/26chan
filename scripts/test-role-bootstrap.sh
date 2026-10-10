@@ -22,6 +22,7 @@ runuser -u postgres -- "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.l
   -o "-c listen_addresses='' -c unix_socket_directories='$cluster'" -w start > /dev/null
 started=1
 db=(runuser -u postgres -- "$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h "$cluster")
+migrator=(runuser -u postgres -- "$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h "$cluster" -U board_migrator)
 "${db[@]}" -d postgres -f deploy/roles.sql
 "${db[@]}" -d postgres <<'SQL'
 CREATE DATABASE bootstrap_test OWNER board_migrator;
@@ -50,7 +51,9 @@ CREATE TABLE public.owned_meta_acls_before AS SELECT oid,relowner,relacl::text A
     WHERE oid IN ('content.boards'::regclass,'content.threads'::regclass,'content.posts'::regclass,'content.visible_threads'::regclass);
 SQL
   fi
-  "${db[@]}" -d bootstrap_test --single-transaction -c 'SET ROLE board_migrator' -f "$migration"
+  # RESET ROLE inside a migration must return to its actual login, just as in
+  # board-migrate. A superuser session with SET ROLE gives different ownership.
+  "${migrator[@]}" -d bootstrap_test --single-transaction -f "$migration"
   if [[ $migration = migrations/0072_meta_board_policy.sql ]]; then
     "${db[@]}" -d bootstrap_test <<'SQL'
 BEGIN;
@@ -75,6 +78,17 @@ ROLLBACK;
 SQL
   fi
 done
+"${migrator[@]}" -d bootstrap_test <<'SQL'
+DO $$ BEGIN
+  IF session_user<>'board_migrator' OR current_user<>'board_migrator'
+     OR EXISTS(SELECT 1 FROM pg_class WHERE oid=ANY(ARRAY[
+         'content.visible_post_media'::regclass,'content.staff_post_media'::regclass,
+         'media.approved_assets'::regclass,'media.approved_post_assets'::regclass])
+         AND relowner<>(SELECT oid FROM pg_roles WHERE rolname='board_migrator')) THEN
+    RAISE EXCEPTION 'Migration login or approved media view ownership differs';
+  END IF;
+END $$;
+SQL
 "${db[@]}" -d bootstrap_test <<'SQL'
 DO $$ DECLARE v_role text; BEGIN
   FOREACH v_role IN ARRAY ARRAY['board_public','board_staff','board_auth','board_media',
@@ -123,23 +137,23 @@ ROLLBACK;
 DO $$
 BEGIN
   -- Compare the historical row shape, excluding only known additive columns.
-  -- The new thread rank must independently retain its zero default.
-  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
-     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p)
-     OR EXISTS (SELECT to_jsonb(t)-'sticky_rank' FROM content.threads t EXCEPT SELECT to_jsonb(t) FROM public.owned_count_threads_before t)
-     OR EXISTS (SELECT to_jsonb(t) FROM public.owned_count_threads_before t EXCEPT SELECT to_jsonb(t)-'sticky_rank' FROM content.threads t)
-     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR board_flag_type IS DISTINCT FROM 'pol' OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR staff_authorized_limits OR image_spoiler)
-     OR EXISTS (SELECT 1 FROM content.threads WHERE sticky_rank IS DISTINCT FROM 0)
+  -- New metadata must independently retain its absent or zero default.
+  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler','drawing_time_seconds','drawing_source_post_id','content_erased'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
+     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler','drawing_time_seconds','drawing_source_post_id','content_erased'] FROM content.posts p)
+     OR EXISTS (SELECT to_jsonb(t)-ARRAY['sticky_rank','content_erased'] FROM content.threads t EXCEPT SELECT to_jsonb(t) FROM public.owned_count_threads_before t)
+     OR EXISTS (SELECT to_jsonb(t) FROM public.owned_count_threads_before t EXCEPT SELECT to_jsonb(t)-ARRAY['sticky_rank','content_erased'] FROM content.threads t)
+     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR board_flag_type IS DISTINCT FROM 'pol' OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR staff_authorized_limits OR image_spoiler OR drawing_time_seconds IS NOT NULL OR drawing_source_post_id IS NOT NULL OR content_erased IS DISTINCT FROM false)
+     OR EXISTS (SELECT 1 FROM content.threads WHERE sticky_rank IS DISTINCT FROM 0 OR content_erased IS DISTINCT FROM false)
      OR EXISTS (SELECT 1 FROM post_secrets.poster_contexts)
      OR content.unique_posters('countold',8800001) IS NOT NULL THEN
     RAISE NOTICE 'Historical upgrade diagnostics: %', (
       SELECT jsonb_build_object(
-        'posts_forward_changed', EXISTS(SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p),
-        'posts_reverse_changed', EXISTS(SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler'] FROM content.posts p),
-        'threads_forward_changed', EXISTS(SELECT to_jsonb(t)-'sticky_rank' FROM content.threads t EXCEPT SELECT to_jsonb(t) FROM public.owned_count_threads_before t),
-        'threads_reverse_changed', EXISTS(SELECT to_jsonb(t) FROM public.owned_count_threads_before t EXCEPT SELECT to_jsonb(t)-'sticky_rank' FROM content.threads t),
-        'new_metadata_present', EXISTS(SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR board_flag_type IS DISTINCT FROM 'pol' OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR image_spoiler),
-        'historical_sticky_rank_nonzero', EXISTS(SELECT 1 FROM content.threads WHERE sticky_rank IS DISTINCT FROM 0),
+        'posts_forward_changed', EXISTS(SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler','drawing_time_seconds','drawing_source_post_id','content_erased'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p),
+        'posts_reverse_changed', EXISTS(SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler','drawing_time_seconds','drawing_source_post_id','content_erased'] FROM content.posts p),
+        'threads_forward_changed', EXISTS(SELECT to_jsonb(t)-ARRAY['sticky_rank','content_erased'] FROM content.threads t EXCEPT SELECT to_jsonb(t) FROM public.owned_count_threads_before t),
+        'threads_reverse_changed', EXISTS(SELECT to_jsonb(t) FROM public.owned_count_threads_before t EXCEPT SELECT to_jsonb(t)-ARRAY['sticky_rank','content_erased'] FROM content.threads t),
+        'new_metadata_present', EXISTS(SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR board_flag_type IS DISTINCT FROM 'pol' OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR staff_authorized_limits OR image_spoiler OR drawing_time_seconds IS NOT NULL OR drawing_source_post_id IS NOT NULL OR content_erased IS DISTINCT FROM false),
+        'historical_thread_metadata_changed', EXISTS(SELECT 1 FROM content.threads WHERE sticky_rank IS DISTINCT FROM 0 OR content_erased IS DISTINCT FROM false),
         'poster_context_present', EXISTS(SELECT 1 FROM post_secrets.poster_contexts),
         'historical_count_known', content.unique_posters('countold',8800001) IS NOT NULL
       )

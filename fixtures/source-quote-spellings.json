@@ -1,0 +1,33 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "source_file": "js/extension.js",
+  "source_sha256": "05b3b34f68377a44c071e4f74f629d2700fef61e064dcd2e836b161ee9ee0c31",
+  "limits": [
+    "Only these extracted functions may execute in isolated synthetic test contexts.",
+    "No original startup, HTML builder, storage, network or application is executed.",
+    "Numeric source JSON comparisons are checked within safe JavaScript integer precision. The rewrite retains exact signed i64 identities.",
+    "Canonical page thread IDs are qualified; historical URL aliases and general numeric coercion remain outside this reference."
+  ],
+  "excerpts": {
+    "Parser.parseBacklinks": {
+      "sha256": "19ab5c7e24c512d7cbc6010d571bf52a27927e267066b9ec002ed3ffcfab4259",
+      "text": "Parser.parseBacklinks = function(pid, tid) {\r\n  var i, j, msg, backlinks, linklist, ids, target, bl, el, href;\r\n  \r\n  msg = document.getElementById('m' + pid);\r\n  \r\n  if (!(backlinks = msg.getElementsByClassName('quotelink'))) {\r\n    return;\r\n  }\r\n  \r\n  linklist = {};\r\n  \r\n  for (i = 0; j = backlinks[i]; ++i) {\r\n    // [tid, pid]\r\n    ids = j.getAttribute('href').split('#p');\r\n    \r\n    if (!ids[1]) {\r\n      continue;\r\n    }\r\n    \r\n    if (ids[1] == tid) {\r\n      j.textContent += ' (OP)';\r\n    }\r\n    \r\n    if (!(target = document.getElementById('pi' + ids[1]))) {\r\n      if (Main.tid && j.textContent.charAt(2) != '>' ) {\r\n        j.textContent += ' →';\r\n      }\r\n      continue;\r\n    }\r\n    \r\n    // Already processed?\r\n    if (linklist[ids[1]]) {\r\n      continue;\r\n    }\r\n    \r\n    linklist[ids[1]] = true;\r\n    \r\n    // Backlink node\r\n    bl = document.createElement('span');\r\n    \r\n    if (!Main.tid) {\r\n      href = 'thread/' + tid + '#p' + pid;\r\n    }\r\n    else {\r\n      href = '#p' + pid;\r\n    }\r\n    \r\n    if (!Main.hasMobileLayout) {\r\n      bl.innerHTML = '<a href=\"' + href + '\" class=\"quotelink\">&gt;&gt;' + pid + '</a> ';\r\n    }\r\n    else {\r\n      bl.innerHTML = '<a href=\"' + href + '\" class=\"quotelink\">&gt;&gt;' + pid\r\n        + '</a><a href=\"' + href + '\" class=\"quoteLink\"> #</a> ';\r\n    }\r\n    \r\n    // Backlinks container\r\n    if (!(el = document.getElementById('bl_' + ids[1]))) {\r\n      el = document.createElement('div');\r\n      el.id = 'bl_' + ids[1];\r\n      el.className = 'backlink';\r\n      \r\n      if (Main.hasMobileLayout) {\r\n        el.className = 'backlink mobile';\r\n        target = document.getElementById('p' + ids[1]);\r\n      }\r\n      \r\n      target.appendChild(el);\r\n    }\r\n    \r\n    el.appendChild(bl);\r\n  }\r\n};\r"
+    },
+    "Parser.buildPost": {
+      "sha256": "9d06076ea1a1f9f9866b7d0bd9352361c0e038ec703f9bf782205548d32852c0",
+      "text": "Parser.buildPost = function(thread, board, pid) {\r\n  var i, j, uid, el = null;\r\n  \r\n  for (i = 0; j = thread[i]; ++i) {\r\n    if (j.no != pid) {\r\n      continue;\r\n    }\r\n    \r\n    if (!Config.revealSpoilers && thread[0].custom_spoiler) {\r\n      Parser.setCustomSpoiler(board, thread[0].custom_spoiler);\r\n    }\r\n    \r\n    el = Parser.buildHTMLFromJSON(j, board, false, true).lastElementChild;\r\n    \r\n    if (Config.IDColor && (uid = $.cls('posteruid', el)[Main.hasMobileLayout ? 0 : 1])) {\r\n      IDColor.applyRemote(uid.firstElementChild);\r\n    }\r\n  }\r\n  \r\n  return el;\r\n};\r"
+    },
+    "QuoteInline.isSelfQuote": {
+      "sha256": "09a9f5ebb10ea1c46c5657e472ed73c2fb5efbc7903f1324af67748f4c1acec9",
+      "text": "QuoteInline.isSelfQuote = function(node, pid, board) {\r\n  if (board && board != Main.board) {\r\n    return false;\r\n  }\r\n  \r\n  node = node.parentNode;\r\n  \r\n  if ((node.nodeName == 'BLOCKQUOTE' && node.id.split('m')[1] == pid)\r\n      || node.parentNode.id.split('_')[1] == pid) {\r\n    return true;\r\n  }\r\n  \r\n  return false;\r\n};\r"
+    },
+    "QuotePreview.init": {
+      "sha256": "e03d19108e334c7860d0d72a3678b669a0a538799b14f8357dac1bc37eccc931",
+      "text": "QuotePreview.init = function() {\r\n  this.regex = /(?:\\/([a-z0-9]+)\\/thread\\/)?([0-9]+)?#p([0-9]+)$/;\r\n  this.highlight = null;\r\n  this.highlightAnti = null;\r\n  this.cur = null;\r\n};\r"
+    },
+    "QuotePreview.resolve": {
+      "sha256": "1e472a405e3e10cb88f7ce751c2e143e5169a4d4aeb1e13135333bc030ed36a8",
+      "text": "QuotePreview.resolve = function(link) {\r\n  var self, t, post, offset, pfx;\r\n  \r\n  self = QuotePreview;\r\n  self.cur = null;\r\n  \r\n  t = link.getAttribute('href').match(self.regex);\r\n  \r\n  if (!t) {\r\n    return;\r\n  }\r\n  \r\n  // Quoted post in scope\r\n  pfx = link.getAttribute('data-pfx') || '';\r\n  \r\n  if (post = document.getElementById(pfx + 'p' + t[3])) {\r\n    // Visible and not filtered out?\r\n    offset = post.getBoundingClientRect();\r\n    if (offset.top > 0\r\n        && offset.bottom < document.documentElement.clientHeight\r\n        && !$.hasClass(post.parentNode, 'post-hidden')) {\r\n      if (!$.hasClass(post, 'highlight') && location.hash.slice(1) != post.id) {\r\n        self.highlight = post;\r\n        $.addClass(post, 'highlight');\r\n      }\r\n      else if (!$.hasClass(post, 'op')) {\r\n        self.highlightAnti = post;\r\n        $.addClass(post, 'highlight-anti');\r\n      }\r\n      return;\r\n    }\r\n    // Nope\r\n    self.show(link, post);\r\n  }\r\n  // Quoted post out of scope\r\n  else {\r\n    if (!UA.hasCORS) {\r\n      return;\r\n    }\r\n    self.showRemote(link, t[1] || Main.board, t[2], t[3]);\r\n  }\r\n};\r"
+    }
+  }
+}

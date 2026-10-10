@@ -2,21 +2,22 @@
 //! `imgboard.php:6052–6097` at reference revision
 //! `545b7812d1849f7958d914950c91fdbbe38f6b22`.
 //!
-//! Inputs are already parsed integers and supplied facts, not raw PHP values or
-//! HTTP form fields. This module does not emulate PHP casts/truthiness, execute
-//! SQL, admit uploads, verify replay provenance, store metadata, or grant image
-//! or replay access. No current schema or route is implied. A future caller must
-//! obtain genuine source records from the selected board, handle lookup failure,
-//! and independently authorize all storage and reads.
+//! Inputs are parsed integers and supplied facts. The store authorizes accepted
+//! images and resolves source records; these pure rules validate annotation
+//! time and prepare its display. PHP form coercion and media authority remain
+//! outside this module.
 //!
 //! Annotation time is submitted wall-clock `oe_time`, independent of replay
 //! event duration and header timestamps. Replay is optional. A source reference
 //! hides the replay link intent but never deletes or rejects a stored replay.
-//! Outputs are typed display data: escaped markup and safe, server-selected
-//! links belong to a future renderer. No legacy `javascript:` link is emitted.
+//! Stored replay-free annotations use fixed numeric markup or generated tokens
+//! shared by public and staff views. Replay link intents remain separate from
+//! this rendering path; no legacy `javascript:` link is emitted.
 
 use std::fmt;
 use std::num::NonZeroU64;
+
+use crate::Token;
 
 /// The source accepts at most 60 days of submitted wall-clock time.
 pub const MAX_DRAWING_SECONDS: i64 = 5_184_000;
@@ -52,6 +53,52 @@ impl fmt::Display for DrawingTime {
         } else {
             write!(f, "{}h {}m", seconds / 3600, (seconds % 3600 + 30) / 60)
         }
+    }
+}
+
+/// Saved metadata remains visible after board policy changes. Neither the
+/// submitted duration nor its source reference establishes pixel provenance.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DrawingAnnotation {
+    pub time: DrawingTime,
+    pub source_post: Option<i64>,
+}
+
+impl DrawingAnnotation {
+    pub fn from_saved(seconds: Option<i32>, source: Option<i64>) -> Option<Self> {
+        Some(Self {
+            time: DrawingTime::from_seconds(i64::from(seconds?))?,
+            source_post: source.filter(|id| *id > 0),
+        })
+    }
+
+    pub fn tokens(&self, separator: &str) -> Vec<Token> {
+        let source = self
+            .source_post
+            .map(|id| format!(", Source: >>{id}"))
+            .unwrap_or_default();
+        vec![
+            Token::Text(separator.into()),
+            Token::GeneratedSmall(true),
+            Token::GeneratedBold(true),
+            Token::Text("Oekaki Post".into()),
+            Token::GeneratedBold(false),
+            Token::Text(format!(" (Time: {}{source})", self.time)),
+            Token::GeneratedSmall(false),
+        ]
+    }
+
+    /// Fixed markup for source title, RSS and text projections. Every variable
+    /// is a validated duration or integer; this accepts no submitted HTML.
+    pub fn stored_html(&self) -> String {
+        let source = self
+            .source_post
+            .map(|id| format!(", Source: &gt;&gt;{id}"))
+            .unwrap_or_default();
+        format!(
+            "<br><br><small><b>Oekaki Post</b> (Time: {}{source})</small>",
+            self.time
+        )
     }
 }
 

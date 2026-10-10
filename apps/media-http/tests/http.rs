@@ -79,7 +79,13 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
     let root = temp.path().join("objects");
     let store = PublicationStore::new(&root, &quarantine).unwrap();
     let origin = board_config::Origin::parse("http://127.0.0.1:3002").unwrap();
-    let state = AppState::new(reader.clone(), ApprovedFiles::open(&root).unwrap(), &origin);
+    let public_origin = board_config::Origin::parse("http://127.0.0.1:3000").unwrap();
+    let state = AppState::new(
+        reader.clone(),
+        ApprovedFiles::open(&root).unwrap(),
+        &origin,
+        &public_origin,
+    );
     let (metrics, app) = board_media_http::observed_router(state);
     let healthy = send(&app, "GET", "/healthz").await;
     assert_eq!(healthy.status(), StatusCode::OK);

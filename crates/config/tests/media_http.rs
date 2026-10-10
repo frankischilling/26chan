@@ -59,6 +59,13 @@ fn http_reader_rejects_unsafe_configuration_before_connecting() {
         ("MEDIA_ORIGIN", "https://127.0.0.1:3002", false),
         ("MEDIA_ORIGIN", "http://images.example.net", false),
         ("MEDIA_ORIGIN", "http://127.0.0.1:3002/path", false),
+        ("PUBLIC_ORIGIN", "http://LOCALHOST:3000/", true),
+        ("PUBLIC_ORIGIN", "http://127.0.0.1:3000/path", false),
+        ("PUBLIC_ORIGIN", "http://127.0.0.1:3000?x=1", false),
+        ("PUBLIC_ORIGIN", "http://name:secret@127.0.0.1:3000", false),
+        ("PUBLIC_ORIGIN", "http://127.0.0.1:3001", false),
+        ("PUBLIC_ORIGIN", "http://127.0.0.1:3002", false),
+        ("PUBLIC_ORIGIN", "http://board.example.com", false),
         ("API_ORIGIN", "http://127.0.0.1:3002", false),
         ("API_ORIGIN", "http://127.0.0.1:3003", true),
         ("DATABASE_URL", "synthetic-other-credential", false),
@@ -88,6 +95,14 @@ fn http_reader_rejects_unsafe_configuration_before_connecting() {
             .env(
                 "MEDIA_HTTP_CONFIG_CASE",
                 if valid { "valid" } else { "invalid" },
+            )
+            .env(
+                "MEDIA_HTTP_EXPECT_PUBLIC_ORIGIN",
+                if name == "PUBLIC_ORIGIN" && valid {
+                    "http://localhost:3000"
+                } else {
+                    "http://127.0.0.1:3000"
+                },
             )
             .env("APP_ENV", "development")
             .env(
@@ -120,5 +135,9 @@ fn media_http_config_child() {
         assert_eq!(settings.bind.port(), 3002);
         assert!(settings.approved_dir.is_absolute());
         assert_eq!(settings.origin.as_string(), "http://127.0.0.1:3002");
+        assert_eq!(
+            settings.public_origin.as_string(),
+            std::env::var("MEDIA_HTTP_EXPECT_PUBLIC_ORIGIN").unwrap()
+        );
     }
 }

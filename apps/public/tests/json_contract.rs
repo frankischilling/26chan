@@ -52,6 +52,7 @@ async fn documented_text_contract_matches_synthetic_board_across_endpoints() {
     }
     for field in [
         "sticky",
+        "sticky_cap",
         "closed",
         "bumplimit",
         "tim",

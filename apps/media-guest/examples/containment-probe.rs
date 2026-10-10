@@ -26,9 +26,14 @@ fn probe() -> std::io::Result<()> {
     }
     // This qualification worker has its own tiny command framing. It never
     // replaces production media-decode in decode.json or synthesizes candidates.
-    let kind = board_media_guest::paired::InputKind::parse(
-        &std::env::args().nth(1).unwrap_or_else(|| "image-v1".into()),
-    )?;
+    let mode = std::env::args().nth(1).unwrap_or_else(|| "image-v1".into());
+    // GIF-v3 and image-v1 use the same tiny length-prefixed probe envelope.
+    // The production GIF worker still receives its own trusted mode argument.
+    let kind = if mode == "gif-v3" {
+        board_media_guest::paired::InputKind::ImageV1
+    } else {
+        board_media_guest::paired::InputKind::parse(&mode)?
+    };
     let mut input = File::open("/dev/vda")?;
     if kind == board_media_guest::paired::InputKind::PairedV2 {
         let mut magic = [0; 8];

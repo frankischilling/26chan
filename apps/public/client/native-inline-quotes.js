@@ -1,4 +1,5 @@
 import { postId } from '../static/thread-watcher-core.v1.js';
+import { quotePostId } from './native-quote-identity.js';
 
 // Characters count UTF-16 code units in copied text and attribute names/values.
 // Pending placeholders reserve their complete ready/error status markup.
@@ -8,7 +9,7 @@ const placeholder = Object.freeze({ nodes: 2, characters: 256 });
 const validId = value => typeof value === 'string' && postId(value) === value && !/\D/.test(value);
 // Post identity is board-wide; a thread alias cannot turn a self/ancestor
 // reference into a new post. Resolution and worker results still bind threads.
-const samePost = (a, b) => a.board === b.board && a.post === b.post;
+const samePost = (a, b) => a.board === b.board && quotePostId(a.post) === quotePostId(b.post);
 
 // Shared validation/build helpers and the projection registry are injected from
 // the page's single instances. This module imports no parser or network code.
@@ -55,7 +56,7 @@ export function mountNativeInlineQuotes({ root, board, thread = null, mediaOrigi
   function local(ref) {
     if (ref.board !== board) return null;
     const found = canonical(document.getElementById(`p${ref.post}`));
-    return found && (ref.thread === null || ref.thread === found.ref.thread) ? found : null;
+    return found && (ref.thread === null || quotePostId(ref.thread) === found.ref.thread) ? found : null;
   }
   function source(link) {
     const owner = projection.owner(link);
@@ -107,7 +108,7 @@ export function mountNativeInlineQuotes({ root, board, thread = null, mediaOrigi
       && characters - previous.characters + cost.characters <= bounds.characters;
   }
   function prepare(tree, context, ref, target, link) {
-    const plan = prepareQuotePost(tree, context, ref.post);
+    const plan = prepareQuotePost(tree, context, quotePostId(ref.post));
     const copied = target ? prepareBacklinks?.(target.post, link) : null;
     const mobileLinks = mobileDevice ? plan.quotes.filter(href => quoteTarget(href, context)) : [];
     if (mobileLinks.length > bounds.quotes) throw new RangeError('inline-quotes');
@@ -200,7 +201,7 @@ export function mountNativeInlineQuotes({ root, board, thread = null, mediaOrigi
     }
     entry.cleanup = prepared.copied?.mount(copy);
     nodes += prepared.cost.nodes - entry.cost.nodes; characters += prepared.cost.characters - entry.cost.characters;
-    entry.cost = prepared.cost; entry.context = { ...prepared.context, post: entry.ref.post };
+    entry.cost = prepared.cost; entry.context = { ...prepared.context, post: quotePostId(entry.ref.post) };
     if (entry.node) entry.node.replaceWith(copy); else entry.location.parent.insertBefore(copy, entry.location.before);
     entry.node = copy; entry.status = 'ready';
     stopPending(entry); mark(entry, 'aria-expanded', 'true'); entry.link.classList.add('linkfade');

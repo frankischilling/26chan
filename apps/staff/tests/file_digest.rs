@@ -32,6 +32,9 @@ struct Fixture {
 }
 impl Fixture {
     async fn new(digest: Option<&str>) -> Self {
+        Self::new_with_format(digest, "png").await
+    }
+    async fn new_with_format(digest: Option<&str>, output_format: &str) -> Self {
         let owner = pool("MIGRATION_DATABASE_URL").await;
         let board = format!("s{}", &uuid::Uuid::new_v4().simple().to_string()[..9]);
         sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Staff attachment test','Synthetic',16000,100,100,100,10)")
@@ -47,8 +50,8 @@ impl Fixture {
         let report = sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES ($1,$2,'Synthetic') RETURNING id")
             .bind(&board).bind(post).fetch_one(&owner).await.unwrap();
         let asset = uuid::Uuid::new_v4().simple().to_string();
-        sqlx::query("INSERT INTO media.assets(id,job_id,lease_token,sha256,bytes,width,height,state,approved_at,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height) VALUES ($1,$1,$1,repeat('a',64),100,500,300,'approved',clock_timestamp(),$2,CASE WHEN $2::text IS NOT NULL THEN repeat('c',64) END,CASE WHEN $2::text IS NOT NULL THEN 50 END,CASE WHEN $2::text IS NOT NULL THEN 250 END,CASE WHEN $2::text IS NOT NULL THEN 150 END)")
-            .bind(&asset).bind(digest).execute(&owner).await.unwrap();
+        sqlx::query("INSERT INTO media.assets(id,job_id,lease_token,sha256,bytes,width,height,state,approved_at,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,output_format) VALUES ($1,$1,$1,repeat('a',64),100,500,300,'approved',clock_timestamp(),$2,CASE WHEN $2::text IS NOT NULL THEN repeat('c',64) END,CASE WHEN $2::text IS NOT NULL THEN 50 END,CASE WHEN $2::text IS NOT NULL THEN 250 END,CASE WHEN $2::text IS NOT NULL THEN 150 END,$3)")
+            .bind(&asset).bind(digest).bind(output_format).execute(&owner).await.unwrap();
         sqlx::query("INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler) VALUES ($1,$2,$2,$3,100,500,300,false)")
             .bind(post).bind(&asset).bind("<img src=x onerror=alert(1)> & \"name\".png").execute(&owner).await.unwrap();
         // Parallel cases deliberately reuse digest bytes. Keep each report
@@ -180,6 +183,61 @@ impl Fixture {
 }
 
 const DIGEST: &str = "00112233445566778899aabbccddeeff";
+
+#[tokio::test]
+async fn approved_gif_format_controls_staff_original_link_and_keeps_thumbnail_route() {
+    let f = Arc::new(Fixture::new_with_format(Some(DIGEST), "gif").await);
+    let exercise = f.clone();
+    let result = tokio::spawn(async move {
+        let f = exercise;
+        let format: String = sqlx::query_scalar(
+            "SELECT output_format FROM content.staff_post_media WHERE post_id=$1",
+        )
+        .bind(f.post)
+        .fetch_one(&f.state.staff)
+        .await
+        .unwrap();
+        assert_eq!(format, "gif");
+
+        let session = auth::Session {
+            account_id: f.account,
+            role: "moderator".into(),
+            csrf_hash: vec![],
+            recent: true,
+            permissions: board_staff::access::Permissions {
+                allow_boards: vec![f.board.clone()],
+                ..Default::default()
+            },
+        };
+        let reports = store::reports(&f.state.staff, &session).await.unwrap();
+        let attachment = reports
+            .iter()
+            .find(|report| report.id == f.report)
+            .and_then(|report| report.attachment.as_ref())
+            .unwrap();
+        assert_eq!(attachment.output_format.extension(), "gif");
+        let tim = attachment.tim;
+
+        let (status, html) = f.html(true).await;
+        assert_eq!(status, StatusCode::OK);
+        let article = html
+            .split(&format!("<article id=\"report-{}\">", f.report))
+            .nth(1)
+            .unwrap()
+            .split("</article>")
+            .next()
+            .unwrap();
+        let original = format!("http://127.0.0.1:3002/{}/{tim}.gif", f.board);
+        let wrong_original = format!("http://127.0.0.1:3002/{}/{tim}.png", f.board);
+        let thumbnail = format!("http://127.0.0.1:3002/{}/{tim}s.jpg", f.board);
+        assert!(article.contains(&format!("href=\"{original}\"")));
+        assert!(!article.contains(&wrong_original));
+        assert!(article.contains(&format!("src=\"{thumbnail}\"")));
+    })
+    .await;
+    f.cleanup().await;
+    result.unwrap();
+}
 
 #[tokio::test]
 async fn file_md5_is_read_only_scoped_and_consistent_for_duplicate_reports() {
@@ -359,22 +417,16 @@ async fn file_digest_expires_by_wall_clock_inside_an_older_transaction() {
 }
 
 #[tokio::test]
-async fn file_digest_view_keeps_its_owner_grants_barrier_and_column_order() {
+async fn file_digest_view_keeps_restricted_grants_barrier_and_approved_format() {
     let owner = pool("MIGRATION_DATABASE_URL").await;
     let mut tx = owner.begin().await.unwrap();
-    let metadata = "SELECT relowner::regrole::text,relacl::text,reloptions FROM pg_class WHERE oid='content.staff_post_media'::regclass";
-    let before: (String, Option<String>, Vec<String>) =
-        sqlx::query_as(metadata).fetch_one(&mut *tx).await.unwrap();
-    sqlx::raw_sql(include_str!(
-        "../../../migrations/0107_staff_file_digest.sql"
-    ))
-    .execute(&mut *tx)
-    .await
-    .unwrap();
-    let after: (String, Option<String>, Vec<String>) =
-        sqlx::query_as(metadata).fetch_one(&mut *tx).await.unwrap();
-    assert_eq!(before, after);
-    assert!(after.2.contains(&"security_barrier=true".into()));
+    // The historical 0107 upgrade is exercised on its actual predecessor by
+    // test-staff-file-digest-migration.sh. Replaying it here would remove the
+    // approved-format column appended by 0123, which PostgreSQL rejects.
+    let (view_owner, options): (String, Vec<String>) = sqlx::query_as("SELECT relowner::regrole::text,reloptions FROM pg_class WHERE oid='content.staff_post_media'::regclass")
+        .fetch_one(&mut *tx).await.unwrap();
+    assert_eq!(view_owner, "board_migrator");
+    assert!(options.contains(&"security_barrier=true".into()));
     let columns: Vec<String> = sqlx::query_scalar("SELECT attname::text FROM pg_attribute WHERE attrelid='content.staff_post_media'::regclass AND attnum>0 AND NOT attisdropped ORDER BY attnum")
         .fetch_all(&mut *tx).await.unwrap();
     assert_eq!(
@@ -390,11 +442,12 @@ async fn file_digest_view_keeps_its_owner_grants_barrier_and_column_order() {
             "thumbnail_width",
             "thumbnail_height",
             "available",
-            "md5"
+            "md5",
+            "output_format"
         ]
     );
-    let privileges: (bool, bool, bool) = sqlx::query_as("SELECT has_table_privilege('board_staff','content.staff_post_media','SELECT'),has_table_privilege('board_staff','media.assets','SELECT'),EXISTS(SELECT 1 FROM pg_class c,aclexplode(c.relacl) acl WHERE c.oid='content.staff_post_media'::regclass AND acl.grantee=0)")
+    let privileges: (bool, bool, bool, bool) = sqlx::query_as("SELECT has_table_privilege('board_staff','content.staff_post_media','SELECT'),has_any_column_privilege('board_staff','media.assets','SELECT'),EXISTS(SELECT 1 FROM pg_class c,aclexplode(c.relacl) acl WHERE c.oid='content.staff_post_media'::regclass AND acl.grantee=0),EXISTS(SELECT 1 FROM pg_attribute a CROSS JOIN LATERAL aclexplode(a.attacl) acl WHERE a.attrelid='content.staff_post_media'::regclass AND a.attnum>0 AND NOT a.attisdropped AND acl.grantee=0)")
         .fetch_one(&mut *tx).await.unwrap();
-    assert_eq!(privileges, (true, false, false));
+    assert_eq!(privileges, (true, false, false, false));
     tx.rollback().await.unwrap();
 }

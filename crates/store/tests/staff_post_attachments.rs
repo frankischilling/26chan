@@ -214,6 +214,7 @@ impl Fixture {
                 },
                 context,
                 PostMetadata {
+                    drawing: None,
                     keys,
                     country_database: None,
                     flag: "",

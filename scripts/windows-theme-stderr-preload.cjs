@@ -4,7 +4,8 @@
 // interception. An outer stderr filter alone would leave raw records in traces.
 const path = require('node:path');
 const {
-  CARRY_BYTES, EVENT_LIMIT, EVENT_MARKER, TRUNCATED_MARKER, UNAVAILABLE_MARKER, SETUP_REFUSED_MARKER, recognizeChromiumConnectLine,
+  CARRY_BYTES, EVENT_LIMIT, EVENT_MARKER, TRUNCATED_MARKER, UNAVAILABLE_MARKER, SETUP_REFUSED_MARKER,
+  CONTROL_COORDINATOR_READY_MARKER, CONTROL_WORKER_READY_MARKER, recognizeChromiumConnectLine,
 } = require('./windows-theme-stderr-filter.cjs');
 
 function installBrowserDebugFilter(debug, emit) {
@@ -36,15 +37,39 @@ function installBrowserDebugFilter(debug, emit) {
   return sink;
 }
 
-function initializeProbe({ env, platform, version, loadDebug, emit }) {
+// Playwright 1.62 forks the pinned workerProcessEntry.js directly, then sets
+// TEST_WORKER_INDEX inside WorkerMain. --require runs before that constructor.
+// Use the real child entry path at preload time; a coordinator's environment
+// (including a forged TEST_WORKER_INDEX) never establishes a worker role.
+function isPinnedWorkerEntry(entryScript, playwrightPackagePath, platform) {
+  if (typeof entryScript !== 'string' || typeof playwrightPackagePath !== 'string' ||
+      !path.isAbsolute(entryScript) || !path.isAbsolute(playwrightPackagePath)) return false;
+  const expected = path.join(path.dirname(playwrightPackagePath), 'lib', 'worker', 'workerProcessEntry.js');
+  const actual = path.normalize(entryScript);
+  const pinned = path.normalize(expected);
+  return platform === 'win32'
+    ? actual.toLowerCase() === pinned.toLowerCase()
+    : actual === pinned;
+}
+
+function initializeProbe({ env, platform, version, loadDebug, emit, entryScript, playwrightPackagePath }) {
   let debug;
   try {
+    const control = env.WINDOWS_BROWSER_CONTROL === '1' && env.WINDOWS_BROWSER_CONTROL_OWNED === '1';
+    const theme = /^[1-8]$/.test(env.THEME_SHARD ?? '') &&
+      (!control || env.WINDOWS_BROWSER_CONTROL_SUITE === 'themes');
+    const media = control && env.WINDOWS_BROWSER_CONTROL_SUITE === 'media-visual' &&
+      env.THEME_SHARD === 'media-visual';
+    const worker = isPinnedWorkerEntry(entryScript, playwrightPackagePath, platform);
     if (platform !== 'win32' || env.DEBUG !== 'pw:browser' || env.DEBUG_COLORS !== '0' ||
-        env.DEBUG_FILE !== undefined || !/^[1-8]$/.test(env.THEME_SHARD ?? '') || version !== '1.62.0') {
+        env.DEBUG_FILE !== undefined || (!theme && !media) || version !== '1.62.0') {
       throw new Error('Owned browser debug configuration unavailable');
     }
     debug = loadDebug();
     installBrowserDebugFilter(debug, emit);
+    // Opt-in control needs positive proof from the coordinator AND its real
+    // Playwright test worker. Ordinary theme instrumentation emits nothing new.
+    if (control) emit(`${worker ? CONTROL_WORKER_READY_MARKER : CONTROL_COORDINATOR_READY_MARKER}\n`);
     return true;
   } catch {
     // Fallback happens before the CLI imports or starts any tests. Disable only
@@ -72,17 +97,19 @@ function runGuardedSetup({ env, setup, emit }) {
   }
 }
 
-module.exports = { installBrowserDebugFilter, initializeProbe, runGuardedSetup };
+module.exports = { installBrowserDebugFilter, initializeProbe, isPinnedWorkerEntry, runGuardedSetup };
 
 if (process.env.WINDOWS_THEME_STDERR_PROBE === '1') {
   runGuardedSetup({
     env: process.env, emit: record => process.stderr.write(record),
     setup: () => {
       const packagePath = require.resolve('playwright-core/package.json');
+      const playwrightPackagePath = require.resolve('playwright/package.json');
       // This exact pinned bundle exposes the same debug singleton used by
       // coreBundle's DebugLogger. --require is inherited by Playwright workers.
       return initializeProbe({
         env: process.env, platform: process.platform, version: require(packagePath).version,
+        entryScript: process.argv[1], playwrightPackagePath,
         loadDebug: () => require(path.join(path.dirname(packagePath), 'lib/utilsBundle.js')).debug,
         emit: record => process.stderr.write(record),
       });

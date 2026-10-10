@@ -135,7 +135,7 @@ pub async fn boards(
         if board.comment_code_spacing { value["code_tags"] = json!(1); }
         if board.comment_sjis_spacing { value["sjis_tags"] = json!(1); }
         if board.math_tags { value["math_tags"] = json!(1); }
-        if board.ordinary_drawing_enabled(state.media.is_some()) { value["oekaki"] = json!(1); }
+        if board.oekaki { value["oekaki"] = json!(1); }
         if board.country_flags { value["country_flags"] = json!(1); }
         let flags = (!board.board_flags.is_empty()).then(|| OrderedFlags(board.flag_options()));
         if board.forced_anon {
@@ -180,6 +180,7 @@ fn post_json(
         dice_result: post.post.dice_result.as_deref(),
         fortune_text: post.post.fortune_text.as_deref(),
         fortune_color: post.post.fortune_color.as_deref(),
+        drawing: post.drawing_annotation(),
     }
     .render()?;
     let op = post.post.id == thread.id;
@@ -239,6 +240,9 @@ fn post_json(
         }
         if thread.sticky {
             value["sticky"] = json!(1);
+            if thread.undead {
+                value["sticky_cap"] = json!(board.reply_limit);
+            }
         }
         if thread.closed || thread.archived_at.is_some() {
             value["closed"] = json!(1);
@@ -279,7 +283,7 @@ fn post_json(
                     .filter(|(stem, _)| !stem.is_empty())
                     .map_or(file.filename.as_str(), |(stem, _)| stem)
             );
-            value["ext"] = json!(".png");
+            value["ext"] = json!(format!(".{}", file.output_format.extension()));
             value["fsize"] = json!(file.bytes);
             value["w"] = json!(file.width);
             value["h"] = json!(file.height);
@@ -386,6 +390,7 @@ pub async fn thread_selection(
             "tail_size": tail_size, "tail_id": tail_id});
         for key in [
             "sticky",
+            "sticky_cap",
             "closed",
             "archived",
             "unique_ips",
@@ -644,6 +649,8 @@ mod poster_id_projection_tests {
                 dice_result: None,
                 fortune_text: None,
                 fortune_color: None,
+                drawing_time_seconds: None,
+                drawing_source_post_id: None,
                 created_at: chrono::DateTime::from_timestamp(1, 0).unwrap(),
                 deleted: false,
                 attachment: None,
@@ -674,6 +681,52 @@ mod poster_id_projection_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn gif_metadata_uses_approved_format_and_deleted_files_omit_the_url_fields() {
+        let fixture = crate::native_updater_snapshot::tests::fixture();
+        for deleted in [false, true] {
+            let mut post = fixture.posts[0].clone();
+            post.attachment = Some(board_store::post_media::PostAttachment {
+                post_id: post.id,
+                asset_id: "0".repeat(32),
+                filename: "owned.png".into(),
+                bytes: 100,
+                width: 32,
+                height: 24,
+                spoiler: false,
+                file_deleted: deleted,
+                tim: 42,
+                md5: None,
+                thumbnail_width: Some(32),
+                thumbnail_height: Some(24),
+                output_format: board_store::media_assets::MediaFormat::Gif,
+            });
+            let value = post_json(
+                post,
+                &fixture.thread,
+                &fixture.board,
+                0,
+                0,
+                None,
+                QuoteContext {
+                    targets: &fixture.quote_targets,
+                    current_thread: Some(fixture.thread.id),
+                },
+            )
+            .unwrap();
+            if deleted {
+                assert_eq!(value["filedeleted"], 1);
+                for key in ["ext", "tim", "fsize", "md5"] {
+                    assert!(value.get(key).is_none());
+                }
+            } else {
+                assert_eq!(value["ext"], ".gif");
+                assert_eq!(value["filename"], "owned");
+                assert_eq!(value["tn_w"], 32);
+                assert!(value.get("md5").is_none());
+            }
+        }
+    }
     #[test]
     fn deletion_during_preview_does_not_wrap_reply_count() {
         assert!(checked_reply_count(0).is_err());
@@ -732,6 +785,7 @@ mod preview_reference_tests {
             md5: None,
             thumbnail_width: Some(10),
             thumbnail_height: Some(10),
+            output_format: board_store::media_assets::MediaFormat::Png,
         });
         post
     }

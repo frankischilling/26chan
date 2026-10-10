@@ -250,7 +250,7 @@ class IntakeExercise(MediaHttpExercise):
         print('PASS excessive, truncated and minimized JPEG mutation grant no approval or files; healthy JPEG dispatch succeeds afterward', flush=True)
 
         gif_root = REPO / 'tests/media/fixtures/gif'
-        for data in [(gif_root / name).read_bytes() for name in ('too-wide.gif', 'animated.gif', 'partial.gif')] + [
+        for data in [(gif_root / 'too-wide.gif').read_bytes()] + [
                 (gif_root / 'static.gif').read_bytes()[:-1],
                 (gif_root / 'static.gif').read_bytes() + b'JUNK;',
                 (gif_root / 'static.gif').read_bytes() * 2]:
@@ -264,16 +264,22 @@ class IntakeExercise(MediaHttpExercise):
             assert status == 200 and result['state'] == 'failed' and 'output_id' not in result
             assert sql(f"SELECT failure FROM media.jobs WHERE id='{job}'") == 'invalid_output'
             assert set(self.objects.iterdir()) == approved_files, 'rejected GIF published a file'
-        job, cap = self.reserve_http()
-        assert self.upload_http(job, cap, (gif_root / 'transparent.gif').read_bytes())[0] == 202
-        asset = self.finish(self.dispatch()).decode().strip()
-        assert HEX.fullmatch(asset)
-        self.clean_vm()
-        status, result = self.call(f'/v1/uploads/{job}', headers={'Upload-Capability': cap})
-        assert status == 200 and result['state'] == 'published' and result['output_id'] == asset
-        status, _, body = self.http(f'/media/{asset}.png')
-        assert status == 200 and body == (self.objects / f'{asset}.png').read_bytes()
-        print('PASS excessive, animated, partial, truncated and trailing-data GIFs grant no approval or files; healthy GIF dispatch succeeds afterward', flush=True)
+        for name in ('transparent', 'animated', 'partial'):
+            job, cap = self.reserve_http()
+            assert self.upload_http(job, cap, (gif_root / f'{name}.gif').read_bytes())[0] == 202
+            asset = self.finish(self.dispatch()).decode().strip()
+            assert HEX.fullmatch(asset)
+            self.clean_vm()
+            status, result = self.call(f'/v1/uploads/{job}', headers={'Upload-Capability': cap})
+            assert status == 200 and result['state'] == 'published' and result['output_id'] == asset
+            status, headers, body = self.http(f'/media/{asset}.gif')
+            assert status == 200 and body == (self.objects / f'{asset}.gif').read_bytes()
+            assert headers['content-type'] == 'image/gif'
+            assert self.http(f'/media/{asset}.png')[0] == 404
+            status, headers, body = self.http(f'/media/{asset}.thumb.png')
+            assert status == 200 and headers['content-type'] == 'image/png'
+            assert body == (self.objects / f'{asset}.thumb.png').read_bytes()
+        print('PASS excessive, truncated and trailing-data GIFs grant no approval or files; animated, transparent and partial-canvas GIFs retain GIF output with PNG thumbnails', flush=True)
 
         job, cap = self.reserve_http()
         assert self.upload_http(job, cap, iter([b'x' * 8192] * 1025), chunked=True)[0] == 413

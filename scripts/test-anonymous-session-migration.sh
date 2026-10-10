@@ -33,7 +33,7 @@ SQL
 # Later migrations depend on anonymous tables and must not run before 0065.
 for migration in migrations/*.sql; do
     [[ $migration < migrations/0065_anonymous_sessions.sql ]] || break
-    "${db[@]}" -d anonymous_upgrade --single-transaction -c 'SET ROLE board_migrator' -f - < "$migration"
+    "${db[@]}" -U board_migrator -d anonymous_upgrade --single-transaction -f - < "$migration"
 done
 "${db[@]}" -d anonymous_upgrade <<'SQL'
 SET ROLE board_migrator;
@@ -48,7 +48,7 @@ CREATE TABLE public.owned_anonymous_posts_before AS SELECT * FROM content.posts;
 CREATE TABLE public.owned_anonymous_threads_before AS SELECT * FROM content.threads;
 CREATE TABLE public.owned_anonymous_deletion_before AS SELECT * FROM post_secrets.deletion;
 SQL
-"${db[@]}" -d anonymous_upgrade --single-transaction -c 'SET ROLE board_migrator' -f - < migrations/0065_anonymous_sessions.sql
+"${db[@]}" -U board_migrator -d anonymous_upgrade --single-transaction -f - < migrations/0065_anonymous_sessions.sql
 "${db[@]}" -d anonymous_upgrade <<'SQL'
 SET ROLE board_migrator;
 DO $$ BEGIN
@@ -71,7 +71,7 @@ SQL
 # 0065 boundary: later migrations legitimately extend the content row shape.
 for migration in migrations/*.sql; do
     [[ $migration > migrations/0065_anonymous_sessions.sql ]] || continue
-    "${db[@]}" -d anonymous_upgrade --single-transaction -c 'SET ROLE board_migrator' -f - < "$migration"
+    "${db[@]}" -U board_migrator -d anonymous_upgrade --single-transaction -f - < "$migration"
 done
 "${db[@]}" -d anonymous_upgrade <<'SQL'
 DO $$ BEGIN

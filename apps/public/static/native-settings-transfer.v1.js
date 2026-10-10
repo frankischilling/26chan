@@ -42,6 +42,8 @@ const BOOLEAN_SETTINGS = new Set([
   'centeredThreads', 'disableAll', 'IDColor', 'forceHTTPS', 'unmuteWebm',
 ]);
 const INACTIVE_COMPATIBILITY_SETTINGS = new Set(SETTINGS_TRANSFER_INACTIVE_COMPATIBILITY_KEYS);
+const inactiveSetting = (key, httpsAvailable) => INACTIVE_COMPATIBILITY_SETTINGS.has(key)
+  && !(key === 'forceHTTPS' && httpsAvailable === true);
 const POSITION_SETTINGS = new Set(['TW-position', 'TN-position', 'SN-position']);
 const CATALOG_ORDERS = new Set(['alt', 'absdate', 'date', 'r']);
 const encoder = new TextEncoder();
@@ -188,7 +190,7 @@ export function checkTransferValues(values) {
   return { status: 'ok', values: normalized };
 }
 
-function checkedPayload(payload) {
+function checkedPayload(payload, { httpsAvailable = false } = {}) {
   if (!record(payload) || !safeObjectTree(payload)) {
     return { status: 'invalid', error: 'The restore payload must be an object without reserved property names.' };
   }
@@ -211,7 +213,7 @@ function checkedPayload(payload) {
     settings: Object.entries(settings.value).sort(([left], [right]) => left.localeCompare(right)).map(([key, value]) => ({
       key,
       value: typeof value === 'object' ? JSON.stringify(value) : String(value),
-      inactiveCompatibility: INACTIVE_COMPATIBILITY_SETTINGS.has(key),
+      inactiveCompatibility: inactiveSetting(key, httpsAvailable),
     })),
     filters: null,
     css: null,
@@ -261,7 +263,7 @@ function encodePayload(payload) {
   return { status: 'ok', decoded, encoded };
 }
 
-export function parseSettingsTransferHash(hash) {
+export function parseSettingsTransferHash(hash, capabilities) {
   if (typeof hash !== 'string' || !hash.startsWith('#cfg=')) return { status: 'none' };
   if (hash.length > SETTINGS_TRANSFER_LIMITS.encodedChars + 5) {
     return { status: 'invalid', error: 'The restore link is too large.' };
@@ -280,7 +282,7 @@ export function parseSettingsTransferHash(hash) {
   let payload;
   try { payload = JSON.parse(decoded); }
   catch { return { status: 'invalid', error: 'The restore payload is not valid JSON.' }; }
-  return checkedPayload(payload);
+  return checkedPayload(payload, capabilities);
 }
 
 function readForExport(readItem, key) {
@@ -290,7 +292,7 @@ function readForExport(readItem, key) {
   } catch { return { status: 'unavailable' }; }
 }
 
-export function buildSettingsTransfer(readItem) {
+export function buildSettingsTransfer(readItem, { httpsAvailable = false } = {}) {
   if (typeof readItem !== 'function') return { status: 'invalid', error: 'Settings storage is unavailable.' };
   const storedSettings = readForExport(readItem, '4chan-settings');
   if (storedSettings.status !== 'ok') return { status: 'invalid', error: 'Settings storage could not be read.' };
@@ -298,7 +300,7 @@ export function buildSettingsTransfer(readItem) {
   const settingsResult = validateTransferSettings(settings);
   if (settingsResult.status !== 'ok') return { status: 'invalid', error: `Stored settings cannot be exported: ${settingsResult.error}` };
   const payload = { settings };
-  const inactiveCompatibility = Object.keys(settingsResult.value).filter(key => INACTIVE_COMPATIBILITY_SETTINGS.has(key));
+  const inactiveCompatibility = Object.keys(settingsResult.value).filter(key => inactiveSetting(key, httpsAvailable));
 
   for (const [storageKey, field, validate] of [
     ['4chan-filters', 'filters', validateTransferFilters],
@@ -327,10 +329,10 @@ export function canonicalBoardURL(href) {
   return match ? `${url.origin}/${match[1]}/` : null;
 }
 
-export function settingsTransferURL(href, readItem) {
+export function settingsTransferURL(href, readItem, capabilities) {
   const base = canonicalBoardURL(href);
   if (!base) return { status: 'invalid', error: 'Settings export is available only on a board page.' };
-  const transfer = buildSettingsTransfer(readItem);
+  const transfer = buildSettingsTransfer(readItem, capabilities);
   if (transfer.status !== 'ok') return transfer;
   return { ...transfer, url: `${base}#cfg=${transfer.encoded}` };
 }
@@ -340,7 +342,7 @@ function stripTransferHash(window) {
   catch { /* The review remains safe even if history cannot be changed. */ }
 }
 
-export function mountNativeSettingsTransfer({ root, readItem, restore } = {}) {
+export function mountNativeSettingsTransfer({ root, readItem, restore, httpsAvailable = false } = {}) {
   const document = root?.ownerDocument;
   const window = document?.defaultView;
   if (!root || !window || !root.isConnected || typeof readItem !== 'function' || typeof restore !== 'function') return null;
@@ -410,7 +412,7 @@ export function mountNativeSettingsTransfer({ root, readItem, restore } = {}) {
     if (!root.isConnected) { destroy(); return; }
     pendingReview = null;
     closeActive(false);
-    const transfer = settingsTransferURL(window.location.href, readItem);
+    const transfer = settingsTransferURL(window.location.href, readItem, { httpsAvailable });
     const { dialog, body, dismiss } = panel('Export Settings', 'exportSettings');
     const intro = node('p', transfer.status === 'ok'
       ? 'Copy and save this URL, or bookmark the Restore link, to move these preferences to another browser.'
@@ -422,6 +424,7 @@ export function mountNativeSettingsTransfer({ root, readItem, restore } = {}) {
       if (transfer.inactiveCompatibility.length) {
         body.append(node('p', `This export preserves inactive compatibility values (${transfer.inactiveCompatibility.join(', ')}). They are not enabled by this version.`, 'settingsTransferCompatibility'));
       }
+      if (httpsAvailable) body.append(node('p', 'The HTTPS host cookie is not included. Choose Always use HTTPS in Settings on the receiving browser to enable it.', 'settingsTransferHTTPS'));
       field = node('input', undefined, 'export-field'); field.type = 'text'; field.readOnly = true;
       field.value = transfer.url; field.setAttribute('aria-label', 'Settings export URL');
       const fieldRow = node('p', undefined, 'center'); fieldRow.append(field);
@@ -460,7 +463,8 @@ export function mountNativeSettingsTransfer({ root, readItem, restore } = {}) {
     const list = node('ul', undefined, 'settingsTransferReview');
     if (!review.preview.settings.length) list.append(node('li', 'Preferences: browser defaults'));
     for (const setting of review.preview.settings) {
-      const suffix = setting.inactiveCompatibility ? ' (inactive compatibility value)' : '';
+      const suffix = setting.inactiveCompatibility ? ' (inactive compatibility value)'
+        : setting.key === 'forceHTTPS' ? ' (HTTPS host cookie is unchanged)' : '';
       list.append(node('li', `${setting.key}: ${setting.value}${suffix}`));
     }
     function rawDetails(summaryText, raw, className) {
@@ -536,7 +540,7 @@ export function mountNativeSettingsTransfer({ root, readItem, restore } = {}) {
   function consumeHash() {
     const hash = window.location.hash;
     if (!hash.startsWith('#cfg=')) return;
-    const parsed = parseSettingsTransferHash(hash);
+    const parsed = parseSettingsTransferHash(hash, { httpsAvailable });
     stripTransferHash(window);
     if (parsed.status !== 'ok') {
       pendingReview = null;

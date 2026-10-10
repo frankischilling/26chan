@@ -466,6 +466,7 @@ test('nested and crossed delimiters render nonrecursively while all source proje
 });
 
 test('malformed and over-budget nested input stays literal, cannot execute HTML, and leaves the real worker usable', async ({ page }) => {
+  await listenForMainInit(page);
   const injectionRequests = [];
   page.on('request', request => {
     if (new URL(request.url()).pathname === '/math-injection') injectionRequests.push(request.url());
@@ -483,6 +484,9 @@ test('malformed and over-budget nested input stays literal, cannot execute HTML,
     };
   });
   await page.goto('/sci/thread/1000002');
+  // The empty fixture starts its math import asynchronously. Wait for the
+  // released page bootstrap before importing the module into the owned root.
+  await expect.poll(() => page.evaluate(() => mainInitTrace.filter(row => row.parsed).length)).toBe(1);
   const deep = '[math]'.repeat(1000) + 'x' + '[/math]'.repeat(1000);
   const hostile = '[math][eqn]\\href{https://evil.invalid/x}{x}<img src="/math-injection" onerror="window.nestedMathExecuted=true">[/eqn][/math]';
   const inputs = [

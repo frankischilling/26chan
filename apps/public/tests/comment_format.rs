@@ -200,19 +200,21 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .fetch_one(&owner).await.unwrap();
     assert!(trigger_safe);
 
-    // A deletion changes only its established fields, not the format stamp.
+    // Fresh whole deletion clears the format stamp along with its payload.
     sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
         .bind(ids[7])
         .execute(&public)
         .await
         .unwrap();
     assert_eq!(
-        sqlx::query_scalar::<_, i16>("SELECT comment_format FROM content.posts WHERE id=$1")
-            .bind(ids[7])
-            .fetch_one(&public)
-            .await
-            .unwrap(),
-        111
+        sqlx::query_as::<_, (i16, bool)>(
+            "SELECT comment_format,content_erased FROM content.posts WHERE id=$1"
+        )
+        .bind(ids[7])
+        .fetch_one(&public)
+        .await
+        .unwrap(),
+        (0, true)
     );
 
     // A standalone role switch is not an attachment capability invocation.

@@ -223,7 +223,7 @@ impl Fixture {
     }
 
     async fn saved(&self, target: i64) -> serde_json::Value {
-        let raw: String = sqlx::query_scalar("SELECT jsonb_build_object('snapshot_version',1,'snapshot_name',p.name,'snapshot_trip',p.trip,'snapshot_capcode',p.capcode,'snapshot_subject',p.subject,'snapshot_comment',p.comment,'snapshot_comment_format',p.comment_format,'snapshot_staff_authorized_limits',p.staff_authorized_limits,'snapshot_wordfiltered',p.wordfilter_payload IS NOT NULL,'snapshot_image_spoiler',p.image_spoiler,'snapshot_filename',m.filename,'snapshot_dice_result',p.dice_result,'snapshot_fortune_text',p.fortune_text,'snapshot_fortune_color',p.fortune_color)::text FROM content.posts p LEFT JOIN content.post_media m ON m.post_id=p.id WHERE p.id=$1")
+        let raw: String = sqlx::query_scalar("SELECT jsonb_build_object('snapshot_version',2,'snapshot_name',p.name,'snapshot_trip',p.trip,'snapshot_capcode',p.capcode,'snapshot_subject',p.subject,'snapshot_comment',p.comment,'snapshot_comment_format',p.comment_format,'snapshot_staff_authorized_limits',p.staff_authorized_limits,'snapshot_wordfiltered',p.wordfilter_payload IS NOT NULL,'snapshot_image_spoiler',p.image_spoiler,'snapshot_filename',m.filename,'snapshot_dice_result',p.dice_result,'snapshot_fortune_text',p.fortune_text,'snapshot_fortune_color',p.fortune_color,'snapshot_drawing_time_seconds',p.drawing_time_seconds,'snapshot_drawing_source_post_id',p.drawing_source_post_id)::text FROM content.posts p LEFT JOIN content.post_media m ON m.post_id=p.id WHERE p.id=$1")
             .bind(target).fetch_one(&self.owner).await.unwrap();
         serde_json::from_str(&raw).unwrap()
     }
@@ -248,7 +248,7 @@ impl Fixture {
     }
 
     async fn rich_post(&self) {
-        sqlx::query("UPDATE content.posts SET name='',trip='!!AbCdEf012+/',capcode='admin_highlight',subject='<b>saved & subject</b>',comment='[code]stored & <script> text[/code]',comment_format=127,staff_authorized_limits=true,dice_result='3d6: 2 + 4 + 6 = 12',fortune_text=NULL,fortune_color=NULL WHERE id=$1")
+        sqlx::query("UPDATE content.posts SET name='',trip='!!AbCdEf012+/',capcode='admin_highlight',subject='<b>saved & subject</b>',comment='[code]stored & <script> text[/code]',comment_format=127,staff_authorized_limits=true,dice_result='3d6: 2 + 4 + 6 = 12',fortune_text=NULL,fortune_color=NULL,drawing_time_seconds=3630,drawing_source_post_id=NULL WHERE id=$1")
             .bind(self.posts[0]).execute(&self.owner).await.unwrap();
         // Filename survives deletion; no real bytes or media jobs are required.
         let asset = uuid::Uuid::new_v4().simple().to_string();
@@ -305,8 +305,11 @@ async fn scoped_moderator_archives_old_undead_thread_with_exact_snapshot_once() 
         let (status, controls) = f.request("/reports", None).await;
         assert_eq!(status, StatusCode::OK);
         assert!(controls.contains("Archive thread"));
+        assert!(controls.contains("<br><br><small><b>Oekaki Post</b> (Time: 1h 1m)</small>"));
         let before = f.state().await;
         let saved = f.saved(f.posts[0]).await;
+        assert_eq!(saved["snapshot_drawing_time_seconds"], 3630);
+        assert!(saved["snapshot_drawing_source_post_id"].is_null());
         let start: chrono::DateTime<chrono::Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
             .fetch_one(&f.owner).await.unwrap();
         let (a,b) = tokio::join!(f.action(f.posts[0],"force-archive"),f.action(f.posts[0],"force-archive"));
@@ -342,6 +345,7 @@ async fn scoped_moderator_archives_old_undead_thread_with_exact_snapshot_once() 
         // Askama uses numeric HTML entities. Assert the complete typed code
         // rendering, not just absence of an executable script fragment.
         assert!(html.contains("<pre class=\"prettyprint\">stored &#38; &#60;script&#62; text</pre>"),"saved comment must use the normal escaped code rendering");
+        assert!(html.contains("<br><br><small><b>Oekaki Post</b> (Time: 1h 1m)</small>"));
         assert!(html.contains("<h3>&#60;b&#62;saved &#38; subject&#60;/b&#62;</h3>"));
         assert!(!html.contains("Archive thread"));
         assert!(!html.contains("<script> text"));

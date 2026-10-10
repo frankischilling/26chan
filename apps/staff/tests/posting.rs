@@ -495,6 +495,9 @@ async fn ordinary_staff_ranks_persist_public_identity_flags_op_membership_and_de
             let removed:(bool,i64)=sqlx::query_as("SELECT EXISTS(SELECT 1 FROM post_secrets.deletion WHERE post_id=$1),(SELECT count(*) FROM content.moderation_audit WHERE account_id=$2 AND board=$3 AND action='staff-post' AND target_id=$1)")
                 .bind(flagged).bind(case.account).bind(&case.board).fetch_one(&case.owner).await.unwrap();
             assert_eq!(removed,(false,1),"Deleted target loses password authority and retains its independent posting audit");
+            let erased:bool=sqlx::query_scalar("SELECT content_erased AND deleted AND name='' AND subject='' AND comment='' AND drawing_time_seconds IS NULL AND drawing_source_post_id IS NULL FROM content.posts WHERE id=$1")
+                .bind(flagged).fetch_one(&case.owner).await.unwrap();
+            assert!(erased,"Ordinary staff posting uses the same irreversible whole-deletion payload contract");
         }
     }).await;
     fixture.cleanup().await;

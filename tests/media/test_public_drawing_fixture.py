@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from drawing_input_witness import private_input, private_inputs
-from public_drawing_fixture import PublicDrawingUpload
+from public_drawing_fixture import PublicDrawingUpload, PublicDrawingEdit
 
 
 class PublicDrawingFixtureTest(unittest.TestCase):
@@ -21,7 +21,16 @@ class PublicDrawingFixtureTest(unittest.TestCase):
         f = SimpleNamespace(root=root, quarantine=quarantine, intake_user=SimpleNamespace(pw_uid=os.getuid()),
                             ids=[], processes=[], stop=mock.Mock(), intake_unit=object())
         host = SimpleNamespace(f=f, origin='http://127.0.0.1:34567', _poster_id_key='11' * 32)
-        value = PublicDrawingUpload(host)
+        value = PublicDrawingEdit(host) if mode == 'image-edit' else PublicDrawingUpload(host)
+        if mode == 'image-edit':
+            before = dict(slug='i',title='Oekaki',description='Source board',oekaki=True,
+                          oekaki_replays=True,oekaki_width=400,oekaki_height=400,image_limit=300,
+                          staff_only=False,text_only=False,posting_reply_seconds=10,
+                          posting_image_seconds=30,posting_thread_seconds=60,
+                          deletion_known_min_seconds=10,deletion_unknown_min_seconds=600)
+            active = {**before, 'title': 'Drawing qualification', 'description': value.marker,
+                      **{name: 0 for name in PublicDrawingEdit._changed[2:]}}
+            value.lease = dict(before=before,active=active)
         value.created = True
         value.mode = mode
         db = sqlite3.connect(':memory:')
@@ -30,16 +39,16 @@ class PublicDrawingFixtureTest(unittest.TestCase):
             db.execute(f"ATTACH DATABASE ':memory:' AS {schema}")
         db.create_function('decode', 2, lambda text, encoding: bytes.fromhex(text) if encoding == 'hex' else None)
         db.executescript('''
-          CREATE TABLE content.boards(slug TEXT,title TEXT,description TEXT,oekaki BOOLEAN,oekaki_replays BOOLEAN,oekaki_width INT,oekaki_height INT);
+          CREATE TABLE content.boards(slug TEXT,title TEXT,description TEXT,oekaki BOOLEAN,oekaki_replays BOOLEAN,oekaki_width INT,oekaki_height INT,staff_only BOOLEAN);
           CREATE TABLE content.posts(id INT,board TEXT,thread_id INT,deleted BOOLEAN,comment TEXT);
           CREATE TABLE post_secrets.posting_history(post_id INT,board TEXT,thread_id INT,actor_hash BLOB);
           CREATE TABLE media.jobs(id TEXT,filename TEXT,state TEXT,lease_token TEXT,attempts INT,input_bytes INT);
           CREATE TABLE media_intake.handles(job_id TEXT,capability_hash BLOB);
-          CREATE TABLE content.post_media(job_id TEXT);
-          CREATE TABLE media.assets(job_id TEXT);
+          CREATE TABLE content.post_media(post_id INT,job_id TEXT,asset_id TEXT,width INT,height INT,file_deleted BOOLEAN);
+          CREATE TABLE media.assets(id TEXT,job_id TEXT,state TEXT,output_format TEXT);
         ''')
-        db.execute('INSERT INTO content.boards VALUES (?,?,?,?,?,?,?)',
-                   (value.board, 'Drawing qualification', value.marker, True, False, 400, 400))
+        db.execute('INSERT INTO content.boards VALUES (?,?,?,?,?,?,?,?)',
+                   (value.board, 'Drawing qualification', value.marker, True, mode == 'image-edit', 400, 400, False))
         db.execute('INSERT INTO content.posts VALUES (?,?,?,?,?)',
                    (41, value.board, 41, False, 'Drawing ownership ' + value.marker))
         db.execute('INSERT INTO post_secrets.posting_history VALUES (?,?,?,?)',
@@ -82,12 +91,13 @@ class PublicDrawingFixtureTest(unittest.TestCase):
         changes = [
             ("UPDATE post_secrets.posting_history SET actor_hash=x'00'", 'b' * 64),
             ("UPDATE content.boards SET description='foreign'", 'b' * 64),
+            ("UPDATE content.boards SET staff_only=1", 'b' * 64),
             ("UPDATE content.posts SET board='foreign'", 'b' * 64),
             ("UPDATE content.posts SET deleted=1", 'b' * 64),
             ("UPDATE media.jobs SET state='processing',lease_token='foreign',attempts=1", 'b' * 64),
             ("UPDATE media.jobs SET input_bytes=41", 'b' * 64),
             ("UPDATE media.jobs SET filename='foreign.png'", 'b' * 64),
-            ("INSERT INTO content.post_media VALUES ('" + 'a' * 32 + "')", 'b' * 64),
+            ("INSERT INTO content.post_media(job_id) VALUES ('" + 'a' * 32 + "')", 'b' * 64),
             ("SELECT 1", 'c' * 64),
         ]
         for statement, capability_hash in changes:
@@ -186,8 +196,8 @@ class PublicDrawingFixtureTest(unittest.TestCase):
     def test_pre_receipt_recovery_rejects_leased_approved_attached_and_mismatched_private_inputs(self):
         for statement in ("UPDATE media.jobs SET state='processing',lease_token='lease',attempts=1",
                           "UPDATE media.jobs SET input_bytes=41",
-                          "INSERT INTO media.assets VALUES ('" + 'a' * 32 + "')",
-                          "INSERT INTO content.post_media VALUES ('" + 'a' * 32 + "')"):
+                          "INSERT INTO media.assets(job_id) VALUES ('" + 'a' * 32 + "')",
+                          "INSERT INTO content.post_media(job_id) VALUES ('" + 'a' * 32 + "')"):
             with self.subTest(statement=statement):
                 fixture, db = self.fixture()
                 fixture.recovery_baseline = set()
@@ -242,6 +252,60 @@ class PublicDrawingFixtureTest(unittest.TestCase):
         replacement.replace(path)
         with mock.patch('public_drawing_fixture.sql') as sql, self.assertRaises(AssertionError):
             fixture.remove_revoked_queued(fixture.marker, job)
+        sql.assert_not_called()
+
+    def test_second_dispatch_requires_the_owned_visible_approved_source_post(self):
+        mutations = (
+            "UPDATE content.boards SET staff_only=1",
+            "DELETE FROM content.posts WHERE id=42",
+            "UPDATE content.posts SET board='foreign' WHERE id=42",
+            "UPDATE content.posts SET thread_id=43 WHERE id=42",
+            "UPDATE content.posts SET comment='foreign' WHERE id=42",
+            "UPDATE content.posts SET deleted=1 WHERE id=42",
+            "UPDATE content.post_media SET job_id='foreign'",
+            "UPDATE content.post_media SET asset_id='foreign'",
+            "UPDATE content.post_media SET file_deleted=1",
+            "UPDATE content.post_media SET width=401",
+            "UPDATE content.post_media SET height=401",
+            "UPDATE media.assets SET state='rejected'",
+            "UPDATE media.assets SET output_format='gif'",
+            "UPDATE media.assets SET job_id='foreign'",
+            "UPDATE post_secrets.posting_history SET actor_hash=x'00' WHERE post_id=42",
+            "UPDATE post_secrets.posting_history SET board='foreign' WHERE post_id=42",
+            "UPDATE post_secrets.posting_history SET thread_id=43 WHERE post_id=42",
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                fixture, db = self.fixture('image-edit')
+                source_job, source_asset = 'c' * 32, 'd' * 32
+                fixture.approved = [(source_job, source_asset)]
+                db.execute('INSERT INTO content.posts VALUES (?,?,?,?,?)',
+                           (42, fixture.board, 41, False, 'Drawing qualification ' + fixture.marker))
+                db.execute('INSERT INTO content.post_media VALUES (?,?,?,?,?,?)',
+                           (42, source_job, source_asset, 400, 400, False))
+                db.execute('INSERT INTO media.assets VALUES (?,?,?,?)',
+                           (source_asset, source_job, 'approved', 'png'))
+                db.execute('INSERT INTO post_secrets.posting_history VALUES (?,?,?,?)',
+                           (42, fixture.board, 41, bytes.fromhex(fixture._posting_actor_hex())))
+                source = fixture.approval_source_sql(dict(target='41', owner_thread='41'))
+                self.assertEqual(self.sql(db)('SELECT ' + source), 't')
+                db.execute(mutation)
+                self.assertEqual(self.sql(db)('SELECT ' + source), 'f')
+
+    def test_dispatch_count_and_receipt_reuse_stay_bounded(self):
+        for mode, approvals in (('ordinary', [('c' * 32, 'd' * 32)]),
+                                ('quick-reply', [('c' * 32, 'd' * 32)]),
+                                ('image-edit', [('c' * 32, 'd' * 32), ('e' * 32, 'f' * 32)])):
+            fixture, _ = self.fixture(mode)
+            fixture.approved = approvals
+            with self.subTest(mode=mode), self.assertRaises(AssertionError):
+                fixture.approval_source_sql(dict(target='41', owner_thread='41'))
+        fixture, db = self.fixture('quick-reply')
+        job = self.input(fixture, db)
+        self.register(fixture, db)
+        fixture.approved = [(job, 'd' * 32)]
+        with mock.patch('public_drawing_fixture.sql') as sql, self.assertRaises(AssertionError):
+            fixture.approve_receipt(fixture.marker, job)
         sql.assert_not_called()
 
     def test_unregistered_foreign_job_cannot_reach_cleanup_or_dispatch(self):

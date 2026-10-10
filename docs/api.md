@@ -15,6 +15,12 @@ counts, the last omitted reply ID and the latest replies. See the
 and fallback. The renderer-only `/posts` and `/posts-tail` projections remain
 absent from the API listener.
 
+[Sticky reply retention](sticky-reply-retention.md) exposes numeric `sticky_cap`
+on opening posts marked both sticky and undead. Full thread, tail, index, and
+catalog JSON use the enforced stored capacity. Replies omit it, and the undead
+flag remains internal. Imported source boards use 1,000 replies. Apply migration
+0125 and matching writer binaries together.
+
 [Custom-spoiler metadata](custom-spoiler-metadata.md) follows the source board
 policy on both JSON listeners. Enabled boards with a nonzero count advertise
 `custom_spoilers` in `boards.json`. Their opening posts include

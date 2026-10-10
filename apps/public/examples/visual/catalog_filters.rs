@@ -86,6 +86,8 @@ fn page(slug: &str, sorted: bool) -> String {
                 dice_result: None,
                 fortune_text: None,
                 fortune_color: None,
+                drawing_time_seconds: None,
+                drawing_source_post_id: None,
                 created_at: time("2026-09-08T12:00:00Z"),
                 deleted: false,
                 attachment: filename.map(|filename| PostAttachment {
@@ -101,6 +103,7 @@ fn page(slug: &str, sorted: bool) -> String {
                     md5: None,
                     thumbnail_width: None,
                     thumbnail_height: None,
+                    output_format: board_store::media_assets::MediaFormat::Png,
                 }),
             })],
             omitted: replies as usize,
@@ -112,6 +115,7 @@ fn page(slug: &str, sorted: bool) -> String {
         threads.sort_by_key(|view| std::cmp::Reverse(view.thread.id));
     }
     views::BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),

@@ -139,6 +139,15 @@ fn trusted_mode_selection_does_not_sniff_and_rejects_duplicates() {
     assert!(InputKind::parse("IBJOB002").is_err());
     assert_eq!(InputKind::ImageV1.output_bytes(), 4_194_816);
     assert_eq!(InputKind::PairedV2.output_bytes(), RESULT_BYTES as u64);
+    assert_eq!(InputKind::GifV3.output_bytes(), 17_825_792);
+    assert_eq!(
+        kernel_input_kind("board_media_input_kind=gif-v3").unwrap(),
+        InputKind::GifV3
+    );
+    assert_eq!(InputKind::GifV3.argument(), "gif-v3");
+    assert!(
+        kernel_input_kind("board_media_input_kind=gif-v3 board_media_input_kind=image-v1").is_err()
+    );
 }
 
 #[test]

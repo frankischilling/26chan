@@ -80,6 +80,7 @@ impl Fixture {
                     flag: "",
                     options: "",
                     spoiler: false,
+                    drawing: None,
                 },
             )
             .await
@@ -113,6 +114,11 @@ impl Fixture {
         )
         .await;
         support::cleanup_posting(&mut *tx, &self.board).await;
+        sqlx::query("DELETE FROM poll_private.polls WHERE id=ANY($1)")
+            .bind(&self.ids)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
         for query in [
             "DELETE FROM content.reports WHERE board=$1",
             "DELETE FROM content.moderation_audit WHERE board=$1",
@@ -155,8 +161,8 @@ impl Fixture {
     }
 
     async fn shared(&self) -> Value {
-        sqlx::query_scalar("SELECT jsonb_build_object('session',(SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s WHERE token_hash=$1),'actions',(SELECT jsonb_agg(to_jsonb(a) ORDER BY actor_hash) FROM post_secrets.posting_thread_actions a WHERE board=$2),'audit',(SELECT jsonb_agg(to_jsonb(a) ORDER BY id) FROM content.moderation_audit a WHERE board=$2))")
-            .bind(self.token.as_slice()).bind(&self.board).fetch_one(&self.owner).await.unwrap()
+        sqlx::query_scalar("SELECT jsonb_build_object('session',(SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s WHERE token_hash=$1),'actions',(SELECT jsonb_agg(to_jsonb(a) ORDER BY actor_hash) FROM post_secrets.posting_thread_actions a WHERE board=$2),'audit',(SELECT jsonb_agg(to_jsonb(a) ORDER BY id) FROM content.moderation_audit a WHERE board=$2),'polls',(SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM poll_private.polls p WHERE id=ANY($3)),'options',(SELECT jsonb_agg(to_jsonb(o) ORDER BY poll_id,id) FROM poll_private.options o WHERE poll_id=ANY($3)),'votes',(SELECT jsonb_agg(to_jsonb(v) ORDER BY poll_id,voter_hash) FROM poll_private.votes v WHERE poll_id=ANY($3)))")
+            .bind(self.token.as_slice()).bind(&self.board).bind(&self.ids).fetch_one(&self.owner).await.unwrap()
     }
 
     async fn sentinels(&self) {
@@ -194,7 +200,24 @@ impl Fixture {
             .execute(&self.owner)
             .await
             .unwrap();
-        sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES(42,$1,$2,'close')").bind(&self.board).bind(self.ids[0]).execute(&self.owner).await.unwrap();
+        sqlx::query("UPDATE content.posts SET drawing_time_seconds=119,drawing_source_post_id=$2 WHERE id=ANY($1)")
+            .bind(&self.ids[..3]).bind(self.ids[3]).execute(&self.owner).await.unwrap();
+        sqlx::query("UPDATE content.posts SET drawing_time_seconds=3601,drawing_source_post_id=$2 WHERE id=$1")
+            .bind(self.ids[3]).bind(self.ids[0]).execute(&self.owner).await.unwrap();
+        sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action,before_mask,after_mask,snapshot_version,snapshot_name,snapshot_subject,snapshot_comment,snapshot_comment_format,snapshot_staff_authorized_limits,snapshot_wordfiltered,snapshot_image_spoiler,snapshot_drawing_time_seconds,snapshot_drawing_source_post_id) VALUES(42,$1,$2,'thread-options',0,1,2,'Saved audit name','Saved audit subject','Saved audit body',0,false,false,false,119,$3)")
+            .bind(&self.board).bind(self.ids[0]).bind(self.ids[3]).execute(&self.owner).await.unwrap();
+        // Poll IDs are a separate namespace, even when they equal erased post IDs.
+        // A real accepted ballot must remain independent of post-author authority.
+        sqlx::query("INSERT INTO poll_private.polls(id,title,description,vote_count,published,accepting_votes) VALUES($1,'Independent poll','Retained poll evidence',7,true,true)")
+            .bind(self.ids[0]).execute(&self.owner).await.unwrap();
+        sqlx::query("INSERT INTO poll_private.options(poll_id,id,ordinal,caption,score) VALUES($1,1,1,'Retained poll option',7)")
+            .bind(self.ids[0]).execute(&self.owner).await.unwrap();
+        assert_eq!(
+            board_store::cast_poll_vote(&self.public, self.ids[0], 1, &self.token)
+                .await
+                .unwrap(),
+            board_store::PollVoteOutcome::Recorded
+        );
     }
 
     async fn assert_thread_erased(&self, id: i64) {
@@ -243,6 +266,8 @@ impl Fixture {
                 "dice_result",
                 "fortune_text",
                 "fortune_color",
+                "drawing_time_seconds",
+                "drawing_source_post_id",
             ] {
                 expected[key] = Value::Null;
             }
@@ -357,6 +382,11 @@ async fn actual_roles_erase_all_payload_and_authority_transactionally_without_sh
             assert_eq!(authority["deletion"].as_array().unwrap().len(), 4);
             assert_eq!(authority["anonymous"].as_array().unwrap().len(), 4);
             let shared = f.shared().await;
+            assert_eq!(shared["audit"][0]["snapshot_drawing_time_seconds"],119);
+            assert_eq!(shared["audit"][0]["snapshot_drawing_source_post_id"],f.ids[3]);
+            assert_eq!(shared["polls"][0]["vote_count"],8);
+            assert_eq!(shared["options"][0]["score"],8);
+            assert_eq!(shared["votes"].as_array().unwrap().len(),1);
             let pool = if staff { &f.staff } else { &f.public };
             let mut tx = pool.begin().await.unwrap();
             board_lock(&mut tx, &f.board).await;
@@ -423,6 +453,9 @@ async fn actual_roles_erase_all_payload_and_authority_transactionally_without_sh
             f.assert_thread_erased(f.ids[0]).await;
             assert_eq!(f.posts().await[3], before[3]);
             assert_eq!(f.shared().await, shared);
+            assert!(board_store::has_poll_vote(&f.public,f.ids[0],&f.token).await.unwrap());
+            assert_eq!(board_store::cast_poll_vote(&f.public,f.ids[0],1,&f.token).await.unwrap(),board_store::PollVoteOutcome::AlreadyVoted);
+            assert_eq!(f.shared().await,shared,"Erasure must not change independent poll state or permit a duplicate ballot");
             let remaining = f.authority().await;
             for key in ["deletion", "anonymous", "history"] {
                 assert_eq!(
@@ -448,13 +481,17 @@ async fn tombstones_cannot_resurrect_repopulate_or_regain_authority_and_live_emp
         board_store::delete_post(&f.public,&f.board,f.ids[0]).await.unwrap();
         f.assert_erased(&f.ids[..3]).await;
             f.assert_thread_erased(f.ids[0]).await;
-        for query in ["UPDATE content.posts SET deleted=false WHERE id=$1", "UPDATE content.posts SET content_erased=false WHERE id=$1", "UPDATE content.posts SET comment='resurrected' WHERE id=$1", "UPDATE content.posts SET name='resurrected' WHERE id=$1", "UPDATE content.posts SET wordfilter_search='resurrected' WHERE id=$1", "UPDATE content.threads SET deleted=false WHERE id=$1", "UPDATE content.threads SET content_erased=false WHERE id=$1", "UPDATE content.threads SET bumped_at=clock_timestamp() WHERE id=$1"] {
+        for query in ["UPDATE content.posts SET deleted=false WHERE id=$1", "UPDATE content.posts SET content_erased=false WHERE id=$1", "UPDATE content.posts SET comment='resurrected' WHERE id=$1", "UPDATE content.posts SET name='resurrected' WHERE id=$1", "UPDATE content.posts SET wordfilter_search='resurrected' WHERE id=$1", "UPDATE content.posts SET drawing_time_seconds=119 WHERE id=$1", "UPDATE content.posts SET drawing_time_seconds=119,drawing_source_post_id=1 WHERE id=$1", "UPDATE content.threads SET deleted=false WHERE id=$1", "UPDATE content.threads SET content_erased=false WHERE id=$1", "UPDATE content.threads SET bumped_at=clock_timestamp() WHERE id=$1"] {
             let error=sqlx::query(query).bind(f.ids[0]).execute(&f.owner).await.unwrap_err();
             assert_eq!(code(&error),"23514","{query}");
         }
         for pool in [&f.public,&f.staff] {
             let error=sqlx::query("UPDATE content.posts SET content_erased=false WHERE id=$1").bind(f.ids[0]).execute(pool).await.unwrap_err();
             assert_eq!(code(&error),"42501");
+            for query in ["UPDATE content.posts SET drawing_time_seconds=119 WHERE id=$1", "UPDATE content.posts SET drawing_source_post_id=1 WHERE id=$1"] {
+                let error=sqlx::query(query).bind(f.ids[3]).execute(pool).await.unwrap_err();
+                assert_eq!(code(&error),"42501","Erasure must not grant runtime drawing annotation authority");
+            }
         }
         for pool in [&f.public,&f.owner] {
             let error=sqlx::query("INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES($1,'reintroduced')").bind(f.ids[0]).execute(pool).await.unwrap_err();
@@ -567,6 +604,7 @@ async fn actual_runtime_logins_satisfy_shared_content_erasure_readiness() {
             "SELECT post_secrets.guard_thread_erasure()",
             "SELECT post_secrets.erase_thread_descendants()",
             "SELECT post_secrets.guard_erased_author_link()",
+            "SELECT post_secrets.guard_erasure_visibility_statement()",
         ] {
             let error = sqlx::query(function).execute(&pool).await.unwrap_err();
             assert_eq!(

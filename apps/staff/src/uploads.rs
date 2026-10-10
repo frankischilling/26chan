@@ -84,6 +84,11 @@ fn media(state: &AppState) -> Result<&board_intake_client::IntakeClient, AppErro
     }
     state.config.media.as_ref().ok_or(AppError::NotFound)
 }
+
+fn ordinary_reply_limit_reached(board: &board_store::Board, parent: &board_store::Thread) -> bool {
+    parent.reply_count >= board.reply_limit
+        && !(parent.sticky && parent.undead && board.reply_limit > 1)
+}
 fn access(session: &auth::Session, board: &str, thread: i64, csrf: &str) -> Result<(), AppError> {
     if !session.at_least(Level::Janitor) || board == "j" || !session.permissions.allows(board) {
         return Err(AppError::Forbidden);
@@ -141,7 +146,7 @@ async fn settings(
             .await
             .map_err(store_error)?;
         if parent.archived_at.is_some()
-            || (!moderator && (parent.closed || parent.reply_count >= settings.reply_limit))
+            || (!moderator && (parent.closed || ordinary_reply_limit_reached(&settings, &parent)))
         {
             return Err(AppError::Forbidden);
         }
@@ -756,5 +761,88 @@ mod stream_tests {
         let mut bytes = preamble(0).into_bytes();
         bytes.resize(MAX_MULTIPART_BYTES + 1, b'x');
         assert!(control_preamble(multipart_request(bytes)).await.is_err());
+    }
+}
+
+#[cfg(all(test, feature = "database-tests"))]
+mod sticky_retention_database_tests {
+    use super::ordinary_reply_limit_reached;
+    use sqlx::PgPool;
+
+    #[tokio::test]
+    async fn staff_preflight_uses_current_persisted_sticky_undead_and_reply_capacity() {
+        let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let staff = PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let slug: String =
+            sqlx::query_scalar("SELECT 'sr'||substr(replace(gen_random_uuid()::text,'-',''),1,8)")
+                .fetch_one(&owner)
+                .await
+                .unwrap();
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Staff sticky preflight','Owned synthetic',2000,3,3,100,10)")
+            .bind(&slug).execute(&owner).await.unwrap();
+        let op: i64 = sqlx::query_scalar("INSERT INTO content.threads(board,sticky,undead,reply_count) VALUES($1,true,true,3) RETURNING id")
+            .bind(&slug).fetch_one(&owner).await.unwrap();
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Anonymous','Owned sticky preflight','Fixture OP')")
+            .bind(op).bind(&slug).execute(&owner).await.unwrap();
+        let settings = board_store::board(&staff, &slug).await.unwrap();
+        let parent = board_store::thread(&staff, &slug, op).await.unwrap();
+        assert!(!ordinary_reply_limit_reached(&settings, &parent));
+        for (sticky, undead, at_limit) in [
+            (true, false, true),
+            (false, true, true),
+            (false, false, true),
+            (true, true, false),
+        ] {
+            sqlx::query("UPDATE content.threads SET sticky=$2,undead=$3 WHERE id=$1")
+                .bind(op)
+                .bind(sticky)
+                .bind(undead)
+                .execute(&owner)
+                .await
+                .unwrap();
+            let refreshed = board_store::thread(&staff, &slug, op).await.unwrap();
+            assert_eq!(
+                ordinary_reply_limit_reached(&settings, &refreshed),
+                at_limit
+            );
+        }
+        // STICKY_CAP <= 1 disables the special source prune. No ordinary
+        // staff reply may bypass the regular cap in that configuration.
+        sqlx::query("UPDATE content.boards SET reply_limit=1,bump_limit=1 WHERE slug=$1")
+            .bind(&slug)
+            .execute(&owner)
+            .await
+            .unwrap();
+        let settings = board_store::board(&staff, &slug).await.unwrap();
+        let parent = board_store::thread(&staff, &slug, op).await.unwrap();
+        assert!(ordinary_reply_limit_reached(&settings, &parent));
+        let old_count: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+                .bind(&slug)
+                .fetch_one(&owner)
+                .await
+                .unwrap();
+        assert_eq!(old_count, 1, "preflight must never mutate posts");
+        sqlx::query("DELETE FROM content.posts WHERE board=$1")
+            .bind(&slug)
+            .execute(&owner)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM content.threads WHERE board=$1")
+            .bind(&slug)
+            .execute(&owner)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM content.boards WHERE slug=$1")
+            .bind(&slug)
+            .execute(&owner)
+            .await
+            .unwrap();
+        staff.close().await;
+        owner.close().await;
     }
 }

@@ -3,7 +3,7 @@ import { WATCH_LIMITS, reportURL, createReportRegistry, postId, watchKey, splitW
   sameEntry, orderedWatches, autoRefreshEligible, acknowledgedEntry,
   WatcherRefresh } from './thread-watcher-core.v1.js';
 import { PostTracking } from './post-tracking.v1.js';
-import { installSettings, catalogDropDownEnabled, captureSettingsPresentation, settingsOptionChecked, settingsStartupDefaults, readSettingsStartup } from './native-settings.v1.js';
+import { installSettings, catalogDropDownEnabled, captureSettingsPresentation, settingsOptionChecked, settingsStartupDefaults, readSettingsStartup, configuredHTTPSOrigin, httpsPreferenceEnabled, settingsHTTPSRedirect, httpsPreferenceCookie } from './native-settings.v1.js';
 import { mountWatcherPosition } from './watcher-position.v1.js';
 import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativeFilters, autoWatchBoards, mountNativeFilters, mountNativeReplyHiding, mountNativeThreadHiding, mountNativeKeybinds, markNativeTrackedQuotes,
   readBlacklist, writeBlacklist, collectAutoWatches, planAutoWatches, mountNativeLinkification, mountNativeQuotePreview, quoteTarget,
@@ -27,6 +27,14 @@ const context = document.getElementById('watcher-context');
 if (context && watchKey(context.dataset.board, '1')) start(context);
 
 async function start(context) {
+  const httpsOrigin = configuredHTTPSOrigin(context.dataset.publicOrigin, location.href);
+  function readHTTPSCookie() {
+    try { return document.cookie; } catch { return ''; }
+  }
+  let startupRaw = null;
+  try { startupRaw = localStorage.getItem('4chan-settings'); } catch { /* Unknown storage cannot enable navigation. */ }
+  const httpsRedirect = settingsHTTPSRedirect(httpsOrigin, location.href, startupRaw, readHTTPSCookie());
+  if (httpsRedirect) { location.assign(httpsRedirect); return; }
   const board = context.dataset.board;
   const threadId = postId(context.dataset.thread);
   const catalog = context.dataset.catalog === 'true';
@@ -149,8 +157,10 @@ async function start(context) {
     return effectiveSettings(settingsCache);
   }
   function effectiveSettings(settings) {
-    if (!settingsStartupState?.active) return { ...settings };
-    return { ...settingsStartupDefaults({ ...settingsStartupState, disabled: settings.disableAll === true }), ...settings };
+    const defaults = settingsStartupState?.active
+      ? settingsStartupDefaults({ ...settingsStartupState, disabled: settings.disableAll === true }) : {};
+    return { ...defaults, ...settings,
+      ...(httpsOrigin ? { forceHTTPS: httpsPreferenceEnabled(settingsRawCache, readHTTPSCookie()) } : {}) };
   }
   function initializeSettingsOnOpen(signal) {
     const startup = settingsStartupState;
@@ -419,6 +429,7 @@ async function start(context) {
     mobileLayout: () => mobile.matches && readNeverMobile() !== 'true',
   }))).catch(() => { notice.textContent = 'Catalog settings could not be loaded.'; return null; }) : null;
   const settingsNavigation = installSettings({ catalog, read: configuration, save: saveSettings,
+    httpsAvailable: !!httpsOrigin,
     initializeOnOpen: initializeSettingsOnOpen,
     openCatalogSettings: catalog ? opener => { void catalogTheme.then(controller => {
       if (controller) controller.open(opener); else notice.textContent = 'Catalog settings could not be opened.';
@@ -508,6 +519,7 @@ async function start(context) {
     settings: configuration, readCSS: () => read(cssKey), saveCSS: saveCustomCSS,
   });
   settingsTransfer = mountNativeSettingsTransfer({ root: document.body,
+    httpsAvailable: !!httpsOrigin,
     readItem: readTransferItem, restore: restorePreferences,
   });
   function setupDepager() {
@@ -678,12 +690,17 @@ async function start(context) {
     }, signal);
   }
   async function saveSettings(changes, signal, tabOnly = false) {
+    let httpsFailed = false;
     const applied = await locked(() => {
       if (signal?.aborted) return false;
       const settings = { ...configuration(), ...changes };
       if (catalog && changes.threadWatcher === true) settings.disableAll = false;
       if (tabOnly) volatileSettings = true;
       if (!writeSettings(settings)) return false;
+      if (httpsOrigin && Object.hasOwn(changes, 'forceHTTPS') && !volatileSettings) {
+        try { document.cookie = httpsPreferenceCookie(settings.forceHTTPS); } catch { /* Verify the write below. */ }
+        httpsFailed = httpsPreferenceEnabled(JSON.stringify(settings), readHTTPSCookie()) !== (settings.forceHTTPS === true);
+      }
       refresh.cancel();
       enabled = settings.threadWatcher === true && settings.disableAll !== true;
       collapsed = mobile.matches;
@@ -693,7 +710,9 @@ async function start(context) {
     if (applied === false || signal?.aborted || !mutationLock.active) return false;
     if (enabled) { await acknowledgeCurrent(signal); if (signal?.aborted || !mutationLock.active) return false; navigateReadPosition(); }
     void nativeFilters?.refresh();
-    return { persisted: !volatileSettings };
+    return { persisted: !volatileSettings, httpsFailed,
+      redirect: !volatileSettings && !httpsFailed
+        ? settingsHTTPSRedirect(httpsOrigin, location.href.split('#', 1)[0], JSON.stringify(settingsCache), readHTTPSCookie()) : null };
   }
 
   function textWithBreaks(element) {

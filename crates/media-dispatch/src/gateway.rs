@@ -112,6 +112,13 @@ impl Gateway {
                     self.authorize(&fingerprint)?;
                     protocol::write_paired_response(&disk, &mut stream).await
                 }
+                protocol::Request::GifV3(input) => {
+                    protocol::write_gif_request(input.as_slice(), input.len() as u64, &mut broker)
+                        .await?;
+                    let disk = protocol::read_gif_response(&mut broker).await?;
+                    self.authorize(&fingerprint)?;
+                    protocol::write_gif_response(&disk, &mut stream).await
+                }
             }
         })
         .await

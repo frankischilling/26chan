@@ -8,10 +8,11 @@ workflow and the source-parity target in
 
 ## Source and board policy
 
-The reference is `4chan-old` revision
-`545b7812d1849f7958d914950c91fdbbe38f6b22`. `PainterCore` in `js/core.js`,
-the painter methods in `js/extension.js`, and the Draw row in
-`views/imgboard.php` define the ordinary and Quick Reply controls.
+The reference is the supplied, ignored, read-only local `4chan-old/` folder at
+revision `545b7812d1849f7958d914950c91fdbbe38f6b22`; a fresh checkout does
+not contain it. `PainterCore` in its `js/core.js`, the painter methods in
+`js/extension.js`, and the Draw row in `views/imgboard.php` define the ordinary
+and Quick Reply controls.
 `tests/fixtures/native-drawing-source.json` pins their source bytes and the
 relevant Tegaki lifecycle functions. Its Node oracle executes those extracted
 functions with inert stubs; it does not render drawings.
@@ -23,14 +24,14 @@ in the source on `/i/`, `/qst/` and `/vip/`; replay is enabled only on `/i/`.
 Every board inherits the 400 x 400 default. The drawing declarations in
 `test.config.ini` are commented out.
 
-The runtime currently supports only non-replay drawing. `/i/` keeps its
-imported policy but exposes neither an editor nor an `oekaki` API capability
-until replay support is implemented. `/qst/` and `/vip/` also require an
-already-enabled media profile, a public non-text-only board and a positive
-image limit. Board and open-thread forms expose desktop Draw controls;
-catalogs, closed/archived threads and error pages do not. `boards.json`
-advertises `oekaki: 1` only when the supported board/media gates pass. This
-feature does not enable production uploads.
+Ordinary non-replay Draw remains available on media-enabled `/qst/` and `/vip/`
+board and open-thread forms. [Drawing Edit on `/i/`](drawing-edit.md) separately
+imports approved post PNGs into Quick Reply on live threads. Blank-canvas
+`/i/` Draw and replay support remain disabled. Drawing controls require an
+eligible public, non-text board with image capacity; closed or archived threads,
+catalog pages and missing threads do not expose Edit. `boards.json` reports the
+imported `oekaki` policy independently of runtime media availability. These
+controls do not enable production uploads.
 
 The source form handlers reject dimensions below one. The `/i/` declarations
 `OEKAKI_MIN_W/H = 100` and `OEKAKI_MAX_W/H = 800` have no executable consumers
@@ -105,10 +106,13 @@ owned deletion. Its supervisor supplies isolated processing rather than
 synthetic approvals. Actual browser execution and exact-head hosted CI remain
 pending.
 
-Replay recording, validation, storage, delivery and playback remain unfinished,
-as do edit-from-post and source drawing annotations. The original annotation
-path in `imgboard.php:6064-6097` and `lib/oekaki.php` is inside the replay-enabled
-branch and uses `oe_time`, replay metadata and validated `oe_src` to append the
-Oekaki Post time/replay/source text. This integration does not send or reproduce
-that metadata. Safe image import, complete desktop/mobile source comparison and
-browser qualification are also open requirements. #207 remains incomplete.
+The [Drawing Edit slice](drawing-edit.md) now imports approved post PNGs and
+persists optional `oe_time` and `oe_src` annotations as typed fields. Public
+views, search and staff reports display the generated Oekaki Post text; new
+moderation audit snapshots retain the fields separately from the saved comment.
+The corresponding original rules are in the local reference paths
+`4chan-old/imgboard.php:6063-6097` and `4chan-old/lib/oekaki.php:102-160`.
+Replay recording, validation, storage, delivery and playback, ordinary `/i/`
+Draw, replay links and complete desktop/mobile source comparison remain open.
+Current-head browser and CI qualification for this Edit slice is separate;
+[#207](https://github.com/frankischilling/26chan/issues/207) remains incomplete.

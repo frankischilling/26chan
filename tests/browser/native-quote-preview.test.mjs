@@ -39,7 +39,7 @@ test('rewrite quote grammar keeps exact i64 IDs and rejects redirects, alternate
   assert.deepEqual(quoteTarget('/other/post/9223372036854775807', page), { board: 'other', post: '9223372036854775807', thread: null });
   for (const raw of ['/demo/post/0', '/demo/post/01', '/demo/post/9223372036854775808', '/demo/post/+2',
     '/demo/post/1e2', '/demo/post/1.0', '/DEMO/post/1', '/demo/post/1/', '/demo/post/1?x=1', '/demo/post/1#p1',
-    '/demo/thread/2#p1', '/demo/thread/01#p2', '/demo/thread/1', '1#p2', '//board.example/demo/post/1',
+    '/demo/thread/2#p1', '/demo/thread/00#p2', '/demo/thread/1', '1#p2', '//board.example/demo/post/1',
     'https://evil.example/demo/post/1', 'https://board.example.evil/demo/post/1', 'https://u:p@board.example/demo/post/1',
     '/demo/../demo/post/1', '/demo/post/%31', '/demo\\post\\1', '\n/demo/post/1', '/demo/post/1\n', null, 1]) {
     assert.equal(quoteTarget(raw, page), null, String(raw));
@@ -158,7 +158,7 @@ test('transport fixes request authority, keeps one slot, bounds frequency and ne
   assert.equal(record.created, 1); assert.equal(record.terminated, 1); assert.equal(requests.length, 2);
   clock += PREVIEW_LIMITS.intervalMs; missing = false;
   assert.equal((await transport.load(context)).status, 'ok'); assert.equal(record.created, 2);
-  assert.equal((await transport.load({ ...context, post: '01' })).status, 'invalid-context');
+  assert.equal((await transport.load({ ...context, post: '00' })).status, 'invalid-context');
 });
 
 test('streaming enforces URL, MIME, declared and actual bytes, UTF-8, and finite empty-chunk work', async () => {

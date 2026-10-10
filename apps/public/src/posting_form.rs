@@ -58,6 +58,8 @@ const TEXT_FIELDS: &[&str] = &[
     "MAX_FILE_SIZE",
     "hasjs",
     "textonly",
+    "oe_time",
+    "oe_src",
 ];
 const INVALID: &str = "Invalid posting form.";
 const FILE_INTAKE: &str = "Upload files through the isolated upload form before posting.";
@@ -187,6 +189,19 @@ pub fn spoiler_checkbox<'de, D: serde::Deserializer<'de>>(
     use serde::Deserialize;
     let value = String::deserialize(deserializer)?;
     Ok(!value.is_empty() && value != "0")
+}
+
+/// Preserve raw numeric text for source-compatible invalid-value handling.
+/// Both present and empty fields are distinct from an omitted field.
+pub fn drawing_field<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    use serde::Deserialize;
+    let value = String::deserialize(deserializer)?;
+    if value.len() > 32 {
+        return Err(serde::de::Error::custom("Invalid drawing metadata."));
+    }
+    Ok(Some(value))
 }
 
 #[derive(serde::Deserialize)]
@@ -348,6 +363,81 @@ mod tests {
                 .status(),
             StatusCode::BAD_REQUEST
         );
+    }
+
+    #[tokio::test]
+    async fn source_drawing_metadata_is_optional_bounded_and_cannot_weaken_form_validation() {
+        let app = parser().await;
+        let maximum_time = "7".repeat(32);
+        let maximum_source = "8".repeat(32);
+        for (time, source) in [
+            ("", ""),
+            ("0", "not-a-source"),
+            (" 121.9seconds", "123456789"),
+            ("1e2", "9223372036854775808"),
+            (maximum_time.as_str(), maximum_source.as_str()),
+        ] {
+            let fields = [
+                ("mode", b"regist".as_slice(), None),
+                ("com", b"Owned source drawing".as_slice(), None),
+                ("oe_time", time.as_bytes(), None),
+                ("oe_src", source.as_bytes(), None),
+            ];
+            assert_eq!(
+                app.clone()
+                    .oneshot(request(Body::from(body(&fields))))
+                    .await
+                    .unwrap()
+                    .status(),
+                StatusCode::NO_CONTENT
+            );
+        }
+        for long_field in ["oe_time", "oe_src"] {
+            let value = "9".repeat(33);
+            let fields = [
+                ("com", b"Owned source drawing".as_slice(), None),
+                (long_field, value.as_bytes(), None),
+            ];
+            assert_eq!(
+                app.clone()
+                    .oneshot(request(Body::from(body(&fields))))
+                    .await
+                    .unwrap()
+                    .status(),
+                StatusCode::UNPROCESSABLE_ENTITY
+            );
+        }
+        let duplicate = [
+            ("oe_src", b"123".as_slice(), None),
+            ("oe_src", b"124".as_slice(), None),
+        ];
+        assert_eq!(
+            app.clone()
+                .oneshot(request(Body::from(body(&duplicate))))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+        // The form-encoded posting route uses the same typed bound.
+        for (body, expected) in [
+            ("oe_time=125&oe_src=33", StatusCode::NO_CONTENT),
+            ("oe_time=0&oe_src=invalid", StatusCode::NO_CONTENT),
+            ("oe_time=123&oe_time=124", StatusCode::UNPROCESSABLE_ENTITY),
+            (
+                "oe_src=999999999999999999999999999999999",
+                StatusCode::UNPROCESSABLE_ENTITY,
+            ),
+        ] {
+            let request = axum::http::Request::post("/test/imgboard.php")
+                .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body(Body::from(body))
+                .unwrap();
+            assert_eq!(
+                app.clone().oneshot(request).await.unwrap().status(),
+                expected
+            );
+        }
     }
 
     #[tokio::test]

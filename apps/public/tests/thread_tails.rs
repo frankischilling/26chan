@@ -292,6 +292,18 @@ async fn persisted_tail_threshold_counts_cache_policy_and_privilege_boundaries()
         assert_eq!(snapshot.posts.len(), expected + 1);
         assert_eq!(snapshot.tail_id, Some(ids[ids.len() - expected - 1]));
     }
+    // The ordinary deletion above left the cached count one ahead of live
+    // replies. A sticky-undead write reconciles it to the retained live window.
+    let before = board_store::thread_snapshot(&public, &slug, id)
+        .await
+        .unwrap();
+    assert_eq!(before.thread.reply_count as usize, before.replies + 1);
+    add(&public, &slug, id).await;
+    let reconciled = board_store::thread_snapshot(&public, &slug, id)
+        .await
+        .unwrap();
+    assert_eq!(reconciled.replies, before.replies + 1);
+    assert_eq!(reconciled.thread.reply_count as usize, reconciled.replies);
     let writer_pool = public.clone();
     let writer_slug = slug.clone();
     let writer = tokio::spawn(async move {
@@ -317,7 +329,7 @@ async fn persisted_tail_threshold_counts_cache_policy_and_privilege_boundaries()
             selected.tail_id,
             Some(complete.posts[end - selected.tail_size].id)
         );
-        assert_eq!(selected.thread.reply_count as usize, selected.replies + 1);
+        assert_eq!(selected.thread.reply_count as usize, selected.replies);
     }
     writer.await.unwrap();
     for query in [

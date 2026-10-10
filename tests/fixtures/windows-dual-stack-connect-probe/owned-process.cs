@@ -126,7 +126,7 @@ public sealed class DualStackOwnedProcess : IDisposable
         bool member; Check(IsProcessInJob(candidate.Handle, job, out member)); return member;
     }
     public sealed class OwnershipSnapshot {
-        public bool RootExited, RootInJob, RootMembershipObserved, DescendantExited, DescendantInJob, AccountingLayoutValid;
+        public bool RootExited, RootInJob, RootMembershipObserved, RootListed, DescendantExited, DescendantInJob, AccountingLayoutValid;
         public uint ActiveProcesses, TotalProcesses, TerminatedProcesses;
         public bool ProcessListComplete, ProcessCountsConsistent;
         public uint EnumeratedProcesses, RootRoleCount, DescendantRoleCount, ConsoleHostRoleCount, UnknownRoleCount, UnavailableRoleCount;
@@ -185,6 +185,7 @@ public sealed class DualStackOwnedProcess : IDisposable
                     snapshot.ProcessListComplete = false; snapshot.UnavailableRoleCount++; continue;
                 }
                 if (id == process.Id) {
+                    snapshot.RootListed = true;
                     if (!snapshot.RootExited && snapshot.RootInJob) snapshot.RootRoleCount++;
                     else snapshot.UnavailableRoleCount++;
                     continue;

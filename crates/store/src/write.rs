@@ -133,6 +133,7 @@ pub async fn create_post_with_identity_keys(
             country_database: None,
             flag: "",
             options: "",
+            drawing: None,
         },
     )
     .await
@@ -149,6 +150,84 @@ pub struct PostMetadata<'a> {
     /// Raw new-public-post choice, subject to the locked board's SPOILERS policy.
     /// Existing-post changes use the separately authorized staff setter.
     pub spoiler: bool,
+    /// Optional untrusted source fields, stamped only after an accepted image
+    /// in an enabled board. This never claims provenance of the image pixels.
+    pub drawing: Option<DrawingSubmission<'a>>,
+}
+
+/// Submitted oe_time/oe_src text, before PHP-compatible integer casting.
+/// Its existence is independent of the one-use media receipt.
+#[derive(Clone, Copy)]
+pub struct DrawingSubmission<'a> {
+    pub time: &'a str,
+    pub source_post: Option<&'a str>,
+}
+
+/// Source PHP `(int)` accepts a numeric prefix and truncates fractions.
+/// Bound raw values before parsing; invalid values cast to zero and do not
+/// authorize an annotation or a source identity.
+fn drawing_source_integer(value: &str) -> i64 {
+    let value = value.trim_start_matches(|character: char| character.is_ascii_whitespace());
+    let bytes = value.as_bytes();
+    let mut at = usize::from(
+        bytes
+            .first()
+            .is_some_and(|byte| *byte == b'+' || *byte == b'-'),
+    );
+    let mut digits = 0;
+    while bytes.get(at).is_some_and(u8::is_ascii_digit) {
+        digits += 1;
+        at += 1;
+    }
+    let mut float = false;
+    if bytes.get(at) == Some(&b'.') {
+        float = true;
+        at += 1;
+        while bytes.get(at).is_some_and(u8::is_ascii_digit) {
+            digits += 1;
+            at += 1;
+        }
+    }
+    if digits == 0 {
+        return 0;
+    }
+    if bytes
+        .get(at)
+        .is_some_and(|byte| *byte == b'e' || *byte == b'E')
+    {
+        let mut next = at + 1;
+        if bytes
+            .get(next)
+            .is_some_and(|byte| *byte == b'+' || *byte == b'-')
+        {
+            next += 1;
+        }
+        let start = next;
+        while bytes.get(next).is_some_and(u8::is_ascii_digit) {
+            next += 1;
+        }
+        if next > start {
+            at = next;
+            float = true;
+        }
+    }
+    let prefix = &value[..at];
+    if float {
+        prefix.parse::<f64>().map_or(
+            0,
+            |number| {
+                if number.is_finite() { number as i64 } else { 0 }
+            },
+        )
+    } else {
+        prefix.parse::<i64>().unwrap_or_else(|_| {
+            if prefix.starts_with('-') {
+                i64::MIN
+            } else {
+                i64::MAX
+            }
+        })
+    }
 }
 
 pub async fn create_post_with_metadata(
@@ -327,6 +406,7 @@ pub async fn create_staff_post_with_attachment_and_context_and_keys(
                 country_database: None,
                 flag: "",
                 options: "",
+                drawing: None,
             },
             staff: Some(authority),
             anonymous: None,
@@ -463,6 +543,11 @@ async fn create_post_in_context(
     if staff.is_some() && attachment.is_none() && metadata.spoiler {
         return Err(StoreError::Invalid("Invalid staff posting metadata."));
     }
+    if metadata.drawing.is_some_and(|drawing| {
+        drawing.time.len() > 32 || drawing.source_post.is_some_and(|source| source.len() > 32)
+    }) {
+        return Err(StoreError::Invalid("Invalid drawing metadata."));
+    }
     let keys = metadata.keys;
     let ordinary_staff = staff
         .as_ref()
@@ -512,6 +597,9 @@ async fn create_post_in_context(
         .await?;
     // Clear attachment intent even when a pooled session previously set it.
     sqlx::query("SELECT set_config('board.staff_attachment_job','',true),set_config('board.staff_attachment_capability','',true),set_config('board.staff_attachment_spoiler','',true),set_config('board.post_image_spoiler','false',true)")
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("SELECT set_config('board.drawing_time_seconds','',true),set_config('board.drawing_source_post_id','',true)")
         .execute(&mut *tx)
         .await?;
     crate::posting_cooldown::lock(&mut tx, &posting_actor, parent == 0).await?;
@@ -759,7 +847,10 @@ async fn create_post_in_context(
         let thread: Thread = sqlx::query_as("SELECT * FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS(SELECT 1 FROM content.visible_threads WHERE board=$1 AND id=$2) FOR UPDATE")
             .bind(slug).bind(parent).fetch_optional(&mut *tx).await?.ok_or(StoreError::NotFound)?;
         if thread.archived_at.is_some()
-            || (!authorized_staff && (thread.closed || thread.reply_count >= board.reply_limit))
+            || (!authorized_staff
+                && (thread.closed
+                    || (thread.reply_count >= board.reply_limit
+                        && !(thread.sticky && thread.undead && board.reply_limit > 1))))
         {
             return Err(StoreError::Conflict(
                 "This thread is closed or has reached its reply limit.",
@@ -1204,6 +1295,39 @@ async fn create_post_in_context(
     };
     if parent > 0 {
         let thread = reply_target.expect("validated locked reply target");
+        // imgboard.php keeps the newest STICKY_CAP - 1 existing replies before
+        // inserting into an undead sticky. Imported source boards use the same
+        // 1,000-reply bound as STICKY_CAP; synthetic boards may set a smaller
+        // reply_limit for the identical policy. The locked board and thread are
+        // held through the commit, so this window cannot change under us.
+        //
+        // This executes after admission/proof/cooldowns and within the Robot9000
+        // savepoint. Every deletion (including private proof retirement) rolls
+        // back if media insertion or Robot9000 rejects the new reply.
+        if thread.sticky && thread.undead && board.reply_limit > 1 {
+            sqlx::query("SELECT set_config('board.sticky_prune_thread',$1,true)")
+                .bind(parent.to_string())
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query(
+                "WITH retained AS MATERIALIZED (
+                    SELECT id FROM content.posts
+                    WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted
+                    ORDER BY id DESC LIMIT $3
+                 ), boundary AS (SELECT min(id) AS first_retained FROM retained)
+                 UPDATE content.posts p SET deleted=true FROM boundary b
+                 WHERE p.board=$1 AND p.thread_id=$2 AND p.id<>$2 AND NOT p.deleted
+                   AND b.first_retained IS NOT NULL AND p.id < b.first_retained",
+            )
+            .bind(slug)
+            .bind(parent)
+            .bind(i64::from(board.reply_limit - 1))
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query("SELECT set_config('board.sticky_prune_thread','',true)")
+                .execute(&mut *tx)
+                .await?;
+        }
         // Count under the same board lock as posting/deletion. The incoming
         // row is not inserted yet; the source's decision includes that reply.
         let (replies, op_created): (i64, DateTime<Utc>) = sqlx::query_as("SELECT (SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted),created_at FROM content.posts WHERE board=$1 AND id=$2 AND NOT deleted")
@@ -1244,7 +1368,49 @@ async fn create_post_in_context(
                 board.permasage_hours as u32,
             ),
         );
-        sqlx::query("UPDATE content.threads SET reply_count=reply_count+1, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE id=$1").bind(parent).bind(bump).bind(posted_at).execute(&mut *tx).await?;
+        // Source sticky windows use the surviving count. All other threads
+        // retain their existing cumulative cached increment behavior.
+        let visible_after = i32::try_from(replies + 1)
+            .map_err(|_| StoreError::Invalid("Thread reply count exceeds storage limits."))?;
+        sqlx::query("UPDATE content.threads SET reply_count=CASE WHEN $6 THEN $4 ELSE reply_count+1 END, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE board=$5 AND id=$1")
+            .bind(parent)
+            .bind(bump)
+            .bind(posted_at)
+            .bind(visible_after)
+            .bind(slug)
+            .bind(thread.sticky && thread.undead && board.reply_limit > 1)
+            .execute(&mut *tx)
+            .await?;
+    }
+    // Original Oekaki markup is appended after duplicate-comment admission.
+    // Keep the user's prepared comment, its hashes and rule hooks untouched.
+    // The database stamp runs only after content.post_media accepts a real
+    // one-use attachment, and revalidates the board and source record.
+    if let Some(drawing) = metadata.drawing {
+        let gate = board_domain::drawing_annotation::AnnotationGate {
+            accepted_image: attachment.is_some(),
+            painter_enabled: board.oekaki,
+            replays_enabled: board.oekaki_replays,
+        };
+        if let Some(annotation) = board_domain::drawing_annotation::project_annotation(
+            board_domain::drawing_annotation::AnnotationInput {
+                gate,
+                wall_clock_seconds: Some(drawing_source_integer(drawing.time)),
+                has_stored_replay: false,
+                resolved_source_post_id: None,
+            },
+        ) {
+            let source_id = drawing.source_post.and_then(|source| {
+                let value = drawing_source_integer(source);
+                (value > 0 && gate.source_resolution_requested(true, true, parent))
+                    .then_some(value.to_string())
+            });
+            sqlx::query("SELECT set_config('board.drawing_time_seconds',$1,true),set_config('board.drawing_source_post_id',$2,true)")
+                .bind(annotation.time.seconds().to_string())
+                .bind(source_id.unwrap_or_default())
+                .execute(&mut *tx)
+                .await?;
+        }
     }
     sqlx::query("SELECT set_config('board.post_image_spoiler',$1,true)")
         .bind(if staff.is_none() && spoiler {
@@ -1602,4 +1768,35 @@ fn validate_report_reason(reason: &str) -> Result<(), StoreError> {
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod drawing_submission_tests {
+    use super::drawing_source_integer;
+
+    #[test]
+    fn source_integer_cast_distinguishes_missing_bad_fractional_and_overflow_values() {
+        for (raw, expected) in [
+            ("", 0),
+            ("no number", 0),
+            ("0", 0),
+            ("+17", 17),
+            (" 121.9seconds", 121),
+            ("12junk", 12),
+            ("1e2", 100),
+            ("1e308", i64::MAX),
+            ("42.42e42", i64::MAX),
+            ("1e309", 0),
+            ("-1e309", 0),
+            ("1e9999", 0),
+            ("-3.9", -3),
+            (".5", 0),
+            ("5184000", 5_184_000),
+            ("5184001", 5_184_001),
+            ("9223372036854775808", i64::MAX),
+            ("-9223372036854775809", i64::MIN),
+        ] {
+            assert_eq!(drawing_source_integer(raw), expected, "{raw:?}");
+        }
+    }
 }

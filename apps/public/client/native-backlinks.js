@@ -1,4 +1,5 @@
 import { postId } from '../static/thread-watcher-core.v1.js';
+import { quotePostId } from './native-quote-identity.js';
 import { FILTER_LIMITS } from './native-filter-limits.js';
 import { isCommentElement } from './native-wordfilter-markup.js';
 
@@ -158,8 +159,8 @@ export function mountNativeBacklinks({ root, board, thread = null,
         const href = anchor.getAttribute('href'), ref = quoteTarget(href, page);
         if (!ref || ref.board !== board) continue;
         const target = current.get(ref.post);
-        if (target && ref.thread !== null && ref.thread !== target.thread) continue;
-        const op = ref.post === meta.thread && (ref.thread === null || ref.thread === meta.thread);
+        if (target && ref.thread !== null && quotePostId(ref.thread) !== target.thread) continue;
+        const op = ref.post === meta.thread && (ref.thread === null || quotePostId(ref.thread) === meta.thread);
         const suffix = (op ? ' (OP)' : '') + (!target && thread && readLabel(anchor).charAt(2) !== '>' ? ' \u2192' : '');
         if (target) seen.add(ref.post);
         planned.push({ anchor, href, target: target?.post ?? null, no: ref.post, suffix });

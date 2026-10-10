@@ -153,6 +153,9 @@ async fn browsers_post_and_delete_approved_attachments_with_and_without_javascri
     let intake_address = intake_listener.local_addr().unwrap();
     let media_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let media_origin = format!("http://{}", media_listener.local_addr().unwrap());
+    let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let public_address = port.local_addr().unwrap();
+    let public_origin = format!("http://{public_address}");
     let (stop_intake, intake_task) = server(
         intake_listener,
         board_media_intake::router(
@@ -165,12 +168,10 @@ async fn browsers_post_and_delete_approved_attachments_with_and_without_javascri
             reader,
             ApprovedFiles::open(&objects).unwrap(),
             &board_config::Origin::parse(&media_origin).unwrap(),
+            &board_config::Origin::parse(&public_origin).unwrap(),
         )),
     );
-    let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let public_address = port.local_addr().unwrap();
     drop(port);
-    let public_origin = format!("http://{public_address}");
     let mut command = Command::new(env!("CARGO_BIN_EXE_board-public"));
     environment(&mut command);
     let mut public = command

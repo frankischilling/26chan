@@ -13,6 +13,11 @@ their fixed expiry or until its archive count is exceeded. A disabled board
 hides displaced threads using the existing soft-deletion model. This replaces
 the earlier behavior that rejected every new thread on a full board.
 
+[Sticky reply retention](sticky-reply-retention.md) separately rotates replies
+inside active threads marked both sticky and undead. Imported source boards keep
+the newest 1,000 visible replies plus the opening post. This uses the same board
+and thread locks as posting and requires migration 0125.
+
 ## Board policy
 
 Migration 0009 introduced archive retention and count settings. Migration 0086

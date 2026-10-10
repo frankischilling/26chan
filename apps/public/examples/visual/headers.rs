@@ -43,6 +43,8 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
             dice_result: None,
             fortune_text: None,
             fortune_color: None,
+            drawing_time_seconds: None,
+            drawing_source_post_id: None,
             created_at: time("2026-09-08T12:00:00Z"),
             deleted: false,
             attachment: None,
@@ -82,6 +84,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
     let mut board = board();
     board.worksafe = worksafe;
     views::BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),

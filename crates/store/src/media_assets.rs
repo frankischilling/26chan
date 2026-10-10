@@ -9,6 +9,45 @@ use crate::{
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Duration;
 
+/// Format of the approved host-encoded file, never the upload's filename.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, sqlx::Type)]
+#[sqlx(type_name = "text", rename_all = "lowercase")]
+pub enum MediaFormat {
+    #[default]
+    Png,
+    Gif,
+}
+
+impl MediaFormat {
+    pub fn extension(self) -> &'static str {
+        match self {
+            Self::Png => "png",
+            Self::Gif => "gif",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Png => "PNG",
+            Self::Gif => "GIF",
+        }
+    }
+
+    pub fn content_type(self) -> &'static str {
+        match self {
+            Self::Png => "image/png",
+            Self::Gif => "image/gif",
+        }
+    }
+
+    fn byte_limit(self) -> i64 {
+        match self {
+            Self::Png => 5_242_880,
+            Self::Gif => 20_971_520,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, sqlx::FromRow)]
 pub struct Asset {
     pub id: String,
@@ -16,6 +55,7 @@ pub struct Asset {
     pub bytes: i64,
     pub width: i32,
     pub height: i32,
+    pub output_format: MediaFormat,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -107,8 +147,12 @@ impl VariantRecord {
 
 impl OutputMetadata {
     fn validate(&self) -> Result<(), StoreError> {
+        self.validate_format(MediaFormat::Png)
+    }
+
+    fn validate_format(&self, format: MediaFormat) -> Result<(), StoreError> {
         validate_hex(&self.sha256, 64)?;
-        if !(1..=5_242_880).contains(&self.bytes)
+        if !(1..=format.byte_limit()).contains(&self.bytes)
             || !(1..=1024).contains(&self.width)
             || !(1..=1024).contains(&self.height)
         {
@@ -169,9 +213,49 @@ impl MediaQueue {
         variants: Option<&OutputVariants>,
         provenance: Option<&SourceProvenance>,
     ) -> Result<Asset, StoreError> {
+        self.prepare_formatted_output(
+            job_id,
+            token,
+            metadata,
+            variants,
+            provenance,
+            MediaFormat::Png,
+        )
+        .await
+    }
+
+    /// Reserve independently host-encoded GIF bytes and a static PNG thumbnail.
+    /// GIF source cleanup provenance remains unknown.
+    pub async fn prepare_gif_output(
+        &self,
+        job_id: &str,
+        token: &str,
+        metadata: &OutputMetadata,
+        variants: &OutputVariants,
+    ) -> Result<Asset, StoreError> {
+        self.prepare_formatted_output(
+            job_id,
+            token,
+            metadata,
+            Some(variants),
+            None,
+            MediaFormat::Gif,
+        )
+        .await
+    }
+
+    async fn prepare_formatted_output(
+        &self,
+        job_id: &str,
+        token: &str,
+        metadata: &OutputMetadata,
+        variants: Option<&OutputVariants>,
+        provenance: Option<&SourceProvenance>,
+        format: MediaFormat,
+    ) -> Result<Asset, StoreError> {
         validate_hex(job_id, 32)?;
         validate_hex(token, 32)?;
-        metadata.validate()?;
+        metadata.validate_format(format)?;
         if let Some(provenance) = provenance {
             provenance.validate()?;
         }
@@ -195,7 +279,7 @@ impl MediaQueue {
         if input_kind.as_deref() == Some("paired-v2") {
             return Err(unavailable());
         }
-        let reserved: Option<Reservation> = sqlx::query_as("SELECT id, sha256, bytes, width, height, state FROM media.assets WHERE job_id = $1 AND lease_token = $2 FOR UPDATE")
+        let reserved: Option<Reservation> = sqlx::query_as("SELECT id, sha256, bytes, width, height, output_format, state FROM media.assets WHERE job_id = $1 AND lease_token = $2 FOR UPDATE")
             .bind(job_id).bind(token).fetch_optional(&mut *tx).await?;
         if let Some(reserved) = reserved {
             let stored: VariantRecord = sqlx::query_as("SELECT md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height FROM media.assets WHERE id=$1")
@@ -203,6 +287,7 @@ impl MediaQueue {
             let source: SourceRecord = sqlx::query_as("SELECT source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5 FROM media.assets WHERE id=$1")
                 .bind(&reserved.asset.id).fetch_one(&mut *tx).await?;
             if !metadata.matches(&reserved.asset)
+                || reserved.asset.output_format != format
                 || !stored.matches(variants)
                 || !source.matches(provenance)
                 || reserved.state == "deleting"
@@ -215,13 +300,14 @@ impl MediaQueue {
             }
         }
         // The statement that inserts or reuses pending metadata rechecks the lease.
-        let asset = sqlx::query_as("INSERT INTO media.assets (id, job_id, lease_token, sha256, bytes, width, height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5) SELECT replace(gen_random_uuid()::text, '-', ''), id, lease_token, $3, $4, $5, $6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13) ON CONFLICT (job_id, lease_token) DO UPDATE SET updated_at = media.assets.updated_at WHERE media.assets.state = 'pending' AND media.assets.sha256 = $3 AND media.assets.bytes = $4 AND media.assets.width = $5 AND media.assets.height = $6 AND (media.assets.md5,media.assets.thumbnail_sha256,media.assets.thumbnail_bytes,media.assets.thumbnail_width,media.assets.thumbnail_height) IS NOT DISTINCT FROM ($7,$8,$9,$10,$11) AND (media.assets.source_input_sha256,media.assets.source_input_bytes,media.assets.source_profile,media.assets.source_retained_bytes,media.assets.source_md5) IS NOT DISTINCT FROM ($12,$13,$14,$15,$16) AND EXISTS (SELECT 1 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13)) RETURNING id, sha256, bytes, width, height")
+        let asset = sqlx::query_as("INSERT INTO media.assets (id, job_id, lease_token, sha256, bytes, width, height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5,output_format) SELECT replace(gen_random_uuid()::text, '-', ''), id, lease_token, $3, $4, $5, $6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13) ON CONFLICT (job_id, lease_token) DO UPDATE SET updated_at = media.assets.updated_at WHERE media.assets.state = 'pending' AND media.assets.output_format = $17 AND media.assets.sha256 = $3 AND media.assets.bytes = $4 AND media.assets.width = $5 AND media.assets.height = $6 AND (media.assets.md5,media.assets.thumbnail_sha256,media.assets.thumbnail_bytes,media.assets.thumbnail_width,media.assets.thumbnail_height) IS NOT DISTINCT FROM ($7,$8,$9,$10,$11) AND (media.assets.source_input_sha256,media.assets.source_input_bytes,media.assets.source_profile,media.assets.source_retained_bytes,media.assets.source_md5) IS NOT DISTINCT FROM ($12,$13,$14,$15,$16) AND EXISTS (SELECT 1 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13)) RETURNING id, sha256, bytes, width, height, output_format")
             .bind(job_id).bind(token).bind(&metadata.sha256).bind(metadata.bytes).bind(metadata.width).bind(metadata.height)
             .bind(variants.map(|v| &v.md5)).bind(variants.map(|v| &v.thumbnail.sha256))
             .bind(variants.map(|v| v.thumbnail.bytes)).bind(variants.map(|v| v.thumbnail.width)).bind(variants.map(|v| v.thumbnail.height))
             .bind(provenance.map(|s| &s.input_sha256)).bind(provenance.map(|s| s.input_bytes))
             .bind(provenance.map(|s| s.profile.as_str())).bind(provenance.map(|s| s.retained_bytes))
             .bind(provenance.map(|s| s.md5.as_slice()))
+            .bind(format)
             .fetch_optional(&mut *tx).await?.ok_or_else(unavailable)?;
         tx.commit().await?;
         Ok(asset)
@@ -247,7 +333,7 @@ impl MediaQueue {
         if input_kind.as_deref() == Some("paired-v2") {
             return Err(unavailable());
         }
-        let reserved: Reservation = sqlx::query_as("SELECT id, sha256, bytes, width, height, state FROM media.assets WHERE id = $3 AND job_id = $1 AND lease_token = $2 FOR UPDATE")
+        let reserved: Reservation = sqlx::query_as("SELECT id, sha256, bytes, width, height, output_format, state FROM media.assets WHERE id = $3 AND job_id = $1 AND lease_token = $2 FOR UPDATE")
             .bind(job_id).bind(token).bind(output_id).fetch_optional(&mut *tx).await?.ok_or_else(unavailable)?;
         if reserved.state == "approved" {
             tx.commit().await?;
@@ -401,7 +487,7 @@ impl MediaReader {
     pub async fn get(&self, output_id: &str) -> Result<Asset, StoreError> {
         validate_hex(output_id, 32)?;
         sqlx::query_as(
-            "SELECT id, sha256, bytes, width, height FROM media.approved_assets WHERE id = $1",
+            "SELECT id, sha256, bytes, width, height, output_format FROM media.approved_assets WHERE id = $1",
         )
         .bind(output_id)
         .fetch_optional(&self.pool)
@@ -411,7 +497,7 @@ impl MediaReader {
 
     pub async fn get_thumbnail(&self, output_id: &str) -> Result<Asset, StoreError> {
         validate_hex(output_id, 32)?;
-        sqlx::query_as("SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height FROM media.approved_assets WHERE id=$1 AND thumbnail_sha256 IS NOT NULL")
+        sqlx::query_as("SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height,'png'::text AS output_format FROM media.approved_assets WHERE id=$1 AND thumbnail_sha256 IS NOT NULL")
             .bind(output_id).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
     }
 
@@ -426,9 +512,9 @@ impl MediaReader {
             return Err(StoreError::NotFound);
         }
         let statement = if thumbnail {
-            "SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height FROM media.approved_post_assets WHERE board=$1 AND tim=$2 AND thumbnail_sha256 IS NOT NULL"
+            "SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height,'png'::text AS output_format FROM media.approved_post_assets WHERE board=$1 AND tim=$2 AND thumbnail_sha256 IS NOT NULL"
         } else {
-            "SELECT id,sha256,bytes,width,height FROM media.approved_post_assets WHERE board=$1 AND tim=$2"
+            "SELECT id,sha256,bytes,width,height,output_format FROM media.approved_post_assets WHERE board=$1 AND tim=$2"
         };
         sqlx::query_as(statement)
             .bind(board)

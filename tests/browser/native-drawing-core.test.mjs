@@ -149,7 +149,7 @@ test('Finish and Clear retain real editor state; Edit rebinds callbacks and edit
 
 test('qualification waits for Edit to reopen before sending the revoked receipt', async () => {
   const source = await readFile(new URL('./drawing-upload.mjs', import.meta.url), 'utf8');
-  const start = source.indexOf('  await controls.draw.click();', source.indexOf('const firstReceipt ='));
+  const start = source.indexOf('  await controls.draw.click();', source.indexOf('const firstReceipt = await emitReceipt();'));
   const end = source.indexOf("  await signal('REVOKED', firstReceipt.upload_id);", start);
   assert.ok(start > 0 && end > start);
   const fragment = source.slice(start, end) + "  await signal('REVOKED', firstReceipt.upload_id);";
@@ -324,7 +324,7 @@ test('drawing owner deletion emits the real file-only form contract with a blank
   const template = await readFile(new URL('../../apps/public/templates/post_content.html', import.meta.url), 'utf8');
   const value = /name="file_only" value="([^"]+)"/.exec(template)?.[1];
   assert.equal(value, 'true', 'the native form encodes DeleteForm.file_only as a boolean');
-  const start = source.indexOf('  const deleted = await context.request.post(');
+  const start = source.indexOf('  const deleted = await context.request.post(', source.indexOf('  const post = String(result.result.pid)'));
   const end = source.indexOf('  assert.equal(deleted.status()', start);
   assert.ok(start > 0 && end > start);
   const run = new Function('context', 'url', 'board', 'origin', 'post',

@@ -9,7 +9,9 @@ use axum::{
     body::{Body, to_bytes},
     http::{HeaderMap, Request, StatusCode},
 };
-use board_media::{ApprovedFiles, PublicationStore, Quarantine, ValidatedOutput};
+use board_media::{
+    ApprovedFiles, PublicationStore, Quarantine, ValidatedOutput, animation::ValidatedAnimation,
+};
 use board_store::{
     NewPost, StoreError,
     media::MediaQueue,
@@ -158,16 +160,90 @@ impl Fixture {
         )
     }
 
+    async fn gif(&self, store: &PublicationStore) -> (NewAttachment, String) {
+        let upload = self.intake.reserve("owned-erasure.gif").await.unwrap();
+        self.jobs.lock().unwrap().push(upload.id.clone());
+        self.intake
+            .begin_upload(&upload.id, &upload.capability)
+            .await
+            .unwrap();
+        self.intake
+            .finish_upload(&upload.id, &upload.capability, 4)
+            .await
+            .unwrap();
+        let claim = self.queue.claim().await.unwrap().unwrap();
+        assert_eq!(claim.id, upload.id, "Use an idle disposable queue");
+        let token = claim.lease_token.unwrap();
+        let mut wire = b"IBGIF001".to_vec();
+        for word in [1u16, 1, 2, 0, 256] {
+            wire.extend_from_slice(&word.to_be_bytes());
+        }
+        wire.extend_from_slice(&0u32.to_be_bytes());
+        wire.extend_from_slice(&[0; 10]);
+        for pixel in [0, 1] {
+            for word in [0u16, 0, 1, 1, 10, 2, 256] {
+                wire.extend_from_slice(&word.to_be_bytes());
+            }
+            wire.extend_from_slice(&[2, 0]);
+            wire.extend_from_slice(&1u32.to_be_bytes());
+            wire.extend_from_slice(&[255, 0, 0, 0, 0, 255, pixel]);
+        }
+        let animation = ValidatedAnimation::read(wire.as_slice()).await.unwrap();
+        let output = animation.encode().unwrap();
+        let thumbnail = animation.first_frame().unwrap().thumbnail().unwrap();
+        let asset = self
+            .queue
+            .prepare_gif_output(
+                &upload.id,
+                &token,
+                &OutputMetadata {
+                    sha256: output.sha256().into(),
+                    bytes: output.len() as i64,
+                    width: 1,
+                    height: 1,
+                },
+                &OutputVariants {
+                    md5: output.md5().into(),
+                    thumbnail: OutputMetadata {
+                        sha256: thumbnail.sha256().into(),
+                        bytes: thumbnail.len() as i64,
+                        width: 1,
+                        height: 1,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        let guard = store.try_lock().unwrap();
+        guard
+            .install_gif(asset.id.parse().unwrap(), &output)
+            .unwrap();
+        guard
+            .install_thumbnail(asset.id.parse().unwrap(), &thumbnail)
+            .unwrap();
+        self.queue
+            .approve_output(&upload.id, &token, &asset.id)
+            .await
+            .unwrap();
+        (
+            NewAttachment {
+                upload,
+                spoiler: false,
+            },
+            asset.id,
+        )
+    }
+
     async fn media_paths(&self, post: i64, asset: &str) -> Vec<String> {
-        let tim: i64 = sqlx::query_scalar("SELECT tim FROM content.post_media WHERE post_id=$1")
+        let (tim, format): (i64,String) = sqlx::query_as("SELECT m.tim,a.output_format FROM content.post_media m JOIN media.assets a ON a.id=m.asset_id WHERE m.post_id=$1")
             .bind(post)
             .fetch_one(&self.owner)
             .await
             .unwrap();
         vec![
-            format!("/media/{asset}.png"),
+            format!("/media/{asset}.{format}"),
             format!("/media/{asset}.thumb.png"),
-            format!("/{}/{tim}.png", self.board),
+            format!("/{}/{tim}.{format}", self.board),
             format!("/{}/{tim}s.jpg", self.board),
         ]
     }
@@ -186,6 +262,7 @@ async fn exercise(f: Fixture) {
         reader.clone(),
         ApprovedFiles::open(&root).unwrap(),
         &board_config::Origin::parse("http://127.0.0.1:3002").unwrap(),
+        &board_config::Origin::parse(ORIGIN).unwrap(),
     ));
     let (web, api) = posting::routers(f.public.clone(), &f.board, ORIGIN.into(), false);
     let (op_upload, op_asset) = f.image(&store).await;
@@ -193,7 +270,7 @@ async fn exercise(f: Fixture) {
         .post(0, "ownedopsecretneedle", Some(&op_upload))
         .await
         .unwrap();
-    let (reply_upload, reply_asset) = f.image(&store).await;
+    let (reply_upload, reply_asset) = f.gif(&store).await;
     let reply = f
         .post(op, "ownedreplysecretneedle", Some(&reply_upload))
         .await
@@ -216,7 +293,19 @@ async fn exercise(f: Fixture) {
         )
         .await
         .unwrap();
+    // These owned typed fixtures exercise saved annotation erasure separately
+    // from upload acceptance, which drawing_authority covers end to end.
+    for (id, seconds, source) in [
+        (op, 240, None),
+        (reply, 119, Some(op)),
+        (live, 181, Some(op)),
+        (cross, 300, None),
+    ] {
+        sqlx::query("UPDATE content.posts SET drawing_time_seconds=$2,drawing_source_post_id=$3 WHERE id=$1")
+            .bind(id).bind(seconds).bind(source).execute(&f.owner).await.unwrap();
+    }
     let reply_paths = f.media_paths(reply, &reply_asset).await;
+    assert!(reply_paths[0].ends_with(".gif"));
     let op_paths = f.media_paths(op, &op_asset).await;
     let live_paths = f.media_paths(live, &live_asset).await;
     let archive_paths = f.media_paths(cross, &archive_asset).await;
@@ -258,16 +347,26 @@ async fn exercise(f: Fixture) {
             tags.push(headers["etag"].to_str().unwrap().to_owned());
         }
     }
+    let drawing_before = get(&web, &format!("/{}/thread/{op}.json", f.board), None).await;
+    assert!(String::from_utf8_lossy(&drawing_before.2).contains("Time: 2m"));
     delete(&web, &f.board, reply, false).await;
-    let erased: (bool, String, String, String, bool) = sqlx::query_as("SELECT content_erased,name,subject,comment,EXISTS(SELECT 1 FROM post_secrets.deletion d WHERE d.post_id=p.id) FROM content.posts p WHERE id=$1")
+    let erased: (bool, String, String, String, bool, Option<i32>, Option<i64>) = sqlx::query_as("SELECT content_erased,name,subject,comment,EXISTS(SELECT 1 FROM post_secrets.deletion d WHERE d.post_id=p.id),drawing_time_seconds,drawing_source_post_id FROM content.posts p WHERE id=$1")
         .bind(reply).fetch_one(&f.owner).await.unwrap();
     assert_eq!(
         erased,
-        (true, String::new(), String::new(), String::new(), false)
+        (
+            true,
+            String::new(),
+            String::new(),
+            String::new(),
+            false,
+            None,
+            None
+        )
     );
     // The commit revokes reads before asynchronous byte cleanup, including a
     // conditional request carrying an ETag from the formerly readable object.
-    assert!(root.join(format!("{reply_asset}.png")).is_file());
+    assert!(root.join(format!("{reply_asset}.gif")).is_file());
     assert!(root.join(format!("{reply_asset}.thumb.png")).is_file());
     for (path, tag) in reply_paths.iter().zip(&media_tags) {
         let (status, headers, _) = get(&media, path, Some(tag)).await;
@@ -302,6 +401,10 @@ async fn exercise(f: Fixture) {
             let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
             let rendered = value.to_string();
             assert!(!rendered.contains("ownedreplysecretneedle"));
+            assert!(
+                !rendered.contains("Time: 2m"),
+                "Erased drawing annotation leaked through {path}"
+            );
             if index < 2 {
                 let comments: String = value["posts"]
                     .as_array()
@@ -385,14 +488,16 @@ async fn exercise(f: Fixture) {
     // File-only deletion preserves author/text and the surviving thread; a
     // retained archive continues to expose its intended content and media.
     delete(&web, &f.board, live, true).await;
-    let preserved: (bool, String, bool) = sqlx::query_as("SELECT content_erased,comment,EXISTS(SELECT 1 FROM post_secrets.deletion d WHERE d.post_id=p.id) FROM content.posts p WHERE id=$1")
+    let preserved: (bool, String, bool, Option<i32>, Option<i64>) = sqlx::query_as("SELECT content_erased,comment,EXISTS(SELECT 1 FROM post_secrets.deletion d WHERE d.post_id=p.id),drawing_time_seconds,drawing_source_post_id FROM content.posts p WHERE id=$1")
         .bind(live).fetch_one(&f.owner).await.unwrap();
     assert_eq!(
         preserved,
         (
             false,
             format!("Surviving same-thread quote >>{reply}"),
-            true
+            true,
+            Some(181),
+            Some(op)
         )
     );
     for path in &live_paths {
@@ -419,7 +524,7 @@ async fn exercise(f: Fixture) {
             StatusCode::NOT_FOUND
         );
     }
-    let descendants: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE thread_id=$1 AND (NOT content_erased OR comment<>'' OR name<>'' OR subject<>'')")
+    let descendants: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE thread_id=$1 AND (NOT content_erased OR comment<>'' OR name<>'' OR subject<>'' OR drawing_time_seconds IS NOT NULL OR drawing_source_post_id IS NOT NULL)")
         .bind(op).fetch_one(&f.owner).await.unwrap();
     assert_eq!(descendants, 0);
     for path in [

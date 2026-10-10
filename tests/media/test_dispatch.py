@@ -241,6 +241,22 @@ class Exercise:
         self.clean_vm()
         print('PASS actual queue -> Rust mTLS -> nonroot gateway -> root broker -> Firecracker -> approval -> restricted reader', flush=True)
 
+        for name in ('static', 'transparent', 'interlaced', 'animated', 'partial'):
+            gif_job = self.intake((REPO / 'tests/media/fixtures/gif' / f'{name}.gif').read_bytes())
+            gif_asset = self.finish(self.dispatch()).decode().strip()
+            assert HEX.fullmatch(gif_asset) and gif_asset != gif_job
+            assert sql(f"SELECT count(*) FROM media.assets WHERE id='{gif_asset}' AND job_id='{gif_job}' AND state='approved' AND output_format='gif' AND source_profile IS NULL") == '1'
+            destination = self.private / f'{name}-read.gif'
+            self.finish(self.launch([self.bin / 'media-read', gif_asset, self.private / 'objects', destination], self.coordinator, self.reader))
+            expected = (self.private / 'objects' / f'{gif_asset}.gif').read_bytes()
+            assert destination.read_bytes() == expected and expected.startswith(b'GIF89a')
+            assert not (self.private / 'objects' / f'{gif_asset}.png').exists()
+            assert (self.private / 'objects' / f'{gif_asset}.thumb.png').read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
+            assert sql(f"SELECT sha256 FROM media.assets WHERE id='{gif_asset}'") == hashlib.sha256(expected).hexdigest()
+            assert sql(f"SELECT md5 FROM media.assets WHERE id='{gif_asset}'") == hashlib.md5(expected).hexdigest()
+            self.clean_vm()
+        print('PASS GIF-v3 actual guest dispatch, typed GIF approval, static PNG thumbnail and checked restricted reader', flush=True)
+
         for identity, allowed_path in [(self.gateway, self.keys / 'server.key'), (self.coordinator, self.private / 'client.key')]:
             self.read(identity, allowed_path, True)
         for path in [self.private / 'client.key', self.private / 'writer.credential', self.private / 'reader.credential',

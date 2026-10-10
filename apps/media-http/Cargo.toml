@@ -20,6 +20,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+board-domain = { path = "../../crates/domain" }
 board-media-admin = { path = "../media-admin" }
 sqlx.workspace = true
 tower = { version = "0.5", features = ["util"] }

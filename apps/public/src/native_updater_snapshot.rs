@@ -466,6 +466,7 @@ pub(crate) mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                public_origin: String::new(),
                 blotter: Vec::new(),
                 spoiler_thumbnail: "/static/catalog/spoiler.png".into(),
                 navigation_boards: vec![],
@@ -509,6 +510,7 @@ pub(crate) mod tests {
             board.posting_reply_seconds = reply;
             board.posting_image_seconds = image;
             let upload = crate::views::UploadPage {
+                public_origin: String::new(),
                 board: board.clone(),
                 form: crate::views::UploadForm {
                     upload_id: "1".repeat(32),
@@ -521,6 +523,7 @@ pub(crate) mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                public_origin: String::new(),
                 blotter: Vec::new(),
                 spoiler_thumbnail: "spoiler.png".into(),
                 navigation_boards: vec![],
@@ -660,6 +663,8 @@ pub(crate) mod tests {
                 dice_result: None,
                 fortune_text: None,
                 fortune_color: None,
+                drawing_time_seconds: None,
+                drawing_source_post_id: None,
                 created_at: now,
                 deleted: false,
                 attachment: None,
@@ -692,6 +697,7 @@ pub(crate) mod tests {
             md5: Some("not-a-public-hash-field".into()),
             thumbnail_width: Some(32),
             thumbnail_height: Some(24),
+            output_format: board_store::media_assets::MediaFormat::Png,
         }
     }
 
@@ -748,6 +754,7 @@ pub(crate) mod tests {
                     dice_result: None,
                     fortune_text: None,
                     fortune_color: None,
+                    drawing: None,
                 }
                 .render()
                 .unwrap();
@@ -776,6 +783,35 @@ pub(crate) mod tests {
                 }
                 assert!(!html.contains("private-asset-id"));
                 assert!(!html.contains("not-a-public-hash-field"));
+            }
+        }
+    }
+
+    #[test]
+    fn gif_preview_keeps_the_approved_suffix_static_thumbnail_and_no_script_link() {
+        for spoiler in [false, true] {
+            let mut snapshot = preview_fixture(false);
+            let mut file = attachment();
+            file.output_format = board_store::media_assets::MediaFormat::Gif;
+            file.spoiler = spoiler;
+            // The user-supplied name does not select the approved format.
+            file.filename = "owned.png".into();
+            snapshot.post.attachment = Some(file);
+            let preview: serde_json::Value = serde_json::from_slice(
+                &encode_preview(snapshot, "https://media.example", MAX_PREVIEW_BYTES).unwrap(),
+            )
+            .unwrap();
+            let html = preview["post"]["html"].as_str().unwrap();
+            assert!(html.contains("href=\"https://media.example/test/9223372036854775807.gif\""));
+            assert!(html.contains(" GIF</div>"));
+            assert!(!html.contains("9223372036854775807.png"));
+            if spoiler {
+                assert!(html.contains("/static/catalog/spoiler.png"));
+                assert!(html.contains("class=\"fileThumb imgspoiler\""));
+            } else {
+                assert!(
+                    html.contains("src=\"https://media.example/test/9223372036854775807s.jpg\"")
+                );
             }
         }
     }
@@ -862,6 +898,7 @@ pub(crate) mod tests {
                 dice_result: None,
                 fortune_text: None,
                 fortune_color: None,
+                drawing: None,
             }
             .render()
             .unwrap();

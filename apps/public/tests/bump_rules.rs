@@ -22,8 +22,8 @@ fn post(sage: bool) -> NewPost {
 
 // These fixtures exercise ordinary non-OP bump rules. OP self-bump timing has
 // its own same-peer coverage in op_bumps.rs.
-fn reply_peer() -> std::net::IpAddr {
-    "192.0.2.202".parse().unwrap()
+fn reply_peer(index: u8) -> std::net::IpAddr {
+    std::net::IpAddr::V4(std::net::Ipv4Addr::new(192, 0, 2, 202 + index))
 }
 async fn create_reply(
     public: &PgPool,
@@ -31,6 +31,7 @@ async fn create_reply(
     parent: i64,
     post: &NewPost,
     request_start: chrono::DateTime<chrono::Utc>,
+    peer: std::net::IpAddr,
 ) -> Result<i64, board_store::StoreError> {
     posting_fixture::create_post_with_context(
         public,
@@ -40,7 +41,7 @@ async fn create_reply(
         None,
         board_store::PostingContext {
             request_start,
-            peer: Some(reply_peer()),
+            peer: Some(peer),
             op_password_proof: None,
         },
     )
@@ -65,9 +66,16 @@ async fn append(
 ) -> i64 {
     reset_clock(owner, id).await;
     let before = board_store::thread(public, slug, id).await.unwrap();
-    let reply = create_reply(public, slug, id, &post(sage), chrono::Utc::now())
-        .await
-        .unwrap();
+    let reply = create_reply(
+        public,
+        slug,
+        id,
+        &post(sage),
+        chrono::Utc::now(),
+        reply_peer(0),
+    )
+    .await
+    .unwrap();
     let after = board_store::thread(public, slug, id).await.unwrap();
     assert_eq!(after.bumped_at > before.bumped_at, bump);
     assert_eq!(after.reply_count, before.reply_count + 1);
@@ -239,7 +247,15 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     assert!(matches!(
-        create_reply(&public, &slug, id, &post(false), chrono::Utc::now()).await,
+        create_reply(
+            &public,
+            &slug,
+            id,
+            &post(false),
+            chrono::Utc::now(),
+            reply_peer(0),
+        )
+        .await,
         Err(board_store::StoreError::Conflict(_))
     ));
     board_store::delete_post(&public, &slug, id).await.unwrap();
@@ -256,11 +272,14 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     reset_clock(&owner, id).await;
     let before: Thread = board_store::thread(&public, &slug, id).await.unwrap();
     let mut jobs = tokio::task::JoinSet::new();
-    for _ in 0..8 {
+    for index in 0..8 {
         let public = public.clone();
         let slug = slug.clone();
+        // Independent peers contend on the board lock without introducing
+        // same-actor cooldown decisions from out-of-order request clocks.
+        let peer = reply_peer(index + 1);
         jobs.spawn(async move {
-            create_reply(&public, &slug, id, &post(false), chrono::Utc::now())
+            create_reply(&public, &slug, id, &post(false), chrono::Utc::now(), peer)
                 .await
                 .unwrap()
         });

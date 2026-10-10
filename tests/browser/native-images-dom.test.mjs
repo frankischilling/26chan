@@ -20,8 +20,10 @@ const quotes = await readFile(new URL('apps/public/static/native-filter.v1.js', 
 const css = await readFile(new URL('apps/public/static/board.css', root), 'utf8');
 // A transparent synthetic 1x1 PNG. All requests are intercepted in this context.
 const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64');
+// Independent 1x1 red/blue GIF89a, 200 ms frames, infinite loop.
+const animatedPixel = Buffer.from('47494638396101000100800000ff00000000ff21ff0b4e45545343415045322e30030100000021f90404140000002c000000000100010000020244010021f90404140000002c00000000010001000002024c01003b', 'hex');
 
-async function fixture(t, { limits = {}, config = {}, count = 3, preview = false } = {}) {
+async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false } = {}) {
   const context = await browser.newContext();
   t.after(() => context.close());
   const page = await context.newPage();
@@ -32,11 +34,12 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
     const mode = modes.get(new URL(url).pathname);
     if (mode === 'hold') { held.push(route); return; }
     if (mode === 'fail') { await route.fulfill({ status: 404, body: 'Owned missing image' }); return; }
-    await route.fulfill({ contentType: 'image/png', body: pixel });
+    await route.fulfill(url.endsWith('.gif') ? { contentType: 'image/gif', body: animatedPixel }
+      : { contentType: 'image/png', body: pixel });
   });
   await page.goto('about:blank');
   await page.addStyleTag({ content: css });
-  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview }) => {
+  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif }) => {
     const module = async text => {
       const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
       try { return await import(url); } finally { URL.revokeObjectURL(url); }
@@ -48,6 +51,9 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
       const id = index + 1, type = id === 1 ? 'op' : 'reply';
       return `<article class="postContainer ${type}Container" id="pc${id}"><div class="post ${type}" id="p${id}"><div class="postInfo" id="pi${id}"><span class="name">Owned</span></div><div class="file" id="f${id}"><p>File: <a href="https://media.test/demo/${id}.png" rel="noopener noreferrer">Owned.png</a></p><a class="fileThumb" href="https://media.test/demo/${id}.png" rel="noopener noreferrer"><img src="https://media.test/demo/${id}s.jpg" alt="Owned" width="10" height="10" loading="lazy"></a></div><blockquote class="postMessage" id="m${id}">Owned</blockquote></div></article>`;
     }).join('') + '</main>';
+    if (gif) for (const anchor of document.querySelectorAll('.file a[href]')) {
+      anchor.href = anchor.href.replace(/\.png$/, '.gif');
+    }
     window.imageConfig = config; window.imageOwnership = ownership.createCommentProjection();
     window.imageController = images.mountNativeImages({ root: document.querySelector('.board'),
       mediaOrigin: 'https://media.test', settings: () => window.imageConfig, projection: window.imageOwnership, limits,
@@ -60,10 +66,33 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
       anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
       return intercepted;
     };
-  }, { source, projection, quotes, limits, config, count, preview });
+  }, { source, projection, quotes, limits, config, count, preview, gif });
   await page.waitForFunction(() => [...document.querySelectorAll('.fileThumb img')].every(img => img.complete && img.naturalWidth > 0));
   return { page, requests, modes, held };
 }
+
+test('GIF expansion displays changing frames, keeps its PNG thumbnail and retires the GIF URL', async t => {
+  const { page, requests } = await fixture(t, { gif: true, count: 1 });
+  const thumbnail = await page.locator('#f1 .fileThumb img').getAttribute('src');
+  assert.equal(await page.evaluate(() => clickImage(1)), true);
+  const expanded = page.locator('#f1 .expanded-thumb:not([hidden])');
+  await expanded.waitFor();
+  assert.equal(await expanded.getAttribute('src'), 'https://media.test/demo/1.gif');
+  const first = await expanded.screenshot();
+  let changed = false;
+  for (let attempt = 0; attempt < 20 && !changed; attempt++) {
+    await page.waitForTimeout(60);
+    changed = !(await expanded.screenshot()).equals(first);
+  }
+  assert.ok(changed, 'the visible GIF must display more than its first frame');
+  assert.equal(await page.locator('#f1 .fileThumb img:not(.expanded-thumb)').getAttribute('src'), thumbnail);
+  assert.equal(requests.filter(url => url.endsWith('/1.gif')).length, 1);
+  assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/1.gif')), true);
+  assert.equal(await page.locator('.expanded-thumb,#image-hover').count(), 0);
+  assert.equal(await page.evaluate(() => clickImage(1)), true);
+  assert.equal(await page.locator('.expanded-thumb').count(), 0);
+  assert.equal(requests.filter(url => url.endsWith('/1.gif')).length, 1);
+});
 
 test('expanded images retain the original thumbnail and cannot enter quote recipes', async t => {
   const { page, requests } = await fixture(t);

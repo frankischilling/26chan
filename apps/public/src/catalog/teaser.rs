@@ -60,15 +60,16 @@ pub(crate) fn stored_comment(lines: &[Line], board: &str, format: i16) -> String
 }
 
 pub fn prepare(lines: &[Line], board: &str, policy: Policy) -> Prepared {
-    prepare_with_randomizers(lines, board, policy, None, None)
+    prepare_with_metadata(lines, board, policy, None, None, None)
 }
 
-pub fn prepare_with_randomizers(
+pub fn prepare_with_metadata(
     lines: &[Line],
     board: &str,
     policy: Policy,
     dice: Option<&str>,
     fortune: Option<(&str, &str)>,
+    drawing: Option<&crate::views::DrawingAnnotation>,
 ) -> Prepared {
     let mut tokens = Vec::new();
     let mut previous_break = false;
@@ -122,6 +123,9 @@ pub fn prepare_with_randomizers(
             Token::GeneratedBold(false),
             Token::GeneratedFortune(false, color.into()),
         ]);
+    }
+    if let Some(drawing) = drawing {
+        tokens.extend(drawing.tokens(separator));
     }
     if policy.sjis {
         tokens = replace_sjis(tokens);
@@ -223,7 +227,7 @@ pub(crate) fn strip(tokens: Vec<Token>) -> Vec<Token> {
             | Token::CloseMarkup(_)
             | Token::OpenQuote
             | Token::CloseQuote => {}
-            Token::GeneratedBold(_) | Token::GeneratedFortune(_, _) => {}
+            Token::GeneratedBold(_) | Token::GeneratedSmall(_) | Token::GeneratedFortune(_, _) => {}
         }
     }
     result
@@ -345,6 +349,7 @@ pub(crate) fn serialize(tokens: &[Token], board: &str, source_links: bool) -> St
             Token::OpenQuote => result.push_str("<span class=\"quote\">"),
             Token::CloseQuote => result.push_str("</span>"),
             Token::GeneratedBold(open) => result.push_str(if *open { "<b>" } else { "</b>" }),
+            Token::GeneratedSmall(open) => result.push_str(if *open { "<small>" } else { "</small>" }),
             Token::GeneratedFortune(true, color) => result.push_str(&format!("<span class=\"fortune\" style=\"color:{color}\">")),
             Token::GeneratedFortune(false, _) => result.push_str("</span>"),
         }
@@ -431,7 +436,7 @@ mod tests {
                 green: false,
                 tokens: vec![Token::Text(case["comment"].as_str().unwrap().into())],
             }];
-            let prepared = prepare_with_randomizers(
+            let prepared = prepare_with_metadata(
                 &lines,
                 "b",
                 Policy {
@@ -440,10 +445,30 @@ mod tests {
                 },
                 case["dice"].as_str(),
                 case["fortune"].as_str().zip(case["color"].as_str()),
+                None,
             );
             assert_eq!(prepared.serialized, case["teaser"], "{case}");
         }
     }
+    #[test]
+    fn drawing_metadata_participates_in_catalog_text_and_search() {
+        let drawing = crate::views::DrawingAnnotation::from_saved(Some(90), Some(42)).unwrap();
+        let prepared = prepare_with_metadata(
+            &board_domain::parse_comment("Drawing body"),
+            "i",
+            Policy::default(),
+            None,
+            None,
+            Some(&drawing),
+        );
+        assert_eq!(
+            prepared.serialized,
+            "Drawing body Oekaki Post (Time: 2m, Source: &gt;&gt;42)"
+        );
+        assert!(crate::catalog::filter::Filter::new("Oekaki Post").matches(&prepared.serialized));
+        assert!(crate::catalog::filter::Filter::new("Time: 2m").matches(&prepared.serialized));
+    }
+
     use proptest::prelude::*;
 
     #[test]

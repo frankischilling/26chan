@@ -67,7 +67,7 @@ impl LegacyMediaStore {
     /// Caller holds the canonical publication lock before reading this snapshot.
     pub async fn get(&self, id: &str) -> Result<LegacyAsset, StoreError> {
         validate_hex(id, 32)?;
-        sqlx::query_as("SELECT a.id,a.sha256,a.bytes,a.width,a.height,a.md5,a.thumbnail_sha256,a.thumbnail_bytes,a.thumbnail_width,a.thumbnail_height FROM media.assets a JOIN media.approved_assets v ON v.id=a.id WHERE a.id=$1")
+        sqlx::query_as("SELECT a.id,a.sha256,a.bytes,a.width,a.height,a.output_format,a.md5,a.thumbnail_sha256,a.thumbnail_bytes,a.thumbnail_width,a.thumbnail_height FROM media.assets a JOIN media.approved_assets v ON v.id=a.id WHERE a.id=$1")
             .bind(id).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
     }
 

@@ -321,7 +321,8 @@ pub async fn search(
 
     let rows: Vec<SearchHitRow> = sqlx::query_as(
         "WITH candidates AS MATERIALIZED (\
-            SELECT p.board,p.thread_id,p.id,p.subject,coalesce(p.wordfilter_search,p.comment) AS comment \
+            SELECT p.board,p.thread_id,p.id,p.subject,\
+                coalesce(p.wordfilter_search,p.comment) || coalesce(E'\\n' || content.drawing_search_text(p.drawing_time_seconds,p.drawing_source_post_id),'') AS comment \
             FROM content.posts p \
             JOIN content.visible_threads t ON t.board=p.board AND t.id=p.thread_id \
             WHERE NOT p.deleted AND ($2::text IS NULL OR p.board=$2) \
@@ -386,7 +387,7 @@ pub async fn search(
                      WHEN strpos(lower(p.comment), lower($2)) > 0 THEN \
                        substring(p.comment FROM greatest(1, strpos(lower(p.comment), lower($2)) - ($4 / 4)::integer) FOR $4::integer) \
                      ELSE left(p.comment, $4::integer) END AS comment,\
-                p.dice_result,p.fortune_text,p.fortune_color,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.created_at,p.deleted \
+                p.drawing_time_seconds,p.drawing_source_post_id,p.dice_result,p.fortune_text,p.fortune_color,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.created_at,p.deleted \
          FROM unnest($1::bigint[]) WITH ORDINALITY AS selected(thread_id,ord) \
          CROSS JOIN LATERAL (\
             SELECT picked.* FROM (\
@@ -396,7 +397,7 @@ pub async fn search(
                 (SELECT reply.* FROM content.posts reply \
                  WHERE reply.thread_id=selected.thread_id AND reply.id<>selected.thread_id \
                    AND NOT reply.deleted \
-                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.wordfilter_search,reply.comment)), lower($2)) > 0 \
+                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.wordfilter_search,reply.comment) || coalesce(E'\\n' || content.drawing_search_text(reply.drawing_time_seconds,reply.drawing_source_post_id),'')), lower($2)) > 0 \
                  ORDER BY reply.id DESC LIMIT $3)\
             ) picked ORDER BY picked.id\
          ) p ORDER BY selected.ord,p.id",

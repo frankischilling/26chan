@@ -9,6 +9,7 @@ pub mod drawing_annotation;
 pub mod identity;
 pub mod name_trip_admission;
 pub mod page_title;
+pub mod poll_voting;
 pub mod poster_id;
 pub mod preview;
 pub mod public_deletion;

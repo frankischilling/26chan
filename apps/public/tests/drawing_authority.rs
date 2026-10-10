@@ -93,10 +93,21 @@ fn authority(headers: &HeaderMap, enabled: bool) -> String {
     images.to_owned()
 }
 
-fn controls(html: &str, enabled: bool) {
-    assert_eq!(html.contains("data-drawing-allowed=\"true\""), enabled);
-    assert_eq!(html.contains("data-drawing-draw"), enabled);
-    assert_eq!(html.contains(&format!("href=\"{STYLE}\"")), enabled);
+fn controls(html: &str, ordinary: bool, edit: bool) {
+    assert_eq!(html.contains("data-drawing-allowed=\"true\""), ordinary);
+    assert_eq!(html.contains("data-drawing-edit-allowed=\"true\""), edit);
+    assert_eq!(html.contains("data-drawing-draw"), ordinary || edit);
+    assert_eq!(
+        html.contains(&format!("href=\"{STYLE}\"")),
+        ordinary || edit
+    );
+    assert_eq!(html.contains("<div class=\"painter-ctrl\" hidden>"), edit);
+    if edit {
+        assert!(
+            !html.contains("data-type=\"Painter\""),
+            "/i/ Edit has no ordinary Draw row"
+        );
+    }
     assert!(!html.contains(SCRIPT), "the editor must remain lazy");
     assert!(!html.contains("oe-r-cb") && !html.contains("oeReplay("));
 }
@@ -157,7 +168,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
                         "drawing must not widen image authority"
                     );
                     if method == "GET" {
-                        controls(&html, admitted);
+                        controls(&html, admitted, false);
                     } else {
                         assert!(html.is_empty());
                     }
@@ -179,7 +190,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
             let (status, headers, html) = request(app, "GET", &path).await;
             assert_eq!(status, expected, "{path}");
             authority(&headers, false);
-            controls(&html, false);
+            controls(&html, false, false);
         }
         let (status, headers, _) = request(&web, "POST", &format!("/{slug}/")).await;
         assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED);
@@ -193,7 +204,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
                 assert_eq!(status, StatusCode::OK);
                 authority(&headers, false);
                 if method == "GET" {
-                    controls(&html, false);
+                    controls(&html, false, false);
                     assert!(!html.contains("class=\"postEditor\""));
                 }
             }
@@ -235,6 +246,193 @@ async fn drawing_authority_requires_successful_supported_ordinary_html_from_the_
             .await
             .unwrap();
     }
+    public.close().await;
+    owner.close().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn source_i_edit_requires_a_live_thread_and_media_in_the_real_renderer_and_csp() {
+    let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let board = board_store::board(&public, "i").await.unwrap();
+    assert!(
+        board.oekaki && board.oekaki_replays,
+        "/i/ retains source painter/replay policy"
+    );
+    assert!(!board.staff_only && !board.text_only && board.image_limit > 0);
+    assert_eq!((board.oekaki_width, board.oekaki_height), (400, 400));
+
+    // One precisely owned /i/ OP is enough to exercise the production router.
+    // Keep the shared source board policy and all preexisting threads untouched.
+    assert!(board.word_filter_enabled);
+    assert_eq!(board.word_filter_profile, 0);
+    let comment = "Owned /i/ drawing gate fixture";
+    let mut prepared = board_domain::wordfiltered_comment::prepare(
+        comment,
+        board_domain::comment_markup::MarkupPolicy {
+            spoilers: board.comment_spoiler_cleanup,
+            code: board.comment_code_spacing,
+            sjis: board.comment_sjis_spacing,
+            op: board.op_markup,
+        },
+        board_domain::wordfilter::Profile::Global,
+        None,
+    )
+    .unwrap();
+    prepared.freeze_format("i");
+    let lines = board_domain::filtered_formatting::lines(&prepared, "i");
+    assert_eq!(
+        board_domain::filtered_formatting::source_projection(&lines),
+        comment
+    );
+    assert_eq!(board_domain::formatting::plain_text(&lines), comment);
+    let encoded: String = prepared
+        .encode()
+        .unwrap()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    let mut tx = owner.begin().await.unwrap();
+    sqlx::query("SELECT set_config('board.wordfilter_payload',$1,true),set_config('board.wordfilter_search',$2,true)")
+        .bind(encoded)
+        .bind(comment)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let id: i64 = sqlx::query_scalar("INSERT INTO content.threads(board) VALUES('i') RETURNING id")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,'i',$1,'Anonymous','Owned image Edit authority',$2)")
+        .bind(id)
+        .bind(comment)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+
+    let checked_owner = owner.clone();
+    let checked_public = public.clone();
+    let result = tokio::spawn(async move {
+        let media = board_config::PublicMediaSettings::development(
+            "127.0.0.1:4000",
+            &"a".repeat(64),
+            MEDIA_ORIGIN,
+        )
+        .unwrap();
+        let (enabled, api) = posting::routers_with_media(
+            checked_public.clone(), "i", ORIGIN.into(), false, Some(media),
+        );
+        let (without_media, _) = posting::routers_with_media(
+            checked_public, "i", ORIGIN.into(), false, None,
+        );
+        let thread = format!("/i/thread/{id}");
+        for method in ["GET", "HEAD"] {
+            let (status, headers, html) = request(&enabled, method, &thread).await;
+            assert_eq!(status, StatusCode::OK, "{method} {thread}");
+            let images = authority(&headers, true);
+            assert!(images.contains(MEDIA_ORIGIN), "enabled media origin is exact");
+            if method == "GET" {
+                controls(&html, false, true);
+                assert!(html.contains("data-drawing-width=\"400\""));
+                assert!(html.contains("data-drawing-height=\"400\""));
+                assert!(html.contains("class=\"postEditor\""));
+            } else {
+                assert!(html.is_empty(), "HEAD must not render the body");
+            }
+        }
+
+        // The same /i/ board policy never grants Edit on index, catalog,
+        // missing threads, or the JSON/API representation.
+        for (app, path, expected) in [
+            (&enabled, "/i/".to_string(), StatusCode::OK),
+            (
+                &enabled,
+                "/i/catalog".to_string(),
+                if board.catalog_enabled { StatusCode::OK } else { StatusCode::NOT_FOUND },
+            ),
+            (
+                &enabled,
+                "/i/thread/9223372036854775807".to_string(),
+                StatusCode::NOT_FOUND,
+            ),
+            (&api, format!("{thread}.json"), StatusCode::OK),
+        ] {
+            for method in ["GET", "HEAD"] {
+                let (status, headers, html) = request(app, method, &path).await;
+                assert_eq!(status, expected, "{method} {path}");
+                authority(&headers, false);
+                if method == "GET" {
+                    controls(&html, false, false);
+                } else {
+                    assert!(html.is_empty(), "HEAD {path}");
+                }
+            }
+        }
+        for method in ["GET", "HEAD"] {
+            let (status, headers, html) = request(&without_media, method, &thread).await;
+            assert_eq!(status, StatusCode::OK, "media-off {method} {thread}");
+            assert!(!authority(&headers, false).contains(MEDIA_ORIGIN));
+            if method == "GET" {
+                controls(&html, false, false);
+            } else {
+                assert!(html.is_empty());
+            }
+        }
+
+        // Change only the newly created thread to exercise both refusal gates.
+        for archived in [false, true] {
+            let changed = sqlx::query("UPDATE content.threads SET closed=true,archived_at=CASE WHEN $2 THEN now() ELSE NULL END,archive_expires_at=CASE WHEN $2 THEN now()+interval '1 hour' ELSE NULL END WHERE board='i' AND id=$1")
+                .bind(id)
+                .bind(archived)
+                .execute(&checked_owner)
+                .await
+                .unwrap();
+            assert_eq!(changed.rows_affected(), 1);
+            for method in ["GET", "HEAD"] {
+                let (status, headers, html) = request(&enabled, method, &thread).await;
+                assert_eq!(status, StatusCode::OK, "closed/archived {method} {thread}");
+                authority(&headers, false);
+                if method == "GET" {
+                    controls(&html, false, false);
+                    assert!(!html.contains("class=\"postEditor\""));
+                } else {
+                    assert!(html.is_empty());
+                }
+            }
+        }
+    })
+    .await;
+
+    // No board-wide deletion, reset, or policy mutation: remove exactly the
+    // fixture OP and its thread after confirming no other post joined it.
+    let count: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board='i' AND thread_id=$1")
+            .bind(id)
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+    assert_eq!(
+        count, 1,
+        "refuse cleanup if any other post joined the owned thread"
+    );
+    let removed = sqlx::query("DELETE FROM content.posts WHERE board='i' AND id=$1 AND thread_id=$1 AND comment='Owned /i/ drawing gate fixture'")
+        .bind(id)
+        .execute(&owner)
+        .await
+        .unwrap();
+    assert_eq!(removed.rows_affected(), 1);
+    let removed = sqlx::query("DELETE FROM content.threads WHERE board='i' AND id=$1")
+        .bind(id)
+        .execute(&owner)
+        .await
+        .unwrap();
+    assert_eq!(removed.rows_affected(), 1);
     public.close().await;
     owner.close().await;
     result.unwrap();

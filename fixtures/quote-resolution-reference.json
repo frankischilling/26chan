@@ -4,8 +4,9 @@
   "oracle_method": "static-extraction-and-independently-derived-controlled-lookup-expectations",
   "source_execution": "not performed while generating this fixture; optional --php-oracle validates extracted functions only",
   "limits": [
-    "Canonical positive decimal post IDs within signed i64 only.",
-    "Leading-zero, signed, exponent, nondecimal, zero, and overflow IDs and MySQL coercion are explicitly unqualified.",
+    "Decimal post spellings within signed i64, including leading zeroes, are qualified after source word wrapping.",
+    "Post zero is qualified only as controlled absence; the Rust store cannot contain post zero.",
+    "Signed, exponent, nondecimal and overflow IDs and general MySQL coercion are explicitly unqualified.",
     "Same-board tokenizer consumes a digit prefix in >>123abc or >>1e3; that canonical prefix is qualified, not a claim about MySQL nondecimal coercion.",
     "Lookup answers are controlled stubs. Private-as-missing is an absence presentation scenario, not evidence of source SQL RLS.",
     "Source URL constants are controlled: NEW_HTML=true, RES_DIR2=thread/, PHP_EXT2=empty, L::d=example.test. Cross-host deployment mapping is not qualified.",
@@ -1987,6 +1988,1978 @@
         "href": "//boards.example.test/xs/thread/123#p123",
         "html": "<a href=\"//boards.example.test/xs/thread/123#p123\" class=\"quotelink\">&gt;&gt;&gt;/xs/123</a>"
       }
+    },
+    {
+      "id": "leading-zero-same-thread-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;000100",
+      "target_board": "g",
+      "target_post_id": "000100",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "local",
+        "thread_id": "100",
+        "href": "#p000100",
+        "html": "<a href=\"#p000100\" class=\"quotelink\">&gt;&gt;000100</a>"
+      }
+    },
+    {
+      "id": "leading-zero-same-thread-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;000123",
+      "target_board": "g",
+      "target_post_id": "000123",
+      "lookup_resto": "100",
+      "absence_reason": null,
+      "expected": {
+        "kind": "local",
+        "thread_id": "100",
+        "href": "#p000123",
+        "html": "<a href=\"#p000123\" class=\"quotelink\">&gt;&gt;000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-other-thread-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;000123",
+      "target_board": "g",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "/g/thread/000123#p000123",
+        "html": "<a href=\"/g/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-other-thread-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;000123",
+      "target_board": "g",
+      "target_post_id": "000123",
+      "lookup_resto": "200",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "200",
+        "href": "/g/thread/200#p000123",
+        "html": "<a href=\"/g/thread/200#p000123\" class=\"quotelink\">&gt;&gt;000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-board-index-op",
+      "source_board": "g",
+      "source_thread_id": null,
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;000123",
+      "target_board": "g",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "/g/thread/000123#p000123",
+        "html": "<a href=\"/g/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-board-index-reply",
+      "source_board": "g",
+      "source_thread_id": null,
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;000123",
+      "target_board": "g",
+      "target_post_id": "000123",
+      "lookup_resto": "100",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "100",
+        "href": "/g/thread/100#p000123",
+        "html": "<a href=\"/g/thread/100#p000123\" class=\"quotelink\">&gt;&gt;000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-same-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;000123",
+      "target_board": "g",
+      "target_post_id": "000123",
+      "lookup_resto": null,
+      "absence_reason": "missing",
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;000123</span>"
+      }
+    },
+    {
+      "id": "leading-zero-cross-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/a/000123",
+      "target_board": "a",
+      "target_post_id": "000123",
+      "lookup_resto": null,
+      "absence_reason": "missing",
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/a/000123</span>"
+      }
+    },
+    {
+      "id": "leading-zero-same-private-as-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;000123",
+      "target_board": "g",
+      "target_post_id": "000123",
+      "lookup_resto": null,
+      "absence_reason": "private-as-missing",
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;000123</span>"
+      }
+    },
+    {
+      "id": "leading-zero-cross-private-as-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/a/000123",
+      "target_board": "a",
+      "target_post_id": "000123",
+      "lookup_resto": null,
+      "absence_reason": "private-as-missing",
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/a/000123</span>"
+      }
+    },
+    {
+      "id": "leading-zero-same-deleted",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;000123",
+      "target_board": "g",
+      "target_post_id": "000123",
+      "lookup_resto": null,
+      "absence_reason": "deleted",
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;000123</span>"
+      }
+    },
+    {
+      "id": "leading-zero-cross-deleted",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/a/000123",
+      "target_board": "a",
+      "target_post_id": "000123",
+      "lookup_resto": null,
+      "absence_reason": "deleted",
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/a/000123</span>"
+      }
+    },
+    {
+      "id": "leading-zero-cross-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/a/000123",
+      "target_board": "a",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/a/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/a/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/a/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-cross-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/a/000123",
+      "target_board": "a",
+      "target_post_id": "000123",
+      "lookup_resto": "200",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "200",
+        "href": "//boards.example.test/a/thread/200#p000123",
+        "html": "<a href=\"//boards.example.test/a/thread/200#p000123\" class=\"quotelink\">&gt;&gt;&gt;/a/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-cross-same-board-remains-full-url",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/g/000123",
+      "target_board": "g",
+      "target_post_id": "000123",
+      "lookup_resto": "100",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "100",
+        "href": "//boards.example.test/g/thread/100#p000123",
+        "html": "<a href=\"//boards.example.test/g/thread/100#p000123\" class=\"quotelink\">&gt;&gt;&gt;/g/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-cross-allowlist-reject-unknown",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/unknown/000123",
+      "target_board": "unknown",
+      "target_post_id": "000123",
+      "lookup_resto": "100",
+      "absence_reason": null,
+      "expected": {
+        "kind": "plain",
+        "thread_id": null,
+        "href": null,
+        "html": "&gt;&gt;&gt;/unknown/000123"
+      }
+    },
+    {
+      "id": "leading-zero-cross-allowlist-reject-test",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/test/000123",
+      "target_board": "test",
+      "target_post_id": "000123",
+      "lookup_resto": "100",
+      "absence_reason": null,
+      "expected": {
+        "kind": "plain",
+        "thread_id": null,
+        "href": null,
+        "html": "&gt;&gt;&gt;/test/000123"
+      }
+    },
+    {
+      "id": "leading-zero-cross-allowlist-reject-global",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/global/000123",
+      "target_board": "global",
+      "target_post_id": "000123",
+      "lookup_resto": "100",
+      "absence_reason": null,
+      "expected": {
+        "kind": "plain",
+        "thread_id": null,
+        "href": null,
+        "html": "&gt;&gt;&gt;/global/000123"
+      }
+    },
+    {
+      "id": "leading-zero-mlp-b-0",
+      "source_board": "mlp",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/b/000123",
+      "target_board": "b",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/b/000123</span>"
+      }
+    },
+    {
+      "id": "leading-zero-mlp-b-200",
+      "source_board": "mlp",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/b/000123",
+      "target_board": "b",
+      "target_post_id": "000123",
+      "lookup_resto": "200",
+      "absence_reason": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/b/000123</span>"
+      }
+    },
+    {
+      "id": "leading-zero-mlp-b-missing",
+      "source_board": "mlp",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/b/000123",
+      "target_board": "b",
+      "target_post_id": "000123",
+      "lookup_resto": null,
+      "absence_reason": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/b/000123</span>"
+      }
+    },
+    {
+      "id": "leading-zero-mlp-co-0",
+      "source_board": "mlp",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/000123",
+      "target_board": "co",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/000123</span>"
+      }
+    },
+    {
+      "id": "leading-zero-mlp-co-200",
+      "source_board": "mlp",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/000123",
+      "target_board": "co",
+      "target_post_id": "000123",
+      "lookup_resto": "200",
+      "absence_reason": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/000123</span>"
+      }
+    },
+    {
+      "id": "leading-zero-mlp-co-missing",
+      "source_board": "mlp",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/000123",
+      "target_board": "co",
+      "target_post_id": "000123",
+      "lookup_resto": null,
+      "absence_reason": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/000123</span>"
+      }
+    },
+    {
+      "id": "leading-zero-mlp-allowed-a",
+      "source_board": "mlp",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/a/000123",
+      "target_board": "a",
+      "target_post_id": "000123",
+      "lookup_resto": "100",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "100",
+        "href": "//boards.example.test/a/thread/100#p000123",
+        "html": "<a href=\"//boards.example.test/a/thread/100#p000123\" class=\"quotelink\">&gt;&gt;&gt;/a/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-other-source-can-link-b",
+      "source_board": "a",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/b/000123",
+      "target_board": "b",
+      "target_post_id": "000123",
+      "lookup_resto": "100",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "100",
+        "href": "//boards.example.test/b/thread/100#p000123",
+        "html": "<a href=\"//boards.example.test/b/thread/100#p000123\" class=\"quotelink\">&gt;&gt;&gt;/b/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-minimum-canonical-id",
+      "source_board": "g",
+      "source_thread_id": null,
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;0001",
+      "target_board": "g",
+      "target_post_id": "0001",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "/g/thread/0001#p0001",
+        "html": "<a href=\"/g/thread/0001#p0001\" class=\"quotelink\">&gt;&gt;0001</a>"
+      }
+    },
+    {
+      "id": "leading-zero-maximum-canonical-op",
+      "source_board": "g",
+      "source_thread_id": null,
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;0009223372036854775807",
+      "target_board": "g",
+      "target_post_id": "0009223372036854775807",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "9223372036854775807",
+        "href": "/g/thread/0009223372036854775807#p0009223372036854775807",
+        "html": "<a href=\"/g/thread/0009223372036854775807#p0009223372036854775807\" class=\"quotelink\">&gt;&gt;0009223372036854775807</a>"
+      }
+    },
+    {
+      "id": "leading-zero-maximum-canonical-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/a/0009223372036854775807",
+      "target_board": "a",
+      "target_post_id": "0009223372036854775807",
+      "lookup_resto": "9223372036854775806",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "9223372036854775806",
+        "href": "//boards.example.test/a/thread/9223372036854775806#p0009223372036854775807",
+        "html": "<a href=\"//boards.example.test/a/thread/9223372036854775806#p0009223372036854775807\" class=\"quotelink\">&gt;&gt;&gt;/a/0009223372036854775807</a>"
+      }
+    },
+    {
+      "id": "leading-zero-numeric-board-allowlisted",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/3/000123",
+      "target_board": "3",
+      "target_post_id": "000123",
+      "lookup_resto": "100",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "100",
+        "href": "//boards.example.test/3/thread/100#p000123",
+        "html": "<a href=\"//boards.example.test/3/thread/100#p000123\" class=\"quotelink\">&gt;&gt;&gt;/3/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-3",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/3/000123",
+      "target_board": "3",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/3/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/3/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/3/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-aco",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/aco/000123",
+      "target_board": "aco",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/aco/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/aco/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/aco/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-adv",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/adv/000123",
+      "target_board": "adv",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/adv/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/adv/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/adv/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-an",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/an/000123",
+      "target_board": "an",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/an/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/an/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/an/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-biz",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/biz/000123",
+      "target_board": "biz",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/biz/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/biz/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/biz/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-diy",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/diy/000123",
+      "target_board": "diy",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/diy/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/diy/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/diy/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-fa",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/fa/000123",
+      "target_board": "fa",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/fa/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/fa/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/fa/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-fit",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/fit/000123",
+      "target_board": "fit",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/fit/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/fit/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/fit/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-gd",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/gd/000123",
+      "target_board": "gd",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/gd/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/gd/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/gd/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-gif",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/gif/000123",
+      "target_board": "gif",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/gif/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/gif/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/gif/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-int",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/int/000123",
+      "target_board": "int",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/int/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/int/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/int/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-lit",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/lit/000123",
+      "target_board": "lit",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/lit/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/lit/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/lit/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-hc",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/hc/000123",
+      "target_board": "hc",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/hc/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/hc/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/hc/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-hr",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/hr/000123",
+      "target_board": "hr",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/hr/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/hr/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/hr/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-a",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/a/000123",
+      "target_board": "a",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/a/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/a/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/a/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-b",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/b/000123",
+      "target_board": "b",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/b/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/b/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/b/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-ck",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/ck/000123",
+      "target_board": "ck",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/ck/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/ck/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/ck/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-co",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/000123",
+      "target_board": "co",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/co/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/co/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/co/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-cm",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/cm/000123",
+      "target_board": "cm",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/cm/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/cm/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/cm/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-c",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/c/000123",
+      "target_board": "c",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/c/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/c/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/c/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-d",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/d/000123",
+      "target_board": "d",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/d/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/d/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/d/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-e",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/e/000123",
+      "target_board": "e",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/e/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/e/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/e/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-f",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/f/000123",
+      "target_board": "f",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/f/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/f/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/f/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-g",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/g/000123",
+      "target_board": "g",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/g/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/g/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/g/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-h",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/h/000123",
+      "target_board": "h",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/h/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/h/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/h/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-i",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/i/000123",
+      "target_board": "i",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/i/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/i/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/i/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-k",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/k/000123",
+      "target_board": "k",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/k/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/k/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/k/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-lgbt",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/lgbt/000123",
+      "target_board": "lgbt",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/lgbt/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/lgbt/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/lgbt/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-m",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/m/000123",
+      "target_board": "m",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/m/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/m/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/m/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-n",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/n/000123",
+      "target_board": "n",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/n/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/n/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/n/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-o",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/o/000123",
+      "target_board": "o",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/o/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/o/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/o/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-out",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/out/000123",
+      "target_board": "out",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/out/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/out/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/out/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-p",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/p/000123",
+      "target_board": "p",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/p/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/p/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/p/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-r",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/r/000123",
+      "target_board": "r",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/r/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/r/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/r/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-s",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/s/000123",
+      "target_board": "s",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/s/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/s/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/s/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-t",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/t/000123",
+      "target_board": "t",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/t/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/t/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/t/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-u",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/u/000123",
+      "target_board": "u",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/u/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/u/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/u/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-vp",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/vp/000123",
+      "target_board": "vp",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/vp/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/vp/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/vp/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-vg",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/vg/000123",
+      "target_board": "vg",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/vg/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/vg/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/vg/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-vr",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/vr/000123",
+      "target_board": "vr",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/vr/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/vr/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/vr/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-v",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/v/000123",
+      "target_board": "v",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/v/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/v/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/v/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-w",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/w/000123",
+      "target_board": "w",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/w/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/w/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/w/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-x",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/x/000123",
+      "target_board": "x",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/x/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/x/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/x/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-y",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/y/000123",
+      "target_board": "y",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/y/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/y/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/y/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-wg",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/wg/000123",
+      "target_board": "wg",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/wg/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/wg/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/wg/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-ic",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/ic/000123",
+      "target_board": "ic",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/ic/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/ic/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/ic/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-cgl",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/cgl/000123",
+      "target_board": "cgl",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/cgl/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/cgl/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/cgl/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-hm",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/hm/000123",
+      "target_board": "hm",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/hm/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/hm/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/hm/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-mlp",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/mlp/000123",
+      "target_board": "mlp",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/mlp/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/mlp/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/mlp/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-mu",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/mu/000123",
+      "target_board": "mu",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/mu/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/mu/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/mu/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-pol",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/pol/000123",
+      "target_board": "pol",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/pol/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/pol/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/pol/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-po",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/po/000123",
+      "target_board": "po",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/po/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/po/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/po/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-r9k",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/r9k/000123",
+      "target_board": "r9k",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/r9k/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/r9k/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/r9k/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-s4s",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/s4s/000123",
+      "target_board": "s4s",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/s4s/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/s4s/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/s4s/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-sci",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/sci/000123",
+      "target_board": "sci",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/sci/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/sci/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/sci/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-soc",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/soc/000123",
+      "target_board": "soc",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/soc/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/soc/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/soc/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-tg",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/tg/000123",
+      "target_board": "tg",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/tg/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/tg/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/tg/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-tv",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/tv/000123",
+      "target_board": "tv",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/tv/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/tv/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/tv/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-toy",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/toy/000123",
+      "target_board": "toy",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/toy/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/toy/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/toy/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-trv",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/trv/000123",
+      "target_board": "trv",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/trv/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/trv/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/trv/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-jp",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/jp/000123",
+      "target_board": "jp",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/jp/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/jp/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/jp/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-sp",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/sp/000123",
+      "target_board": "sp",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/sp/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/sp/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/sp/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-wsg",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/wsg/000123",
+      "target_board": "wsg",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/wsg/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/wsg/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/wsg/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-qa",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/qa/000123",
+      "target_board": "qa",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/qa/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/qa/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/qa/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-qst",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/qst/000123",
+      "target_board": "qst",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/qst/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/qst/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/qst/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-his",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/his/000123",
+      "target_board": "his",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/his/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/his/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/his/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-trash",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/trash/000123",
+      "target_board": "trash",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/trash/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/trash/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/trash/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-news",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/news/000123",
+      "target_board": "news",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/news/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/news/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/news/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-wsr",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/wsr/000123",
+      "target_board": "wsr",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/wsr/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/wsr/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/wsr/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-vip",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/vip/000123",
+      "target_board": "vip",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/vip/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/vip/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/vip/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-bant",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/bant/000123",
+      "target_board": "bant",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/bant/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/bant/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/bant/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-vrpg",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/vrpg/000123",
+      "target_board": "vrpg",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/vrpg/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/vrpg/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/vrpg/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-vmg",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/vmg/000123",
+      "target_board": "vmg",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/vmg/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/vmg/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/vmg/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-vst",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/vst/000123",
+      "target_board": "vst",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/vst/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/vst/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/vst/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-vt",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/vt/000123",
+      "target_board": "vt",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/vt/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/vt/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/vt/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-vm",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/vm/000123",
+      "target_board": "vm",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/vm/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/vm/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/vm/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-pw",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/pw/000123",
+      "target_board": "pw",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/pw/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/pw/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/pw/000123</a>"
+      }
+    },
+    {
+      "id": "leading-zero-allowlisted-xs",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/xs/000123",
+      "target_board": "xs",
+      "target_post_id": "000123",
+      "lookup_resto": "0",
+      "absence_reason": null,
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/xs/thread/000123#p000123",
+        "html": "<a href=\"//boards.example.test/xs/thread/000123#p000123\" class=\"quotelink\">&gt;&gt;&gt;/xs/000123</a>"
+      }
+    },
+    {
+      "id": "zero-same-0",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;0",
+      "target_board": "g",
+      "target_post_id": "0",
+      "lookup_resto": null,
+      "absence_reason": "post-zero-invariant",
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;0</span>"
+      }
+    },
+    {
+      "id": "zero-cross-0",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/a/0",
+      "target_board": "a",
+      "target_post_id": "0",
+      "lookup_resto": null,
+      "absence_reason": "post-zero-invariant",
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/a/0</span>"
+      }
+    },
+    {
+      "id": "zero-unknown-0",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/unknown/0",
+      "target_board": "unknown",
+      "target_post_id": "0",
+      "lookup_resto": null,
+      "absence_reason": null,
+      "expected": {
+        "kind": "plain",
+        "thread_id": null,
+        "href": null,
+        "html": "&gt;&gt;&gt;/unknown/0"
+      }
+    },
+    {
+      "id": "zero-mlp-0",
+      "source_board": "mlp",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/0",
+      "target_board": "co",
+      "target_post_id": "0",
+      "lookup_resto": null,
+      "absence_reason": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/0</span>"
+      }
+    },
+    {
+      "id": "zero-same-0000",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;0000",
+      "target_board": "g",
+      "target_post_id": "0000",
+      "lookup_resto": null,
+      "absence_reason": "post-zero-invariant",
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;0000</span>"
+      }
+    },
+    {
+      "id": "zero-cross-0000",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/a/0000",
+      "target_board": "a",
+      "target_post_id": "0000",
+      "lookup_resto": null,
+      "absence_reason": "post-zero-invariant",
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/a/0000</span>"
+      }
+    },
+    {
+      "id": "zero-unknown-0000",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/unknown/0000",
+      "target_board": "unknown",
+      "target_post_id": "0000",
+      "lookup_resto": null,
+      "absence_reason": null,
+      "expected": {
+        "kind": "plain",
+        "thread_id": null,
+        "href": null,
+        "html": "&gt;&gt;&gt;/unknown/0000"
+      }
+    },
+    {
+      "id": "zero-mlp-0000",
+      "source_board": "mlp",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/0000",
+      "target_board": "co",
+      "target_post_id": "0000",
+      "lookup_resto": null,
+      "absence_reason": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/0000</span>"
+      }
     }
   ],
   "lexical_cases": [
@@ -2032,8 +4005,6 @@
     }
   ],
   "unqualified_ids": [
-    "0",
-    "01",
     "+1",
     "-1",
     "1e3",

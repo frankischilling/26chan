@@ -13,7 +13,7 @@ const nativeSettingCategories = new Map([
   ['Filters & Post Hiding', 'filter threadHiding hideStubs'],
   ['Navigation', 'threadExpansion dropDownNav classicNav autoHideNav customMenu alwaysDepage topPageNav stickyNav keyBinds'],
   ['Images & Media', 'imageExpansion fitToScreenExpansion imageHover imageHoverBg revealSpoilers noPictures embedYouTube embedSoundCloud'],
-  ['Miscellaneous', 'linkify darkTheme customCSS IDColor compactThreads centeredThreads localTime'],
+  ['Miscellaneous', 'linkify darkTheme customCSS IDColor compactThreads centeredThreads localTime forceHTTPS'],
 ].flatMap(([category, keys]) => keys.split(' ').map(key => [key, category])));
 
 export async function openNativeSettingsCategory(dialog, name) {

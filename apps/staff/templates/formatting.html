@@ -27,6 +27,7 @@
 {%- when Token::OpenQuote -%}<span class="quote">
 {%- when Token::CloseQuote -%}</span>
 {%- when Token::GeneratedBold with (open) -%}{%- if open -%}<b>{%- else -%}</b>{%- endif -%}
+{%- when Token::GeneratedSmall with (open) -%}{%- if open -%}<small>{%- else -%}</small>{%- endif -%}
 {%- when Token::GeneratedFortune with (open, color) -%}{%- if open -%}<span class="{{ token.fortune_class() }}">{%- else -%}</span>{%- endif -%}
 {%- endmatch -%}
 {%- endfor -%}

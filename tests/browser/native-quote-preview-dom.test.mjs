@@ -141,6 +141,24 @@ test('isolated DOM quote preview contracts', async t => {
       });
     }
 
+    await t.test('leading-zero DOM misses use the real released worker and canonical remote endpoint', async () => {
+      const { page, context, requests } = await setup({ remote: true,
+        handler: route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(envelope('101')) }),
+      });
+      try {
+        await page.evaluate(() => { document.getElementById('quote').setAttribute('href', '#p000101'); window.over(); });
+        await page.waitForFunction(() => document.getElementById('quote-preview'));
+        assert.equal(await page.locator('#p101').evaluate(node => node.classList.contains('highlight')), false);
+        assert.match(await page.locator('#quote-preview').textContent(), /Remote safe/);
+        assert.equal(await page.locator('#quote-preview [id],#quote-preview form,#quote-preview input').count(), 0);
+        const api = requests.filter(row => row.url.includes('/_watch/'));
+        assert.equal(api.length, 1); assert.equal(api[0].url, `${origin}/_watch/demo/post/101`);
+        assert.equal(api[0].headers.cookie, undefined);
+        await page.evaluate(() => window.out());
+        assert.equal(await page.locator('#quote-preview').count(), 0);
+      } finally { await context.close(); }
+    });
+
     async function replayMouseout(page, selector = '#quote') {
       const event = await page.evaluate(selector => {
         const out = new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.documentElement,

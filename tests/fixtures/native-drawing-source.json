@@ -61,6 +61,34 @@
       "byte_end": 37210,
       "sha256": "8f42cbfdc3d1cbc942417d5375e9bcf9905e6ca6025ad52c0b5a71dd52a0d290",
       "text": "resume:function(){Tegaki.saveReplay&&Tegaki.replayRecorder.start(),Tegaki.bg.classList.remove(\"tegaki-hidden\"),document.body.classList.add(\"tegaki-backdrop\"),Tegaki.setZoom(0),Tegaki.updateLayersCntSize(),Tegaki.updatePosOffset(),TegakiCursor.updateCanvasSize(),Tegaki.bindGlobalEvents()},hide:function(){Tegaki.saveReplay&&Tegaki.replayRecorder.stop(),Tegaki.bg.classList.add(\"tegaki-hidden\"),document.body.classList.remove(\"tegaki-backdrop\"),Tegaki.unBindGlobalEvents()},"
+    },
+    "edit_link": {
+      "file": "js/extension.js",
+      "byte_start": 34128,
+      "byte_end": 34574,
+      "sha256": "b80a8be17e92e0ecf8b0c458c108e315425c9325559cb226ccf4a0d396b02d79",
+      "text": "Parser.addOekakiEditLink = function(pid, tid) {\r\n  var cnt, el, a;\r\n  \r\n  cnt = $.id('fT' + pid);\r\n  \r\n  if (!cnt) {\r\n    return;\r\n  }\r\n  \r\n  a = cnt.firstElementChild;\r\n  \r\n  if (!a.href || !/\\.(png|jpg)$/.test(a.href)) {\r\n    return;\r\n  }\r\n  \r\n  el = $.el('small');\r\n  el.innerHTML = ' <a href=\"#\" data-pid=\"' + pid + '\" data-tid=\"'\r\n    + tid + '\" data-tip=\"Open in Tegaki\" data-cmd=\"qr-painter-edit\">Edit</a>';\r\n  cnt.appendChild(el);\r\n};\r\n\r\n"
+    },
+    "qr_edit": {
+      "file": "js/extension.js",
+      "byte_start": 96822,
+      "byte_end": 98322,
+      "sha256": "d9bb1b47c87e2031380cf8c88202aea0fc48c4a08ced0ef0027dd1fc1bd613b4",
+      "text": "QR.onOpenInPainterClick = function(btn) {\r\n  var img, el, tid, pid;\r\n  \r\n  if (QR.canvasLoading) {\r\n    Feedback.error('An image is already being loaded.');\r\n    return;\r\n  }\r\n  \r\n  pid = +btn.getAttribute('data-pid');\r\n  tid = +btn.getAttribute('data-tid');\r\n  \r\n  if (!pid || !tid) {\r\n    return false;\r\n  }\r\n  \r\n  el = $.qs('#f' + pid + ' a[class=\"fileThumb\"]');\r\n  \r\n  if (!el) {\r\n    return false;\r\n  }\r\n  \r\n  if (/\\.(png|jpg)$/.test(el.href) === false) {\r\n    return false;\r\n  }\r\n  \r\n  QR.canvasLoading = true;\r\n  \r\n  img = new Image();\r\n  img.crossOrigin = 'Anonymous';\r\n  img.onload = QR.onPainterCanvasLoaded;\r\n  img.onerror = QR.onPainterCanvasError; \r\n  img._pid = pid;\r\n  \r\n  Feedback.notify('Loading…', 0);\r\n  \r\n  img.src = el.href.replace('is2.4chan.org', 'i.4cdn.org');\r\n  \r\n  QR.show(tid);\r\n};\r\n\r\nQR.onPainterCanvasError = function() {\r\n  QR.canvasLoading = false;\r\n  Feedback.error(\"Couldn't load the image.\", 5000);\r\n};\r\n\r\nQR.onPainterCanvasLoaded = function() {\r\n  Feedback.hideMessage();\r\n  \r\n  QR.canvasLoading = false;\r\n  \r\n  if (!QR.currentTid) {\r\n    return;\r\n  }\r\n  \r\n  if (this.naturalWidth < 1 || this.naturalHeight < 1) {\r\n    return;\r\n  }\r\n  \r\n  if (Tegaki.startTimeStamp) {\r\n    Tegaki.destroy();\r\n  }\r\n  \r\n  Keybinds.enabled = false;\r\n  \r\n  QR.painterSrc = this._pid;\r\n  \r\n  Tegaki.open({\r\n    onDone: QR.onPainterDone,\r\n    onCancel: QR.onPainterCancel,\r\n    saveReplay: false,\r\n    width: 1,\r\n    height: 1\r\n  });\r\n  \r\n  Tegaki.onOpenImageLoaded.call(this);\r\n};\r\n\r\n"
+    },
+    "edit_board": {
+      "file": "js/extension.js",
+      "byte_start": 241027,
+      "byte_end": 241067,
+      "sha256": "64e0a12cfcfedfd68f9f8f729db2206f91f85f8905d2f765f7c9e3bdccabf667",
+      "text": "Main.isOekakiBoard = Main.board === 'i';"
+    },
+    "edit_gate": {
+      "file": "js/extension.js",
+      "byte_start": 32970,
+      "byte_end": 33057,
+      "sha256": "b58ee07cb1c6c068e1dde9deda4a599599957be2929abf4de982129749a1fb42",
+      "text": "if (Main.isOekakiBoard && Main.tid) {\r\n      Parser.addOekakiEditLink(pid, tid);\r\n    }"
     }
   },
   "policies": {

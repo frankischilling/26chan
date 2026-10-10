@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { useUpdaterTail } from '../../apps/public/client/native-updater-tail.js';
 import { parseUpdaterSnapshot, parseQuotePreviewSnapshot, parseBoardPageSnapshot, validatePostTree, updaterUrl, UPDATER_LIMITS } from '../../apps/public/client/native-updater-snapshot.js';
 import { NativeUpdaterTransport } from '../../apps/public/client/native-updater-transport.js';
@@ -15,6 +16,106 @@ function snapshot(inside) {
     replies: 1, images: 0, posts: [context.thread, '9007199254740993'].map(no => ({ no, file_deleted: false, html: html(no, inside) })) };
 }
 function parse(s, c = context) { return parseUpdaterSnapshot(JSON.stringify(s), c); }
+
+const drawingAnnotations = JSON.parse(readFileSync(new URL('../../crates/domain/tests/fixtures/drawing-annotation/cases.json', import.meta.url)));
+const inertAnnotations = drawingAnnotations.time.filter(case_ => case_.expected_text.startsWith('<br><br><small>')
+  && !case_.expected_text.includes('Replay:'));
+
+function commentNode(tree, no) {
+  function find(node) {
+    if (typeof node === 'string') return null;
+    if (node.tag === 'blockquote' && node.attrs.class === 'postMessage' && node.attrs.id === `m${no}`) return node;
+    return node.children.map(find).find(Boolean) ?? null;
+  }
+  return find(tree);
+}
+function commentText(node) {
+  return typeof node === 'string' ? node : node.children.map(commentText).join('');
+}
+function annotationPage(posts) {
+  return { version: 2, board: context.board, page: 0, next_page: null, replies_shown: 3,
+    threads: [{ thread: context.thread, closed: false, sticky: false, archived: false,
+      replies: 1, images: 0, omitted: 0, posts }] };
+}
+
+test('source drawing annotation survives updater, preview, board page and live validation as inert comment markup', () => {
+  assert.ok(inertAnnotations.some(case_ => case_.id === 'source'));
+  assert.ok(inertAnnotations.some(case_ => case_.id === 'source_suppresses_replay'));
+  assert.ok(inertAnnotations.length > 10);
+  for (const { id, expected_text } of inertAnnotations) {
+    const value = snapshot(`Saved drawing${expected_text}`), no = value.posts[1].no;
+    const updater = parse(value);
+    assert.equal(updater.status, 'ok', `updater: ${id}`);
+    const preview = parseQuotePreviewSnapshot(JSON.stringify({ version: 1, board: context.board,
+      thread: context.thread, post: value.posts[1] }), { ...context, post: no });
+    assert.equal(preview.status, 'ok', `preview: ${id}`);
+    const board = parseBoardPageSnapshot(JSON.stringify(annotationPage(value.posts)), { ...context, page: 0 });
+    assert.equal(board.status, 'ok', `board page: ${id}`);
+    const expectedText = `Saved drawing${expected_text.replace(/<[^>]+>/g, '').replaceAll('&gt;', '>')}`;
+    for (const tree of [updater.snapshot.posts[1].tree, preview.snapshot.post.tree,
+      board.snapshot.threads[0].posts[1].tree]) {
+      assert.doesNotThrow(() => validatePostTree(tree, context, no), `live tree: ${id}`);
+      const comment = commentNode(tree, no);
+      assert.ok(comment, id);
+      assert.equal(commentText(comment), expectedText, `decoded text: ${id}`);
+      const small = comment.children.find(child => typeof child !== 'string' && child.tag === 'small');
+      assert.ok(small, `small retained: ${id}`);
+      assert.deepEqual(small.attrs, {}, `small attributes: ${id}`);
+      assert.deepEqual(small.children[0], { tag: 'b', attrs: {}, children: ['Oekaki Post'] }, `heading: ${id}`);
+    }
+  }
+});
+
+test('drawing annotation grants no attributes, active content, resources or controls and never escapes comments', () => {
+  const safe = drawingAnnotations.time.find(case_ => case_.id === 'source').expected_text;
+  assert.equal(parse(snapshot(safe)).status, 'ok');
+  const badComments = [
+    safe.replace('<small>', '<small onclick="alert(1)">'),
+    safe.replace('<small>', '<small style="display:none">'),
+    safe.replace('<small>', '<small class="quote">'),
+    safe.replace('<small>', '<small id="pi9007199254740993">'),
+    safe.replace('<small>', '<small src="https://tracker.example/pixel.png">'),
+    safe.replace('<small>', '<small data-annotation="owned">'),
+    safe.replace('<b>', '<b onmouseover="alert(1)">'),
+    safe.replace('</small>', '<script>alert(1)</script></small>'),
+    safe.replace('</small>', '<style>body{display:none}</style></small>'),
+    safe.replace('</small>', '<img src="https://tracker.example/pixel.png" alt="tracking"></small>'),
+    safe.replace('</small>', '<input type="hidden" name="password" value="secret"></small>'),
+    safe.replace('</small>', '<button>Submit</button></small>'),
+    `<a class="quotelink" href="/demo/post/42">${safe}</a>`,
+  ];
+  for (const inside of badComments) {
+    const value = snapshot(inside), no = value.posts[1].no;
+    assert.equal(parse(value).status, 'invalid-snapshot', `updater: ${inside}`);
+    assert.equal(parseQuotePreviewSnapshot(JSON.stringify({ version: 1, board: context.board,
+      thread: context.thread, post: value.posts[1] }), { ...context, post: no }).status,
+    'invalid-preview', `preview: ${inside}`);
+    assert.equal(parseBoardPageSnapshot(JSON.stringify(annotationPage(value.posts)), { ...context, page: 0 }).status,
+    'invalid-snapshot', `board page: ${inside}`);
+  }
+  const outside = snapshot(safe);
+  outside.posts[1].html = outside.posts[1].html.replace('<span class="name">Anonymous</span>',
+    '<small><b>Oekaki Post</b></small><span class="name">Anonymous</span>');
+  assert.equal(parse(outside).status, 'invalid-snapshot', 'small in post header');
+  assert.equal(parseQuotePreviewSnapshot(JSON.stringify({ version: 1, board: context.board,
+    thread: context.thread, post: outside.posts[1] }), { ...context, post: outside.posts[1].no }).status,
+  'invalid-preview', 'preview with small outside comment');
+  assert.equal(parseBoardPageSnapshot(JSON.stringify(annotationPage(outside.posts)), { ...context, page: 0 }).status,
+  'invalid-snapshot', 'board page with small outside comment');
+
+  const parsed = parse(snapshot(safe));
+  assert.equal(parsed.status, 'ok');
+  const no = parsed.snapshot.posts[1].no;
+  const injected = structuredClone(parsed.snapshot.posts[1].tree);
+  commentNode(injected, no).children.find(child => typeof child !== 'string' && child.tag === 'small').attrs.onclick = 'alert(1)';
+  assert.throws(() => validatePostTree(injected, context, no), /invalid-snapshot/, 'main-thread revalidation');
+  const moved = structuredClone(parsed.snapshot.posts[1].tree);
+  const body = moved.children.find(node => typeof node !== 'string' && node.attrs.id === `p${no}`);
+  const comment = commentNode(moved, no);
+  const at = comment.children.findIndex(child => typeof child !== 'string' && child.tag === 'small');
+  body.children.unshift(comment.children.splice(at, 1)[0]);
+  assert.throws(() => validatePostTree(moved, context, no), /invalid-snapshot/, 'small outside comment');
+});
 
 test('automatic deletion fields remain empty and bound to their own post and action', () => {
   const positive = snapshot(), no = positive.posts[1].no;

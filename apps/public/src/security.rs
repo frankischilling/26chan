@@ -117,7 +117,7 @@ pub async fn protect(State(state): State<AppState>, mut request: Request, next: 
         .split('/')
         .collect();
     let search_page = matches!(parts.as_slice(), ["globalsearch.php"]);
-    // Polls are read-only pages, never generic board pages with script authority.
+    // Polls use native forms and never receive generic board script authority.
     let poll_path = parts.first() == Some(&"polls");
     let board_page = match parts.as_slice() {
         ["polls", ..] => false,
@@ -499,7 +499,7 @@ pub(crate) fn math_fixture_response(
         .map_err(|_| "Fixture rendering exceeded its budget.".to_owned())?;
     let response = drawing_page(
         math_page(response, page.board.math_tags && !page.catalog),
-        page.drawing_allowed(),
+        page.drawing_controls_allowed(),
     );
     Ok(headers(
         response,

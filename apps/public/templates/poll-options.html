@@ -1,9 +1,22 @@
 {% extends "base.html" %}
 {% block title %}{{ poll.title }} - Polls - Paperboard{% endblock %}
+{% block body_attributes %}{% if !form_token.is_empty() %} data-tkn="{{ form_token }}"{% endif %}{% endblock %}
 {% block content %}
 <section class="pollPage" aria-labelledby="poll-title">
 <header><h1 id="poll-title">{{ poll.title }}</h1></header>
 {% if !poll.description.is_empty() %}<p id="poll-desc" class="pollDescription">{{ poll.description }}</p>{% endif %}
+{% if !form_token.is_empty() %}
+<form id="poll-form" action="" method="POST" enctype="application/x-www-form-urlencoded">
+<table id="entries" class="pollOptions opts-tbl">
+<caption>Options</caption>
+<tbody>{% for option in poll.options %}
+<tr><td class="col-opt"><input id="poll-opt-{{ option.id }}" type="radio" name="id" value="{{ option.id }}" required></td><td><label for="poll-opt-{{ option.id }}">{{ option.caption }}</label></td></tr>
+{% endfor %}</tbody>
+</table>
+<input type="hidden" name="_ptkn" value="{{ form_token }}">
+<nav class="pollNavigation" aria-label="Poll navigation"><button class="vote-btn" name="action" value="vote" type="submit">Vote</button><a class="res-link" href="/polls">Back to Polls</a><a class="res-link" href="/polls/results/{{ poll.id }}">View Results</a></nav>
+</form>
+{% else %}
 <p>Voting is unavailable. These options are read-only.</p>
 <h2>Options</h2>
 <ol id="entries" class="pollOptions">
@@ -11,6 +24,7 @@
 {% else %}<li>No options are available.</li>{% endfor %}
 </ol>
 <nav class="pollNavigation" aria-label="Poll navigation"><a href="/polls">Back to Polls</a><a href="/polls/results/{{ poll.id }}">View Results</a></nav>
+{% endif %}
 </section>
 {% endblock %}
-{% block feature_notice %}Read-only polls.{% endblock %}
+{% block feature_notice %}Polls.{% endblock %}

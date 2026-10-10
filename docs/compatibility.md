@@ -10,10 +10,11 @@ desktop/mobile presentation and optional features. The
 lists the remaining work. Public release references below provide additional
 evidence; matching a newer public component alone does not establish snapshot parity.
 
-[Public poll browsing](public-polls.md) follows the supplied catalogue, options
-and results templates with bounded operator-published data. The missing voting
-controller and policy are not reconstructed from those templates; voting remains
-unavailable. This read-side foundation does not complete the polls workflow.
+[Public polls](public-polls.md) follow the supplied catalogue, form and results
+templates with operator-published data. Native voting adds signed browser
+credentials, expiring forms and atomic duplicate protection. The missing
+controller contract is reconstructed explicitly; exact original poll styling
+remains unqualified. Existing polls stay closed until an operator enables voting.
 
 [Local blotter](local-blotter.md) implements operator-published messages, the
 source-gated newest-three preview and timestamp dismissal, and a local dated
@@ -113,13 +114,15 @@ preserve source scope rules and immutable configured labels. Import alone never
 activates a catalog; operator activation is separate, and original production
 category definitions are still required.
 
-[Native PNG drawing](native-drawing.md) adds a partial Tegaki 0.9.4 workflow for
-ordinary OP/reply forms and Quick Reply on media-enabled `/qst/` and `/vip/`.
-Migration 0114 also imports `/i/` drawing/replay policy, but its editor stays
-disabled until replay support is implemented. Drawings use the existing isolated
-approval path, with a 1024-pixel safety cap and image import disabled.
-Replay, source-post annotations, edit-from-post and full rendered comparison
-remain open in #207; actual browser qualification awaits hosted CI.
+[Native PNG drawing](native-drawing.md) supports Tegaki 0.9.4 Draw on
+media-enabled `/qst/` and `/vip/`. [Drawing Edit on `/i/`](drawing-edit.md)
+imports approved post PNGs through Quick Reply on live `/i/` threads, with typed
+time/source annotations displayed in public, search and staff views and kept in
+new moderation snapshots. Migration 0114 retains `/i/` replay policy, but
+ordinary `/i/` Draw and full replay support remain open in #207. The 1024-pixel
+safety limit and isolated approval still apply. Source paths under `4chan-old/`
+refer to the supplied, ignored, read-only local reference, absent from a fresh
+checkout. Current-head browser and CI qualification is tracked separately.
 
 ## Earlier public-reference checkpoints
 
@@ -775,6 +778,15 @@ uses staff-authorized numbered snapshots, bounded by `threads_per_page` and the
 configured page count; older retained threads remain available by authorized
 thread URL. Public readers still cannot access private boards.
 
+The sticky and undead reply window now follows `imgboard.php:6484-6508`: retain
+the newest `STICKY_CAP - 1` existing reply IDs before adding the incoming post.
+Imported source boards use 1,000 replies. [Reply retention](sticky-reply-retention.md)
+covers atomic retirement, current counts, media and report visibility, removal
+of private ownership proofs, and numeric OP `sticky_cap` across both JSON
+listeners. Base post text retains the rewrite's soft-deletion policy. This
+completes that window's behavior without establishing complete archive lifecycle
+or frontend parity.
+
 ### Media
 
 `imgboard.php:4806-4815` constructs `tim` from request epoch seconds,
@@ -1103,9 +1115,9 @@ unspecified:
 
 Source-known implementation gaps remain separately tracked: full formatting/
 search-field matching, custom-board assets, Quick Reply and related lifecycle,
-[drawing replay, annotations and edit-from-post](native-drawing.md), remaining
-native settings/features, omitted API identity fields, unsupported media formats
-and full rendered-page comparison.
+[full drawing replay and ordinary `/i/` Draw](drawing-edit.md), remaining native
+settings/features, omitted API identity fields, unsupported media formats and
+full rendered-page comparison.
 Deliberate security/retention exceptions require an explicit decision, not an
 invented parity claim. The original source audit changed documentation only and ran no tests. Later
 implementation checks are recorded in their linked feature contracts.

@@ -19,7 +19,9 @@ pub mod media_intake;
 pub mod monitoring;
 mod op_bump;
 pub mod paired_candidates;
+mod poll_voting;
 mod polls;
+pub use poll_voting::{POLL_VOTE_READINESS_SQL, PollVoteOutcome, cast_poll_vote, has_poll_vote};
 pub use polls::{
     POLL_READINESS_SQL, PollOption, PollSnapshot, PollSummary, poll_catalogue, poll_snapshot,
 };
@@ -42,6 +44,7 @@ mod report_target;
 pub use report_target::{ReportTarget, report_target};
 mod robot9000;
 mod rss;
+pub mod sticky_retention;
 mod thread_quota;
 mod thread_statistics;
 mod write;
@@ -182,6 +185,21 @@ impl Board {
             && self.image_limit > 0
     }
 
+    /// Original extension.js exposes existing-image Edit only on /i/. The QR
+    /// import has replay disabled despite this board's optional replay support.
+    pub fn drawing_edit_enabled(&self, media_enabled: bool) -> bool {
+        media_enabled
+            && self.slug == "i"
+            && self.oekaki
+            && self.oekaki_replays
+            && !self.staff_only
+            && !self.text_only
+            && self.image_limit > 0
+            && (1..=1024).contains(&self.oekaki_width)
+            && (1..=1024).contains(&self.oekaki_height)
+            && i64::from(self.oekaki_width) * i64::from(self.oekaki_height) <= 1024 * 1024
+    }
+
     pub fn flag_options(&self) -> Vec<(&'static str, &'static str)> {
         board_domain::board_flags::flags(&self.board_flag_type)
             .iter()
@@ -253,6 +271,10 @@ pub struct Post {
     pub subject: String,
     pub image_spoiler: bool,
     pub comment: String,
+    /// Source Oekaki metadata is generated after accepted image insertion.
+    /// It does not prove that the submitted pixels came from this source.
+    pub drawing_time_seconds: Option<i32>,
+    pub drawing_source_post_id: Option<i64>,
     pub comment_format: i16,
     pub staff_authorized_limits: bool,
     pub wordfilter_payload: Option<Vec<u8>>,

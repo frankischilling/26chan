@@ -121,6 +121,7 @@ fn chrome_page(catalog: bool, worksafe: bool) -> String {
     // Existing component-style probes require an explicitly configured subtitle.
     current.board_subtitle = board_store::BoardSubtitle::WorksafeGif;
     BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&current),
         navigation_boards: boards,
@@ -193,6 +194,8 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
         dice_result: None,
         fortune_text: None,
         fortune_color: None,
+        drawing_time_seconds: None,
+        drawing_source_post_id: None,
         created_at: time("2026-09-08T12:00:00Z"),
         deleted: false,
         attachment: None,
@@ -222,6 +225,8 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             dice_result: None,
             fortune_text: None,
             fortune_color: None,
+            drawing_time_seconds: None,
+            drawing_source_post_id: None,
             created_at: time("2026-09-08T12:05:00Z"),
             deleted: false,
             attachment: None,
@@ -266,6 +271,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
         thread.reply_count = 3;
     }
     BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),
@@ -314,6 +320,7 @@ fn archive_board(slug: &str) -> Board {
 
 fn empty_page(catalog: bool) -> String {
     BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&crate::board()),
         navigation_boards: crate::navigation_boards(),
@@ -361,6 +368,7 @@ fn archive_page(empty: bool) -> String {
                 sjis: false,
                 dice: None,
                 fortune: None,
+                drawing: None,
             });
             archive::Row {
                 id,
@@ -420,6 +428,8 @@ fn archived_thread() -> String {
             dice_result: None,
             fortune_text: None,
             fortune_color: None,
+            drawing_time_seconds: None,
+            drawing_source_post_id: None,
             created_at: thread.created_at,
             deleted: false,
             attachment: None,
@@ -443,6 +453,8 @@ fn archived_thread() -> String {
             dice_result: None,
             fortune_text: None,
             fortune_color: None,
+            drawing_time_seconds: None,
+            drawing_source_post_id: None,
             subject: String::new(),
             comment: ">>1000101\nThe roof looks good. Thanks for sharing your finished project.".into(),
             created_at: thread.bumped_at,
@@ -451,6 +463,7 @@ fn archived_thread() -> String {
         }),
     ];
     BoardPage {
+        public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
         navigation_boards: crate::navigation_boards(),
@@ -510,6 +523,7 @@ async fn main() -> std::io::Result<()> {
         dice_result: None,
         fortune_text: None,
         fortune_color: None,
+        drawing: None,
     }
     .render()
     .unwrap();
@@ -553,6 +567,7 @@ async fn main() -> std::io::Result<()> {
         .route("/preview-pages/catalog", get(|| async { Html(catalog_limits::preview_pages()) }))
         .route("/demo/upload/fixture", get(|| async {
             Html(views::UploadPage {
+    public_origin: String::new(),
                 board: Board { comment_spoiler_cleanup: true, ..board() },
                 form: views::UploadForm { upload_id: "1".repeat(32), upload_capability: "2".repeat(64), resto: 1000001 },
                 ready: true,

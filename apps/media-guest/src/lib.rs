@@ -5,6 +5,7 @@ use std::io::{self, Cursor};
 mod gif;
 mod jpeg;
 
+pub mod animation;
 pub mod paired;
 pub mod replay;
 pub mod replay_output;

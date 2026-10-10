@@ -140,6 +140,7 @@ pub async fn create_post_with_context_and_key(
             country_database: None,
             flag: "",
             options: "",
+            drawing: None,
         },
     )
     .await
@@ -174,6 +175,7 @@ pub async fn create_post_with_metadata(
             country_database: metadata.country_database,
             flag: metadata.flag,
             options: metadata.options,
+            drawing: metadata.drawing,
         },
     )
     .await

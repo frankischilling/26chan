@@ -23,6 +23,9 @@ fn decode() -> std::io::Result<()> {
         board_media_guest::paired::InputKind::PairedV2 => {
             board_media_guest::paired::decode_disk(&mut input)?
         }
+        board_media_guest::paired::InputKind::GifV3 => {
+            board_media_guest::animation::decode_disk(&mut input)?
+        }
         board_media_guest::paired::InputKind::ImageV1 => {
             let mut header = [0; 8];
             input.read_exact(&mut header)?;

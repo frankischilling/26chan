@@ -319,13 +319,13 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     sqlx::query("SELECT token_hash,last_activity_at FROM staff_identity.sessions LIMIT 0")
         .execute(&state.auth)
         .await?;
-    sqlx::query("SELECT id,before_mask,after_mask,snapshot_version,snapshot_wordfiltered,snapshot_dice_result,snapshot_fortune_text,snapshot_fortune_color FROM content.moderation_audit LIMIT 0")
+    sqlx::query("SELECT id,before_mask,after_mask,snapshot_version,snapshot_wordfiltered,snapshot_dice_result,snapshot_fortune_text,snapshot_fortune_color,snapshot_drawing_time_seconds,snapshot_drawing_source_post_id FROM content.moderation_audit LIMIT 0")
         .execute(&state.staff)
         .await?;
     sqlx::query("SELECT sticky_rank FROM content.visible_threads LIMIT 0")
         .execute(&state.staff)
         .await?;
-    sqlx::query("SELECT post_id,available,md5 FROM content.staff_post_media LIMIT 0")
+    sqlx::query("SELECT post_id,available,md5,output_format FROM content.staff_post_media LIMIT 0")
         .execute(&state.staff)
         .await?;
     sqlx::query("SELECT posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards LIMIT 0")
@@ -399,6 +399,12 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
         .fetch_one(&state.staff)
         .await?;
     if !archive_deletion_secrets {
+        return Err(AppError::Internal);
+    }
+    let sticky_retirement: bool = sqlx::query_scalar(board_store::sticky_retention::READINESS_SQL)
+        .fetch_one(&state.staff)
+        .await?;
+    if !sticky_retirement {
         return Err(AppError::Internal);
     }
     Ok("ready")
@@ -1019,6 +1025,7 @@ pub async fn post_message(
                 country_database: state.config.country_database.as_deref(),
                 flag: &input.flag,
                 options: &raw_options,
+                drawing: None,
             },
             authority,
         )

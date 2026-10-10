@@ -159,6 +159,7 @@ impl Fixture {
                 &post,
                 context,
                 PostMetadata {
+                    drawing: None,
                     keys,
                     country_database: None,
                     flag: "",
@@ -210,6 +211,7 @@ impl Fixture {
             attachment,
             context(peer, epoch),
             PostMetadata {
+                drawing: None,
                 keys: PostIdentityKeys {
                     tripcode: None,
                     poster_id: Some(&key),

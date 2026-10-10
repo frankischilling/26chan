@@ -44,6 +44,23 @@ impl EncodedOutput {
 }
 
 impl ValidatedOutput {
+    pub(crate) fn from_validated_pixels(
+        dimensions: (u32, u32),
+        pixels: Vec<u8>,
+    ) -> Result<Self, MediaError> {
+        let (width, height) = dimensions;
+        if !(1..=MAX_DIMENSION).contains(&width)
+            || !(1..=MAX_DIMENSION).contains(&height)
+            || pixels.len() != width as usize * height as usize * 4
+        {
+            return Err(MediaError::InvalidOutput);
+        }
+        Ok(Self {
+            width,
+            height,
+            pixels,
+        })
+    }
     /// Read a 16-byte header, exactly width * height * 4 bytes, and EOF.
     /// Callers must impose their job deadline on streams that may never end.
     pub async fn read<R: AsyncRead + Unpin>(mut reader: R) -> Result<Self, MediaError> {

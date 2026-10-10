@@ -779,10 +779,16 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
   body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"])[data-worksafe="false"] #absbot { color: rgb(136, 0, 0); background-color: rgba(0, 0, 0, 0); background-image: none; border-bottom-color: rgb(136, 0, 0); border-bottom-style: none; border-bottom-width: 0px; }
 }
 
-/* Read-only poll pages remain usable without scripts or wide tables. */
+/* Poll forms and results remain usable without scripts or wide tables. */
 .pollPage { max-width: 760px; margin: 20px auto; overflow-wrap: anywhere; }
 .pollDescription { white-space: pre-wrap; line-height: 1.5; }
 .pollCatalogue li, .pollOptions li { margin: 12px 0; }
+.opts-tbl { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.opts-tbl caption { text-align: left; font-size: 16px; font-weight: bold; margin: 16px 0 8px; }
+.opts-tbl td { padding: 8px; vertical-align: top; border-bottom: 1px solid #b7b7a4; }
+.opts-tbl .col-opt { width: 28px; }
+.opts-tbl label { display: block; cursor: pointer; }
+.vote-btn { padding: 6px 16px; }
 .pollResults { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .pollResults caption { text-align: left; font-size: 16px; font-weight: bold; margin: 16px 0 8px; }
 .pollResults th, .pollResults td { padding: 8px; border-bottom: 1px solid #b7b7a4; text-align: left; vertical-align: top; }

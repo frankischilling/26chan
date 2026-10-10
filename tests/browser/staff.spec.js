@@ -453,7 +453,8 @@ test('ordinary staff posts keep public IDs, flags, live filtering and password d
         expect((await (await page.request.get(endpoint)).json()).posts.some(post => String(post.no) === flagged)).toBe(false);
       });
     }
-    expect(fixture('ordinary-inspect', board)).toEqual({ posts: 18, deleted: 4, deletion: 16, contexts: 12, op_peers: 4, op_replies: 8, proofs: 0, audit: 12 });
+    // Whole deletion removes each of the four target password hashes.
+    expect(fixture('ordinary-inspect', board)).toEqual({ posts: 18, deleted: 4, deletion: 12, contexts: 12, op_peers: 4, op_replies: 8, proofs: 0, audit: 12 });
     expect(errors).toEqual([]);
   } finally {
     await publicPage.close(); fixture('cleanup', board);
@@ -909,13 +910,16 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     }
     await report.getByRole('button', { name: 'Resolve report', exact: true }).click(); await expect(report).toContainText('resolved');
     await report.getByRole('button', { name: 'Dismiss report', exact: true }).click(); await expect(report).toContainText('dismissed');
-    await report.getByRole('button', { name: 'Remove post', exact: true }).click(); await expect(report).toContainText('removed: true');
+    await report.getByRole('button', { name: 'Remove post', exact: true }).click();
+    await expect(report).toHaveCount(0);
+    expect(fixture('inspect', board).reports, 'Whole-post deletion removes the report from storage as well as the queue').toBe(0);
     // Thread removal remains a real handler even after a report's reply is removed.
     const freshCsrf = await page.locator('input[name=csrf]').first().inputValue();
     const removal = await page.evaluate(async ({ csrf, board, target }) => (await fetch('/moderate', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf, board, target, action: 'remove-thread' }) })).status, { csrf: freshCsrf, board, target: String(data.thread) });
     expect(removal).toBe(200);
     expect((await page.request.get(publicUrl, { headers: { 'If-None-Match': oldEtag } })).status()).toBe(404);
     const persisted = fixture('inspect', board);
+    expect(persisted.reports).toBe(0);
     expect(persisted.states).toEqual([[false, false, true], [false, false, false], [false, false, false]]);
     expect(persisted.audit).toEqual(['staff-post', 'spoiler', 'unspoiler', 'spoiler', 'close', 'reopen', 'sticky', 'unsticky', 'undead', 'unundead', 'permasage', 'permaage', 'unpermaage', 'permaage', 'unpermaage', 'staff-post', 'staff-post', 'staff-post', 'permaage', 'unpermasage', 'unpermaage', 'remove-file', 'resolve', 'dismiss', 'remove-post', 'remove-thread']);
     await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await expect(page).toHaveURL('http://localhost:3001/');

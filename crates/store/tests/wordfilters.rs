@@ -199,7 +199,7 @@ async fn locked_policy_changes_and_filtered_robot_duplicates_have_atomic_orderin
         sqlx::query("UPDATE content.boards SET word_filter_profile=0,robot9000=true,thread_limit=1 WHERE slug=$1").bind(&b).execute(&a).await.unwrap();
         let key=support::key(&b);
         for (index,comment) in ["CUCK original comment","KEK original comment"].into_iter().enumerate() {
-            let result=support::create_post_with_metadata(&p,&b,0,&post(comment),None,PostingContext { request_start:Utc::now(), peer:Some("192.0.2.23".parse().unwrap()),op_password_proof:None },PostMetadata { spoiler: false,keys:PostIdentityKeys {tripcode:None,poster_id:Some(&key)},country_database:None,flag:"",options:""}).await;
+            let result=support::create_post_with_metadata(&p,&b,0,&post(comment),None,PostingContext { request_start:Utc::now(), peer:Some("192.0.2.23".parse().unwrap()),op_password_proof:None },PostMetadata { drawing: None, spoiler: false,keys:PostIdentityKeys {tripcode:None,poster_id:Some(&key)},country_database:None,flag:"",options:""}).await;
             if index==0 { assert!(result.is_ok()); }
             else { assert!(matches!(result,Err(StoreError::Robot9000Rejected(ref message)) if message=="You have been muted for 2 seconds, because your comment was not original.")); }
         }

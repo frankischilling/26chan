@@ -6,6 +6,7 @@ const read = name => readFileSync(new URL(name, import.meta.url), 'utf8');
 const fixture = read('owned-process-fixture.cjs');
 const runner = read('owned-process.test.ps1');
 const helper = read('owned-process.cs');
+const accounting = read('owned-process-accounting.ps1');
 
 test('Windows survivor opts out of libuv parent-exit termination', () => {
   assert.match(fixture, /detached:\s*true/);
@@ -70,9 +71,10 @@ test('ownership snapshots precede both hard assertions and preserve exact member
 });
 
 test('ownership diagnostics expose only fixed enums, booleans and job counts', () => {
-  const diagnostic = runner.slice(runner.indexOf('function Write-OwnedState'), runner.indexOf('try {'));
+  const start = runner.indexOf('function Write-OwnedState');
+  const diagnostic = runner.slice(start, runner.indexOf('try {', start));
   const keys = [...diagnostic.matchAll(/(?:^|[;\n])\s*([a-z_]+)=/g)].map(match => match[1]);
-  assert.deepEqual(keys, ['type', 'schema', 'stage', 'root_exited', 'root_in_job', 'root_membership_observed', 'descendant_exited', 'descendant_in_job', 'accounting_layout_valid', 'active_processes', 'total_processes', 'terminated_processes', 'process_list_complete', 'process_counts_consistent', 'enumerated_processes', 'root_role_count', 'descendant_role_count', 'console_host_role_count', 'unknown_role_count', 'unavailable_role_count']);
+  assert.deepEqual(keys, ['type', 'schema', 'stage', 'root_exited', 'root_in_job', 'root_membership_observed', 'root_listed', 'descendant_exited', 'descendant_in_job', 'accounting_layout_valid', 'active_processes', 'total_processes', 'terminated_processes', 'process_list_complete', 'process_counts_consistent', 'enumerated_processes', 'root_role_count', 'descendant_role_count', 'console_host_role_count', 'unknown_role_count', 'unavailable_role_count']);
   assert.doesNotMatch(diagnostic, /\.(Id|Handle|Path|Message)|\$_/);
   assert.match(diagnostic, /ValidateSet\('before-parent-release','after-parent-exit','after-job-termination'\)/);
 });
@@ -123,4 +125,44 @@ test('native diagnostic explicitly preserves IPv4-only fixture and restores the 
   assert.ok(save >= 0 && set > save && spawn > set && restore > spawn);
   assert.match(launcher.slice(spawn, restore), /} finally {/);
   assert.match(launcher, /\$listeners.Count -ne 1 -or \$listeners\[0\].LocalAddress -ne '127\.0\.0\.1'/);
+});
+
+test('exited-root accounting waits only for its exact retained identity and keeps it unavailable', () => {
+  assert.match(helper, /if \(id == process.Id\) \{\s+snapshot.RootListed = true;/);
+  assert.match(helper, /if \(!snapshot.RootExited && snapshot.RootInJob\) snapshot.RootRoleCount\+\+;\s+else snapshot.UnavailableRoleCount\+\+;/);
+  for (const guard of ['RootExited', 'RootListed', 'AccountingLayoutValid', 'DescendantInJob', 'ProcessListComplete', 'ProcessCountsConsistent']) assert.ok(accounting.includes(`$state.${guard}`));
+  assert.match(accounting, /\$state.UnknownRoleCount -eq 0 -and \$state.UnavailableRoleCount -eq 1/);
+  assert.match(accounting, /\$state.EnumeratedProcesses -le 16/);
+  assert.match(accounting, /\$state.EnumeratedProcesses -eq \(1 \+ \$state.DescendantRoleCount \+ \$state.ConsoleHostRoleCount\)/);
+  assert.doesNotMatch(accounting, /RolesQualified|\.Kill|Get-Process|Remove-Item/);
+});
+
+test('settlement shares the original five-second exit window and never replaces final assertions', () => {
+  const release = runner.indexOf("New-Item -ItemType File -Path (Join-Path $directory 'release-parent')");
+  const snapshot = runner.indexOf('$after=Wait-OwnedRootAccounting');
+  assert.equal((runner.slice(release, snapshot).match(/\$watch.Restart\(\)/g) ?? []).length, 1);
+  assert.match(runner, /\$after=Wait-OwnedRootAccounting -ReadSnapshot \{ \$child.InspectOwnership\(\$descendant\) \} -ElapsedMilliseconds \{ \$watch.ElapsedMilliseconds \}/);
+  assert.match(accounting, /\(& \$ElapsedMilliseconds\) -lt 5000/);
+  assert.match(accounting, /if \(\(& \$ElapsedMilliseconds\) -ge 5000\) \{ return \$state \}/);
+  assert.ok(runner.indexOf('if (-not $child.HasExited -or $child.ExitCode -ne 0)', release) < snapshot);
+  assert.ok(runner.indexOf('-not $after.RolesQualified($false)', snapshot) > snapshot);
+});
+
+test('hosted deterministic controls cover delayed accounting, deadline expiry and unrelated roles', () => {
+  assert.match(runner, /\$sequence.Enqueue\(\$pending\); \$sequence.Enqueue\(\$pending\); \$sequence.Enqueue\(\$settled\)/);
+  assert.match(runner, /\$clock.pauses -ne 2/);
+  assert.match(runner, /\$clock.elapsed -ne 5000/);
+  assert.match(runner, /\$expired.RolesQualified\(\$false\)/);
+  assert.match(runner, /Unrelated or unverified role was retried/);
+  assert.match(runner, /Pending root accounting was admitted/);
+  assert.match(runner, /'RootExited','RootListed','AccountingLayoutValid','DescendantInJob','ProcessListComplete','ProcessCountsConsistent','UnknownRoleCount','UnavailableRoleCount'/);
+});
+
+test('the first snapshot is rejected before reading and after completion when the original deadline expires', () => {
+  assert.match(accounting, /if \(\(& \$ElapsedMilliseconds\) -ge 5000\) \{ throw 'Root accounting observation deadline\.' \}\s+\$state = & \$ReadSnapshot\s+if \(\(& \$ElapsedMilliseconds\) -ge 5000\) \{ throw 'Root accounting observation deadline\.' \}/);
+  assert.match(runner, /\$clock=@\{ elapsed=5000; reads=0 \}/);
+  assert.match(runner, /\$clock.reads -ne 0/);
+  assert.match(runner, /foreach \(\$finishedAt in @\(5000,5001\)\)/);
+  assert.match(runner, /\$clock.elapsed=\$finishedAt; return \$settled/);
+  assert.match(runner, /A late initial snapshot was admitted/);
 });

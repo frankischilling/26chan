@@ -151,6 +151,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         "inspect" => {
+            let reports: i64 =
+                sqlx::query_scalar("SELECT count(*) FROM content.reports WHERE board=$1")
+                    .bind(board)
+                    .fetch_one(&pool)
+                    .await?;
             let states: Vec<(bool, bool, bool)> = sqlx::query_as(
                 "SELECT closed,sticky,deleted FROM content.threads WHERE board=$1 ORDER BY id",
             )
@@ -175,7 +180,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .bind(board).fetch_all(&pool).await?;
             println!(
                 "{}",
-                json!({"states":states,"bumpFlags":bump_flags,"threadOptions":thread_options,"audit":audit,"credentials":credentials,"sessions":sessions})
+                json!({"states":states,"bumpFlags":bump_flags,"threadOptions":thread_options,"audit":audit,"credentials":credentials,"sessions":sessions,"reports":reports})
             );
         }
         "spoiler-policy" => {

@@ -206,6 +206,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 flag: "",
                 options,
                 spoiler: false,
+                drawing: None,
             },
         )
         .await

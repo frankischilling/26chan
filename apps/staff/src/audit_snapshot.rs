@@ -12,6 +12,8 @@ pub(crate) struct TargetSnapshot {
     capcode: Option<String>,
     subject: String,
     comment: String,
+    drawing_time_seconds: Option<i32>,
+    drawing_source_post_id: Option<i64>,
     comment_format: i16,
     staff_authorized_limits: bool,
     wordfiltered: bool,
@@ -50,7 +52,7 @@ pub(crate) async fn capture(
     thread: i64,
 ) -> Result<Option<TargetSnapshot>, AppError> {
     Ok(sqlx::query_as(
-        "SELECT p.name,p.trip,p.capcode,p.subject,p.comment,p.comment_format,\
+        "SELECT p.name,p.trip,p.capcode,p.subject,p.comment,p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,\
          p.staff_authorized_limits,p.wordfilter_payload IS NOT NULL AS wordfiltered,\
          p.image_spoiler,m.filename,p.dice_result,p.fortune_text,p.fortune_color \
          FROM content.posts p LEFT JOIN content.staff_post_media m ON m.post_id=p.id \
@@ -78,8 +80,9 @@ pub(crate) async fn append(
          snapshot_name,snapshot_trip,snapshot_capcode,snapshot_subject,snapshot_comment,\
          snapshot_comment_format,snapshot_staff_authorized_limits,snapshot_wordfiltered,\
          snapshot_image_spoiler,snapshot_filename,snapshot_dice_result,\
-         snapshot_fortune_text,snapshot_fortune_color) \
-         VALUES ($1,$2,$3,$4,$5,$6,1,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)",
+         snapshot_fortune_text,snapshot_fortune_color,\
+         snapshot_drawing_time_seconds,snapshot_drawing_source_post_id) \
+         VALUES ($1,$2,$3,$4,$5,$6,2,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)",
     )
     .bind(account_id)
     .bind(board)
@@ -100,6 +103,8 @@ pub(crate) async fn append(
     .bind(&snapshot.dice_result)
     .bind(&snapshot.fortune_text)
     .bind(&snapshot.fortune_color)
+    .bind(snapshot.drawing_time_seconds)
+    .bind(snapshot.drawing_source_post_id)
     .execute(&mut **tx)
     .await?;
     Ok(())

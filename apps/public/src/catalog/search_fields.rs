@@ -32,7 +32,7 @@ pub(crate) fn compose(subject: &str, teaser: &str) -> String {
 pub(crate) fn from_post(post: &board_store::Post, board: &board_store::Board) -> String {
     compose(
         &post.subject,
-        &super::teaser::prepare_with_randomizers(
+        &super::teaser::prepare_with_metadata(
             &post.formatted_lines(),
             &board.slug,
             super::teaser::Policy::for_post(board, post.comment_format),
@@ -40,6 +40,11 @@ pub(crate) fn from_post(post: &board_store::Post, board: &board_store::Board) ->
             post.fortune_text
                 .as_deref()
                 .zip(post.fortune_color.as_deref()),
+            crate::views::DrawingAnnotation::from_saved(
+                post.drawing_time_seconds,
+                post.drawing_source_post_id,
+            )
+            .as_ref(),
         )
         .serialized,
     )
@@ -151,12 +156,13 @@ mod tests {
         assert_eq!(
             compose(
                 "<subject>",
-                &super::super::teaser::prepare_with_randomizers(
+                &super::super::teaser::prepare_with_metadata(
                     &parse_comment("ordinary"),
                     "test",
                     Default::default(),
                     Some("Rolled 6, 6 = 12 (2d6)"),
                     Some(("<Outlook good>", "#7fec11")),
+                    None,
                 )
                 .serialized,
             ),

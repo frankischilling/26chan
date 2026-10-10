@@ -82,6 +82,7 @@ async fn post(public: &PgPool, slug: &str, subject: &str, comment: &str, options
             flag: "",
             options,
             spoiler: false,
+            drawing: None,
         },
     )
     .await

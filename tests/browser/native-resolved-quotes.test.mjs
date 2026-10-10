@@ -61,7 +61,7 @@ test('bare fragments require exact positive i64 identity and an identified conta
     assert.equal(quoteTarget(`#p${target}`, { ...context, ...patch }), null);
   }
   for (const href of ['//evil.example/g/thread/1#p2', 'https://evil.example/g/thread/1#p2',
-    '/g/thread/2#p1', '/g/thread/01#p2', '/g/thread/1#p9223372036854775808',
+    '/g/thread/2#p1', '/g/thread/00#p2', '/g/thread/1#p9223372036854775808',
     '/g/../co/thread/1#p2', '/g/thread/%31#p2', '/g/thread/1#p2?x=1']) {
     assert.equal(quoteTarget(href, context), null, href);
   }

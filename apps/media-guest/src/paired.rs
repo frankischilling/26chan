@@ -9,6 +9,7 @@ const COMPONENT_LIMIT: u64 = 8 * 1024 * 1024;
 pub enum InputKind {
     ImageV1,
     PairedV2,
+    GifV3,
 }
 
 impl InputKind {
@@ -16,6 +17,7 @@ impl InputKind {
         match value {
             "image-v1" => Ok(Self::ImageV1),
             "paired-v2" => Ok(Self::PairedV2),
+            "gif-v3" => Ok(Self::GifV3),
             _ => Err(rejected()),
         }
     }
@@ -24,6 +26,7 @@ impl InputKind {
         match self {
             Self::ImageV1 => "image-v1",
             Self::PairedV2 => "paired-v2",
+            Self::GifV3 => "gif-v3",
         }
     }
 
@@ -31,6 +34,7 @@ impl InputKind {
         match self {
             Self::ImageV1 => 4_194_816,
             Self::PairedV2 => RESULT_BYTES as u64,
+            Self::GifV3 => 17_825_792,
         }
     }
 }
