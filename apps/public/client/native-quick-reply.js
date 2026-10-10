@@ -6,7 +6,7 @@ import { quickReplyPosition } from './native-quick-reply-position.js';
 import { restorePostPreferences, mountBoardFlagPreference } from './native-post-preferences.js';
 import { postNumberReply } from './native-post-numbers.js';
 import { createQuickReplyCooldown } from './native-quick-reply-cooldown.js';
-import { mountNativeDrawing } from './native-drawing.js';
+import { mountNativeDrawing, mountDrawingEditLinks } from './native-drawing.js';
 
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed, math }) {
   const source = document.querySelector('form.postEditor');
@@ -17,7 +17,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   const uploadSourceInput = uploadSource?.querySelector('input[type=file][name=upfile]');
   // Source PainterCore is core posting functionality, independent of disableAll.
   const drawing = mountNativeDrawing({ board, source, uploadForm: uploadSource });
-  let qrDrawing = null;
+  let qrDrawing = null, drawingEdits = null;
   const sourceApproval = () => {
     const field = source?.elements.namedItem('upload_id');
     return field && !field.hasAttribute('data-drawing-capability') ? field : null;
@@ -106,9 +106,9 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     uploadCancel.hidden = !(uploadBusy || (uploadOwned && uploadReceipt));
     uploadCancel.disabled = busy;
     uploadCheck.disabled = busy;
-    uploadInput.disabled = uploadBusy || busy;
     if (uploadSpoiler) uploadSpoiler.disabled = busy || state !== 'approved';
     qrDrawing?.sync();
+    if (!qrDrawing && uploadInput) uploadInput.disabled = uploadBusy || busy;
     sync();
   }
   function resetInlineUpload() {
@@ -152,6 +152,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   function sync() {
     if (disabled()) close();
     if (entry) entry.hidden = disabled() || closed(thread) || mobile();
+    drawingEdits?.refresh();
     if (!dialog) return;
     const locked = closed(current);
     if (locked) cancelAuto();
@@ -160,14 +161,20 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     if (locked) message('This thread is closed.');
     else if (error.textContent === 'This thread is closed.') message('');
   }
-  function open(id = thread, quote = null, selected = '', quoting = false) {
+  function open(id = thread, quote = null, selected = '', quoting = false, afterOpen = null, retargetApproved = false) {
     if (!source || disabled() || !postId(id) || closed(id) || busy) return false;
+    if (dialog && current !== id && !retargetApproved
+      && (qrDrawing?.retained?.() || qrDrawing?.pending())
+      && !confirm('Discard the current drawing and switch threads?')) return false;
     const request = ++targetEpoch;
     if (dialog) {
       if (current !== id) {
+        // A board index can retarget QR to another visible thread. Its canvas
+        // may survive QR Close even when the new controller has no upload data.
+        // Consent precedes both async cancellation and target-epoch changes.
         cancelAuto();
         if (uploadOwned || uploadBusy) {
-          void cancelInlineUpload().then(ok => { if (ok && dialog && request === targetEpoch) open(id, quote, selected, quoting); });
+          void cancelInlineUpload().then(ok => { if (ok && dialog && request === targetEpoch) open(id, quote, selected, quoting, afterOpen, true); });
           return true;
         }
         qrDrawing?.dispose({ destroy: true }); qrDrawing = null;
@@ -177,6 +184,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       if (quoting || quote || selected) insert(quote, selected);
       else comment.focus();
       if (mobile()) place(null, true);
+      afterOpen?.();
       return true;
     }
     current = id; opener = document.activeElement;
@@ -291,6 +299,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     place(position ?? settings()['QR-position']); sync();
     mountDrawing(); renderUpload();
     if (quoting || quote || selected) insert(quote, selected); else comment.focus();
+    afterOpen?.();
     return true;
   }
   function mountDrawing() {
@@ -299,7 +308,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     qrDrawing = drawing.mountQuickReply({ form, fileInput: uploadInput, target: () => current,
       prepare: () => cancelInlineUpload(), accept: file => selectUpload(file, true), clear: () => cancelInlineUpload(),
       approved: () => uploadReceipt?.state === 'approved' && !uploadBusy,
-      changed: () => { cancelAuto(); sync(); }, canOpen: () => !busy && !closed(current) && !disabled(),
+      changed: () => { cancelAuto(); sync(); }, canOpen: () => !busy && !uploadBusy && !closed(current) && !disabled(),
     });
   }
   function insert(id, selected) {
@@ -326,6 +335,9 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     message(''); busy = true; submit.value = 'Sending';
     const active = ++epoch, id = current; controller = new AbortController();
     const fields = Object.fromEntries(new FormData(form));
+    // Source attaches the import post and elapsed time only to the QR drawing
+    // that produced the approved upload, not a replacement file or old draft.
+    if (board === 'i' && drawing?.editAllowed && uploadOwned) Object.assign(fields, qrDrawing?.annotation() ?? {});
     postingAttachment = typeof fields.upload_id === 'string' && fields.upload_id.length > 0;
     renderUpload();
     try {
@@ -448,6 +460,17 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   if (source && (nav || sourceApproval()) && thread && !closed(thread)) {
     entry = node('div', undefined, 'open-qr-wrap'); const link = node('a', 'Post a Reply', 'open-qr-link'); link.href = '#postForm'; link.dataset.cmd = 'open-qr';
     link.addEventListener('click', event => { if (!disabled()) { event.preventDefault(); open(thread); } }); entry.append('[', link, ']'); if (nav) nav.prepend(entry); else source.before(entry);
+  }
+  // Original QR Edit is /i/-only on live thread pages; ordinary Draw on qst/vip
+  // is independent. Approved JPEG media is already normalized to PNG here.
+  const mediaOrigin = document.getElementById('watcher-context')?.dataset.mediaOrigin;
+  if (board === 'i' && drawing?.editAllowed && thread && postId(String(thread)) && !sourceApproval() && uploadSourceInput && mediaOrigin) {
+    drawingEdits = mountDrawingEditLinks({ section: section(String(thread)), board, mediaOrigin,
+      eligible: () => !disabled() && !closed(String(thread)) && !sourceApproval(),
+      onEdit: image => {
+        open(String(thread), null, '', false, () => { void qrDrawing?.importFromPost(image); });
+      },
+    });
   }
   document.addEventListener('click', event => {
     if (disabled() || event.button !== 0 || event.metaKey || event.shiftKey || event.altKey) return;

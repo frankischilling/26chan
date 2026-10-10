@@ -1,6 +1,7 @@
 use crate::store::Report;
 use askama::Template;
 use board_domain::comment_markup::Tag;
+use board_domain::drawing_annotation::DrawingAnnotation;
 use board_domain::formatting::{Line, Token, parse_saved_comment_with_limits};
 use board_domain::word_break::WordPart;
 #[derive(Template)]
@@ -32,6 +33,7 @@ impl Posting {
 pub struct Preview {
     pub report: Report,
     pub lines: Vec<Line>,
+    pub drawing: Option<DrawingAnnotation>,
 }
 impl Preview {
     pub fn capcode(&self) -> Option<board_domain::capcode::Capcode> {
@@ -56,6 +58,10 @@ impl Preview {
 }
 impl From<Report> for Preview {
     fn from(report: Report) -> Self {
+        let drawing = DrawingAnnotation::from_saved(
+            report.drawing_time_seconds,
+            report.drawing_source_post_id,
+        );
         let lines = parse_saved_comment_with_limits(
             &report.comment,
             report.comment_format,
@@ -68,7 +74,11 @@ impl From<Report> for Preview {
                 board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
             },
         );
-        Self { report, lines }
+        Self {
+            report,
+            lines,
+            drawing,
+        }
     }
 }
 #[derive(Template)]
@@ -129,6 +139,8 @@ mod tests {
                 comment_format: 0,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,
+                drawing_time_seconds: None,
+                drawing_source_post_id: None,
                 comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]\n>>>/po/42 >>>/\"evil/42"
                     .into(),
                 state: "open".into(),
@@ -204,6 +216,8 @@ mod tests {
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            drawing_time_seconds: None,
+            drawing_source_post_id: None,
             comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]\n>>>/po/42 >>>/\"evil/42"
                 .into(),
             state: "open".into(),
@@ -255,6 +269,106 @@ mod tests {
     }
 
     #[test]
+    fn drawing_preview_keeps_the_original_comment_and_plain_source_reference() {
+        for (seconds, source, suffix) in [
+            (
+                Some(59),
+                None,
+                "<br><br><small><b>Oekaki Post</b> (Time: 59s)</small>",
+            ),
+            (
+                Some(90),
+                Some(42),
+                "<br><br><small><b>Oekaki Post</b> (Time: 2m, Source: &gt;&gt;42)</small>",
+            ),
+            (
+                Some(3630),
+                Some(42),
+                "<br><br><small><b>Oekaki Post</b> (Time: 1h 1m, Source: &gt;&gt;42)</small>",
+            ),
+            (
+                Some(90),
+                Some(-1),
+                "<br><br><small><b>Oekaki Post</b> (Time: 2m)</small>",
+            ),
+            (None, None, ""),
+            (None, Some(42), ""),
+            (Some(0), Some(42), ""),
+            (Some(5_184_001), None, ""),
+        ] {
+            let preview = Preview::from(Report {
+                id: 1,
+                board: "i".into(),
+                post_id: 1,
+                thread_id: 1,
+                reason: "Owned preview".into(),
+                category_id: None,
+                category_kind: None,
+                name: "Anonymous".into(),
+                trip: None,
+                poster_id: None,
+                capcode: None,
+                country: None,
+                country_name: None,
+                board_flag: None,
+                board_flag_type: "pol".into(),
+                flag_name: None,
+                subject: String::new(),
+                comment: "A plain comment".into(),
+                drawing_time_seconds: seconds,
+                drawing_source_post_id: source,
+                comment_format: 0,
+                staff_authorized_limits: false,
+                wordfilter_payload: None,
+                state: "open".into(),
+                closed: false,
+                sticky: false,
+                permasage: false,
+                permaage: false,
+                undead: false,
+                archived: false,
+                archives_enabled: false,
+                deleted: false,
+                spoilers_enabled: false,
+                image_spoiler: false,
+                attachment: None,
+            });
+            assert_eq!(preview.report.comment, "A plain comment");
+            assert_eq!(
+                board_domain::formatting::plain_text(&preview.lines),
+                "A plain comment"
+            );
+            let html = Queue {
+                media_origin: String::new(),
+                reports: vec![preview],
+                csrf: "owned-fixture".into(),
+                recent: true,
+                can_permaage: false,
+                can_clear_reporter: false,
+                can_cleanup: false,
+                moderator: true,
+                can_post: false,
+                discussion: false,
+            }
+            .render()
+            .unwrap();
+            let contents = html
+                .split_once("<blockquote>")
+                .unwrap()
+                .1
+                .split_once("</blockquote>")
+                .unwrap()
+                .0;
+            assert_eq!(
+                contents,
+                format!("A plain comment{suffix}"),
+                "{seconds:?}/{source:?}"
+            );
+            assert!(!contents.contains("href=") && !contents.contains("<a "));
+        }
+    }
+
+    #[test]
     fn category_preview_uses_captured_title_and_identity() {
         for (kind, label, title) in [
             (1, "rule", "<script>untrusted category</script>".to_owned()),
@@ -283,6 +397,8 @@ mod tests {
                 comment_format: 0,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,
+                drawing_time_seconds: None,
+                drawing_source_post_id: None,
                 state: "open".into(),
                 closed: false,
                 sticky: false,
@@ -353,6 +469,8 @@ mod tests {
                 comment_format: format,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,
+                drawing_time_seconds: None,
+                drawing_source_post_id: None,
                 comment: "[spoiler]<b>first</b>\n>>42[/spoiler] [b]<script>owned</script>[/b] https://www.4chan.org/faq https://example.org/path"
                     .into(),
                 state: "open".into(),
@@ -423,6 +541,8 @@ mod tests {
                 comment_format: format,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,
+                drawing_time_seconds: None,
+                drawing_source_post_id: None,
                 state: "open".into(),
                 closed: false,
                 sticky: false,

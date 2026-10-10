@@ -185,6 +185,7 @@ class PublicUploadBoardTest(unittest.TestCase):
         fixture.created = True
         own = bytes.fromhex(fixture._posting_actor_hex())
         foreign = bytes.fromhex(self.fixture()._posting_actor_hex())
+        events = []
         with sqlite3.connect(':memory:') as db:
             db.execute("ATTACH DATABASE ':memory:' AS content")
             db.execute("ATTACH DATABASE ':memory:' AS post_secrets")
@@ -195,35 +196,88 @@ class PublicUploadBoardTest(unittest.TestCase):
                 posting_image_seconds INTEGER, posting_thread_seconds INTEGER)''')
             db.execute("INSERT INTO content.boards VALUES (?,'Upload qualification',true,0,0,0)",
                        (fixture.board,))
-            sentinels = [(foreign, fixture.board, 42), (own, 'foreign', 43)]
+            sentinels = [(foreign, fixture.board, 42), (own, 'foreign', 43), (foreign, 'foreign', 44)]
             for table in ('posting_history', 'posting_thread_actions'):
                 db.execute(f'CREATE TABLE post_secrets.{table} (actor_hash BLOB, board TEXT, request_at INTEGER)')
                 db.executemany(f'INSERT INTO post_secrets.{table} VALUES (?,?,?)', sentinels)
 
             def sql(statement):
+                if statement.startswith('DELETE FROM post_secrets.'):
+                    for table in ('posting_history', 'posting_thread_actions'):
+                        expected = (f"DELETE FROM post_secrets.{table} WHERE "
+                                    f"actor_hash=decode('{fixture._posting_actor_hex()}','hex') "
+                                    f"AND board='{fixture.board}';")
+                        if statement == expected:
+                            events.append('host-reset-' + table)
+                            break
+                    else:
+                        self.fail('host history cleanup lost its exact actor and board scope')
                 cursor = db.execute(statement)
                 return '|'.join(map(str, cursor.fetchone())) if cursor.description else ''
 
             def completed_upload(*args, **kwargs):
+                events.append('host-upload')
                 for table in ('posting_history', 'posting_thread_actions'):
-                    db.execute(f'INSERT INTO post_secrets.{table} VALUES (?,?,?)', (own, fixture.board, 41))
+                    db.execute(f'INSERT INTO post_secrets.{table} VALUES (?,?,?)',
+                               (own, fixture.board, 40 + upload.call_count))
 
-            def start_drawing(host):
-                self.assertIs(host, fixture)
-                self.assertEqual(upload.call_count, 9)
-                restart.assert_called_once_with()
+            def assert_host_history_cleared():
                 for table in ('posting_history', 'posting_thread_actions'):
                     self.assertEqual(db.execute(f'SELECT * FROM post_secrets.{table} ORDER BY request_at').fetchall(),
                                      sentinels)
-                return mock.Mock()
+
+            def restart_drawing():
+                events.append('restart')
+                self.assertEqual(upload.call_count, 9)
+                assert_host_history_cleared()
+                if restart.call_count == 1:
+                    self.assertIsNone(fixture.drawing_upload)
+                else:
+                    self.assertEqual(restart.call_count, 2)
+                    drawing_upload.exercise.assert_called_once_with()
+                    drawing_upload.reset_posting_history.assert_called_once_with()
+                self.assertIsNone(fixture.drawing_edit_upload)
+
+            drawing_upload = mock.Mock()
+            drawing_upload.exercise.side_effect = lambda: events.append('drawing-upload-exercise')
+            drawing_upload.reset_posting_history.side_effect = lambda: events.append('drawing-upload-reset')
+            drawing_edit = mock.Mock()
+            drawing_edit.exercise.side_effect = lambda: events.append('drawing-edit-exercise')
+
+            def start_drawing_upload(host):
+                self.assertIs(host, fixture)
+                self.assertEqual(upload.call_count, 9)
+                restart.assert_called_once_with()
+                assert_host_history_cleared()
+                events.append('drawing-upload-construct')
+                return drawing_upload
+
+            def start_drawing_edit(host):
+                self.assertIs(host, fixture)
+                self.assertEqual(restart.call_count, 2)
+                assert_host_history_cleared()
+                events.append('drawing-edit-construct')
+                return drawing_edit
 
             with mock.patch('public_upload_fixture.sql', side_effect=sql), \
                     mock.patch.object(fixture, 'upload_one', side_effect=completed_upload) as upload, \
-                    mock.patch.object(fixture, 'restart_for_drawing') as restart, \
-                    mock.patch('public_drawing_fixture.PublicDrawingUpload', side_effect=start_drawing) as drawing:
+                    mock.patch.object(fixture, 'restart_for_drawing', side_effect=restart_drawing) as restart, \
+                    mock.patch('public_drawing_fixture.PublicDrawingUpload', side_effect=start_drawing_upload) as drawing, \
+                    mock.patch('public_drawing_fixture.PublicDrawingEdit', side_effect=start_drawing_edit) as edit:
                 fixture.exercise()
             drawing.assert_called_once_with(fixture)
+            edit.assert_called_once_with(fixture)
+            self.assertEqual(restart.call_count, 2)
             fixture.drawing_upload.exercise.assert_called_once_with()
+            fixture.drawing_upload.reset_posting_history.assert_called_once_with()
+            fixture.drawing_edit_upload.exercise.assert_called_once_with()
+            assert_host_history_cleared()
+            self.assertEqual(events, [
+                *['host-upload'] * 9,
+                'host-reset-posting_history', 'host-reset-posting_thread_actions',
+                'restart', 'drawing-upload-construct', 'drawing-upload-exercise',
+                'drawing-upload-reset', 'restart', 'drawing-edit-construct', 'drawing-edit-exercise',
+            ])
 
 
 class DrawingQuotaBoundaryTest(unittest.TestCase):
@@ -259,6 +313,61 @@ class DrawingQuotaBoundaryTest(unittest.TestCase):
         systemctl.assert_called_once_with('restart', fixture.unit.name, timeout=35)
         ready.assert_called_once_with(fixture.ready)
         self.assertIsNone(fixture.browser)
+
+    def test_second_restart_accepts_only_completed_idle_drawing(self):
+        fixture = self.fixture()
+        drawing = SimpleNamespace(completed_modes={'ordinary', 'quick-reply'},
+                                  browser=None, recovery_baseline=None)
+        states = [dict(ActiveState='active', InvocationID='1'*32),
+                  dict(ActiveState='active', InvocationID='2'*32, MainPID='12345'),
+                  dict(ActiveState='active', InvocationID='2'*32),
+                  dict(ActiveState='active', InvocationID='3'*32, MainPID='12346')]
+        with mock.patch.object(pathlib.Path, 'read_bytes', return_value=b'owned public unit'), \
+                mock.patch.object(pathlib.Path, 'read_text', return_value='Uid: 1001 1001 1001 1001\nGid: 1002 1002 1002 1002'), \
+                mock.patch('public_upload_fixture.sql', return_value='t') as sql, \
+                mock.patch('public_upload_fixture.systemctl') as systemctl, \
+                mock.patch('public_upload_fixture.wait_until') as ready, \
+                mock.patch.object(fixture.unit, 'state', side_effect=states):
+            fixture.restart_for_drawing()
+            self.assertIsNone(fixture.browser)
+            fixture.drawing_upload = drawing
+            fixture.restart_for_drawing()
+        self.assertEqual(sql.call_count, 2)
+        self.assertIn("count(*)=9 AND bool_and(state='published'", sql.call_args.args[0])
+        self.assertEqual(fixture.f.clean_vm.call_args_list, [mock.call(), mock.call()])
+        self.assertEqual(systemctl.call_args_list,
+                         [mock.call('restart', fixture.unit.name, timeout=35)] * 2)
+        self.assertEqual(ready.call_args_list, [mock.call(fixture.ready)] * 2)
+        self.assertIsNone(fixture.browser)
+        self.assertIs(fixture.drawing_upload, drawing)
+
+    def test_second_restart_rejects_incomplete_or_active_drawing(self):
+        for failure in ('no-modes', 'ordinary-only', 'quick-reply-only', 'extra-mode',
+                        'active-browser', 'finished-browser', 'recovery', 'existing-edit',
+                        'stale-host-browser'):
+            fixture = self.fixture()
+            fixture.browser = None
+            fixture.drawing_upload = SimpleNamespace(completed_modes={'ordinary', 'quick-reply'},
+                                                     browser=None, recovery_baseline=None)
+            if failure == 'no-modes': fixture.drawing_upload.completed_modes = set()
+            if failure == 'ordinary-only': fixture.drawing_upload.completed_modes = {'ordinary'}
+            if failure == 'quick-reply-only': fixture.drawing_upload.completed_modes = {'quick-reply'}
+            if failure == 'extra-mode': fixture.drawing_upload.completed_modes.add('image-edit')
+            if failure == 'active-browser': fixture.drawing_upload.browser = SimpleNamespace(poll=lambda: None)
+            if failure == 'finished-browser': fixture.drawing_upload.browser = SimpleNamespace(poll=lambda: 0)
+            if failure == 'recovery': fixture.drawing_upload.recovery_baseline = object()
+            if failure == 'existing-edit': fixture.drawing_edit_upload = object()
+            if failure == 'stale-host-browser': fixture.browser = SimpleNamespace(poll=lambda: 0)
+            with self.subTest(failure=failure), \
+                    mock.patch.object(pathlib.Path, 'read_bytes') as unit_file, \
+                    mock.patch('public_upload_fixture.sql') as sql, \
+                    mock.patch('public_upload_fixture.systemctl') as systemctl:
+                with self.assertRaises(AssertionError):
+                    fixture.restart_for_drawing()
+                unit_file.assert_not_called()
+                sql.assert_not_called()
+                systemctl.assert_not_called()
+                fixture.f.clean_vm.assert_not_called()
 
     def test_incomplete_browser_jobs_or_vm_and_changed_unit_prevent_restart(self):
         for failure in ('browser', 'missing-job', 'live-job', 'vm', 'unit'):

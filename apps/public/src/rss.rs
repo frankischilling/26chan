@@ -204,6 +204,12 @@ fn write_feed(
                 board_domain::source_html_entities(text)
             ));
         }
+        if let Some(drawing) = crate::views::DrawingAnnotation::from_saved(
+            post.drawing_time_seconds,
+            post.drawing_source_post_id,
+        ) {
+            stored.push_str(&drawing.stored_html());
+        }
         let title = item_title(post, &stored, board.forced_anon);
         let link = format!("{origin}/{}/thread/{}", board.slug, post.id);
         writer.write_str("<item>")?;

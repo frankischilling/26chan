@@ -60,6 +60,33 @@ test('posting targets one fixed path with source multipart fields and no redirec
     } });
   assert.deepEqual(result, { thread: '10', post: '11' }); assert.equal(count, 1);
 });
+
+test('source /i/ edits post bounded optional oe_time and oe_src beside the approved upload receipt', async () => {
+  const result = await sendQuickReply({ board: 'i', thread: '100', origin: 'https://board.example',
+    fields: { com: 'drawing', upload_id: upload.upload_id, upload_capability: upload.upload_capability,
+      oe_src: '101', oe_time: '3' },
+    fetcher: async (url, options) => {
+      assert.equal(url, 'https://board.example/i/imgboard.php');
+      assert.equal(options.body.get('oe_src'), '101');
+      assert.equal(options.body.get('oe_time'), '3');
+      assert.equal(options.body.get('upload_id'), upload.upload_id);
+      return new Response('{"tid":100,"pid":102}', { headers: { 'content-type': 'application/json' } });
+    } });
+  assert.deepEqual(result, { thread: '100', post: '102' });
+
+  let calls = 0;
+  for (const fields of [
+    { oe_src: '101', oe_time: '3' }, { oe_src: '101', oe_time: '-1' },
+    { oe_src: '101', oe_time: '1.3' }, { oe_src: '101', oe_time: '01' },
+    { oe_src: '101', oe_time: '9007199254740992' }, { oe_src: '01', oe_time: '2' },
+    { oe_src: '9223372036854775808', oe_time: '2' },
+  ]) await assert.rejects(sendQuickReply({ board: 'i', thread: '100', origin: 'https://board.example',
+    fields, fetcher: () => { calls++; throw new Error('unexpected'); } }), /drawing annotation|posting form/i);
+  for (const board of ['qst', 'vip']) await assert.rejects(sendQuickReply({ board, thread: '100',
+    origin: 'https://board.example', fields: { oe_src: '101', oe_time: '3' },
+    fetcher: () => { calls++; throw new Error('unexpected'); } }), /drawing annotation|posting form/i);
+  assert.equal(calls, 0, 'invalid annotations fail before sending an HTTP request');
+});
 test('malformed, oversized and interrupted replies do not cause retry', async () => {
   for (const text of ['not json', 'x'.repeat(8193)]) {
     let count = 0;

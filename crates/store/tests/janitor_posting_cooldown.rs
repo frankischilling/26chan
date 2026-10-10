@@ -172,6 +172,7 @@ impl Fixture {
             &input,
             context(peer, epoch),
             PostMetadata {
+                drawing: None,
                 keys: PostIdentityKeys {
                     tripcode: None,
                     poster_id: Some(&key),
@@ -247,6 +248,7 @@ impl Fixture {
             None,
             context(peer, epoch),
             PostMetadata {
+                drawing: None,
                 keys: PostIdentityKeys {
                     tripcode: None,
                     poster_id: Some(&key),

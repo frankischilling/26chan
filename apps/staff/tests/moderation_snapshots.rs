@@ -262,7 +262,7 @@ impl Fixture {
     }
 
     async fn saved(&self, target: i64) -> serde_json::Value {
-        let raw: String = sqlx::query_scalar("SELECT jsonb_build_object('snapshot_version',1,'snapshot_name',p.name,'snapshot_trip',p.trip,'snapshot_capcode',p.capcode,'snapshot_subject',p.subject,'snapshot_comment',p.comment,'snapshot_comment_format',p.comment_format,'snapshot_staff_authorized_limits',p.staff_authorized_limits,'snapshot_wordfiltered',p.wordfilter_payload IS NOT NULL,'snapshot_image_spoiler',p.image_spoiler,'snapshot_filename',m.filename,'snapshot_dice_result',p.dice_result,'snapshot_fortune_text',p.fortune_text,'snapshot_fortune_color',p.fortune_color)::text FROM content.posts p LEFT JOIN content.post_media m ON m.post_id=p.id WHERE p.id=$1")
+        let raw: String = sqlx::query_scalar("SELECT jsonb_build_object('snapshot_version',2,'snapshot_name',p.name,'snapshot_trip',p.trip,'snapshot_capcode',p.capcode,'snapshot_subject',p.subject,'snapshot_comment',p.comment,'snapshot_comment_format',p.comment_format,'snapshot_staff_authorized_limits',p.staff_authorized_limits,'snapshot_wordfiltered',p.wordfilter_payload IS NOT NULL,'snapshot_image_spoiler',p.image_spoiler,'snapshot_filename',m.filename,'snapshot_dice_result',p.dice_result,'snapshot_fortune_text',p.fortune_text,'snapshot_fortune_color',p.fortune_color,'snapshot_drawing_time_seconds',p.drawing_time_seconds,'snapshot_drawing_source_post_id',p.drawing_source_post_id)::text FROM content.posts p LEFT JOIN content.post_media m ON m.post_id=p.id WHERE p.id=$1")
             .bind(target).fetch_one(&self.owner).await.unwrap();
         serde_json::from_str(&raw).unwrap()
     }
@@ -287,7 +287,7 @@ impl Fixture {
     }
 
     async fn rich_post(&self) {
-        sqlx::query("UPDATE content.posts SET name='',trip='!!AbCdEf012+/',capcode='admin_highlight',subject='<b>saved & subject</b>',comment='[code]stored & <script> text[/code]',comment_format=127,staff_authorized_limits=true,dice_result='3d6: 2 + 4 + 6 = 12',fortune_text=NULL,fortune_color=NULL WHERE id=$1")
+        sqlx::query("UPDATE content.posts SET name='',trip='!!AbCdEf012+/',capcode='admin_highlight',subject='<b>saved & subject</b>',comment='[code]stored & <script> text[/code]',comment_format=127,staff_authorized_limits=true,dice_result='3d6: 2 + 4 + 6 = 12',fortune_text=NULL,fortune_color=NULL,drawing_time_seconds=3630,drawing_source_post_id=NULL WHERE id=$1")
             .bind(self.posts[0]).execute(&self.owner).await.unwrap();
         // Filename survives deletion; no real bytes or media jobs are required.
         let asset = uuid::Uuid::new_v4().simple().to_string();
@@ -335,6 +335,8 @@ async fn grouped_exact_saved_preimages_survive_policy_edits_and_deletion() {
         assert_eq!(before["snapshot_name"], "");
         assert_eq!(before["snapshot_filename"], "<removed & name>.png");
         assert_eq!(before["snapshot_dice_result"], "3d6: 2 + 4 + 6 = 12");
+        assert_eq!(before["snapshot_drawing_time_seconds"], 3630);
+        assert!(before["snapshot_drawing_source_post_id"].is_null());
         assert_eq!(f.options("sticky=1&closed=1&sticky_rank=3").await, StatusCode::SEE_OTHER);
         let recorded = f.audits().await;
         assert_eq!(recorded.len(), 1);
@@ -372,8 +374,8 @@ async fn spoiler_preimages_cover_both_old_flags_all_roles_and_reply_without_file
         f.rich_post().await;
         let reply: i64 = sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Reply','','Saved reply') RETURNING id")
             .bind(&f.boards[0]).bind(f.posts[0]).fetch_one(&f.owner).await.unwrap();
-        sqlx::query("UPDATE content.posts SET fortune_text='Excellent Luck',fortune_color='#a1b2c3' WHERE id=$1")
-            .bind(reply).execute(&f.owner).await.unwrap();
+        sqlx::query("UPDATE content.posts SET fortune_text='Excellent Luck',fortune_color='#a1b2c3',drawing_time_seconds=90,drawing_source_post_id=$2 WHERE id=$1")
+            .bind(reply).bind(f.posts[0]).execute(&f.owner).await.unwrap();
         for role in ["janitor", "moderator", "manager", "admin"] {
             f.role(role, &f.boards[..1], &[]).await;
             for target in [f.posts[0], reply] {
@@ -400,6 +402,8 @@ async fn spoiler_preimages_cover_both_old_flags_all_roles_and_reply_without_file
         assert!(reply_snapshot["snapshot_filename"].is_null());
         assert_eq!(reply_snapshot["snapshot_fortune_text"], "Excellent Luck");
         assert_eq!(reply_snapshot["snapshot_fortune_color"], "#a1b2c3");
+        assert_eq!(reply_snapshot["snapshot_drawing_time_seconds"], 90);
+        assert_eq!(reply_snapshot["snapshot_drawing_source_post_id"], f.posts[0]);
         // Historical output remains unchanged when current randomizer policy is off.
         assert_eq!(f.saved(f.posts[0]).await["snapshot_dice_result"], "3d6: 2 + 4 + 6 = 12");
     }}).await;

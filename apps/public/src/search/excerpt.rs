@@ -11,6 +11,7 @@ fn close(open: &Token) -> Option<Token> {
             Some(Token::FilteredDelimiter(delimiter.closing()))
         }
         Token::GeneratedBold(true) => Some(Token::GeneratedBold(false)),
+        Token::GeneratedSmall(true) => Some(Token::GeneratedSmall(false)),
         Token::GeneratedFortune(true, color) => Some(Token::GeneratedFortune(false, color.clone())),
         _ => None,
     }

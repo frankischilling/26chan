@@ -740,7 +740,8 @@ pub async fn thread(
     let math_tags = board.math_tags;
     let drawing = !thread.closed
         && thread.archived_at.is_none()
-        && board.ordinary_drawing_enabled(state.media.is_some());
+        && (board.ordinary_drawing_enabled(state.media.is_some())
+            || board.drawing_edit_enabled(state.media.is_some()));
     let response = crate::output::html(
         &state,
         &BoardPage {
@@ -826,6 +827,10 @@ pub struct PostForm {
     _hasjs: String,
     #[serde(default, deserialize_with = "crate::posting_form::checkbox")]
     textonly: bool,
+    #[serde(default, deserialize_with = "crate::posting_form::drawing_field")]
+    oe_time: Option<String>,
+    #[serde(default, deserialize_with = "crate::posting_form::drawing_field")]
+    oe_src: Option<String>,
 }
 pub async fn post(
     State(state): State<AppState>,
@@ -1007,6 +1012,13 @@ async fn submit_post(
             country_database: state.country_database.as_deref(),
             flag: &form.flag,
             options: &form.email,
+            drawing: form
+                .oe_time
+                .as_deref()
+                .map(|time| board_store::DrawingSubmission {
+                    time,
+                    source_post: form.oe_src.as_deref(),
+                }),
             keys: board_store::PostIdentityKeys {
                 tripcode: state.tripcode_key.as_deref(),
                 poster_id: state.poster_id_key.as_deref(),

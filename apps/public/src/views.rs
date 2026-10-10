@@ -103,6 +103,18 @@ impl BoardPage {
                 .ordinary_drawing_enabled(!self.media_origin.is_empty())
     }
 
+    pub fn drawing_edit_allowed(&self) -> bool {
+        self.parent > 0
+            && self.posting_allowed()
+            && self
+                .board
+                .drawing_edit_enabled(!self.media_origin.is_empty())
+    }
+
+    pub fn drawing_controls_allowed(&self) -> bool {
+        self.drawing_allowed() || self.drawing_edit_allowed()
+    }
+
     pub fn catalog_spoiler_thumbnail(&self) -> String {
         spoilers::catalog_thumbnail(&self.board)
     }
@@ -340,8 +352,15 @@ impl PostView {
             .and_then(board_domain::posting_randomizers::fortune_class)
     }
 
+    pub fn drawing_annotation(&self) -> Option<DrawingAnnotation> {
+        DrawingAnnotation::from_saved(
+            self.post.drawing_time_seconds,
+            self.post.drawing_source_post_id,
+        )
+    }
+
     pub fn catalog_teaser(&self, board: &Board) -> crate::catalog::teaser::Prepared {
-        crate::catalog::teaser::prepare_with_randomizers(
+        crate::catalog::teaser::prepare_with_metadata(
             &self.lines,
             &board.slug,
             crate::catalog::teaser::Policy::for_post(board, self.post.comment_format),
@@ -350,6 +369,7 @@ impl PostView {
                 .fortune_text
                 .as_deref()
                 .zip(self.post.fortune_color.as_deref()),
+            self.drawing_annotation().as_ref(),
         )
     }
 
@@ -425,7 +445,10 @@ pub struct Comment<'a> {
     pub dice_result: Option<&'a str>,
     pub fortune_text: Option<&'a str>,
     pub fortune_color: Option<&'a str>,
+    pub drawing: Option<DrawingAnnotation>,
 }
+
+pub use board_domain::drawing_annotation::DrawingAnnotation;
 
 #[cfg(test)]
 mod comment_tests {
@@ -440,6 +463,7 @@ mod comment_tests {
             dice_result: None,
             fortune_text: None,
             fortune_color: None,
+            drawing: None,
         }
         .render()
         .unwrap()
@@ -482,6 +506,7 @@ mod comment_tests {
                 dice_result: None,
                 fortune_text: None,
                 fortune_color: None,
+                drawing: None,
             }
             .render()
             .unwrap();
@@ -503,6 +528,62 @@ mod comment_tests {
     }
 
     #[test]
+    fn saved_drawing_annotation_matches_frozen_source_html_without_replay() {
+        let reference: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../crates/domain/tests/fixtures/drawing-annotation/cases.json"
+        ))
+        .unwrap();
+        let mut compared = 0;
+        // These are the frozen integer time cases. Raw PHP coercion and replay
+        // link cases exercise different contracts from saved typed metadata.
+        for case in reference["time"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|case| case["id"].as_str().unwrap().starts_with("time_"))
+        {
+            let seconds = i32::try_from(case["args"][0].as_i64().unwrap()).ok();
+            let drawing = DrawingAnnotation::from_saved(seconds, None);
+            let html = Comment {
+                lines: &[],
+                board: "i",
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
+                drawing,
+            }
+            .render()
+            .unwrap();
+            assert_eq!(html, case["expected_text"], "{}", case["id"]);
+            compared += 1;
+        }
+        assert_eq!(compared, 24);
+        let drawing = DrawingAnnotation::from_saved(Some(3630), Some(42)).unwrap();
+        let expected =
+            "<br><br><small><b>Oekaki Post</b> (Time: 1h 1m, Source: &gt;&gt;42)</small>";
+        assert_eq!(drawing.stored_html(), expected);
+        let html = Comment {
+            lines: &[],
+            board: "i",
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
+            drawing: Some(drawing),
+        }
+        .render()
+        .unwrap();
+        assert_eq!(html, expected);
+        assert!(!html.contains("href=") && !html.contains("Replay"));
+        assert!(DrawingAnnotation::from_saved(Some(0), Some(42)).is_none());
+        assert_eq!(
+            DrawingAnnotation::from_saved(Some(1), Some(-1))
+                .unwrap()
+                .source_post,
+            None
+        );
+    }
+
+    #[test]
     fn retained_randomizer_metadata_uses_fixed_markup_and_escaped_text() {
         let lines = parse_post_comment("ordinary <text>", 0);
         let html = Comment {
@@ -511,6 +592,7 @@ mod comment_tests {
             dice_result: Some("Rolled <1>"),
             fortune_text: Some("<script>alert(1)</script>"),
             fortune_color: Some("#00cbb0"),
+            drawing: None,
         }
         .render()
         .unwrap();
@@ -666,6 +748,7 @@ mod comment_tests {
             dice_result: None,
             fortune_text: None,
             fortune_color: None,
+            drawing: None,
         }
         .render()
         .unwrap();
@@ -693,6 +776,7 @@ mod comment_tests {
                 dice_result: None,
                 fortune_text: None,
                 fortune_color: None,
+                drawing: None,
             }
             .render()
             .unwrap();
@@ -731,6 +815,7 @@ mod comment_tests {
                     dice_result: None,
                     fortune_text: None,
                     fortune_color: None,
+                    drawing: None,
                 }
                 .render()
                 .unwrap();

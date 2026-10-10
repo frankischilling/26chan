@@ -89,6 +89,9 @@ pub(crate) fn stored_comment(post: &PostView) -> String {
             board_domain::source_html_entities(text)
         ));
     }
+    if let Some(drawing) = post.drawing_annotation() {
+        comment.push_str(&drawing.stored_html());
+    }
     comment
 }
 

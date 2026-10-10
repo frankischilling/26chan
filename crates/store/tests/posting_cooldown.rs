@@ -368,6 +368,7 @@ async fn create(
             op_password_proof: None,
         },
         PostMetadata {
+            drawing: None,
             keys: PostIdentityKeys {
                 tripcode: None,
                 poster_id: Some(&key),

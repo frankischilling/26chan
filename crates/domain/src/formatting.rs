@@ -27,6 +27,7 @@ pub enum Token {
     CloseQuote,
     /// Server-generated wrappers. User formatting never creates these tokens.
     GeneratedBold(bool),
+    GeneratedSmall(bool),
     GeneratedFortune(bool, String),
 }
 

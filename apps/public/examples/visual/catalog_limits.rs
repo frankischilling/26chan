@@ -114,6 +114,8 @@ fn render(
                 dice_result: None,
                 fortune_text: None,
                 fortune_color: None,
+                drawing_time_seconds: None,
+                drawing_source_post_id: None,
                 created_at: time("2026-09-08T12:00:00Z"),
                 deleted: false,
                 attachment: None,

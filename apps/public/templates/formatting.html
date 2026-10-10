@@ -1,3 +1,6 @@
+{% macro drawing_annotation(annotation) -%}
+{%- if let Some(drawing) = annotation -%}<br><br><small><b>Oekaki Post</b> (Time: {{ drawing.time }}{% if let Some(source) = drawing.source_post %}, Source: &gt;&gt;{{ source }}{% endif %})</small>{%- endif -%}
+{%- endmacro %}
 {% macro comment(lines, board, origin = "") -%}
 {%- for line in lines -%}
 {%- if !loop.first -%}<br>{%- endif -%}
@@ -33,6 +36,7 @@
 {%- when Token::OpenQuote -%}<span class="quote">
 {%- when Token::CloseQuote -%}</span>
 {%- when Token::GeneratedBold with (open) -%}{%- if open -%}<b>{%- else -%}</b>{%- endif -%}
+{%- when Token::GeneratedSmall with (open) -%}{%- if open -%}<small>{%- else -%}</small>{%- endif -%}
 {%- when Token::GeneratedFortune with (open, color) -%}{%- if open -%}<span class="{{ token.fortune_class() }}">{%- else -%}</span>{%- endif -%}
 {%- endmatch -%}
 {%- endfor -%}

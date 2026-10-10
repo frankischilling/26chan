@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { performance } from 'node:perf_hooks';
 import { expect } from '@playwright/test';
 
 export const tegakiModule = '/static/tegaki/tegaki-0.9.4.v1.js';
@@ -41,6 +42,55 @@ export async function pointerDrawing(page) {
   return proof;
 }
 
+export async function pointerDrawingEdit(page) {
+  await expect(page.locator('#tegaki-cursor-layer')).toBeVisible();
+  const before = await canvasProof(page);
+  assert.equal(before.width, 400); assert.equal(before.height, 400); assert.ok(before.ink > 100);
+  // Add a trusted pointer stroke below the existing source drawing.
+  const target = await page.locator('#tegaki-canvas').boundingBox(); assert.ok(target);
+  await page.mouse.move(target.x + 55, target.y + 335); await page.mouse.down();
+  await page.mouse.move(target.x + 265, target.y + 325, { steps: 35 }); await page.mouse.up();
+  await page.mouse.move(target.x + 85, target.y + 355); await page.mouse.down();
+  await page.mouse.move(target.x + 250, target.y + 365, { steps: 35 }); await page.mouse.up();
+  // Source oe_time rounds elapsed wall time to seconds. Keep a real trusted
+  // stroke moving for >=1.1s so a legitimate fast edit cannot round to zero.
+  // Bound both the movement count and the short interval between moves.
+  const started = performance.now();
+  await page.mouse.move(target.x + 80, target.y + 345); await page.mouse.down();
+  let steps = 0;
+  do {
+    await page.mouse.move(target.x + (steps % 2 ? 255 : 85), target.y + 335 + (steps % 4) * 10, { steps: 3 });
+    steps++;
+    if (performance.now() - started < 1_150) await new Promise(resolve => setTimeout(resolve, 35));
+  } while (performance.now() - started < 1_150 && steps < 48);
+  await page.mouse.up();
+  assert.ok(performance.now() - started >= 1_100, 'trusted pointer activity must span at least 1.1 seconds');
+  const proof = await canvasProof(page);
+  assert.equal(proof.width, 400); assert.equal(proof.height, 400); assert.equal(proof.replay, false);
+  assert.ok(proof.ink > before.ink + 100, 'editing must add real pixels to the imported drawing');
+  assert.notEqual(proof.hash, before.hash);
+  return proof;
+}
+
+// Build the seed through an actual browser canvas, then hand its bounded PNG
+// bytes to public intake. The edit must add real Tegaki pointer strokes later.
+export async function seedDrawingPng(page) {
+  const bytes = await page.evaluate(async () => {
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 400;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 400, 400);
+    ctx.fillStyle = '#000000'; ctx.fillRect(55, 60, 155, 95);
+    ctx.fillStyle = '#000000'; ctx.fillRect(95, 190, 175, 45);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob || blob.type !== 'image/png' || blob.size < 33 || blob.size > 8_388_608) throw new Error('Invalid seed PNG.');
+    return [...new Uint8Array(await blob.arrayBuffer())];
+  });
+  const buffer = Buffer.from(bytes), proof = await decodedPngProof(page, buffer);
+  assert.equal(proof.width, 400); assert.equal(proof.height, 400); assert.ok(proof.ink > 100);
+  assert.ok(buffer.length >= 33 && buffer.length <= 8_388_608);
+  return { buffer, proof };
+}
+
 export async function decodedPngProof(page, bytes) {
   return page.evaluate(async values => {
     const image = await createImageBitmap(new Blob([new Uint8Array(values)], { type: 'image/png' }));
@@ -65,29 +115,46 @@ export async function closePainter(page, accept) {
 // Capture before handing the unchanged real response to the client. The result
 // lives in Node, so ordinary successful posting may navigate immediately.
 let responseSequence = 0;
-export async function observeDrawingResponse(page, url, stage) {
+export async function observeDrawingResponse(page, url, stage, { annotation = false } = {}) {
   const name = `ownedDrawingResponse${++responseSequence}`;
   let finish;
   const pending = new Promise(resolve => { finish = resolve; });
   await page.exposeFunction(name, value => finish(value));
-  await page.evaluate(({ name, url }) => {
+  await page.evaluate(({ name, url, annotation }) => {
     const original = window.fetch;
     window.fetch = async (...args) => {
+      // Retain only the two harmless Oekaki fields. Never inspect, store or
+      // report the one-use upload capability in the browser or Node observer.
+      const metadata = annotation && String(args[0]) === url && args[1]?.body instanceof FormData
+        ? { oe_src: args[1].body.get('oe_src'), oe_time: args[1].body.get('oe_time') } : null;
       const response = await original(...args);
       if (String(args[0]) === url && args[1]?.method === 'POST') {
         window.fetch = original;
         const captured = { status: response.status, type: response.headers.get('content-type') || '' };
+        if (metadata) captured.annotation = metadata;
         try { captured.text = await response.clone().text(); } catch { captured.failed = true; }
         await window[name](captured);
       }
       return response;
     };
-  }, { name, url });
+  }, { name, url, annotation });
   return async () => {
     const captured = await pending;
     const { ownedUploadResponse } = await import('../owned-upload-response.mjs');
-    return ownedUploadResponse({ status: () => captured.status, headers: () => ({ 'content-type': captured.type }),
+    const result = await ownedUploadResponse({ status: () => captured.status, headers: () => ({ 'content-type': captured.type }),
       json: async () => { if (captured.failed) throw new Error('Body unavailable'); return JSON.parse(captured.text); } }, stage);
+    if (stage === 'post' && !Number.isSafeInteger(result.result?.pid)) {
+      // The source endpoint also reports rejections as HTTP 200 JSON. Emit
+      // only fixed categories, never its arbitrary message or capability data.
+      const error = typeof result.result?.error === 'string' ? result.result.error : '';
+      const category = error === 'Invalid posting timestamp.' ? 'timestamp'
+        : error.startsWith('Error: You must wait ') ? 'cooldown'
+          : error === 'Storage is unavailable. Try again later.' ? 'storage'
+            : error === 'Anonymous authorization changed.' ? 'session' : 'other';
+      console.error(`OWNED_DRAWING_POST category=${category}`);
+    }
+    if (annotation) result.annotation = captured.annotation;
+    return result;
   };
 }
 
