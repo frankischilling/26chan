@@ -453,7 +453,8 @@ test('ordinary staff posts keep public IDs, flags, live filtering and password d
         expect((await (await page.request.get(endpoint)).json()).posts.some(post => String(post.no) === flagged)).toBe(false);
       });
     }
-    expect(fixture('ordinary-inspect', board)).toEqual({ posts: 18, deleted: 4, deletion: 16, contexts: 12, op_peers: 4, op_replies: 8, proofs: 0, audit: 12 });
+    // Whole deletion removes each of the four target password hashes.
+    expect(fixture('ordinary-inspect', board)).toEqual({ posts: 18, deleted: 4, deletion: 12, contexts: 12, op_peers: 4, op_replies: 8, proofs: 0, audit: 12 });
     expect(errors).toEqual([]);
   } finally {
     await publicPage.close(); fixture('cleanup', board);

@@ -85,8 +85,8 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     };
     let mut replies = Vec::new();
     for thread in [c, c, c, a, b, b, c] {
-        let id: i64 = sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment,deleted) VALUES($1,$2,'Anonymous','','A reply', $3) RETURNING id")
-            .bind(&slug).bind(thread).bind(replies.len() == 6).fetch_one(&owner).await.unwrap();
+        let id: i64 = sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Anonymous','','A reply') RETURNING id")
+            .bind(&slug).bind(thread).fetch_one(&owner).await.unwrap();
         replies.push(id);
     }
     sqlx::query("UPDATE content.posts SET name='<script>reply & author</script>',created_at='2026-09-08T12:05:00Z' WHERE id=$1")
@@ -103,6 +103,17 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .unwrap();
     sqlx::query("UPDATE content.posts SET name='<b>OP & author</b>' WHERE id=$1")
         .bind(b)
+        .execute(&owner)
+        .await
+        .unwrap();
+    let (status, live) = read(&app, &format!("/{slug}/catalog")).await;
+    assert_eq!(status, 200);
+    assert_eq!(latest_reply(&live, *c), Some(replies[6]));
+    assert!(preview(&live, *c).contains("Deleted private name"));
+    // Fresh deletion erases the saved header. Retained historical headers need
+    // pre-erasure-migration fixtures; keep the public identity exclusion here.
+    sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
+        .bind(replies[6])
         .execute(&owner)
         .await
         .unwrap();
@@ -438,7 +449,17 @@ async fn exercise_preview_identities(owner: PgPool, public: PgPool, slug: String
     // country context, which these saved-header fixtures do not supply.
     let deleted: i64 = sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Deleted identity','','Deleted body') RETURNING id")
         .bind(&slug).bind(saved[0].0).fetch_one(&owner).await.unwrap();
-    sqlx::query("UPDATE content.posts SET capcode='admin',deleted=true WHERE id=$1")
+    sqlx::query("UPDATE content.posts SET capcode='admin' WHERE id=$1")
+        .bind(deleted)
+        .execute(&owner)
+        .await
+        .unwrap();
+    let (status, live) = read(&app, &format!("/{slug}/catalog")).await;
+    assert_eq!(status, 200);
+    assert_eq!(latest_reply(&live, saved[0].0), Some(deleted));
+    assert!(preview(&live, saved[0].0).contains("Deleted identity"));
+    assert!(preview(&live, saved[0].0).contains("admin-capcode"));
+    sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
         .bind(deleted)
         .execute(&owner)
         .await

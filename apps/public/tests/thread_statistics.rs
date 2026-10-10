@@ -77,12 +77,17 @@ async fn stats_preserve_exact_ids_current_counts_page_validators_and_transaction
                 .bind(thread).bind(&fixture).execute(&admin).await.unwrap();
         }
         for offset in 1..=3 {
-            sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,deleted) VALUES($1,$2,$3,'Anonymous','','Owned reply',$4)")
-                .bind(id + offset).bind(&fixture).bind(id).bind(offset == 2).execute(&admin).await.unwrap();
+            sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$3,'Anonymous','','Owned reply')")
+                .bind(id + offset).bind(&fixture).bind(id).execute(&admin).await.unwrap();
         }
         let (app, api) = board_public::routers(public, "http://127.0.0.1:3000".into(), false);
         let path = format!("/_watch/{fixture}/thread/{id}/stats");
+        let (live, live_tag) = stats(&app, &path).await;
+        assert_eq!(live["replies"], 3);
+        sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
+            .bind(id + 2).execute(&admin).await.unwrap();
         let (initial, tag) = stats(&app, &path).await;
+        assert_ne!(tag, live_tag, "Whole deletion changes the visible count and ETag");
         assert_eq!(initial, serde_json::json!({"version":1,"board":fixture,"thread":id.to_string(),
             "replies":2,"images":0,"sticky":false,"closed":false,"archived":false,
             "bump_limited":true,"image_limited":true,"page":2}));

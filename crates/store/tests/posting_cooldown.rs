@@ -257,15 +257,19 @@ async fn strict_edges_incoming_image_latest_reply_id_and_sticky_op() {
         Some(("reply".into(), 1)),
         "Deleted latest reply falls back to surviving identity"
     );
-    sqlx::query("UPDATE content.posts SET deleted=false WHERE id=$1")
+    let resurrection = sqlx::query("UPDATE content.posts SET deleted=false WHERE id=$1")
         .bind(newest_id)
         .execute(&f.owner)
         .await
-        .unwrap();
+        .unwrap_err();
+    assert_eq!(
+        resurrection.as_database_error().unwrap().code().as_deref(),
+        Some("23514")
+    );
     assert_eq!(
         f.check(&f.actor, 0, op, false, now).await,
         Some(("reply".into(), 1)),
-        "Undeletion must not reconstruct private identity"
+        "Rejected resurrection must not reconstruct private identity"
     );
     let mut other = f.actor.clone();
     other[31] ^= 1;

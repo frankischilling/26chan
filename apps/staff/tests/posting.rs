@@ -491,7 +491,13 @@ async fn ordinary_staff_ranks_persist_public_identity_flags_op_membership_and_de
             ),flagged,sha2::Sha256::digest(hash.as_bytes()).into(),false).await.unwrap();
             let counts:(i64,i64,i64)=sqlx::query_as("SELECT (SELECT count(*) FROM post_secrets.staff_post_intents WHERE account_id=$1),(SELECT count(*) FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=$2 AND thread_id=$3)),(SELECT count(*) FROM content.moderation_audit WHERE account_id=$1 AND board=$2 AND action='staff-post' AND target_id IN(SELECT id FROM content.posts WHERE thread_id=$3))")
                 .bind(case.account).bind(&case.board).bind(op).fetch_one(&case.owner).await.unwrap();
-            assert_eq!(counts,(0,3,3));
+            assert_eq!(counts,(0,2,3),"Whole deletion retires only the target password while all three staff-post audit records remain");
+            let removed:(bool,i64)=sqlx::query_as("SELECT EXISTS(SELECT 1 FROM post_secrets.deletion WHERE post_id=$1),(SELECT count(*) FROM content.moderation_audit WHERE account_id=$2 AND board=$3 AND action='staff-post' AND target_id=$1)")
+                .bind(flagged).bind(case.account).bind(&case.board).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(removed,(false,1),"Deleted target loses password authority and retains its independent posting audit");
+            let erased:bool=sqlx::query_scalar("SELECT content_erased AND deleted AND name='' AND subject='' AND comment='' AND drawing_time_seconds IS NULL AND drawing_source_post_id IS NULL FROM content.posts WHERE id=$1")
+                .bind(flagged).fetch_one(&case.owner).await.unwrap();
+            assert!(erased,"Ordinary staff posting uses the same irreversible whole-deletion payload contract");
         }
     }).await;
     fixture.cleanup().await;
@@ -2424,9 +2430,25 @@ fn replace_form_field(form: &str, key: &str, replacement: &str) -> String {
 }
 
 async fn age_owned_history(case: &Fixture, board: &str, seconds: i64) {
+    // A denied HTTP request can still have its dropped transaction's rollback
+    // queued on another connection. Wait board-first before taking any history
+    // tuple, so the author-link guard can reenter its board lock with NOWAIT.
+    // Position the test clock only after that wait, keeping boundary assertions
+    // independent of rollback/connection scheduling and password admission.
+    let mut tx = case.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL lock_timeout='5s'")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+        .bind(board)
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
     sqlx::query("UPDATE post_secrets.posting_history SET request_at=floor(extract(epoch FROM clock_timestamp()))::bigint-$3 WHERE board=$1 AND actor_hash=$2")
         .bind(board).bind(fixture_actor(case, posting_fixture::peer()).as_slice()).bind(seconds)
-        .execute(&case.owner).await.unwrap();
+        .execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
 }
 
 async fn response_text(response: axum::response::Response) -> String {

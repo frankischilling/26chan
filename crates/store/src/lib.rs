@@ -7,6 +7,7 @@ pub mod blotter;
 mod board_snapshot;
 pub use blotter::BlotterMessage;
 mod content_admission;
+pub mod content_erasure;
 pub use archives::{
     ArchiveEntry, ArchivePageEntry, ArchivePageSnapshot, ArchiveSnapshot,
     MAX_ARCHIVE_PAGE_READ_BYTES, archive_page_snapshot, archive_snapshot,

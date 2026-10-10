@@ -1084,9 +1084,26 @@ async fn source_rollover_order(owner: &PgPool, public: &PgPool, slug: &str) {
                 let after_clocks: Vec<(i64, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)> =
                     sqlx::query_as("SELECT id,created_at,bumped_at FROM content.threads WHERE id=ANY($1) ORDER BY id")
                         .bind(&original_ids).fetch_all(owner).await.unwrap();
+                let mut expected_clocks = clocks;
+                if retention == 0 {
+                    let erased = expected_clocks
+                        .iter_mut()
+                        .find(|row| row.0 == victim)
+                        .unwrap();
+                    erased.1 = chrono::DateTime::UNIX_EPOCH;
+                    erased.2 = chrono::DateTime::UNIX_EPOCH;
+                    let marked: bool = sqlx::query_scalar(
+                        "SELECT content_erased FROM content.threads WHERE id=$1",
+                    )
+                    .bind(victim)
+                    .fetch_one(owner)
+                    .await
+                    .unwrap();
+                    assert!(marked, "A freshly deleted rollover victim is erased");
+                }
                 assert_eq!(
-                    after_clocks, clocks,
-                    "Rollover preserves OP creation/bump clocks"
+                    after_clocks, expected_clocks,
+                    "Rollover preserves retained clocks and clears only the deleted victim"
                 );
                 let after_posts: Vec<serde_json::Value> = sqlx::query_scalar(
                     "SELECT to_jsonb(p) FROM content.posts p WHERE id=ANY($1) ORDER BY id",
@@ -1095,9 +1112,45 @@ async fn source_rollover_order(owner: &PgPool, public: &PgPool, slug: &str) {
                 .fetch_all(owner)
                 .await
                 .unwrap();
+                let mut expected_posts = posts;
+                if retention == 0 {
+                    let erased = expected_posts
+                        .iter_mut()
+                        .find(|row| row["id"] == victim)
+                        .unwrap();
+                    for field in ["name", "subject", "comment"] {
+                        erased[field] = serde_json::json!("");
+                    }
+                    for field in [
+                        "trip",
+                        "poster_id",
+                        "json_op_poster_id",
+                        "capcode",
+                        "country",
+                        "country_name",
+                        "board_flag",
+                        "flag_name",
+                        "wordfilter_payload",
+                        "wordfilter_search",
+                        "drawing_time_seconds",
+                        "drawing_source_post_id",
+                        "dice_result",
+                        "fortune_text",
+                        "fortune_color",
+                    ] {
+                        erased[field] = serde_json::Value::Null;
+                    }
+                    erased["deleted"] = serde_json::json!(true);
+                    erased["content_erased"] = serde_json::json!(true);
+                    erased["created_at"] = serde_json::json!("1970-01-01T00:00:00+00:00");
+                    erased["comment_format"] = serde_json::json!(0);
+                    erased["staff_authorized_limits"] = serde_json::json!(false);
+                    erased["image_spoiler"] = serde_json::json!(false);
+                    erased["board_flag_type"] = serde_json::json!("pol");
+                }
                 assert_eq!(
-                    after_posts, posts,
-                    "Rollover preserves every original post and timestamp"
+                    after_posts, expected_posts,
+                    "Rollover preserves all retained post fields and erases only the deleted victim"
                 );
             }
         }

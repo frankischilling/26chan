@@ -256,6 +256,14 @@ async fn rollover_retires_only_old_reply_secrets_reports_and_visible_media() {
         .unwrap();
     let (job, asset) = add_mock_approved_media(&fixture.owner, first).await;
     sqlx::query(
+        "UPDATE content.posts SET drawing_time_seconds=119,drawing_source_post_id=$2 WHERE id=$1",
+    )
+    .bind(first)
+    .bind(fixture.op)
+    .execute(&fixture.owner)
+    .await
+    .unwrap();
+    sqlx::query(
         "INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Owned original report')",
     )
     .bind(&fixture.board)
@@ -294,7 +302,7 @@ async fn rollover_retires_only_old_reply_secrets_reports_and_visible_media() {
         .await
         .unwrap();
     assert_eq!(fixture.state().await, (vec![second, third, newest], 3, 3));
-    let deleted: bool = sqlx::query_scalar("SELECT deleted FROM content.posts WHERE id=$1")
+    let deleted: bool = sqlx::query_scalar("SELECT deleted AND content_erased AND name='' AND subject='' AND comment='' AND drawing_time_seconds IS NULL AND drawing_source_post_id IS NULL FROM content.posts WHERE id=$1")
         .bind(first)
         .fetch_one(&fixture.owner)
         .await
@@ -546,8 +554,9 @@ async fn forged_retirement_marker_cannot_remove_recent_unrelated_or_private_proo
             .await
             .unwrap();
     assert!(protected);
-    // A marker for a different thread must never retire its credentials, even
-    // if someone already has separate authority to soft-delete that post.
+    // A different marker must not block a separately authorized deletion.
+    // Fresh erasure retires that target's proof; rolling back the transaction
+    // must restore it without touching any source-thread credential.
     let second_op = support::create_post(&fixture.public, &fixture.board, 0, &post())
         .await
         .unwrap();
@@ -571,7 +580,13 @@ async fn forged_retirement_marker_cannot_remove_recent_unrelated_or_private_proo
         .execute(&mut *tx)
         .await
         .unwrap();
-    tx.commit().await.unwrap();
+    let erased: bool = sqlx::query_scalar("SELECT content_erased AND NOT EXISTS(SELECT 1 FROM post_secrets.deletion d WHERE d.post_id=p.id) FROM content.posts p WHERE id=$1")
+        .bind(unrelated).fetch_one(&mut *tx).await.unwrap();
+    assert!(
+        erased,
+        "Ordinary deletion is still covered by fresh erasure with an unrelated marker"
+    );
+    tx.rollback().await.unwrap();
     let unrelated_hash: bool =
         sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM post_secrets.deletion WHERE post_id=$1)")
             .bind(unrelated)
@@ -580,7 +595,7 @@ async fn forged_retirement_marker_cannot_remove_recent_unrelated_or_private_proo
             .unwrap();
     assert!(
         unrelated_hash,
-        "A different thread cannot inherit this retirement marker"
+        "Rollback must restore the separately deleted target's authority"
     );
     // The transaction marker cannot turn an ordinary parent into an undead
     // sticky, even for a reply old enough to satisfy its numeric window.
@@ -618,14 +633,22 @@ async fn forged_retirement_marker_cannot_remove_recent_unrelated_or_private_proo
         .execute(&fixture.owner)
         .await
         .unwrap();
-    // A repeat UPDATE of an already-deleted historical row is not a fresh
-    // transition, regardless of the caller-settable marker.
+    // Repeated deletion is a no-op on an irreversible fresh tombstone,
+    // regardless of the caller-settable marker. Pre-migration historical
+    // preservation is exercised by the populated migration qualification.
     sqlx::query("UPDATE content.posts SET deleted=true WHERE board=$1 AND id=$2")
         .bind(&fixture.board)
         .bind(first)
         .execute(&fixture.owner)
         .await
         .unwrap();
+    let tombstone_before: Value =
+        sqlx::query_scalar("SELECT to_jsonb(p) FROM content.posts p WHERE id=$1")
+            .bind(first)
+            .fetch_one(&fixture.owner)
+            .await
+            .unwrap();
+    assert_eq!(tombstone_before["content_erased"], true);
     let mut tx = fixture.public.begin().await.unwrap();
     sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(&fixture.board)
@@ -651,8 +674,18 @@ async fn forged_retirement_marker_cannot_remove_recent_unrelated_or_private_proo
             .await
             .unwrap();
     assert!(
-        retained_hash,
-        "There is no automatic historical credential sweep"
+        !retained_hash,
+        "Fresh tombstones cannot retain or regain target credentials"
+    );
+    let tombstone_after: Value =
+        sqlx::query_scalar("SELECT to_jsonb(p) FROM content.posts p WHERE id=$1")
+            .bind(first)
+            .fetch_one(&fixture.owner)
+            .await
+            .unwrap();
+    assert_eq!(
+        tombstone_after, tombstone_before,
+        "A marker must not change an existing tombstone"
     );
     let forbidden = sqlx::query("DELETE FROM post_secrets.anonymous_posts WHERE false")
         .execute(&fixture.public)

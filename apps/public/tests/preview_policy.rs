@@ -37,13 +37,7 @@ struct FixtureThread {
     deleted: i64,
 }
 
-async fn insert_post(
-    owner: &PgPool,
-    board: &str,
-    thread: i64,
-    id: Option<i64>,
-    deleted: bool,
-) -> i64 {
+async fn insert_post(owner: &PgPool, board: &str, thread: i64, id: Option<i64>) -> i64 {
     let id = match id {
         Some(id) => id,
         None => sqlx::query_scalar("SELECT nextval('content.post_number')")
@@ -51,8 +45,8 @@ async fn insert_post(
             .await
             .unwrap(),
     };
-    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,deleted) VALUES($1,$2,$3,'Anonymous','Owned preview',$4,$5)")
-        .bind(id).bind(board).bind(thread).bind(format!("Owned preview >>{thread}")).bind(deleted).execute(owner).await.unwrap();
+    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$3,'Anonymous','Owned preview',$4)")
+        .bind(id).bind(board).bind(thread).bind(format!("Owned preview >>{thread}")).execute(owner).await.unwrap();
     sqlx::query("INSERT INTO post_secrets.poster_contexts(post_id,thread_id,fingerprint,epoch) VALUES($1,$2,decode(repeat('11',32),'hex'),decode(repeat('aa',32),'hex'))")
         .bind(id).bind(thread).execute(owner).await.unwrap();
     id
@@ -113,12 +107,12 @@ async fn exercise(owner: PgPool, public: PgPool, board: String) {
             .fetch_one(&owner)
             .await
             .unwrap();
-            insert_post(&owner, &board, id, Some(id), false).await;
+            insert_post(&owner, &board, id, Some(id)).await;
             attach(&owner, id, false).await; // OP files never count as reply images.
             let mut replies = Vec::new();
             let mut images = Vec::new();
             for index in 1..=count {
-                let reply = insert_post(&owner, &board, id, None, false).await;
+                let reply = insert_post(&owner, &board, id, None).await;
                 replies.push(reply);
                 if index % 2 == 1 {
                     attach(&owner, reply, index == 3).await;
@@ -127,8 +121,8 @@ async fn exercise(owner: PgPool, public: PgPool, board: String) {
                     }
                 }
             }
-            let deleted = insert_post(&owner, &board, id, None, true).await;
-            attach(&owner, deleted, false).await; // Neither latest selection nor image count includes deleted posts.
+            let deleted = insert_post(&owner, &board, id, None).await;
+            attach(&owner, deleted, false).await;
             fixtures.push(FixtureThread {
                 id,
                 sticky,
@@ -139,6 +133,24 @@ async fn exercise(owner: PgPool, public: PgPool, board: String) {
         }
     }
     let (web, api) = board_public::routers(public, "http://127.0.0.1:3000".into(), false);
+    let live = json(&web, &format!("/{board}/catalog.json")).await;
+    let live_threads = live[0]["threads"].as_array().unwrap();
+    for fixture in &fixtures {
+        let op = by_id(live_threads, fixture.id, true);
+        assert_eq!(op["replies"], fixture.replies.len() + 1);
+        assert_eq!(op["images"], fixture.images.len() + 1);
+        assert_eq!(
+            ids(&op["last_replies"], false).last(),
+            Some(&fixture.deleted)
+        );
+        // Authority and media must exist before whole deletion. Neither latest
+        // selection nor image counts may include the retained structural row.
+        sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
+            .bind(fixture.deleted)
+            .execute(&owner)
+            .await
+            .unwrap();
+    }
     for configured in [0_i32, 1, 3, 5] {
         sqlx::query("UPDATE content.boards SET replies_shown=$2 WHERE slug=$1")
             .bind(&board)

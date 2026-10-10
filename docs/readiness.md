@@ -21,6 +21,13 @@ concurrent database tests, both HTTP cases and four desktop/mobile browser cases
 pass locally. Hosted results and remaining source work are tracked in
 [#225](https://github.com/frankischilling/26chan/issues/225).
 
+[Fresh content erasure](fresh-content-erasure.md) removes payload and per-post
+author authority on new whole-post/thread deletions, including drawing annotations
+and sticky-pruned replies. Migration 0129 preserves consumed media associations,
+independent moderation snapshots and global poll data. Historical deleted content,
+media cleanup, backups and issue #214 still need separate retention decisions.
+Current-head qualification is required before release.
+
 The [staff attachment boundary](staff-post-attachments.md) has a published 0110
 backend for proof-bound ordinary and badged posts. Its 0111 continuation adds
 development-only upload, status and cancellation routes with native receipt

@@ -109,10 +109,9 @@ async fn numeric_projection_matches_domain_rounding_and_public_only_execution() 
     owner.close().await;
 }
 
-async fn seed_thread(owner: &PgPool, slug: &str, deleted: bool) -> i64 {
-    sqlx::query_scalar("INSERT INTO content.threads(board,deleted) VALUES($1,$2) RETURNING id")
+async fn seed_thread(owner: &PgPool, slug: &str) -> i64 {
+    sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
         .bind(slug)
-        .bind(deleted)
         .fetch_one(owner)
         .await
         .unwrap()
@@ -141,7 +140,7 @@ async fn seed_post(
     let inserted: i64 = sqlx::query_scalar(
         r#"INSERT INTO content.posts(id,board,thread_id,name,subject,comment,
                   drawing_time_seconds,drawing_source_post_id,deleted)
-           VALUES($1,$2,$3,'Anonymous','',$4,$5,$6,$7) RETURNING id"#,
+           VALUES($1,$2,$3,'Anonymous','',$4,$5,$6,false) RETURNING id"#,
     )
     .bind(post_id)
     .bind(slug)
@@ -149,11 +148,23 @@ async fn seed_post(
     .bind(comment)
     .bind(seconds)
     .bind(source)
-    .bind(deleted)
     .fetch_one(owner)
     .await
     .unwrap();
     assert_eq!(inserted, post_id);
+    if deleted {
+        sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
+            .bind(post_id)
+            .execute(owner)
+            .await
+            .unwrap();
+        let erased: bool = sqlx::query_scalar("SELECT content_erased AND drawing_time_seconds IS NULL AND drawing_source_post_id IS NULL FROM content.posts WHERE id=$1")
+            .bind(post_id).fetch_one(owner).await.unwrap();
+        assert!(
+            erased,
+            "Hidden drawing fixtures must exercise fresh payload erasure"
+        );
+    }
     post_id
 }
 
@@ -205,7 +216,7 @@ async fn annotation_only_op_and_reply_hits_obey_deleted_and_private_visibility()
     let public_board = public_slug.clone();
     let private_board = private_slug.clone();
     let outcome = tokio::spawn(async move {
-        let thread = seed_thread(&test_owner, &public_board, false).await;
+        let thread = seed_thread(&test_owner, &public_board).await;
         let op = seed_post(
             &test_owner,
             &public_board,
@@ -236,7 +247,7 @@ async fn annotation_only_op_and_reply_hits_obey_deleted_and_private_visibility()
             "Deleted drawing reply",
         )
         .await;
-        let removed_thread = seed_thread(&test_owner, &public_board, true).await;
+        let removed_thread = seed_thread(&test_owner, &public_board).await;
         seed_post(
             &test_owner,
             &public_board,
@@ -247,8 +258,13 @@ async fn annotation_only_op_and_reply_hits_obey_deleted_and_private_visibility()
             "Post in deleted thread",
         )
         .await;
+        sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1")
+            .bind(removed_thread)
+            .execute(&test_owner)
+            .await
+            .unwrap();
 
-        let private_thread = seed_thread(&test_owner, &private_board, false).await;
+        let private_thread = seed_thread(&test_owner, &private_board).await;
         let private_op = seed_post(
             &test_owner,
             &private_board,
