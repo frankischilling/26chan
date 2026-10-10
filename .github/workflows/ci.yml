@@ -50,6 +50,8 @@ jobs:
         run: python3 scripts/extract-page-title-reference.py --fixture-check fixtures/page-title-reference.json --php php
       - name: Qualify isolated source quote callbacks
         run: python3 scripts/extract-quote-resolution-reference.py --php-oracle
+      - name: Qualify source poll reference pages
+        run: php -n -d allow_url_fopen=0 -d allow_url_include=0 scripts/render-poll-reference.php --check
       - name: Start disposable database and migrate
         run: |
           python3 scripts/test-dev-db-env.py

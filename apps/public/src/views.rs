@@ -13,6 +13,8 @@ mod mobile_label;
 mod navigation;
 #[path = "views/page_identity.rs"]
 mod page_identity;
+#[path = "views/polls.rs"]
+pub mod polls;
 #[path = "views/spoilers.rs"]
 pub mod spoilers;
 

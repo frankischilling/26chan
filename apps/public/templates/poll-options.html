@@ -1,20 +1,17 @@
-{% extends "base.html" %}
-{% block title %}{{ poll.title }} - Polls - Paperboard{% endblock %}
+{% extends "poll-base.html" %}
 {% block body_attributes %}{% if !form_token.is_empty() %} data-tkn="{{ form_token }}"{% endif %}{% endblock %}
 {% block content %}
-<section class="pollPage" aria-labelledby="poll-title">
-<header><h1 id="poll-title">{{ poll.title }}</h1></header>
-{% if !poll.description.is_empty() %}<p id="poll-desc" class="pollDescription">{{ poll.description }}</p>{% endif %}
+<div class="poll-cnt" aria-labelledby="poll-title">
+<h3 class="poll-hdr" id="poll-title">{{ poll.title }}</h3>
+{% if !poll.description.is_empty() %}<div id="poll-desc">{{ poll.description }}</div>{% endif %}
 {% if !form_token.is_empty() %}
 <form id="poll-form" action="" method="POST" enctype="application/x-www-form-urlencoded">
 <table id="entries" class="pollOptions opts-tbl">
-<caption>Options</caption>
 <tbody>{% for option in poll.options %}
-<tr><td class="col-opt"><input id="poll-opt-{{ option.id }}" type="radio" name="id" value="{{ option.id }}" required></td><td><label for="poll-opt-{{ option.id }}">{{ option.caption }}</label></td></tr>
+<tr><td class="col-opt"><input aria-labelledby="poll-caption-{{ option.id }}" type="radio" name="id" value="{{ option.id }}"></td><td id="poll-caption-{{ option.id }}">{{ option.caption }}</td></tr>
 {% endfor %}</tbody>
-</table>
-<input type="hidden" name="_ptkn" value="{{ form_token }}">
-<nav class="pollNavigation" aria-label="Poll navigation"><button class="vote-btn" name="action" value="vote" type="submit">Vote</button><a class="res-link" href="/polls">Back to Polls</a><a class="res-link" href="/polls/results/{{ poll.id }}">View Results</a></nav>
+</table><input type="hidden" name="_ptkn" value="{{ form_token }}">
+<button class="vote-btn" name="action" value="vote" type="submit">Vote</button><a class="res-link" href="/polls">Back to Polls</a><a class="res-link" href="/polls/results/{{ poll.id }}">View Results</a>
 </form>
 {% else %}
 <p>Voting is unavailable. These options are read-only.</p>
@@ -25,6 +22,5 @@
 </ol>
 <nav class="pollNavigation" aria-label="Poll navigation"><a href="/polls">Back to Polls</a><a href="/polls/results/{{ poll.id }}">View Results</a></nav>
 {% endif %}
-</section>
+</div>
 {% endblock %}
-{% block feature_notice %}Polls.{% endblock %}

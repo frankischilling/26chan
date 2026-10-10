@@ -1,7 +1,10 @@
 //! Published polls and bounded, cookie-bound votes. The supplied source includes
 //! the form and results templates; token and duplicate rules are defined here.
-use crate::{AppState, handlers::AppError};
-use askama::Template;
+use crate::{
+    AppState,
+    handlers::AppError,
+    views::polls::{CataloguePage, OptionsPage, ResultsPage},
+};
 use axum::{
     Form, Router,
     extract::{
@@ -13,21 +16,9 @@ use axum::{
     routing::get,
 };
 use board_domain::poll_voting::{COOKIE_SECONDS, PollVoter, PollVotingKey};
-use board_store::{PollSnapshot, PollSummary, PollVoteOutcome, StoreError};
+use board_store::{PollSnapshot, PollVoteOutcome, StoreError};
+use chrono::Datelike;
 use serde::Deserialize;
-
-#[derive(Template)]
-#[template(path = "polls.html")]
-struct CataloguePage {
-    polls: Vec<PollSummary>,
-}
-
-#[derive(Template)]
-#[template(path = "poll-options.html")]
-struct OptionsPage {
-    poll: PollSnapshot,
-    form_token: String,
-}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -35,24 +26,6 @@ struct VoteForm {
     action: String,
     id: String,
     _ptkn: String,
-}
-
-struct ResultRow {
-    caption: String,
-    score: i64,
-    percentage: String,
-}
-
-#[derive(Template)]
-#[template(path = "poll-results.html")]
-struct ResultsPage {
-    id: i64,
-    title: String,
-    description: String,
-    vote_count: i64,
-    accepting_votes: bool,
-    vote_recorded: bool,
-    options: Vec<ResultRow>,
 }
 
 pub(crate) fn routes() -> Router<AppState> {
@@ -67,7 +40,13 @@ pub(crate) fn routes() -> Router<AppState> {
 
 async fn catalogue(State(state): State<AppState>) -> Result<Response, AppError> {
     let polls = board_store::poll_catalogue(&state.pool).await?;
-    crate::output::html(&state, &CataloguePage { polls })
+    crate::output::html(
+        &state,
+        &CataloguePage {
+            polls,
+            copyright_year: chrono::Utc::now().year(),
+        },
+    )
 }
 
 fn not_found() -> AppError {
@@ -207,6 +186,7 @@ async fn options(
             &OptionsPage {
                 poll,
                 form_token: String::new(),
+                copyright_year: chrono::Utc::now().year(),
             },
         );
     }
@@ -227,7 +207,7 @@ async fn options(
             other => AppError::from(other),
         })?
     {
-        return render_results(&state, poll, true).map(private);
+        return render_results(&state, poll).map(private);
     }
     // An operator must supply scores before opening an imported result set.
     // Do not offer a form that the atomic vote function cannot accept.
@@ -239,7 +219,11 @@ async fn options(
         .map_err(|_| unavailable())?;
     let mut response = private(crate::output::html(
         &state,
-        &OptionsPage { poll, form_token },
+        &OptionsPage {
+            poll,
+            form_token,
+            copyright_year: chrono::Utc::now().year(),
+        },
     )?);
     if minted {
         append_voter(&mut response, &voter, state.production);
@@ -298,79 +282,9 @@ async fn results(
 ) -> Result<Response, AppError> {
     let Path(id) = id.map_err(|_| not_found())?;
     let poll = snapshot(&state, &id).await?;
-    render_results(&state, poll, false)
+    render_results(&state, poll)
 }
 
-fn render_results(
-    state: &AppState,
-    poll: PollSnapshot,
-    vote_recorded: bool,
-) -> Result<Response, AppError> {
-    let options = poll
-        .options
-        .into_iter()
-        .map(|option| {
-            let score = option.score.unwrap_or(0);
-            ResultRow {
-                caption: option.caption,
-                score,
-                percentage: percentage(score, poll.vote_count),
-            }
-        })
-        .collect();
-    crate::output::html(
-        state,
-        &ResultsPage {
-            id: poll.id,
-            title: poll.title,
-            description: poll.description,
-            vote_count: poll.vote_count,
-            accepting_votes: poll.accepting_votes,
-            vote_recorded,
-            options,
-        },
-    )
-}
-
-/// Presentation contract for stored counts in 0..=1_000_000_000: nearest
-/// hundredth of a percent, positive half-ties rounded up, trailing zeros omitted.
-/// Integer arithmetic avoids float-dependent output; this does not promise
-/// arbitrary PHP numeric equivalence. A zero denominator displays zero percent.
-fn percentage(score: i64, total: i64) -> String {
-    if total == 0 {
-        return "0".into();
-    }
-    let hundredths = (i128::from(score) * 10_000 + i128::from(total) / 2) / i128::from(total);
-    let whole = hundredths / 100;
-    match hundredths % 100 {
-        0 => whole.to_string(),
-        fraction if fraction % 10 == 0 => format!("{whole}.{}", fraction / 10),
-        fraction => format!("{whole}.{fraction:02}"),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::percentage;
-
-    #[test]
-    fn bounded_percentages_round_and_omit_trailing_zeros() {
-        for (score, total, expected) in [
-            (0, 0, "0"),
-            (1, 0, "0"),
-            (0, 3, "0"),
-            (1, 3, "33.33"),
-            (2, 3, "66.67"),
-            (1, 8, "12.5"),
-            (1, 32, "3.13"),
-            (1, 200, "0.5"),
-            (1, 20_000, "0.01"),
-            (1, 1_000_000_000, "0"),
-            (1_000_000_000, 1_000_000_000, "100"),
-            (999_999_999, 1_000_000_000, "100"),
-            (1_000_000_000, 1, "100000000000"),
-        ] {
-            assert_eq!(percentage(score, total), expected);
-        }
-    }
+fn render_results(state: &AppState, poll: PollSnapshot) -> Result<Response, AppError> {
+    crate::output::html(state, &ResultsPage::new(poll, chrono::Utc::now().year()))
 }
