@@ -4,3 +4,9 @@
 *.sql text eol=lf
 *.yml text eol=lf
 *.png binary
+# Reference digests describe the captured bytes, including their original line endings.
+tests/fixtures/polls/source-* -text
+# The immutable PHP inputs use CRLF; the captured script contains blank-line spaces.
+# Their original bytes are checked by SHA-256 in render-poll-reference.php.
+tests/fixtures/polls/source-*.tpl.php whitespace=cr-at-eol
+tests/fixtures/polls/source-polls.js whitespace=-blank-at-eol

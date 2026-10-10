@@ -37,6 +37,11 @@ pub(crate) const TEGAKI_FONT_PATH: &str = "/static/tegaki/tegaki-icons.v1.woff";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
     (
+        "/static/polls.v1.css",
+        "text/css; charset=utf-8",
+        include_bytes!("../static/polls.v1.css"),
+    ),
+    (
         NATIVE_BLOTTER_PATH,
         "text/javascript; charset=utf-8",
         include_bytes!("../static/native-blotter.v1.js"),
