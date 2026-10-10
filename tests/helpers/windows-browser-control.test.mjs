@@ -8,7 +8,7 @@ import path from 'node:path';
 import filter from '../../scripts/windows-theme-stderr-filter.cjs';
 import preload from '../../scripts/windows-theme-stderr-preload.cjs';
 import { browserControlEnabled, createBrowserControlTrigger, CONTROL_TRIGGER } from './browser-control-trigger.js';
-import { CONTROL_SCHEMA, controlIdentity, diagnosticPlan, mediaVisualLaunchPlan, createTriggerCollector, inspectControlNetlog, validControlCapture, TARGET, bounded, encodeSummary } from '../../scripts/windows-browser-control-core.mjs';
+import { CONTROL_SCHEMA, CLOSE_MS, controlIdentity, diagnosticPlan, mediaVisualLaunchPlan, createTriggerCollector, inspectControlNetlog, validControlCapture, TARGET, bounded, encodeSummary } from '../../scripts/windows-browser-control-core.mjs';
 import { themeLaunchPlan, saveEvidence } from '../../scripts/windows-theme-stderr.mjs';
 import { coordinate, saveControlSummary } from '../../scripts/windows-browser-control.mjs';
 import { runControl } from '../../scripts/windows-browser-control-child.mjs';
@@ -17,6 +17,22 @@ const env = { WINDOWS_BROWSER_CONTROL: '1', WINDOWS_BROWSER_CONTROL_OWNED: '1', 
 const outcome = { kind: 'exit', code: 19, signal: null };
 const request = (error = 'net::ERR_NO_BUFFER_SPACE', url = TARGET) => ({ failure: () => ({ errorText: error }), url: () => url });
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+// Observe the terminal record, not a fixed number of timer polls. This uses the
+// existing control-close budget and never treats navigation completion as close.
+function controlMessages() {
+  const sent = [];
+  let resolveFinished;
+  const finished = new Promise(resolve => { resolveFinished = resolve; });
+  return { sent,
+    send: record => { sent.push(record); if (record.type === 'finished') resolveFinished(record); },
+    waitForFinished: async () => {
+      const record = await bounded(finished, CLOSE_MS, null);
+      assert.ok(record, 'Control did not finish within the existing close budget');
+      return record;
+    },
+  };
+}
 
 function netlog() {
   return { constants: { logSourceType: { URL_REQUEST: 1, HTTP_STREAM_JOB: 2, SOCKET: 3 }, logEventTypes: { URL_REQUEST_START_JOB: 1, HTTP_STREAM_REQUEST_BOUND_TO_JOB: 2, TCP_CONNECT_ATTEMPT: 3, SOCKET_POOL_BOUND_TO_SOCKET: 4 }, logEventPhase: { PHASE_BEGIN: 1, PHASE_END: 2, PHASE_NONE: 0 } }, events: [
@@ -209,8 +225,9 @@ test('separate control launches without inherited options and makes one exact na
   const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'browser-control-child-')));
   try {
     const messages = new EventEmitter(); messages.disconnect = () => {};
-    const sent = [], calls = []; let options;
-    await runControl({ root, version: '1.62.0', messages, send: value => sent.push(value), launch: async value => {
+    const { sent, send, waitForFinished } = controlMessages();
+    const calls = []; let options;
+    await runControl({ root, version: '1.62.0', messages, send, launch: async value => {
       options = value;
       return { newContext: async () => ({ newPage: async () => ({ on: () => {}, goto: async (url, opts) => {
         calls.push({ url, opts }); return { status: () => 200, url: () => TARGET };
@@ -223,10 +240,13 @@ test('separate control launches without inherited options and makes one exact na
     assert.equal(options.args.length, 3); assert.equal(options.headless, true);
     assert.ok(!options.args.join(' ').includes('windows-themes-7'));
     messages.emit('message', { type: 'navigate' }); messages.emit('message', { type: 'navigate' });
-    await tick(); messages.emit('message', { type: 'stop' });
-    for (let i = 0; i < 50 && !sent.some(value => value.type === 'finished'); i++) await new Promise(resolve => setTimeout(resolve, 5));
+    await tick();
+    const finishing = waitForFinished();
+    messages.emit('message', { type: 'stop' });
+    const final = await finishing;
     assert.equal(calls.length, 1); assert.equal(calls[0].url, TARGET); assert.equal(calls[0].opts.timeout, 5000);
-    assert.equal(sent.at(-1).netlog, 'accepted'); assert.equal(sent.at(-1).closed, true);
+    assert.equal(final.type, 'finished'); assert.equal(final.netlog, 'accepted'); assert.equal(final.closed, true);
+    assert.equal(sent.filter(record => record.type === 'finished').length, 1);
     assert.equal(JSON.parse(await readFile(path.join(root, 'control-netlog.json'), 'utf8')).events.length, 5);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -235,8 +255,8 @@ test('a ready control with no trigger keeps its actual closed NetLog and never n
   const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'browser-control-no-trigger-')));
   try {
     const messages = new EventEmitter(); messages.disconnect = () => {};
-    const sent = []; let options;
-    await runControl({ root, version: '1.62.0', messages, send: record => sent.push(record), launch: async value => {
+    const { send, waitForFinished } = controlMessages(); let options;
+    await runControl({ root, version: '1.62.0', messages, send, launch: async value => {
       options = value;
       return { newContext: async () => ({ newPage: async () => ({ on: () => {},
         goto: () => assert.fail('No control request without a trigger') }) }), close: async () => {
@@ -244,9 +264,10 @@ test('a ready control with no trigger keeps its actual closed NetLog and never n
         await writeFile(pending, JSON.stringify(quietNetlog()));
       } };
     } });
+    const finishing = waitForFinished();
     messages.emit('message', { type: 'stop' });
-    for (let i = 0; i < 50 && !sent.some(value => value.type === 'finished'); i++) await new Promise(resolve => setTimeout(resolve, 5));
-    const final = sent.find(value => value.type === 'finished');
+    const final = await finishing;
+    assert.equal(final.type, 'finished');
     assert.equal(final.netlog, 'accepted');
     assert.equal(final.closed, true);
     assert.equal(final.navigation, 'not-triggered');
@@ -391,15 +412,18 @@ test('IPC disconnect during navigation still closes and settles the one operatio
   const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'browser-control-disconnect-')));
   try {
     const messages = new EventEmitter(); messages.disconnect = () => {};
-    const sent = []; let resolveNavigation, closes = 0, calls = 0;
-    await runControl({ root, version: '1.62.0', messages, send: message => sent.push(message), launch: async () => ({
+    const { send, waitForFinished } = controlMessages(); let resolveNavigation, closes = 0, calls = 0;
+    await runControl({ root, version: '1.62.0', messages, send, launch: async () => ({
       newContext: async () => ({ newPage: async () => ({ on: () => {}, goto: () => {
         calls++; return new Promise(resolve => { resolveNavigation = resolve; });
       } }) }), close: async () => { closes++; },
     }) });
-    messages.emit('message', { type: 'navigate' }); messages.emit('disconnect');
+    messages.emit('message', { type: 'navigate' });
+    const finishing = waitForFinished();
+    messages.emit('disconnect');
     resolveNavigation({ status: () => 200, url: () => TARGET });
-    for (let i = 0; i < 50 && !sent.some(message => message.type === 'finished'); i++) await new Promise(resolve => setTimeout(resolve, 5));
+    const final = await finishing;
+    assert.equal(final.type, 'finished'); assert.equal(final.closed, true);
     assert.equal(calls, 1); assert.equal(closes, 1); assert.equal(messages.listenerCount('message'), 0);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -731,4 +755,72 @@ test('workflow retains eight theme shards and adds one independently owned media
   assert.ok(wrapper.includes("$controlDirectory = 'windows-browser-control-' + $shard"));
   assert.ok(child.includes('const diagnostic = diagnosticPlan(process.env)'));
   assert.ok(child.includes('diagnostic.output'));
+});
+
+test('terminal control wait survives the old polling window until gated close completes', { timeout: CLOSE_MS * 3 }, async t => {
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'browser-control-gated-close-')));
+  const messages = new EventEmitter(); messages.disconnect = () => {};
+  const { sent, send, waitForFinished } = controlMessages();
+  let releaseClose, options, calls = 0;
+  const closeGate = new Promise(resolve => { releaseClose = resolve; });
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    await runControl({ root, version: '1.62.0', messages, send, launch: async value => {
+      options = value;
+      return { newContext: async () => ({ newPage: async () => ({ on: () => {}, goto: async url => {
+        calls++; return { status: () => 200, url: () => url };
+      } }) }), close: async () => {
+        await closeGate;
+        const filename = options.args.find(arg => arg.startsWith('--log-net-log=')).slice('--log-net-log='.length);
+        await writeFile(filename, JSON.stringify(netlog()));
+      } };
+    } });
+    messages.emit('message', { type: 'navigate' });
+    await tick();
+    let settled = false;
+    const finishing = waitForFinished().then(record => { settled = true; return record; });
+    messages.emit('message', { type: 'stop' });
+    await tick();
+    // Advance simulated time beyond 50 five-millisecond polls, without sleeping.
+    t.mock.timers.tick(251);
+    await tick();
+    assert.equal(settled, false);
+    assert.equal(sent.at(-1).type, 'completed');
+    assert.equal(sent.at(-1).netlog, undefined);
+    // The witness above is deterministic. Restore a real close deadline before
+    // waiting on filesystem finalization, so a missing terminal record fails.
+    t.mock.timers.reset();
+    const realFinishing = waitForFinished();
+    releaseClose();
+    const final = await realFinishing;
+    assert.equal(await finishing, final);
+    assert.equal(final.type, 'finished'); assert.equal(final.closed, true); assert.equal(final.netlog, 'accepted');
+    assert.equal(final.navigation, 'http-200'); assert.equal(calls, 1);
+    assert.equal(JSON.parse(await readFile(path.join(root, 'control-netlog.json'), 'utf8')).events.length, 5);
+  } finally {
+    t.mock.timers.reset();
+    const draining = waitForFinished().catch(() => null);
+    releaseClose(); messages.emit('message', { type: 'stop' });
+    // On a broken finalizer, retain the directory rather than race late writes.
+    if (await draining) await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('terminal control wait fails at the existing close deadline instead of accepting completed', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const { send, waitForFinished } = controlMessages();
+  send({ type: 'ready' }); send({ type: 'completed', navigation: 'http-200', status: 200 });
+  const rejection = assert.rejects(waitForFinished(), { message: 'Control did not finish within the existing close budget' });
+  t.mock.timers.tick(CLOSE_MS);
+  await rejection;
+});
+
+test('terminal control wait preserves an unsuccessful close record without reclassifying it', async () => {
+  const { send, waitForFinished } = controlMessages();
+  const finishing = waitForFinished();
+  send({ type: 'completed', navigation: 'http-200', status: 200 });
+  const failure = { type: 'finished', navigation: 'http-200', status: 200, closed: false, netlog: 'incomplete-close' };
+  send(failure);
+  assert.equal(await finishing, failure);
+  assert.equal(failure.closed, false); assert.equal(failure.netlog, 'incomplete-close');
 });

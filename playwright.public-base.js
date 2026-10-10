@@ -1,8 +1,10 @@
 import { defineConfig } from '@playwright/test';
 import { prepareDeletionQuotaRun } from './tests/browser/helpers/deletion-quota-fixture.js';
+import { windowsCiLaunchOptions } from './tests/helpers/windows-ci-port-randomization.js';
 
 export function publicConfig({ visual = process.env.VISUAL_FIXTURE_SERVER === '1' } = {}) {
   if (visual) process.env.VISUAL_FIXTURE_SERVER = '1';
+  const launchOptions = windowsCiLaunchOptions({});
   const quotaRun = visual ? undefined : prepareDeletionQuotaRun();
   return defineConfig({
     globalSetup: visual ? undefined : './tests/browser/helpers/deletion-quota-setup.js',
@@ -17,6 +19,7 @@ export function publicConfig({ visual = process.env.VISUAL_FIXTURE_SERVER === '1
     use: {
       baseURL: 'http://127.0.0.1:3000',
       browserName: 'chromium',
+      ...(Object.keys(launchOptions).length ? { launchOptions } : {}),
       viewport: { width: 1280, height: 900 },
       deviceScaleFactor: 1,
       locale: 'en-US',
