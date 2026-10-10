@@ -73,9 +73,14 @@ with (root/'drift.sql').open('w') as out:
    out.write(f"SET LOCAL ROLE {role}; DO $check$ BEGIN IF ({query}) IS DISTINCT FROM false THEN RAISE EXCEPTION 'Readiness accepted cleanup drift {i}'; END IF; END $check$; RESET ROLE;\n")
   out.write('ROLLBACK;\n')
 staff=pathlib.Path('apps/staff/src/store.rs').read_text()
-m=re.search(r'let mut reports: Vec<Report> = sqlx::query_as\("(.*?)"\)',staff,re.S)
-if not m: raise SystemExit('Cannot extract current staff queue query')
-queue=m.group(1).replace('$1',"ARRAY['all']::text[]").replace('$2','ARRAY[]::text[]')
+selection=re.findall(r'const SELECTION: &str = "([^"\n]+)";',staff)
+projection=re.findall(r'let reports_query = format!\(\s*"([^"\n]+)"\s*\);',staff)
+if len(selection)!=1 or len(projection)!=1 or projection[0].count('{SELECTION}')!=1:
+ raise SystemExit('Cannot extract current shared staff queue selection')
+queue=projection[0].replace('{SELECTION}',selection[0])
+if set(re.findall(r'\$[0-9]+',queue))!={'$1','$2'} or '{' in queue or '}' in queue:
+ raise SystemExit('Unexpected staff queue parameters')
+queue=queue.replace('$1',"ARRAY['all']::text[]").replace('$2','ARRAY[]::text[]')
 (root/'queue.sql').write_text("DO $check$ BEGIN IF EXISTS(SELECT 1 FROM ("+queue+") q WHERE id IN (12201005,12201006)) OR NOT EXISTS(SELECT 1 FROM ("+queue+") q WHERE id=12201007) THEN RAISE EXCEPTION 'Historical deleted report queue filtering failed'; END IF; END $check$;")
 PYREADINESS
 create_database deleted_report_upgrade

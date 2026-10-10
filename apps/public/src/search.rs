@@ -99,7 +99,8 @@ async fn api(
                 .posts
                 .into_iter()
                 .map(|post| {
-                    let filtered = post.wordfilter_payload.is_some();
+                    let filtered =
+                        post.wordfilter_payload.is_some() || post.saved_presentation.is_some();
                     let mut view = PostView::new(post);
                     if filtered {
                         view.lines = excerpt::lines(&view.lines, &params.q, 1024);

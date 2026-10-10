@@ -12,6 +12,7 @@ mod reporter_clear;
 mod robot9000_cleanup;
 pub mod store;
 mod thread_options;
+mod thread_transfer;
 mod uploads;
 mod views;
 use axum::{
@@ -68,6 +69,8 @@ pub enum AppError {
     ReportGroupWeights,
     #[error("Report group is already cleared.")]
     ReportGroupAlreadyCleared,
+    #[error("{0}")]
+    ThreadTransfer(board_store::thread_transfer::TransferError),
     #[error("Object unavailable")]
     NotFound,
     #[error("Service unavailable")]
@@ -85,6 +88,7 @@ impl IntoResponse for AppError {
             Self::Invalid | Self::Posting(_) => StatusCode::BAD_REQUEST,
             Self::Form(status) => status,
             Self::ReportGroupWeights | Self::ReportGroupAlreadyCleared => StatusCode::CONFLICT,
+            Self::ThreadTransfer(ref error) => thread_transfer::error_status(error),
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Capacity => StatusCode::TOO_MANY_REQUESTS,
             _ => StatusCode::SERVICE_UNAVAILABLE,
@@ -209,6 +213,12 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/thread-options",
             get(thread_options::show)
                 .post(thread_options::submit)
+                .layer(DefaultBodyLimit::max(4096)),
+        )
+        .route(
+            "/thread-transfer",
+            get(thread_transfer::show)
+                .post(thread_transfer::submit)
                 .layer(DefaultBodyLimit::max(4096)),
         )
         .layer(DefaultBodyLimit::max(262144))

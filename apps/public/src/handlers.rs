@@ -424,7 +424,8 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
              WHERE t.tgrelid='content.posts'::regclass
                AND t.tgname='record_inserted_posting_history'
                AND t.tgtype=5 AND t.tgenabled='O' AND NOT t.tgisinternal
-               AND t.tgqual IS NULL AND t.tgnargs=0
+               AND t.tgnargs=0
+               AND pg_catalog.pg_get_triggerdef(t.oid,false)='CREATE TRIGGER record_inserted_posting_history AFTER INSERT ON content.posts FOR EACH ROW WHEN ((NOT content.is_thread_transfer_post(new.id, new.board, new.thread_id))) EXECUTE FUNCTION content.record_inserted_posting_history()'
                AND p.oid=to_regprocedure('content.record_inserted_posting_history()')
                AND p.prorettype='trigger'::regtype AND p.prosecdef
                AND r.rolname='board_posting_cooldown_owner'

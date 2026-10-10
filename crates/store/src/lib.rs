@@ -47,6 +47,7 @@ mod rss;
 pub mod sticky_retention;
 mod thread_quota;
 mod thread_statistics;
+pub mod thread_transfer;
 mod write;
 pub use board_snapshot::*;
 use chrono::{DateTime, Utc};
@@ -278,6 +279,7 @@ pub struct Post {
     pub comment_format: i16,
     pub staff_authorized_limits: bool,
     pub wordfilter_payload: Option<Vec<u8>>,
+    pub saved_presentation: Option<Vec<u8>>,
     pub dice_result: Option<String>,
     pub fortune_text: Option<String>,
     pub fortune_color: Option<String>,
@@ -296,19 +298,62 @@ impl Post {
     }
 
     pub fn formatted_lines(&self) -> Vec<board_domain::Line> {
-        board_domain::formatting::parse_saved_comment_with_limits(
+        formatted_saved_lines(
             &self.comment,
             self.comment_format,
             &self.board,
             self.wordfilter_payload.as_deref(),
-            if self.staff_authorized_limits {
-                board_domain::PostLimits::authorized(board_domain::MAX_AUTHORIZED_COMMENT_CHARS)
-                    .expect("finite persisted staff bound")
-            } else {
-                board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
-            },
+            self.saved_presentation.as_deref(),
+            self.staff_authorized_limits,
         )
     }
+}
+
+/// Render saved typed data without applying destination-board source rules.
+/// Search callers may supply an excerpt, so full projection equality belongs to
+/// transfer admission rather than this reader.
+pub fn formatted_saved_lines(
+    comment: &str,
+    format: i16,
+    board: &str,
+    wordfilter: Option<&[u8]>,
+    frozen: Option<&[u8]>,
+    staff_authorized_limits: bool,
+) -> Vec<board_domain::Line> {
+    let max_chars = if staff_authorized_limits {
+        board_domain::MAX_AUTHORIZED_COMMENT_CHARS
+    } else {
+        board_domain::MAX_COMMENT_CHARS
+    };
+    let limits = if staff_authorized_limits {
+        board_domain::PostLimits::authorized(max_chars).expect("finite persisted staff bound")
+    } else {
+        board_domain::PostLimits::ordinary(max_chars)
+    };
+    if let Some(bytes) = frozen {
+        if wordfilter.is_none()
+            && let Ok(saved) =
+                board_domain::saved_presentation::FrozenPresentation::decode(bytes, limits)
+        {
+            return saved.unresolved_lines();
+        }
+        // Corruption fallback only: bounded literal text, escaped by renderers.
+        // Never parse this projected text as markup, links, quotes or filters.
+        let max_bytes = max_chars * 4;
+        let end = comment
+            .char_indices()
+            .take(max_chars)
+            .take_while(|(offset, ch)| offset + ch.len_utf8() <= max_bytes)
+            .last()
+            .map_or(0, |(offset, ch)| offset + ch.len_utf8());
+        return vec![board_domain::Line {
+            green: false,
+            tokens: vec![board_domain::Token::Text(comment[..end].to_owned())],
+        }];
+    }
+    board_domain::formatting::parse_saved_comment_with_limits(
+        comment, format, board, wordfilter, limits,
+    )
 }
 
 pub async fn connect_public(url: &str) -> Result<PgPool, StoreError> {

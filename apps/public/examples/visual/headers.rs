@@ -25,6 +25,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            saved_presentation: None,
             id,
             board: "demo".into(),
             thread_id: id,

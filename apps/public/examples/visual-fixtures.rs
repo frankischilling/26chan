@@ -178,6 +178,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
         comment_format: 0,
         staff_authorized_limits: false,
         wordfilter_payload: None,
+        saved_presentation: None,
         id: 1000001,
         board: "demo".into(),
         thread_id: 1000001,
@@ -210,6 +211,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            saved_presentation: None,
             id: 1000002,
             board: "demo".into(),
             thread_id: 1000001,
@@ -243,6 +245,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             comment_format: 9,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            saved_presentation: None,
             comment: "before [spoiler]hidden\nsecond[/spoiler] after\n[spoiler]<img src=x onerror=bad()>[/spoiler]".into(),
             ..posts[0].post.clone()
         });
@@ -251,6 +254,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             comment_format: 10,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            saved_presentation: None,
             comment: "[code]first  line\nsecond <script>line</script>[/code]".into(),
             ..posts[1].post.clone()
         });
@@ -260,6 +264,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             comment_format: 12,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            saved_presentation: None,
             comment: "[sjis]a  b\n c[/sjis]".into(),
             ..posts[1].post.clone()
         }));
@@ -269,6 +274,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             comment_format: 24,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            saved_presentation: None,
             comment: "[b]bold[/b] [i]italic[/i]\n[red]red[/red] [green]green[/green] [blue]blue[/blue]\n[b]<script>text stays text</script>[/b]".into(),
             ..posts[1].post.clone()
         }));
@@ -416,6 +422,7 @@ fn archived_thread() -> String {
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            saved_presentation: None,
             id: 1000101,
             board: board.slug.clone(),
             thread_id: thread.id,
@@ -444,6 +451,7 @@ fn archived_thread() -> String {
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            saved_presentation: None,
             id: 1000104,
             board: board.slug.clone(),
             thread_id: thread.id,

@@ -2,7 +2,7 @@ use crate::store::Report;
 use askama::Template;
 use board_domain::comment_markup::Tag;
 use board_domain::drawing_annotation::DrawingAnnotation;
-use board_domain::formatting::{Line, Token, parse_saved_comment_with_limits};
+use board_domain::formatting::{Line, Token};
 use board_domain::word_break::WordPart;
 #[derive(Template)]
 #[template(path = "login.html")]
@@ -62,17 +62,13 @@ impl From<Report> for Preview {
             report.drawing_time_seconds,
             report.drawing_source_post_id,
         );
-        let lines = parse_saved_comment_with_limits(
+        let lines = board_store::formatted_saved_lines(
             &report.comment,
             report.comment_format,
             &report.board,
             report.wordfilter_payload.as_deref(),
-            if report.staff_authorized_limits {
-                board_domain::PostLimits::authorized(board_domain::MAX_AUTHORIZED_COMMENT_CHARS)
-                    .expect("finite persisted staff bound")
-            } else {
-                board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
-            },
+            report.saved_presentation.as_deref(),
+            report.staff_authorized_limits,
         );
         Self {
             report,
@@ -139,6 +135,7 @@ mod tests {
                 comment_format: 0,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,
+                saved_presentation: None,
                 drawing_time_seconds: None,
                 drawing_source_post_id: None,
                 comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]\n>>>/po/42 >>>/\"evil/42"
@@ -216,6 +213,7 @@ mod tests {
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            saved_presentation: None,
             drawing_time_seconds: None,
             drawing_source_post_id: None,
             comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]\n>>>/po/42 >>>/\"evil/42"
@@ -320,6 +318,7 @@ mod tests {
                 comment_format: 0,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,
+                saved_presentation: None,
                 state: "open".into(),
                 closed: false,
                 sticky: false,
@@ -397,6 +396,7 @@ mod tests {
                 comment_format: 0,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,
+                saved_presentation: None,
                 drawing_time_seconds: None,
                 drawing_source_post_id: None,
                 state: "open".into(),
@@ -469,6 +469,7 @@ mod tests {
                 comment_format: format,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,
+                saved_presentation: None,
                 drawing_time_seconds: None,
                 drawing_source_post_id: None,
                 comment: "[spoiler]<b>first</b>\n>>42[/spoiler] [b]<script>owned</script>[/b] https://www.4chan.org/faq https://example.org/path"
@@ -541,6 +542,7 @@ mod tests {
                 comment_format: format,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,
+                saved_presentation: None,
                 drawing_time_seconds: None,
                 drawing_source_post_id: None,
                 state: "open".into(),
@@ -588,6 +590,120 @@ mod tests {
             assert!(html.contains("action=\"/reporter-clear\""));
             assert!(html.contains("name=\"report_id\" value=\"1\""));
             assert!(html.contains("Clear reporter"));
+        }
+    }
+    #[test]
+    fn frozen_preview_renders_once_and_corruption_stays_escaped() {
+        use board_domain::saved_presentation::{FrozenPresentation, SavedCommentRef};
+        let frozen = FrozenPresentation::from_saved(SavedCommentRef {
+            comment: "[b]Frozen[/b] >>42 <script>owned</script>",
+            format: 127,
+            source_board: "g",
+            wordfilter_payload: None,
+            saved_presentation: None,
+            limits: board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS),
+        })
+        .unwrap();
+        for corrupt in [false, true] {
+            let mut report = Report {
+                id: 1,
+                board: "test".into(),
+                post_id: 1,
+                thread_id: 1,
+                reason: "<b>untrusted report</b>".into(),
+                category_id: None,
+                category_kind: None,
+                name: "<em>name</em>".into(),
+                trip: Some("<em>untrusted trip</em>".into()),
+                poster_id: Some("<b>untrusted ID</b>".into()),
+                capcode: None,
+                country: None,
+                country_name: None,
+                board_flag: None,
+                board_flag_type: "pol".into(),
+                flag_name: None,
+                subject: "<i>subject</i>".into(),
+                comment_format: 0,
+                staff_authorized_limits: false,
+                wordfilter_payload: None,
+                saved_presentation: None,
+                drawing_time_seconds: None,
+                drawing_source_post_id: None,
+                comment: "<b>comment</b>\n[spoiler]<i>text</i>[/spoiler]\n>>>/po/42 >>>/\"evil/42"
+                    .into(),
+                state: "open".into(),
+                closed: false,
+                sticky: false,
+                permasage: false,
+                permaage: false,
+                undead: false,
+                archived: false,
+                archives_enabled: true,
+                deleted: false,
+                spoilers_enabled: false,
+                image_spoiler: false,
+                attachment: None,
+            };
+            report.board = "co".into();
+            report.comment_format = 127;
+            report.comment = frozen.source_projection();
+            report.saved_presentation = Some(if corrupt {
+                b"broken".to_vec()
+            } else {
+                frozen.encode().unwrap()
+            });
+            let preview = Preview::from(report);
+            let tokens: Vec<_> = preview.lines.iter().flat_map(|line| &line.tokens).collect();
+            if corrupt {
+                assert_eq!(tokens.len(), 1);
+                assert!(
+                    matches!(tokens[0], Token::Text(text) if text == &frozen.source_projection())
+                );
+            } else {
+                assert_eq!(
+                    board_domain::formatting::plain_text(&preview.lines),
+                    frozen.search_text()
+                );
+                assert_eq!(
+                    tokens
+                        .iter()
+                        .filter(|token| matches!(token, Token::OpenMarkup(Tag::Bold)))
+                        .count(),
+                    1
+                );
+                assert_eq!(tokens.iter().filter(|token| matches!(token, Token::PostQuote(quote) if quote.label() == ">>42")).count(), 1);
+            }
+            let html = Queue {
+                media_origin: String::new(),
+                reports: vec![preview],
+                csrf: "frozen-preview".into(),
+                recent: true,
+                can_permaage: false,
+                can_clear_reporter: false,
+                can_cleanup: false,
+                moderator: true,
+                can_post: false,
+                discussion: false,
+            }
+            .render()
+            .unwrap();
+            assert!(!html.contains("<script>owned</script>"));
+            assert_eq!(
+                html.matches("<span class=\"mu-s\">Frozen</span>").count(),
+                usize::from(!corrupt)
+            );
+            assert_eq!(html.contains("<span>&gt;&gt;42</span>"), !corrupt);
+            if corrupt {
+                assert!(
+                    html.contains("&amp;lt;script&amp;gt;")
+                        || html.contains("&#38;lt;script&#38;gt;")
+                );
+            } else {
+                assert!(
+                    html.contains("&lt;script&gt;owned&lt;/script&gt;")
+                        || html.contains("&#60;script&#62;owned&#60;/script&#62;")
+                );
+            }
         }
     }
 }

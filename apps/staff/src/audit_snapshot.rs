@@ -53,7 +53,10 @@ pub(crate) async fn capture(
 ) -> Result<Option<TargetSnapshot>, AppError> {
     Ok(sqlx::query_as(
         "SELECT p.name,p.trip,p.capcode,p.subject,p.comment,p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,\
-         p.staff_authorized_limits,p.wordfilter_payload IS NOT NULL AS wordfiltered,\
+         p.staff_authorized_limits,(p.wordfilter_payload IS NOT NULL OR CASE \
+         WHEN octet_length(p.saved_presentation)>=9 AND substring(p.saved_presentation FROM 1 FOR 4)=\
+              CASE WHEN p.staff_authorized_limits THEN decode('46503032','hex') ELSE decode('46503031','hex') END \
+         THEN get_byte(p.saved_presentation,4)=1 ELSE false END) AS wordfiltered,\
          p.image_spoiler,m.filename,p.dice_result,p.fortune_text,p.fortune_color \
          FROM content.posts p LEFT JOIN content.staff_post_media m ON m.post_id=p.id \
          WHERE p.board=$1 AND p.id=$2 AND p.thread_id=$3 AND NOT p.deleted FOR UPDATE OF p",

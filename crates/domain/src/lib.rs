@@ -45,6 +45,7 @@ pub mod report_category;
 pub mod report_threat;
 pub mod report_weight;
 pub mod robot9000;
+pub mod saved_presentation;
 mod subject;
 mod trip_cp932;
 mod trip_cp932_data;
