@@ -30,13 +30,31 @@ async fn get_response(app: &axum::Router, path: &str) -> (u16, Vec<u8>) {
     (status, body)
 }
 
-async fn coherent_during_commit(
-    owner: PgPool,
-    public: PgPool,
-    slug: String,
-    other_slug: String,
-    id: i64,
-) {
+// Dispose only of rows owned by this test between independent scenarios.
+async fn fresh_owned_thread(owner: &PgPool, slug: &str) -> i64 {
+    let mut fixture = owner.begin().await.unwrap();
+    sqlx::query("DELETE FROM content.posts WHERE board=$1")
+        .bind(slug)
+        .execute(&mut *fixture)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.threads WHERE board=$1")
+        .bind(slug)
+        .execute(&mut *fixture)
+        .await
+        .unwrap();
+    let id: i64 = sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
+        .bind(slug)
+        .fetch_one(&mut *fixture)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Anonymous','Snapshot','Before commit')")
+        .bind(id).bind(slug).execute(&mut *fixture).await.unwrap();
+    fixture.commit().await.unwrap();
+    id
+}
+
+async fn coherent_during_commit(owner: PgPool, public: PgPool, slug: String, other_slug: String) {
     let (web, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
     let reader: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
         .fetch_one(&public)
@@ -57,12 +75,20 @@ async fn coherent_during_commit(
             (&web, "catalog?order=absdate".to_owned(), false),
             (&web, "catalog?order=date".to_owned(), false),
             (&web, "catalog?order=r&q=commit".to_owned(), false),
-            (&web, format!("thread/{id}"), false),
-            (&web, format!("thread/{id}"), true),
+            (&web, "thread".to_owned(), false),
+            (&web, "thread".to_owned(), true),
             (&web, "archive".to_owned(), true),
             (&web, "archive.json".to_owned(), true),
             (&api, "archive.json".to_owned(), true),
         ] {
+            // A committed whole deletion is irreversible. Give every route and
+            // transition a new owned OP instead of reviving the previous case.
+            let id = fresh_owned_thread(&owner, &slug).await;
+            let suffix = if suffix == "thread" {
+                format!("thread/{id}")
+            } else {
+                suffix
+            };
             sqlx::query(
                 "UPDATE content.boards SET title='Before commit',bump_limit=50 WHERE slug=$1",
             )
@@ -72,21 +98,8 @@ async fn coherent_during_commit(
             .unwrap();
             sqlx::query("UPDATE content.boards SET title='Other before commit',worksafe=false WHERE slug=$1")
                 .bind(&other_slug).execute(&owner).await.unwrap();
-            sqlx::query("UPDATE content.threads SET deleted=false,sticky=false,closed=false,reply_count=0,modified_at='2026-01-01T00:00:00Z',archived_at=CASE WHEN $2 THEN '2026-01-01T00:00:00Z'::timestamptz END,archive_expires_at=CASE WHEN $2 THEN '2099-01-01T00:00:00Z'::timestamptz END WHERE id=$1")
+            sqlx::query("UPDATE content.threads SET sticky=false,closed=false,reply_count=0,modified_at='2026-01-01T00:00:00Z',archived_at=CASE WHEN $2 THEN '2026-01-01T00:00:00Z'::timestamptz END,archive_expires_at=CASE WHEN $2 THEN '2099-01-01T00:00:00Z'::timestamptz END WHERE id=$1")
             .bind(id).bind(archived).execute(&owner).await.unwrap();
-            sqlx::query("DELETE FROM content.posts WHERE board=$1 AND id<>$2")
-                .bind(&slug)
-                .bind(id)
-                .execute(&owner)
-                .await
-                .unwrap();
-            sqlx::query(
-                "UPDATE content.posts SET deleted=false,comment='Before commit' WHERE id=$1",
-            )
-            .bind(id)
-            .execute(&owner)
-            .await
-            .unwrap();
             sqlx::query("INSERT INTO post_secrets.poster_contexts(post_id,thread_id,fingerprint,epoch) VALUES($1,$1,decode(repeat('11',32),'hex'),decode(repeat('aa',32),'hex')) ON CONFLICT(post_id) DO NOTHING")
                 .bind(id).execute(&owner).await.unwrap();
             let path = format!("/{slug}/{suffix}");
@@ -202,7 +215,7 @@ async fn coherent_during_commit(
         inconsistent.is_empty(),
         "responses combined different commits: {inconsistent:?}"
     );
-    settled_contracts(&owner, &public, &slug, id).await;
+    settled_contracts(&owner, &public, &slug).await;
 }
 
 // Independently retain the navigation-row snapshot proof: custom boards remain
@@ -302,7 +315,7 @@ async fn cached(app: &axum::Router, path: &str, etag: Option<&str>) -> (u16, Str
     )
 }
 
-async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str, id: i64) {
+async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str) {
     use board_store::{BoardSelection, StoreError, board_snapshot};
     use serde_json::{Value, json};
     sqlx::query("UPDATE content.boards SET threads_per_page=2,thread_limit=3 WHERE slug=$1")
@@ -310,17 +323,15 @@ async fn settled_contracts(owner: &PgPool, public: &PgPool, slug: &str, id: i64)
         .execute(owner)
         .await
         .unwrap();
-    sqlx::query("UPDATE content.threads SET deleted=false,reply_count=9,sticky=true,closed=true,archived_at=NULL,archive_expires_at=NULL WHERE id=$1")
+    let id = fresh_owned_thread(owner, slug).await;
+    sqlx::query("UPDATE content.threads SET reply_count=9,sticky=true,closed=true WHERE id=$1")
         .bind(id)
         .execute(owner)
         .await
         .unwrap();
-    sqlx::query("UPDATE content.posts SET deleted=false WHERE board=$1")
-        .bind(slug)
-        .execute(owner)
-        .await
-        .unwrap();
-    for _ in 0..8 {
+    // Nine independent replies replace the old committed reply plus eight new
+    // replies. Deleting one still proves lifetime versus visible counts.
+    for _ in 0..9 {
         sqlx::query("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Anonymous','','A preview reply')")
             .bind(slug).bind(id).execute(owner).await.unwrap();
     }
@@ -571,7 +582,6 @@ async fn board_representations_use_one_snapshot_during_a_committed_change() {
         public.clone(),
         slug.clone(),
         other_slug.clone(),
-        id,
     ))
     .await;
     public.close().await;

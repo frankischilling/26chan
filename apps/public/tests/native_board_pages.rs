@@ -67,19 +67,29 @@ async fn native_pages_keep_coherent_source_previews_exact_ids_and_private_author
     let fixture = board.clone();
     let admin = owner.clone();
     let result = tokio::spawn(async move {
-        for (offset, sticky, deleted, archived) in [(0,false,false,false),(10,true,false,false),(20,false,false,false),(30,true,true,false),(40,false,false,true)] {
+        for (offset, sticky, archived) in [(0,false,false),(10,true,false),(20,false,false),(30,true,false),(40,false,true)] {
             let id = base + offset;
-            sqlx::query("INSERT INTO content.threads(id,board,bumped_at,sticky,deleted,archived_at,archive_expires_at) VALUES($1,$2,to_timestamp(1800000000+$3),$4,$5,CASE WHEN $6 THEN clock_timestamp() END,CASE WHEN $6 THEN clock_timestamp()+interval '1 hour' END)")
-                .bind(id).bind(&fixture).bind(offset as f64).bind(sticky).bind(deleted).bind(archived).execute(&admin).await.unwrap();
+            sqlx::query("INSERT INTO content.threads(id,board,bumped_at,sticky,archived_at,archive_expires_at) VALUES($1,$2,to_timestamp(1800000000+$3),$4,CASE WHEN $5 THEN clock_timestamp() END,CASE WHEN $5 THEN clock_timestamp()+interval '1 hour' END)")
+                .bind(id).bind(&fixture).bind(offset as f64).bind(sticky).bind(archived).execute(&admin).await.unwrap();
             sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Anonymous','Owned <script>subject</script>','[spoiler]<img src=x onerror=bad()>[/spoiler]')")
                 .bind(id).bind(&fixture).execute(&admin).await.unwrap();
         }
         for offset in 1..=6 {
-            sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment,deleted) VALUES($1,$2,$3,'Anonymous','','Owned earlier reply',$4)")
-                .bind(base+10+offset).bind(&fixture).bind(base+10).bind(offset==5).execute(&admin).await.unwrap();
+            sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$3,'Anonymous','','Owned earlier reply')")
+                .bind(base+10+offset).bind(&fixture).bind(base+10).execute(&admin).await.unwrap();
         }
         let (app, api) = board_public::routers(public.clone(), "http://127.0.0.1:3000".into(), false);
         let first_path = format!("/_watch/{fixture}/page/0");
+        // Populate children before whole deletion, then prove the formerly
+        // visible sticky thread and reply stop affecting the public snapshot.
+        let (live, _) = page(&app, &first_path).await;
+        assert_eq!(live["threads"][0]["thread"], (base+30).to_string());
+        assert_eq!(live["threads"][0]["sticky"], true);
+        sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1")
+            .bind(base+30).execute(&admin).await.unwrap();
+        assert_eq!(page(&app, &first_path).await.0["threads"][0]["replies"], 6);
+        sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
+            .bind(base+15).execute(&admin).await.unwrap();
         let (first, initial_tag) = page(&app, &first_path).await;
         assert_eq!(first.as_object().unwrap().len(), 6);
         assert_eq!(first["version"], 2); assert_eq!(first["replies_shown"], 5);

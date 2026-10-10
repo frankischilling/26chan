@@ -64,7 +64,7 @@ async fn contract(owner: PgPool, public: PgPool, slug: String) {
         deletion_hash: "synthetic-unused-hash".into(),
         sage: false,
     };
-    let archived = posting_fixture::create_post(&public, &slug, 0, &new_post)
+    let mut archived = posting_fixture::create_post(&public, &slug, 0, &new_post)
         .await
         .unwrap();
     let reply = posting_fixture::create_post(&public, &slug, archived, &new_post)
@@ -175,10 +175,38 @@ async fn contract(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     assert_eq!(denied.status(), 409);
-    for query in [
+    for (index, query) in [
         "UPDATE content.threads SET deleted=true WHERE id=$1",
-        "UPDATE content.threads SET deleted=false,archive_expires_at=now()-interval '1 second' WHERE id=$1",
-    ] {
+        "UPDATE content.threads SET archive_expires_at=now()-interval '1 second' WHERE id=$1",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        if index == 1 {
+            // The deleted archive cannot be revived. Independently prove expiry
+            // using another retained archive and its own live cache validators.
+            archived = posting_fixture::create_post(&public, &slug, 0, &new_post)
+                .await
+                .unwrap();
+            sqlx::query("UPDATE content.threads SET archived_at='2026-01-01T00:00:00Z',archive_expires_at=now()+interval '1 hour' WHERE id=$1")
+                .bind(archived).execute(&owner).await.unwrap();
+            let response = request(&web, &archive, "GET", None).await;
+            assert_eq!(response.status(), StatusCode::OK);
+            archive_etag = response.headers()["etag"].to_str().unwrap().to_owned();
+            assert_eq!(
+                serde_json::from_str::<Value>(&body(response).await).unwrap(),
+                json!([archived])
+            );
+            let response = request(
+                &web,
+                &format!("/{slug}/thread/{archived}.json"),
+                "GET",
+                None,
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::OK);
+            thread_etag = response.headers()["etag"].to_str().unwrap().to_owned();
+        }
         sqlx::query(query)
             .bind(archived)
             .execute(&owner)

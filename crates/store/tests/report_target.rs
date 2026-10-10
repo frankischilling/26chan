@@ -167,8 +167,9 @@ async fn report_targets_follow_source_policy_without_exposing_private_activity()
         sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1")
             .bind(op).execute(owner).await.unwrap();
         rejected(public, slug, op, "Not found.", sessions).await;
-        sqlx::query("UPDATE content.threads SET deleted=false WHERE id=$1")
-            .bind(op).execute(owner).await.unwrap();
+        // Fresh erasure is irreversible. Use a new live target for the
+        // independent stale-GET admission check rather than reviving a tombstone.
+        let op = support::create_post(public, slug, 0, &post).await.unwrap();
 
         // A previously eligible GET cannot authorize a report after policy
         // changes while the POST is queued on the ordinary board lock.

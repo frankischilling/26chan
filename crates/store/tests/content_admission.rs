@@ -949,16 +949,18 @@ async fn filename_proxy_uses_authenticated_approved_metadata_and_byte_semantics(
 async fn runtime_credentials_cannot_read_policy_state_or_invent_rule_actions() {
     let _guard = POLICY_TEST.lock().await;
     let f = Fixture::new().await;
+    let thread = f
+        .create(0, 0, "Owned privilege control", "Owned live thread body")
+        .await
+        .unwrap();
     let rule = f.rule("paper").await;
     for query in [
         "SELECT * FROM admission.rules",
         "SELECT * FROM admission.hits",
         "SELECT * FROM admission.logs",
         "SELECT * FROM admission.bans",
-        "UPDATE admission.rules SET active=false",
-        "DELETE FROM admission.policy",
+        "DELETE FROM admission.policy WHERE singleton",
         "SELECT * FROM staff_identity.accounts",
-        "UPDATE content.threads SET permasage=true",
     ] {
         let mut healthy = f.owner.begin().await.unwrap();
         sqlx::query(query).execute(&mut *healthy).await.unwrap();
@@ -968,6 +970,85 @@ async fn runtime_credentials_cannot_read_policy_state_or_invent_rule_actions() {
             error.as_database_error().unwrap().code().as_deref(),
             Some("42501"),
             "{query}"
+        );
+    }
+    // Privilege controls must mutate this test's live rows, never unrelated
+    // historical tombstones or rules left by another owned test fixture.
+    for (mutation, snapshot, id, field, initial, changed) in [
+        (
+            "UPDATE content.threads SET permasage=true WHERE board=$1 AND id=$2 AND NOT deleted AND NOT content_erased",
+            "SELECT to_jsonb(t) FROM content.threads t WHERE board=$1 AND id=$2",
+            thread,
+            "permasage",
+            false,
+            true,
+        ),
+        (
+            "UPDATE admission.rules SET active=false WHERE board=$1 AND id=$2",
+            "SELECT to_jsonb(r) FROM admission.rules r WHERE board=$1 AND id=$2",
+            rule,
+            "active",
+            true,
+            false,
+        ),
+    ] {
+        let before: serde_json::Value = sqlx::query_scalar(snapshot)
+            .bind(&f.boards[0])
+            .bind(id)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+        assert_eq!(
+            before[field], initial,
+            "The owned positive control must be live"
+        );
+        let mut healthy = f.owner.begin().await.unwrap();
+        let rows = sqlx::query(mutation)
+            .bind(&f.boards[0])
+            .bind(id)
+            .execute(&mut *healthy)
+            .await
+            .unwrap()
+            .rows_affected();
+        assert_eq!(
+            rows, 1,
+            "The healthy role must change exactly one owned row"
+        );
+        let within: serde_json::Value = sqlx::query_scalar(snapshot)
+            .bind(&f.boards[0])
+            .bind(id)
+            .fetch_one(&mut *healthy)
+            .await
+            .unwrap();
+        assert_eq!(within[field], changed);
+        healthy.rollback().await.unwrap();
+        let restored: serde_json::Value = sqlx::query_scalar(snapshot)
+            .bind(&f.boards[0])
+            .bind(id)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+        assert_eq!(restored, before, "Rollback restores the complete owned row");
+        let error = sqlx::query(mutation)
+            .bind(&f.boards[0])
+            .bind(id)
+            .execute(&f.public)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.as_database_error().unwrap().code().as_deref(),
+            Some("42501"),
+            "{mutation}"
+        );
+        let after_denial: serde_json::Value = sqlx::query_scalar(snapshot)
+            .bind(&f.boards[0])
+            .bind(id)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+        assert_eq!(
+            after_denial, before,
+            "Denied public mutation changes no owned state"
         );
     }
     // Healthy scoped reader, with no private board policy disclosure.
