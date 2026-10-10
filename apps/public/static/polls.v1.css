@@ -1,0 +1,65 @@
+/* Poll rules from the referenced polls.css?15 capture. See docs/public-polls.md. */
+table { border-collapse: collapse; border-spacing: 0; }
+input, textarea, th, td { margin: 0; padding: 0; }
+html { overflow-y: scroll; }
+body {
+  background: url('/static/themes/fade.png') repeat-x scroll center top #FFFFEE;
+  font-family: 'Helvetica Neue', arial, sans-serif;
+  margin: 5px 0;
+  padding: 0 5px;
+  font-size: 13px;
+  color: #800000;
+}
+header { text-align: center; }
+a { color: #0000EE; }
+#title { margin-top: 20px; font-size: 28px; font-weight: bold; letter-spacing: -2px; }
+h2 { font-size: 20px; font-weight: bold; }
+h3 { font-weight: bold; margin-bottom: 20px; font-size: 16px; }
+#content { padding: 0 10px; }
+.event-hdr { margin-top: 25px; text-align: center; }
+#entries {
+  border-top: 1px solid #606060;
+  background-color: #fff;
+  cursor: default;
+  border-left: 1px solid #606060;
+  border-right: 1px solid #606060;
+  color: #000;
+  width: 80%;
+  margin: 25px auto 0;
+}
+.event-tbl, .opts-tbl { max-width: 600px; }
+#entries.opts-tbl { width: 100%; }
+#entries th, #entries td { text-align: center; }
+#entries th {
+  border-left: 1px solid #606060;
+  background-color: #ffccaa;
+  font-weight: bold;
+  padding: 5px;
+  white-space: nowrap;
+}
+#entries td { border-left: 1px solid #606060; padding: 10px 5px; }
+#entries tr { border-bottom: 1px solid #606060; }
+.poll-hdr { margin-top: 25px; }
+.vote-btn { margin-top: 25px; }
+#entries.opts-tbl td { text-align: left; }
+#entries.opts-tbl .col-opt { width: 30px; text-align: center; vertical-align: middle; }
+#entries.poll-res-tbl { width: auto; margin-left: 0; }
+.poll-res-tbl { margin-bottom: 20px; margin-top: 10px; border-left: none; }
+.poll-res-tbl th { font-weight: bold; padding: 5px; }
+.poll-res-tbl td { padding: 5px; }
+.poll-res-total td { padding-top: 10px; padding-bottom: 10px; }
+.res-link { float: right; margin-top: 30px; margin-left: 10px; }
+.back-link { margin-top: 25px; display: inline-block; }
+#intro, .poll-cnt { max-width: 600px; margin: auto; }
+#intro { margin-top: 25px; }
+#poll-desc { margin-top: 30px; white-space: pre-line; }
+#intro p { margin-bottom: 10px; line-height: 1.5; }
+footer { width: 750px; border-top: 1px solid; margin: 25px auto 0; text-align: center; }
+#copyright { text-align: center; margin-top: 25px; margin-bottom: 1em; font-size: 11px; }
+
+/* Bound escaped operator text, including unbroken strings at the storage limits. */
+.poll-hdr, #poll-desc, #entries td, #entries li { overflow-wrap: anywhere; }
+/* Closed polls have an explicit read-only fallback; no source controller was supplied. */
+ol.pollOptions { box-sizing: border-box; padding: 10px 30px; }
+.pollNavigation { margin-top: 25px; }
+.pollNavigation a + a { margin-left: 10px; }

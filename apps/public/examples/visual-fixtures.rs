@@ -16,6 +16,8 @@ mod headers;
 mod listeners;
 #[path = "visual/media.rs"]
 mod media;
+#[path = "visual/polls.rs"]
+mod polls;
 #[path = "visual/transport_overlap.rs"]
 mod transport_overlap;
 use askama::Template;
@@ -544,6 +546,7 @@ async fn main() -> std::io::Result<()> {
         .merge(media_fixture.routes())
         .merge(flags::routes())
         .merge(catalog_filters::routes().await)
+        .merge(polls::routes())
         .route(
             "/",
             get(|| async { Html(views::Home { boards: vec![] }.render().unwrap()) }),
