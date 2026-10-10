@@ -19,7 +19,7 @@ const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'side
 const attributes = {
   article: ['class', 'id', 'data-custom-spoiler'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
   strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title'], blockquote: ['class', 'id'],
-  br: [], wbr: [], b: [], s: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
+  br: [], wbr: [], b: [], s: [], small: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required'],
   label: ['for'], button: [], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
 };
@@ -117,6 +117,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       return;
     }
     require(Object.hasOwn(attributes, node.tag));
+    if (node.tag === 'small') require(comment && !link);
     for (const [key, value] of Object.entries(node.attrs)) {
       // Rust permits 64 KiB of comment UTF-8; URL percent encoding can triple
       // that size. Preserve those valid links within the aggregate wire budget.

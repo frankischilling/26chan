@@ -3,7 +3,7 @@
 mod security;
 mod serving;
 
-use axum::{Router, middleware, routing::get};
+use axum::{Router, http::HeaderValue, middleware, routing::get};
 use board_media::{ApprovedFiles, MediaError};
 use board_store::media_assets::MediaReader;
 use std::sync::Arc;
@@ -14,12 +14,18 @@ pub struct AppState {
     reader: MediaReader,
     files: Arc<ApprovedFiles>,
     authority: String,
+    public_origin: HeaderValue,
     requests: Arc<Semaphore>,
     reads: Arc<Semaphore>,
 }
 
 impl AppState {
-    pub fn new(reader: MediaReader, files: ApprovedFiles, origin: &board_config::Origin) -> Self {
+    pub fn new(
+        reader: MediaReader,
+        files: ApprovedFiles,
+        origin: &board_config::Origin,
+        public_origin: &board_config::Origin,
+    ) -> Self {
         let origin = origin.as_string();
         Self {
             reader,
@@ -29,6 +35,8 @@ impl AppState {
                 .expect("parsed origin")
                 .1
                 .to_owned(),
+            public_origin: HeaderValue::from_str(&public_origin.as_string())
+                .expect("validated public origin"),
             requests: Arc::new(Semaphore::new(16)),
             reads: Arc::new(Semaphore::new(4)),
         }

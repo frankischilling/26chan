@@ -293,6 +293,7 @@ impl Fixture {
             reader,
             ApprovedFiles::open(self.root.join("objects")).unwrap(),
             &origin,
+            &board_config::Origin::parse("http://127.0.0.1:3000").unwrap(),
         ));
         for record in &manifest.records {
             for (path, suffix) in [

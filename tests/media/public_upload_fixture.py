@@ -9,7 +9,6 @@ import pwd
 import re
 import secrets
 import shutil
-import socket
 import subprocess
 
 from dispatch_service_fixture import UnitProcess, systemctl
@@ -38,6 +37,9 @@ def finish_browser(process, script):
         drawing = re.findall(rb'^OWNED_DRAWING_EDIT (cancel=(?:none|pending|failed|other|[1-5][0-9]{2}) ui=(?:empty|queued|canceling|checking|uploading|cancel-error|editor-error|other) editor=(?:absent|hidden|visible) cursor=(?:absent|hidden|visible) active=(?:true|false|other)|unavailable)\r?$', error, re.MULTILINE)
         if drawing and script == 'drawing-upload.mjs':
             response += ' (Edit ' + drawing[-1].decode('ascii') + ')'
+        posting = re.findall(rb'^OWNED_DRAWING_POST category=(timestamp|cooldown|storage|session|other)\r?$', error, re.MULTILINE)
+        if posting and script == 'drawing-upload.mjs':
+            response += ' (posting ' + posting[-1].decode('ascii') + ')'
         raise AssertionError('owned upload browser rejected at ' + script + location + response)
     return output
 
@@ -64,6 +66,7 @@ class PublicUpload:
         self.completed_jobs = []
         self._public_identity = None
         self.drawing_upload = None
+        self.drawing_edit_upload = None
 
     def setup(self):
         f = self.f
@@ -81,9 +84,11 @@ class PublicUpload:
         self._public_identity = (public.pw_uid, edge.gr_gid)
         shutil.copyfile(f.binaries / 'board-public', f.bin / 'board-public')
         (f.bin / 'board-public').chmod(0o755)
-        with socket.socket() as sock:
-            sock.bind(('127.0.0.1', 0))
-            self.port = sock.getsockname()[1]
+        # The reader already knows this exact public origin for drawing imports.
+        # Both fixture ports were selected together before the reader started.
+        self.port = f.public_port
+        assert type(self.port) is int and 1 <= self.port <= 65535
+        assert self.port not in (f.http_port, f.intake_port, f.metrics_port)
         self.origin = f'http://127.0.0.1:{self.port}'
         credential = os.environ['TEST_PUBLIC_DATABASE_URL']
         assert not any(c in credential for c in '\n\r"\\')
@@ -195,6 +200,11 @@ class PublicUpload:
         from public_drawing_fixture import PublicDrawingUpload
         self.drawing_upload = PublicDrawingUpload(self)
         self.drawing_upload.exercise()
+        self.drawing_upload.reset_posting_history()
+        self.restart_for_drawing()
+        from public_drawing_fixture import PublicDrawingEdit
+        self.drawing_edit_upload = PublicDrawingEdit(self)
+        self.drawing_edit_upload.exercise()
 
     def restart_for_drawing(self):
         # Each browser batch owns the same loopback write-budget bucket. Start
@@ -202,7 +212,13 @@ class PublicUpload:
         # after every preceding browser, dispatch and reconcile has completed.
         # Keep the configured 60/minute limit and production policy unchanged.
         assert self.installed and self.created and self.board == self._owned_board
-        assert self.drawing_upload is None
+        assert self.drawing_edit_upload is None
+        if self.drawing_upload is None:
+            assert self.browser is not None and self.browser.poll() == 0, 'previous upload browser is not complete'
+        else:
+            assert self.browser is None, 'previous upload browser was not retired'
+            assert self.drawing_upload.completed_modes == {'ordinary', 'quick-reply'}
+            assert self.drawing_upload.browser is None and self.drawing_upload.recovery_baseline is None
         assert self._public_identity and all(isinstance(value, int) and value > 0 for value in self._public_identity)
         token = self.f.root.name.removeprefix('26chan-dispatch-')
         assert re.fullmatch('[a-z0-9_]{8}', token)
@@ -214,7 +230,6 @@ class PublicUpload:
         assert len(self.completed_jobs) == len(set(self.completed_jobs)) == 9
         assert all(HEX.fullmatch(job) and job in self.f.ids for job in self.completed_jobs)
         assert all(re.fullmatch(r'public-upload-' + self.board + r'\.[a-z.-]+', name) for name in self.filenames)
-        assert self.browser is not None and self.browser.poll() == 0, 'previous upload browser is not complete'
         names = ','.join("'" + name + "'" for name in self.filenames)
         jobs = ','.join("'" + job + "'" for job in self.completed_jobs)
         assert sql(f"SELECT count(*)=9 AND bool_and(state='published' AND id IN ({jobs})) FROM media.jobs WHERE filename IN ({names});") == 't', 'previous upload jobs are not complete'
@@ -297,6 +312,8 @@ class PublicUpload:
         print(f'PASS {suffix}: real nonroot public browser -> authenticated intake -> Firecracker -> persisted attachment -> browser image -> deletion revokes reader -> both files removed with tombstone retained', flush=True)
 
     def cleanup(self):
+        if self.drawing_edit_upload is not None:
+            self.drawing_edit_upload.cleanup()
         if self.drawing_upload is not None:
             self.drawing_upload.cleanup()
         if self.browser is not None:
@@ -304,13 +321,16 @@ class PublicUpload:
         if self.installed:
             self.f.stop(self.unit)
         if self.created:
-            self.reset_deletion_quota()
-            self.reset_posting_history()
-            for filename in self.filenames:
-                assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|animated\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png|quick-reply-disabled\.png|quick-reply-inline-disabled\.png)', filename)
-                for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():
-                    assert HEX.fullmatch(job)
-                    if job not in self.f.ids:
-                        self.f.ids.append(job)
-            # Remove only this fixture's durable links before parent job cleanup.
-            sql(f"DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board='{self.board}'); DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board='{self.board}'); DELETE FROM content.posts WHERE board='{self.board}'; DELETE FROM content.threads WHERE board='{self.board}'; DELETE FROM content.boards WHERE slug='{self.board}';")
+            self.cleanup_board()
+
+    def cleanup_board(self):
+        self.reset_deletion_quota()
+        self.reset_posting_history()
+        for filename in self.filenames:
+            assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|animated\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png|quick-reply-disabled\.png|quick-reply-inline-disabled\.png)', filename)
+            for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():
+                assert HEX.fullmatch(job)
+                if job not in self.f.ids:
+                    self.f.ids.append(job)
+        # Remove only this fixture's durable links before parent job cleanup.
+        sql(f"DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board='{self.board}'); DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board='{self.board}'); DELETE FROM content.posts WHERE board='{self.board}'; DELETE FROM content.threads WHERE board='{self.board}'; DELETE FROM content.boards WHERE slug='{self.board}';")

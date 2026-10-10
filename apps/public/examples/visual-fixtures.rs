@@ -194,6 +194,8 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
         dice_result: None,
         fortune_text: None,
         fortune_color: None,
+        drawing_time_seconds: None,
+        drawing_source_post_id: None,
         created_at: time("2026-09-08T12:00:00Z"),
         deleted: false,
         attachment: None,
@@ -223,6 +225,8 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             dice_result: None,
             fortune_text: None,
             fortune_color: None,
+            drawing_time_seconds: None,
+            drawing_source_post_id: None,
             created_at: time("2026-09-08T12:05:00Z"),
             deleted: false,
             attachment: None,
@@ -364,6 +368,7 @@ fn archive_page(empty: bool) -> String {
                 sjis: false,
                 dice: None,
                 fortune: None,
+                drawing: None,
             });
             archive::Row {
                 id,
@@ -423,6 +428,8 @@ fn archived_thread() -> String {
             dice_result: None,
             fortune_text: None,
             fortune_color: None,
+            drawing_time_seconds: None,
+            drawing_source_post_id: None,
             created_at: thread.created_at,
             deleted: false,
             attachment: None,
@@ -446,6 +453,8 @@ fn archived_thread() -> String {
             dice_result: None,
             fortune_text: None,
             fortune_color: None,
+            drawing_time_seconds: None,
+            drawing_source_post_id: None,
             subject: String::new(),
             comment: ">>1000101\nThe roof looks good. Thanks for sharing your finished project.".into(),
             created_at: thread.bumped_at,
@@ -514,6 +523,7 @@ async fn main() -> std::io::Result<()> {
         dice_result: None,
         fortune_text: None,
         fortune_color: None,
+        drawing: None,
     }
     .render()
     .unwrap();

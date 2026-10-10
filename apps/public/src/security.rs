@@ -499,7 +499,7 @@ pub(crate) fn math_fixture_response(
         .map_err(|_| "Fixture rendering exceeded its budget.".to_owned())?;
     let response = drawing_page(
         math_page(response, page.board.math_tags && !page.catalog),
-        page.drawing_allowed(),
+        page.drawing_controls_allowed(),
     );
     Ok(headers(
         response,

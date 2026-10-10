@@ -2,7 +2,7 @@
 // their finite inert recipes separate from the surrounding post grammar.
 const recipes = new Map();
 const tags = new Set(['span', 'sp4n', 'pre', 'pr3', 's']);
-const ordinaryTags = new Set(['SPAN', 'B', 'S', 'PRE', 'BR', 'WBR', 'A']);
+const ordinaryTags = new Set(['SPAN', 'B', 'S', 'SMALL', 'PRE', 'BR', 'WBR', 'A']);
 
 function transform(literal, first, second) {
   for (const choice of new Set([first, second])) {

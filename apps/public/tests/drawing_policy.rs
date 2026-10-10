@@ -49,25 +49,9 @@ fn page(board: Board, media_enabled: bool) -> BoardPage {
     }
 }
 
-fn check_page_gates(board: &Board) {
-    let mut page = page(board.clone(), true);
-    assert!(page.drawing_allowed());
-    page.media_origin.clear();
-    assert!(!page.drawing_allowed(), "drawing cannot enable media");
-    page.media_origin = MEDIA_ORIGIN.into();
-    page.catalog = true;
-    assert!(
-        !page.drawing_allowed(),
-        "catalogs have no ordinary post form"
-    );
-    page.catalog = false;
-    page.parent = 1;
-    assert!(
-        !page.drawing_allowed(),
-        "missing threads cannot own a drawing"
-    );
+fn live_thread(board: &Board) -> ThreadView {
     let now = chrono::Utc::now();
-    page.threads.push(ThreadView {
+    ThreadView {
         catalog_position: None,
         catalog_last_reply: None,
         tail_size: 50,
@@ -92,7 +76,28 @@ fn check_page_gates(board: &Board) {
         posts: vec![],
         omitted: 0,
         image_replies: 0,
-    });
+    }
+}
+
+fn check_page_gates(board: &Board) {
+    let mut page = page(board.clone(), true);
+    assert!(page.drawing_allowed());
+    page.media_origin.clear();
+    assert!(!page.drawing_allowed(), "drawing cannot enable media");
+    page.media_origin = MEDIA_ORIGIN.into();
+    page.catalog = true;
+    assert!(
+        !page.drawing_allowed(),
+        "catalogs have no ordinary post form"
+    );
+    page.catalog = false;
+    page.parent = 1;
+    assert!(
+        !page.drawing_allowed(),
+        "missing threads cannot own a drawing"
+    );
+    let now = chrono::Utc::now();
+    page.threads.push(live_thread(board));
     assert!(page.drawing_allowed());
     page.threads[0].thread.closed = true;
     assert!(!page.drawing_allowed());
@@ -120,6 +125,113 @@ fn check_page_gates(board: &Board) {
     }
 }
 
+fn check_image_edit_gates(board: &Board) {
+    // Source /i/ enables replay policy, but importing an existing image opens
+    // Tegaki with saveReplay=false. This is independent of ordinary Draw.
+    let mut source = board.clone();
+    source.slug = "i".into();
+    source.oekaki = true;
+    source.oekaki_replays = true;
+    source.oekaki_width = 400;
+    source.oekaki_height = 400;
+    source.text_only = false;
+    source.staff_only = false;
+    source.image_limit = 100;
+    let mut view = page(source.clone(), true);
+    assert!(
+        !view.drawing_allowed(),
+        "replay policy keeps ordinary /i/ Draw disabled"
+    );
+    assert!(!view.drawing_edit_allowed(), "/i/ index has no post Edit");
+    assert!(!view.drawing_controls_allowed());
+
+    view.parent = 1;
+    assert!(
+        !view.drawing_edit_allowed(),
+        "a missing thread cannot enable Edit"
+    );
+    view.threads.push(live_thread(&source));
+    assert!(
+        view.drawing_edit_allowed(),
+        "a live /i/ thread enables imported Edit"
+    );
+    assert!(
+        !view.drawing_allowed(),
+        "imported Edit does not enable blank Draw"
+    );
+    assert!(view.drawing_controls_allowed());
+
+    view.catalog = true;
+    assert!(
+        !view.drawing_edit_allowed(),
+        "/i/ catalog cannot offer Edit"
+    );
+    view.catalog = false;
+    view.threads[0].thread.closed = true;
+    assert!(
+        !view.drawing_edit_allowed(),
+        "a closed /i/ thread cannot offer Edit"
+    );
+    view.threads[0].thread.closed = false;
+    view.threads[0].thread.archived_at = Some(chrono::Utc::now());
+    assert!(
+        !view.drawing_edit_allowed(),
+        "an archived /i/ thread cannot offer Edit"
+    );
+    view.threads[0].thread.archived_at = None;
+    view.media_origin.clear();
+    assert!(
+        !view.drawing_edit_allowed(),
+        "no media service means no imported Edit"
+    );
+    view.media_origin = MEDIA_ORIGIN.into();
+
+    for (name, change) in [
+        ("painter disabled", "oekaki"),
+        ("replay policy disabled", "replays"),
+        ("text-only", "text_only"),
+        ("image limit disabled", "image_limit"),
+        ("staff-only", "staff_only"),
+        ("zero width", "width_zero"),
+        ("oversized width", "width_large"),
+        ("zero height", "height_zero"),
+        ("oversized height", "height_large"),
+    ] {
+        view.board = source.clone();
+        match change {
+            "oekaki" => view.board.oekaki = false,
+            "replays" => view.board.oekaki_replays = false,
+            "text_only" => view.board.text_only = true,
+            "image_limit" => view.board.image_limit = 0,
+            "staff_only" => view.board.staff_only = true,
+            "width_zero" => view.board.oekaki_width = 0,
+            "width_large" => view.board.oekaki_width = 1025,
+            "height_zero" => view.board.oekaki_height = 0,
+            "height_large" => view.board.oekaki_height = 1025,
+            _ => unreachable!(),
+        }
+        assert!(!view.drawing_edit_allowed(), "{name} must block /i/ Edit");
+    }
+    for other in ["qst", "vip", "test"] {
+        view.board = source.clone();
+        view.board.slug = other.into();
+        assert!(
+            !view.drawing_edit_allowed(),
+            "/{other}/ never exposes imported Edit"
+        );
+    }
+    for ordinary in ["qst", "vip"] {
+        view.board = source.clone();
+        view.board.slug = ordinary.into();
+        view.board.oekaki_replays = false;
+        assert!(view.drawing_allowed(), "/{ordinary}/ keeps ordinary Draw");
+        assert!(
+            !view.drawing_edit_allowed(),
+            "/{ordinary}/ cannot inherit /i/ Edit"
+        );
+    }
+}
+
 async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
     let reference: Value =
         serde_json::from_str(include_str!("../../../fixtures/board-reference.json")).unwrap();
@@ -144,6 +256,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
     }
     let board = board_store::board(public, slug).await.unwrap();
     check_page_gates(&board);
+    check_image_edit_gates(&board);
     for media_enabled in [false, true] {
         let media = media_enabled.then(|| {
             board_config::PublicMediaSettings::development(
@@ -169,11 +282,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
                 continue;
             }
             let actual = actual.unwrap();
-            assert_eq!(
-                actual.get("oekaki").is_some(),
-                saved.ordinary_drawing_enabled(media_enabled),
-                "/{source}/"
-            );
+            assert_eq!(actual.get("oekaki").is_some(), saved.oekaki, "/{source}/");
             if actual.get("oekaki").is_some() {
                 assert_eq!(actual["oekaki"], 1);
             }
@@ -206,10 +315,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
                 .iter()
                 .find(|b| b["board"] == slug)
                 .unwrap();
-            assert_eq!(
-                own.get("oekaki").is_some(),
-                media_enabled && enabled && !replay && !text_only && image_limit > 0
-            );
+            assert_eq!(own.get("oekaki").is_some(), enabled);
         }
     }
     assert!(matches!(

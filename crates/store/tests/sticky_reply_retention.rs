@@ -235,6 +235,7 @@ async fn rollover_retires_only_old_reply_secrets_reports_and_visible_media() {
             },
         },
         PostMetadata {
+            drawing: None,
             keys: PostIdentityKeys {
                 tripcode: None,
                 poster_id: None,

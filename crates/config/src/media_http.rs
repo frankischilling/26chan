@@ -7,6 +7,7 @@ use std::{
 
 pub struct MediaHttpSettings {
     pub reader: MediaReaderSettings,
+    pub public_origin: Origin,
     pub origin: Origin,
     pub bind: SocketAddr,
     pub approved_dir: PathBuf,
@@ -28,7 +29,7 @@ impl MediaHttpSettings {
                 ));
             }
         }
-        let origin = origins[2].clone();
+        let [public_origin, _, origin] = origins;
         let bind: SocketAddr = env::var("MEDIA_BIND_ADDR")
             .map_err(|_| ConfigError("MEDIA_BIND_ADDR is required."))?
             .parse()
@@ -52,6 +53,7 @@ impl MediaHttpSettings {
             .ok_or(ConfigError("MEDIA_APPROVED_DIR must be an absolute path."))?;
         Ok(Self {
             reader,
+            public_origin,
             origin,
             bind,
             approved_dir,

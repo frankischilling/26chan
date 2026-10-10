@@ -22,6 +22,7 @@ assert.deepEqual(output.imports.map(item => [item.path, item.kind, item.external
   ['../static/thread-watcher-core.v1.js', 'import-statement', true],
   ['../static/thread-watcher-core.v1.js', 'import-statement', true],
   ['../static/thread-watcher-core.v1.js', 'import-statement', true],
+  ['../static/thread-watcher-core.v1.js', 'import-statement', true],
   ['/static/tegaki/tegaki-0.9.4.v1.js', 'dynamic-import', true],
 ]);
 assert.deepEqual(output.exports, ['mountNativeQuickReply']);

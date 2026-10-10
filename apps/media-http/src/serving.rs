@@ -2,7 +2,7 @@ use crate::{AppState, security::error};
 use axum::{
     body::Body,
     extract::{Path, State},
-    http::{HeaderMap, HeaderValue, StatusCode, Uri},
+    http::{HeaderMap, HeaderValue, Method, StatusCode, Uri, header},
     response::{IntoResponse, Response},
 };
 use board_media::ObjectId;
@@ -37,13 +37,14 @@ pub async fn image(
     } else {
         state.reader.get(&id.to_string()).await
     };
-    serve(state, asset, thumbnail, format, headers).await
+    serve(state, asset, thumbnail, format, headers, false).await
 }
 
 pub async fn post_image(
     State(state): State<AppState>,
     Path((board, name)): Path<(String, String)>,
     uri: Uri,
+    method: Method,
     headers: HeaderMap,
 ) -> Response {
     let thumbnail = name.ends_with("s.jpg");
@@ -64,7 +65,10 @@ pub async fn post_image(
         return error(StatusCode::NOT_FOUND);
     }
     let asset = state.reader.get_post(&board, tim, thumbnail).await;
-    serve(state, asset, thumbnail, format, headers).await
+    let drawing_png = !thumbnail
+        && format == MediaFormat::Png
+        && (method == Method::GET || method == Method::HEAD);
+    serve(state, asset, thumbnail, format, headers, drawing_png).await
 }
 
 async fn serve(
@@ -73,6 +77,7 @@ async fn serve(
     thumbnail: bool,
     format: MediaFormat,
     headers: HeaderMap,
+    drawing_png: bool,
 ) -> Response {
     let asset = match asset {
         Ok(asset) => asset,
@@ -137,6 +142,22 @@ async fn serve(
             .expect("opaque filename"),
     );
     h.insert("accept-ranges", HeaderValue::from_static("none"));
+    if drawing_png {
+        // Both representations are verified above, including conditional 304.
+        // An eligible response varies even when the request has no Origin or
+        // supplies a different or repeated value.
+        h.insert(header::VARY, HeaderValue::from_static("Origin"));
+        let mut origins = headers.get_all(header::ORIGIN).iter();
+        if let Some(origin) = origins.next()
+            && origins.next().is_none()
+            && origin.as_bytes() == state.public_origin.as_bytes()
+        {
+            h.insert(
+                header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                state.public_origin.clone(),
+            );
+        }
+    }
     if !unchanged {
         h.insert(
             "content-length",

@@ -227,9 +227,15 @@ async function sendPost({ board, thread, fields, signal, origin = location.origi
   if (!/^[a-z0-9]{1,10}$/.test(board) || !(allowNew ? uploadTarget(thread) : postId(thread))) throw new Error('Invalid posting target.');
   const base = new URL(origin);
   if (!['http:', 'https:'].includes(base.protocol) || base.origin !== origin || base.username || base.password) throw new Error('Invalid posting origin.');
+  const annotated = fields.oe_time !== undefined || fields.oe_src !== undefined;
+  if (annotated && (board !== 'i' || allowNew || typeof fields.oe_time !== 'string'
+    || !/^(0|[1-9][0-9]*)$/.test(fields.oe_time) || !Number.isSafeInteger(Number(fields.oe_time))
+    || (fields.oe_src !== undefined && !postId(fields.oe_src))
+    || !fields.upload_id || !fields.upload_capability)) throw new Error('Invalid drawing annotation.');
   const form = new FormData();
   let bytes = 0;
-  for (const name of ['name', 'email', ...(allowNew ? ['sub'] : []), 'com', 'pwd', 'upload_id', 'upload_capability', 'spoiler', 'flag']) {
+  for (const name of ['name', 'email', ...(allowNew ? ['sub'] : []), 'com', 'pwd', 'upload_id', 'upload_capability', 'spoiler', 'flag',
+    ...(annotated ? ['oe_time', 'oe_src'] : [])]) {
     const value = fields[name] ?? '';
     if (typeof value !== 'string') throw new Error('Invalid posting form.');
     bytes += new TextEncoder().encode(value).length;

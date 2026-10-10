@@ -143,6 +143,10 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Qualify source drawing board policy upgrade
         run: sudo bash scripts/test-board-drawing-migration.sh
+      - name: Qualify drawing edit ownership and exact source board restoration
+        run: |
+          source .local/database.env
+          DRAWING_EDIT_LEASE_DISPOSABLE=1 python3 scripts/test-drawing-edit-lease.py
       - name: Upgrade existing staff sessions from migration 0005
         run: sudo bash scripts/test-staff-idle-migration.sh
       - name: Build and qualify a disposable media guest on the owned runner

@@ -112,6 +112,7 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>, board: &str
         reader.clone(),
         ApprovedFiles::open(&root).unwrap(),
         &board_config::Origin::parse("http://127.0.0.1:3002").unwrap(),
+        &board_config::Origin::parse("http://127.0.0.1:3000").unwrap(),
     ));
     let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
         .await
@@ -339,6 +340,7 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>, board: &str
             country_database: None,
             flag: "",
             options: "",
+            drawing: None,
         },
     )
     .await
@@ -378,6 +380,49 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>, board: &str
                 .as_ref(),
             expected
         );
+    }
+    // Animation and both PNG thumbnails remain outside the drawing CORS path.
+    for path in [&url, &thumbnail_url, &post_url, &post_thumbnail] {
+        let response = app
+            .clone()
+            .oneshot(
+                request("GET", path)
+                    .header("origin", "http://127.0.0.1:3000")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(
+            !response
+                .headers()
+                .contains_key("access-control-allow-origin")
+        );
+        assert!(!response.headers().contains_key("vary"));
+        let etag = response.headers()["etag"].clone();
+        drop(response);
+        for method in ["GET", "HEAD"] {
+            let response = app
+                .clone()
+                .oneshot(
+                    request(method, path)
+                        .header("origin", "http://127.0.0.1:3000")
+                        .header("if-none-match", &etag)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
+            assert!(
+                !response
+                    .headers()
+                    .contains_key("access-control-allow-origin")
+            );
+            assert!(!response.headers().contains_key("vary"));
+            assert!(to_bytes(response.into_body(), 0).await.unwrap().is_empty());
+        }
     }
     for path in [
         format!("/{board}/{}.png", attachment.tim),

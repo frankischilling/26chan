@@ -24,6 +24,7 @@ pub struct Input<'a> {
     pub sjis: bool,
     pub dice: Option<&'a str>,
     pub fortune: Option<(&'a str, &'a str)>,
+    pub drawing: Option<&'a crate::views::DrawingAnnotation>,
 }
 
 pub fn prepare(input: Input<'_>) -> Prepared {
@@ -35,6 +36,7 @@ pub fn prepare(input: Input<'_>) -> Prepared {
         sjis,
         dice,
         fortune,
+        drawing,
     } = input;
     let subject = subject.strip_prefix("SPOILER<>").unwrap_or(subject);
     let source_links = matches!(format, 104..=111 | 120..=127);
@@ -84,6 +86,9 @@ pub fn prepare(input: Input<'_>) -> Prepared {
             Token::GeneratedBold(false),
             Token::GeneratedFortune(false, color.into()),
         ]);
+    }
+    if let Some(drawing) = drawing {
+        tokens.extend(drawing.tokens(" "));
     }
     // Source !empty() also excludes the string "0".
     if !subject.is_empty() && subject != "0" {
@@ -213,6 +218,13 @@ pub(crate) fn row(
             board_domain::source_html_entities(text)
         ));
     }
+    let drawing = crate::views::DrawingAnnotation::from_saved(
+        entry.drawing_time_seconds,
+        entry.drawing_source_post_id,
+    );
+    if let Some(drawing) = &drawing {
+        comment.push_str(&drawing.stored_html());
+    }
     let context = board_domain::semantic_context::generate(&subject, &comment, board.staff_only)
         .map_err(|_| {
             AppError(
@@ -230,6 +242,7 @@ pub(crate) fn row(
         sjis: board.comment_sjis_spacing,
         dice: entry.dice_result.as_deref(),
         fortune,
+        drawing: drawing.as_ref(),
     });
     Ok(Row {
         id: entry.id,
@@ -252,6 +265,7 @@ mod tests {
             sjis,
             dice: None,
             fortune: None,
+            drawing: None,
         })
         .serialized
     }
@@ -326,6 +340,7 @@ mod tests {
             sjis: false,
             dice: Some("Rolled 3 (1d6)"),
             fortune: None,
+            drawing: None,
         });
         assert_eq!(prepared.serialized, "<b>Rolled 3 (1d6) </b>body");
         let prepared = prepare(Input {
@@ -336,8 +351,29 @@ mod tests {
             sjis: false,
             dice: None,
             fortune: Some(("Good Luck", "green")),
+            drawing: None,
         });
         let source = "body<span class=\"fortune\" style=\"color:green\"> <b>Your fortune: Good Luck</b></span>";
         assert_eq!(prepared.serialized, source);
+    }
+
+    #[test]
+    fn drawing_annotation_keeps_source_small_markup_before_archive_clipping() {
+        let drawing = crate::views::DrawingAnnotation::from_saved(Some(90), Some(42)).unwrap();
+        let lines = board_domain::parse_comment("body");
+        let prepared = prepare(Input {
+            subject: "",
+            lines: &lines,
+            board: "i",
+            format: 0,
+            sjis: false,
+            dice: None,
+            fortune: None,
+            drawing: Some(&drawing),
+        });
+        assert_eq!(
+            prepared.serialized,
+            "body <small><b>Oekaki Post</b> (Time: 2m, Source: &gt;&gt;42)</small>"
+        );
     }
 }

@@ -85,7 +85,7 @@
     "check:tegaki": "python3 scripts/prepare-tegaki-assets.py --check",
     "build:tegaki": "python3 scripts/prepare-tegaki-assets.py",
     "test:replay-foundation": "node apps/media-guest/tests/fixtures/replay/generate.cjs && python3 tests/media/fixtures/replay-wire/generate.py && python3 tests/media/fixtures/replay-cost/generate.py && node tests/fixtures/record-native-replay-source.mjs && node --test tests/browser/native-replay-data.test.mjs && python3 tests/media/test_replay_fixture_guards.py",
-    "test:drawing-core": "npm run check:tegaki && npm run check:native-quick-reply && node --test tests/browser/native-drawing-core.test.mjs tests/browser/native-drawing.test.mjs tests/browser/native-drawing-qr-cancel.test.mjs tests/browser/native-drawing-source.test.mjs && npm run test:replay-foundation",
+    "test:drawing-core": "npm run check:tegaki && npm run check:native-quick-reply && node --test tests/browser/native-drawing-core.test.mjs tests/browser/native-drawing.test.mjs tests/browser/native-drawing-qr-cancel.test.mjs tests/browser/native-drawing-source.test.mjs tests/browser/native-drawing-edit.test.mjs && npm run test:replay-foundation",
     "test:drawing": "npm run test:drawing-core && playwright test tests/browser/native-drawing.spec.js",
     "build:replay-worker-probe": "node tests/fixtures/replay-worker/build.mjs --write",
     "check:replay-worker-probe": "node tests/fixtures/replay-worker/build.mjs",

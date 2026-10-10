@@ -18,6 +18,8 @@ const SNAPSHOT_COLUMNS: &[&str] = &[
     "snapshot_dice_result",
     "snapshot_fortune_text",
     "snapshot_fortune_color",
+    "snapshot_drawing_time_seconds",
+    "snapshot_drawing_source_post_id",
 ];
 
 async fn pool(variable: &str, expected: &str) -> PgPool {
@@ -42,11 +44,17 @@ fn snapshot(board: &str) -> Value {
     })
 }
 
+fn drawing_snapshot(board: &str) -> Value {
+    let mut value = snapshot(board);
+    value["snapshot_version"] = json!(2);
+    value
+}
+
 async fn insert(c: &mut PgConnection, value: &Value) -> Result<i64, sqlx::Error> {
     // The typed record deliberately excludes generated/default columns.
     sqlx::query_scalar(
-        "INSERT INTO content.moderation_audit(account_id,board,target_id,action,before_mask,after_mask,snapshot_version,snapshot_name,snapshot_trip,snapshot_capcode,snapshot_subject,snapshot_comment,snapshot_comment_format,snapshot_staff_authorized_limits,snapshot_wordfiltered,snapshot_image_spoiler,snapshot_filename,snapshot_dice_result,snapshot_fortune_text,snapshot_fortune_color)
-         SELECT account_id,board,target_id,action,before_mask,after_mask,snapshot_version,snapshot_name,snapshot_trip,snapshot_capcode,snapshot_subject,snapshot_comment,snapshot_comment_format,snapshot_staff_authorized_limits,snapshot_wordfiltered,snapshot_image_spoiler,snapshot_filename,snapshot_dice_result,snapshot_fortune_text,snapshot_fortune_color
+        "INSERT INTO content.moderation_audit(account_id,board,target_id,action,before_mask,after_mask,snapshot_version,snapshot_name,snapshot_trip,snapshot_capcode,snapshot_subject,snapshot_comment,snapshot_comment_format,snapshot_staff_authorized_limits,snapshot_wordfiltered,snapshot_image_spoiler,snapshot_filename,snapshot_dice_result,snapshot_fortune_text,snapshot_fortune_color,snapshot_drawing_time_seconds,snapshot_drawing_source_post_id)
+         SELECT account_id,board,target_id,action,before_mask,after_mask,snapshot_version,snapshot_name,snapshot_trip,snapshot_capcode,snapshot_subject,snapshot_comment,snapshot_comment_format,snapshot_staff_authorized_limits,snapshot_wordfiltered,snapshot_image_spoiler,snapshot_filename,snapshot_dice_result,snapshot_fortune_text,snapshot_fortune_color,snapshot_drawing_time_seconds,snapshot_drawing_source_post_id
          FROM jsonb_populate_record(NULL::content.moderation_audit,$1) RETURNING id"
     ).bind(value).fetch_one(c).await
 }
@@ -94,6 +102,86 @@ async fn snapshot_shape_saved_bounds_and_legacy_nulls() {
     for (column, value) in valid.as_object().unwrap() {
         assert_eq!(&saved[column], value);
     }
+    assert!(saved["snapshot_drawing_time_seconds"].is_null());
+    assert!(saved["snapshot_drawing_source_post_id"].is_null());
+
+    // New writes use v2, including posts without metadata. Historical v1 and
+    // unversioned rows remain readable without manufacturing annotation data.
+    let v2 = drawing_snapshot(&board);
+    insert(&mut tx, &v2).await.unwrap();
+    for seconds in [1, 59, 60, 3599, 3600, 5_184_000] {
+        let mut time_only = v2.clone();
+        time_only["snapshot_drawing_time_seconds"] = json!(seconds);
+        insert(&mut tx, &time_only).await.unwrap();
+    }
+    for source in [1_i64, i64::MAX] {
+        let mut with_source = v2.clone();
+        with_source["snapshot_drawing_time_seconds"] = json!(90);
+        with_source["snapshot_drawing_source_post_id"] = json!(source);
+        let id = insert(&mut tx, &with_source).await.unwrap();
+        let saved: Value =
+            sqlx::query_scalar("SELECT to_jsonb(a) FROM content.moderation_audit a WHERE id=$1")
+                .bind(id)
+                .fetch_one(&mut *tx)
+                .await
+                .unwrap();
+        assert_eq!(saved["snapshot_drawing_time_seconds"], json!(90));
+        assert_eq!(saved["snapshot_drawing_source_post_id"], json!(source));
+        assert_eq!(saved["snapshot_comment"], "Saved final comment");
+    }
+    for column in [
+        "snapshot_drawing_time_seconds",
+        "snapshot_drawing_source_post_id",
+    ] {
+        let mut old = valid.clone();
+        old[column] = json!(1);
+        invalid(
+            &mut tx,
+            &old,
+            "version one cannot gain new drawing evidence",
+        )
+        .await;
+    }
+    for seconds in [-1, 0, 5_184_001] {
+        let mut invalid_time = v2.clone();
+        invalid_time["snapshot_drawing_time_seconds"] = json!(seconds);
+        invalid(
+            &mut tx,
+            &invalid_time,
+            "drawing time must be in source bounds",
+        )
+        .await;
+    }
+    for source in [-1_i64, 0] {
+        let mut invalid_source = v2.clone();
+        invalid_source["snapshot_drawing_time_seconds"] = json!(60);
+        invalid_source["snapshot_drawing_source_post_id"] = json!(source);
+        invalid(&mut tx, &invalid_source, "source post ID must be positive").await;
+    }
+    let mut source_without_time = v2.clone();
+    source_without_time["snapshot_drawing_source_post_id"] = json!(42);
+    invalid(
+        &mut tx,
+        &source_without_time,
+        "source annotation requires a time",
+    )
+    .await;
+    let mut partial_v2 = v2.clone();
+    partial_v2["snapshot_comment"] = Value::Null;
+    invalid(
+        &mut tx,
+        &partial_v2,
+        "version two requires the original saved comment",
+    )
+    .await;
+    let mut ineligible_v2 = v2.clone();
+    ineligible_v2["action"] = json!("close");
+    invalid(
+        &mut tx,
+        &ineligible_v2,
+        "version two cannot widen snapshot actions",
+    )
+    .await;
 
     // The old binary's exact column list remains valid for both historical
     // isolated actions and the supported spoiler actions. There is no backfill.
@@ -220,7 +308,7 @@ async fn snapshot_shape_saved_bounds_and_legacy_nulls() {
     }
     for (column, value) in [
         ("snapshot_version", json!(0)),
-        ("snapshot_version", json!(2)),
+        ("snapshot_version", json!(3)),
         ("snapshot_version", Value::Null),
         ("action", json!("close")),
         ("snapshot_trip", json!("!short")),
@@ -252,6 +340,7 @@ async fn snapshot_shape_saved_bounds_and_legacy_nulls() {
             "snapshot_trip" => json!("!!abcdefghijk"),
             "snapshot_capcode" => json!("mod"),
             "snapshot_fortune_color" => json!("#abcdef"),
+            "snapshot_drawing_time_seconds" | "snapshot_drawing_source_post_id" => json!(1),
             _ => json!("x"),
         };
         invalid(&mut tx, &bad, "unversioned partial snapshot").await;
@@ -315,7 +404,7 @@ async fn snapshot_runtime_role_boundaries_remain_append_only_and_staff_private()
         assert!(!allowed, "{role} cannot delete audit evidence");
     }
     // Real runtime connections prove actual checks, not just ACL inspection.
-    sqlx::query("SELECT snapshot_comment FROM content.moderation_audit WHERE false")
+    sqlx::query("SELECT snapshot_comment,snapshot_drawing_time_seconds,snapshot_drawing_source_post_id FROM content.moderation_audit WHERE false")
         .execute(&staff)
         .await
         .unwrap();
@@ -334,16 +423,32 @@ async fn snapshot_runtime_role_boundaries_remain_append_only_and_staff_private()
     );
     denied!(
         &public,
+        "SELECT snapshot_drawing_time_seconds,snapshot_drawing_source_post_id FROM content.moderation_audit WHERE false"
+    );
+    denied!(
+        &public,
         "INSERT INTO content.moderation_audit(snapshot_comment) SELECT 'x' WHERE false"
+    );
+    denied!(
+        &public,
+        "INSERT INTO content.moderation_audit(snapshot_drawing_time_seconds,snapshot_drawing_source_post_id) SELECT 90,42 WHERE false"
     );
     denied!(
         &public,
         "UPDATE content.moderation_audit SET snapshot_comment='changed' WHERE false"
     );
+    denied!(
+        &public,
+        "UPDATE content.moderation_audit SET snapshot_drawing_time_seconds=90 WHERE false"
+    );
     denied!(&public, "DELETE FROM content.moderation_audit WHERE false");
     denied!(
         &staff,
         "UPDATE content.moderation_audit SET snapshot_comment='changed' WHERE false"
+    );
+    denied!(
+        &staff,
+        "UPDATE content.moderation_audit SET snapshot_drawing_source_post_id=42 WHERE false"
     );
     denied!(&staff, "DELETE FROM content.moderation_audit WHERE false");
     // Real staff INSERT and SELECT retain exact typed saved values; the audit
@@ -359,7 +464,7 @@ async fn snapshot_runtime_role_boundaries_remain_append_only_and_staff_private()
     let test_board = board.clone();
     let result = tokio::spawn(async move {
         let mut tx = staff.begin().await.unwrap();
-        let mut value = snapshot(&test_board);
+        let mut value = drawing_snapshot(&test_board);
         value["snapshot_name"] = json!("Saved name");
         value["snapshot_trip"] = json!("!!abcdefghijk");
         value["snapshot_capcode"] = json!("founder");
@@ -370,6 +475,8 @@ async fn snapshot_runtime_role_boundaries_remain_append_only_and_staff_private()
         value["snapshot_filename"] = json!("saved.png");
         value["snapshot_fortune_text"] = json!("Saved fortune");
         value["snapshot_fortune_color"] = json!("#123abc");
+        value["snapshot_drawing_time_seconds"] = json!(5_184_000);
+        value["snapshot_drawing_source_post_id"] = json!(i64::MAX);
         let id = insert(&mut tx, &value).await.unwrap();
         let saved: Value =
             sqlx::query_scalar("SELECT to_jsonb(a) FROM content.moderation_audit a WHERE id=$1")

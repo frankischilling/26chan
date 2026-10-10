@@ -25,6 +25,8 @@ pub struct ArchivePageEntry {
     pub subject: String,
     pub archived_at: DateTime<Utc>,
     pub comment: String,
+    pub drawing_time_seconds: Option<i32>,
+    pub drawing_source_post_id: Option<i64>,
     pub comment_format: i16,
     pub staff_authorized_limits: bool,
     pub wordfilter_payload: Option<Vec<u8>>,
@@ -65,7 +67,7 @@ pub async fn archive_page_snapshot(
     if bytes > MAX_ARCHIVE_PAGE_READ_BYTES as i64 {
         return Err(StoreError::ReadLimit);
     }
-    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at,p.comment,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.dice_result,p.fortune_text,p.fortune_color FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000")
+    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at,p.comment,p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.dice_result,p.fortune_text,p.fortune_color FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000")
         .bind(slug).fetch_all(&mut *tx).await?;
     let navigation_boards = crate::read::snapshot_navigation(&mut tx, true).await?;
     tx.commit().await?;

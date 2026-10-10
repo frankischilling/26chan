@@ -13,6 +13,10 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use support::{create_post, create_post_with_attachment};
 
+// Each fixture claims the next item from the shared disposable media queue.
+// Keep independent cases apart; their intentional concurrent operations remain.
+static QUEUE_TEST: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 struct Fixture {
     admin: PgPool,
     public: PgPool,
@@ -156,9 +160,229 @@ impl Fixture {
 
 #[tokio::test]
 async fn attachment_authorization_is_atomic_one_use_and_visible_only_while_live() {
+    let _serial = QUEUE_TEST.lock().await;
     // Sequential cases share an otherwise idle disposable media queue.
     run(false).await;
     run(true).await;
+}
+
+/// Source Oekaki metadata is stamped by a real accepted attachment, after the
+/// normal comment admission path. Replays are absent even when enabled.
+#[tokio::test]
+async fn oekaki_annotation_uses_owned_image_and_source_row_without_provenance_claims() {
+    let _serial = QUEUE_TEST.lock().await;
+    let admin = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let board: String =
+        sqlx::query_scalar("SELECT 'o'||substr(replace(gen_random_uuid()::text,'-',''),1,8)")
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,user_thread_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,oekaki,oekaki_replays) VALUES($1,'Drawing annotation','Owned source metadata',2000,100,100,100,10,100,100,0,0,0,true,true)")
+        .bind(&board)
+        .execute(&admin)
+        .await
+        .unwrap();
+    let jobs = Arc::new(Mutex::new(Vec::new()));
+    let fixture = Fixture {
+        admin: admin.clone(),
+        public: public.clone(),
+        intake: IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
+            .await
+            .unwrap(),
+        queue: MediaQueue::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap())
+            .await
+            .unwrap(),
+        reader: MediaReader::connect(&std::env::var("MEDIA_READ_DATABASE_URL").unwrap())
+            .await
+            .unwrap(),
+        board: board.clone(),
+        jobs: jobs.clone(),
+        attachment_only: false,
+    };
+    let outcome = tokio::spawn(async move { exercise_drawing_annotations(&fixture).await }).await;
+    // The teardown is owned and runs even if a substantive assertion failed.
+    let mut cleanup = support::begin_cleanup(&admin, std::slice::from_ref(&board)).await;
+    sqlx::query("DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)")
+        .bind(&board).execute(&mut *cleanup).await.unwrap();
+    sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)")
+        .bind(&board).execute(&mut *cleanup).await.unwrap();
+    sqlx::query("DELETE FROM content.posts WHERE board=$1")
+        .bind(&board)
+        .execute(&mut *cleanup)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.threads WHERE board=$1")
+        .bind(&board)
+        .execute(&mut *cleanup)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.boards WHERE slug=$1")
+        .bind(&board)
+        .execute(&mut *cleanup)
+        .await
+        .unwrap();
+    support::cleanup_posting(&mut *cleanup, &board).await;
+    cleanup.commit().await.unwrap();
+    let ids = jobs.lock().unwrap().clone();
+    sqlx::query("DELETE FROM media.assets WHERE job_id=ANY($1)")
+        .bind(&ids)
+        .execute(&admin)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM media.jobs WHERE id=ANY($1)")
+        .bind(&ids)
+        .execute(&admin)
+        .await
+        .unwrap();
+    public.close().await;
+    admin.close().await;
+    outcome.unwrap();
+}
+
+async fn drawing_post(
+    fixture: &Fixture,
+    parent: i64,
+    time: Option<&str>,
+    source_post: Option<&str>,
+) -> i64 {
+    let attachment = fixture.reserve().await;
+    fixture.approve(&attachment).await;
+    support::create_post_with_metadata(
+        &fixture.public,
+        &fixture.board,
+        parent,
+        &post(),
+        Some(&attachment),
+        board_store::PostingContext {
+            request_start: chrono::Utc::now(),
+            peer: Some(support::peer()),
+            op_password_proof: None,
+        },
+        board_store::PostMetadata {
+            spoiler: false,
+            country_database: None,
+            flag: "",
+            options: "",
+            drawing: time.map(|time| board_store::DrawingSubmission { time, source_post }),
+            keys: board_store::PostIdentityKeys {
+                tripcode: None,
+                poster_id: None,
+            },
+        },
+    )
+    .await
+    .unwrap()
+}
+
+async fn check_drawing(fixture: &Fixture, post_id: i64, expected: (Option<i32>, Option<i64>)) {
+    let post = board_store::find_post(&fixture.public, &fixture.board, post_id)
+        .await
+        .unwrap();
+    assert_eq!(
+        (post.drawing_time_seconds, post.drawing_source_post_id),
+        expected
+    );
+    assert_eq!(post.comment, "A synthetic\nattachment\ncomment");
+}
+
+async fn exercise_drawing_annotations(fixture: &Fixture) {
+    fixture
+        .denied("UPDATE content.posts SET drawing_time_seconds=30 WHERE false")
+        .await;
+    fixture
+        .denied("UPDATE content.posts SET drawing_source_post_id=123 WHERE false")
+        .await;
+    let target = support::create_post(&fixture.public, &fixture.board, 0, &post())
+        .await
+        .unwrap();
+    // A text-only post carrying metadata is never stamped.
+    let key = support::key(&fixture.board);
+    let text_post = support::create_post_with_metadata(
+        &fixture.public,
+        &fixture.board,
+        target,
+        &post(),
+        None,
+        board_store::PostingContext {
+            request_start: chrono::Utc::now(),
+            peer: Some(support::peer()),
+            op_password_proof: None,
+        },
+        board_store::PostMetadata {
+            spoiler: false,
+            country_database: None,
+            flag: "",
+            options: "",
+            drawing: Some(board_store::DrawingSubmission {
+                time: "120",
+                source_post: Some("99"),
+            }),
+            keys: board_store::PostIdentityKeys {
+                tripcode: None,
+                poster_id: Some(&key),
+            },
+        },
+    )
+    .await
+    .unwrap();
+    check_drawing(fixture, text_post, (None, None)).await;
+
+    let source_op = drawing_post(fixture, 0, None, None).await;
+    check_drawing(fixture, source_op, (None, None)).await;
+    let source_reply = drawing_post(fixture, target, None, None).await;
+    let foreign_reply = drawing_post(fixture, source_op, None, None).await;
+    let source_op_id = source_op.to_string();
+    let source_reply_id = source_reply.to_string();
+    let foreign_id = foreign_reply.to_string();
+    let annotated = drawing_post(fixture, target, Some(" 121.9s"), Some(&source_op_id)).await;
+    check_drawing(fixture, annotated, (Some(121), Some(source_op))).await;
+    let in_thread = drawing_post(fixture, target, Some("66"), Some(&source_reply_id)).await;
+    check_drawing(fixture, in_thread, (Some(66), Some(source_reply))).await;
+    let wrong_thread = drawing_post(fixture, target, Some("66"), Some(&foreign_id)).await;
+    check_drawing(fixture, wrong_thread, (Some(66), None)).await;
+
+    // Original source checks tim != 0, even when the source image was deleted.
+    delete_attachment(&fixture.public, &fixture.board, source_reply)
+        .await
+        .unwrap();
+    let tombstone = drawing_post(fixture, target, Some("1e2"), Some(&source_reply_id)).await;
+    check_drawing(fixture, tombstone, (Some(100), Some(source_reply))).await;
+    board_store::delete_post(&fixture.public, &fixture.board, source_reply)
+        .await
+        .unwrap();
+    // The earlier annotation remains a historical display value.
+    check_drawing(fixture, in_thread, (Some(66), Some(source_reply))).await;
+    let deleted = drawing_post(fixture, target, Some("90"), Some(&source_reply_id)).await;
+    check_drawing(fixture, deleted, (Some(90), None)).await;
+    let missing = drawing_post(fixture, target, Some("75"), Some("not-a-number")).await;
+    check_drawing(fixture, missing, (Some(75), None)).await;
+    let invalid_time = drawing_post(fixture, target, Some("0"), Some(&source_op_id)).await;
+    check_drawing(fixture, invalid_time, (None, None)).await;
+    let upper = drawing_post(fixture, target, Some("5184000"), None).await;
+    check_drawing(fixture, upper, (Some(5_184_000), None)).await;
+    let too_long = drawing_post(fixture, target, Some("5184001"), Some(&source_op_id)).await;
+    check_drawing(fixture, too_long, (None, None)).await;
+
+    sqlx::query("UPDATE content.boards SET oekaki_replays=false WHERE slug=$1")
+        .bind(&fixture.board)
+        .execute(&fixture.admin)
+        .await
+        .unwrap();
+    let disabled = drawing_post(fixture, target, Some("60"), Some(&source_op_id)).await;
+    check_drawing(fixture, disabled, (None, None)).await;
+    sqlx::query("UPDATE content.boards SET oekaki_replays=true WHERE slug=$1")
+        .bind(&fixture.board)
+        .execute(&fixture.admin)
+        .await
+        .unwrap();
+    // On a new OP, source PHP ignores oe_src because resto is zero.
+    let new_op = drawing_post(fixture, 0, Some("120"), Some(&source_op_id)).await;
+    check_drawing(fixture, new_op, (Some(120), None)).await;
 }
 
 async fn run(attachment_only: bool) {
@@ -266,6 +490,7 @@ async fn exercise(f: &Fixture) {
             'content.require_attachment_for_empty_post()'::regprocedure,
             'content.attachment_upload_filename(text,text)'::regprocedure,
             'content.sync_image_spoiler()'::regprocedure,
+            'content.stamp_drawing_annotation()'::regprocedure,
             'content.set_post_image_spoiler(text,bigint,boolean)'::regprocedure,
             'content.lock_staff_attachment_receipt(text,bigint,text,bytea)'::regprocedure,
             'content.consume_staff_attachment_receipt(bigint,text,bigint,text,bytea,boolean,boolean)'::regprocedure
@@ -812,6 +1037,7 @@ async fn poster_counts(f: &Fixture) {
                 op_password_proof: None,
             },
             board_store::PostMetadata {
+                drawing: None,
                 spoiler: false,
                 country_database: Some(&countries),
                 flag,

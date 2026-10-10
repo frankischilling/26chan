@@ -191,6 +191,8 @@ impl Fixture {
             dice_result: None,
             fortune_text: None,
             fortune_color: None,
+            drawing_time_seconds: None,
+            drawing_source_post_id: None,
             created_at: thread.created_at,
             deleted: false,
             attachment: Some(file.clone()),

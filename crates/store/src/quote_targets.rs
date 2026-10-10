@@ -125,6 +125,8 @@ mod tests {
             subject: String::new(),
             image_spoiler: false,
             comment,
+            drawing_time_seconds: None,
+            drawing_source_post_id: None,
             comment_format: format,
             staff_authorized_limits: false,
             wordfilter_payload: None,

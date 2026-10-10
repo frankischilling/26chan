@@ -21,6 +21,8 @@ pub struct Report {
     pub flag_name: Option<String>,
     pub subject: String,
     pub comment: String,
+    pub drawing_time_seconds: Option<i32>,
+    pub drawing_source_post_id: Option<i64>,
     pub comment_format: i16,
     pub staff_authorized_limits: bool,
     pub wordfilter_payload: Option<Vec<u8>>,
@@ -81,7 +83,7 @@ pub async fn reports(pool: &PgPool, session: &Session) -> Result<Vec<Report>, Ap
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await?;
-    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,r.category_id,r.category_kind,p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,p.subject,p.comment,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,t.undead,(t.archived_at IS NOT NULL) AS archived,(b.archive_retention_seconds>0) AS archives_enabled,(p.deleted OR t.deleted) AS deleted,b.comment_spoiler_cleanup AS spoilers_enabled,p.image_spoiler FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board JOIN content.boards b ON b.slug=p.board WHERE ('all'=ANY($1) OR r.board=ANY($1)) AND NOT r.board=ANY($2) AND NOT p.deleted AND NOT t.deleted AND r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100")
+    let mut reports: Vec<Report> = sqlx::query_as("SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,r.category_id,r.category_kind,p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,p.subject,p.comment,p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,t.undead,(t.archived_at IS NOT NULL) AS archived,(b.archive_retention_seconds>0) AS archives_enabled,(p.deleted OR t.deleted) AS deleted,b.comment_spoiler_cleanup AS spoilers_enabled,p.image_spoiler FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board JOIN content.boards b ON b.slug=p.board WHERE ('all'=ANY($1) OR r.board=ANY($1)) AND NOT r.board=ANY($2) AND NOT p.deleted AND NOT t.deleted AND r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100")
         .bind(&session.permissions.allow_boards).bind(&session.permissions.deny_boards)
         .fetch_all(&mut *tx).await?;
     let ids: Vec<i64> = reports.iter().map(|r| r.post_id).collect();

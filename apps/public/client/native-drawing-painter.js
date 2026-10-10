@@ -1,4 +1,5 @@
 import { drawingDimensions, drawingPngFile } from './native-drawing-core.js';
+import { postId } from '../static/thread-watcher-core.v1.js';
 
 // Own browser download URLs without exposing them to upload/posting state.
 export function createDrawingDownload({ exportFile = drawingPngFile,
@@ -34,9 +35,43 @@ export function createDrawingDownload({ exportFile = drawingPngFile,
 // layers. Cancel is confirmed and destroyed by Tegaki itself, before onCancel.
 export function createDrawingPainter({ load = () => import('/static/tegaki/tegaki-0.9.4.v1.js').then(module => module.Tegaki),
   activeChanged = () => {}, confirmReplacement = () => confirm('Replace the drawing in the other form?'),
-  exportFile = drawingPngFile, downloads = createDrawingDownload({ exportFile }) } = {}) {
-  let engine, loading, owner = null, active = false, generation = 0, disposed = false;
+  confirmImportReplacement = () => confirm('Replace the current drawing with this post image?'),
+  exportFile = drawingPngFile, downloads = createDrawingDownload({ exportFile }),
+  createImage = () => new Image(), schedule = setTimeout, unschedule = clearTimeout, now = Date.now } = {}) {
+  let engine, loading, owner = null, active = false, generation = 0, disposed = false, pendingSource = null, pendingOpen = null;
   const setActive = value => { active = value; if (!value) downloads.invalidate(); activeChanged(value); };
+  // Never let a cross-origin Image enter Tegaki until the browser has completed
+  // its anonymous CORS load and its decoded dimensions satisfy the same budget
+  // as the disposable media decoder. Cancelling drops both callbacks and src.
+  function sourceImage(url) {
+    const image = createImage();
+    let done = false, resolve, timer;
+    const promise = new Promise(complete => { resolve = complete; });
+    function finish(value) {
+      if (done) return;
+      done = true; unschedule(timer); image.onload = image.onerror = null;
+      if (!value) { try { image.src = ''; } catch { /* Already detached. */ } }
+      resolve(value);
+    }
+    image.crossOrigin = 'anonymous';
+    image.referrerPolicy = 'no-referrer';
+    image.onload = () => {
+      try { drawingDimensions(image.naturalWidth, image.naturalHeight); finish(image); }
+      catch { finish(null); }
+    };
+    image.onerror = () => finish(null);
+    timer = schedule(() => finish(null), 10000);
+    try { image.src = url; } catch { finish(null); }
+    return { promise, cancel() { finish(null); } };
+  }
+  function cancelPending() {
+    const pending = pendingOpen;
+    pendingOpen = null;
+    const image = pendingSource;
+    pendingSource = null;
+    image?.cancel();
+    if (pending && !pending.client.disposed()) pending.client.loading(false);
+  }
   const ready = async () => {
     if (engine) return engine;
     const painter = await (loading ??= Promise.resolve().then(load).catch(error => { loading = null; throw error; }));
@@ -62,8 +97,9 @@ export function createDrawingPainter({ load = () => import('/static/tegaki/tegak
       }
     }
     if (!engine) {
-      // The source image importer decodes without bounds and never revokes its
-      // object URL. This initial drawing slice explicitly excludes image import.
+      // The vendor's local-file importer decodes without dimensions checks and
+      // retains object URLs. Only a validated remote post image may be imported
+      // through the separate anonymous CORS loader below.
       painter.onOpenClick = painter.onOpenFileSelected = () => {
         owner?.error('Opening an image in the drawing editor is unavailable.'); return false;
       };
@@ -82,23 +118,45 @@ export function createDrawingPainter({ load = () => import('/static/tegaki/tegak
     }
     engine = painter; return engine;
   };
-  async function open(client, width, height) {
-    if (disposed || active) return false;
+  async function open(client, width, height, sourceUrl = null, sourceId = null) {
+    if (disposed || active || client.disposed() || (client.allowed && !client.allowed())) return false;
+    if (pendingOpen?.client === client) return false;
+    if (pendingOpen || pendingSource) { generation++; cancelPending(); }
+    if (disposed || client.disposed() || (client.allowed && !client.allowed())) return false;
     let dimensions;
-    try { dimensions = drawingDimensions(width, height); } catch (error) { client.error(error.message); return false; }
+    if (!sourceUrl) {
+      try { dimensions = drawingDimensions(width, height); } catch (error) { client.error(error.message); return false; }
+    }
     const epoch = ++generation;
+    pendingOpen = { client, epoch };
     client.loading(true);
     try {
+      let image = null;
+      if (sourceUrl) {
+        const pending = sourceImage(sourceUrl);
+        pendingSource = { client, ...pending };
+        image = await pending.promise;
+        if (pendingSource?.promise === pending.promise) pendingSource = null;
+        if (disposed || epoch !== generation || client.disposed() || (client.allowed && !client.allowed())) return false;
+        if (!image) { client.error('The source image could not be loaded (maximum 1024 × 1024).'); return false; }
+        dimensions = drawingDimensions(image.naturalWidth, image.naturalHeight);
+      }
       const painter = await ready();
-      if (disposed || epoch !== generation || client.disposed()) return false;
-      if (owner && owner !== client && painter.bg && (owner.key !== client.key || owner.target !== client.target)) {
-        if (owner.pending() && !confirmReplacement()) return false;
+      if (disposed || epoch !== generation || client.disposed() || (client.allowed && !client.allowed())) return false;
+      const replacing = !!painter.bg && (sourceUrl || (owner && owner !== client && (owner.key !== client.key || owner.target !== client.target)));
+      if (replacing && owner) {
+        // A canvas can contain unsent strokes after Finish, Clear, or QR
+        // dismissal even when the old controller reports no pending upload.
+        // The retained layers themselves require consent before replacement.
+        if (!(sourceUrl ? confirmImportReplacement() : confirmReplacement())) return false;
         if (!await (owner.clearForReplacement?.() ?? owner.clear())) return false;
-        if (disposed || epoch !== generation || client.disposed()) return false;
-        owner.replaced(); downloads.invalidate(); painter.destroy();
+        if (disposed || epoch !== generation || client.disposed() || (client.allowed && !client.allowed())) return false;
       }
       if (!await client.prepare()) return false;
-      if (disposed || epoch !== generation || client.disposed()) return false;
+      if (disposed || epoch !== generation || client.disposed() || (client.allowed && !client.allowed())) return false;
+      if (replacing) {
+        owner?.replaced(); downloads.invalidate(); painter.destroy();
+      }
       owner = client;
       const onDone = async () => {
         if (disposed || owner !== client || epoch !== generation || client.disposed()) return;
@@ -107,9 +165,11 @@ export function createDrawingPainter({ load = () => import('/static/tegaki/tegak
           // Check before flatten allocates another canvas, including canvas sizes
           // changed inside Tegaki's own New/Open menu.
           drawingDimensions(painter.baseWidth, painter.baseHeight);
+          const tracked = painter.startTimeStamp && (!painter.hasCustomCanvas || client.sourcePost?.());
+          const seconds = tracked ? Math.max(0, Math.round((now() - painter.startTimeStamp) / 1000)) : 0;
           const file = await exportFile(painter.flatten());
           if (disposed || owner !== client || epoch !== generation || client.disposed()) return;
-          await client.finished(file);
+          await client.finished(file, seconds);
         } catch {
           if (!disposed && owner === client && epoch === generation && !client.disposed()) {
             client.error('The drawing could not be exported. Use Edit to check the canvas (maximum 1024 × 1024), then Finish again.');
@@ -125,10 +185,16 @@ export function createDrawingPainter({ load = () => import('/static/tegaki/tegak
       painter.onDoneCb = onDone; painter.onCancelCb = onCancel;
       setActive(true);
       painter.open({ ...dimensions, onDone, onCancel, saveReplay: false, replayMode: false });
+      if (image) {
+        // Tegaki's own image importer creates one layer and resets history.
+        // Never expose its unbounded file picker or arbitrary-URL loading path.
+        painter.onOpenImageLoaded.call(image);
+        client.imported?.(sourceId);
+      }
       const menu = painter.bg?.querySelector?.('#tegaki-menu-bar');
       const openButton = menu?.querySelectorAll?.('.tegaki-mb-btn')?.[1];
       if (openButton) {
-        openButton.textContent = 'Open (unavailable)'; openButton.title = 'Importing an existing image is not supported in this drawing workflow.';
+        openButton.textContent = 'Open (unavailable)'; openButton.title = 'Opening a local file is unavailable. Use Edit on an approved post PNG.';
         openButton.setAttribute('aria-disabled', 'true'); openButton.classList.add('tegaki-disabled');
         openButton.dataset.drawingImportUnavailable = '';
       }
@@ -136,23 +202,53 @@ export function createDrawingPainter({ load = () => import('/static/tegaki/tegak
       return true;
     } catch {
       if (epoch === generation && !disposed && !client.disposed()) {
-        setActive(false); client.error('The drawing editor could not be loaded. Try Draw again.');
+        if (sourceUrl && engine?.bg) engine.destroy();
+        setActive(false); client.error(sourceUrl
+          ? 'The source image could not be opened in Tegaki.'
+          : 'The drawing editor could not be loaded. Try Draw again.');
       }
       return false;
-    } finally { if (!client.disposed()) client.loading(false); }
+    } finally {
+      // A canceled operation must not clear the loading state of a newer
+      // import from the same form.
+      if (pendingOpen?.epoch === epoch) {
+        pendingOpen = null;
+        if (!client.disposed()) client.loading(false);
+      }
+    }
+  }
+  async function importFromPost(client, source) {
+    if (typeof source === 'string' && source) return open(client, null, null, source);
+    const id = postId(source?.id);
+    if (!id || typeof source.url !== 'string' || !source.url) return false;
+    return open(client, null, null, source.url, id);
   }
   function invalidate(client, { destroy = false } = {}) {
-    if (owner !== client) return;
+    const retained = destroy && owner?.key === client.key && owner?.target === client.target;
+    if (owner !== client && !retained && pendingOpen?.client !== client && pendingSource?.client !== client) return;
     generation++;
+    cancelPending();
+    if (owner !== client && !retained) return;
     if (active && engine?.bg) engine.hide();
     setActive(false);
     if (destroy && engine?.bg) engine.destroy();
+    if (destroy) owner = null;
     // Keep this owner after Clear/QR dismissal: resuming the same form preserves
     // layers. A different form deliberately replaces the retained canvas.
   }
+  function suspend() {
+    generation++;
+    cancelPending();
+    if (active && engine?.bg) engine.hide();
+    setActive(false);
+    if (owner && !owner.disposed()) owner.suspended?.();
+  }
+  const retained = (key, target) => !!engine?.bg && owner?.key === key && owner.target === target;
   function dispose() {
-    disposed = true; generation++; downloads.dispose();
+    disposed = true; generation++;
+    cancelPending();
+    downloads.dispose();
     if (engine?.bg) engine.destroy(); owner = null; setActive(false);
   }
-  return { open, invalidate, dispose, active: () => active };
+  return { open, importFromPost, invalidate, suspend, retained, dispose, active: () => active };
 }

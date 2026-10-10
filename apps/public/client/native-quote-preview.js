@@ -30,14 +30,14 @@ const localTags = {
   div: ['class', 'id', 'title', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'],
   span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
   strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title'], blockquote: ['class', 'id'],
-  br: [], wbr: [], b: [], s: [], pre: ['class'], p: ['class'], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
+  br: [], wbr: [], b: [], s: [], small: [], pre: ['class'], p: ['class'], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
 };
 const localClasses = new Set(['postContainer', 'opContainer', 'replyContainer', 'post', 'op', 'reply',
   'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'imgspoiler', 'fileDeleted', 'fileDeletedRes', 'postMessage',
   'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint',
   'fortune', 'fortune-0', 'fortune-1', 'fortune-2', 'fortune-3', 'fortune-4', 'fortune-5', 'fortune-6',
   'fortune-7', 'fortune-8', 'fortune-9', 'fortune-10', 'fortune-11', 'fortune-12']);
-const controls = '.postActions,.postMenuBtn,.extButton,.extControls,.filter-preview,.quoteLink,.sideArrows,.backlink';
+const controls = '.postActions,.postMenuBtn,.extButton,.extControls,.filter-preview,.quoteLink,.sideArrows,.backlink,[data-drawing-edit-wrap]';
 
 // Read a bounded inert recipe from the original DOM. Never clone an element with
 // an unchecked src/srcset, and never read a form control's attributes or value.

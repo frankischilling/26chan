@@ -34,6 +34,7 @@ async fn create(
             op_password_proof: None,
         },
         PostMetadata {
+            drawing: None,
             spoiler: false,
             keys: PostIdentityKeys {
                 tripcode: None,

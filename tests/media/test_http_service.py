@@ -43,9 +43,11 @@ class MediaHttpExercise(SystemdExercise):
         os.chown(self.objects, self.coordinator.pw_uid, self.http_user.pw_gid)
         self.objects.chmod(0o2750)
         self.writer['MEDIA_GROUP_READ'] = 'true'
-        with socket.socket() as sock:
+        with socket.socket() as sock, socket.socket() as public_sock:
             sock.bind(('127.0.0.1', 0))
+            public_sock.bind(('127.0.0.1', 0))
             self.http_port = sock.getsockname()[1]
+            self.public_port = public_sock.getsockname()[1]
         self.http_environment()
         text = (REPO / 'deploy/media-http.service').read_text()
         substitutions = {
@@ -74,6 +76,7 @@ class MediaHttpExercise(SystemdExercise):
         self.write(self.root / 'reader.env',
                    f'APP_ENV={mode}\nMEDIA_READ_DATABASE_URL="{credential}"\n'
                    f'MEDIA_APPROVED_DIR={self.objects}\nMEDIA_ORIGIN=http://127.0.0.1:{self.http_port}\n'
+                   f'PUBLIC_ORIGIN=http://127.0.0.1:{self.public_port}\n'
                    f'MEDIA_BIND_ADDR=127.0.0.1:{self.http_port}\n' + extra)
 
     def http(self, path, method='GET', headers=None):

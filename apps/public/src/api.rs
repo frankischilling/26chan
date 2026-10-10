@@ -135,7 +135,7 @@ pub async fn boards(
         if board.comment_code_spacing { value["code_tags"] = json!(1); }
         if board.comment_sjis_spacing { value["sjis_tags"] = json!(1); }
         if board.math_tags { value["math_tags"] = json!(1); }
-        if board.ordinary_drawing_enabled(state.media.is_some()) { value["oekaki"] = json!(1); }
+        if board.oekaki { value["oekaki"] = json!(1); }
         if board.country_flags { value["country_flags"] = json!(1); }
         let flags = (!board.board_flags.is_empty()).then(|| OrderedFlags(board.flag_options()));
         if board.forced_anon {
@@ -180,6 +180,7 @@ fn post_json(
         dice_result: post.post.dice_result.as_deref(),
         fortune_text: post.post.fortune_text.as_deref(),
         fortune_color: post.post.fortune_color.as_deref(),
+        drawing: post.drawing_annotation(),
     }
     .render()?;
     let op = post.post.id == thread.id;
@@ -648,6 +649,8 @@ mod poster_id_projection_tests {
                 dice_result: None,
                 fortune_text: None,
                 fortune_color: None,
+                drawing_time_seconds: None,
+                drawing_source_post_id: None,
                 created_at: chrono::DateTime::from_timestamp(1, 0).unwrap(),
                 deleted: false,
                 attachment: None,
