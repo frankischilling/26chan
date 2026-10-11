@@ -46,7 +46,7 @@ href values alone do not satisfy the probe. Ports end the matched hostname;
 trailing punctuation and surplus closing parentheses use separate passes against
 the original match. Word breaks stay in labels but leave the destination. The
 encoded derefer parameter retains serialized entity spelling. A nonbreaking
-space serializes as `&nbsp;` and stays within the matched URL, including its
+space in an admitted DOM serializes as `&nbsp;` and stays within the matched URL, including its
 derefer parameter. The DOM range maps all six serialized characters back to
 the original text character; it leaves the label and surrounding nodes intact.
 
@@ -124,9 +124,13 @@ control still linkifies and remains parseable.
 production page/client. Its unmodified-response case posts mixed lowercase and
 uppercase URLs, preserves the lowercase server anchor, and links the uppercase
 text on the initial page and through the real updater. It checks that HTML and
-API comment content stay unchanged when the preference changes. The nonbreaking-
-space case posts through the real handler and checks script-free HTML, initial
-client rendering, unchanged JSON, derefer admission and updater insertion.
+API comment content stay unchanged when the preference changes. The entity case
+posts through the real handler and checks script-free HTML, initial rendering,
+unchanged JSON, derefer admission and updater insertion. As in `imgboard.php:5318`
+and the source post filter, ordinary posting removes literal nonbreaking spaces
+before storage. Literal `&nbsp;` text stays escaped; its serialized `&amp;nbsp;`
+spelling stays in the browser's parameter. Actual nonbreaking-space DOM input
+is qualified separately by the isolated source corpus.
 Other checks cover existing server anchors, desktop/mobile settings, disabled or
 unavailable storage, live option changes, synthetic preview insertion, bounded
 DOM and absence of a catalog mount.

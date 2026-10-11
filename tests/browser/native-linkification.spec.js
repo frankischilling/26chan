@@ -105,15 +105,21 @@ test('desktop starts with source linkification off and the real setting enables 
   await expect(message.locator(generated)).toHaveAttribute('rel', 'noreferrer nofollow noopener');
 });
 
-test('persisted NBSP links retain source serialization across script-free, JSON and updater views', async ({ page, request, browser, owned }) => {
-  const label = 'https://example.test/a\u00a0b';
-  const href = `/derefer?url=${encodeURIComponent('https://example.test/a&nbsp;b')}`;
+test('persisted entity links preserve source sanitation across script-free, JSON and updater views', async ({ page, request, browser, owned }) => {
+  const raw = 'https://example.test/a\u00a0b';
+  const label = 'https://example.test/a&nbsp;b';
+  const serialized = 'https://example.test/a&amp;nbsp;b';
+  const href = `/derefer?url=${encodeURIComponent(serialized)}`;
   const internal = 'https://www.4chan.org/faq';
-  const reply = await owned.reply(`Serialized ${label} ${internal}`);
+  const reply = await owned.reply(`Serialized ${label} sanitized ${raw} ${internal}`);
   const jsonPath = `${owned.url}.json`;
   const before = await (await request.get(jsonPath)).json();
   const comment = before.posts.find(post => String(post.no) === reply).com;
-  expect(comment).toContain(label);
+  expect(comment).toContain(serialized);
+  // imgboard.php:5318 and the source post filter remove literal NBSP before
+  // storage. Literal entity text stays escaped and is not promoted to markup.
+  expect(comment).not.toContain('\u00a0');
+  expect(comment).toContain('https://example.test/ab');
   expect(comment).toContain(serverLink(internal));
   expect(comment).not.toContain('/derefer?url=');
 
@@ -128,19 +134,20 @@ test('persisted NBSP links retain source serialization across script-free, JSON 
 
   await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ linkify: true })));
   await page.goto(owned.url);
-  const initial = page.locator(`#m${reply} ${generated}`);
+  const initial = page.locator(`#m${reply} ${generated}[href="${href}"]`);
   await expect(initial).toHaveCount(1);
   await expect(initial).toHaveText(label);
   await expect(initial).toHaveAttribute('href', href);
   await expect(initial).toHaveAttribute('rel', 'noreferrer nofollow noopener');
+  await expect(page.locator(`#m${reply} ${generated}`)).toHaveCount(2);
   const derefer = await request.get(href);
   expect(derefer.status()).toBe(200);
   expect(derefer.headers()['cache-control']).toBe('no-store');
 
-  const live = await owned.reply(`Live serialized ${label}`);
+  const live = await owned.reply(`Live serialized ${label} sanitized ${raw}`);
   await update(page);
   await expect(status(page)).toHaveText('1 new post');
-  const inserted = page.locator(`#m${live} ${generated}`);
+  const inserted = page.locator(`#m${live} ${generated}[href="${href}"]`);
   await expect(inserted).toHaveText(label);
   await expect(inserted).toHaveAttribute('href', href);
   await expect(inserted).toHaveAttribute('rel', 'noreferrer nofollow noopener');
