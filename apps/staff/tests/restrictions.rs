@@ -238,6 +238,8 @@ async fn staff_issue_and_unban_use_live_session_scope_recent_auth_csrf_and_priva
     assert!(html.contains("thread-ban-layer"));
     assert!(html.contains("Posting off-topic threads."));
     assert!(html.contains("Replying to off-topic threads."));
+    assert!(html.contains("name=\"op_days\" type=\"text\""));
+    assert!(html.contains("name=\"rep_days\" type=\"text\""));
     assert!(
         !request(
             &app,
@@ -264,11 +266,24 @@ async fn staff_issue_and_unban_use_live_session_scope_recent_auth_csrf_and_priva
         .0,
         StatusCode::FORBIDDEN
     );
+    for raw in ["10000", "9223372036854775808", "-1tail"] {
+        assert_eq!(
+            request(
+                &app,
+                "/ban/thread",
+                Some(&batch.replace("op_days=3", &format!("op_days={raw}"))),
+                &cookie
+            )
+            .await
+            .0,
+            StatusCode::BAD_REQUEST
+        );
+    }
     assert_eq!(
         request(
             &app,
             "/ban/thread",
-            Some(&batch.replace("op_days=3", "op_days=10000")),
+            Some(&batch.replace("op_days=3", &format!("op_days={}", "1".repeat(129)))),
             &cookie
         )
         .await
@@ -349,7 +364,11 @@ async fn staff_issue_and_unban_use_live_session_scope_recent_auth_csrf_and_priva
             .2
             .contains("thread-ban-layer")
     );
-    let (code, headers, _) = request(&app, "/ban/thread", Some(&batch), &cookie).await;
+    // The source string cast runs before the 0..9999 bound.
+    let source_days = batch
+        .replace("op_days=3", "op_days=3.9days")
+        .replace("rep_days=0", "rep_days=not-a-number");
+    let (code, headers, _) = request(&app, "/ban/thread", Some(&source_days), &cookie).await;
     assert_eq!(code, StatusCode::SEE_OTHER);
     assert_eq!(headers["location"], "/reports");
     let deleted: (bool,i64,i64)=sqlx::query_as("SELECT deleted,(SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND deleted),(SELECT count(*) FROM content.moderation_audit WHERE board=$1 AND target_id=$2 AND action='remove-thread') FROM content.threads WHERE board=$1 AND id=$2")

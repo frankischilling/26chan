@@ -45,8 +45,10 @@ pub(crate) struct ThreadBan {
     csrf: String,
     op_reason: String,
     rep_reason: String,
-    op_days: i32,
-    rep_days: i32,
+    #[serde(default)]
+    op_days: String,
+    #[serde(default)]
+    rep_days: String,
 }
 #[derive(Template)]
 #[template(path = "restrictions.html")]
@@ -147,7 +149,12 @@ pub(crate) async fn thread(
             return Err(AppError::Invalid);
         }
     }
-    if !(0..=9999).contains(&input.op_days) || !(0..=9999).contains(&input.rep_days) {
+    if input.op_days.len() > 128 || input.rep_days.len() > 128 {
+        return Err(AppError::Invalid);
+    }
+    let op_days = board_domain::php_scalar::integer(&input.op_days);
+    let rep_days = board_domain::php_scalar::integer(&input.rep_days);
+    if !(0..=9999).contains(&op_days) || !(0..=9999).contains(&rep_days) {
         return Err(AppError::Invalid);
     }
     let token = auth::hash(&auth::cookie(&headers, state.config.cookie_name())?);
@@ -162,8 +169,8 @@ pub(crate) async fn thread(
             thread: input.target,
             op_reason: &input.op_reason,
             reply_reason: &input.rep_reason,
-            op_days: input.op_days,
-            reply_days: input.rep_days,
+            op_days: op_days as i32,
+            reply_days: rep_days as i32,
         },
     )
     .await

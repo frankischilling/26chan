@@ -99,7 +99,10 @@ SQL, including a fresh check at commit.
 The OP gets one global ban; each other distinct address gets one global ban
 with the separate reply reason and duration. Replies sharing the OP's address
 do not acquire another ban. Durations are whole days from 0 through 9999;
-zero days produces a warning. The defaults are three days for the OP and zero
+zero days produces a warning. Day fields preserve PHP's numeric-prefix,
+fraction truncation and exponent casts before checking that range. Empty or
+non-numeric strings cast to zero; raw day fields over 128 bytes are refused.
+The defaults are three days for the OP and zero
 for replies, with the source's off-topic reason text. Source `ban_post` writes
 host and Pass equality but never `UserPwd` password equality. The native batch
 therefore captures only the private host digest. It grants no Pass exemption
@@ -217,10 +220,13 @@ preservation, definition-drift rollback and guard/admission drift. These checks
 do not qualify ranges, Pass authentication, quotas or original rendering.
 
 `scripts/extract-thread-ban-reference.py` executes unchanged `ban_post` and
-`cpban` from the pinned `admin.php` through PHP 8.3.6. Its 75 traces use synthetic
+`cpban` from the pinned `admin.php` through PHP 8.3.6. Its 107 traces use synthetic
 post rows and exact SQL-boundary stubs, a fixed clock and DNS result, and a
-recorded deletion RPC. Of these, 64 valid OP cases cover duplicate addresses,
-OP-address replies, separate reasons and durations 0, 1, 3 and 9999. The SQL
+recorded deletion RPC. Of these, 88 valid OP cases cover duplicate addresses,
+OP-address replies, separate reasons, durations 0, 1, 3 and 9999, and source
+coercion of numeric prefixes, fractions, exponents and non-numeric strings. PHP
+primitive casts are also recorded independently beside unchanged function
+execution; the Rust day parser compares both fields in every trace. The SQL
 comparison checks the actual stored native bans and their audit rows against
 those independent results. Invalid reasons/durations and missing targets are
 rejected; the source's forged reply case is recorded as the security difference
@@ -271,13 +277,16 @@ The October 11, 2026 owned WSL/PostgreSQL 16 run passed:
 - `cargo clippy -p board-store -p board-public -p board-staff --all-targets --all-features --locked -- -D warnings`.
 - `RUN_RESTRICTION_RUST_TESTS=1 bash scripts/test-source-restrictions-migration.sh`:
   the migration checks, 13,840 posting and 3,456 report SQL/source decisions,
-  64 valid thread-ban comparisons and four runtime test binaries passed.
+  88 valid thread-ban comparisons and four runtime test binaries passed.
   The tests cover real public admission and direct-insert
   refusal, scope and automatic identity, expiry auditing, contended issuance,
   private/escaped HTTP status, warning viewing, report-target errors, atomic
   thread-ban deletion, recapture and staff authorization.
 - `cargo test -p board-domain --test ban_source --locked`: the Rust policy
   matched all 13,840 independently recorded PHP outcomes.
+- `cargo test -p board-domain --test thread_ban_reference --locked`: both day
+  fields matched all 107 PHP cast traces. The existing drawing-submission
+  integer tests also passed after sharing the same parser.
 - The posting and thread-ban extractors' `--check` against the pinned source
   passed with PHP 8.3.6.
 - `git diff --check`.

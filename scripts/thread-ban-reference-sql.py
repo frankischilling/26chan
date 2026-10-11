@@ -27,12 +27,20 @@ def main():
             print(f"INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES({no},'tbref136',{root},'Synthetic','Source comparison','Owned synthetic text');")
             print(f"INSERT INTO post_secrets.posting_history(post_id,board,thread_id,actor_hash,request_at) VALUES({no},'tbref136',{root},decode('{actor(post['host'])}','hex'),extract(epoch FROM clock_timestamp())::bigint);")
         target = offset + case["no"] if case["no"] else 0
+        op_days = case["observed"]["parsed_days"]["op"]
+        rep_days = case["observed"]["parsed_days"]["rep"]
         call = ("content.issue_thread_restrictions(decode(repeat('a1',32),'hex'),decode(repeat('b1',32),'hex'),900,"
                 f"'tbref136',{target},{literal(case['op_reason'])},{literal(case['rep_reason'])},"
-                f"{case['op_days']},{case['rep_days']})")
+                f"{op_days}::integer,{rep_days}::integer)")
         normal = bool(case["observed"]["deletions"]) and case["no"] == 100
         if not normal:
-            code = "P134N" if case["no"] in (999, 102) else "23514"
+            # Runtime validates the PHP cast before narrowing to SQL's int32.
+            # For wider source casts, qualify SQL's parameter conversion refusal
+            # too; Rust/HTTP tests independently check the actual form boundary.
+            if any(not -2147483648 <= days <= 2147483647 for days in (op_days, rep_days)):
+                code = "22003"
+            else:
+                code = "P134N" if case["no"] in (999, 102) else "23514"
             print("RESET ROLE; SET ROLE board_staff;")
             print(f"DO $$ BEGIN PERFORM * FROM {call}; RAISE EXCEPTION 'Thread case {index} was accepted'; EXCEPTION WHEN SQLSTATE '{code}' THEN NULL; END $$;")
             print("RESET ROLE;")

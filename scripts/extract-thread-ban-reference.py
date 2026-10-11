@@ -28,6 +28,10 @@ def recipes():
                          ("op_days", -1), ("op_days", 10000),
                          ("rep_days", -1), ("rep_days", 10000)]:
         cases.append({**base, field: value})
+    for field, value in itertools.product(["op_days", "rep_days"],
+            ["", "0", "junk", "+3", " 2.9days", "3e2", "9999.9", "10000tail",
+             "-1tail", "-.9", "1e309", "-1e309", "9223372036854775808", "42e42", "0x10", "12e+tail"]):
+        cases.append({**base, field: value})
     for i, case in enumerate(cases):
         case["name"] = f"thread-{i}"
     return cases
@@ -81,9 +85,10 @@ function delete_post($no,$imgonly,$template=null,$tool=null) {
 }
 ob_start();
 register_shutdown_function(function() {
- global $bans,$deletions;
+ global $bans,$deletions,$case;
  $output=ob_get_clean();
- echo json_encode(['php'=>PHP_VERSION,'bans'=>$bans,'deletions'=>$deletions,'output'=>$output],JSON_THROW_ON_ERROR);
+ echo json_encode(['php'=>PHP_VERSION,'bans'=>$bans,'deletions'=>$deletions,'output'=>$output,
+  'parsed_days'=>['op'=>(int)$case['op_days'],'rep'=>(int)$case['rep_days']]],JSON_THROW_ON_ERROR);
 });
 '''
     program += functions + "\ncpban($case['no']);\n"

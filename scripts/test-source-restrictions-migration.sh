@@ -268,7 +268,7 @@ echo 'Thread batch populated upgrade, private-role denials and deferred guard dr
 python3 scripts/thread-ban-reference-sql.py > "$cluster/thread-source-comparison.sql"
 chown postgres:postgres "$cluster/thread-source-comparison.sql"
 "${root[@]}" -f "$cluster/thread-source-comparison.sql"
-echo 'Thread batch SQL matched all 64 valid source traces and rejected invalid/root-forged inputs.'
+echo 'Thread batch SQL matched all 88 valid source traces and rejected invalid/root-forged inputs.'
 
 # Qualify both independent bounds, including a huge single-address thread.
 "${root[@]}" <<'SQL'
