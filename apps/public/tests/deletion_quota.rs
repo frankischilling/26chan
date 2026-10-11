@@ -497,7 +497,7 @@ impl Fixture {
                 assert!(!self.mutated(id, file_only).await);
                 assert_eq!(self.count(peer).await, 0);
             }
-            // A missing attachment must roll back any attempted reservation too.
+            // Source-compatible text-only file deletion is a successful charged action.
             let id = self.post(0, false).await;
             assert_eq!(
                 self.submit(
@@ -513,10 +513,10 @@ impl Fixture {
                 )
                 .await
                 .0,
-                StatusCode::NOT_FOUND
+                route.success()
             );
             assert!(!self.deleted(id).await);
-            assert_eq!(self.count(peer).await, 0);
+            assert_eq!(self.count(peer).await, 1);
             assert_eq!(
                 self.submit(
                     &self.app,
@@ -534,7 +534,7 @@ impl Fixture {
                 route.success()
             );
             assert!(self.deleted(id).await);
-            assert_eq!(self.count(peer).await, 1);
+            assert_eq!(self.count(peer).await, 2);
         }
     }
 

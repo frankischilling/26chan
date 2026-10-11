@@ -395,6 +395,13 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     if !content_erasure {
         return Err(AppError::Internal);
     }
+    let file_deletion: bool =
+        sqlx::query_scalar(board_store::post_media::FILE_DELETION_READINESS_SQL)
+            .fetch_one(&state.staff)
+            .await?;
+    if !file_deletion {
+        return Err(AppError::Internal);
+    }
     let archive_deletion_secrets: bool = sqlx::query_scalar(ARCHIVE_DELETION_SECRETS_READY_SQL)
         .fetch_one(&state.staff)
         .await?;

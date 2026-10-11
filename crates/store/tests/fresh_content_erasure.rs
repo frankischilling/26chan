@@ -251,7 +251,7 @@ impl Fixture {
             let row = rows.iter().find(|p| p["id"] == *id).unwrap();
             let mut expected = json!({"id":id,"board":self.board,"thread_id":row["thread_id"],"deleted":true,"content_erased":true,
                 "name":"","subject":"","comment":"","created_at":"1970-01-01T00:00:00+00:00", "comment_format":0,
-                "staff_authorized_limits":false,"image_spoiler":false,"board_flag_type":"pol"});
+                "staff_authorized_limits":false,"image_spoiler":false,"file_deleted":false,"board_flag_type":"pol"});
             for key in [
                 "trip",
                 "poster_id",
@@ -350,6 +350,12 @@ async fn actual_roles_erase_all_payload_and_authority_transactionally_without_sh
         let result = tokio::spawn(async move {
             let f = work;
             f.sentinels().await;
+            // File-only marks even text-only content; whole erasure must reset
+            // that marker rather than preserve a meaningless erased payload bit.
+            let pool = if staff { &f.staff } else { &f.public };
+            for id in &f.ids[..3] {
+                board_store::post_media::delete_attachment(pool, &f.board, *id).await.unwrap();
+            }
             if private {
                 sqlx::query("UPDATE content.boards SET staff_only=true WHERE slug=$1")
                     .bind(&f.board)
@@ -378,6 +384,7 @@ async fn actual_roles_erase_all_payload_and_authority_transactionally_without_sh
             }
             sqlx::query("UPDATE content.threads SET created_at='2001-02-03 04:05:06+00',bumped_at='2001-02-04 04:05:06+00',modified_at='2001-02-05 04:05:06+00',sticky=true,sticky_rank=60,closed=true,permasage=true,permaage=true,undead=true WHERE id=$1").bind(f.ids[0]).execute(&f.owner).await.unwrap();
             let before = f.posts().await;
+            assert!(before[..3].iter().all(|row| row["file_deleted"] == true));
             let authority = f.authority().await;
             assert_eq!(authority["deletion"].as_array().unwrap().len(), 4);
             assert_eq!(authority["anonymous"].as_array().unwrap().len(), 4);
@@ -481,7 +488,7 @@ async fn tombstones_cannot_resurrect_repopulate_or_regain_authority_and_live_emp
         board_store::delete_post(&f.public,&f.board,f.ids[0]).await.unwrap();
         f.assert_erased(&f.ids[..3]).await;
             f.assert_thread_erased(f.ids[0]).await;
-        for query in ["UPDATE content.posts SET deleted=false WHERE id=$1", "UPDATE content.posts SET content_erased=false WHERE id=$1", "UPDATE content.posts SET comment='resurrected' WHERE id=$1", "UPDATE content.posts SET name='resurrected' WHERE id=$1", "UPDATE content.posts SET wordfilter_search='resurrected' WHERE id=$1", "UPDATE content.posts SET drawing_time_seconds=119 WHERE id=$1", "UPDATE content.posts SET drawing_time_seconds=119,drawing_source_post_id=1 WHERE id=$1", "UPDATE content.threads SET deleted=false WHERE id=$1", "UPDATE content.threads SET content_erased=false WHERE id=$1", "UPDATE content.threads SET bumped_at=clock_timestamp() WHERE id=$1"] {
+        for query in ["UPDATE content.posts SET deleted=false WHERE id=$1", "UPDATE content.posts SET content_erased=false WHERE id=$1", "UPDATE content.posts SET file_deleted=true WHERE id=$1", "UPDATE content.posts SET comment='resurrected' WHERE id=$1", "UPDATE content.posts SET name='resurrected' WHERE id=$1", "UPDATE content.posts SET wordfilter_search='resurrected' WHERE id=$1", "UPDATE content.posts SET drawing_time_seconds=119 WHERE id=$1", "UPDATE content.posts SET drawing_time_seconds=119,drawing_source_post_id=1 WHERE id=$1", "UPDATE content.threads SET deleted=false WHERE id=$1", "UPDATE content.threads SET content_erased=false WHERE id=$1", "UPDATE content.threads SET bumped_at=clock_timestamp() WHERE id=$1"] {
             let error=sqlx::query(query).bind(f.ids[0]).execute(&f.owner).await.unwrap_err();
             assert_eq!(code(&error),"23514","{query}");
         }

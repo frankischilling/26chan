@@ -77,7 +77,8 @@ AND NOT EXISTS(SELECT 1 FROM (VALUES ('posts'),('threads')) required(table_name)
           AND c.convalidated AND NOT c.connoinherit
           AND pg_catalog.pg_get_constraintdef(c.oid) LIKE '%content_erased%'
           AND (required.table_name<>'posts' OR (
-              pg_catalog.pg_get_constraintdef(c.oid) LIKE '%drawing_time_seconds IS NULL%'
+              pg_catalog.pg_get_constraintdef(c.oid) LIKE '%NOT file_deleted%'
+              AND pg_catalog.pg_get_constraintdef(c.oid) LIKE '%drawing_time_seconds IS NULL%'
               AND pg_catalog.pg_get_constraintdef(c.oid) LIKE '%drawing_source_post_id IS NULL%'))))
 AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles runtime
     WHERE runtime.rolname IN('board_public','board_staff','board_auth','board_media',
@@ -163,6 +164,9 @@ AND NOT EXISTS(SELECT 1 FROM (VALUES
     ('staff_identity.discussion_posts')) required(table_name)
     WHERE NOT has_table_privilege('board_content_erasure_owner',(SELECT oid FROM relations WHERE table_name=required.table_name),'DELETE')
        OR has_table_privilege('board_content_erasure_owner',(SELECT oid FROM relations WHERE table_name=required.table_name),'SELECT,INSERT,UPDATE,TRUNCATE,TRIGGER'))
+AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='post_secrets' AND p.proname='guard_post_erasure'
+      AND position('NEW.file_deleted:=false' in p.prosrc)>0)
 AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p
     WHERE p.oid=to_regprocedure('content.require_attachment_for_empty_post()')
       AND p.proowner='board_attachment_owner'::regrole AND p.prosecdef

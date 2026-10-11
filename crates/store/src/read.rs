@@ -387,7 +387,7 @@ pub async fn search(
                      WHEN strpos(lower(p.comment), lower($2)) > 0 THEN \
                        substring(p.comment FROM greatest(1, strpos(lower(p.comment), lower($2)) - ($4 / 4)::integer) FOR $4::integer) \
                      ELSE left(p.comment, $4::integer) END AS comment,\
-                p.drawing_time_seconds,p.drawing_source_post_id,p.dice_result,p.fortune_text,p.fortune_color,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.created_at,p.deleted \
+                p.drawing_time_seconds,p.drawing_source_post_id,p.dice_result,p.fortune_text,p.fortune_color,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.created_at,p.deleted,p.file_deleted \
          FROM unnest($1::bigint[]) WITH ORDINALITY AS selected(thread_id,ord) \
          CROSS JOIN LATERAL (\
             SELECT picked.* FROM (\

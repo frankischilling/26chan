@@ -1,6 +1,6 @@
 {% macro file(item, board, media_origin, spoiler_thumbnail) %}
 {% if let Some(file) = item.post.attachment %}
-{% if file.file_deleted %}<div class="file" id="f{{ item.post.id }}"><span class="fileThumb"><img class="fileDeletedRes" src="/static/catalog/filedeleted-res.gif" srcset="/static/catalog/filedeleted-res@2x.gif 2x" alt="File deleted." width="127" height="13" loading="lazy"></span></div>
+{% if item.post.file_deleted() %}<div class="file" id="f{{ item.post.id }}"><span class="fileThumb"><img class="fileDeletedRes" src="/static/catalog/filedeleted-res.gif" srcset="/static/catalog/filedeleted-res@2x.gif 2x" alt="File deleted." width="127" height="13" loading="lazy"></span></div>
 {% else if !media_origin.is_empty() %}
 <div class="file" id="f{{ item.post.id }}"{% if file.spoiler %} data-image-spoiler="true" data-image-filename="{{ file.filename }}"{% if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) %} data-thumbnail-width="{{ width }}" data-thumbnail-height="{{ height }}"{% else %}{% let (width, height) = item.catalog_size(true) %} data-thumbnail-width="{{ width }}" data-thumbnail-height="{{ height }}" data-thumbnail-legacy="true"{% endif %}{% endif %}>
 {% let label = item.file_label(file.filename) %}

@@ -240,7 +240,7 @@ fn write_feed(
             writer.write_str("</dc:creator>")?;
         }
         let (source, thumbnail) = match &post.attachment {
-            Some(file) if !file.file_deleted => (
+            Some(file) if !post.file_deleted() => (
                 format!(
                     "{media_origin}/{}/{}.{}",
                     board.slug,

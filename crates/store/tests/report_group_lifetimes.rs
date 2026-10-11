@@ -583,14 +583,13 @@ async fn actual_runtime_lifecycle_and_archive_lock_inversion_retry() {
             .await
             .unwrap();
         assert_eq!(inspect(&owner, &board, posts[1]).await, Some((1, false)));
-        let error = sqlx::query("SELECT content.staff_delete_post_attachment($1,$2)")
+        sqlx::query("SELECT content.staff_delete_post_attachment($1,$2)")
             .bind(&board)
             .bind(posts[1])
             .execute(&staff)
             .await
-            .unwrap_err();
-        assert_eq!(code(&error), "P0002");
-        assert_eq!(inspect(&owner, &board, posts[1]).await, Some((1, false)));
+            .unwrap();
+        assert_eq!(inspect(&owner, &board, posts[1]).await, None);
         sqlx::query("SELECT content.staff_delete_post_attachment($1,$2)")
             .bind(&board)
             .bind(posts[2])
@@ -599,14 +598,25 @@ async fn actual_runtime_lifecycle_and_archive_lock_inversion_retry() {
             .unwrap();
         assert_eq!(inspect(&owner, &board, posts[2]).await, None);
         report_ids.push(runtime_report(&public, &board, posts[2], 1, revision).await);
-        let error = sqlx::query("SELECT content.staff_delete_post_attachment($1,$2)")
+        sqlx::query("SELECT content.staff_delete_post_attachment($1,$2)")
             .bind(&board)
             .bind(posts[2])
             .execute(&staff)
             .await
-            .unwrap_err();
-        assert_eq!(code(&error), "P0002");
-        assert_eq!(inspect(&owner, &board, posts[2]).await, Some((0, false)));
+            .unwrap();
+        assert_eq!(inspect(&owner, &board, posts[2]).await, None);
+        let removed: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM content.reports WHERE board=$1 AND post_id=ANY($2)",
+        )
+        .bind(&board)
+        .bind(&posts[1..3])
+        .fetch_one(&owner)
+        .await
+        .unwrap();
+        assert_eq!(
+            removed, 0,
+            "Staff file-only clears report history on every successful action"
+        );
         sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1")
             .bind(posts[3])
             .execute(&owner)

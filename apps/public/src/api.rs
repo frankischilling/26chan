@@ -278,28 +278,26 @@ fn post_json(
     if post.post.image_spoiler {
         value["spoiler"] = json!(1);
     }
-    if let Some(file) = post.post.attachment {
-        if file.file_deleted {
-            value["filedeleted"] = json!(1);
-        } else {
-            value["tim"] = json!(file.tim);
-            value["filename"] = json!(
-                file.filename
-                    .rsplit_once('.')
-                    .filter(|(stem, _)| !stem.is_empty())
-                    .map_or(file.filename.as_str(), |(stem, _)| stem)
-            );
-            value["ext"] = json!(format!(".{}", file.output_format.extension()));
-            value["fsize"] = json!(file.bytes);
-            value["w"] = json!(file.width);
-            value["h"] = json!(file.height);
-            if let Some(md5) = file.md5 {
-                value["md5"] = json!(md5);
-            }
-            if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) {
-                value["tn_w"] = json!(width);
-                value["tn_h"] = json!(height);
-            }
+    if post.post.file_deleted() {
+        value["filedeleted"] = json!(1);
+    } else if let Some(file) = post.post.attachment {
+        value["tim"] = json!(file.tim);
+        value["filename"] = json!(
+            file.filename
+                .rsplit_once('.')
+                .filter(|(stem, _)| !stem.is_empty())
+                .map_or(file.filename.as_str(), |(stem, _)| stem)
+        );
+        value["ext"] = json!(format!(".{}", file.output_format.extension()));
+        value["fsize"] = json!(file.bytes);
+        value["w"] = json!(file.width);
+        value["h"] = json!(file.height);
+        if let Some(md5) = file.md5 {
+            value["md5"] = json!(md5);
+        }
+        if let (Some(width), Some(height)) = (file.thumbnail_width, file.thumbnail_height) {
+            value["tn_w"] = json!(width);
+            value["tn_h"] = json!(height);
         }
     }
     Ok(value)
@@ -659,6 +657,7 @@ mod poster_id_projection_tests {
                 drawing_source_post_id: None,
                 created_at: chrono::DateTime::from_timestamp(1, 0).unwrap(),
                 deleted: false,
+                file_deleted: false,
                 attachment: None,
             };
             assert_eq!(
@@ -690,8 +689,9 @@ mod tests {
     #[test]
     fn gif_metadata_uses_approved_format_and_deleted_files_omit_the_url_fields() {
         let fixture = crate::native_updater_snapshot::tests::fixture();
-        for deleted in [false, true] {
+        for (deleted, historical) in [(false, false), (true, false), (false, true)] {
             let mut post = fixture.posts[0].clone();
+            post.file_deleted = deleted;
             post.attachment = Some(board_store::post_media::PostAttachment {
                 post_id: post.id,
                 asset_id: "0".repeat(32),
@@ -700,7 +700,7 @@ mod tests {
                 width: 32,
                 height: 24,
                 spoiler: false,
-                file_deleted: deleted,
+                file_deleted: historical,
                 tim: 42,
                 md5: None,
                 thumbnail_width: Some(32),
@@ -720,9 +720,11 @@ mod tests {
                 },
             )
             .unwrap();
-            if deleted {
+            if deleted || historical {
                 assert_eq!(value["filedeleted"], 1);
-                for key in ["ext", "tim", "fsize", "md5"] {
+                for key in [
+                    "ext", "tim", "filename", "fsize", "w", "h", "tn_w", "tn_h", "md5",
+                ] {
                     assert!(value.get(key).is_none());
                 }
             } else {
@@ -733,6 +735,36 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn post_level_file_deletion_serializes_without_inventing_attachment_metadata() {
+        let fixture = crate::native_updater_snapshot::tests::fixture();
+        for deleted in [false, true] {
+            let mut post = fixture.posts[0].clone();
+            post.file_deleted = deleted;
+            post.comment = "Preserved text-only comment".into();
+            let value = post_json(
+                post,
+                &fixture.thread,
+                &fixture.board,
+                0,
+                0,
+                None,
+                QuoteContext {
+                    targets: &fixture.quote_targets,
+                    current_thread: Some(fixture.thread.id),
+                },
+            )
+            .unwrap();
+            assert_eq!(value.get("filedeleted"), deleted.then_some(&json!(1)));
+            assert_eq!(value["com"], "Preserved text-only comment");
+            for key in [
+                "tim", "filename", "ext", "fsize", "w", "h", "tn_w", "tn_h", "md5",
+            ] {
+                assert!(value.get(key).is_none(), "Unexpected {key}: {value}");
+            }
+        }
+    }
+
     #[test]
     fn deletion_during_preview_does_not_wrap_reply_count() {
         assert!(checked_reply_count(0).is_err());

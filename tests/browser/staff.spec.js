@@ -882,20 +882,44 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await login();
     expect((await context.cookies()).find(cookie => cookie.name === 'staff').value !== idleCookie).toBe(true);
     expect(fixture('inspect', board).sessions).toBe(1);
+    await report.getByRole('button', { name: 'Resolve report', exact: true }).click(); await expect(report).toContainText('resolved');
+    await report.getByRole('button', { name: 'Dismiss report', exact: true }).click(); await expect(report).toContainText('dismissed');
     const attachmentBefore = await page.request.get(publicUrl);
     expect((await attachmentBefore.json()).posts[1].tim).toBe(data.tim);
     await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
     await report.getByRole('button', { name: 'Remove file only', exact: true }).click();
-    await expect(report).toContainText('File unavailable');
+    await expect(report).toHaveCount(0);
+    expect(fixture('inspect', board).reports, 'Administrative file deletion removes the target report from storage as well as the queue').toBe(0);
     await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
-    await expect(report).toContainText('Harmless reply');
-    expect(await report.getByRole('link', { name: 'Open spoiler image' }).count()).toBe(0);
     const attachmentAfter = await page.request.get(publicUrl, { headers: { 'If-None-Match': attachmentBefore.headers().etag } });
     expect(attachmentAfter.status()).toBe(200);
     const deletedFilePost = (await attachmentAfter.json()).posts[1];
     expect(deletedFilePost.filedeleted).toBe(1); expect(deletedFilePost.tim).toBeUndefined();
     expect((await page.request.get(`http://127.0.0.2:3002/${board}/${data.tim}.png`, { headers: { 'If-None-Match': mediaEtag } })).status()).toBe(404);
     expect((await page.request.get(`http://127.0.0.2:3002/${board}/${data.tim}s.jpg`, { headers: { 'If-None-Match': thumbnailEtag } })).status()).toBe(404);
+    // The surviving reply can receive a new report through ordinary public admission.
+    const freshReason = 'Owned fresh report after administrative file removal';
+    const admitted = await page.request.post(`http://127.0.0.1:3000/${board}/report`, {
+      headers: { Origin: 'http://127.0.0.1:3000' }, maxRedirects: 0,
+      form: { no: String(data.post), reason: freshReason },
+    });
+    expect(admitted.status()).toBe(200);
+    expect(await admitted.text()).toContain('data-result="success"');
+    expect(fixture('inspect', board).reports).toBe(1);
+    await page.reload();
+    await expect(report).toHaveCount(0);
+    const freshReport = page.locator('article').filter({ has: page.locator(
+      'form[action="/moderate"]'
+      + `:has(input[name="board"][value="${board}"])`
+      + `:has(input[name="target"][value="${data.post}"])`
+      + ':has(button[name="action"][value="remove-post"])',
+    ) });
+    await expect(freshReport).toHaveCount(1);
+    await expect(freshReport).toContainText(freshReason);
+    await expect(freshReport).toContainText('State: open.');
+    await expect(freshReport).toContainText('File unavailable');
+    await expect(freshReport).toContainText('Harmless reply');
+    await expect(freshReport.getByRole('link', { name: 'Open spoiler image' })).toHaveCount(0);
     for (const request of mediaRequests) {
       const headers = await request.headers;
       expect(headers.cookie === undefined, 'Media request must omit staff cookies').toBe(true);
@@ -908,10 +932,8 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
       expect(headers.cookie, 'Media wire request must omit staff cookies').toBe(false);
       expect(headers.referer, 'Media wire request must omit Referer').toBe(false);
     }
-    await report.getByRole('button', { name: 'Resolve report', exact: true }).click(); await expect(report).toContainText('resolved');
-    await report.getByRole('button', { name: 'Dismiss report', exact: true }).click(); await expect(report).toContainText('dismissed');
-    await report.getByRole('button', { name: 'Remove post', exact: true }).click();
-    await expect(report).toHaveCount(0);
+    await freshReport.getByRole('button', { name: 'Remove post', exact: true }).click();
+    await expect(freshReport).toHaveCount(0);
     expect(fixture('inspect', board).reports, 'Whole-post deletion removes the report from storage as well as the queue').toBe(0);
     // Thread removal remains a real handler even after a report's reply is removed.
     const freshCsrf = await page.locator('input[name=csrf]').first().inputValue();
@@ -921,7 +943,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     const persisted = fixture('inspect', board);
     expect(persisted.reports).toBe(0);
     expect(persisted.states).toEqual([[false, false, true], [false, false, false], [false, false, false]]);
-    expect(persisted.audit).toEqual(['staff-post', 'spoiler', 'unspoiler', 'spoiler', 'close', 'reopen', 'sticky', 'unsticky', 'undead', 'unundead', 'permasage', 'permaage', 'unpermaage', 'permaage', 'unpermaage', 'staff-post', 'staff-post', 'staff-post', 'permaage', 'unpermasage', 'unpermaage', 'remove-file', 'resolve', 'dismiss', 'remove-post', 'remove-thread']);
+    expect(persisted.audit).toEqual(['staff-post', 'spoiler', 'unspoiler', 'spoiler', 'close', 'reopen', 'sticky', 'unsticky', 'undead', 'unundead', 'permasage', 'permaage', 'unpermaage', 'permaage', 'unpermaage', 'staff-post', 'staff-post', 'staff-post', 'permaage', 'unpermasage', 'unpermaage', 'resolve', 'dismiss', 'remove-file', 'remove-post', 'remove-thread']);
     await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await expect(page).toHaveURL('http://localhost:3001/');
     expect((await page.request.get('/reports')).status()).toBe(401);
     expect(fixture('inspect', board).sessions).toBe(0);

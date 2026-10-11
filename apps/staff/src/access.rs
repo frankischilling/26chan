@@ -52,6 +52,13 @@ impl Level {
         }
     }
 
+    /// Source imgboard.php:2509-2512 keeps a Moderator floor even for archived
+    /// deletion. The current schema forbids a persisted archived sticky OP;
+    /// that source-only combination is covered by the pure policy unit test.
+    pub(crate) fn can_delete_sticky_op(self, archived_deletion: bool) -> bool {
+        self >= Self::Moderator && (archived_deletion || self >= Self::Admin)
+    }
+
     /// Source badge selection is separate from board posting authorization.
     pub fn public_capcode(
         self,
@@ -201,6 +208,21 @@ impl Permissions {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sticky_op_deletion_preserves_source_rank_and_archived_exception() {
+        // Migration 0009 forbids archived + sticky persisted threads. These
+        // archived cases test the source policy, not an available HTTP route.
+        for (level, ordinary, archived) in [
+            (Level::Janitor, false, false),
+            (Level::Moderator, false, true),
+            (Level::Manager, false, true),
+            (Level::Admin, true, true),
+        ] {
+            assert_eq!(level.can_delete_sticky_op(false), ordinary, "{level:?}");
+            assert_eq!(level.can_delete_sticky_op(true), archived, "{level:?}");
+        }
+    }
 
     #[test]
     fn cleanup_matches_source_permission_matrix() {

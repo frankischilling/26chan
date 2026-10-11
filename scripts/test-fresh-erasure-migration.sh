@@ -470,11 +470,17 @@ for migration in migrations/*.sql; do
  [[ $(basename "$migration") > 0129_fresh_content_erasure.sql ]] || continue
  "${migrator[@]}" --single-transaction -f - < "$migration"
 done
+# 0130 adds a false-default post marker. Extend only the saved expectation;
+# any historical payload change or nonfalse marker must still fail comparison.
+"${admin[@]}" <<'SQL'
+UPDATE public.unrelated_rows SET value=value||jsonb_build_object('file_deleted',false)
+WHERE relation='content.posts';
+SQL
 cat > "$cluster/assert-erased.sql" <<'SQL'
 DO $$ DECLARE relation_name text; BEGIN
  IF (SELECT count(*) FROM content.posts WHERE thread_id=12300001)<>3
  OR EXISTS(SELECT 1 FROM content.posts WHERE thread_id=12300001 AND
-  (NOT deleted OR NOT content_erased OR name<>'' OR subject<>'' OR comment<>''
+  (NOT deleted OR NOT content_erased OR file_deleted OR name<>'' OR subject<>'' OR comment<>''
    OR trip IS NOT NULL OR poster_id IS NOT NULL OR json_op_poster_id IS NOT NULL OR capcode IS NOT NULL
    OR country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL
    OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR dice_result IS NOT NULL
@@ -586,6 +592,7 @@ DO $$ DECLARE command text; BEGIN
  FOREACH command IN ARRAY ARRAY[
  'UPDATE content.posts SET deleted=false WHERE id=12300003',
  'UPDATE content.posts SET content_erased=false WHERE id=12300003',
+ 'UPDATE content.posts SET file_deleted=true WHERE id=12300003',
  'UPDATE content.posts SET drawing_time_seconds=119 WHERE id=12300003',
  'UPDATE content.posts SET drawing_time_seconds=119,drawing_source_post_id=12300020 WHERE id=12300003',
  'UPDATE content.threads SET deleted=false WHERE id=12300001',
