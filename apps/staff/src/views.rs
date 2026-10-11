@@ -754,6 +754,9 @@ mod tests {
             }
             let html = Queue {
                 media_origin: String::new(),
+                filter_label: "All authorized boards".into(),
+                filter_board: String::new(),
+                has_more: false,
                 reports: vec![preview],
                 csrf: "frozen-preview".into(),
                 recent: true,
