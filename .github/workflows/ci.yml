@@ -424,6 +424,8 @@ jobs:
         run: sudo bash scripts/test-fresh-erasure-migration.sh
       - name: Qualify file-only actions, preserved history and administrator restore
         run: sudo bash scripts/test-file-deletion-migration.sh
+      - name: Qualify report captures, admission rollback, drift rejection and administrator restore
+        run: sudo bash scripts/test-report-snapshot-migration.sh
       - name: Qualify text-thread transfer authority, historical preservation and restore
         run: sudo bash scripts/test-text-thread-transfer-migration.sh
       - name: Qualify guarded board title correction and preserved operator state

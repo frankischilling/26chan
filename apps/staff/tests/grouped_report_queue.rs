@@ -325,6 +325,44 @@ fn article_ids(html: &str) -> Vec<i64> {
         .collect()
 }
 
+#[tokio::test]
+async fn captured_presentation_survives_live_edits_and_clear_without_granting_actions_or_scope() {
+    let _serial = TEST.lock().await;
+    let f = Fixture::new().await;
+    let result = tokio::spawn({ let f=f.clone(); async move {
+        let post=f.post(0,"CapturedOriginalBody <script>snapshot-attack</script>").await;
+        let report=f.report(0,post,"open","PrivateCapturedReason",None).await;
+        sqlx::query("UPDATE content.posts SET comment='LaterLiveBody',name='LaterLiveName',subject='LaterLiveSubject' WHERE id=$1")
+            .bind(post).execute(&f.owner).await.unwrap();
+        sqlx::query("UPDATE content.threads SET closed=true WHERE id=$1")
+            .bind(post).execute(&f.owner).await.unwrap();
+        f.role("janitor",&[f.boards[0].clone()],&[]).await;
+        let html=f.queue(&format!("?board={}",f.boards[0])).await;
+        let selected=article(&html,report);
+        assert!(selected.contains("CapturedOriginalBody"));
+        assert!(selected.contains("Post captured when report"));
+        assert!(selected.contains("closed: true"),"Action state stays current");
+        for hidden in ["LaterLiveBody","LaterLiveName","LaterLiveSubject","PrivateCapturedReason","<script>"] {
+            assert!(!selected.contains(hidden),"{hidden}");
+        }
+        sqlx::query("UPDATE content.reports SET group_cleared_at=clock_timestamp(),group_cleared_by=$2,group_clear_inherited=false WHERE id=$1")
+            .bind(report).bind(f.account).execute(&f.owner).await.unwrap();
+        let path=format!("/reports/cleared?board={}",f.boards[0]);
+        let (status,history)=f.request(&path,None).await;
+        assert_eq!(status,StatusCode::OK,"{history}");
+        assert!(history.contains("CapturedOriginalBody"));
+        for hidden in ["LaterLiveBody","PrivateCapturedReason","Originating clear account","<script>","<form","/moderate"] {
+            assert!(!history.contains(hidden),"{hidden}");
+        }
+        f.role("janitor",&[f.boards[1].clone()],&[]).await;
+        let (status,denied)=f.request(&path,None).await;
+        assert_eq!(status,StatusCode::FORBIDDEN);
+        assert!(!denied.contains("CapturedOriginalBody"));
+    }}).await;
+    f.cleanup().await;
+    result.unwrap();
+}
+
 fn article(html: &str, id: i64) -> &str {
     html.split(&format!("<div id=\"report-{id}\">"))
         .nth(1)

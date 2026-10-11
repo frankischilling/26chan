@@ -1,7 +1,7 @@
 # Grouped staff report inventory
 
 The staff queue groups uncleared retained reports by board and post. Each group
-has one current-post preview. Resolved and dismissed reports stay in the group
+has one selected post preview. Resolved and dismissed reports stay in the group
 until a separate clear or deletion action removes them. Both reporter-clear and
 group-clear markers exclude rows from this inventory.
 
@@ -62,9 +62,13 @@ disposition, clear time and inherited-clear flag. Moderators retain the captured
 category, reason and clear account. This does not claim comprehensive redaction
 across unrelated audit surfaces.
 
-Post content and attachment previews are current data. They are not labeled as
-report-time snapshots. Deleted posts and threads are excluded; retained archives
-keep the existing visibility rules.
+New reports retain public post presentation at admission. Previews label the
+capture time and use saved text, identity presentation and attachment metadata.
+Current media availability is checked separately, so removal or expiry cannot
+reopen a saved attachment. Older reports without a capture are explicitly
+labeled as current-data previews. Deleted posts and threads are excluded from
+this queue; retained archives keep the existing visibility rules. See
+[report captures](report-post-snapshots.md) for storage and migration limits.
 
 ## Actions
 
@@ -82,10 +86,10 @@ from a displayed count or category base.
 
 ## Remaining work
 
-Full source priority, ignored and cleared-only queue modes, captured report
-snapshots, source weighted counts, the larger source cap and global unlock remain
-separate. Cleared history remains a bounded per-report list rather than the
-source's grouped cleared-only queue.
+Full source priority, ignored membership, exact weighted cleared-only membership,
+full source snapshot fields, source weighted counts, the larger source cap and
+global unlock remain separate. [Cleared history](grouped-cleared-report-history.md)
+groups retained clear evidence with its own bounded, unweighted semantics.
 The source's developer-only explicit `test` filter also needs separate policy
 work; this slice does not silently change access to local fixture boards.
 

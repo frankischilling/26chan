@@ -162,6 +162,7 @@ for migration in migrations/*.sql; do
  [[ $(basename "$migration") > 0122_deleted_report_cleanup.sql ]] || continue
  "${migrator[@]}" --single-transaction -f - < "$migration"
 done
+"${admin[@]}" -f - < scripts/report-snapshot-upgrade-expectations.sql
 for phase in live restored; do
  database=deleted_report_upgrade
  if [[ $phase = restored ]]; then

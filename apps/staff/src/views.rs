@@ -36,6 +36,7 @@ pub struct Preview {
     pub moderator_summary: Option<crate::report_queue::ModeratorReportSummary>,
     pub lines: Vec<Line>,
     pub drawing: Option<DrawingAnnotation>,
+    pub snapshot: Option<crate::report_post_snapshot::SnapshotLabel>,
 }
 impl Preview {
     pub fn capcode(&self) -> Option<board_domain::capcode::Capcode> {
@@ -78,12 +79,16 @@ impl From<Report> for Preview {
             report,
             lines,
             drawing,
+            snapshot: None,
         }
     }
 }
 impl From<crate::report_queue::ReportGroup> for Preview {
     fn from(group: crate::report_queue::ReportGroup) -> Self {
-        let mut preview = Self::from(group.representative);
+        let mut preview = match group.snapshot {
+            Some(snapshot) => snapshot.preview(group.representative),
+            None => Self::from(group.representative),
+        };
         preview.has_open = group.has_open;
         preview.moderator_summary = group.moderator_summary;
         preview

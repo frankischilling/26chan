@@ -54,19 +54,22 @@ same strict origin, content-type and body bounds as reporter clearing. The
 active queue excludes group-cleared reports, and resolve/dismiss cannot target
 them. Ordinary forms perform the group action immediately.
 
-GET `/reports/cleared?board=...` shows at most the newest 100 records for one
-allowed board. It shows report evidence, original disposition, originating clear
-account/time and whether the report inherited that clear. It does not show a
-current post as a historical snapshot. Reporter-wide retirement also hides rows
-from this history; retained database evidence is not erased.
+GET `/reports/cleared?board=...` groups retained cleared reports for one allowed
+board, with at most 100 groups and bounded per-group evidence. Janitors receive
+one selected report per group; Moderators retain bounded member and category
+projections with per-report clear provenance. Reporter-wide retirement hides rows
+from this history without erasing retained database evidence. See
+[grouped cleared history](grouped-cleared-report-history.md) for the selection,
+redaction and snapshot boundaries.
 
 ## Remaining source behavior
 
 This is a partial capability. Complete effective weights, weighted cross-board
 unlock, already-cleared orphan hard deletion, staff-self-clear identity logging,
 report-time post snapshots and identity-based abuse warnings remain incomplete.
-The source queue's grouped display, three-second delay and undo behavior are also
-not implemented by these ordinary forms. This does not complete report or staff
+The active and cleared inventories group retained reports with explicit
+unweighted semantics. The source's three-second delay and undo behavior remain
+unimplemented by these ordinary forms. This does not complete report or staff
 parity.
 
 ## Qualification

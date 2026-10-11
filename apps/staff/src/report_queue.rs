@@ -1,7 +1,7 @@
 //! Bounded, unweighted inventory of uncleared retained reports.
 //!
 //! This deliberately does not infer private report membership or source weights.
-//! Previews are current posts from one snapshot, not report-time snapshots.
+//! Captured presentation and current action state share one read snapshot.
 
 use crate::{
     AppError,
@@ -33,6 +33,7 @@ pub struct ReportGroup {
     pub representative: Report,
     pub has_open: bool,
     pub moderator_summary: Option<ModeratorReportSummary>,
+    pub(crate) snapshot: Option<crate::report_post_snapshot::ReportPostSnapshot>,
 }
 
 pub struct ModeratorReportSummary {
@@ -205,6 +206,7 @@ async fn load_inner(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await?;
+    crate::report_post_snapshot::ensure_ready(&mut tx).await?;
     if let Some(board) = board {
         let exists: bool =
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.boards WHERE slug=$1)")
@@ -242,6 +244,7 @@ async fn load_inner(
     }
 
     let representative_ids: Vec<i64> = selected.iter().map(|g| g.representative_id).collect();
+    let mut snapshots = crate::report_post_snapshot::load(&mut tx, &representative_ids).await?;
     // Keep the transfer reader's aggregate materialization bound after grouped
     // selection. Count the complete saved bodies before fetching any payload.
     let bytes: i64 = sqlx::query_scalar(
@@ -305,6 +308,13 @@ async fn load_inner(
             return Err(AppError::Internal);
         }
         representative.attachment = attachments.remove(&group.post_id);
+        let snapshot = snapshots.remove(&group.representative_id);
+        if snapshot
+            .as_ref()
+            .is_some_and(|s| !s.matches(&group.board, group.post_id))
+        {
+            return Err(AppError::Internal);
+        }
         let moderator_summary = if moderator {
             let mut categories = categories
                 .remove(&(group.board, group.post_id))
@@ -323,6 +333,7 @@ async fn load_inner(
             representative,
             has_open: group.has_open,
             moderator_summary,
+            snapshot,
         });
     }
     tx.commit().await?;

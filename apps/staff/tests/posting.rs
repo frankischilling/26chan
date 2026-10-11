@@ -13,6 +13,11 @@ use std::{sync::Arc, time::Duration};
 use tower::ServiceExt;
 use webauthn_rs::prelude::*;
 
+// Cases deliberately hold the shared posting_action_capacity row to cross
+// deadlines. Give each case that resource through cleanup; its internally
+// spawned admissions and lock-wait checks still run concurrently.
+static POSTING_CASES: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 async fn pool(key: &str) -> PgPool {
     PgPool::connect(&std::env::var(key).expect("explicit owned database credential required"))
         .await
@@ -37,14 +42,25 @@ fn fixture_actor(case: &Fixture, peer: std::net::IpAddr) -> [u8; 32] {
 // post timestamps, thread clocks, board policy, or request identity. Timer tests
 // below do not use this helper for their rejection assertions.
 async fn elapse_staff_timer(case: &Fixture, board: &str, peer: std::net::IpAddr) {
+    let actor = fixture_actor(case, peer);
+    let mut tx = case.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL lock_timeout='5s'")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    // The operator changes this actor's history across boards. Acquire every
+    // parent before the author-link guard sees an updated child tuple.
+    sqlx::query("SELECT b.slug FROM content.boards b WHERE b.slug=$1 OR b.slug IN(SELECT board FROM post_secrets.posting_history WHERE actor_hash=$2 UNION SELECT board FROM post_secrets.posting_thread_actions WHERE actor_hash=$2) ORDER BY b.slug FOR UPDATE")
+        .bind(board).bind(actor.as_slice()).fetch_all(&mut *tx).await.unwrap();
     sqlx::query("UPDATE post_secrets.posting_history SET request_at=least(request_at,floor(extract(epoch FROM clock_timestamp()))::bigint-greatest(301,(SELECT greatest(posting_reply_seconds,posting_image_seconds,posting_thread_seconds) FROM content.boards WHERE slug=$1))) WHERE actor_hash=$2")
         .bind(board)
-        .bind(fixture_actor(case, peer).as_slice())
-        .execute(&case.owner)
+        .bind(actor.as_slice())
+        .execute(&mut *tx)
         .await
         .unwrap();
     sqlx::query("UPDATE post_secrets.posting_thread_actions SET request_at=least(request_at,floor(extract(epoch FROM clock_timestamp()))::bigint-301) WHERE actor_hash=$1")
-        .bind(fixture_actor(case, peer).as_slice()).execute(&case.owner).await.unwrap();
+        .bind(actor.as_slice()).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
 }
 
 async fn prepare_posting_actor(
@@ -70,6 +86,7 @@ async fn prepare_posting_actor(
 
 #[tokio::test]
 async fn ordinary_staff_authority_binds_all_metadata_body_rank_and_one_use() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -108,6 +125,7 @@ struct OrdinaryProof {
 
 #[tokio::test]
 async fn ordinary_staff_consumer_rechecks_expiry_after_account_and_intent_lock_waits() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -254,6 +272,7 @@ impl OrdinaryProof {
 
 #[tokio::test]
 async fn ordinary_staff_private_tables_and_owner_helpers_remain_inaccessible() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     for role in [
         "TEST_PUBLIC_DATABASE_URL",
         "STAFF_DATABASE_URL",
@@ -319,6 +338,7 @@ async fn ordinary_staff_private_tables_and_owner_helpers_remain_inaccessible() {
 #[cfg(target_os = "linux")]
 #[tokio::test]
 async fn ordinary_staff_verified_unix_peer_drives_persisted_identity() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
@@ -437,6 +457,7 @@ async fn ordinary_request(
 
 #[tokio::test]
 async fn ordinary_staff_ranks_persist_public_identity_flags_op_membership_and_deletion() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -506,6 +527,7 @@ async fn ordinary_staff_ranks_persist_public_identity_flags_op_membership_and_de
 
 #[tokio::test]
 async fn ordinary_staff_flags_use_the_selected_board_dictionary_and_locked_policy() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result = tokio::spawn(async move {
@@ -559,6 +581,7 @@ async fn ordinary_staff_flags_use_the_selected_board_dictionary_and_locked_polic
 
 #[tokio::test]
 async fn ordinary_staff_content_admission_rejects_quietly_and_records_autosage() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -598,6 +621,7 @@ async fn ordinary_staff_content_admission_rejects_quietly_and_records_autosage()
 
 #[tokio::test]
 async fn ordinary_staff_robot9000_rejections_roll_back_posts_and_discard_proofs() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -829,6 +853,7 @@ async fn denied(pool: &PgPool, query: &'static str) {
 #[tokio::test]
 async fn authenticated_staff_posts_have_scoped_persisted_badges_and_public_forms_have_no_authority()
 {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -959,6 +984,7 @@ async fn authenticated_staff_posts_have_scoped_persisted_badges_and_public_forms
 
 #[tokio::test]
 async fn static_staff_ids_match_source_and_survive_policy_changes_without_network_material() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result = tokio::spawn(async move {
@@ -1054,6 +1080,7 @@ async fn static_staff_ids_match_source_and_survive_policy_changes_without_networ
 
 #[tokio::test]
 async fn authenticated_capcoded_staff_bypass_robot9000_without_registering_text() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let outcome=tokio::spawn(async move {
@@ -1221,6 +1248,7 @@ fn sql_code(error: &sqlx::Error) -> Option<String> {
 
 #[tokio::test]
 async fn staff_wordfilters_bind_the_exact_saved_body_without_granting_html_authority() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let outcome=tokio::spawn(async move {
@@ -1264,6 +1292,7 @@ async fn staff_wordfilters_bind_the_exact_saved_body_without_granting_html_autho
 
 #[tokio::test]
 async fn staff_authority_binds_every_prepared_field_and_can_be_consumed_only_once() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -1291,6 +1320,7 @@ async fn staff_authority_binds_every_prepared_field_and_can_be_consumed_only_onc
 
 #[tokio::test]
 async fn authorization_expiring_during_the_actual_session_lock_wait_denies_the_post() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -1331,6 +1361,7 @@ async fn authorization_expiring_during_the_actual_session_lock_wait_denies_the_p
 
 #[tokio::test]
 async fn concurrent_authority_issuance_enforces_the_account_bound_and_cleans_expired_intents() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -1376,6 +1407,7 @@ async fn public_json(router: &Router, path: &str) -> serde_json::Value {
 
 #[tokio::test]
 async fn operator_revocation_can_delete_the_session_while_posting_waits_for_account_authority() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     revocation_lock_case(true).await;
     revocation_lock_case(false).await;
 }
@@ -1520,6 +1552,7 @@ async fn posting_snapshot(case: &Fixture, board: &str, thread: i64) -> serde_jso
 
 #[tokio::test]
 async fn public_staff_names_match_source_preparation_and_keep_only_prepared_hashes() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result = tokio::spawn(async move {
@@ -1644,6 +1677,7 @@ async fn public_staff_names_match_source_preparation_and_keep_only_prepared_hash
 
 #[tokio::test]
 async fn postgres_source_badge_and_name_helpers_match_all_reference_cases() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -1675,6 +1709,7 @@ async fn postgres_source_badge_and_name_helpers_match_all_reference_cases() {
 #[tokio::test]
 async fn source_staff_proofs_bind_hashes_and_recheck_flags_without_granting_legacy_trip_authority()
 {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -1730,6 +1765,7 @@ async fn source_staff_proofs_bind_hashes_and_recheck_flags_without_granting_lega
 #[tokio::test]
 async fn source_badge_permissions_mask_names_after_validation_and_preserve_admin_board_exceptions()
 {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     // Retain the initial OP and all five badge-specific catalog controls on
     // this owned board while testing permissions independently of OP quota.
@@ -1833,6 +1869,7 @@ async fn source_badge_permissions_mask_names_after_validation_and_preserve_admin
 
 #[tokio::test]
 async fn actual_staff_writer_rechecks_source_flags_after_the_board_lock_wait() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     for flags in [vec!["capcode"], vec!["capcodename"]] {
         let fixture = Fixture::new().await;
         let case = fixture.clone();
@@ -1870,6 +1907,7 @@ async fn actual_staff_writer_rechecks_source_flags_after_the_board_lock_wait() {
 
 #[tokio::test]
 async fn source_staff_ranks_select_raw_budgets_before_cleanup_and_accept_large_encoded_forms() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result = tokio::spawn(async move {
@@ -1942,6 +1980,7 @@ async fn source_staff_ranks_select_raw_budgets_before_cleanup_and_accept_large_e
 
 #[tokio::test]
 async fn public_staff_limits_keep_finished_name_bounds_and_safe_large_wordfilter_views() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result = tokio::spawn(async move {
@@ -2048,6 +2087,7 @@ async fn public_staff_limits_keep_finished_name_bounds_and_safe_large_wordfilter
 
 #[tokio::test]
 async fn authorized_proofs_require_current_rank_policy_and_non_null_bound_inputs() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result = tokio::spawn(async move {
@@ -2110,6 +2150,7 @@ async fn authorized_proofs_require_current_rank_policy_and_non_null_bound_inputs
 
 #[tokio::test]
 async fn real_staff_posting_rechecks_policy_and_rank_after_the_board_lock_wait() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     for downgrade in [true, false] {
         let fixture = Fixture::new().await;
         let case = fixture.clone();
@@ -2160,6 +2201,7 @@ async fn real_staff_posting_rechecks_policy_and_rank_after_the_board_lock_wait()
 
 #[tokio::test]
 async fn private_discussion_forces_anonymous_roles_and_keeps_identity_off_public_routes() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result = tokio::spawn(async move {
@@ -2372,10 +2414,23 @@ async fn staff_timer_http_case(case: &Fixture, discussion: bool, ordinary: bool)
     for parent in [thread, 0] {
         let form = form(parent, "Owned accepted at five seconds");
         let password_slot = password_request_slot(path, Some(&form)).await;
+        // Reenter the board before its history tuple, including a previous
+        // denied request whose dropped transaction is still rolling back.
+        let mut clock = case.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL lock_timeout='5s'")
+            .execute(&mut *clock)
+            .await
+            .unwrap();
+        sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+            .bind(board)
+            .fetch_one(&mut *clock)
+            .await
+            .unwrap();
         let changed = sqlx::query(
             "UPDATE post_secrets.posting_history SET request_at=floor(extract(epoch FROM clock_timestamp()))::bigint-5 WHERE board=$1 AND actor_hash=$2 AND post_id=(SELECT max(post_id) FROM post_secrets.posting_history WHERE board=$1 AND actor_hash=$2)",
-        ).bind(board).bind(actor.as_slice()).execute(&case.owner).await.unwrap().rows_affected();
+        ).bind(board).bind(actor.as_slice()).execute(&mut *clock).await.unwrap().rows_affected();
         assert_eq!(changed, 1);
+        clock.commit().await.unwrap();
         let response = private_request_unqueued(case, path, Some(form)).await;
         drop(password_slot);
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -2392,6 +2447,7 @@ async fn staff_timer_http_case(case: &Fixture, discussion: bool, ordinary: bool)
 
 #[tokio::test]
 async fn staff_http_five_second_timer_rejects_reply_and_op_then_accepts_both() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     for ordinary in [false, true] {
         let fixture = ordinary_fixture().await;
         let case = fixture.clone();
@@ -2408,6 +2464,7 @@ async fn staff_http_five_second_timer_rejects_reply_and_op_then_accepts_both() {
 
 #[tokio::test]
 async fn private_discussion_five_second_timer_preserves_escaped_draft_and_accepts_retry() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     for role in ["janitor", "moderator"] {
         let fixture = Fixture::new().await;
         let case = fixture.clone();
@@ -2463,6 +2520,7 @@ async fn response_text(response: axum::response::Response) -> String {
 
 #[tokio::test]
 async fn janitor_http_raw_name_meta_and_role_select_ordinary_reply_timer() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result = tokio::spawn(async move {
@@ -2530,6 +2588,7 @@ async fn janitor_http_raw_name_meta_and_role_select_ordinary_reply_timer() {
 
 #[tokio::test]
 async fn janitor_http_op_ordinary_error_precedes_staff_five_second_error() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = ordinary_fixture().await;
     let case = fixture.clone();
     let result = tokio::spawn(async move {
@@ -2579,6 +2638,7 @@ async fn janitor_http_op_ordinary_error_precedes_staff_five_second_error() {
 
 #[tokio::test]
 async fn private_janitor_timer_uses_original_name_and_preserves_denied_draft() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = Fixture::new().await;
     let case = fixture.clone();
     let result=tokio::spawn(async move {
@@ -2617,6 +2677,7 @@ async fn private_janitor_timer_uses_original_name_and_preserves_denied_draft() {
 
 #[tokio::test]
 async fn named_janitor_http_cross_board_op_keeps_full_delay() {
+    let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = ordinary_fixture().await;
     let target_fixture = ordinary_fixture().await;
     let case = fixture.clone();

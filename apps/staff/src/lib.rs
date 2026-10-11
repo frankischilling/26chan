@@ -2,12 +2,14 @@
 pub mod access;
 mod audit_snapshot;
 pub mod auth;
+pub mod cleared_report_queue;
 pub mod config;
 mod discussion;
 mod handlers;
 mod latest;
 mod posting_password;
 mod report_group_clear;
+mod report_post_snapshot;
 pub mod report_queue;
 mod report_queue_query;
 mod reporter_clear;
