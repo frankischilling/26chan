@@ -637,46 +637,67 @@ async fn owned_snapshot_audit_failure_and_final_authority_failure_roll_back_toge
             .bytes()
             .all(|byte| byte.is_ascii_hexdigit())
     );
-    let function = format!("snapshot_fault_{}", f.boards[0]);
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE FUNCTION content.{function}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'owned snapshot audit failure'; END $$")))
+    let index = format!("snapshot_fault_{}", f.boards[0]);
+    // This owned partial index changes no protected trigger/function catalog.
+    // Both mutations must reach the actual audit INSERT to hit its conflict.
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE UNIQUE INDEX {index} ON content.moderation_audit(target_id) WHERE board='{}' AND action IN ('thread-options','spoiler','unspoiler')",f.boards[0])))
         .execute(&f.owner).await.unwrap();
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE TRIGGER {function} BEFORE INSERT ON content.moderation_audit FOR EACH ROW WHEN (NEW.board='{}' AND NEW.action IN ('thread-options','spoiler','unspoiler')) EXECUTE FUNCTION content.{function}()",f.boards[0])))
-        .execute(&f.owner).await.unwrap();
-    let result = tokio::spawn({ let f = f.clone(); let function = function.clone(); async move {
+    let seeded_audit: i64 = sqlx::query_scalar("INSERT INTO content.moderation_audit(account_id,board,target_id,action,before_mask,after_mask) VALUES($1,$2,$3,'thread-options',31,0) RETURNING id")
+        .bind(f.account).bind(&f.boards[0]).bind(f.posts[0])
+        .fetch_one(&f.owner).await.unwrap();
+    let result = tokio::spawn({ let f = f.clone(); async move {
+        auth::check_identity(&f.auth, "board_auth").await.unwrap();
+        auth::check_identity(&f.staff, "board_staff").await.unwrap();
         f.rich_post().await;
+        let seeded = f.audits().await;
+        assert_eq!(seeded.len(), 1);
         for grouped in [true, false] {
             let before = f.state().await;
             let status = if grouped { f.options("sticky=1&closed=1&sticky_rank=60").await } else { f.action(f.posts[0], "spoiler").await };
             assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
             assert_eq!(f.state().await, before);
-            assert_eq!(f.audit_count().await, 0);
+            assert_eq!(f.audits().await, seeded, "failed INSERT must preserve the exact seeded audit");
         }
-        // This AFTER INSERT delay guarantees content changes and the snapshot
-        // exist in the uncommitted transaction before final authority expires.
-        sqlx::raw_sql(sqlx::AssertSqlSafe(format!("DROP TRIGGER {function} ON content.moderation_audit")))
-            .execute(&f.owner).await.unwrap();
-        sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE OR REPLACE FUNCTION content.{function}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(3); RETURN NEW; END $$")))
-            .execute(&f.owner).await.unwrap();
-        sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE TRIGGER {function} AFTER INSERT ON content.moderation_audit FOR EACH ROW WHEN (NEW.board='{}' AND NEW.action IN ('thread-options','spoiler','unspoiler')) EXECUTE FUNCTION content.{function}()",f.boards[0])))
-            .execute(&f.owner).await.unwrap();
+        assert_eq!(sqlx::query("DELETE FROM content.moderation_audit WHERE id=$1 AND board=$2")
+            .bind(seeded_audit).bind(&f.boards[0]).execute(&f.owner).await.unwrap().rows_affected(), 1);
         for grouped in [true, false] {
-            sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp(),expires_at=clock_timestamp()+interval '2 seconds',last_activity_at=clock_timestamp() WHERE token_hash=$1")
+            let mut blocker = f.owner.begin().await.unwrap();
+            let blocker_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+                .fetch_one(&mut *blocker).await.unwrap();
+            sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action,before_mask,after_mask) VALUES($1,$2,$3,'thread-options',31,0)")
+                .bind(f.account).bind(&f.boards[0]).bind(f.posts[0])
+                .execute(&mut *blocker).await.unwrap();
+            sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp(),expires_at=clock_timestamp()+interval '1 second',last_activity_at=clock_timestamp() WHERE token_hash=$1")
                 .bind(auth::hash(&f.token)).execute(&f.owner).await.unwrap();
             let before = f.state().await;
-            let status = if grouped { f.options("sticky=1&closed=1&sticky_rank=60").await } else { f.action(f.posts[0], "spoiler").await };
-            assert_eq!(status, StatusCode::UNAUTHORIZED);
+            let request = tokio::spawn({ let f = f.clone(); async move {
+                if grouped { f.options("sticky=1&closed=1&sticky_rank=60").await }
+                else { f.action(f.posts[0], "spoiler").await }
+            }});
+            // The blocker owns only an uncommitted conflicting audit row.
+            // Observing its wait proves snapshot capture and mutation already
+            // reached audit INSERT, rather than an early authorization denial.
+            wait_for_blocker(&f.owner, blocker_pid).await;
+            tokio::time::timeout(Duration::from_secs(3), async {
+                loop {
+                    let expired: bool = sqlx::query_scalar("SELECT expires_at<=clock_timestamp() FROM staff_identity.sessions WHERE token_hash=$1")
+                        .bind(auth::hash(&f.token)).fetch_one(&f.owner).await.unwrap();
+                    if expired { break; }
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            }).await.expect("owned one-second session did not expire");
+            // Removing the conflict allows the real INSERT to succeed. The
+            // subsequent final authority check must then reject and roll back
+            // both the already-mutated content and inserted snapshot. An audit
+            // insertion error would instead return SERVICE_UNAVAILABLE.
+            blocker.rollback().await.unwrap();
+            assert_eq!(request.await.unwrap(), StatusCode::UNAUTHORIZED);
             assert_eq!(f.state().await, before, "final authority failure must undo both mutation and captured evidence");
             assert_eq!(f.audit_count().await, 0);
         }
     }}).await;
     sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
-        "DROP TRIGGER IF EXISTS {function} ON content.moderation_audit"
-    )))
-    .execute(&f.owner)
-    .await
-    .unwrap();
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
-        "DROP FUNCTION content.{function}()"
+        "DROP INDEX IF EXISTS content.{index}"
     )))
     .execute(&f.owner)
     .await

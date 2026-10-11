@@ -210,6 +210,8 @@ async function verifyTextThreadTransfer(page, context, cdp) {
   const publicOrigin = 'http://127.0.0.1:3000';
   const owned = [];
   let publicPage;
+  let failure;
+  const cleanupErrors = [];
   try {
     for (const board of boards) {
       const data = fixture('setup', board);
@@ -259,7 +261,7 @@ async function verifyTextThreadTransfer(page, context, cdp) {
     expect(rejected.status()).toBe(403);
     expect(fixture('inspect', source)).toEqual(beforeSource);
     expect(fixture('inspect', destination)).toEqual(beforeDestination);
-    await page.getByLabel('Move to', { exact: true }).selectOption(destination);
+    await page.getByRole('combobox', { name: 'Move to', exact: true }).selectOption(destination);
     await page.getByLabel('and delete the original thread', { exact: true }).check();
     const [moved] = await Promise.all([
       page.waitForResponse(response => response.url() === 'http://localhost:3001/thread-transfer'
@@ -312,20 +314,35 @@ async function verifyTextThreadTransfer(page, context, cdp) {
     expect(await repeated.text()).toContain(movedUrl);
     expect(fixture('inspect', source)).toEqual(afterSource);
     expect(fixture('inspect', destination)).toEqual(afterDestination);
+  } catch (error) {
+    failure = error;
   } finally {
-    await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
-    await publicPage?.close();
+    // A timed-out test may already have closed the page. Keep that secondary
+    // error from hiding the failing action or skipping owned fixture cleanup.
+    try { await cdp.send('Emulation.setScriptExecutionDisabled', { value: false }); }
+    catch (error) { cleanupErrors.push(error); }
+    try { await publicPage?.close(); }
+    catch (error) { cleanupErrors.push(error); }
     for (const { board, mediaRoot } of owned.reverse()) {
+      try { fixture('cleanup', board); }
+      catch (error) { cleanupErrors.push(error); }
       try {
-        fixture('cleanup', board);
-      } finally {
         const privateRoot = path.resolve('.local');
         if (path.dirname(mediaRoot) !== privateRoot || lstatSync(mediaRoot).isSymbolicLink()
             || realpathSync(mediaRoot) !== path.join(realpathSync(privateRoot), `staff-media-${board}`)) throw new Error('Invalid text transfer media cleanup path');
         rmSync(mediaRoot, { recursive: true });
-      }
+      } catch (error) { cleanupErrors.push(error); }
     }
   }
+  if (failure) {
+    if (cleanupErrors.length) {
+      failure.cause = new AggregateError([
+        ...(failure.cause ? [failure.cause] : []), ...cleanupErrors,
+      ], 'Text transfer cleanup also failed');
+    }
+    throw failure;
+  }
+  if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'Text transfer cleanup failed');
   await page.goto('/reports');
 }
 
