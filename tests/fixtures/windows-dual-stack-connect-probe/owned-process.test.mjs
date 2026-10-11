@@ -1,3 +1,4 @@
+import '../windows-receive-connect-probe/toolchain-evidence.test.mjs';
 // Static regression checks only. Native job accounting is tested by the .ps1.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

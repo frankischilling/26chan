@@ -118,7 +118,14 @@ dump/restore checks pass, including changed caller timestamp settings. Fresh
 role bootstrap and the existing deleted-report cleanup upgrade/restore checks
 also pass.
 
-The isolated PHP 8.4 oracle passes all 22 pinned replacement cases. The browser
-assertions have passed syntax validation but have not run locally because the
-browser installation is unavailable. The full database-feature regression suite
-and hosted CI remain required. Issue #222 and the complete rewrite remain open.
+The isolated PHP 8.4 oracle passes all 22 pinned replacement cases. The supported
+local database-feature regression run passes 1,103 tests, with one ignored and
+four Unix-socket tests excluded because this executor rejects those sockets.
+All 42 affected staff rollback tests also pass with eight test threads. Their
+faults use owned-board audit conflicts, so they still exercise late transaction
+failure without changing the shared readiness catalog.
+
+Browser assertions pass syntax validation but have not run locally because the
+browser installation is unavailable. Hosted CI must still pass the browser and
+Unix-socket checks, as well as every other required check on the exact PR head.
+Issue #222 and the complete rewrite remain open.
