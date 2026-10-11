@@ -304,6 +304,10 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>, board: &str
         );
     }
     writer.close().await;
+    // The approved file is larger than four bytes, but source board admission
+    // charges the authenticated four-byte input and accepts only approved GIF.
+    sqlx::query("UPDATE content.boards SET gif_only=true,max_image_bytes=4,max_image_dimension=1 WHERE slug=$1")
+        .bind(board).execute(&admin).await.unwrap();
     let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
         .await
         .unwrap();
