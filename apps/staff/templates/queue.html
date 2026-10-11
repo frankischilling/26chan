@@ -1,4 +1,4 @@
-{% import "formatting.html" as fmt %}
+{% import "report_post_preview.html" as postview %}
 {% macro action(csrf, board, target, action, label) %}<form method="post" action="/moderate"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="target" value="{{ target }}"><button name="action" value="{{ action }}">{{ label }}</button></form>{% endmacro %}
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Staff reports</title><link rel="stylesheet" href="/comment-markup.css"></head><body><main>
 <h1>Report queue</h1>
@@ -7,8 +7,8 @@
 <form method="get" action="/reports"><button name="board" value="">All authorized boards</button></form>
 <form method="get" action="/reports"><button name="board" value="_ws_">Worksafe boards</button></form>
 <form method="get" action="/reports"><button name="board" value="_nws_">Not-work-safe boards</button></form>
-<p>Retained report inventory: one current post preview per board/post group. Showing up to 100 groups, reports for deleted posts or threads are excluded. Unweighted deterministic fallback order: groups with open reports first, then newest report ID in the group, then board and post ID.</p>
-<p>Report-time post snapshots, ignored filtering, global unlock and weights are unavailable.</p>
+<p>Retained report inventory: one selected post preview per board/post group. Showing up to 100 groups, reports for deleted posts or threads are excluded. Unweighted deterministic fallback order: groups with open reports first, then newest report ID in the group, then board and post ID.</p>
+<p>New reports retain report-time post presentation. Older records may lack it. Ignored filtering, global unlock and weights are unavailable.</p>
 {% if has_more %}<p class="queue-truncated">More matching groups are not shown. Filters may reduce the result set.</p>{% endif %}
 {% if can_cleanup %}<form method="get" action="/robot9000-cleanup"><label>Originality cleanup board <input name="board" required maxlength="10" pattern="[a-z0-9]+"></label><button>Review originality cleanup</button></form>{% endif %}<form method="get" action="/reports/cleared"><label>Cleared history board <input name="board" required maxlength="16" pattern="[a-z0-9]+"></label><button>View cleared reports</button></form>
 {% if discussion || can_post %}<p>{% if discussion %}<a href="/j/">Staff discussion</a>{% endif %}{% if can_post %}{% if discussion %} · {% endif %}<a href="/post">Post</a>{% endif %}</p>{% endif %}
@@ -24,19 +24,8 @@
 {% if summary.categories_truncated %}<p class="categories-truncated">More captured categories are retained; showing the first 16 distinct categories.</p>{% endif %}
 {% endif %}{% endif %}
 <p>State: <strong>{{ r.state }}</strong>. Thread {{ r.thread_id }}; closed: {{ r.closed }}, sticky: {{ r.sticky }}, permasage: {{ r.permasage }}, permaage: {{ r.permaage }}, undead: {{ r.undead }}, archived: {{ r.archived }}, removed: {{ r.deleted }}.</p>
-{% if moderator %}{% if let Some(category_id) = r.category_id %}<p>Category: {{ category_id }} ({{ r.category_kind_label() }}){% if !r.reason.is_empty() %}: {{ r.reason }}{% endif %}</p>{% else %}<p>Reason: {{ r.reason }}</p>{% endif %}{% endif %}<h3>{{ r.subject }}</h3><p>Posted by {{ r.name }}{% if let Some(capcode) = preview.capcode() %}{% if let Some(trip) = r.trip %} <span class="postertrip">{{ trip }}</span>{% endif %} <strong>## {{ capcode.label() }}</strong>{% else %}{% if let Some(trip) = r.trip %} <span class="postertrip">{{ trip }}</span>{% endif %}{% if let Some(id) = r.poster_id %} <span class="posteruid">(ID: {{ id }})</span>{% endif %}{% if let Some(flag) = preview.flag() %} ({{ flag.0 }}: {{ flag.1 }}){% endif %}{% endif %}</p><blockquote>{% call fmt::comment(preview.lines.as_slice()) %}{% endcall %}{% if let Some(drawing) = preview.drawing %}<br><br><small><b>Oekaki Post</b> (Time: {{ drawing.time }}{% if let Some(source) = drawing.source_post %}, Source: &gt;&gt;{{ source }}{% endif %})</small>{% endif %}</blockquote>
-{% if let Some(a) = r.attachment %}
-<section aria-label="Attachment"><p>File: {{ a.filename }} ({{ a.bytes }} bytes, {{ a.width }} × {{ a.height }}). Spoiler: {{ a.spoiler }}.</p>
-{% if a.available %}
-{% if r.archived %}{% if let Some(md5) = a.file_md5() %}<details><summary>File MD5</summary><p>Approved normalized file MD5: <code>{{ md5 }}</code></p></details>{% endif %}{% endif %}
-<a href="{{ media_origin }}/{{ r.board }}/{{ a.tim }}.{{ a.output_format.extension() }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% if a.spoiler %}Open spoiler image{% else %}Open normalized image{% endif %}</a>
-{% if !a.spoiler %}{% if let Some(width) = a.thumbnail_width %}{% if let Some(height) = a.thumbnail_height %}
-<p><img src="{{ media_origin }}/{{ r.board }}/{{ a.tim }}s.jpg" width="{{ width }}" height="{{ height }}" alt="Attachment thumbnail" loading="lazy" referrerpolicy="no-referrer"></p>
-{% endif %}{% endif %}{% endif %}
-{% call action(csrf,r.board,r.post_id,"remove-file","Remove file only") %}{% endcall %}
-{% else %}<p>File unavailable. Removed or expired files cannot be reopened here.</p>{% endif %}
-</section>
-{% endif %}
+{% if moderator %}{% if let Some(category_id) = r.category_id %}<p>Category: {{ category_id }} ({{ r.category_kind_label() }}){% if !r.reason.is_empty() %}: {{ r.reason }}{% endif %}</p>{% else %}<p>Reason: {{ r.reason }}</p>{% endif %}{% endif %}{% call postview::post(preview, media_origin) %}{% endcall %}
+{% if !r.deleted %}{% if let Some(a) = r.attachment %}{% if a.available %}{% call action(csrf,r.board,r.post_id,"remove-file","Remove file only") %}{% endcall %}{% endif %}{% endif %}{% endif %}
 {% if !r.deleted %}
 {% if r.spoilers_enabled %}
 {% if r.image_spoiler %}{% call action(csrf,r.board,r.post_id,"unspoiler","Remove image spoiler") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.post_id,"spoiler","Spoiler image") %}{% endcall %}{% endif %}

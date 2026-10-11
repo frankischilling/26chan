@@ -720,11 +720,18 @@ async fn admission_committed_ahead_of_clear_is_included_in_fresh_membership_scan
             .execute(&mut *admission).await.unwrap();
         let pending=tokio::spawn({let f=f.clone();async move {f.clear(0,seed).await}});
         wait_for_content_lock(&f.owner,pid).await;
+        // Keep both locks while admitting the report as the fixture operator;
+        // direct private-owner INSERTs are not ordinary report admission.
+        sqlx::query("RESET ROLE").execute(&mut *admission).await.unwrap();
         let report:i64=sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Owned concurrent admission') RETURNING id")
             .bind(&f.boards[1]).bind(f.posts[1]).fetch_one(&mut *admission).await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_report_admission_owner").execute(&mut *admission).await.unwrap();
         sqlx::query("INSERT INTO post_secrets.report_membership(report_id,actor_hash,board,post_id,thread_id,reported_at) VALUES($1,$2,$3,$4,$4,clock_timestamp())")
             .bind(report).bind(auth::hash(&format!("{}:61",f.token))).bind(&f.boards[1]).bind(f.posts[1]).execute(&mut *admission).await.unwrap();
         admission.commit().await.unwrap();
+        let captures:i64=sqlx::query_scalar("SELECT count(*) FROM content.report_post_snapshots WHERE report_id=$1")
+            .bind(report).fetch_one(&f.staff).await.unwrap();
+        assert_eq!(captures,1,"concurrent admission retains its report-time capture");
         let (status,html)=pending.await.unwrap();
         assert_eq!(status,StatusCode::OK,"{html}");
         assert!(html.contains("<h1>Cleared 2 reports</h1>"));

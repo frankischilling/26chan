@@ -391,11 +391,28 @@ async fn transfer_http_freezes_history_erases_source_and_reconciles_repeated_pos
         assert_eq!(status, StatusCode::OK, "{body}"); assert!(body.contains("TransferNeedle"), "{body}");
         assert_eq!(response(public, Request::get(format!("/{}/thread/{}", f.boards[0], f.op)).body(Body::empty()).unwrap()).await.0, StatusCode::NOT_FOUND);
         public_pool.close().await;
+        // Capture the typed FP representation after transfer. Staff must render
+        // the saved report through that representation, not parse its projection.
+        let captured_report: i64 = sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Owned transferred presentation capture') RETURNING id")
+            .bind(&f.boards[1]).bind(new_op).fetch_one(&f.owner).await.unwrap();
+        let captured_fp: String = sqlx::query_scalar("SELECT payload->>'saved_presentation' FROM content.report_post_snapshots WHERE report_id=$1")
+            .bind(captured_report).fetch_one(&f.staff).await.unwrap();
+        assert!(captured_fp.starts_with("46503031"), "Report must retain the typed FP01 bytes");
+        let captured_request = Request::get(format!("/reports?board={}", f.boards[1]))
+            .header("cookie", format!("staff={}; staff-csrf={}", f.token, f.csrf)).body(Body::empty()).unwrap();
+        let (captured_status, captured_html) = response(f.app.clone(), captured_request).await;
+        assert_eq!(captured_status, StatusCode::OK, "{captured_html}");
+        assert!(captured_html.contains(&format!("Post captured when report {captured_report} was admitted")));
+        assert!(captured_html.contains("TransferNeedle"));
+        assert!(!captured_html.contains("&amp;gt;&amp;gt;"), "Typed quote presentation must not be escaped a second time");
         // A later destructive move must qualify existing FP rather than parse
         // its projection as raw text, and erase both frozen storage columns.
         let again = format!("board={}&target={new_op}&destination={}&csrf={}&move_del=1", f.boards[1], f.boards[0], f.csrf);
         let (status, body) = f.send(again).await;
         assert_eq!(status, StatusCode::OK, "second frozen transfer: {body}");
+        let remaining_capture: i64 = sqlx::query_scalar("SELECT count(*) FROM content.report_post_snapshots WHERE report_id=$1")
+            .bind(captured_report).fetch_one(&f.staff).await.unwrap();
+        assert_eq!(remaining_capture, 0, "Destructive transfer must erase the source report capture");
         let erased_frozen: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1 AND content_erased AND deleted AND comment='' AND saved_presentation IS NULL AND saved_presentation_search IS NULL")
             .bind(&f.boards[1]).fetch_one(&f.owner).await.unwrap();
         assert_eq!(erased_frozen, 2);

@@ -1,0 +1,20 @@
+{% import "formatting.html" as fmt %}
+{% macro post(preview, media_origin) %}{% let r = preview.report %}
+{% if let Some(label) = preview.snapshot %}
+<p class="report-snapshot">Post captured when report {{ r.id }} was admitted at {{ label.captured_at }}. Posted at {{ label.created_at }} in thread {{ label.thread_id }}; archived at capture: {{ label.archived }}; file deleted at capture: {{ label.file_deleted }}.</p>
+{% if let Some(subject) = label.relative_subject %}<p>Thread subject at capture: {{ subject }}</p>{% endif %}
+{% else %}<p class="report-snapshot-missing">No report-time post snapshot is retained. This preview uses current post data.</p>{% endif %}
+<h3>{{ r.subject }}</h3><p>Posted by {{ r.name }}{% if let Some(capcode) = preview.capcode() %}{% if let Some(trip) = r.trip %} <span class="postertrip">{{ trip }}</span>{% endif %} <strong>## {{ capcode.label() }}</strong>{% else %}{% if let Some(trip) = r.trip %} <span class="postertrip">{{ trip }}</span>{% endif %}{% if let Some(id) = r.poster_id %} <span class="posteruid">(ID: {{ id }})</span>{% endif %}{% if let Some(flag) = preview.flag() %} ({{ flag.0 }}: {{ flag.1 }}){% endif %}{% endif %}</p><blockquote>{% call fmt::comment(preview.lines.as_slice()) %}{% endcall %}{% if let Some(drawing) = preview.drawing %}<br><br><small><b>Oekaki Post</b> (Time: {{ drawing.time }}{% if let Some(source) = drawing.source_post %}, Source: &gt;&gt;{{ source }}{% endif %})</small>{% endif %}</blockquote>
+{% if let Some(a) = r.attachment %}
+<section aria-label="Attachment"><p>File: {{ a.filename }} ({{ a.bytes }} bytes, {{ a.width }} × {{ a.height }}). Spoiler: {{ a.spoiler }}.</p>
+{% if a.available %}
+{% if r.archived %}{% if let Some(md5) = a.file_md5() %}<details><summary>File MD5</summary><p>Approved normalized file MD5: <code>{{ md5 }}</code></p></details>{% endif %}{% endif %}
+<a href="{{ media_origin }}/{{ r.board }}/{{ a.tim }}.{{ a.output_format.extension() }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">{% if a.spoiler %}Open spoiler image{% else %}Open normalized image{% endif %}</a>
+{% if !a.spoiler %}{% if let Some(width) = a.thumbnail_width %}{% if let Some(height) = a.thumbnail_height %}
+<p><img src="{{ media_origin }}/{{ r.board }}/{{ a.tim }}s.jpg" width="{{ width }}" height="{{ height }}" alt="Attachment thumbnail" loading="lazy" referrerpolicy="no-referrer"></p>
+{% endif %}{% endif %}{% endif %}
+
+{% else %}<p>File unavailable. Removed or expired files cannot be reopened here.</p>{% endif %}
+</section>
+{% endif %}
+{% endmacro %}

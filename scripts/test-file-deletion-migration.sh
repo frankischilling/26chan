@@ -220,6 +220,7 @@ pathlib.Path(sys.argv[1]).write_text(sql,encoding='utf-8')
 PY
  "${admin[@]}" -f - < "$cluster/image-policy-expectation.sql"
 fi
+"${admin[@]}" -f - < scripts/report-snapshot-upgrade-expectations.sql
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
