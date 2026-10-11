@@ -654,7 +654,7 @@ test('tail metadata retains full counts and exact omitted boundaries while rejec
   assert.equal(parse(s).status, 'ok'); assert.equal(s.tail_id, '9007199254740994');
   for (const edit of [s => s.tail_id = s.posts[1].no, s => s.tail_id = context.thread,
     s => s.tail_size = 1, s => s.replies = 3, s => s.tail_id = 0, s => s.tail_size = 1.5,
-    s => s.tail_size = 1001, s => s.replies = 1001, s => s.tail_id = '9223372036854775808',
+    s => s.tail_size = 1001, s => s.replies = 1501, s => s.tail_id = '9223372036854775808',
     s => s.tail_id = null, s => delete s.tail_size]) {
     const candidate = structuredClone(s); edit(candidate); assert.equal(parse(candidate).status, 'invalid-snapshot');
   }
@@ -746,4 +746,19 @@ test('a hung full fallback settles at the original deadline and a fresh healthy 
   assert.equal(requests.length, 3); clock += 1001; hang = false;
   assert.equal((await transport.refresh()).status, 'not-modified');
   assert.equal(requests.length, 4);
+});
+
+// /jp/ and /vt/ archive after the 1500th accepted reply, not at the old
+// backend ceiling. Byte and node budgets remain independent of cardinality.
+test('autoarchive-sized full and tail snapshots retain every reply', () => {
+  const full = rangedSnapshot(1500, 0, false);
+  full.closed = true; full.archived = true;
+  const result = parse(full);
+  assert.equal(result.status, 'ok');
+  assert.equal(result.snapshot.posts.length, 1501);
+  assert.equal(result.snapshot.posts.at(-1).no, full.posts.at(-1).no);
+  const tail = rangedSnapshot(1500, 50, true);
+  tail.closed = true; tail.archived = true;
+  assert.equal(parse(tail).status, 'ok');
+  assert.equal(parse(rangedSnapshot(1501, 0, false)).status, 'invalid-snapshot');
 });

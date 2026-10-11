@@ -2,7 +2,7 @@ import { isSpoilerAssetPath } from './native-spoiler-assets.js';
 import { configureSpoilerPreference } from './native-spoilers.js';
 
 // Only approved, normalized images from the configured media origin may load.
-export const IMAGE_LIMITS = Object.freeze({ expansions: 8, reveals: 1001, retired: 20001, loadMs: 10000, dimension: 1024 });
+export const IMAGE_LIMITS = Object.freeze({ expansions: 8, reveals: 1501, retired: 20001, loadMs: 10000, dimension: 1024 });
 
 export function imageTarget(raw, mediaOrigin) {
   if (typeof raw !== 'string' || typeof mediaOrigin !== 'string' || raw.length > 512

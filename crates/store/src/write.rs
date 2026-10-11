@@ -846,10 +846,21 @@ async fn create_post_in_context(
     let reply_target = if parent > 0 {
         let thread: Thread = sqlx::query_as("SELECT * FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS(SELECT 1 FROM content.visible_threads WHERE board=$1 AND id=$2) FOR UPDATE")
             .bind(slug).bind(parent).fetch_optional(&mut *tx).await?.ok_or(StoreError::NotFound)?;
+        let autoarchive = board.autoarchive_cap > 0
+            && board.archive_retention_seconds > 0
+            && !thread.sticky
+            && !thread.undead;
+        let (reply_count, reply_limit) = if autoarchive {
+            let live: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted")
+                .bind(slug).bind(parent).fetch_one(&mut *tx).await?;
+            (live, i64::from(board.ordinary_reply_limit()))
+        } else {
+            (i64::from(thread.reply_count), i64::from(board.reply_limit))
+        };
         if thread.archived_at.is_some()
             || (!authorized_staff
                 && (thread.closed
-                    || (thread.reply_count >= board.reply_limit
+                    || (reply_count >= reply_limit
                         && !(thread.sticky && thread.undead && board.reply_limit > 1))))
         {
             return Err(StoreError::Conflict(
@@ -1368,8 +1379,8 @@ async fn create_post_in_context(
                 board.permasage_hours as u32,
             ),
         );
-        // Source sticky windows use the surviving count. All other threads
-        // retain their existing cumulative cached increment behavior.
+        // Sticky windows and ordinary autoarchive threads use the surviving
+        // count. Deleted replies must not exhaust the autoarchive ceiling.
         let visible_after = i32::try_from(replies + 1)
             .map_err(|_| StoreError::Invalid("Thread reply count exceeds storage limits."))?;
         sqlx::query("UPDATE content.threads SET reply_count=CASE WHEN $6 THEN $4 ELSE reply_count+1 END, modified_at=$3, bumped_at=CASE WHEN $2 THEN clock_timestamp() ELSE bumped_at END WHERE board=$5 AND id=$1")
@@ -1378,7 +1389,9 @@ async fn create_post_in_context(
             .bind(posted_at)
             .bind(visible_after)
             .bind(slug)
-            .bind(thread.sticky && thread.undead && board.reply_limit > 1)
+            .bind((thread.sticky && thread.undead && board.reply_limit > 1)
+                || (board.autoarchive_cap > 0 && board.archive_retention_seconds > 0
+                    && !thread.sticky && !thread.undead))
             .execute(&mut *tx)
             .await?;
     }
@@ -1523,6 +1536,11 @@ async fn create_post_in_context(
     }
     if let Some(session) = anonymous {
         anonymous_session::record_post(&mut tx, session, slug, id).await?;
+    }
+    // Only accepted replies participate: after robot9000 and anonymous
+    // ownership registration, before the enclosing transaction commits.
+    if parent != 0 {
+        crate::archives::autoarchive_after_reply(&mut tx, &board, parent).await?;
     }
     tx.commit().await?;
     Ok(id)

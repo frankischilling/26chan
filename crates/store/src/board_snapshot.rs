@@ -256,7 +256,7 @@ async fn read_board_snapshot(
         .bind(slug).bind(&ids).fetch_all(&mut *tx).await?;
     let mut capcode_replies: BTreeMap<i64, Vec<(i64, String)>> = BTreeMap::new();
     if include_capcode_replies && board.meta_board {
-        if counts.iter().any(|entry| !(0..=1001).contains(&entry.1)) {
+        if counts.iter().any(|entry| !(0..=1501).contains(&entry.1)) {
             return Err(StoreError::ReadLimit);
         }
         let count: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=ANY($2) AND id<>thread_id AND NOT deleted AND capcode IS NOT NULL")

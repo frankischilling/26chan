@@ -18,6 +18,11 @@ inside active threads marked both sticky and undead. Imported source boards keep
 the newest 1,000 visible replies plus the opening post. This uses the same board
 and thread locks as posting and requires migration 0125.
 
+[Automatic reply-threshold archives](automatic-archives.md) apply the supplied
+1,500-reply cap on `/jp/` and `/vt/` after an accepted ordinary reply. Protected
+threads retain their existing reply window. This requires migration 0137 and
+readers that support the larger thread cardinality.
+
 ## Board policy
 
 Migration 0009 introduced archive retention and count settings. Migration 0086

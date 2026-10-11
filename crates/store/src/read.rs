@@ -169,9 +169,11 @@ async fn read_thread_snapshot(
     .ok_or(StoreError::NotFound)?;
     let (configured, undead): (i32, bool) = sqlx::query_as("SELECT b.json_tail_size,t.undead FROM content.boards b JOIN content.threads t ON t.board=b.slug WHERE b.slug=$1 AND t.id=$2")
         .bind(slug).bind(id).fetch_one(&mut *tx).await?;
-    let (reply_count, image_count): (i64, i64) = sqlx::query_as("SELECT count(*),count(*) FILTER (WHERE m.post_id IS NOT NULL AND NOT m.file_deleted) FROM content.posts p LEFT JOIN content.visible_post_media m ON m.post_id=p.id WHERE p.board=$1 AND p.thread_id=$2 AND p.id<>$2 AND NOT p.deleted")
+    // Materialize the bounded reply IDs once before the security-barrier media
+    // projection; a per-post left join can repeatedly scan that projection.
+    let (reply_count, image_count): (i64, i64) = sqlx::query_as("WITH replies AS MATERIALIZED (SELECT id FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted) SELECT (SELECT count(*) FROM replies),(SELECT count(*) FROM content.visible_post_media m WHERE NOT m.file_deleted AND m.post_id IN (SELECT id FROM replies))")
         .bind(slug).bind(id).fetch_one(&mut *tx).await?;
-    if !(0..=1000).contains(&reply_count) || !(0..=500).contains(&configured) {
+    if !(0..=1500).contains(&reply_count) || !(0..=500).contains(&configured) {
         return Err(StoreError::Invalid("Thread exceeds snapshot limits."));
     }
     let replies = reply_count as usize;
@@ -192,7 +194,7 @@ async fn read_thread_snapshot(
     if body_bytes > max_bytes as i64 {
         return Err(StoreError::ReadLimit);
     }
-    let mut entries = sqlx::query_as("SELECT * FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted AND ($3::bigint IS NULL OR id=$2 OR id>$3) ORDER BY id LIMIT 1001")
+    let mut entries = sqlx::query_as("SELECT * FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted AND ($3::bigint IS NULL OR id=$2 OR id>$3) ORDER BY id LIMIT 1501")
         .bind(slug)
         .bind(id)
         .bind(tail_id)
@@ -251,7 +253,7 @@ pub async fn threads(
     Ok(sqlx::query_as("SELECT * FROM content.visible_threads WHERE board=$1 AND NOT deleted AND archived_at IS NULL ORDER BY sticky DESC,CASE WHEN sticky THEN sticky_rank ELSE 0 END DESC,bumped_at DESC,id DESC OFFSET $2 LIMIT $3").bind(slug).bind(offset).bind(limit).fetch_all(pool).await?)
 }
 pub async fn posts(pool: &PgPool, slug: &str, id: i64) -> Result<Vec<Post>, StoreError> {
-    Ok(sqlx::query_as("SELECT p.* FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id WHERE p.board=$1 AND p.thread_id=$2 AND NOT p.deleted AND NOT t.deleted ORDER BY p.id LIMIT 1001").bind(slug).bind(id).fetch_all(pool).await?)
+    Ok(sqlx::query_as("SELECT p.* FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id WHERE p.board=$1 AND p.thread_id=$2 AND NOT p.deleted AND NOT t.deleted ORDER BY p.id LIMIT 1501").bind(slug).bind(id).fetch_all(pool).await?)
 }
 pub async fn find_post(pool: &PgPool, slug: &str, id: i64) -> Result<Post, StoreError> {
     sqlx::query_as("SELECT p.* FROM content.posts p JOIN content.visible_threads t ON t.id=p.thread_id WHERE p.board=$1 AND p.id=$2 AND NOT p.deleted AND NOT t.deleted").bind(slug).bind(id).fetch_optional(pool).await?.ok_or(StoreError::NotFound)

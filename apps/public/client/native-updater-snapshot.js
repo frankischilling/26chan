@@ -7,7 +7,7 @@ import { postFileAssetUrl, validateFilePresentation } from './native-file-presen
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { isWordfilterMarkup, isWordfilterMarkupTag } from './native-wordfilter-markup.js';
 
-export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1001, nodes: 100000,
+export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1501, nodes: 100000,
   depth: 32, requestMs: 10000, parseMs: 2000, intervalMs: 1000 });
 export const PREVIEW_LIMITS = Object.freeze({ bytes: 262144, nodes: 16384, depth: 32,
   requestMs: 5000, parseMs: 1000, intervalMs: 300, companions: 4096 });
@@ -322,7 +322,7 @@ export function validateBoardPageSnapshot(snapshot, input, parsed = true) {
     require(typeof thread.thread === 'string' && postId(thread.thread) === thread.thread && !threads.has(thread.thread));
     threads.add(thread.thread);
     require(typeof thread.closed === 'boolean' && typeof thread.sticky === 'boolean' && thread.archived === false
-      && Number.isInteger(thread.replies) && thread.replies >= 0 && thread.replies <= 1000
+      && Number.isInteger(thread.replies) && thread.replies >= 0 && thread.replies <= 1500
       && Number.isInteger(thread.images) && thread.images >= 0 && thread.images <= thread.replies
       && Array.isArray(thread.posts) && thread.posts.length === 1 + Math.min(thread.replies, snapshot.replies_shown, thread.sticky ? 1 : 5)
       && thread.omitted === thread.replies - (thread.posts.length - 1));

@@ -12,7 +12,7 @@ use axum::{
 };
 use serde::Serialize;
 
-const MAX_POSTS: usize = 1001;
+const MAX_POSTS: usize = 1501;
 const MAX_BYTES: usize = 4_194_304;
 const MAX_PREVIEW_BYTES: usize = 262_144;
 
@@ -116,7 +116,7 @@ fn encode(
             .iter()
             .any(|post| post.deleted || post.board != board.slug || post.thread_id != thread.id)
         || posts.windows(2).any(|pair| pair[0].id >= pair[1].id)
-        || replies > 1000
+        || replies > 1500
         || images > replies
         || tail_size > 1000
         || (tail_size > 0 && replies < tail_size * 2)
@@ -604,6 +604,7 @@ pub(crate) mod tests {
             threads_per_page: 10,
             worksafe: true,
             archive_retention_seconds: 0,
+            autoarchive_cap: 0,
             archive_limit: 0,
             image_limit: 100,
             max_image_bytes: 4_194_304,

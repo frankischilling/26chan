@@ -64,6 +64,7 @@ fn board() -> Board {
         replies_shown: 5,
         worksafe: true,
         archive_retention_seconds: 0,
+        autoarchive_cap: 0,
         archive_limit: 1000,
         image_limit: 0,
         max_image_bytes: 4_194_304,

@@ -70,7 +70,7 @@ fn encode(
             || thread.deleted
             || thread.archived_at.is_some()
             || thread.board != board.slug
-            || !(1..=1001).contains(&preview.visible_posts)
+            || !(1..=1501).contains(&preview.visible_posts)
             || !(0..preview.visible_posts).contains(&preview.visible_images)
             || preview.posts.is_empty()
             || preview.posts.len() > maximum_posts
