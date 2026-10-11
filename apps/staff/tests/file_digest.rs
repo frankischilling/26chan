@@ -221,7 +221,7 @@ async fn approved_gif_format_controls_staff_original_link_and_keeps_thumbnail_ro
         let (status, html) = f.html(true).await;
         assert_eq!(status, StatusCode::OK);
         let article = html
-            .split(&format!("<article id=\"report-{}\">", f.report))
+            .split(&format!("<div id=\"report-{}\">", f.report))
             .nth(1)
             .unwrap()
             .split("</article>")
@@ -254,20 +254,25 @@ async fn file_md5_is_read_only_scoped_and_consistent_for_duplicate_reports() {
         let (status, html) = f.html(true).await;
         assert_eq!(status, StatusCode::OK);
         assert!(!html.contains("<summary>File MD5</summary>"));
-        assert!(!html.contains(&format!("<article id=\"report-{}\">", other.report)));
+        assert!(!html.contains(&format!("<div id=\"report-{}\">", other.report)));
         assert!(!html.contains(OTHER_DIGEST));
         f.archived().await;
         let duplicate: i64 = sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES ($1,$2,'Duplicate synthetic') RETURNING id")
             .bind(&f.board).bind(f.post).fetch_one(&f.owner).await.unwrap();
         let (status, html) = f.html(true).await;
         assert_eq!(status, StatusCode::OK);
-        for report in [f.report, duplicate] {
-            let article = html.split(&format!("<article id=\"report-{report}\">"))
-                .nth(1).unwrap().split("</article>").next().unwrap();
-            assert!(article.contains("<summary>File MD5</summary>"));
-            assert!(article.contains(&format!("Approved normalized file MD5: <code>{DIGEST}</code>")));
-            assert!(!article.contains("<script"));
-        }
+        assert_eq!(html.matches("<article ").count(), 1);
+        assert!(html.contains(&format!("<article id=\"report-group-{}-{}\">", f.board, f.post)));
+        assert!(!html.contains(&format!("<div id=\"report-{}\">", f.report)));
+        let article = html.split(&format!("<div id=\"report-{duplicate}\">"))
+            .nth(1).expect("newest open report represents the group")
+            .split("</article>").next().unwrap();
+        assert!(article.contains(&format!("Selected report ID: {duplicate}.")));
+        assert!(article.contains("Uncleared retained reports: 2."));
+        assert_eq!(article.matches("<summary>File MD5</summary>").count(), 1);
+        assert!(article.contains(&format!("Approved normalized file MD5: <code>{DIGEST}</code>")));
+        assert_eq!(article.matches("alt=\"Attachment thumbnail\"").count(), 1);
+        assert!(!article.contains("<script"));
         let public_md5: String = sqlx::query_scalar("SELECT md5 FROM content.visible_post_media WHERE post_id=$1")
             .bind(f.post).fetch_one(&f.owner).await.unwrap();
         assert_eq!(public_md5, "ABEiM0RVZneImaq7zN3u/w==");
@@ -279,11 +284,18 @@ async fn file_md5_is_read_only_scoped_and_consistent_for_duplicate_reports() {
             },
         };
         let reports = store::reports(&f.state.staff, &session).await.unwrap();
-        assert_eq!(reports.len(), 2);
-        for report in &reports {
-            assert_eq!(report.post_id, f.post);
-            assert_eq!(report.attachment.as_ref().unwrap().file_md5(), Some(DIGEST));
-        }
+        assert_eq!(reports.len(), 1, "same-post duplicate reports share one media preview");
+        assert_eq!(reports[0].id, duplicate);
+        assert_eq!(reports[0].post_id, f.post);
+        assert_eq!(reports[0].attachment.as_ref().unwrap().file_md5(), Some(DIGEST));
+        let page = board_staff::report_queue::load(
+            &f.state.staff, &session, board_staff::report_queue::ReportFilter::All,
+        ).await.unwrap();
+        assert_eq!(page.groups.len(), 1);
+        assert_eq!(page.groups[0].representative.id, duplicate);
+        assert!(page.groups[0].has_open);
+        assert_eq!(page.groups[0].moderator_summary.as_ref().unwrap().report_count, 2);
+        assert_eq!(page.groups[0].representative.attachment.as_ref().unwrap().file_md5(), Some(DIGEST));
         let (status, html) = f.html(false).await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert!(!html.contains(DIGEST));
@@ -294,10 +306,10 @@ async fn file_md5_is_read_only_scoped_and_consistent_for_duplicate_reports() {
         let (status, html) = f.html(true).await;
         assert_eq!(status, StatusCode::OK);
         for report in [f.report, duplicate] {
-            assert!(!html.contains(&format!("<article id=\"report-{report}\">")));
+            assert!(!html.contains(&format!("<div id=\"report-{report}\">")));
         }
         assert!(!html.contains(DIGEST));
-        let other_article = html.split(&format!("<article id=\"report-{}\">", other.report))
+        let other_article = html.split(&format!("<div id=\"report-{}\">", other.report))
             .nth(1).unwrap().split("</article>").next().unwrap();
         assert!(other_article.contains("<summary>File MD5</summary>"));
         assert!(other_article.contains(OTHER_DIGEST));
@@ -348,7 +360,7 @@ async fn file_md5_never_exposes_missing_or_unavailable_metadata() {
             assert_eq!(f.digest().await, (case == "legacy", None), "{case}");
             let (status, html) = f.html(true).await;
             assert_eq!(status, StatusCode::OK);
-            let marker = format!("<article id=\"report-{}\">", f.report);
+            let marker = format!("<div id=\"report-{}\">", f.report);
             if matches!(case, "deleted-post" | "deleted-thread") {
                 assert!(!html.contains(&marker), "{case}: whole deletion removes the report article");
                 assert!(!html.contains(DIGEST), "{case}");

@@ -32,6 +32,8 @@ impl Posting {
 }
 pub struct Preview {
     pub report: Report,
+    pub has_open: bool,
+    pub moderator_summary: Option<crate::report_queue::ModeratorReportSummary>,
     pub lines: Vec<Line>,
     pub drawing: Option<DrawingAnnotation>,
 }
@@ -75,10 +77,30 @@ impl From<Report> for Preview {
             },
         );
         Self {
+            has_open: report.state == "open",
+            moderator_summary: None,
             report,
             lines,
             drawing,
         }
+    }
+}
+impl From<crate::report_queue::ReportGroup> for Preview {
+    fn from(group: crate::report_queue::ReportGroup) -> Self {
+        let mut preview = Self::from(group.representative);
+        preview.has_open = group.has_open;
+        preview.moderator_summary = group.moderator_summary;
+        preview
+    }
+}
+
+pub fn queue_filter(filter: &crate::report_queue::ReportFilter) -> (String, String) {
+    use crate::report_queue::ReportFilter;
+    match filter {
+        ReportFilter::All => ("All authorized boards".into(), String::new()),
+        ReportFilter::Worksafe => ("Worksafe authorized boards".into(), String::new()),
+        ReportFilter::NotWorksafe => ("Not-work-safe authorized boards".into(), String::new()),
+        ReportFilter::Board(board) => (format!("/{board}/"), board.clone()),
     }
 }
 #[derive(Template)]
@@ -86,6 +108,9 @@ impl From<Report> for Preview {
 pub struct Queue {
     pub media_origin: String,
     pub reports: Vec<Preview>,
+    pub filter_label: String,
+    pub filter_board: String,
+    pub has_more: bool,
     pub csrf: String,
     pub recent: bool,
     pub can_permaage: bool,
@@ -173,6 +198,9 @@ mod tests {
             });
             let html = Queue {
                 media_origin: "http://127.0.0.1:3002".into(),
+                filter_label: "All authorized boards".into(),
+                filter_board: String::new(),
+                has_more: false,
                 reports: vec![report.into()],
                 csrf: "example".into(),
                 recent: true,
@@ -235,6 +263,9 @@ mod tests {
         };
         let html = Queue {
             media_origin: "http://127.0.0.1:3002".into(),
+            filter_label: "All authorized boards".into(),
+            filter_board: String::new(),
+            has_more: false,
             reports: vec![report.into()],
             csrf: "example".into(),
             recent: true,
@@ -340,6 +371,9 @@ mod tests {
             );
             let html = Queue {
                 media_origin: String::new(),
+                filter_label: "All authorized boards".into(),
+                filter_board: String::new(),
+                has_more: false,
                 reports: vec![preview],
                 csrf: "owned-fixture".into(),
                 recent: true,
@@ -412,9 +446,23 @@ mod tests {
                 image_spoiler: false,
                 attachment: None,
             };
-            let html = Queue {
+            let mut preview = Preview::from(report);
+            preview.moderator_summary = Some(crate::report_queue::ModeratorReportSummary {
+                report_count: 98765,
+                categories: vec![crate::report_queue::CapturedCategory {
+                    revision: 87654,
+                    id: 76543,
+                    kind,
+                    title: "<script>captured-summary-only</script>".into(),
+                }],
+                categories_truncated: true,
+            });
+            let mut queue = Queue {
                 media_origin: String::new(),
-                reports: vec![report.into()],
+                filter_label: "All authorized boards".into(),
+                filter_board: String::new(),
+                has_more: false,
+                reports: vec![preview],
                 csrf: "category-fixture".into(),
                 recent: true,
                 can_permaage: false,
@@ -423,9 +471,34 @@ mod tests {
                 moderator: true,
                 can_post: false,
                 discussion: false,
+            };
+            let html = queue.render().unwrap();
+            assert_eq!(html.matches("<article ").count(), 1);
+            assert!(html.contains("Uncleared retained reports: 98765."));
+            assert!(html.contains("revision 87654, ID 76543"));
+            assert!(html.contains("showing the first 16 distinct categories"));
+            assert!(!html.contains("<script>captured-summary-only</script>"));
+            queue.moderator = false;
+            let janitor_html = queue.render().unwrap();
+            for forbidden in [
+                "98765",
+                "87654",
+                "76543",
+                "captured-summary-only",
+                "report-count",
+                "report-categories",
+                "categories-truncated",
+                "<p>Category:",
+                "<p>Reason:",
+                "untrusted category",
+                "😀",
+            ] {
+                assert!(
+                    !janitor_html.contains(forbidden),
+                    "Janitor leaked {forbidden}"
+                );
             }
-            .render()
-            .unwrap();
+            assert_eq!(janitor_html.matches("<article ").count(), 1);
             assert!(html.contains(&format!("<p>Category: 42 ({label})")));
             assert!(!html.contains("<p>Reason: "));
             assert!(!html.contains("<script>"));
@@ -488,6 +561,9 @@ mod tests {
             });
             let html = Queue {
                 media_origin: String::new(),
+                filter_label: "All authorized boards".into(),
+                filter_board: String::new(),
+                has_more: false,
                 reports: vec![preview],
                 csrf: "owned-fixture".into(),
                 recent: true,
@@ -558,6 +634,9 @@ mod tests {
             };
             let html = Queue {
                 media_origin: "http://127.0.0.1:3002".into(),
+                filter_label: "All authorized boards".into(),
+                filter_board: String::new(),
+                has_more: false,
                 reports: vec![report.into()],
                 csrf: "example".into(),
                 recent: true,
