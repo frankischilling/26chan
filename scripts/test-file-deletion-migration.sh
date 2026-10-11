@@ -178,6 +178,48 @@ for migration in migrations/*.sql; do
  [[ $(basename "$migration") > 0130_file_deletion_actions.sql ]] || continue
  "${migrator[@]}" --single-transaction -f - < "$migration"
 done
+# Preserve the separately reviewed additive transfer schema when both open
+# features are installed. Its private readiness guard still validates the hash.
+if [[ -f migrations/0131_text_thread_transfer.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object(
+ 'saved_presentation',NULL,'saved_presentation_search',NULL)
+WHERE relation='content.posts';
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
+ OR content.text_thread_transfer_ready() IS DISTINCT FROM true
+ OR (SELECT count(*) FROM post_secrets.thread_transfer_gate)<>1
+ OR (SELECT count(*) FROM post_secrets.thread_transfer_catalog)<>1
+ OR EXISTS(SELECT 1 FROM public.capture_rows() WHERE relation LIKE 'post_secrets.thread_transfer_%'
+  AND relation NOT IN('post_secrets.thread_transfer_gate','post_secrets.thread_transfer_catalog'))
+ THEN RAISE EXCEPTION 'Additive transfer schema changed historical content or created transfer activity'; END IF;
+END $$;
+INSERT INTO public.upgraded_rows SELECT * FROM public.capture_rows()
+WHERE relation IN('post_secrets.thread_transfer_gate','post_secrets.thread_transfer_catalog');
+SQL
+fi
+# Preserve every historical field and derive only the five added 0132 fields
+# from the independently checked source fixture (or the reviewed defaults).
+# Do not recapture whole rows: that would hide unrelated migration changes.
+if [[ -f migrations/0132_source_image_board_policy.sql ]]; then
+ python3 - "$cluster/image-policy-expectation.sql" <<'PY'
+import json, pathlib, re, sys
+rows=json.loads(pathlib.Path('fixtures/board-reference.json').read_text(encoding='utf-8'))['boards']
+keys=('max_image_bytes','min_image_width','min_image_height','max_image_dimension','gif_only')
+assert len(rows)==82 and len({row['slug'] for row in rows})==82
+values=[]
+for row in rows:
+    assert re.fullmatch(r'[a-z0-9]{1,10}',row['slug'])
+    assert all(type(row[key]) is int and row[key]>0 for key in keys[:-1])
+    assert type(row['gif_only']) is bool
+    values.append("('"+row['slug']+"',"+','.join(str(row[key]).lower() for key in keys)+')')
+sql="UPDATE public.upgraded_rows u SET value=value||coalesce((SELECT to_jsonb(policy)-'slug' FROM (VALUES\n"
+sql+=',\n'.join(values)+") policy(slug,"+','.join(keys)+") WHERE policy.slug=u.value->>'slug'),"
+sql+="jsonb_build_object('max_image_bytes',4194304,'min_image_width',1,'min_image_height',1,'max_image_dimension',10000,'gif_only',false)) WHERE relation='content.boards';\n"
+pathlib.Path(sys.argv[1]).write_text(sql,encoding='utf-8')
+PY
+ "${admin[@]}" -f - < "$cluster/image-policy-expectation.sql"
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  -- Only live targets 2/3, their thread clocks, media flag 2 and reports on

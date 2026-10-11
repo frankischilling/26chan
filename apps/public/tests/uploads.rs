@@ -655,6 +655,7 @@ async fn exercise(
             .status(),
         StatusCode::UNPROCESSABLE_ENTITY
     );
+    source_image_upload_hints_and_stream_bound(&app, board, root, admin).await;
     let before: i64 = sqlx::query_scalar("SELECT count(*) FROM media.jobs")
         .fetch_one(admin)
         .await
@@ -672,6 +673,77 @@ async fn exercise(
         .await
         .unwrap();
     assert_eq!(before, after);
+}
+
+async fn source_image_upload_hints_and_stream_bound(
+    app: &Router,
+    board: &str,
+    root: &std::path::Path,
+    admin: &PgPool,
+) {
+    sqlx::query("UPDATE content.boards SET max_image_bytes=17,gif_only=true WHERE slug=$1")
+        .bind(board)
+        .execute(admin)
+        .await
+        .unwrap();
+    let page = html(
+        app.clone()
+            .oneshot(
+                Request::get(format!("/{board}/"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap(),
+        StatusCode::OK,
+    )
+    .await;
+    assert!(page.contains("accept=\"image/gif\""));
+    assert!(page.contains("Upload a GIF first"));
+    assert!(page.contains("Maximum file size: 17 bytes."));
+    assert_eq!(
+        app.clone()
+            .oneshot(multipart(board, vec![1; 18], false))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "Reception must reject the lower board limit before approval",
+    );
+    // Intake accepts opaque bytes at the exact limit. Format is enforced only
+    // after isolated processing supplies the immutable approved output format.
+    let page = html(
+        app.clone()
+            .oneshot(multipart(board, vec![1; 17], false))
+            .await
+            .unwrap(),
+        StatusCode::OK,
+    )
+    .await;
+    let id = hidden(&page, "upload_id");
+    let capability = hidden(&page, "upload_capability");
+    assert_eq!(
+        std::fs::read(root.join(format!("{id}.input")))
+            .unwrap()
+            .len(),
+        17
+    );
+    assert_eq!(
+        app.clone()
+            .oneshot(post_request(
+                &format!("/{board}/upload/cancel"),
+                receipt(&id, &capability),
+            ))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::SEE_OTHER
+    );
+    sqlx::query("UPDATE content.boards SET max_image_bytes=4194304,gif_only=false WHERE slug=$1")
+        .bind(board)
+        .execute(admin)
+        .await
+        .unwrap();
 }
 
 async fn json(app: &Router, path: &str) -> (serde_json::Value, String) {
@@ -1260,6 +1332,23 @@ async fn image_reply_contract(
         );
     }
     let (boards, _) = json(app, "/boards.json").await;
+    for (slug, expected) in [
+        ("b", 2_097_152),
+        ("gif", 4_194_304),
+        ("wsg", 6_291_456),
+        ("hr", 8_388_608),
+    ] {
+        let source = boards["boards"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|board| board["board"] == slug)
+            .unwrap();
+        assert_eq!(
+            source["max_filesize"], expected,
+            "Source policy for /{slug}/"
+        );
+    }
     let policy = boards["boards"]
         .as_array()
         .unwrap()
@@ -1267,7 +1356,25 @@ async fn image_reply_contract(
         .find(|b| b["board"] == board)
         .unwrap();
     assert_eq!(policy["image_limit"], 7);
-    assert_eq!(policy["max_filesize"], 8_388_608);
+    assert_eq!(policy["max_filesize"], 4_194_304);
+    assert!(policy.get("min_image_width").is_none());
+    assert!(policy.get("min_image_height").is_none());
+    for (slug, width, height) in [("hr", 1000, 1000), ("w", 480, 600), ("wg", 480, 600)] {
+        let policy = boards["boards"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|board| board["board"] == slug)
+            .unwrap();
+        assert_eq!(
+            policy["min_image_width"], width,
+            "Source width for /{slug}/"
+        );
+        assert_eq!(
+            policy["min_image_height"], height,
+            "Source height for /{slug}/"
+        );
+    }
     assert_eq!(policy["spoilers"], 1);
     assert!(policy.get("text_only").is_none());
     let path = format!("/{board}/thread/{thread}.json");

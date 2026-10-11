@@ -230,10 +230,10 @@ async fn receive(
         let mut total = 0usize;
         while let Some(chunk) = field.chunk().await.map_err(|_| invalid())? {
             total = total.checked_add(chunk.len()).ok_or_else(invalid)?;
-            if total > 8_388_608 {
+            if total > board_settings.image_file_limit() {
                 return Err(AppError(
                     StatusCode::PAYLOAD_TOO_LARGE,
-                    "The file exceeds the 8 MiB upload limit.",
+                    "Error: File too large.",
                 ));
             }
             // Copy only bounded chunks into the one-slot channel; a Bytes slice

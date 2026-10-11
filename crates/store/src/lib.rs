@@ -165,6 +165,11 @@ pub struct Board {
     pub archive_retention_seconds: i32,
     pub archive_limit: i32,
     pub image_limit: i32,
+    pub max_image_bytes: i64,
+    pub min_image_width: i32,
+    pub min_image_height: i32,
+    pub max_image_dimension: i32,
+    pub gif_only: bool,
     pub dice_roll: bool,
     pub fortune_trip: bool,
     pub robot9000: bool,
@@ -183,6 +188,7 @@ impl Board {
             && !self.staff_only
             && !self.text_only
             && self.image_limit > 0
+            && !self.gif_only
     }
 
     /// Original extension.js exposes existing-image Edit only on /i/. The QR
@@ -195,6 +201,7 @@ impl Board {
             && !self.staff_only
             && !self.text_only
             && self.image_limit > 0
+            && !self.gif_only
             && (1..=1024).contains(&self.oekaki_width)
             && (1..=1024).contains(&self.oekaki_height)
             && i64::from(self.oekaki_width) * i64::from(self.oekaki_height) <= 1024 * 1024
@@ -207,6 +214,11 @@ impl Board {
             .map(|flag| (flag.code, flag.selector))
             .collect()
     }
+    pub fn image_file_limit(&self) -> usize {
+        // The transport's independent 8 MiB resource bound still applies.
+        self.max_image_bytes.min(8_388_608) as usize
+    }
+
     pub fn check_attachment_allowed(&self, parent: i64, attached: bool) -> Result<(), StoreError> {
         if self.text_only && parent != 0 && attached {
             return Err(StoreError::Invalid("You cannot upload files on this board"));
