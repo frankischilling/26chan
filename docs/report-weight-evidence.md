@@ -3,7 +3,7 @@
 The domain modules `report_weight` and `report_threat` model a small part of the
 supplied report pipeline. Migration 0102 captures a narrow set of admission-time
 facts. Migration 0108 uses those facts for bounded ordinary report-group clearing.
-Weighted queue ordering remains unchanged; old reports are not backfilled.
+The [grouped report inventory](grouped-report-queue.md) uses an explicit unweighted fallback. Source weighted ordering remains unimplemented; old reports are not backfilled.
 
 ## Weight decisions
 

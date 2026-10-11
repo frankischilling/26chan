@@ -164,6 +164,7 @@ fn clear_error(error: sqlx::Error) -> AppError {
 #[template(path = "report_group_history.html")]
 struct History {
     board: String,
+    moderator: bool,
     reports: Vec<crate::store::ClearedReport>,
 }
 
@@ -189,9 +190,13 @@ pub(crate) async fn history(
     let mut authority = auth::guard(&state, &headers).await?;
     let board = history_board(query.as_deref())?;
     let reports = crate::store::cleared_reports(&state.staff, &authority.session, &board).await?;
-    let html = History { board, reports }
-        .render()
-        .map_err(|_| AppError::Internal)?;
+    let html = History {
+        board,
+        reports,
+        moderator: authority.session.at_least(crate::access::Level::Moderator),
+    }
+    .render()
+    .map_err(|_| AppError::Internal)?;
     authority.ensure_current(false).await?;
     authority.finish().await?;
     Ok(Html(html))
@@ -251,23 +256,37 @@ mod tests {
 
     #[test]
     fn cleared_history_escapes_evidence_and_keeps_disposition_separate() {
-        let html = History {
+        let mut history = History {
             board: "test".into(),
+            moderator: true,
             reports: vec![crate::store::ClearedReport {
                 id: 1,
                 post_id: 42,
-                reason: "<script>alert(1)</script>".into(),
+                reason: Some("<script>alert(1)</script>".into()),
                 category_id: Some(3),
                 state: "open".into(),
                 group_cleared_at: chrono::DateTime::from_timestamp(1_700_000_000, 0).unwrap(),
-                group_cleared_by: 7,
+                group_cleared_by: Some(7654321),
                 group_clear_inherited: true,
             }],
+        };
+        let html = history.render().unwrap();
+        history.moderator = false;
+        let janitor = history.render().unwrap();
+        for forbidden in [
+            "7654321",
+            "Originating clear account",
+            "Reason:",
+            "Category:",
+            "alert(1)",
+        ] {
+            assert!(!janitor.contains(forbidden), "Janitor leaked {forbidden}");
         }
-        .render()
-        .unwrap();
+        assert!(janitor.contains("Original report disposition: open"));
+        assert!(janitor.contains("originating clear time:"));
+        assert!(janitor.contains("inherited clear: true"));
         assert!(html.contains("Original report disposition: open"));
-        assert!(html.contains("Originating clear account: 7"));
+        assert!(html.contains("Originating clear account: 7654321"));
         assert!(html.contains("inherited clear: true"));
         assert!(html.contains("not a saved post snapshot"));
         assert!(!html.contains("<script>"));

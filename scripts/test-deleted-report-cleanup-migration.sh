@@ -72,16 +72,28 @@ with (root/'drift.sql').open('w') as out:
   for role in ('board_public','board_staff'):
    out.write(f"SET LOCAL ROLE {role}; DO $check$ BEGIN IF ({query}) IS DISTINCT FROM false THEN RAISE EXCEPTION 'Readiness accepted cleanup drift {i}'; END IF; END $check$; RESET ROLE;\n")
   out.write('ROLLBACK;\n')
-staff=pathlib.Path('apps/staff/src/store.rs').read_text()
-selection=re.findall(r'const SELECTION: &str = "([^"\n]+)";',staff)
-projection=re.findall(r'let reports_query = format!\(\s*"([^"\n]+)"\s*\);',staff)
-if len(selection)!=1 or len(projection)!=1 or projection[0].count('{SELECTION}')!=1:
- raise SystemExit('Cannot extract current shared staff queue selection')
-queue=projection[0].replace('{SELECTION}',selection[0])
-if set(re.findall(r'\$[0-9]+',queue))!={'$1','$2'} or '{' in queue or '}' in queue:
- raise SystemExit('Unexpected staff queue parameters')
-queue=queue.replace('$1',"ARRAY['all']::text[]").replace('$2','ARRAY[]::text[]')
-(root/'queue.sql').write_text("DO $check$ BEGIN IF EXISTS(SELECT 1 FROM ("+queue+") q WHERE id IN (12201005,12201006)) OR NOT EXISTS(SELECT 1 FROM ("+queue+") q WHERE id=12201007) THEN RAISE EXCEPTION 'Historical deleted report queue filtering failed'; END IF; END $check$;")
+staff=pathlib.Path('apps/staff/src/report_queue.rs').read_text()
+def queue_query(name):
+ matches=re.findall(r'const '+re.escape(name)+r': &str = r#"(.*?)"#;',staff,re.S)
+ if len(matches)!=1: raise SystemExit('Cannot extract current staff queue '+name)
+ return matches[0]
+def bind(query,values):
+ def replace(match):
+  index=int(match.group(1))
+  if index not in values: raise SystemExit('Unexpected staff queue parameter')
+  return values[index]
+ return re.sub(r'\$(\d+)',replace,query)
+# Exercise the actual grouped selection and selected-report projection together.
+# A resolved sibling must not displace its group's newest open representative;
+# historical deleted post/thread targets must not reach the preview query.
+selected=bind(queue_query('SELECT_GROUPS'),{
+ 1:"ARRAY['all']::text[]",2:'ARRAY[]::text[]',3:'NULL::text',
+ 4:'NULL::boolean',5:'true'})
+previews=bind(queue_query('SELECT_PREVIEWS'),{
+ 1:'ARRAY(SELECT representative_id FROM selected)',2:'true'})
+queue='WITH selected AS ('+selected+'), previews AS ('+previews+') SELECT id FROM previews'
+(root/'queue.sql').write_text("DO $check$ BEGIN IF (SELECT array_agg(id ORDER BY id) FROM ("+queue+") q) IS DISTINCT FROM ARRAY[12201001,12201004,12201007]::bigint[] THEN RAISE EXCEPTION 'Historical deleted report grouped selection or preview filtering failed'; END IF; END $check$;")
+
 PYREADINESS
 create_database deleted_report_upgrade
 migrator=("${psql[@]}" -U board_migrator -d deleted_report_upgrade)

@@ -668,7 +668,7 @@ async fn thread_options_source_cases(f: &Fixture) {
         );
     }
     let (_, html) = f.request("/reports", None).await;
-    let marker = format!("<article id=\"report-{}\">", f.reports[0]);
+    let marker = format!("<div id=\"report-{}\">", f.reports[0]);
     let archived = html
         .split(&marker)
         .nth(1)

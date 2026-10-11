@@ -8,6 +8,8 @@ mod handlers;
 mod latest;
 mod posting_password;
 mod report_group_clear;
+pub mod report_queue;
+mod report_queue_query;
 mod reporter_clear;
 mod robot9000_cleanup;
 pub mod store;
@@ -82,6 +84,26 @@ pub enum AppError {
 }
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
+        // Test qualification needs to distinguish database refusal from a
+        // rendering failure without printing SQL, bind values or private data.
+        #[cfg(feature = "database-tests")]
+        match &self {
+            Self::Database(error) => {
+                let state = error.as_database_error().and_then(|error| error.code());
+                let state = state.as_deref().filter(|value| {
+                    value.len() == 5
+                        && value
+                            .bytes()
+                            .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+                });
+                eprintln!(
+                    "Staff database refusal: SQLSTATE={}",
+                    state.unwrap_or("unavailable")
+                );
+            }
+            Self::Internal => eprintln!("Staff internal refusal"),
+            _ => {}
+        }
         let code = match self {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Forbidden | Self::Recent => StatusCode::FORBIDDEN,

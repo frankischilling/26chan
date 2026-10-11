@@ -167,7 +167,7 @@ impl Fixture {
     async fn html(&self) -> String {
         let html = self.queue_html().await;
         let article = html
-            .split(&format!("<article id=\"report-{}\">", self.report))
+            .split(&format!("<div id=\"report-{}\">", self.report))
             .nth(1)
             .expect("The live report must have a queue article");
         article.split("</article>").next().unwrap().to_string()
@@ -175,7 +175,7 @@ impl Fixture {
     async fn assert_deleted_report_absent(&self) {
         let html = self.queue_html().await;
         assert!(
-            !html.contains(&format!("<article id=\"report-{}\">", self.report)),
+            !html.contains(&format!("<div id=\"report-{}\">", self.report)),
             "Administrative deletion removes the exact report article from the successful queue response"
         );
         let exists: bool = sqlx::query_scalar(

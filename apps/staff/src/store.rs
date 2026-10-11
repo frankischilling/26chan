@@ -76,56 +76,17 @@ impl Attachment {
         })
     }
 }
+/// Compatibility projection for callers that only need one current preview per
+/// retained report group. The queue itself uses the complete grouped read model.
 pub async fn reports(pool: &PgPool, session: &Session) -> Result<Vec<Report>, AppError> {
-    if !session.at_least(crate::access::Level::Janitor) {
-        return Err(AppError::Forbidden);
-    }
-    let mut tx = pool.begin().await?;
-    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-        .execute(&mut *tx)
-        .await?;
-    // Share exact visibility, ordering and row selection for preflight and load.
-    const SELECTION: &str = "FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board JOIN content.boards b ON b.slug=p.board WHERE ('all'=ANY($1) OR r.board=ANY($1)) AND NOT r.board=ANY($2) AND NOT p.deleted AND NOT t.deleted AND r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL ORDER BY (r.state='open') DESC,r.id DESC LIMIT 100";
-    let bytes_query = format!(
-        "SELECT coalesce(sum(body_bytes),0)::bigint FROM (SELECT \
-         octet_length(p.comment)::bigint+coalesce(octet_length(p.wordfilter_payload),0)\
-         +coalesce(octet_length(p.wordfilter_search),0)\
-         +coalesce(octet_length(p.saved_presentation),0)\
-         +coalesce(octet_length(p.saved_presentation_search),0) AS body_bytes {SELECTION}) selected"
-    );
-    // Only constant SQL fragments are composed; every dynamic input is bound.
-    let bytes: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(bytes_query.as_str()))
-        .bind(&session.permissions.allow_boards)
-        .bind(&session.permissions.deny_boards)
-        .fetch_one(&mut *tx)
-        .await?;
-    const MAX_REPORT_READ_BYTES: usize = board_domain::MAX_COMMENT_BYTES * 1001;
-    if bytes > MAX_REPORT_READ_BYTES as i64 {
-        return Err(AppError::Capacity);
-    }
-    let reports_query = format!(
-        "SELECT r.id,r.board,r.post_id,p.thread_id,r.reason,r.category_id,r.category_kind,p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,p.subject,p.comment,p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.saved_presentation,r.state,(t.closed OR t.archived_at IS NOT NULL) AS closed,t.sticky,t.permasage,t.permaage,t.undead,(t.archived_at IS NOT NULL) AS archived,(b.archive_retention_seconds>0) AS archives_enabled,(p.deleted OR t.deleted) AS deleted,b.comment_spoiler_cleanup AS spoilers_enabled,p.image_spoiler {SELECTION}"
-    );
-    // Only constant SQL fragments are composed; every dynamic input is bound.
-    let mut reports: Vec<Report> = sqlx::query_as(sqlx::AssertSqlSafe(reports_query.as_str()))
-        .bind(&session.permissions.allow_boards)
-        .bind(&session.permissions.deny_boards)
-        .fetch_all(&mut *tx)
-        .await?;
-    let ids: Vec<i64> = reports.iter().map(|r| r.post_id).collect();
-    let attachments: Vec<Attachment> =
-        sqlx::query_as("SELECT post_id,filename,bytes,width,height,spoiler,tim,thumbnail_width,thumbnail_height,available,md5,output_format FROM content.staff_post_media WHERE post_id=ANY($1)")
-            .bind(ids)
-            .fetch_all(&mut *tx)
-            .await?;
-    for report in &mut reports {
-        report.attachment = attachments
-            .iter()
-            .find(|a| a.post_id == report.post_id)
-            .cloned();
-    }
-    tx.commit().await?;
-    Ok(reports)
+    Ok(
+        crate::report_queue::load(pool, session, crate::report_queue::ReportFilter::All)
+            .await?
+            .groups
+            .into_iter()
+            .map(|group| group.representative)
+            .collect(),
+    )
 }
 pub(crate) async fn prepare_moderation(
     pool: &PgPool,
@@ -477,11 +438,11 @@ pub async fn moderate(
 pub struct ClearedReport {
     pub id: i64,
     pub post_id: i64,
-    pub reason: String,
+    pub reason: Option<String>,
     pub category_id: Option<i64>,
     pub state: String,
     pub group_cleared_at: chrono::DateTime<chrono::Utc>,
-    pub group_cleared_by: i64,
+    pub group_cleared_by: Option<i64>,
     pub group_clear_inherited: bool,
 }
 
@@ -493,6 +454,9 @@ pub async fn cleared_reports(
     if !session.at_least(crate::access::Level::Janitor) || !session.permissions.allows(board) {
         return Err(AppError::Forbidden);
     }
-    Ok(sqlx::query_as("SELECT id,post_id,reason,category_id,state,group_cleared_at,group_cleared_by,group_clear_inherited FROM content.reports WHERE board=$1 AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL ORDER BY id DESC LIMIT 100")
-        .bind(board).fetch_all(pool).await?)
+    // Redact before materializing a Janitor row, including the actor identity.
+    Ok(sqlx::query_as("SELECT id,post_id,CASE WHEN $2 THEN reason ELSE NULL::text END AS reason,CASE WHEN $2 THEN category_id ELSE NULL::bigint END AS category_id,state,group_cleared_at,CASE WHEN $2 THEN group_cleared_by ELSE NULL::bigint END AS group_cleared_by,group_clear_inherited FROM content.reports WHERE board=$1 AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL ORDER BY id DESC LIMIT 100")
+        .bind(board)
+        .bind(session.at_least(crate::access::Level::Moderator))
+        .fetch_all(pool).await?)
 }
