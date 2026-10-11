@@ -69,10 +69,11 @@ Migration 0122 removes the corresponding `content.reports` rows on fresh
 whole-post and whole-thread deletion, including thread rollover and archive
 expiration. Foreign-key cascades retire private membership, anonymous report
 activity and captured weight evidence; empty groups retire through the existing
-membership trigger. Public file-only
-deletion preserves membership. The staff file-removal action retires membership
-only after a fresh successful file deletion; repeating the action cannot clear
-reports submitted later. Existing attachment visibility limits still apply.
+membership trigger. Public file-only deletion preserves membership. Migration
+0130 makes each successful administrative file action remove the exact target
+reports, including reports submitted after an earlier file deletion and reports
+on text-only posts. [File-only action rules](file-deletion-actions.md) describe
+authority, visibility and transaction boundaries.
 
 Retirement never takes the admission gate or anonymous-session locks. Raw
 row-first lifecycle updates use a nonwaiting board lock under Read Committed,

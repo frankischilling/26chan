@@ -135,6 +135,7 @@ mod tests {
             fortune_color: None,
             created_at: chrono::Utc::now(),
             deleted: false,
+            file_deleted: false,
             attachment: None,
         }
     }

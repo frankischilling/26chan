@@ -195,7 +195,8 @@ impl Fixture {
             drawing_source_post_id: None,
             created_at: thread.created_at,
             deleted: false,
-            attachment: Some(file.clone()),
+            file_deleted: false,
+                attachment: Some(file.clone()),
         })).collect();
         let threads = if separate_threads {
             posts

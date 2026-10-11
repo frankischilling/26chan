@@ -156,6 +156,47 @@ pub(crate) async fn prepare_moderation(
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(AppError::NotFound)?;
+    if matches!(action, "remove-file" | "remove-post" | "remove-thread") {
+        // Source sticky eligibility belongs to the target OP, never its replies.
+        // Keep the common board -> thread -> post lock order so concurrent
+        // sticky/archive changes cannot invalidate the decision before commit.
+        let thread: i64 = if action == "remove-thread" {
+            target
+        } else {
+            sqlx::query_scalar(
+                "SELECT thread_id FROM content.posts WHERE board=$1 AND id=$2 AND NOT deleted",
+            )
+            .bind(board)
+            .bind(target)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(AppError::NotFound)?
+        };
+        let (archived, sticky): (bool, bool) = sqlx::query_as(
+            "SELECT archived_at IS NOT NULL,sticky FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted FOR UPDATE",
+        )
+        .bind(board).bind(thread).fetch_optional(&mut *tx).await?
+        .ok_or(AppError::NotFound)?;
+        let _: i64 = sqlx::query_scalar(
+            "SELECT id FROM content.posts WHERE board=$1 AND id=$2 AND thread_id=$3 AND NOT deleted FOR UPDATE",
+        )
+        .bind(board).bind(target).bind(thread).fetch_optional(&mut *tx).await?
+        .ok_or(AppError::NotFound)?;
+        // Preserve the source rank policy using only authenticated role data.
+        // Migration 0009 forbids archived + sticky persisted threads; the
+        // source archived-sticky exception has pure policy coverage only.
+        // The file helper retains its separate visibility and expiry checks.
+        if target == thread
+            && sticky
+            && !crate::access::Level::parse(&session.role)
+                .is_some_and(|level| level.can_delete_sticky_op(archived))
+        {
+            return Err(AppError::Forbidden);
+        }
+        // The staff form supplies no public password/host proof. This is an
+        // administrative deletion, regardless of who authored the post. The
+        // handler still revalidates live authority before committing the tx.
+    }
     if action == "force-archive" {
         // Source forcearchive requires an archive-enabled board and an actual
         // nonsticky OP. Undead protects automatic pruning, not this action.

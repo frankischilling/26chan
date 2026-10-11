@@ -794,7 +794,7 @@ async fn group_clear_and_whole_deletion_serialize_in_both_lock_orders() {
 }
 
 #[tokio::test]
-async fn archive_and_file_only_keep_report_rows_visible_and_actionable() {
+async fn archive_keeps_reports_but_administrative_file_deletion_clears_them() {
     let _serial = TEST.lock().await;
     let f = Fixture::new().await;
     let result=tokio::spawn({let f=f.clone();async move {
@@ -807,7 +807,10 @@ async fn archive_and_file_only_keep_report_rows_visible_and_actionable() {
         assert_eq!(f.moderate(1,f.posts[1],"remove-file").await,StatusCode::SEE_OTHER);
         let queue=f.request("/reports",None).await;
         assert_eq!(queue.0,StatusCode::OK);
-        for (board,id) in [archived,file].into_iter().enumerate() {
+        assert!(!queue.1.contains(&format!("id=\"report-{file}\"")));
+        let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.reports WHERE id=$1)").bind(file).fetch_one(&f.owner).await.unwrap();
+        assert!(!exists);
+        for (board,id) in [archived].into_iter().enumerate() {
             assert!(queue.1.contains(&format!("id=\"report-{id}\"")));
             for action in ["resolve","dismiss"] {
                 assert_eq!(f.moderate(board,id,action).await,StatusCode::SEE_OTHER);

@@ -283,11 +283,18 @@ pub struct Post {
     pub fortune_color: Option<String>,
     pub created_at: DateTime<Utc>,
     pub deleted: bool,
+    /// A file-only action can target a post with no attachment.
+    pub file_deleted: bool,
     #[sqlx(skip)]
     pub attachment: Option<post_media::PostAttachment>,
 }
 
 impl Post {
+    /// Historical attachment flags remain effective without a data backfill.
+    pub fn file_deleted(&self) -> bool {
+        self.file_deleted || self.attachment.as_ref().is_some_and(|a| a.file_deleted)
+    }
+
     pub fn formatted_lines(&self) -> Vec<board_domain::Line> {
         board_domain::formatting::parse_saved_comment_with_limits(
             &self.comment,

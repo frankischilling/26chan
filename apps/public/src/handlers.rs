@@ -472,6 +472,17 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
             "Public posting and deletion are unavailable.",
         ));
     }
+    let file_deletion: bool =
+        sqlx::query_scalar(board_store::post_media::FILE_DELETION_READINESS_SQL)
+            .fetch_one(&state.pool)
+            .await
+            .map_err(StoreError::from)?;
+    if !file_deletion {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public posting and deletion are unavailable.",
+        ));
+    }
     let archive_deletion_secrets: bool = sqlx::query_scalar(ARCHIVE_DELETION_SECRETS_READY_SQL)
         .fetch_one(&state.pool)
         .await

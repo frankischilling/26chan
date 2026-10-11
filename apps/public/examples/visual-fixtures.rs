@@ -200,6 +200,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
         drawing_source_post_id: None,
         created_at: time("2026-09-08T12:00:00Z"),
         deleted: false,
+        file_deleted: false,
         attachment: None,
     })];
     posts[0] = PostView::new(Post { comment: "Share your latest paper project.\n>start with a single sheet\n[spoiler]Mine is another crane.[/spoiler]".into(), ..posts[0].post.clone() });
@@ -231,6 +232,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             drawing_source_post_id: None,
             created_at: time("2026-09-08T12:05:00Z"),
             deleted: false,
+            file_deleted: false,
             attachment: None,
         }));
     }
@@ -434,7 +436,8 @@ fn archived_thread() -> String {
             drawing_source_post_id: None,
             created_at: thread.created_at,
             deleted: false,
-            attachment: None,
+            file_deleted: false,
+                attachment: None,
         }),
         PostView::new(Post {
             image_spoiler: false,
@@ -461,7 +464,8 @@ fn archived_thread() -> String {
             comment: ">>1000101\nThe roof looks good. Thanks for sharing your finished project.".into(),
             created_at: thread.bumped_at,
             deleted: false,
-            attachment: None,
+            file_deleted: false,
+                attachment: None,
         }),
     ];
     BoardPage {

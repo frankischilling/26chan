@@ -118,6 +118,7 @@ fn render(
                 drawing_source_post_id: None,
                 created_at: time("2026-09-08T12:00:00Z"),
                 deleted: false,
+                file_deleted: false,
                 attachment: None,
             })],
             omitted: visible,

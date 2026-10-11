@@ -93,10 +93,45 @@ async fn candidate_claim_skips_locked_jobs_and_finish_rechecks_expiry_after_wait
     .await
     .unwrap();
     locked.commit().await.unwrap();
-    assert!(matches!(
-        pending.await.unwrap(),
-        Err(StoreError::Conflict(_))
-    ));
+    let result = pending.await.unwrap();
+    // Only variant names and validated SQLSTATEs; never expose lease tokens,
+    // connection strings or database diagnostic payloads in assertion output.
+    let diagnostic = match &result {
+        Ok(()) => "UnexpectedSuccess".to_owned(),
+        Err(StoreError::Database(error)) => {
+            let code = error.as_database_error().and_then(|error| error.code());
+            match code.filter(|code| {
+                code.len() == 5
+                    && code
+                        .bytes()
+                        .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit())
+            }) {
+                Some(code) => format!("Database(SQLSTATE={code})"),
+                None => "Database".to_owned(),
+            }
+        }
+        Err(error) => match error {
+            StoreError::NotFound => "NotFound",
+            StoreError::PageNotFound => "PageNotFound",
+            StoreError::Invalid(_) => "Invalid",
+            StoreError::Conflict(_) => "Conflict",
+            StoreError::PublicDeletionRejected(_) => "PublicDeletionRejected",
+            StoreError::AuthorizationChanged => "AuthorizationChanged",
+            StoreError::ContentRejected(_) => "ContentRejected",
+            StoreError::ContentQuiet { .. } => "ContentQuiet",
+            StoreError::UnsafeRole => "UnsafeRole",
+            StoreError::RandomnessUnavailable => "RandomnessUnavailable",
+            StoreError::ReadLimit => "ReadLimit",
+            StoreError::Robot9000Rejected(_) => "Robot9000Rejected",
+            StoreError::PostingCooldownRejected(_) => "PostingCooldownRejected",
+            StoreError::Database(_) => unreachable!(),
+        }
+        .to_owned(),
+    };
+    assert!(
+        matches!(result, Err(StoreError::Conflict(_))),
+        "Expected expired candidate Conflict, got {diagnostic}"
+    );
     let current = queue.get(&ids[0]).await.unwrap();
     assert_eq!(current.state, "processing");
     assert!(current.output_sha256.is_none() && current.output_bytes.is_none());

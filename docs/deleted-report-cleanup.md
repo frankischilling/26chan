@@ -27,8 +27,8 @@ bindings, restricted privileges and evidence cascades.
 
 ## Boundaries
 
-- Public and staff file-only deletion keep their existing behavior.
-- Source staff-self versus other-person file deletion remains unresolved.
+- Migration 0130 adds [administrative file-only report cleanup](file-deletion-actions.md).
+  Public file-only deletion preserves reports. Source staff-self proof remains unresolved.
 - The migration does not sweep reports whose targets were already deleted.
   The staff queue and resolve/dismiss lookup exclude these targets. Historical
   physical cleanup needs a separate bounded operator procedure.

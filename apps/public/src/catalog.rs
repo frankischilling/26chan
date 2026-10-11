@@ -114,7 +114,7 @@ impl Options {
                         .is_some_and(|post| {
                             query.matches(&search_fields::from_post(post, &snapshot.board))
                                 || post.attachment.as_ref().is_some_and(|file| {
-                                    !file.file_deleted && query.matches(&file.filename)
+                                    !post.file_deleted() && query.matches(&file.filename)
                                 })
                         })
                 });

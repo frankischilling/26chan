@@ -284,12 +284,44 @@ async fn exercise(owner: PgPool, monitor_url: String, fixture: String, capacity:
         ),
     ] {
         owner.execute(grant).await.unwrap();
+        let result = MonitorReader::connect(&monitor_url).await;
+        // Variant names only: never expose connection strings or database
+        // diagnostics. Keep the exact UnsafeRole contract (no retry/fallback).
+        let diagnostic = match &result {
+            Ok(_) => "UnexpectedSuccess".to_owned(),
+            Err(StoreError::UnsafeRole) => "UnsafeRole".to_owned(),
+            Err(StoreError::Database(error)) => {
+                let code = error.as_database_error().and_then(|error| error.code());
+                match code.filter(|code| {
+                    code.len() == 5
+                        && code
+                            .bytes()
+                            .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit())
+                }) {
+                    Some(code) => format!("Database(SQLSTATE={code})"),
+                    None => "Database".to_owned(),
+                }
+            }
+            Err(error) => match error {
+                StoreError::NotFound => "NotFound",
+                StoreError::PageNotFound => "PageNotFound",
+                StoreError::Invalid(_) => "Invalid",
+                StoreError::Conflict(_) => "Conflict",
+                StoreError::PublicDeletionRejected(_) => "PublicDeletionRejected",
+                StoreError::AuthorizationChanged => "AuthorizationChanged",
+                StoreError::ContentRejected(_) => "ContentRejected",
+                StoreError::ContentQuiet { .. } => "ContentQuiet",
+                StoreError::RandomnessUnavailable => "RandomnessUnavailable",
+                StoreError::ReadLimit => "ReadLimit",
+                StoreError::Robot9000Rejected(_) => "Robot9000Rejected",
+                StoreError::PostingCooldownRejected(_) => "PostingCooldownRejected",
+                StoreError::Database(_) | StoreError::UnsafeRole => unreachable!(),
+            }
+            .to_owned(),
+        };
         assert!(
-            matches!(
-                MonitorReader::connect(&monitor_url).await,
-                Err(StoreError::UnsafeRole)
-            ),
-            "{grant}"
+            matches!(result, Err(StoreError::UnsafeRole)),
+            "{grant}: {diagnostic}"
         );
         owner.execute(revoke).await.unwrap();
         MonitorReader::connect(&monitor_url)

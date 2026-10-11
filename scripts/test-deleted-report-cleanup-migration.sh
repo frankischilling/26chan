@@ -191,7 +191,8 @@ DO $$ BEGIN
  THEN RAISE EXCEPTION 'Thread cleanup changed the wrong targets'; END IF;
 END $$;
 ROLLBACK;
--- File-only and archive transitions keep report rows under their existing rules.
+-- Public file-only and archive transitions preserve reports; current
+-- administrative file-only actions remove only the target report graph.
 BEGIN;
 SET LOCAL ROLE board_public;
 SELECT content.delete_post_attachment('delreport',12200002);
@@ -203,7 +204,16 @@ SELECT slug FROM content.boards ORDER BY slug FOR UPDATE;
 SET LOCAL ROLE board_staff;
 SELECT content.staff_delete_post_attachment('delreport',12200002);
 RESET ROLE;
-DO $$ BEGIN IF (SELECT count(*) FROM content.reports)<>7 THEN RAISE EXCEPTION 'Staff file-only erased reports'; END IF; END $$;
+DO $$ BEGIN
+ IF (SELECT array_agg(id ORDER BY id) FROM content.reports)
+       IS DISTINCT FROM ARRAY[12201004,12201005,12201006,12201007]::bigint[]
+ OR EXISTS(SELECT 1 FROM post_secrets.report_membership WHERE report_id=12201002)
+ OR EXISTS(SELECT 1 FROM post_secrets.anonymous_reports WHERE report_id=12201002)
+ OR EXISTS(SELECT 1 FROM post_secrets.report_weight_evidence WHERE report_id=12201002)
+ OR NOT EXISTS(SELECT 1 FROM post_secrets.report_membership WHERE report_id=12201004)
+ OR NOT EXISTS(SELECT 1 FROM content.moderation_audit WHERE target_id=12200002)
+ THEN RAISE EXCEPTION 'Staff file-only cleanup changed the wrong report scope'; END IF;
+END $$;
 ROLLBACK;
 BEGIN;
 SELECT slug FROM content.boards ORDER BY slug FOR UPDATE;
