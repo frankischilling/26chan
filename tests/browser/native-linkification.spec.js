@@ -102,7 +102,66 @@ test('desktop starts with source linkification off and the real setting enables 
 
   await expect(message.locator(generated)).toHaveCount(1);
   await expect(message.locator(generated)).toHaveAttribute('href', '/derefer?url=https%3A%2F%2Finitial.test%2Fpath');
-  await expect(message.locator(generated)).toHaveAttribute('rel', 'noreferrer ugc noopener');
+  await expect(message.locator(generated)).toHaveAttribute('rel', 'noreferrer nofollow noopener');
+});
+
+test('persisted entity links preserve source sanitation across script-free, JSON and updater views', async ({ page, request, browser, owned }) => {
+  const raw = 'https://example.test/a\u00a0b';
+  const label = 'https://example.test/a&nbsp;b';
+  const serialized = 'https://example.test/a&amp;nbsp;b';
+  const href = `/derefer?url=${encodeURIComponent(serialized)}`;
+  const internal = 'https://www.4chan.org/faq';
+  const reply = await owned.reply(`Serialized ${label} sanitized ${raw} ${internal}`);
+  const jsonPath = `${owned.url}.json`;
+  const before = await (await request.get(jsonPath)).json();
+  const comment = before.posts.find(post => String(post.no) === reply).com;
+  // Askama emits a numeric ampersand entity. The browser canonicalizes it to
+  // &amp; before either URL linker reads innerHTML.
+  expect(comment).toContain('https://example.test/a&#38;nbsp;b');
+  // imgboard.php:5318 and the source post filter remove literal NBSP before
+  // storage. Literal entity text stays escaped and is not promoted to markup.
+  expect(comment).not.toContain('\u00a0');
+  expect(comment).toContain('https://example.test/ab');
+  expect(comment).toContain(serverLink(internal));
+  expect(comment).not.toContain('/derefer?url=');
+
+  const noScript = await browser.newContext({ javaScriptEnabled: false });
+  try {
+    const plain = await noScript.newPage();
+    await plain.goto(`${origin}${owned.url}`);
+    await expect(plain.locator(`#m${reply}`)).toContainText(label);
+    await expect(plain.locator(`#m${reply} ${generated}`)).toHaveCount(0);
+    await expect(plain.locator(`#m${reply} a[href="${internal}"]`)).toHaveCount(1);
+  } finally { await noScript.close(); }
+
+  await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ linkify: true })));
+  await page.goto(owned.url);
+  const initial = page.locator(`#m${reply} ${generated}[href="${href}"]`);
+  await expect(initial).toHaveCount(1);
+  await expect(initial).toHaveText(label);
+  await expect(initial).toHaveAttribute('href', href);
+  await expect(initial).toHaveAttribute('rel', 'noreferrer nofollow noopener');
+  await expect(page.locator(`#m${reply} ${generated}`)).toHaveCount(2);
+  const derefer = await request.get(href);
+  expect(derefer.status()).toBe(200);
+  expect(derefer.headers()['cache-control']).toBe('no-store');
+
+  const live = await owned.reply(`Live serialized ${label} sanitized ${raw}`);
+  await update(page);
+  await expect(status(page)).toHaveText('1 new post');
+  const inserted = page.locator(`#m${live} ${generated}[href="${href}"]`);
+  await expect(inserted).toHaveText(label);
+  await expect(inserted).toHaveAttribute('href', href);
+  await expect(inserted).toHaveAttribute('rel', 'noreferrer nofollow noopener');
+
+  await page.evaluate(() => {
+    localStorage.setItem('4chan-settings', JSON.stringify({ linkify: false }));
+    window.dispatchEvent(new StorageEvent('storage', { key: '4chan-settings' }));
+  });
+  await expect(page.locator(`#m${reply} ${generated}`)).toHaveCount(0);
+  await expect(page.locator(`#m${reply}`)).toContainText(label);
+  const after = await (await request.get(jsonPath)).json();
+  expect(after.posts.find(post => String(post.no) === reply).com).toBe(comment);
 });
 
 test('mobile default, never-mobile exact value, disableAll and viewport changes use the live source option precedence', async ({ page, owned }) => {
