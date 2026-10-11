@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ban and warning status</title><link rel="stylesheet" href="/static/board.css"></head>
 <body><main><h1>Ban and warning status</h1>
+<p>Active bans prevent reporting. A scheduled end may have passed before the ban is retired.</p>
 {% if rows.is_empty() %}<p>No current ban or warning applies to this request on /{{ board }}/.</p>{% endif %}
 {% for row in rows %}<section>
 <h2>{% if row.warning %}Warning{% else %}Ban{% endif %}</h2>

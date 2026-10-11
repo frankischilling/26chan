@@ -31,7 +31,7 @@ The report queue links live posts to the form. These forms provide manual
 reasons and durations; source template selection and combined post actions
 remain unfinished.
 
-`/banned?board=BOARD` returns only the requesting transport or established
+`/banned?board=BOARD` returns only the requesting transport or valid stored
 automatic identity's public reasons and restriction dates. Its native viewing
 form can retire only a matching active warning. Viewing uses a separate HttpOnly,
 SameSite cookie and a CSRF proof, requires a same-origin mutation and grants no
@@ -42,6 +42,15 @@ page styling remains unqualified. HTML posting refusals provide the source's
 status links and a three-second Refresh redirect without inline script. Native
 JSON refusals retain a fixed plain-text error. Actual browser redirect behavior
 and complete source-page comparisons remain unqualified.
+
+Status first runs posting's visited-expiry handling, then shows remaining
+matching active rows, including expired rows that still prevent reporting.
+Stored automatic equality remains usable for status and warning viewing during
+creation-second or seven-day idle reset. Posting keeps its separate `!isNew()`
+rule. An unknown or expired capability grants no status or viewing authority.
+This native contract lets a user see and acknowledge a warning that blocks
+reporting after their transport address changes; it does not claim behavior
+from the missing source controller.
 
 ## Posting decision
 
@@ -150,8 +159,9 @@ or page fidelity.
 The database script checks populated upgrades, rollback on prior visibility
 drift, actual role denials, private target resolution, issuance/unban/warning,
 capacity and catalog changes. With `RUN_RESTRICTION_RUST_TESTS=1` it also runs the
-store, public HTTP and staff HTTP restriction binaries against its socket-only
-database. The ordinary workspace CI runs those binaries and the migration check.
+store, public HTTP and staff HTTP restriction binaries plus report-target
+regressions against its socket-only database. Ordinary workspace CI runs those
+binaries and the migration check.
 Focused runtime results and hosted qualification must be recorded separately;
 they do not establish complete source parity or media containment.
 
@@ -178,6 +188,17 @@ support is installed. The snapshot upgrade and dump/restore passed all three
 transfer-order profiles. That historical fixture stops its setup at 0133 so it
 does not apply a dependent later migration before its target. Hosted checks must
 qualify the resulting commit separately.
+
+The subsequent report-target regression check covered free-text and categorical
+POST, unknown board names, zero/negative targets and board-policy precedence.
+The binder records their identity context without authorizing the target;
+ordinary target admission supplies the existing rejection. Native status/viewing
+checks covered creation-second and idle retained capabilities, changed address,
+unknown/expired credentials, visible active expired rows and one viewing audit
+event. The HTTP check registered its session through a real accepted report and
+required both that credential and the separate viewing cookie to acknowledge
+the retained warning. These checks passed with the migration/source comparisons
+and the restriction runtime binaries.
 
 ## Local qualification
 

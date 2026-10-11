@@ -595,6 +595,174 @@ async fn real_public_writer_enforces_scope_warning_expiry_identity_and_atomicity
     );
     mismatched.rollback().await.unwrap();
     assert!(f.unban(global_report_ban).await);
+    // Native status/viewing must explain every retained reporting restriction,
+    // including a source-new valid capability whose old address has changed.
+    let other_actor = f
+        .key
+        .public_posting_rate_identity("192.0.2.240".parse().unwrap());
+    for idle in [false, true] {
+        let expired = f.issue(original, false, false, Some(1)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        let warning = f.issue(original, false, true, Some(0)).await;
+        let request_at = Utc::now().timestamp();
+        sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=$1,activity_at=0 WHERE token_hash=$2")
+            .bind(if idle { request_at - 604800 } else { request_at })
+            .bind(cap.storage_hash().as_slice()).execute(&f.owner).await.unwrap();
+        let mut verification = f.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner")
+            .execute(&mut *verification)
+            .await
+            .unwrap();
+        let source_new: bool = sqlx::query_scalar(
+            "SELECT source_new FROM post_secrets.lookup_automatic_identity($1,$2)",
+        )
+        .bind(cap.storage_hash().as_slice())
+        .bind(request_at)
+        .fetch_one(&mut *verification)
+        .await
+        .unwrap();
+        assert!(source_new);
+        verification.rollback().await.unwrap();
+        // The source posting exception remains intact. Status has its own
+        // documented identity contract and does not extend posting bans.
+        let posting: String =
+            sqlx::query_scalar("SELECT content.evaluate_posting_restrictions($1,$2,$3,$4)")
+                .bind(other_actor.as_bytes().as_slice())
+                .bind(cap.storage_hash().as_slice())
+                .bind(&f.boards[0])
+                .bind(request_at)
+                .fetch_one(&f.public)
+                .await
+                .unwrap();
+        assert_eq!(posting, "allowed");
+        assert!(matches!(
+            f.report(0, original, "192.0.2.240", &cap, false).await,
+            Err(StoreError::Invalid(
+                board_store::restrictions::REPORT_BANNED
+            ))
+        ));
+        let unknown = Capability::generate().unwrap().storage_hash();
+        assert!(
+            board_store::restrictions::status(
+                &f.public,
+                &other_actor,
+                Some(&unknown),
+                &f.boards[0],
+                request_at
+            )
+            .await
+            .unwrap()
+            .is_empty()
+        );
+        assert!(
+            !board_store::restrictions::acknowledge(
+                &f.public,
+                &other_actor,
+                Some(&unknown),
+                &f.boards[0],
+                request_at,
+                warning
+            )
+            .await
+            .unwrap()
+        );
+        let expires: i64 = sqlx::query_scalar(
+            "SELECT expires_at FROM post_secrets.anonymous_sessions WHERE token_hash=$1",
+        )
+        .bind(cap.storage_hash().as_slice())
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+        sqlx::query("UPDATE post_secrets.anonymous_sessions SET expires_at=$1 WHERE token_hash=$2")
+            .bind(request_at - 1)
+            .bind(cap.storage_hash().as_slice())
+            .execute(&f.owner)
+            .await
+            .unwrap();
+        assert!(
+            board_store::restrictions::status(
+                &f.public,
+                &other_actor,
+                Some(&cap.storage_hash()),
+                &f.boards[0],
+                request_at
+            )
+            .await
+            .unwrap()
+            .is_empty()
+        );
+        assert!(
+            !board_store::restrictions::acknowledge(
+                &f.public,
+                &other_actor,
+                Some(&cap.storage_hash()),
+                &f.boards[0],
+                request_at,
+                warning
+            )
+            .await
+            .unwrap()
+        );
+        sqlx::query("UPDATE post_secrets.anonymous_sessions SET expires_at=$1 WHERE token_hash=$2")
+            .bind(expires)
+            .bind(cap.storage_hash().as_slice())
+            .execute(&f.owner)
+            .await
+            .unwrap();
+        let status = board_store::restrictions::status(
+            &f.public,
+            &other_actor,
+            Some(&cap.storage_hash()),
+            &f.boards[0],
+            request_at,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            status.iter().map(|row| row.id).collect::<Vec<_>>(),
+            vec![expired, warning]
+        );
+        assert!(
+            board_store::restrictions::acknowledge(
+                &f.public,
+                &other_actor,
+                Some(&cap.storage_hash()),
+                &f.boards[0],
+                request_at,
+                warning
+            )
+            .await
+            .unwrap()
+        );
+        let status = board_store::restrictions::status(
+            &f.public,
+            &other_actor,
+            Some(&cap.storage_hash()),
+            &f.boards[0],
+            request_at,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            status.iter().map(|row| row.id).collect::<Vec<_>>(),
+            vec![expired]
+        );
+        let mut verification = f.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner")
+            .execute(&mut *verification)
+            .await
+            .unwrap();
+        let events: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM restrictions.audit WHERE ban_id=$1 AND action='warning-viewed'",
+        )
+        .bind(warning)
+        .fetch_one(&mut *verification)
+        .await
+        .unwrap();
+        assert_eq!(events, 1);
+        verification.rollback().await.unwrap();
+        assert!(f.unban(expired).await);
+    }
     f.report(0, original, "192.0.2.240", &cap, false)
         .await
         .unwrap();

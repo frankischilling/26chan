@@ -58,13 +58,16 @@ BEGIN
  END IF;
  IF p_report IS NULL OR octet_length(p_report)<>32 OR p_actor IS NULL OR octet_length(p_actor)<>32
     OR (p_token IS NOT NULL AND octet_length(p_token)<>32)
-    OR p_board IS NULL OR p_board !~ '^[a-z0-9]{1,10}$' OR p_post IS NULL OR p_post<=0
+    OR p_board IS NULL OR p_post IS NULL
     OR p_request IS NULL OR p_request<=0
     OR abs(p_request::numeric-extract(epoch FROM clock_timestamp())::bigint)>30 THEN
   RAISE EXCEPTION 'Invalid report restriction context' USING ERRCODE='23514';
  END IF;
  -- Before report board/gate/session locks. Hold through commit; evaluate only
  -- after the report target and quota precedence has been resolved.
+ -- Bind even unknown board names and zero/negative target numbers:
+ -- report_target owns their rejection and checks board policy first.
+ -- Binding does not authorize a target.
  PERFORM restrictions.gate(false);
  PERFORM set_config('board.report_restriction_context',jsonb_build_object(
   'xid',pg_current_xact_id()::text,'report',encode(p_report,'hex'),'actor',encode(p_actor,'hex'),

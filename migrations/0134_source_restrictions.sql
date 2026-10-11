@@ -298,31 +298,32 @@ END $$;
 CREATE FUNCTION content.restriction_status(p_actor bytea,p_token bytea,p_board text,p_request bigint)
 RETURNS TABLE(id bigint,board text,global boolean,warning boolean,starts_at timestamptz,
  ends_at timestamptz,public_reason text) LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE v_automatic uuid; v_new boolean;
+DECLARE v_automatic uuid;
 BEGIN
  IF restrictions.invoker() NOT IN('board_public','board_migrator') THEN
   RAISE EXCEPTION 'Restriction status is unavailable' USING ERRCODE='42501';
  END IF;
  PERFORM content.evaluate_posting_restrictions(p_actor,p_token,p_board,p_request);
- SELECT a.automatic_identity,a.source_new INTO v_automatic,v_new
+ -- Status explains report restrictions too: valid retained equality applies
+ -- during creation-second/idle reset, even though posting ignores it then.
+ SELECT a.automatic_identity INTO v_automatic
   FROM post_secrets.lookup_automatic_identity(p_token,p_request) a;
- IF v_new THEN v_automatic:=NULL; END IF;
  IF (SELECT count(*) FROM (SELECT 1 FROM restrictions.bans b WHERE b.active
     AND (b.actor_hash=p_actor OR (v_automatic IS NOT NULL AND b.automatic_identity=v_automatic))
-    AND (b.warning OR ((b.global OR b.board=p_board) AND (b.ends_at IS NULL OR floor(extract(epoch FROM b.ends_at))>p_request)))
+    AND (b.warning OR b.global OR b.board=p_board)
     LIMIT 65) bounded)>64 THEN
   RAISE EXCEPTION 'Restriction status exceeds its bound' USING ERRCODE='P134C';
  END IF;
  RETURN QUERY SELECT b.id,b.board,b.global,b.warning,b.starts_at,b.ends_at,b.public_reason
   FROM restrictions.bans b WHERE b.active
     AND (b.actor_hash=p_actor OR (v_automatic IS NOT NULL AND b.automatic_identity=v_automatic))
-    AND (b.warning OR ((b.global OR b.board=p_board) AND (b.ends_at IS NULL OR floor(extract(epoch FROM b.ends_at))>p_request)))
+    AND (b.warning OR b.global OR b.board=p_board)
   ORDER BY b.id LIMIT 64;
 END $$;
 
 CREATE FUNCTION content.acknowledge_warning(p_actor bytea,p_token bytea,p_board text,p_request bigint,p_id bigint)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE v_automatic uuid; v_new boolean;
+DECLARE v_automatic uuid;
 BEGIN
  IF restrictions.invoker() NOT IN('board_public','board_migrator') THEN
   RAISE EXCEPTION 'Warning viewing is unavailable' USING ERRCODE='42501';
@@ -332,9 +333,8 @@ BEGIN
   RAISE EXCEPTION 'Invalid warning context' USING ERRCODE='23514';
  END IF;
  PERFORM restrictions.gate();
- SELECT a.automatic_identity,a.source_new INTO v_automatic,v_new
+ SELECT a.automatic_identity INTO v_automatic
   FROM post_secrets.lookup_automatic_identity(p_token,p_request) a;
- IF v_new THEN v_automatic:=NULL; END IF;
  UPDATE restrictions.bans b SET active=false,retired_at=clock_timestamp(),retirement='warning-viewed'
   WHERE b.id=p_id AND b.active AND b.warning
     AND (b.actor_hash=p_actor OR (v_automatic IS NOT NULL AND b.automatic_identity=v_automatic));

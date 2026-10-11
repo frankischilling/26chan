@@ -250,6 +250,7 @@ SQL
  export STAFF_DATABASE_URL="postgresql://board_staff@localhost/restriction_upgrade?host=$cluster"
  export AUTH_DATABASE_URL="postgresql://board_auth@localhost/restriction_upgrade?host=$cluster"
  cargo test -p board-store --test restrictions --features database-tests --locked -- --nocapture
+ cargo test -p board-store --test report_target --features database-tests --locked -- --nocapture
  cargo test -p board-public --test restrictions --features database-tests --locked -- --nocapture
  cargo test -p board-staff --test restrictions --features database-tests --locked -- --nocapture
 fi

@@ -298,34 +298,147 @@ async fn status_is_private_escaped_inert_and_warning_viewing_is_identity_and_csr
             .2
             .contains("No current ban or warning")
     );
+    // Register an actual reporting session, then retain its credential across
+    // an idle reset and a changed transport address. No UUID crosses HTTP.
+    let (code, headers, body) = request(
+        &app,
+        "POST",
+        &format!("/{board}/report"),
+        "192.0.2.134:44134",
+        None,
+        &format!("no={target}&reason=Owned+registration"),
+        ORIGIN,
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    let session_cookie = headers["set-cookie"]
+        .to_str()
+        .unwrap()
+        .split(';')
+        .next()
+        .unwrap()
+        .to_owned();
+    let session_cap =
+        Capability::parse(session_cookie.strip_prefix("__Host-board-anon=").unwrap()).unwrap();
+    let now = chrono::Utc::now().timestamp();
+    sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=$1,activity_at=0 WHERE token_hash=$2")
+        .bind(now - 604800).bind(session_cap.storage_hash().as_slice()).execute(&owner).await.unwrap();
+    let mut seed = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *seed)
+        .await
+        .unwrap();
+    let retained: i64 = sqlx::query_scalar("INSERT INTO restrictions.bans(board,post_id,actor_hash,automatic_identity,global,warning,starts_at,ends_at,public_reason,private_reason,account_id,charged_bytes) SELECT $1,$2,$3,a.automatic_identity,false,true,now(),now(),'Retained synthetic warning','Private retained reason',1,1024 FROM post_secrets.lookup_automatic_identity($4,$5) a WHERE a.automatic_identity IS NOT NULL RETURNING id")
+        .bind(&board).bind(target).bind(actor.as_bytes().as_slice())
+        .bind(session_cap.storage_hash().as_slice()).bind(now).fetch_one(&mut *seed).await.unwrap();
+    sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes+1024 WHERE singleton")
+        .execute(&mut *seed)
+        .await
+        .unwrap();
+    seed.commit().await.unwrap();
+    assert!(
+        !request(&app, "GET", &path, "192.0.2.240:44240", None, "", ORIGIN)
+            .await
+            .2
+            .contains("Retained synthetic warning")
+    );
+    let (code, headers, body) = request(
+        &app,
+        "GET",
+        &path,
+        "192.0.2.240:44240",
+        Some(&session_cookie),
+        "",
+        ORIGIN,
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK);
+    assert_eq!(headers["cache-control"], "private, no-store");
+    assert!(body.contains("Retained synthetic warning"), "{body}");
+    assert!(!body.contains("Private retained reason"));
+    let viewing_cookie = headers["set-cookie"]
+        .to_str()
+        .unwrap()
+        .split(';')
+        .next()
+        .unwrap();
+    let csrf = body
+        .split("name=\"csrf\" value=\"")
+        .nth(1)
+        .unwrap()
+        .split('"')
+        .next()
+        .unwrap();
+    let form = format!("board={board}&id={retained}&csrf={csrf}");
+    assert_eq!(
+        request(
+            &app,
+            "POST",
+            "/banned",
+            "192.0.2.240:44240",
+            Some(viewing_cookie),
+            &form,
+            ORIGIN
+        )
+        .await
+        .0,
+        StatusCode::CONFLICT
+    );
+    let cookies = format!("{viewing_cookie}; {session_cookie}");
+    assert_eq!(
+        request(
+            &app,
+            "POST",
+            "/banned",
+            "192.0.2.240:44240",
+            Some(&cookies),
+            &form,
+            ORIGIN
+        )
+        .await
+        .0,
+        StatusCode::SEE_OTHER
+    );
     let mut tx = owner.begin().await.unwrap();
     sqlx::query("SET LOCAL ROLE board_restriction_owner")
         .execute(&mut *tx)
         .await
         .unwrap();
-    let audit: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM restrictions.audit WHERE ban_id=$1 AND action='warning-viewed'",
-    )
-    .bind(id)
-    .fetch_one(&mut *tx)
-    .await
-    .unwrap();
-    assert_eq!(audit, 1);
-    sqlx::query("DELETE FROM restrictions.audit WHERE ban_id=$1")
-        .bind(id)
+    for ban in [id, retained] {
+        let audit: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM restrictions.audit WHERE ban_id=$1 AND action='warning-viewed'",
+        )
+        .bind(ban)
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+        assert_eq!(audit, 1);
+    }
+    sqlx::query("DELETE FROM restrictions.audit WHERE ban_id=ANY($1)")
+        .bind(vec![id, retained])
         .execute(&mut *tx)
         .await
         .unwrap();
-    sqlx::query("DELETE FROM restrictions.bans WHERE id=$1")
-        .bind(id)
+    sqlx::query("DELETE FROM restrictions.bans WHERE id=ANY($1)")
+        .bind(vec![id, retained])
         .execute(&mut *tx)
         .await
         .unwrap();
-    sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes-1024 WHERE singleton")
+    sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes-2048 WHERE singleton")
         .execute(&mut *tx)
         .await
         .unwrap();
     sqlx::query("RESET ROLE").execute(&mut *tx).await.unwrap();
+    sqlx::query("DELETE FROM content.reports WHERE board=$1")
+        .bind(&board)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+        .bind(session_cap.storage_hash().as_slice())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
     sqlx::query("DELETE FROM content.posts WHERE board=$1")
         .bind(&board)
         .execute(&mut *tx)
