@@ -2372,10 +2372,23 @@ async fn staff_timer_http_case(case: &Fixture, discussion: bool, ordinary: bool)
     for parent in [thread, 0] {
         let form = form(parent, "Owned accepted at five seconds");
         let password_slot = password_request_slot(path, Some(&form)).await;
+        // Reenter the board before its history tuple, including a previous
+        // denied request whose dropped transaction is still rolling back.
+        let mut clock = case.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL lock_timeout='5s'")
+            .execute(&mut *clock)
+            .await
+            .unwrap();
+        sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+            .bind(board)
+            .fetch_one(&mut *clock)
+            .await
+            .unwrap();
         let changed = sqlx::query(
             "UPDATE post_secrets.posting_history SET request_at=floor(extract(epoch FROM clock_timestamp()))::bigint-5 WHERE board=$1 AND actor_hash=$2 AND post_id=(SELECT max(post_id) FROM post_secrets.posting_history WHERE board=$1 AND actor_hash=$2)",
-        ).bind(board).bind(actor.as_slice()).execute(&case.owner).await.unwrap().rows_affected();
+        ).bind(board).bind(actor.as_slice()).execute(&mut *clock).await.unwrap().rows_affected();
         assert_eq!(changed, 1);
+        clock.commit().await.unwrap();
         let response = private_request_unqueued(case, path, Some(form)).await;
         drop(password_slot);
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
