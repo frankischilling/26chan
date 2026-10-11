@@ -13,9 +13,11 @@ test('environment evidence is a fixed schema without raw text or environment', (
   assert.ok(schema);
   assert.deepEqual([...schema.matchAll(/(?:^|; )([a-z_]+)=/g)].map(m => m[1]), ['checkpoint', 'wait_result', 'root_exited', 'root_exit', 'active_processes', 'observation_failed']);
   assert.doesNotMatch(observer, /\$_|\.Message|\.Path|\.Id\b|\.Handle\b|Get-Content|GetEnvironmentVariable|Write-Output|Set-Content|Save-Status/);
-  assert.match(observer, /root_exited=\[bool\]\$Child\.HasExited/);
-  assert.match(observer, /root_exit=\[int\]\$Child\.ExitCode/);
-  assert.match(observer, /active_processes=\[uint32\]\$Child\.ActiveProcessCount/);
+  assert.match(observer, /root_exited=\[bool\]\$Child\.get_HasExited\(\)/);
+  assert.match(observer, /root_exit=\[int\]\$Child\.get_ExitCode\(\)/);
+  assert.match(observer, /active_processes=\[uint32\]\$Child\.get_ActiveProcessCount\(\)/);
+  const snapshot = observer.slice(0, observer.indexOf('function Wait-ToolchainEnvironment'));
+  assert.doesNotMatch(snapshot, /\$Child\.(?:HasExited|ExitCode|ActiveProcessCount)\b/);
   assert.deepEqual([...source.matchAll(/environment_evidence\.checkpoint='([^']+)'/g)].map(m => m[1]), ['wait', 'exit-check', 'launch', 'read-export', 'apply-export', 'resolve-tools', 'complete']);
 });
 

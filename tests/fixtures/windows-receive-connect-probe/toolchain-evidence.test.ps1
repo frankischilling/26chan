@@ -10,8 +10,8 @@ foreach ($name in @('Save-EnvironmentObservation','Wait-ToolchainEnvironment')) 
   . ([scriptblock]::Create($matches[0].Extent.Text))
 }
 function Assert-Control($Condition,[string]$Label) { if (-not $Condition) { throw ('Evidence control failed: ' + $Label) } }
-# CLR getters match the production object's exception behavior; no script-property
-# adapter can swallow a simulated getter exception before the observer sees it.
+# CLR getters match the production object. Explicit get_*() method calls in the
+# observer must surface these exceptions rather than silently returning null.
 Add-Type -TypeDefinition @'
 public sealed class ToolchainEvidenceControlChild {
   public bool Finished, RootExited, WaitThrows, ObservationThrows;

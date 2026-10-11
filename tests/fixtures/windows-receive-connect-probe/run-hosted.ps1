@@ -20,14 +20,16 @@ $fixture=$null; $compiler=$null; $native=$null; $validator=$null; $discovery=$nu
 function Save-Status { $status | ConvertTo-Json -Depth 5 -Compress | Set-Content -LiteralPath (Join-Path $evidence 'status.json') -Encoding utf8NoBOM }
 # Observation is best-effort, read-only and precedes cleanup. Nullable fields
 # mean unavailable, never successful exit. No exception text or environment leaves.
+# Invoke CLR getters as methods: PowerShell property access suppresses getter
+# exceptions to null, which a bool/integer cast would misreport as false/zero.
 function Save-EnvironmentObservation {
   param($Child)
   $record=$status.environment_evidence
-  try { $record.root_exited=[bool]$Child.HasExited } catch { $record.observation_failed=$true }
+  try { $record.root_exited=[bool]$Child.get_HasExited() } catch { $record.observation_failed=$true }
   if ($record.root_exited -eq $true) {
-    try { $record.root_exit=[int]$Child.ExitCode } catch { $record.observation_failed=$true }
+    try { $record.root_exit=[int]$Child.get_ExitCode() } catch { $record.observation_failed=$true }
   }
-  try { $record.active_processes=[uint32]$Child.ActiveProcessCount } catch { $record.observation_failed=$true }
+  try { $record.active_processes=[uint32]$Child.get_ActiveProcessCount() } catch { $record.observation_failed=$true }
 }
 function Wait-ToolchainEnvironment {
   param($Child)
