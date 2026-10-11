@@ -174,7 +174,10 @@ qualified advisory GET and both accepted POST form shapes, private uncached
 refusal, the safe status link and no refusal cookie or saved report. The
 historical session-report upgrade and dump/restore script also passed both
 profiles after making the expected lookup grant depend on whether restriction
-support is installed. Hosted checks must qualify the resulting commit separately.
+support is installed. The snapshot upgrade and dump/restore passed all three
+transfer-order profiles. That historical fixture stops its setup at 0133 so it
+does not apply a dependent later migration before its target. Hosted checks must
+qualify the resulting commit separately.
 
 ## Local qualification
 
