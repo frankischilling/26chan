@@ -103,15 +103,20 @@ test('isolated expansion DOM and real parser-worker behavior', async t => {
       const source = { ...wire(), replies: 1500, archived: true,
         posts: numbers.map(no => ({ no, file_deleted: false, html: post(no) })) };
       const originals = [thread, ...numbers.slice(-3)];
-      const { context, page, errors } = await setup({ real: true, source, originals });
+      const { context, page, requests, errors } = await setup({ real: true, source, originals });
       try {
         await page.getByRole('button', { name: `Expand thread ${thread}`, exact: true }).click();
         await page.waitForFunction(() => document.querySelectorAll('.rExpanded').length === 1497 && !expansion.stats().busy);
         assert.deepEqual(await page.locator('.thread > .postContainer').evaluateAll(nodes => nodes.map(node => node.id.slice(2))), numbers);
         assert.equal(await page.evaluate(() => original.every(node => document.getElementById(node.id) === node)), true);
         await page.getByRole('button', { name: `Collapse thread ${thread}`, exact: true }).click();
-        assert.equal(await page.locator('.rExpanded').count(), 0);
-        assert.deepEqual(await page.locator('.thread > .postContainer').evaluateAll(nodes => nodes.map(node => node.id.slice(2))), originals);
+        assert.equal(await page.locator('.rExpanded:visible').count(), 0);
+        assert.deepEqual(await page.locator('.thread > .postContainer:visible').evaluateAll(nodes => nodes.map(node => node.id.slice(2))), originals);
+        assert.equal(await page.evaluate(() => original.every(node => document.getElementById(node.id) === node)), true);
+        await page.getByRole('button', { name: `Expand thread ${thread}`, exact: true }).click();
+        assert.equal(await page.locator('.rExpanded:visible').count(), 1497);
+        assert.deepEqual(await page.locator('.thread > .postContainer:visible').evaluateAll(nodes => nodes.map(node => node.id.slice(2))), numbers);
+        assert.equal(requests.length, 1);
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });
