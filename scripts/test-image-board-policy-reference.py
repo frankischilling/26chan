@@ -36,7 +36,7 @@ class ImageBoardPolicyReferenceTests(unittest.TestCase):
                                   row["max_image_dimension"], row["gif_only"]),
                                  (kilobytes * 1024, width, height, dimension, gif_only))
         self.assertEqual({slug for slug, board in boards.items() if board["gif_only"]}, {"gif", "wsg"})
-        self.assertTrue((ROOT / "migrations/0131_source_image_board_policy.sql").read_text().startswith(
+        self.assertTrue((ROOT / "migrations/0132_source_image_board_policy.sql").read_text().startswith(
             MODULE.image_policy_migration(REFERENCE)))
         self.assertNotIn("max_image_bytes", MODULE.migration(REFERENCE))
 

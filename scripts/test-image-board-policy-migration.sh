@@ -35,7 +35,7 @@ GRANT CONNECT ON DATABASE image_policy_upgrade TO board_migrator,board_public;
 SQL
 migrator=("${psql[@]}" -U board_migrator -d image_policy_upgrade)
 for migration in migrations/*.sql; do
-    [[ $(basename "$migration") < 0131_ ]] || break
+    [[ $(basename "$migration") < 0132_ ]] || break
     "${migrator[@]}" --single-transaction -f - < "$migration" >/dev/null
 done
 "${migrator[@]}" -f - < fixtures/demo.sql >/dev/null
@@ -54,7 +54,7 @@ INSERT INTO before_image_policy VALUES
 ('jobs',(SELECT jsonb_agg(to_jsonb(j) ORDER BY id) FROM media.jobs j));
 SQL
 printf 'BEGIN;\n'
-cat migrations/0131_source_image_board_policy.sql
+cat migrations/0132_source_image_board_policy.sql
 printf 'COMMIT;\n'
 cat <<'SQL'
 DO $check$ BEGIN

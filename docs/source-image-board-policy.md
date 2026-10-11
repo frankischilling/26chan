@@ -1,6 +1,6 @@
 # Source image admission policy
 
-Migration 0131 imports `MAX_KB`, `MIN_W`, `MIN_H`, `MAX_DIMENSION` and `GIF_ONLY` from the pinned board configuration. Global, category and board overrides follow the existing reference extractor. The default source limit is 4 MiB and its maximum dimension is 10,000. `/b/`, `/bant/` and `/s4s/` allow 2 MiB; `/wsg/` allows 6 MiB; `/hr/` requires at least 1000 by 1000 pixels. Only `/gif/` and `/wsg/` have `GIF_ONLY` enabled. The extractor preserves the applied 0045 and 0064 migration bytes.
+Migration 0132 imports `MAX_KB`, `MIN_W`, `MIN_H`, `MAX_DIMENSION` and `GIF_ONLY` from the pinned board configuration. Global, category and board overrides follow the existing reference extractor. The default source limit is 4 MiB and its maximum dimension is 10,000. `/b/`, `/bant/` and `/s4s/` allow 2 MiB; `/wsg/` allows 6 MiB; `/hr/` requires at least 1000 by 1000 pixels. Only `/gif/` and `/wsg/` have `GIF_ONLY` enabled. The extractor preserves the applied 0045 and 0064 migration bytes.
 
 Both public and staff attachment entry points apply policy after their existing board, thread and job locks. They use the capability's authenticated input length and the approval's dimensions and immutable output format. A filename cannot establish GIF identity. Rank, sticky and undead exemptions from reply-count limits do not bypass image format, size or dimension admission. Failed admission rolls back the post and leaves an unexpired unused receipt available for correction or cancellation.
 
