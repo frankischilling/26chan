@@ -124,8 +124,8 @@ def main():
         document = dict(revision=REVISION, captured={name: b''.join(lines[start-1:end]).decode()
                         for name, (start, end, _) in EXCERPTS.items()}, cases=cases())
         validate(document)
-        FIXTURE.write_text(json.dumps(document, indent=2, ensure_ascii=False) + '\n')
-    document = json.loads(FIXTURE.read_text())
+        FIXTURE.write_text(json.dumps(document, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    document = json.loads(FIXTURE.read_text(encoding='utf-8'))
     validate(document)
     if args.source:
         lines = (args.source / 'imgboard.php').read_bytes().splitlines(keepends=True)

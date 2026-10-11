@@ -1,8 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { hasSourceLink, sourceLinkSpans, linkificationEnabled, LINKIFY_LIMITS } from '../../apps/public/client/native-linkification.js';
+import { sourceLinkification, sourceLinkInputs, sourceDefaults, linkSummary } from './helpers/source-linkification.js';
 
 const labels = input => sourceLinkSpans(input).map(({ start, end }) => input.slice(start, end));
+
+test('lexical spans and defaults match the extracted original source', () => {
+  assert.equal(linkificationEnabled({}, false, null), sourceDefaults.desktop);
+  assert.equal(linkificationEnabled({}, true, null), sourceDefaults.mobile);
+  for (const input of sourceLinkInputs.filter(input => !input.includes('<'))) {
+    const expected = sourceLinkification(input).anchors.map(({ label, parameter }) => ({ label, parameter }));
+    const actual = sourceLinkSpans(input).map(({ start, end, parameter }) => ({
+      label: linkSummary(input.slice(start, end).replaceAll('\u200b', '')).text, parameter,
+    }));
+    assert.deepEqual(actual, expected, input);
+  }
+});
 
 test('source lexical boundaries, global probe and original-parenthesis rule', () => {
   for (const [input, expected] of [
