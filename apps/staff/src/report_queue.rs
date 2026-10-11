@@ -244,7 +244,8 @@ async fn load_inner(
     let representative_ids: Vec<i64> = selected.iter().map(|g| g.representative_id).collect();
     // Keep the transfer reader's aggregate materialization bound after grouped
     // selection. Count the complete saved bodies before fetching any payload.
-    let bytes: i64 = sqlx::query_scalar(r#"
+    let bytes: i64 = sqlx::query_scalar(
+        r#"
         SELECT coalesce(sum(octet_length(p.comment)::bigint
             +coalesce(octet_length(p.wordfilter_payload),0)
             +coalesce(octet_length(p.wordfilter_search),0)
@@ -252,7 +253,11 @@ async fn load_inner(
             +coalesce(octet_length(p.saved_presentation_search),0)),0)::bigint
         FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board
         WHERE r.id=ANY($1)
-    "#).bind(&representative_ids).fetch_one(&mut *tx).await?;
+    "#,
+    )
+    .bind(&representative_ids)
+    .fetch_one(&mut *tx)
+    .await?;
     const MAX_REPORT_READ_BYTES: usize = board_domain::MAX_COMMENT_BYTES * 1001;
     if bytes > MAX_REPORT_READ_BYTES as i64 {
         return Err(AppError::Capacity);
