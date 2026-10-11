@@ -130,7 +130,9 @@ unchanged JSON, derefer admission and updater insertion. As in `imgboard.php:531
 and the source post filter, ordinary posting removes literal nonbreaking spaces
 before storage. Literal `&nbsp;` text stays escaped; its serialized `&amp;nbsp;`
 spelling stays in the browser's parameter. Actual nonbreaking-space DOM input
-is qualified separately by the isolated source corpus.
+is qualified separately by the isolated source corpus. Askama's numeric
+ampersand spelling in server HTML/JSON normalizes to `&amp;` in the browser;
+exact source JSON entity spelling remains part of #208.
 Other checks cover existing server anchors, desktop/mobile settings, disabled or
 unavailable storage, live option changes, synthetic preview insertion, bounded
 DOM and absence of a catalog mount.
