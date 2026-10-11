@@ -454,6 +454,7 @@ async fn run(attachment_only: bool) {
 
 async fn exercise(f: &Fixture) {
     direct_sql_spoiler_policy(f).await;
+    image_board_policy(f).await;
     for sql in [
         "SELECT * FROM media.jobs",
         "SELECT * FROM media.assets",
@@ -465,6 +466,7 @@ async fn exercise(f: &Fixture) {
         "UPDATE content.post_media SET file_deleted=false WHERE false",
         "DELETE FROM content.post_media WHERE false",
         "UPDATE content.boards SET image_limit=100 WHERE false",
+        "UPDATE content.boards SET max_image_bytes=1,min_image_width=1,min_image_height=1,max_image_dimension=1,gif_only=false WHERE false",
         "SELECT * FROM content.media_clock",
         "UPDATE content.media_clock SET last_number=last_number WHERE false",
         "SELECT content.next_media_number()",
@@ -493,10 +495,12 @@ async fn exercise(f: &Fixture) {
             'content.stamp_drawing_annotation()'::regprocedure,
             'content.set_post_image_spoiler(text,bigint,boolean)'::regprocedure,
             'content.lock_staff_attachment_receipt(text,bigint,text,bytea)'::regprocedure,
-            'content.consume_staff_attachment_receipt(bigint,text,bigint,text,bytea,boolean,boolean)'::regprocedure
+            'content.consume_staff_attachment_receipt(bigint,text,bigint,text,bytea,boolean,boolean)'::regprocedure,
+            'content.check_image_board_policy(text,bigint,integer,integer,text)'::regprocedure
         ] AS functions)
         SELECT count(*)=cardinality(required.functions)
-            AND bool_and(p.oid=ANY(required.functions) AND p.prosecdef
+            AND bool_and(p.oid=ANY(required.functions)
+                AND p.prosecdef=(p.oid<>'content.check_image_board_policy(text,bigint,integer,integer,text)'::regprocedure)
                 AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
                 AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0))
         FROM required CROSS JOIN pg_proc p JOIN pg_roles r ON r.oid=p.proowner
@@ -505,6 +509,19 @@ async fn exercise(f: &Fixture) {
     assert!(
         functions_safe,
         "Attachment owner must have exactly the reviewed function set"
+    );
+    let policy_helper_private: bool = sqlx::query_scalar(
+        "SELECT NOT p.prosecdef
+            AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee<>p.proowner)
+            AND NOT EXISTS (SELECT 1 FROM pg_roles r
+                WHERE r.rolname=ANY(ARRAY['board_public','board_staff','board_auth','board_media',
+                    'board_media_read','board_media_intake','board_monitor','board_staff_post_owner'])
+                AND has_function_privilege(r.oid,p.oid,'EXECUTE'))
+        FROM pg_proc p WHERE p.oid='content.check_image_board_policy(text,bigint,integer,integer,text)'::regprocedure",
+    ).fetch_one(&f.admin).await.unwrap();
+    assert!(
+        policy_helper_private,
+        "Only the attachment owner may call the policy helper"
     );
     // These two exact entry points bridge consumed staff proof to media.
     // Only the proof owner may call them; runtimes cannot forge that handoff
@@ -801,7 +818,14 @@ async fn exercise(f: &Fixture) {
     let after = board_store::thread(&f.public, &f.board, thread)
         .await
         .unwrap();
-    assert!(after.http_modified_at > revision.http_modified_at);
+    assert!(
+        after.http_modified_at > revision.http_modified_at,
+        "File deletion must advance its HTTP revision: previous={}, current={}, observed start={}, end={}",
+        revision.http_modified_at,
+        after.http_modified_at,
+        before_delete,
+        after_delete,
+    );
     assert!((before_delete..=after_delete).contains(&after.modified_at));
     assert!(after.modified_at < revision.modified_at);
     assert!(matches!(
@@ -896,6 +920,109 @@ async fn exercise(f: &Fixture) {
         f.insert(0, &expired).await,
         Err(StoreError::Database(_))
     ));
+}
+
+async fn image_board_policy(f: &Fixture) {
+    sqlx::query("UPDATE content.boards SET image_limit=100 WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.admin)
+        .await
+        .unwrap();
+    let receipt = f
+        .intake
+        .reserve("filename-is-not-format.gif")
+        .await
+        .unwrap();
+    f.jobs.lock().unwrap().push(receipt.id.clone());
+    let upload = NewAttachment {
+        upload: receipt,
+        spoiler: true,
+    };
+    f.approve(&upload).await;
+    // This receipt has 100 authenticated input bytes and a 123-byte PNG with
+    // approved 10x20 dimensions. Each failed post must leave it usable.
+    let baseline: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+        .bind(&f.board)
+        .fetch_one(&f.admin)
+        .await
+        .unwrap();
+    for (bytes, width, height, dimension, gif_only, message) in [
+        (99i64, 1, 1, 10000, false, "Error: File too large."),
+        (
+            100,
+            11,
+            1,
+            10000,
+            false,
+            "Error: Image resolution is too small.",
+        ),
+        (
+            100,
+            1,
+            21,
+            10000,
+            false,
+            "Error: Image resolution is too small.",
+        ),
+        (
+            100,
+            1,
+            1,
+            19,
+            false,
+            "Error: Image resolution is too large.",
+        ),
+        (100, 1, 1, 10000, true, "Error: Upload failed."),
+    ] {
+        sqlx::query("UPDATE content.boards SET max_image_bytes=$2,min_image_width=$3,min_image_height=$4,max_image_dimension=$5,gif_only=$6 WHERE slug=$1")
+            .bind(&f.board).bind(bytes).bind(width).bind(height).bind(dimension).bind(gif_only)
+            .execute(&f.admin).await.unwrap();
+        let error = f.insert(0, &upload).await.unwrap_err();
+        assert!(
+            matches!(error, StoreError::Invalid(value) if value == message),
+            "Expected source image policy denial, got {error:?}"
+        );
+        let after: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+            .bind(&f.board)
+            .fetch_one(&f.admin)
+            .await
+            .unwrap();
+        assert_eq!(after, baseline, "Admission denial must roll back the post");
+        assert_eq!(
+            f.intake
+                .status(&upload.upload.id, &upload.upload.capability)
+                .await
+                .unwrap()
+                .state,
+            "published"
+        );
+    }
+    sqlx::query("UPDATE content.boards SET max_image_bytes=100,min_image_width=10,min_image_height=20,max_image_dimension=20,gif_only=false WHERE slug=$1")
+        .bind(&f.board).execute(&f.admin).await.unwrap();
+    let admitted = f.insert(0, &upload).await.unwrap();
+    assert_eq!(
+        attachment(&f.public, admitted)
+            .await
+            .unwrap()
+            .unwrap()
+            .bytes,
+        123,
+        "The source limit charges raw input, not larger host output"
+    );
+    for statement in [
+        "DELETE FROM content.post_media WHERE post_id=$1",
+        "DELETE FROM post_secrets.deletion WHERE post_id=$1",
+        "DELETE FROM content.posts WHERE id=$1",
+        "DELETE FROM content.threads WHERE id=$1",
+    ] {
+        sqlx::query(statement)
+            .bind(admitted)
+            .execute(&f.admin)
+            .await
+            .unwrap();
+    }
+    sqlx::query("UPDATE content.boards SET max_image_bytes=4194304,min_image_width=1,min_image_height=1,max_image_dimension=10000,gif_only=false,image_limit=0 WHERE slug=$1")
+        .bind(&f.board).execute(&f.admin).await.unwrap();
 }
 
 async fn direct_sql_spoiler_policy(f: &Fixture) {

@@ -23,7 +23,6 @@ use std::{
 };
 
 pub(crate) const MAX_MULTIPART_BYTES: usize = 8_388_608 + 16_384;
-const MAX_FILE_BYTES: usize = 8_388_608;
 
 // Deliberately no Debug: these are bearer secrets and never belong in logs or URLs.
 pub(crate) struct Receipt {
@@ -130,7 +129,7 @@ async fn settings(
     session: &auth::Session,
     board: &str,
     thread: i64,
-) -> Result<(), AppError> {
+) -> Result<usize, AppError> {
     let settings = board_store::board(&state.staff, board)
         .await
         .map_err(store_error)?;
@@ -158,7 +157,7 @@ async fn settings(
             }
         }
     }
-    Ok(())
+    Ok(settings.image_file_limit())
 }
 const MAX_PREAMBLE_BYTES: usize = 16_384;
 
@@ -416,7 +415,7 @@ async fn receive(
     let (request, csrf, board, thread) = control_preamble(request).await?;
     access(&session, &board, thread, &csrf)?;
     let session = current(state, &headers, &board, thread, &csrf).await?;
-    settings(state, &session, &board, thread).await?;
+    let file_limit = settings(state, &session, &board, thread).await?;
     // Count the wire representation as well as file data, so a small file
     // cannot turn the file-size allowance into unlimited multipart metadata.
     let wire_bytes = Arc::new(AtomicUsize::new(0));
@@ -487,7 +486,7 @@ async fn receive(
         let mut total = 0usize;
         while let Some(chunk) = field.chunk().await.map_err(|_| AppError::Invalid)? {
             total = total.checked_add(chunk.len()).ok_or(AppError::Invalid)?;
-            if total > MAX_FILE_BYTES {
+            if total > file_limit {
                 return Err(AppError::Invalid);
             }
             for piece in chunk.chunks(16_384) {
