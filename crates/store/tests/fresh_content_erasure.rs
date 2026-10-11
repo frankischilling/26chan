@@ -263,6 +263,8 @@ impl Fixture {
                 "flag_name",
                 "wordfilter_payload",
                 "wordfilter_search",
+                "saved_presentation",
+                "saved_presentation_search",
                 "dice_result",
                 "fortune_text",
                 "fortune_color",

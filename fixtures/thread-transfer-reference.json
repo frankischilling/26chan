@@ -1,0 +1,260 @@
+{
+  "revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "captured": {
+    "replace": "    $comment = str_replace($from_pids, $to_pids, $post['com']);\r\n",
+    "append_mapping": "    $from_pids[] = \"&gt;&gt;{$post['no']}\";\r\n    $to_pids[] = \"&gt;&gt;$new_pid\";\r\n",
+    "reply_selection": "  $query = \"SELECT * FROM `$board` WHERE resto = $thread_id\";\r\n",
+    "final_presentation": "\t$com = normalize_and_linkify($com);\r\n\t\r\n\t//$html = isset( $_POST['html'] ) && $_POST['html'] == 1;\r\n\t$html = 0;\r\n\tif( (!has_level('manager') && !has_flag('html')) || $html != 1 ) {\r\n\t\t$com = wordwrap2( $com, 35, \"{{w_br}}\" );\r\n\t}\r\n  \r\n\t$com = preg_replace( '#(&gt;&gt;&gt;/[a-z0-9]+/[^ <$]*|&gt;&gt;[0-9]+)#', '~?rep?~\\\\1~?erep?~', $com );\r\n\t$com = preg_replace( \"!(^|r>|r> )(&gt;[^<]*)!\", \"\\\\1<span class=\\\"quote\\\">\\\\2</span>\", $com );\r\n\t$com = preg_replace( '#~?rep?~<span class=\"quote\">(.+?)</span>~?erep?~#', '\\\\1', $com );\r\n\t\r\n\t$com = str_replace( array( '~?rep?~', '~?erep?~' ), '', $com );\r\n\r\n\t$com = str_replace( '{{w_br}}', '<wbr>', $com );\r\n\r\n",
+    "posting_storage": "\t\t\t$query = \"insert into `\" . SQLLOG . \"` (now,name,sub,com,host,pwd,email,filename,ext,w,h,tn_w,tn_h,tim,time,last_modified,md5,fsize,root,resto$flag_cols,tmd5,id,country$board_flag_col) values (\" .\r\n\t\t\t\t\"'\" . $now . \"',\" .\r\n\t\t\t\t\"'\" . mysql_real_escape_string( $name ) . \"',\" .\r\n\t\t\t\tmysql_nullify( mysql_real_escape_string( $sub ) ) . \",\" .\r\n\t\t\t\t\"'\" . mysql_real_escape_string( $com ) . \"',\" .\r\n",
+    "transfer_storage": "    $query = \"INSERT INTO `$to_board`(now,name,sub,com,host,pwd,email,filename,ext,w,\r\nh,tn_w,tn_h, tim,time,last_modified,md5,fsize,root,resto,capcode,\r\n4pass_id,since4pass,filedeleted,tmd5,id,country)\r\nVALUE (\" .\r\n    \"'\" . $post['now'] . \"',\" .\r\n    \"'\" . mysql_real_escape_string($post['name']) . \"',\" .\r\n    \"'\" . mysql_real_escape_string($post['sub']) . \"',\" .\r\n    \"'\" . mysql_real_escape_string($comment) . \"',\" .\r\n",
+    "late_render_call": "\t$com = auto_link( $com, $in_thread );\r\n",
+    "late_quote_resolution": "function auto_link( $proto, $resno )\r\n{\r\n\tglobal $current_resno;\r\n\tstatic $has_gen = 0;\r\n\r\n\tif( !$has_gen ) {\r\n\t\tboards_matching_arr();\r\n\t\t$has_gen = 1;\r\n\t}\r\n\t\t\r\n\t// The majority of posts don't contain links, so don't go there and waste time on preg junk\r\n\tif( strpos( $proto, '&gt;&gt;' ) !== false ) {\r\n\t\t$current_resno = $resno;\r\n\t\t$proto = preg_replace_callback( '#(&gt;&gt;[0-9]+|&gt;&gt;&gt;/[a-z0-9]+/[a-z0-9+/-]*)#', 'auto_link_cb', $proto );\r\n\t}\r\n\t\r\n\treturn $proto;\r\n}\r\n"
+  },
+  "cases": [
+    {
+      "id": "op-has-no-prior-mappings",
+      "input_html": "&gt;&gt;1 &gt;&gt;2",
+      "replacements": [],
+      "expected_html": "&gt;&gt;1 &gt;&gt;2"
+    },
+    {
+      "id": "sequential-cascade-and-prefix",
+      "input_html": "&gt;&gt;1 &gt;&gt;2 &gt;&gt;12",
+      "replacements": [
+        {
+          "old": "1",
+          "new": "2"
+        },
+        {
+          "old": "2",
+          "new": "9"
+        }
+      ],
+      "expected_html": "&gt;&gt;9 &gt;&gt;9 &gt;&gt;92"
+    },
+    {
+      "id": "different-order",
+      "input_html": "&gt;&gt;1 &gt;&gt;2 &gt;&gt;12",
+      "replacements": [
+        {
+          "old": "2",
+          "new": "9"
+        },
+        {
+          "old": "1",
+          "new": "2"
+        }
+      ],
+      "expected_html": "&gt;&gt;2 &gt;&gt;9 &gt;&gt;22"
+    },
+    {
+      "id": "decimal-prefix-not-exact-token",
+      "input_html": "&gt;&gt;123 &gt;&gt;012 &gt;&gt;12",
+      "replacements": [
+        {
+          "old": "12",
+          "new": "7"
+        }
+      ],
+      "expected_html": "&gt;&gt;73 &gt;&gt;012 &gt;&gt;7"
+    },
+    {
+      "id": "one-pass-not-recursive",
+      "input_html": "&gt;&gt;1 &gt;&gt;11",
+      "replacements": [
+        {
+          "old": "1",
+          "new": "11"
+        }
+      ],
+      "expected_html": "&gt;&gt;11 &gt;&gt;111"
+    },
+    {
+      "id": "identity-pass",
+      "input_html": "&gt;&gt;1",
+      "replacements": [
+        {
+          "old": "1",
+          "new": "1"
+        }
+      ],
+      "expected_html": "&gt;&gt;1"
+    },
+    {
+      "id": "self-reference-unavailable",
+      "input_html": "&gt;&gt;2 &gt;&gt;1",
+      "replacements": [
+        {
+          "old": "1",
+          "new": "30"
+        }
+      ],
+      "expected_html": "&gt;&gt;2 &gt;&gt;30"
+    },
+    {
+      "id": "forward-reference-prefix-effect",
+      "input_html": "&gt;&gt;123",
+      "replacements": [
+        {
+          "old": "1",
+          "new": "8"
+        }
+      ],
+      "expected_html": "&gt;&gt;823"
+    },
+    {
+      "id": "word-break-stops-long-match",
+      "input_html": "&gt;&gt;1<wbr>2",
+      "replacements": [
+        {
+          "old": "12",
+          "new": "7"
+        }
+      ],
+      "expected_html": "&gt;&gt;1<wbr>2"
+    },
+    {
+      "id": "word-break-keeps-short-prefix",
+      "input_html": "&gt;&gt;1<wbr>2",
+      "replacements": [
+        {
+          "old": "1",
+          "new": "777"
+        }
+      ],
+      "expected_html": "&gt;&gt;777<wbr>2"
+    },
+    {
+      "id": "markup-stops-long-match",
+      "input_html": "&gt;&gt;1<b>2</b>",
+      "replacements": [
+        {
+          "old": "12",
+          "new": "7"
+        }
+      ],
+      "expected_html": "&gt;&gt;1<b>2</b>"
+    },
+    {
+      "id": "line-break-stops-long-match",
+      "input_html": "&gt;&gt;1<br>2",
+      "replacements": [
+        {
+          "old": "12",
+          "new": "7"
+        }
+      ],
+      "expected_html": "&gt;&gt;1<br>2"
+    },
+    {
+      "id": "entity-stops-long-match",
+      "input_html": "&gt;&gt;1&#50;",
+      "replacements": [
+        {
+          "old": "12",
+          "new": "7"
+        }
+      ],
+      "expected_html": "&gt;&gt;1&#50;"
+    },
+    {
+      "id": "entity-keeps-short-prefix",
+      "input_html": "&gt;&gt;1&#50;",
+      "replacements": [
+        {
+          "old": "1",
+          "new": "7"
+        }
+      ],
+      "expected_html": "&gt;&gt;7&#50;"
+    },
+    {
+      "id": "code-and-spoiler-remain-eligible",
+      "input_html": "<pre class=\"prettyprint\">&gt;&gt;1</pre><s>&gt;&gt;1</s>",
+      "replacements": [
+        {
+          "old": "1",
+          "new": "4"
+        }
+      ],
+      "expected_html": "<pre class=\"prettyprint\">&gt;&gt;4</pre><s>&gt;&gt;4</s>"
+    },
+    {
+      "id": "fixed-greentext-span",
+      "input_html": "<span class=\"quote\">&gt;&gt;1 &gt; unchanged</span>",
+      "replacements": [
+        {
+          "old": "1",
+          "new": "7"
+        }
+      ],
+      "expected_html": "<span class=\"quote\">&gt;&gt;7 &gt; unchanged</span>"
+    },
+    {
+      "id": "cross-board-is-not-same-board-prefix",
+      "input_html": "&gt;&gt;&gt;/g/12 &gt;&gt;12",
+      "replacements": [
+        {
+          "old": "12",
+          "new": "7"
+        }
+      ],
+      "expected_html": "&gt;&gt;&gt;/g/12 &gt;&gt;7"
+    },
+    {
+      "id": "double-escaped-user-entity-is-literal",
+      "input_html": "&amp;gt;&amp;gt;12 &gt;&gt;12",
+      "replacements": [
+        {
+          "old": "12",
+          "new": "7"
+        }
+      ],
+      "expected_html": "&amp;gt;&amp;gt;12 &gt;&gt;7"
+    },
+    {
+      "id": "existing-server-link-stays-frozen",
+      "input_html": "<a href=\"//boards.example.test/g/thread/12\">12</a> &gt;&gt;12",
+      "replacements": [
+        {
+          "old": "12",
+          "new": "7"
+        }
+      ],
+      "expected_html": "<a href=\"//boards.example.test/g/thread/12\">12</a> &gt;&gt;7"
+    },
+    {
+      "id": "unicode-and-punctuation",
+      "input_html": "猫 (&gt;&gt;12), &gt;&gt;12.",
+      "replacements": [
+        {
+          "old": "12",
+          "new": "7"
+        }
+      ],
+      "expected_html": "猫 (&gt;&gt;7), &gt;&gt;7."
+    },
+    {
+      "id": "maximum-destination-id",
+      "input_html": "&gt;&gt;1",
+      "replacements": [
+        {
+          "old": "1",
+          "new": "9223372036854775807"
+        }
+      ],
+      "expected_html": "&gt;&gt;9223372036854775807"
+    },
+    {
+      "id": "expanded-lexical-value-is-not-clipped",
+      "input_html": "&gt;&gt;19",
+      "replacements": [
+        {
+          "old": "1",
+          "new": "9223372036854775807"
+        }
+      ],
+      "expected_html": "&gt;&gt;92233720368547758079"
+    }
+  ]
+}

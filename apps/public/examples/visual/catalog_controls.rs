@@ -37,6 +37,7 @@ pub fn page() -> String {
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            saved_presentation: None,
             id,
             board: board.slug.clone(),
             thread_id: id,

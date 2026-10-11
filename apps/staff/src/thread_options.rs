@@ -38,6 +38,7 @@ struct Page {
     csrf: String,
     options: Options,
     can_permaage: bool,
+    can_move: bool,
     recent: bool,
 }
 
@@ -215,12 +216,15 @@ pub(crate) async fn show(
     if options.archived {
         return Err(AppError::Invalid);
     }
+    let can_move: bool = sqlx::query_scalar("SELECT slug<>'b' AND NOT staff_only AND NOT upload_board FROM content.boards WHERE slug=$1")
+        .bind(&board).fetch_one(&state.staff).await?;
     let html = Page {
         board,
         target,
         csrf,
         options,
         can_permaage: session.permissions.can_set_permaage(&session.role),
+        can_move,
         recent: session.recent,
     }
     .render()

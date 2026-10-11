@@ -187,17 +187,13 @@ pub(crate) fn row(
     entry: board_store::ArchivePageEntry,
     board: &board_store::Board,
 ) -> Result<Row, AppError> {
-    let lines = board_domain::formatting::parse_saved_comment_with_limits(
+    let lines = board_store::formatted_saved_lines(
         &entry.comment,
         entry.comment_format,
         &board.slug,
         entry.wordfilter_payload.as_deref(),
-        if entry.staff_authorized_limits {
-            board_domain::PostLimits::authorized(board_domain::MAX_AUTHORIZED_COMMENT_CHARS)
-                .expect("finite persisted staff bound")
-        } else {
-            board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
-        },
+        entry.saved_presentation.as_deref(),
+        entry.staff_authorized_limits,
     );
     let subject = board_domain::source_html_entities(&entry.subject);
     let mut comment = teaser::stored_comment(&lines, &board.slug, entry.comment_format);

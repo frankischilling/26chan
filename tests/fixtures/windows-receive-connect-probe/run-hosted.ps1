@@ -14,10 +14,35 @@ if ($env:GITHUB_ENV) { 'RECEIVE_CONNECT_EVIDENCE=' + $evidence | Add-Content -Li
 # Compiler/fixture stderr can contain arbitrary text. It stays outside uploaded evidence.
 $private=Join-Path ([IO.Path]::GetTempPath()) ('receive-connect-private-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $private | Out-Null
-$status=[ordered]@{ schema=1; profile='receive-connect'; mode=$Mode; randomize=$Randomize; outcome='harness-or-deadline-failure'; validation_outcome=$null; failure_kind=$null; first_failure=$null; first_native_operation_failure=$null; harness_failure=$false; parser_compiler_exit=$null; parser_exit=$null; validator_tests_exit=$null; phase='initial'; compiler_exit=$null; native_exit=$null; validator_exit=$null; compiler_timeout=$false; native_timeout=$false; validator_timeout=$false; listener_verified=$false; listener_rechecked=$false; child_cleanup_complete=$true; forced_cleanup=$false; complete=$false; qualified=$false; failure_class=$null; children=@(); compiler_diagnostics_available=$false }
+$status=[ordered]@{ schema=1; profile='receive-connect'; mode=$Mode; randomize=$Randomize; outcome='harness-or-deadline-failure'; validation_outcome=$null; failure_kind=$null; first_failure=$null; first_native_operation_failure=$null; harness_failure=$false; parser_compiler_exit=$null; parser_exit=$null; validator_tests_exit=$null; phase='initial'; compiler_exit=$null; native_exit=$null; validator_exit=$null; compiler_timeout=$false; native_timeout=$false; validator_timeout=$false; listener_verified=$false; listener_rechecked=$false; child_cleanup_complete=$true; forced_cleanup=$false; complete=$false; qualified=$false; failure_class=$null; children=@(); compiler_diagnostics_available=$false; environment_evidence=[ordered]@{ checkpoint='not-started'; wait_result='not-run'; root_exited=$null; root_exit=$null; active_processes=$null; observation_failed=$false } }
 $fixture=$null; $compiler=$null; $native=$null; $validator=$null; $discovery=$null; $environment=$null; $parserCompiler=$null; $parser=$null; $validatorTests=$null
 
 function Save-Status { $status | ConvertTo-Json -Depth 5 -Compress | Set-Content -LiteralPath (Join-Path $evidence 'status.json') -Encoding utf8NoBOM }
+# Observation is best-effort, read-only and precedes cleanup. Nullable fields
+# mean unavailable, never successful exit. No exception text or environment leaves.
+# Invoke CLR getters as methods: PowerShell property access suppresses getter
+# exceptions to null, which a bool/integer cast would misreport as false/zero.
+function Save-EnvironmentObservation {
+  param($Child)
+  $record=$status.environment_evidence
+  try { $record.root_exited=[bool]$Child.get_HasExited() } catch { $record.observation_failed=$true }
+  if ($record.root_exited -eq $true) {
+    try { $record.root_exit=[int]$Child.get_ExitCode() } catch { $record.observation_failed=$true }
+  }
+  try { $record.active_processes=[uint32]$Child.get_ActiveProcessCount() } catch { $record.observation_failed=$true }
+}
+function Wait-ToolchainEnvironment {
+  param($Child)
+  $status.environment_evidence.checkpoint='wait'
+  $status.environment_evidence.wait_result='exception'
+  try {
+    $finished=$Child.WaitForExit(20000)
+    $status.environment_evidence.wait_result=if ($finished) { 'completed' } else { 'deadline' }
+    if (-not $finished) { throw 'MSVC environment failed.' }
+    $status.environment_evidence.checkpoint='exit-check'
+    if ($Child.ExitCode -ne 0) { throw 'MSVC environment failed.' }
+  } finally { Save-EnvironmentObservation -Child $Child }
+}
 function Export-FixtureEvidence {
   $log=Join-Path $private 'fixture.out'
   if ((Get-Item -LiteralPath $log).Length -gt 10485760) { throw 'Fixture output bound exceeded.' }
@@ -128,11 +153,16 @@ foreach ($name in @('PATH','INCLUDE','LIB','LIBPATH')) {
 '@ | Set-Content -LiteralPath $exportScript -Encoding utf8NoBOM
   $pwsh=Join-Path $PSHOME 'pwsh.exe'
   $cmdArguments='/d /s /c ""' + $devcmd + '" -no_logo -arch=x64 -host_arch=x64 >nul && "' + $pwsh + '" -NoLogo -NoProfile -File "' + $exportScript + '""'
+  $status.environment_evidence.checkpoint='launch'
   $environment=[DualStackOwnedProcess]::Start($cmd,$cmdArguments,$private,(Join-Path $private 'environment.out'),(Join-Path $private 'environment.err'))
-  if (-not $environment.WaitForExit(20000) -or $environment.ExitCode -ne 0) { throw 'MSVC environment failed.' }
+  Wait-ToolchainEnvironment -Child $environment
+  $status.environment_evidence.checkpoint='read-export'
   $lines=Get-Content -LiteralPath (Join-Path $private 'environment.out')
+  $status.environment_evidence.checkpoint='apply-export'
   foreach ($line in $lines) { if ($line -match '^(PATH|INCLUDE|LIB|LIBPATH)=(.*)$') { Set-Item -LiteralPath ('Env:' + $Matches[1]) -Value $Matches[2] } }
+  $status.environment_evidence.checkpoint='resolve-tools'
   $cl=Get-Command cl.exe -ErrorAction Stop; $node=Get-Command node.exe -ErrorAction Stop
+  $status.environment_evidence.checkpoint='complete'
   $source=Join-Path $PSScriptRoot 'winsock-probe.cpp'
   $exe=Join-Path $private 'receive-connect-probe.exe'
   $parserExe=Join-Path $private 'response-parser.test.exe'

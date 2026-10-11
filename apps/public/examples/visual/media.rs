@@ -180,6 +180,7 @@ impl Fixture {
             comment_format: 0,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            saved_presentation: None,
             id: file.post_id,
             board: board.slug.clone(),
             thread_id: if separate_threads { file.post_id } else { thread.id },

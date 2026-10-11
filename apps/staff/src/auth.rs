@@ -112,7 +112,10 @@ AND NOT EXISTS (
           AND t.tgname=required.trigger_name
           AND t.tgfoid=(SELECT f.oid FROM required_functions f WHERE f.signature=required.function_name)
           AND t.tgtype=5 AND t.tgenabled='O'
-          AND NOT t.tgisinternal AND t.tgqual IS NULL AND t.tgnargs=0
+          AND NOT t.tgisinternal AND t.tgnargs=0
+          AND CASE WHEN required.trigger_name='attach_staff_post_receipt' THEN
+            pg_catalog.pg_get_triggerdef(t.oid,false)='CREATE TRIGGER attach_staff_post_receipt AFTER INSERT ON content.posts FOR EACH ROW WHEN ((NOT content.is_thread_transfer_post(new.id, new.board, new.thread_id))) EXECUTE FUNCTION content.attach_staff_post_receipt()'
+          ELSE t.tgqual IS NULL END
           AND t.tgdeferrable=required.deferred AND t.tginitdeferred=required.deferred
           AND (t.tgconstraint<>0)=required.deferred)
 )
@@ -322,6 +325,12 @@ pub async fn check_identity(pool: &PgPool, expected: &str) -> Result<(), AppErro
         _ => false,
     };
     if !posting {
+        return Err(AppError::Forbidden);
+    }
+    if !board_store::thread_transfer::ready(pool)
+        .await
+        .map_err(AppError::ThreadTransfer)?
+    {
         return Err(AppError::Forbidden);
     }
     Ok(())

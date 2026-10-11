@@ -113,6 +113,7 @@ fn fixture(enabled: bool, empty: bool, catalog: bool, index: bool) -> axum::resp
         comment_format: 0,
         staff_authorized_limits: false,
         wordfilter_payload: None,
+        saved_presentation: None,
         id: 1000001,
         board: board.slug.clone(),
         thread_id: 1000001,

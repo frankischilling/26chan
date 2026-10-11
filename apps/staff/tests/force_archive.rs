@@ -470,27 +470,53 @@ async fn force_archive_requires_current_scoped_moderator_origin_and_csrf() {
 async fn force_archive_audit_failure_rolls_back_transition_and_deletion_retirement() {
     let f = Fixture::new().await;
     f.ready().await;
-    let function = format!("force_archive_fault_{}", f.boards[0]);
+    // Validate the owned UUID slug before interpolating DDL identifiers.
+    assert!(f.boards[0].starts_with("sp"));
+    assert_eq!(f.boards[0].len(), 10);
     assert!(
-        f.boards[0].starts_with("sp") && f.boards[0][2..].bytes().all(|b| b.is_ascii_hexdigit())
+        f.boards[0][2..]
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
     );
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE FUNCTION content.{function}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'owned archive audit failure'; END $$"))).execute(&f.owner).await.unwrap();
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE TRIGGER {function} BEFORE INSERT ON content.moderation_audit FOR EACH ROW WHEN (NEW.board='{}' AND NEW.action='force-archive') EXECUTE FUNCTION content.{function}()",f.boards[0]))).execute(&f.owner).await.unwrap();
+    assert!(f.posts[0] > 0);
+    let index = format!("force_archive_fault_{}", f.boards[0]);
+    // Keep readiness's trigger/function fingerprint intact while failing the
+    // real late audit INSERT for this board, action, and target only.
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE UNIQUE INDEX {index} ON content.moderation_audit(target_id) WHERE board='{}' AND action='force-archive' AND target_id={}", f.boards[0], f.posts[0])))
+        .execute(&f.owner).await.unwrap();
+    let seeded_audit: i64 = sqlx::query_scalar("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES($1,$2,$3,'force-archive') RETURNING id")
+        .bind(f.account).bind(&f.boards[0]).bind(f.posts[0])
+        .fetch_one(&f.owner).await.unwrap();
     let result=tokio::spawn({let f=f.clone();async move {
+        auth::check_identity(&f.auth, "board_auth").await.unwrap();
+        auth::check_identity(&f.staff, "board_staff").await.unwrap();
         sqlx::query("INSERT INTO post_secrets.deletion(post_id,password_hash) VALUES($1,'owned archive rollback fixture')").bind(f.posts[0]).execute(&f.owner).await.unwrap();
         let before=f.state().await;
+        let audits_before = f.audits().await;
         assert_eq!(f.action(f.posts[0],"force-archive").await,StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(f.state().await,before);
-        assert_eq!(f.audit_count().await,0);
+        assert_eq!(f.audit_count().await, 1);
+        assert_eq!(f.audits().await, audits_before, "existing audit evidence is unchanged");
         let secret:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM post_secrets.deletion WHERE post_id=$1)").bind(f.posts[0]).fetch_one(&f.owner).await.unwrap();
         assert!(secret,"archive trigger retirement must roll back with the failed audit");
     }}).await;
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
-        "DROP TRIGGER {function} ON content.moderation_audit; DROP FUNCTION content.{function}()"
-    )))
-    .execute(&f.owner)
-    .await
-    .unwrap();
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("DROP INDEX content.{index}")))
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.moderation_audit WHERE id=$1 AND account_id=$2")
+        .bind(seeded_audit)
+        .bind(f.account)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    if result.is_ok() {
+        assert_eq!(
+            f.action(f.posts[0], "force-archive").await,
+            StatusCode::SEE_OTHER
+        );
+        assert_eq!(f.audit_count().await, 1);
+    }
     f.cleanup().await;
     result.unwrap();
 }

@@ -650,6 +650,7 @@ mod poster_id_projection_tests {
                 comment_format: 0,
                 staff_authorized_limits: false,
                 wordfilter_payload: None,
+                saved_presentation: None,
                 dice_result: None,
                 fortune_text: None,
                 fortune_color: None,

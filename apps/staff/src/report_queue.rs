@@ -101,7 +101,7 @@ const SELECT_PREVIEWS: &str = r#"
            p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,
            p.board_flag,p.board_flag_type,p.flag_name,p.subject,p.comment,
            p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,
-           p.staff_authorized_limits,p.wordfilter_payload,r.state,
+           p.staff_authorized_limits,p.wordfilter_payload,p.saved_presentation,r.state,
            (t.closed OR t.archived_at IS NOT NULL) AS closed,
            t.sticky,t.permasage,t.permaage,t.undead,
            (t.archived_at IS NOT NULL) AS archived,
@@ -242,6 +242,26 @@ async fn load_inner(
     }
 
     let representative_ids: Vec<i64> = selected.iter().map(|g| g.representative_id).collect();
+    // Keep the transfer reader's aggregate materialization bound after grouped
+    // selection. Count the complete saved bodies before fetching any payload.
+    let bytes: i64 = sqlx::query_scalar(
+        r#"
+        SELECT coalesce(sum(octet_length(p.comment)::bigint
+            +coalesce(octet_length(p.wordfilter_payload),0)
+            +coalesce(octet_length(p.wordfilter_search),0)
+            +coalesce(octet_length(p.saved_presentation),0)
+            +coalesce(octet_length(p.saved_presentation_search),0)),0)::bigint
+        FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board
+        WHERE r.id=ANY($1)
+    "#,
+    )
+    .bind(&representative_ids)
+    .fetch_one(&mut *tx)
+    .await?;
+    const MAX_REPORT_READ_BYTES: usize = board_domain::MAX_COMMENT_BYTES * 1001;
+    if bytes > MAX_REPORT_READ_BYTES as i64 {
+        return Err(AppError::Capacity);
+    }
     let reports: Vec<Report> = sqlx::query_as(SELECT_PREVIEWS)
         .bind(&representative_ids)
         .bind(moderator)
