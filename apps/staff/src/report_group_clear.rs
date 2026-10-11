@@ -7,6 +7,7 @@ use axum::{
     http::HeaderMap,
     response::Html,
 };
+use board_domain::{Token, comment_markup::Tag, word_break::WordPart};
 use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Template)]
@@ -163,6 +164,7 @@ fn clear_error(error: sqlx::Error) -> AppError {
 #[derive(Template)]
 #[template(path = "report_group_history.html")]
 struct History {
+    media_origin: String,
     board: String,
     moderator: bool,
     groups: Vec<crate::cleared_report_queue::ClearedReportGroup>,
@@ -192,6 +194,7 @@ pub(crate) async fn history(
     let board = history_board(query.as_deref())?;
     let page = crate::cleared_report_queue::load(&state.staff, &authority.session, &board).await?;
     let html = History {
+        media_origin: state.config.media_origin.clone(),
         board,
         groups: page.groups,
         has_more: page.has_more,
@@ -259,10 +262,12 @@ mod tests {
     #[test]
     fn cleared_history_escapes_evidence_and_keeps_disposition_separate() {
         let mut history = History {
+            media_origin: "http://127.0.0.1:3002".into(),
             board: "test".into(),
             moderator: true,
             has_more: true,
             groups: vec![crate::cleared_report_queue::ClearedReportGroup {
+                preview: None,
                 post_id: 42,
                 representative: crate::store::ClearedReport {
                     id: 2,
@@ -345,7 +350,7 @@ mod tests {
         assert!(html.contains("captured-category-only"));
         assert!(html.contains("cleared-members-truncated"));
         assert!(html.contains("cleared-categories-truncated"));
-        assert!(html.contains("not a saved post snapshot"));
+        assert!(html.contains("No report-time post snapshot is retained"));
         assert!(!html.contains("<script>"));
         assert!(!html.contains("<form"));
         assert!(!html.contains("<img"));

@@ -42,8 +42,10 @@ even if that board does not exist. A denied board returns 403.
 
 History does not require a live post or thread. It retains the records that still
 exist after other actions; it cannot reconstruct evidence removed by canonical
-whole-post erasure or administrative file deletion. No current post preview is
-presented as a report-time snapshot.
+whole-post erasure or administrative file deletion. The selected report shows
+its [saved post presentation](report-post-snapshots.md) when a capture exists.
+Missing historical captures are stated explicitly and are never filled from a
+current post. Removed or expired media remains unavailable.
 
 This page has no resolve, dismiss, group-clear or reporter-clear controls. The
 source client still renders ordinary Delete, File and Clear controls in cleared

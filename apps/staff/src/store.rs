@@ -1,7 +1,7 @@
 use crate::{AppError, audit_snapshot, auth::Session};
 use sqlx::PgPool;
 
-#[derive(sqlx::FromRow)]
+#[derive(Default, sqlx::FromRow)]
 pub struct Report {
     pub id: i64,
     pub board: String,

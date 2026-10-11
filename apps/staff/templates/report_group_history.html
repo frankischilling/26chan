@@ -1,3 +1,4 @@
+{% import "report_post_preview.html" as postview %}
 {% macro report(r, moderator) %}
 <article id="report-{{ r.id }}"><h3>Report {{ r.id }}: post {{ r.post_id }}</h3>
 <p>Original report disposition: {{ r.state }}</p>
@@ -5,11 +6,11 @@
 {% if moderator %}{% if let Some(category) = r.category_id %}<p>Category: {{ category }}</p>{% endif %}{% if let Some(reason) = r.reason %}<p>Reason: {{ reason }}</p>{% endif %}{% endif %}
 </article>
 {% endmacro %}
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cleared reports</title></head><body><main>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cleared reports</title><link rel="stylesheet" href="/comment-markup.css"></head><body><main>
 <h1>Cleared report history: /{{ board }}/</h1>
 <p>Retained group-cleared reports, grouped by post. Showing up to 100 groups in descending order of their newest eligible report ID. The newest eligible report is selected for each group.</p>
 <p>Clear provenance below belongs to each individual report. Its original disposition is unchanged; later reports can inherit an earlier group clear.</p>
-<p>This is report history, not a saved post snapshot. No historical post preview is available. Groups remain visible while their report records are retained, independently of the current post's availability.</p>
+<p>The selected report shows captured post data when available. Older report records are not backfilled. Groups remain visible while their report records are retained, independently of the current post's availability.</p>
 <p>This is an unweighted inventory. Source weighted ordering and ignored filtering are unavailable.</p>
 <p><a href="/reports?board={{ board }}">Uncleared report inventory for /{{ board }}/</a> | <a href="/reports">All authorized reports</a></p>
 {% if has_more %}<p class="cleared-groups-truncated">More cleared post groups are retained; showing the newest 100 groups.</p>{% endif %}
@@ -17,6 +18,7 @@
 <section id="cleared-report-group-{{ group.post_id }}"><h2>/{{ board }}/ post {{ group.post_id }}</h2>
 <p>Selected report ID: {{ group.representative.id }}.</p>
 {% call report(group.representative, moderator) %}{% endcall %}
+{% if let Some(preview) = group.preview %}{% call postview::post(preview, media_origin) %}{% endcall %}{% else %}<p class="report-snapshot-missing">No report-time post snapshot is retained for this report.</p>{% endif %}
 {% if moderator %}{% if let Some(summary) = group.moderator_summary %}
 <p class="cleared-report-count">Cleared retained reports: {{ summary.report_count }}. This count does not establish active group membership.</p>
 {% for r in summary.additional_members %}{% call report(r, moderator) %}{% endcall %}{% endfor %}

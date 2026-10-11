@@ -336,7 +336,8 @@ async fn janitor_clears_one_group_atomically_preserving_original_dispositions_an
         assert!(!history.1.contains("Originating clear account:"));
         assert!(!history.1.contains("Reason:"));
         assert!(!history.1.contains("Category:"));
-        assert!(!history.1.contains("Scope fixture"));
+        assert!(history.1.contains("Scope fixture"));
+        assert!(history.1.contains("Post captured when report"));
         assert!(!history.1.contains("Owned group report 4"));
         assert!(!history.1.contains("Owned group report 5"));
         assert!(!f.marked().await.contains(&retired));

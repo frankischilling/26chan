@@ -1,7 +1,7 @@
 //! Bounded, unweighted inventory of retained group-cleared reports.
 //!
 //! Report provenance is per record. This read does not inspect active membership,
-//! infer a historical post snapshot, or depend on the current post's availability.
+//! infer old snapshots, or depend on the current post's availability.
 
 use crate::{
     AppError, access::Level, auth::Session, report_queue::CapturedCategory, store::ClearedReport,
@@ -22,6 +22,7 @@ pub struct ClearedReportGroup {
     pub post_id: i64,
     pub representative: ClearedReport,
     pub moderator_summary: Option<ModeratorClearedReportSummary>,
+    pub(crate) preview: Option<crate::views::Preview>,
 }
 
 pub struct ModeratorClearedReportSummary {
@@ -179,6 +180,7 @@ async fn load_inner(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await?;
+    crate::report_post_snapshot::ensure_ready(&mut tx).await?;
     let mut selected: Vec<SelectedGroup> = sqlx::query_as(SELECT_GROUPS)
         .bind(board)
         .fetch_all(&mut *tx)
@@ -202,6 +204,7 @@ async fn load_inner(
 
     let post_ids: Vec<i64> = selected.iter().map(|g| g.post_id).collect();
     let representative_ids: Vec<i64> = selected.iter().map(|g| g.representative_id).collect();
+    let mut snapshots = crate::report_post_snapshot::load(&mut tx, &representative_ids).await?;
     let representatives: Vec<ClearedReport> = sqlx::query_as(SELECT_REPRESENTATIVES)
         .bind(board)
         .bind(&representative_ids)
@@ -253,6 +256,15 @@ async fn load_inner(
         if representative.id != group.representative_id {
             return Err(AppError::Internal);
         }
+        let preview = snapshots
+            .remove(&group.representative_id)
+            .map(|s| {
+                if !s.matches(board, group.post_id) {
+                    return Err(AppError::Internal);
+                }
+                Ok(s.history_preview(group.representative_id, representative.state.clone()))
+            })
+            .transpose()?;
         let moderator_summary = if moderator {
             let mut additional_members = members.remove(&group.post_id).unwrap_or_default();
             let members_truncated = additional_members.len() > MAX_ADDITIONAL_MEMBERS;
@@ -274,6 +286,7 @@ async fn load_inner(
             post_id: group.post_id,
             representative,
             moderator_summary,
+            preview,
         });
     }
     tx.commit().await?;

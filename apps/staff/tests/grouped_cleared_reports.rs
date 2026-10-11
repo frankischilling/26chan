@@ -393,7 +393,7 @@ async fn groups_before_limit_with_one_hundred_groups_and_a_distinct_overflow_sen
             let mut posts = Vec::new();
             let mut singleton_ids = Vec::new();
             for n in 0..99 {
-                let post = f.post(0, &format!("LivePreviewMustNotEscape{n:03}")).await;
+                let post = f.post(0, &format!("CapturedPostBody{n:03}")).await;
                 posts.push(post);
                 singleton_ids.push(
                     f.cleared(
@@ -448,10 +448,11 @@ async fn groups_before_limit_with_one_hundred_groups_and_a_distinct_overflow_sen
             assert_eq!(report_ids(&html).len(), 115);
             assert!(html.contains("cleared-members-truncated"));
             assert!(!html.contains("cleared-groups-truncated"));
-            assert!(!html.contains("LivePreviewMustNotEscape"));
+            assert!(html.contains("CapturedPostBody000"));
+            assert!(html.contains("Post captured when report"));
             assert_eq!(f.snapshot().await, before);
 
-            let last_post = f.post(0, "OverflowLivePreviewMustNotEscape").await;
+            let last_post = f.post(0, "NewestCapturedPostBody").await;
             let last_id = f
                 .cleared(0, last_post, "dismissed", "NewestGroup", None)
                 .await;
@@ -469,6 +470,8 @@ async fn groups_before_limit_with_one_hundred_groups_and_a_distinct_overflow_sen
             assert_eq!(group_ids(&html), expected_groups);
             assert!(html.contains("cleared-groups-truncated"));
             assert!(!html.contains("SingletonHistory000"));
+            assert!(!html.contains("CapturedPostBody000"));
+            assert!(html.contains("NewestCapturedPostBody"));
             assert!(!report_ids(&html).contains(&singleton_ids[0]));
             assert!(!report_ids(&html).contains(&crowded_ids[88]));
             assert!(report_ids(&html).contains(&crowded_ids[89]));
@@ -596,7 +599,6 @@ async fn mixed_dispositions_keep_each_origin_and_exclude_reporter_cleared_or_unc
                     "UnclearedReasonHidden",
                     "ReporterClearedOnlyGroupHidden",
                     "OtherBoardHistoryHidden",
-                    "Scope fixture",
                     "<script>alert(1)</script>",
                     "<form",
                     "<button",
@@ -859,14 +861,14 @@ async fn captured_category_identity_and_member_limits_are_distinct_and_bounded()
 }
 
 #[tokio::test]
-async fn retained_history_survives_deleted_and_archived_target_filters_without_live_previews() {
+async fn retained_history_preserves_available_capture_without_fetching_legacy_live_previews() {
     let _serial = TEST.lock().await;
     let f = Fixture::new().await;
     let result = tokio::spawn({ let f = f.clone(); async move {
         let mut expected = Vec::new();
         for (index, target) in ["deleted-post", "deleted-thread", "archived", "expired-archive"].into_iter().enumerate() {
             let post = f.post(0, &format!("LivePrivateBody{index}")).await;
-            // Set the target state before inserting retained historical rows.
+            // Set the target state before inserting synthetic retained rows.
             // Canonical new deletion transitions erase existing reports (0122),
             // which would otherwise mask an accidental live-target SQL filter.
             let sql = match target {
@@ -886,7 +888,8 @@ async fn retained_history_survives_deleted_and_archived_target_filters_without_l
         assert_eq!(report_ids(&html), expected.iter().rev().map(|(_, id)| *id).collect::<Vec<_>>());
         for index in 0..4 {
             assert!(html.contains(&format!("RetainedHistory{index}")));
-            assert!(!html.contains(&format!("LivePrivateBody{index}")));
+            assert_eq!(html.contains(&format!("LivePrivateBody{index}")), index==2,
+                "Only the still-available archived post is captured at insertion");
         }
         assert!(!html.contains("<img"));
         assert!(!html.contains("<video"));

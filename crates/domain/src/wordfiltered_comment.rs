@@ -39,6 +39,15 @@ pub struct Delimiter {
 }
 
 impl Delimiter {
+    /// Construct only a finite saved component. No caller-supplied HTML is accepted.
+    pub(crate) fn from_saved(tag: Tag, opening: bool, rolls: Option<LeetRolls>) -> Self {
+        Self {
+            tag,
+            opening,
+            rolls,
+        }
+    }
+
     pub fn tag(self) -> Tag {
         self.tag
     }
