@@ -514,7 +514,17 @@ async fn tombstones_cannot_resurrect_repopulate_or_regain_authority_and_live_emp
             let error=sqlx::query(sqlx::AssertSqlSafe(query.as_str())).bind(f.ids[1]).bind(f.ids[3]).execute(&f.owner).await.unwrap_err();
             assert_eq!(code(&error),"23514","Cannot recreate target-specific authority in {table}");
             let query=format!("UPDATE {table} SET post_id=$1 WHERE post_id=$2");
-            let error=sqlx::query(sqlx::AssertSqlSafe(query.as_str())).bind(f.ids[1]).bind(f.ids[3]).execute(&f.owner).await.unwrap_err();
+            // A prior rejected autocommit may still be releasing its board
+            // lock. Acquire our owned parent first, as real writers do, so
+            // the NOWAIT guard reaches the intended tombstone rejection.
+            // The separate rotation test retains tuple-first lock coverage.
+            let mut denied=f.owner.begin().await.unwrap();
+            board_lock(&mut denied,&f.board).await;
+            // The staff association guard normally runs at autocommit. Force
+            // that same check before rolling this explicit fixture tx back.
+            sqlx::query("SET CONSTRAINTS ALL IMMEDIATE").execute(&mut *denied).await.unwrap();
+            let error=sqlx::query(sqlx::AssertSqlSafe(query.as_str())).bind(f.ids[1]).bind(f.ids[3]).execute(&mut *denied).await.unwrap_err();
+            denied.rollback().await.unwrap();
             assert_eq!(code(&error),"23514","Cannot reassign live authority into erased target in {table}");
         }
         assert_eq!(f.authority().await,retained_authority,"Denied resurrection does not damage unrelated author authority");
