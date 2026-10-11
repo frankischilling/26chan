@@ -9,14 +9,24 @@ does not change that policy.
 
 ## Browser reference
 
-The behavioral reference is the released public extension v1191,
+The current behavioral reference is `js/extension.js` from supplied checkout
+`545b7812d1849f7958d914950c91fdbbe38f6b22`. Its SHA-256 is
+`05b3b34f68377a44c071e4f74f629d2700fef61e064dcd2e836b161ee9ee0c31`.
+The captured [Linkify object](../fixtures/source-linkification.json) includes
+the source desktop/mobile defaults. The extraction script checks both the
+complete file and the isolated object's hashes. CI can check the captured
+object when the original checkout is absent.
+
+The initial implementation used released public extension v1191,
 `https://s.4cdn.org/js/extension.min.1191.js`, collected September 13, 2026 at
 12:55:46.721 UTC: 182,061 bytes, SHA-256
 `3d2cd5fbd9fc5266a377f4d7e9c3d10beb438eb9e3ded99433eeb0785abc3f37`.
 [The navigation manifest](public-watcher-navigation-reference.json) records the
 same asset. Its `Linkify`, `Parser.parsePost`, configuration defaults and mobile
-layout selection were inspected as text. No upstream JavaScript was executed
-for this integration, and fixtures contain synthetic content.
+layout selection were inspected as text. The supplied-source comparison now
+executes only the extracted `Linkify` object on bounded synthetic strings in an
+isolated JavaScript context. It runs no original startup, storage or network code.
+The original serialized output is test evidence, never application rendering input.
 
 The pinned official API `Threads.md` example already contains external HTTP(S)
 anchors in `com`, as well as a static catalog quote link. Neither those examples
@@ -35,7 +45,10 @@ uppercase URLs only after that probe succeeds somewhere in the message. Quoted
 href values alone do not satisfy the probe. Ports end the matched hostname;
 trailing punctuation and surplus closing parentheses use separate passes against
 the original match. Word breaks stay in labels but leave the destination. The
-encoded derefer parameter retains serialized entity spelling.
+encoded derefer parameter retains serialized entity spelling. A nonbreaking
+space serializes as `&nbsp;` and stays within the matched URL, including its
+derefer parameter. The DOM range maps all six serialized characters back to
+the original text character; it leaves the label and surrounding nodes intact.
 
 The option defaults off on desktop. At widths of 480 pixels or less, the mobile
 default enables it even when stored `linkify` is false, unless
@@ -83,8 +96,8 @@ host and uses a two-second meta refresh. Responses have `Cache-Control: no-store
 response design is a project-defined replacement: the public client reference
 establishes its target URL shape, not the original server's response semantics.
 
-The public link relation is `noreferrer ugc`; this implementation adds explicit
-`noopener`. Malformed destinations and lone surrogates remain text. Validation
+The supplied source's link relation is `noreferrer nofollow`; this implementation
+adds explicit `noopener`. Malformed destinations and lone surrogates remain text. Validation
 does not replace a valid label or parameter with URL-library serialization.
 Unexpected DOM nodes, depth above 32, more than 32,001 descendant nodes or more
 than 192,000 charged characters leave a message unchanged. Soft-break characters
@@ -96,7 +109,10 @@ remain independently enforced by the redirect handler and HTTP stack.
 `npm run test:linkification-core` checks lexical boundaries, entity/soft-break
 spelling, option precedence, generated parenthesis cases, finite DOM rejection,
 unchanged existing anchors, idempotence and the mounted settings/update lifecycle.
-DOM fixtures block external requests and execute only the local implementation.
+DOM fixtures block external requests. The source corpus compares the finite DOM
+result with the extracted original object, using the browser's initial HTML
+serialization on both sides. It checks labels, encoded parameters, link relations,
+text and soft breaks across punctuation, entities, existing anchors and markup.
 The output-budget regression passes the actual before/after HTML through the
 production filter parser. Its 15,419-character comment occupies 15,452 HTML code
 units before linking; the previous behavior creates 700 anchors and expands it
@@ -108,12 +124,9 @@ control still linkifies and remains parseable.
 production page/client. Its unmodified-response case posts mixed lowercase and
 uppercase URLs, preserves the lowercase server anchor, and links the uppercase
 text on the initial page and through the real updater. It checks that HTML and
-API comment content stay unchanged when the preference changes. Some other
-cases replace a known generated anchor in an owned
-HTTP response with text to exercise client input that the current formatter
-does not emit. The updater case similarly substitutes text in a real persisted
-snapshot before the normal parser and append path run. These substitutions are
-explicit test inputs, not evidence that the server changed its formatting.
+API comment content stay unchanged when the preference changes. The nonbreaking-
+space case posts through the real handler and checks script-free HTML, initial
+client rendering, unchanged JSON, derefer admission and updater insertion.
 Other checks cover existing server anchors, desktop/mobile settings, disabled or
 unavailable storage, live option changes, synthetic preview insertion, bounded
 DOM and absence of a catalog mount.
@@ -130,8 +143,17 @@ an oversized post or establish a new server-formatting rule.
 `cargo test -p board-public --test derefer --locked` exercises the real router,
 escaping, redirects, CSP, cache policy, assets and invalid destinations/referrers
 without requiring a database. Handler unit tests cover decoding and bounds.
-`npm run test:linkification` runs the release-bundle check, core tests and all seven
+`npm run test:linkification` runs the release-bundle check, core tests and all eight
 persisted browser cases; the Linux verification script invokes this command.
 The current-head local and hosted results are recorded in the pull request;
 full original-page parity and deployed production boundaries remain separate
 requirements.
+
+To recheck the capture against an installed original checkout:
+
+```bash
+node scripts/record-source-linkification.mjs --check --source /path/to/4chan-old
+```
+
+Numeric quote coercion and complete original-page visual comparisons remain
+open in #165 and #208. These URL-linking checks do not establish those results.

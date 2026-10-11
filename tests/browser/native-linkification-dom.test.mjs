@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { nativeCommentText } from '../../apps/public/client/native-filter-html.js';
 import { FILTER_LIMITS } from '../../apps/public/client/native-filter-limits.js';
+import { sourceLinkification, sourceLinkInputs, linkSummary } from './helpers/source-linkification.js';
 
 async function linkerSources() {
   const wordfilters = await readFile(new URL('../../apps/public/client/native-wordfilter-markup.js', import.meta.url), 'utf8');
@@ -13,6 +14,35 @@ async function linkerSources() {
     limits: await readFile(new URL('../../apps/public/client/native-filter-limits.js', import.meta.url), 'utf8'),
   };
 }
+
+test('finite DOM output matches original Linkify on the supplied-source corpus', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.route('**/*', route => route.abort());
+    await page.goto('about:blank');
+    const sources = await linkerSources();
+    const actual = await page.evaluate(async ({ source, limits, inputs }) => {
+      const limitsUrl = URL.createObjectURL(new Blob([limits], { type: 'text/javascript' }));
+      source = source.replace('./native-filter-limits.js', limitsUrl);
+      const { linkifyMessage } = await import(URL.createObjectURL(new Blob([source], { type: 'text/javascript' })));
+      return inputs.map(input => {
+        const message = document.createElement('blockquote');
+        // Fixed synthetic source vectors, with all network requests denied.
+        message.innerHTML = input;
+        const before = message.innerHTML;
+        linkifyMessage(message);
+        return { before, after: message.innerHTML };
+      });
+    }, { ...sources, inputs: sourceLinkInputs });
+    for (const [index, { before, after }] of actual.entries()) {
+      // The source reads the browser's serialization, including normalized
+      // entity spelling, rather than the input assigned to innerHTML.
+      const { anchors, text, breaks } = sourceLinkification(before);
+      assert.deepEqual(linkSummary(after), { anchors, text, breaks }, sourceLinkInputs[index]);
+    }
+  } finally { await browser.close(); }
+});
 
 test('finite link DOM preserves source text, nodes, soft breaks and anchor boundaries', async () => {
   const browser = await chromium.launch({ headless: true });
@@ -71,7 +101,7 @@ test('finite link DOM preserves source text, nodes, soft breaks and anchor bound
       assert.equal(result.nested, 0, result.html);
       for (const [href, target, rel] of result.attributes) {
         assert.ok(href.startsWith('/derefer?url='));
-        assert.equal(target, '_blank'); assert.equal(rel, 'noreferrer ugc noopener');
+        assert.equal(target, '_blank'); assert.equal(rel, 'noreferrer nofollow noopener');
       }
       if (result.html.includes('<wbr>')) assert.equal(result.breaks, 1);
       if (result.html.includes('\u200b')) assert.equal(result.breaks, 2);
