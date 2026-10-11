@@ -326,6 +326,54 @@ async fn authenticated_upload_status_badged_post_spoiler_and_one_use_receipt() {
     result.unwrap();
 }
 
+#[tokio::test]
+async fn staff_badge_cannot_bypass_board_image_policy() {
+    let _serial = SERIAL.lock().await;
+    let fixture = Arc::new(Fixture::new().await);
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        let (id, cap) = case.upload().await;
+        case.approve(&id).await;
+        let post = format!("{}&name=Owned&subject=Owned&comment=Owned+image+policy&badge=mod", case.form(&id, &cap));
+        for (max_bytes, min_width, min_height, max_dimension, gif_only, message) in [
+            (255_i64, 1_i32, 1_i32, 10000_i32, false, "Error: File too large."),
+            (256, 11, 1, 10000, false, "Error: Image resolution is too small."),
+            (256, 1, 21, 10000, false, "Error: Image resolution is too small."),
+            (256, 1, 1, 19, false, "Error: Image resolution is too large."),
+            (256, 1, 1, 10000, true, "Error: Upload failed."),
+        ] {
+            sqlx::query("UPDATE content.boards SET max_image_bytes=$2,min_image_width=$3,min_image_height=$4,max_image_dimension=$5,gif_only=$6 WHERE slug=$1")
+                .bind(&case.board).bind(max_bytes).bind(min_width).bind(min_height)
+                .bind(max_dimension).bind(gif_only).execute(&case.owner).await.unwrap();
+            let response = case.send_form("/post", post.clone()).await;
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+            let page = String::from_utf8(to_bytes(response.into_body(), 262_144).await.unwrap().to_vec()).unwrap();
+            assert!(page.contains(message), "staff error lost the source policy message: {page}");
+            assert!(!page.contains(&cap));
+            assert_eq!(sqlx::query_scalar::<_, i64>("SELECT count(*) FROM content.posts WHERE board=$1")
+                .bind(&case.board).fetch_one(&case.owner).await.unwrap(), 0);
+            assert_eq!(case.intake.status(&id, &cap).await.unwrap().state, "published");
+        }
+        sqlx::query("UPDATE content.boards SET max_image_bytes=256,min_image_width=10,min_image_height=20,max_image_dimension=20,gif_only=false WHERE slug=$1")
+            .bind(&case.board).execute(&case.owner).await.unwrap();
+        assert_eq!(case.send_form("/post", post).await.status(), StatusCode::SEE_OTHER);
+        assert_eq!(sqlx::query_scalar::<_, i64>("SELECT count(*) FROM content.posts WHERE board=$1 AND capcode='mod'")
+            .bind(&case.board).fetch_one(&case.owner).await.unwrap(), 1);
+        // Reception must enforce the lower board limit before approval as well.
+        let rejected = case.app().oneshot(case.multipart(&case.board, "", 257)).await.unwrap();
+        assert_eq!(rejected.status(), StatusCode::BAD_REQUEST);
+        sqlx::query("UPDATE content.boards SET max_image_bytes=257 WHERE slug=$1")
+            .bind(&case.board).execute(&case.owner).await.unwrap();
+        let accepted = html(case.app().oneshot(case.multipart(&case.board, "", 257)).await.unwrap(), StatusCode::OK).await;
+        let accepted_id = hidden(&accepted, "upload_id");
+        let accepted_cap = hidden(&accepted, "upload_capability");
+        assert_eq!(std::fs::read(case.root.path().join(format!("{accepted_id}.input"))).unwrap().len(), 257);
+        assert_eq!(case.send_form("/post/upload/cancel", case.form(&accepted_id, &accepted_cap)).await.status(), StatusCode::SEE_OTHER);
+    }).await;
+    Arc::try_unwrap(fixture).ok().unwrap().cleanup().await;
+    result.unwrap();
+}
+
 // A request that panics if its body is polled proves that header/session checks
 // precede extraction, rather than merely observing a denial after buffering.
 fn unpolled() -> Body {

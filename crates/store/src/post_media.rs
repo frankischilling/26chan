@@ -102,6 +102,17 @@ pub(crate) fn scoped_error(error: sqlx::Error) -> StoreError {
             "Attachment is unavailable, already used, or the image limit was reached.",
         ),
         Some("22023") => StoreError::Invalid("Invalid attachment request."),
+        Some("23514") => match error.as_database_error().map(|error| error.message()) {
+            Some("Error: File too large.") => StoreError::Invalid("Error: File too large."),
+            Some("Error: Upload failed.") => StoreError::Invalid("Error: Upload failed."),
+            Some("Error: Image resolution is too small.") => {
+                StoreError::Invalid("Error: Image resolution is too small.")
+            }
+            Some("Error: Image resolution is too large.") => {
+                StoreError::Invalid("Error: Image resolution is too large.")
+            }
+            _ => StoreError::Database(error),
+        },
         _ => StoreError::Database(error),
     }
 }

@@ -35,6 +35,16 @@ order and route availability are checked against the pinned fixture. `/j/`
 content is protected by database row policies. Specialized board workflows and
 the rest of the configuration model remain tracked separately.
 
+[Image board admission](source-image-board-policy.md) imports the source file
+limits, minimum/maximum dimensions and GIF-only switches for all 82 board
+definitions. Public and staff attachment admission use authenticated input size
+and approved dimensions/format; board JSON advertises the effective file limit
+and conditional minimum dimensions. Public file pickers and upload hints follow
+the board's size and GIF-only policy.
+Transport and decoder resource bounds remain separate security limits. Source
+thumbnail and retained-file comparisons remain open, and this branch still
+requires complete hosted qualification.
+
 [Server links](server-comment-links.md) distinguish internal normalization and
 static board/catalog/rules links from optional browser URL linking. New saved
 formatter profiles preserve that distinction across HTML, JSON, staff previews,

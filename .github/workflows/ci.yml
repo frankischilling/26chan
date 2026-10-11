@@ -310,6 +310,8 @@ jobs:
         run: sudo bash scripts/test-posting-time-migration.sh
       - name: Upgrade protected-thread image admission with runtime checks
         run: sudo bash scripts/test-image-admission-migration.sh
+      - name: Upgrade source board image policy and verify private authority
+        run: sudo bash scripts/test-image-board-policy-migration.sh
       - name: Upgrade source comment spacing without rewriting historical text
         run: sudo bash scripts/test-comment-spacing-migration.sh
       - name: Upgrade source line admission with operator policy checks

@@ -20,6 +20,7 @@ POLICY_KEYS.add("JSMATH")
 POLICY_KEYS.add("SHOW_BLOTTER")
 POLICY_KEYS.add("SUBTITLE")
 POLICY_KEYS.update({"ENABLE_PAINTERJS", "ENABLE_OEKAKI_REPLAYS", "PAINTERJS_DIMS"})
+POLICY_KEYS.update({"MIN_W", "MIN_H", "MAX_DIMENSION"})
 
 
 def policy(path):
@@ -108,6 +109,11 @@ def extract(root, names_encoding="utf-8", historical_titles=False):
             "op_markup": boolean("OP_MARKUP"), "forced_anon": boolean("FORCED_ANON"),
             "user_ids": boolean("DISP_ID"), "country_flags": boolean("SHOW_COUNTRY_FLAGS"),
             "text_only": boolean("TEXT_ONLY"), "reply_limit": 1000,
+            "max_image_bytes": integer("MAX_KB") * 1024,
+            "min_image_width": int(values.get("MIN_W", "1")),
+            "min_image_height": int(values.get("MIN_H", "1")),
+            "max_image_dimension": int(values.get("MAX_DIMENSION", "5000")),
+            "gif_only": boolean("GIF_ONLY"),
             "bump_limit": integer("MAX_RES"), "image_limit": integer("MAX_IMGRES"),
             "thread_limit": maximum, "threads_per_page": integer("DEF_PAGES"),
             "replies_shown": integer("REPLIES_SHOWN"),
@@ -138,6 +144,7 @@ def migration(reference):
         "posting_reply_seconds", "posting_image_seconds", "posting_thread_seconds",
         "user_thread_limit", "user_thread_period_hours", "can_report_posts", "math_tags",
         "oekaki", "oekaki_replays", "oekaki_width", "oekaki_height", "show_blotter", "board_subtitle", "replies_shown",
+        "max_image_bytes", "min_image_width", "min_image_height", "max_image_dimension", "gif_only",
     }]
     def sql(value):
         if isinstance(value, bool):
@@ -238,6 +245,45 @@ def drawing_migration(reference):
             ") policy(slug,enabled,replays,width,height) WHERE b.slug=policy.slug;\n")
 
 
+IMAGE_POLICY_TRANSFER_PREFLIGHT = """-- Preserve the optional text-transfer catalog guard across this board change.
+-- Refuse existing drift before accepting the migration's reviewed schema changes.
+DO $image_transfer_preflight$
+BEGIN
+    IF (pg_catalog.to_regclass('post_secrets.thread_transfer_catalog') IS NULL)
+        <> (pg_catalog.to_regprocedure('content.text_thread_transfer_ready()') IS NULL) THEN
+        RAISE EXCEPTION 'Text transfer catalog is incomplete before image policy.';
+    END IF;
+    IF pg_catalog.to_regclass('post_secrets.thread_transfer_catalog') IS NOT NULL THEN
+        EXECUTE 'SET LOCAL ROLE board_thread_transfer_owner';
+        PERFORM singleton FROM post_secrets.thread_transfer_catalog WHERE singleton FOR UPDATE;
+        IF NOT FOUND OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
+            RAISE EXCEPTION 'Text transfer catalog is not ready for image policy.';
+        END IF;
+        EXECUTE 'RESET ROLE';
+    END IF;
+END $image_transfer_preflight$;
+"""
+
+
+def image_policy_migration(reference):
+    keys = ("max_image_bytes", "min_image_width", "min_image_height", "max_image_dimension", "gif_only")
+    rows = []
+    for board in reference["boards"]:
+        values = [str(board[key]).lower() for key in keys]
+        rows.append("('" + board["slug"] + "'," + ",".join(values) + ")")
+    return ("-- Source MAX_KB, MIN_W, MIN_H, MAX_DIMENSION and GIF_ONLY admission policy.\n"
+            "-- Decoder resource limits remain separate from board policy.\n" +
+            IMAGE_POLICY_TRANSFER_PREFLIGHT +
+            "ALTER TABLE content.boards\n"
+            "    ADD COLUMN max_image_bytes bigint NOT NULL DEFAULT 4194304 CHECK (max_image_bytes BETWEEN 1 AND 1073741824),\n"
+            "    ADD COLUMN min_image_width integer NOT NULL DEFAULT 1 CHECK (min_image_width BETWEEN 1 AND 10000),\n"
+            "    ADD COLUMN min_image_height integer NOT NULL DEFAULT 1 CHECK (min_image_height BETWEEN 1 AND 10000),\n"
+            "    ADD COLUMN max_image_dimension integer NOT NULL DEFAULT 10000 CHECK (max_image_dimension BETWEEN 1 AND 10000),\n"
+            "    ADD COLUMN gif_only boolean NOT NULL DEFAULT false;\n"
+            "UPDATE content.boards b SET " + ",".join(key + "=policy." + key for key in keys) +
+            " FROM (VALUES\n" + ",\n".join(rows) + ") policy(slug," + ",".join(keys) + ") WHERE b.slug=policy.slug;\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
@@ -251,6 +297,7 @@ def main():
     parser.add_argument("--wordfilter-migration", type=Path)
     parser.add_argument("--board-encoding-migration", type=Path)
     parser.add_argument("--board-title-migration", type=Path)
+    parser.add_argument("--image-policy-migration", type=Path)
     args = parser.parse_args()
     reference = extract(args.source)
     # Migrations 0045 and 0064 predate the square-bracket title correction.
@@ -259,6 +306,10 @@ def main():
     historical_utf8 = extract(args.source, historical_titles=True)
     data = json.dumps(reference, ensure_ascii=False, indent=2) + "\n"
     if args.check:
+        if args.image_policy_migration:
+            actual = args.image_policy_migration.read_text(encoding="utf-8")
+            if not actual.startswith(image_policy_migration(reference)):
+                raise SystemExit("Image admission migration differs from extracted board policy.")
         if args.subtitle_migration and args.subtitle_migration.read_bytes() != subtitle_migration(reference).encode("utf-8"):
             raise SystemExit("Board subtitle migration differs from the extracted policy.")
         if args.output.read_text(encoding="utf-8") != data:
@@ -282,6 +333,8 @@ def main():
             raise SystemExit("Board title migration differs from the extracted policy.")
         print("Board reference matches all listed and additional configuration files.")
     else:
+        if args.image_policy_migration:
+            args.image_policy_migration.write_bytes(image_policy_migration(reference).encode("utf-8"))
         args.output.write_bytes(data.encode("utf-8"))
         if args.subtitle_migration:
             args.subtitle_migration.write_bytes(subtitle_migration(reference).encode("utf-8"))

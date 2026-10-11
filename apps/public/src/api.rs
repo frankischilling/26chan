@@ -151,8 +151,14 @@ pub async fn boards(
             if !board.text_only {
                 value.as_object_mut().expect("board object").remove("text_only");
             }
-            value["max_filesize"] = json!(8_388_608);
+            value["max_filesize"] = json!(board.image_file_limit());
             value["image_limit"] = json!(board.image_limit);
+            if board.min_image_width > 1 {
+                value["min_image_width"] = json!(board.min_image_width);
+            }
+            if board.min_image_height > 1 {
+                value["min_image_height"] = json!(board.min_image_height);
+            }
         }
         BoardMetadata { value, board_flags: flags }
     }).collect();
