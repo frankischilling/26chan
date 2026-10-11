@@ -38,6 +38,28 @@ for migration in migrations/*.sql; do
     [[ $(basename "$migration") < 0132_ ]] || break
     "${migrator[@]}" --single-transaction -f - < "$migration" >/dev/null
 done
+has_transfer=$("${migrator[@]}" -Atc "SELECT to_regclass('post_secrets.thread_transfer_catalog') IS NOT NULL")
+if [[ $has_transfer = t ]]; then
+    catalog_before=$("${migrator[@]}" -Atc "SET ROLE board_thread_transfer_owner; SELECT encode(definition_hash,'hex') FROM post_secrets.thread_transfer_catalog WHERE singleton")
+    [[ $catalog_before =~ ^[0-9a-f]{64}$ ]] || { echo 'Transfer catalog checkpoint is invalid.' >&2; exit 1; }
+    "${migrator[@]}" -c "SET ROLE board_thread_transfer_owner; UPDATE post_secrets.thread_transfer_catalog SET definition_hash=decode(repeat('00',32),'hex')"
+    if "${migrator[@]}" --single-transaction -f - < migrations/0132_source_image_board_policy.sql >"$cluster/rejected.out" 2>"$cluster/rejected.err"; then
+        echo 'Image migration accepted existing transfer catalog drift.' >&2; exit 1
+    fi
+    grep -Fq 'Text transfer catalog is not ready for image policy.' "$cluster/rejected.err"
+    "${migrator[@]}" -v old_hash="$catalog_before" <<'SQL'
+SET ROLE board_thread_transfer_owner;
+DO $$ BEGIN
+    IF EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='content.boards'::regclass
+        AND attname='max_image_bytes' AND NOT attisdropped)
+        OR (SELECT definition_hash<>decode(repeat('00',32),'hex')
+            FROM post_secrets.thread_transfer_catalog WHERE singleton)
+    THEN RAISE EXCEPTION 'Rejected image migration changed schema or resealed drift'; END IF;
+END $$;
+UPDATE post_secrets.thread_transfer_catalog SET definition_hash=decode(:'old_hash','hex') WHERE singleton;
+RESET ROLE;
+SQL
+fi
 "${migrator[@]}" -f - < fixtures/demo.sql >/dev/null
 {
 cat <<'SQL'
@@ -114,3 +136,28 @@ DO $check$ BEGIN
 END $check$;
 SQL
 printf 'Image policy populated upgrade preserved historical content/media, imported all source boards and retained private runtime authority.\n'
+if [[ $has_transfer = t ]]; then
+    "${migrator[@]}" <<'SQL'
+SET ROLE board_thread_transfer_owner;
+DO $$ BEGIN
+    IF content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
+        RAISE EXCEPTION 'Image policy invalidated healthy transfer readiness';
+    END IF;
+    IF EXISTS(SELECT 1 FROM (VALUES('board_public'),('board_staff'),('board_auth'),('board_media'),
+        ('board_media_read'),('board_media_intake'),('board_monitor')) runtime(name)
+        WHERE has_column_privilege(runtime.name,'post_secrets.thread_transfer_catalog','definition_hash','UPDATE')
+        OR has_function_privilege(runtime.name,'post_secrets.transfer_catalog_hash()','EXECUTE'))
+    THEN RAISE EXCEPTION 'Runtime gained transfer catalog resealing authority'; END IF;
+END $$;
+BEGIN;
+UPDATE post_secrets.thread_transfer_catalog SET definition_hash=decode(repeat('00',32),'hex') WHERE singleton;
+DO $$ BEGIN
+    IF content.text_thread_transfer_ready() IS DISTINCT FROM false THEN
+        RAISE EXCEPTION 'Post-upgrade transfer catalog drift was accepted';
+    END IF;
+END $$;
+ROLLBACK;
+RESET ROLE;
+SQL
+    echo 'Image policy retained installed transfer readiness and rejected prior/later drift without runtime resealing grants.'
+fi

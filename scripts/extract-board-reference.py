@@ -245,6 +245,26 @@ def drawing_migration(reference):
             ") policy(slug,enabled,replays,width,height) WHERE b.slug=policy.slug;\n")
 
 
+IMAGE_POLICY_TRANSFER_PREFLIGHT = """-- Preserve the optional text-transfer catalog guard across this board change.
+-- Refuse existing drift before accepting the migration's reviewed schema changes.
+DO $image_transfer_preflight$
+BEGIN
+    IF (pg_catalog.to_regclass('post_secrets.thread_transfer_catalog') IS NULL)
+        <> (pg_catalog.to_regprocedure('content.text_thread_transfer_ready()') IS NULL) THEN
+        RAISE EXCEPTION 'Text transfer catalog is incomplete before image policy.';
+    END IF;
+    IF pg_catalog.to_regclass('post_secrets.thread_transfer_catalog') IS NOT NULL THEN
+        EXECUTE 'SET LOCAL ROLE board_thread_transfer_owner';
+        PERFORM singleton FROM post_secrets.thread_transfer_catalog WHERE singleton FOR UPDATE;
+        IF NOT FOUND OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
+            RAISE EXCEPTION 'Text transfer catalog is not ready for image policy.';
+        END IF;
+        EXECUTE 'RESET ROLE';
+    END IF;
+END $image_transfer_preflight$;
+"""
+
+
 def image_policy_migration(reference):
     keys = ("max_image_bytes", "min_image_width", "min_image_height", "max_image_dimension", "gif_only")
     rows = []
@@ -252,7 +272,8 @@ def image_policy_migration(reference):
         values = [str(board[key]).lower() for key in keys]
         rows.append("('" + board["slug"] + "'," + ",".join(values) + ")")
     return ("-- Source MAX_KB, MIN_W, MIN_H, MAX_DIMENSION and GIF_ONLY admission policy.\n"
-            "-- Decoder resource limits remain separate from board policy.\n"
+            "-- Decoder resource limits remain separate from board policy.\n" +
+            IMAGE_POLICY_TRANSFER_PREFLIGHT +
             "ALTER TABLE content.boards\n"
             "    ADD COLUMN max_image_bytes bigint NOT NULL DEFAULT 4194304 CHECK (max_image_bytes BETWEEN 1 AND 1073741824),\n"
             "    ADD COLUMN min_image_width integer NOT NULL DEFAULT 1 CHECK (min_image_width BETWEEN 1 AND 10000),\n"

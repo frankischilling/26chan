@@ -1,5 +1,22 @@
 -- Source MAX_KB, MIN_W, MIN_H, MAX_DIMENSION and GIF_ONLY admission policy.
 -- Decoder resource limits remain separate from board policy.
+-- Preserve the optional text-transfer catalog guard across this board change.
+-- Refuse existing drift before accepting the migration's reviewed schema changes.
+DO $image_transfer_preflight$
+BEGIN
+    IF (pg_catalog.to_regclass('post_secrets.thread_transfer_catalog') IS NULL)
+        <> (pg_catalog.to_regprocedure('content.text_thread_transfer_ready()') IS NULL) THEN
+        RAISE EXCEPTION 'Text transfer catalog is incomplete before image policy.';
+    END IF;
+    IF pg_catalog.to_regclass('post_secrets.thread_transfer_catalog') IS NOT NULL THEN
+        EXECUTE 'SET LOCAL ROLE board_thread_transfer_owner';
+        PERFORM singleton FROM post_secrets.thread_transfer_catalog WHERE singleton FOR UPDATE;
+        IF NOT FOUND OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
+            RAISE EXCEPTION 'Text transfer catalog is not ready for image policy.';
+        END IF;
+        EXECUTE 'RESET ROLE';
+    END IF;
+END $image_transfer_preflight$;
 ALTER TABLE content.boards
     ADD COLUMN max_image_bytes bigint NOT NULL DEFAULT 4194304 CHECK (max_image_bytes BETWEEN 1 AND 1073741824),
     ADD COLUMN min_image_width integer NOT NULL DEFAULT 1 CHECK (min_image_width BETWEEN 1 AND 10000),
@@ -257,3 +274,17 @@ BEGIN
 END $$;
 RESET ROLE;
 REVOKE CREATE ON SCHEMA content FROM board_attachment_owner;
+-- Only the trusted migration identity accepts this reviewed catalog transition.
+-- The earlier preflight must pass; runtime roles retain no resealing authority.
+DO $image_transfer_reseal$
+BEGIN
+    IF pg_catalog.to_regclass('post_secrets.thread_transfer_catalog') IS NOT NULL THEN
+        EXECUTE 'SET LOCAL ROLE board_thread_transfer_owner';
+        UPDATE post_secrets.thread_transfer_catalog
+            SET definition_hash=post_secrets.transfer_catalog_hash() WHERE singleton;
+        IF NOT FOUND OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
+            RAISE EXCEPTION 'Text transfer catalog is not ready after image policy.';
+        END IF;
+        EXECUTE 'RESET ROLE';
+    END IF;
+END $image_transfer_reseal$;
