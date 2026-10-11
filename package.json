@@ -42,7 +42,7 @@
     "test:display-core": "node --test tests/browser/native-display.test.mjs tests/browser/native-poster-ids.test.mjs tests/browser/native-poster-id-actions.test.mjs",
     "test:display": "npm run test:display-core && playwright test tests/browser/native-display.spec.js tests/browser/legacy-actions.spec.js",
     "test:linkification": "npm run check:native-filter && npm run test:linkification-core && playwright test tests/browser/native-linkification.spec.js",
-    "test:linkification-core": "node --test tests/browser/native-linkification.test.mjs tests/browser/native-linkification-dom.test.mjs",
+    "test:linkification-core": "node scripts/record-source-linkification.mjs --check && node --test tests/browser/native-linkification.test.mjs tests/browser/native-linkification-dom.test.mjs",
     "test:quote-preview": "npm run check:native-filter && npm run test:quote-preview-core && playwright test tests/browser/native-quote-preview.spec.js",
     "test:quote-preview-core": "node scripts/record-source-quote-spellings.mjs --check && node --test tests/browser/source-quote-spellings.test.mjs && node --test tests/browser/native-quote-preview.test.mjs tests/browser/native-quote-preview-dom.test.mjs tests/browser/native-filter-settlement.test.mjs tests/browser/native-resolved-quotes.test.mjs",
     "test:backlinks": "npm run test:backlinks-core && playwright test tests/browser/native-backlinks.spec.js",

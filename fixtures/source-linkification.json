@@ -1,0 +1,16 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "source_file": "js/extension.js",
+  "source_sha256": "05b3b34f68377a44c071e4f74f629d2700fef61e064dcd2e836b161ee9ee0c31",
+  "excerpt_sha256": "16e8c25d177f3651e90b8ee548656129f23ff17beba92064db490a2d612cc124",
+  "defaults": {
+    "desktop": false,
+    "mobile": true
+  },
+  "limits": [
+    "Only this extracted object executes on bounded synthetic strings in an isolated context.",
+    "No original application startup, configuration loading, storage or network executes.",
+    "Its serialized HTML output is reference evidence, never application rendering input."
+  ],
+  "excerpt": "var Linkify = {\r\n  init: function() {\r\n    this.probeRe = /(?:^|[^\\B\"])https?:\\/\\/[-.a-z0-9]+\\.[a-z]{2,4}/;\r\n    this.linkRe = /(^|[^\\B\"])(https?:\\/\\/[-.a-z0-9\\u200b]+\\.[a-z\\u200b]{2,15}(?:\\/[^\\s<>]*)?)/ig;\r\n    this.punct = /[:!?,.'\"]+$/g;\r\n    this.derefer = '//sys.' + $L.d(Main.board) + '/derefer?url=';\r\n  },\r\n  \r\n  exec: function(el) {\r\n    if (!this.probeRe.test(el.innerHTML)) {\r\n      return;\r\n    }\r\n    \r\n    el.innerHTML = el.innerHTML\r\n      .replace(/<wbr>/g, '\\u200b')\r\n      .replace(this.linkRe, this.funk)\r\n      .replace(/\\u200b/g, '<wbr>');\r\n  },\r\n  \r\n  funk: function(match, pfx, url, o, str) {\r\n    var m, mm, end, len, sfx;\r\n    \r\n    m = o + match.length;\r\n    \r\n    if (str.slice(m, m + 4) === '</a>') {\r\n      return match;\r\n    }\r\n    \r\n    end = len = url.length;\r\n    \r\n    if (m = url.match(Linkify.punct)) {\r\n      end -= m[0].length;\r\n    }\r\n    \r\n    if (m = url.match(/\\)+$/g)) {\r\n      mm = m[0].length;\r\n      if (m = url.match(/\\(/g)) {\r\n        mm = mm - m.length;\r\n        if (mm > 0) {\r\n          end -= mm;\r\n        }\r\n      }\r\n      else {\r\n        end -= mm;\r\n      }\r\n    }\r\n    \r\n    if (end < len) {\r\n      sfx = url.slice(end);\r\n      url = url.slice(0, end);\r\n    }\r\n    else {\r\n      sfx = '';\r\n    }\r\n    \r\n    return pfx + '<a href=\"' + Linkify.derefer\r\n      + encodeURIComponent(url.replace(/\\u200b/g, ''))\r\n      + '\" target=\"_blank\" class=\"linkified\" rel=\"noreferrer nofollow\">'\r\n      + url + '</a>' + sfx;\r\n  }\r\n};\r"
+}
