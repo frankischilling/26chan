@@ -58,6 +58,18 @@ async fn status_is_private_escaped_inert_and_warning_viewing_is_identity_and_csr
             .await
             .unwrap();
     sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Owned warning','Synthetic fixture',2000,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
+    let target: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+        .fetch_one(&owner)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO content.threads(id,board) VALUES($1,$2)")
+        .bind(target)
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Synthetic name','Owned report target','Synthetic target text')")
+        .bind(target).bind(&board).execute(&owner).await.unwrap();
     let secret = Capability::generate().unwrap().storage_hash();
     let key = Arc::new(
         PosterIdKey::parse(
@@ -140,6 +152,55 @@ async fn status_is_private_escaped_inert_and_warning_viewing_is_identity_and_csr
     );
     assert!(refusal.contains(&format!("href=\"/banned?board={board}\"")));
     assert!(refusal.contains("You must first"));
+    // Original GET uses check_ban=false, POST uses true. The real transport
+    // peer binds the reporting HMAC to the independent posting restriction HMAC.
+    let report_path = format!("/{board}/imgboard.php?mode=report&no={target}");
+    assert_eq!(
+        request(
+            &app,
+            "GET",
+            &report_path,
+            "192.0.2.134:44134",
+            None,
+            "",
+            ORIGIN
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    for (report_path, report_form) in [
+        (report_path.clone(), "cat=&cat_id=1&revision=1".to_owned()),
+        (
+            format!("/{board}/report"),
+            format!("no={target}&reason=Owned+report"),
+        ),
+    ] {
+        let (code, headers, body) = request(
+            &app,
+            "POST",
+            &report_path,
+            "192.0.2.134:44134",
+            None,
+            &report_form,
+            ORIGIN,
+        )
+        .await;
+        assert_eq!(code, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+        assert_eq!(headers["cache-control"], "private, no-store");
+        assert!(!headers.contains_key("set-cookie"));
+        assert!(
+            body.contains(&format!("href=\"/banned?board={board}\"")),
+            "{body}"
+        );
+        assert!(!body.contains("Private test reason"));
+    }
+    let reports: i64 = sqlx::query_scalar("SELECT count(*) FROM content.reports WHERE board=$1")
+        .bind(&board)
+        .fetch_one(&owner)
+        .await
+        .unwrap();
+    assert_eq!(reports, 0);
     assert_eq!(
         request(
             &app,
@@ -265,6 +326,16 @@ async fn status_is_private_escaped_inert_and_warning_viewing_is_identity_and_csr
         .await
         .unwrap();
     sqlx::query("RESET ROLE").execute(&mut *tx).await.unwrap();
+    sqlx::query("DELETE FROM content.posts WHERE board=$1")
+        .bind(&board)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.threads WHERE board=$1")
+        .bind(&board)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
     sqlx::query("DELETE FROM content.boards WHERE slug=$1")
         .bind(board)
         .execute(&mut *tx)

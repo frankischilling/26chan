@@ -186,6 +186,57 @@ END $$;
 SQL
 echo 'Source restriction populated upgrade, role denials, private binding, issuance/unban/warning, capacity and catalog checks passed.'
 
+# Preserve populated reports and refuse an unreviewed admission definition.
+"${root[@]}" <<'SQL'
+SET ROLE board_migrator;
+INSERT INTO content.reports(board,post_id,reason) VALUES('rest134',13400001,'Preserved synthetic report');
+RESET ROLE;
+CREATE TABLE public.report_restriction_reports_before AS SELECT to_jsonb(r) AS value FROM content.reports r;
+CREATE TABLE public.report_admission_before AS SELECT pg_get_functiondef('content.admit_report(text,bigint,text,bytea)'::regprocedure) AS definition;
+DO $$ BEGIN
+ EXECUTE replace((SELECT definition FROM public.report_admission_before),'RETURN v_report;','RETURN v_report + 0;');
+END $$;
+SQL
+if "${operator[@]}" --single-transaction -f migrations/0135_report_restrictions.sql >"$cluster/report-preflight.log" 2>&1; then
+ echo 'Report restrictions accepted unreviewed admission definition' >&2; exit 1
+fi
+grep -q 'Report admission definition changed before restrictions' "$cluster/report-preflight.log"
+"${root[@]}" <<'SQL'
+DO $$ BEGIN
+ IF to_regprocedure('content.bind_report_restrictions(bytea,bytea,bytea,text,bigint,bigint)') IS NOT NULL THEN
+  RAISE EXCEPTION 'Failed report preflight changed schema'; END IF;
+ EXECUTE (SELECT definition FROM public.report_admission_before);
+END $$;
+SQL
+"${operator[@]}" --single-transaction -f migrations/0135_report_restrictions.sql
+python3 scripts/report-ban-reference-sql.py > "$cluster/report-source-comparison.sql"
+chown postgres:postgres "$cluster/report-source-comparison.sql"
+"${root[@]}" --single-transaction -f "$cluster/report-source-comparison.sql"
+"${root[@]}" <<'SQL'
+DO $$ BEGIN
+ IF content.restrictions_ready() IS DISTINCT FROM true OR content.report_snapshots_ready() IS DISTINCT FROM true
+    OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Report restriction dependencies failed'; END IF;
+ IF EXISTS(SELECT to_jsonb(r) FROM content.reports r EXCEPT SELECT value FROM public.report_restriction_reports_before)
+    OR EXISTS(SELECT value FROM public.report_restriction_reports_before EXCEPT SELECT to_jsonb(r) FROM content.reports r)
+ THEN RAISE EXCEPTION 'Report restriction upgrade changed retained reports'; END IF;
+ IF has_function_privilege('board_public','content.assert_reporting_restrictions(text,bigint,bytea)','EXECUTE')
+    OR has_function_privilege('board_staff','content.assert_reporting_restrictions(text,bigint,bytea)','EXECUTE')
+    OR has_function_privilege('board_auth','content.bind_report_restrictions(bytea,bytea,bytea,text,bigint,bigint)','EXECUTE')
+ THEN RAISE EXCEPTION 'Report restriction helper authority leaked'; END IF;
+END $$;
+ALTER TABLE content.reports DISABLE TRIGGER source_report_restriction_guard;
+DO $$ BEGIN IF content.restrictions_ready() IS DISTINCT FROM false THEN RAISE EXCEPTION 'Disabled report guard remained ready'; END IF; END $$;
+ALTER TABLE content.reports ENABLE TRIGGER source_report_restriction_guard;
+DO $$ DECLARE definition text; BEGIN
+ SELECT pg_get_functiondef('content.admit_report(text,bigint,text,bytea)'::regprocedure) INTO definition;
+ EXECUTE replace(definition,'PERFORM content.assert_reporting_restrictions(p_board,p_post,p_actor);','NULL;');
+ IF content.restrictions_ready() IS DISTINCT FROM false THEN RAISE EXCEPTION 'Report bypass remained ready'; END IF;
+ EXECUTE definition;
+ IF content.restrictions_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Restored report guard did not qualify'; END IF;
+END $$;
+SQL
+echo 'SQL report policy matches all 3,456 executed source cases; populated upgrade and report guard drift checks passed.'
+
 # Optional local Rust lane against the same disposable, socket-only database.
 # Ordinary CI runs this integration binary with the full workspace suite.
 if [[ ${RUN_RESTRICTION_RUST_TESTS:-0} = 1 ]]; then

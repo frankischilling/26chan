@@ -62,6 +62,7 @@ struct ReportResult<'a> {
     // Absent for generic errors: never infer private or invalid board metadata.
     worksafe: Option<bool>,
     message: &'a str,
+    banned: bool,
 }
 
 pub(crate) fn safe_board(board: &str) -> bool {
@@ -94,6 +95,7 @@ pub(crate) fn success(
             success: true,
             worksafe: Some(target.worksafe),
             message: "Your report was saved.",
+            banned: false,
         },
     )
     .map(|response| shell(response, StatusCode::OK))
@@ -136,6 +138,7 @@ fn render_error(
             success: false,
             worksafe,
             message: error.1,
+            banned: error.1 == board_store::restrictions::REPORT_BANNED,
         },
     ) {
         Ok(response) => shell(response, error.0),
@@ -344,6 +347,7 @@ mod tests {
                 success,
                 worksafe: Some(true),
                 message: "<script>alert(1)</script>",
+                banned: false,
             }
             .render()
             .unwrap();
@@ -386,6 +390,7 @@ mod tests {
                         success,
                         worksafe: Some(worksafe),
                         message: "Owned result",
+                        banned: false,
                     }
                     .render()
                     .unwrap(),
@@ -406,6 +411,7 @@ mod tests {
             success: false,
             worksafe: None,
             message: "Not found.",
+            banned: false,
         }
         .render()
         .unwrap();

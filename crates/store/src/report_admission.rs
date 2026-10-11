@@ -124,6 +124,7 @@ pub(crate) async fn admit_categorical_with_session_on(
 pub(crate) fn admission_error(error: sqlx::Error) -> StoreError {
     if let Some(database) = error.as_database_error() {
         match database.code().as_deref() {
+            Some("P135B") => return StoreError::Invalid(crate::restrictions::REPORT_BANNED),
             Some("P0002") => return StoreError::NotFound,
             Some("28000") => return StoreError::AuthorizationChanged,
             Some("P0094") => {

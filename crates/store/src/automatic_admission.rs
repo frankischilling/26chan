@@ -21,7 +21,11 @@ pub const READINESS_SQL: &str = r#"WITH owners AS (
         ARRAY['board_posting_cooldown_owner','board_report_admission_owner']::text[]),
     ('post_secrets','lookup_automatic_identity','17 20','board_anonymous_owner',
         'TABLE(automatic_identity uuid, source_new boolean)',
-        ARRAY['board_report_admission_owner','board_restriction_owner']::text[]),
+        CASE WHEN EXISTS(SELECT 1 FROM pg_catalog.pg_proc p
+            JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+            WHERE n.nspname='content' AND p.proname='restrictions_ready' AND p.pronargs=0)
+        THEN ARRAY['board_report_admission_owner','board_restriction_owner']::text[]
+        ELSE ARRAY['board_report_admission_owner']::text[] END),
     ('content','register_anonymous_post','17 17 17 17 16 25 20 20','board_anonymous_owner',
         'void',ARRAY['board_public']::text[]),
     ('content','register_anonymous_report','17 17 17 17 16 25 20 20','board_anonymous_owner',

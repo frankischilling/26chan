@@ -31,12 +31,22 @@ impl PublicPostingRateIdentity {
 /// Private, cross-board report admission identity from a trusted transport peer.
 /// Never project to clients or logs; no Debug, Display, or serialization.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct PublicReportRateIdentity([u8; 32]);
+pub struct PublicReportRateIdentity {
+    report: [u8; 32],
+    restriction: PublicPostingRateIdentity,
+}
 
 impl PublicReportRateIdentity {
     /// Full digest for private admission storage, never a public identifier.
     pub fn as_bytes(&self) -> &[u8; 32] {
-        &self.0
+        &self.report
+    }
+
+    /// Independently derived posting identity for source restriction matching.
+    /// The pair always comes from the same verified peer and secret key. Report
+    /// quotas continue to use their own digest; neither digest is public.
+    pub fn restriction_identity(&self) -> &PublicPostingRateIdentity {
+        &self.restriction
     }
 }
 
@@ -126,7 +136,10 @@ impl PosterIdKey {
                 context.update(&peer.octets());
             }
         }
-        PublicReportRateIdentity(context.sign().as_ref().try_into().expect("SHA-256 length"))
+        PublicReportRateIdentity {
+            report: context.sign().as_ref().try_into().expect("SHA-256 length"),
+            restriction: self.public_posting_rate_identity(peer),
+        }
     }
 
     pub fn label(
@@ -250,6 +263,7 @@ mod tests {
                 identity.as_bytes(),
                 key.public_posting_rate_identity(peer).as_bytes()
             );
+            assert!(*identity.restriction_identity() == key.public_posting_rate_identity(peer));
         }
         let ipv4 = key.public_report_rate_identity("192.0.2.10".parse().unwrap());
         assert!(ipv4 == key.public_report_rate_identity("::ffff:192.0.2.10".parse().unwrap()));

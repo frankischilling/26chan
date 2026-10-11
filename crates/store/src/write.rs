@@ -1723,6 +1723,15 @@ pub async fn report(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::restrictions::prepare_report(
+        &mut tx,
+        identity,
+        None,
+        slug,
+        id,
+        chrono::Utc::now().timestamp(),
+    )
+    .await?;
     crate::report_admission::admit_on(&mut tx, slug, id, reason, identity).await?;
     tx.commit().await?;
     Ok(())
@@ -1741,6 +1750,15 @@ pub async fn report_with_anonymous_session(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::restrictions::prepare_report(
+        &mut tx,
+        identity,
+        Some(&session.fingerprints.token),
+        slug,
+        id,
+        session.now.timestamp(),
+    )
+    .await?;
     crate::report_admission::admit_with_session_on(&mut tx, slug, id, reason, identity, session)
         .await?;
     tx.commit().await?;
@@ -1763,6 +1781,15 @@ pub async fn report_categorical_with_anonymous_session(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::restrictions::prepare_report(
+        &mut tx,
+        identity,
+        Some(&session.fingerprints.token),
+        slug,
+        id,
+        session.now.timestamp(),
+    )
+    .await?;
     crate::report_admission::admit_categorical_with_session_on(
         &mut tx,
         slug,

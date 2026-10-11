@@ -65,6 +65,30 @@ pub async fn acknowledge(
 
 pub const BANNED: &str = "Error: You are banned.";
 pub const WARNED: &str = "Error: You were warned. You must first view this warning to post again.";
+pub const REPORT_BANNED: &str = "You can't report posts because you are banned.";
+
+/// Bind both independently derived peer identities before any report locks.
+/// Ban evaluation happens after target and quota checks inside SQL admission.
+/// The shared gate prevents issuance/retirement until the report commits.
+pub(crate) async fn prepare_report(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &board_domain::poster_id::PublicReportRateIdentity,
+    token: Option<&[u8; 32]>,
+    board: &str,
+    post: i64,
+    request_at: i64,
+) -> Result<(), StoreError> {
+    sqlx::query("SELECT content.bind_report_restrictions($1,$2,$3,$4,$5,$6)")
+        .bind(actor.as_bytes().as_slice())
+        .bind(actor.restriction_identity().as_bytes().as_slice())
+        .bind(token.map(|token| token.as_slice()))
+        .bind(board)
+        .bind(post)
+        .bind(request_at)
+        .execute(&mut **tx)
+        .await?;
+    Ok(())
+}
 
 /// Called after the actor gate and before content/session/media locks. The
 /// private shared restriction gate stays held until commit, serializing the

@@ -171,6 +171,46 @@ impl Fixture {
             .unwrap()
     }
 
+    async fn report(
+        &self,
+        board: usize,
+        target: i64,
+        peer: &str,
+        capability: &Capability,
+        categorical: bool,
+    ) -> Result<(), StoreError> {
+        let now = Utc::now().with_nanosecond(0).unwrap();
+        let peer = peer.parse().unwrap();
+        let actor = self.key.public_report_rate_identity(peer);
+        let session = PostingSession {
+            fingerprints: capability.fingerprints(Some(peer), *b"XX"),
+            minted: false,
+            now,
+        };
+        if categorical {
+            board_store::report_categorical_with_anonymous_session(
+                &self.public,
+                &self.boards[board],
+                target,
+                1,
+                1,
+                &actor,
+                session,
+            )
+            .await
+        } else {
+            board_store::report_with_anonymous_session(
+                &self.public,
+                &self.boards[board],
+                target,
+                "Owned restriction report",
+                &actor,
+                session,
+            )
+            .await
+        }
+    }
+
     async fn cleanup(self, cap: &Capability) {
         let mut tx = self.owner.begin().await.unwrap();
         sqlx::query("SET LOCAL ROLE board_restriction_owner")
@@ -408,5 +448,209 @@ async fn real_public_writer_enforces_scope_warning_expiry_identity_and_atomicity
     tx.rollback().await.unwrap();
     assert!(f.unban(later).await);
     f.post(0, "192.0.2.134", Some((&cap, false))).await.unwrap();
+
+    // Reporting has its own source policy and independently derived actor.
+    // Bind before content locks; issuance cannot race a saved report.
+    let reporting_actor = f
+        .key
+        .public_report_rate_identity("192.0.2.134".parse().unwrap());
+    let mut admitted = f.public.begin().await.unwrap();
+    sqlx::query("SELECT content.bind_report_restrictions($1,$2,$3,$4,$5,$6)")
+        .bind(reporting_actor.as_bytes().as_slice())
+        .bind(reporting_actor.restriction_identity().as_bytes().as_slice())
+        .bind(cap.storage_hash().as_slice())
+        .bind(&f.boards[0])
+        .bind(original)
+        .bind(Utc::now().timestamp())
+        .execute(&mut *admitted)
+        .await
+        .unwrap();
+    assert_eq!(
+        f.try_issue(original, false, false, None)
+            .await
+            .unwrap_err()
+            .as_database_error()
+            .and_then(|e| e.code())
+            .as_deref(),
+        Some("55P03")
+    );
+    admitted.rollback().await.unwrap();
+
+    let other_target: i64 = sqlx::query_scalar("SELECT min(id) FROM content.posts WHERE board=$1")
+        .bind(&f.boards[1])
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+    let scoped_warning = f.issue(original, false, true, Some(0)).await;
+    // GET omits source check_ban. A matching ban must not hide the form.
+    board_store::report_admission::check_with_session(
+        &f.public,
+        &f.boards[0],
+        original,
+        &reporting_actor,
+        Some(&cap.storage_hash()),
+        Utc::now().timestamp(),
+    )
+    .await
+    .unwrap();
+    for categorical in [false, true] {
+        assert!(matches!(
+            f.report(0, original, "192.0.2.134", &cap, categorical)
+                .await,
+            Err(StoreError::Invalid(
+                board_store::restrictions::REPORT_BANNED
+            ))
+        ));
+    }
+    // Reports respect a warning's board; posting warns before scope.
+    f.report(1, other_target, "192.0.2.134", &cap, false)
+        .await
+        .unwrap();
+    // Existing source quota errors still take precedence over the new ban check.
+    assert!(matches!(
+        f.report(0, original, "192.0.2.134", &cap, false).await,
+        Err(StoreError::Invalid(
+            "You have to wait a while before reporting another post."
+        ))
+    ));
+    sqlx::query("DELETE FROM content.reports WHERE board=ANY($1)")
+        .bind(&f.boards)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert!(f.unban(scoped_warning).await);
+
+    let expired_report_ban = f.issue(original, false, false, Some(1)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    // Unlike posting, an active expired row blocks reports without retiring it.
+    assert!(matches!(
+        f.report(0, original, "192.0.2.134", &cap, false).await,
+        Err(StoreError::Invalid(
+            board_store::restrictions::REPORT_BANNED
+        ))
+    ));
+    let mut owner = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *owner)
+        .await
+        .unwrap();
+    let active: bool = sqlx::query_scalar("SELECT active AND NOT EXISTS(SELECT 1 FROM restrictions.audit WHERE ban_id=$1 AND action='expiration') FROM restrictions.bans WHERE id=$1")
+        .bind(expired_report_ban).fetch_one(&mut *owner).await.unwrap();
+    assert!(active);
+    owner.rollback().await.unwrap();
+    assert!(f.unban(expired_report_ban).await);
+
+    let global_report_ban = f.issue(original, true, false, None).await;
+    assert!(matches!(
+        f.report(1, other_target, "192.0.2.134", &cap, false).await,
+        Err(StoreError::Invalid(
+            board_store::restrictions::REPORT_BANNED
+        ))
+    ));
+    // The report source uses getPwd(), even during creation-second/idle reset.
+    sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=$1 WHERE token_hash=$2")
+        .bind(Utc::now().timestamp())
+        .bind(cap.storage_hash().as_slice())
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert!(matches!(
+        f.report(0, original, "192.0.2.240", &cap, false).await,
+        Err(StoreError::Invalid(
+            board_store::restrictions::REPORT_BANNED
+        ))
+    ));
+    // The legacy staff direct SQL boundary refuses omitted and mismatched context.
+    let error = sqlx::query("SELECT content.admit_report($1,$2,'Direct unbound attempt',$3)")
+        .bind(&f.boards[0])
+        .bind(original)
+        .bind(reporting_actor.as_bytes().as_slice())
+        .execute(&f.staff)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.as_database_error().and_then(|e| e.code()).as_deref(),
+        Some("P135C")
+    );
+    let mut mismatched = f.staff.begin().await.unwrap();
+    sqlx::query("SELECT content.bind_report_restrictions($1,$2,NULL,$3,$4,$5)")
+        .bind(reporting_actor.as_bytes().as_slice())
+        .bind(actor.as_bytes().as_slice())
+        .bind(&f.boards[0])
+        .bind(original)
+        .bind(Utc::now().timestamp())
+        .execute(&mut *mismatched)
+        .await
+        .unwrap();
+    let error = sqlx::query("SELECT content.admit_report($1,$2,'Direct mismatched attempt',$3)")
+        .bind(&f.boards[0])
+        .bind(original)
+        .bind([17u8; 32].as_slice())
+        .execute(&mut *mismatched)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.as_database_error().and_then(|e| e.code()).as_deref(),
+        Some("P135C")
+    );
+    mismatched.rollback().await.unwrap();
+    assert!(f.unban(global_report_ban).await);
+    f.report(0, original, "192.0.2.240", &cap, false)
+        .await
+        .unwrap();
+    let reports: Vec<i64> =
+        sqlx::query_scalar("SELECT id FROM content.reports WHERE board=ANY($1)")
+            .bind(&f.boards)
+            .fetch_all(&f.owner)
+            .await
+            .unwrap();
+    assert_eq!(reports.len(), 1);
+    let mut verification = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_report_snapshot_owner")
+        .execute(&mut *verification)
+        .await
+        .unwrap();
+    let snapshots: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM post_secrets.report_post_snapshots WHERE report_id=ANY($1)",
+    )
+    .bind(&reports)
+    .fetch_one(&mut *verification)
+    .await
+    .unwrap();
+    sqlx::query("RESET ROLE")
+        .execute(&mut *verification)
+        .await
+        .unwrap();
+    sqlx::query("SET LOCAL ROLE board_report_admission_owner")
+        .execute(&mut *verification)
+        .await
+        .unwrap();
+    let (evidence, memberships): (i64,i64) = sqlx::query_as("SELECT (SELECT count(*) FROM post_secrets.report_weight_evidence WHERE report_id=ANY($1)),(SELECT count(*) FROM post_secrets.report_membership WHERE report_id=ANY($1))")
+        .bind(&reports).fetch_one(&mut *verification).await.unwrap();
+    sqlx::query("RESET ROLE")
+        .execute(&mut *verification)
+        .await
+        .unwrap();
+    sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+        .execute(&mut *verification)
+        .await
+        .unwrap();
+    let registrations: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM post_secrets.anonymous_reports WHERE report_id=ANY($1)",
+    )
+    .bind(&reports)
+    .fetch_one(&mut *verification)
+    .await
+    .unwrap();
+    verification.rollback().await.unwrap();
+    assert_eq!(
+        (snapshots, evidence, memberships, registrations),
+        (1, 1, 1, 1)
+    );
+    sqlx::query("DELETE FROM content.reports WHERE board=ANY($1)")
+        .bind(&f.boards)
+        .execute(&f.owner)
+        .await
+        .unwrap();
     f.cleanup(&cap).await;
 }

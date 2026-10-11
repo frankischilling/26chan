@@ -17,9 +17,10 @@ controller contract is reconstructed explicitly; exact original poll styling
 remains unqualified. Existing polls stay closed until an operator enables voting.
 
 [Bans and warnings](source-bans.md) add private board/global restrictions, staff
-issuance/unban, transactional posting refusal and a native public status/viewing
-flow. The posting policy is compared with 13,840 executed source cases. The
-missing public controller is reconstructed explicitly. Report/account rules,
+issuance/unban, transactional posting/report refusal and a native public status/viewing
+flow. The policies are compared with 13,840 executed posting cases and 3,456
+report cases. The missing public controller is reconstructed explicitly. Report
+range/ASN and account/Pass rules,
 templates, batch actions, post notices, recent bans and original presentation
 remain open under [#220](https://github.com/frankischilling/26chan/issues/220).
 Runtime and current-head hosted checks are separate requirements.
