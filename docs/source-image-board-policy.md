@@ -12,4 +12,6 @@ Apply the migration with writers stopped before starting binaries that read the 
 
 If text-thread transfer is already installed, the image migration checks its existing catalog guard before changing the board schema. Existing drift aborts the migration. The migration identity then records the reviewed schema change and rechecks transfer readiness. Runtime roles gain no catalog update or private hashing authority. If transfer is installed later, its migration captures the image-policy schema directly. The populated upgrade verifier exercises prior and later drift rejection whenever transfer is present.
 
+The populated file-deletion verifier also supports the added board fields. It derives their expected values from the independent source fixture and documented defaults, preserving every earlier field in its saved expectation. It does not recapture current rows to make a comparison pass. The combined file, transfer and image migration check passes; deliberate historical-title and image-policy mutations are still rejected by the retention checker.
+
 Reference: supplied `4chan-old/config/global_config.ini:169-176`, per-board configuration, `imgboard.php:5022`, `5164-5191`, `7851` and `7907-7913`, and `config/global_strings.ini:150-163`. This addresses parts of issues #192, #197, #202, #203 and #216; it does not complete those issues.
