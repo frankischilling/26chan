@@ -67,6 +67,20 @@ pub const BANNED: &str = "Error: You are banned.";
 pub const WARNED: &str = "Error: You were warned. You must first view this warning to post again.";
 pub const REPORT_BANNED: &str = "You can't report posts because you are banned.";
 
+/// Real staff credentials and source thread-batch fields. Never deserialize
+/// authority from a request; the definer revalidates it at transaction commit.
+pub struct ThreadBan<'a> {
+    pub session: &'a [u8],
+    pub csrf: &'a [u8],
+    pub idle_seconds: i32,
+    pub board: &'a str,
+    pub thread: i64,
+    pub op_reason: &'a str,
+    pub reply_reason: &'a str,
+    pub op_days: i32,
+    pub reply_days: i32,
+}
+
 /// Bind both independently derived peer identities before any report locks.
 /// Ban evaluation happens after target and quota checks inside SQL admission.
 /// The shared gate prevents issuance/retirement until the report commits.

@@ -2,7 +2,8 @@
 
 Issue [#220](https://github.com/frankischilling/26chan/issues/220) covers the
 restriction system. This branch adds board/global bans, warnings, expiry and
-unban, transactional posting and report enforcement, staff forms and private public status.
+unban, transactional posting and report enforcement, staff thread-ban batches,
+staff forms and private public status.
 The remaining source workflows below keep the issue open. Current-head hosted
 checks are required before merge.
 
@@ -86,6 +87,47 @@ separate duration/reason, then deletes the thread. The supplied posting
 `check_for_ban` receives a thread ID but never uses it. A restriction confined
 to that thread would replace the actual source behavior.
 
+## Thread-ban batches
+
+Migration 0136 implements `/ban/thread`. The staff form appears only for a live
+OP with source Manager-or-higher authority or a global `threadban` flag and the
+Moderator floor. The flag also requires no-board access, as source
+`has_flag('threadban')` does. Board access and `/j/`'s Manager floor still apply.
+Issuance checks the real session, credential, CSRF and recent authentication in
+SQL, including a fresh check at commit.
+
+The OP gets one global ban; each other distinct address gets one global ban
+with the separate reply reason and duration. Replies sharing the OP's address
+do not acquire another ban. Durations are whole days from 0 through 9999;
+zero days produces a warning. The defaults are three days for the OP and zero
+for replies, with the source's off-topic reason text. Source `ban_post` writes
+host and Pass equality but never `UserPwd` password equality. The native batch
+therefore captures only the private host digest. It grants no Pass exemption
+and does not invent an automatic-session ban.
+
+The store issues all bans, deletes the thread through the existing deletion
+path and writes the moderation audit in one transaction. A private deferred
+trigger refuses commit if deletion is incomplete or staff authority has expired.
+The promise's session and CSRF hashes disappear before a successful commit;
+applications cannot read or write the promise table. Capacity refusal rolls
+back the whole batch. Threads exceeding 10,000 live posts or 1,000 distinct
+addresses are refused before issuance.
+
+Actor locks are taken in stable stripe order before the restriction lock.
+The transaction then locks the board, thread and live posts and recaptures
+their identities. A newly arrived address outside the captured stripes causes
+rollback and a fresh attempt, with at most three attempts. It never acquires a
+new actor stripe while holding the restriction lock.
+
+These are explicit security changes: a forged reply target is rejected; the
+source function itself relies on its OP-only form. Sticky thread deletion
+requires an Administrator, and any deletion failure rolls back the bans; the
+source sends an unchecked deletion RPC after writing them. Missing private
+history causes refusal. Native grouping chooses the oldest live representative
+of each address and a stable address order; the source SQL does not specify
+either. Source Pass binding, the saved post-JSON ban snapshot, database defaults
+and the original modal presentation remain unfinished or unqualified.
+
 ## Report decision and identity binding
 
 Migration 0135 implements the separate active-ban count in
@@ -124,8 +166,8 @@ local status link; exact original rendering remains unqualified.
 ## Remaining implementation
 
 Report range/ASN restrictions and account/Pass flows still need their source
-rules and authoritative identity/entitlement binding. Thread-ban batches,
-reason/length templates, post notices,
+rules and authoritative identity/entitlement binding. Reason/length templates,
+post notices, other combined post actions,
 the public recent-ban sample, janitor requests and special restriction types
 remain unfinished. Concurrent issuance, revocation and viewing need broader
 runtime qualification before this issue can close.
@@ -174,6 +216,27 @@ with the SQL report policy. The migration script also checks populated report
 preservation, definition-drift rollback and guard/admission drift. These checks
 do not qualify ranges, Pass authentication, quotas or original rendering.
 
+`scripts/extract-thread-ban-reference.py` executes unchanged `ban_post` and
+`cpban` from the pinned `admin.php` through PHP 8.3.6. Its 75 traces use synthetic
+post rows and exact SQL-boundary stubs, a fixed clock and DNS result, and a
+recorded deletion RPC. Of these, 64 valid OP cases cover duplicate addresses,
+OP-address replies, separate reasons and durations 0, 1, 3 and 9999. The SQL
+comparison checks the actual stored native bans and their audit rows against
+those independent results. Invalid reasons/durations and missing targets are
+rejected; the source's forged reply case is recorded as the security difference
+above. The comparison does not establish real MySQL defaults, unspecified group
+order, Pass authentication, post JSON, successful RPC deletion or source UI.
+
+The store runtime checks use actual posting identities and live staff sessions.
+They cover private capacity exhaustion, incomplete-deletion rollback, authority
+expiry at commit, concurrent reply recapture, duplicate-address grouping, global
+posting refusal and absence of invented automatic-password equality. Staff HTTP
+checks cover form visibility, global flag scope, Manager authority, sticky
+Administrator authority, credentials, CSRF, recent authentication, invalid and
+reply targets, separate reasons and successful atomic deletion. The migration
+check separately rejects oversized post and identity batches without retaining
+bans or promise credentials. Hosted CI must qualify the resulting commit.
+
 The subsequent October 11 report run passed strict Clippy, formatting, both SQL
 source comparisons and all three updated runtime binaries. The store fixture
 qualified reporting scopes, active expired rows without retirement, source
@@ -207,13 +270,16 @@ The October 11, 2026 owned WSL/PostgreSQL 16 run passed:
 - `cargo fmt --all -- --check`.
 - `cargo clippy -p board-store -p board-public -p board-staff --all-targets --all-features --locked -- -D warnings`.
 - `RUN_RESTRICTION_RUST_TESTS=1 bash scripts/test-source-restrictions-migration.sh`:
-  the migration checks, 13,840 SQL/source decisions and the three runtime test
-  binaries passed. The tests cover real public admission and direct-insert
+  the migration checks, 13,840 posting and 3,456 report SQL/source decisions,
+  64 valid thread-ban comparisons and four runtime test binaries passed.
+  The tests cover real public admission and direct-insert
   refusal, scope and automatic identity, expiry auditing, contended issuance,
-  private/escaped HTTP status, warning viewing and staff authorization.
+  private/escaped HTTP status, warning viewing, report-target errors, atomic
+  thread-ban deletion, recapture and staff authorization.
 - `cargo test -p board-domain --test ban_source --locked`: the Rust policy
   matched all 13,840 independently recorded PHP outcomes.
-- The extractor's `--check` against the pinned source passed with PHP 8.3.6.
+- The posting and thread-ban extractors' `--check` against the pinned source
+  passed with PHP 8.3.6.
 - `git diff --check`.
 
 Guest clock corrections initially interrupted the vendored OpenSSL build. The

@@ -237,6 +237,73 @@ END $$;
 SQL
 echo 'SQL report policy matches all 3,456 executed source cases; populated upgrade and report guard drift checks passed.'
 
+"${root[@]}" -c 'ALTER TABLE content.boards DISABLE ROW LEVEL SECURITY'
+if "${operator[@]}" --single-transaction -f migrations/0136_thread_ban_batches.sql >"$cluster/thread-preflight.log" 2>&1; then
+ echo 'Thread batch upgrade accepted prior transfer drift' >&2; exit 1
+fi
+grep -q 'Transfer is not ready before thread batches' "$cluster/thread-preflight.log"
+"${root[@]}" <<'SQL'
+DO $$ BEGIN IF to_regclass('restrictions.pending_thread_batches') IS NOT NULL THEN
+ RAISE EXCEPTION 'Failed thread preflight changed schema'; END IF; END $$;
+ALTER TABLE content.boards ENABLE ROW LEVEL SECURITY;
+SQL
+"${operator[@]}" --single-transaction -f migrations/0136_thread_ban_batches.sql
+"${root[@]}" <<'SQL'
+DO $$ BEGIN
+ IF content.restrictions_ready() IS DISTINCT FROM true OR content.text_thread_transfer_ready() IS DISTINCT FROM true
+    OR content.report_snapshots_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Thread batch readiness failed'; END IF;
+ IF has_function_privilege('board_public','content.issue_thread_restrictions(bytea,bytea,integer,text,bigint,text,text,integer,integer)','EXECUTE')
+    OR has_function_privilege('board_staff','restrictions.thread_batch_subjects(text,bigint)','EXECUTE')
+    OR has_table_privilege('board_staff','restrictions.pending_thread_batches','SELECT,INSERT,UPDATE,DELETE')
+ THEN RAISE EXCEPTION 'Thread batch private authority leaked'; END IF;
+END $$;
+ALTER TABLE restrictions.pending_thread_batches DISABLE TRIGGER complete_source_thread_batch;
+DO $$ BEGIN IF content.restrictions_ready() IS DISTINCT FROM false THEN
+ RAISE EXCEPTION 'Disabled deferred deletion promise stayed ready'; END IF; END $$;
+ALTER TABLE restrictions.pending_thread_batches ENABLE TRIGGER complete_source_thread_batch;
+DO $$ BEGIN IF content.restrictions_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Restored promise stayed unready'; END IF; END $$;
+SQL
+echo 'Thread batch populated upgrade, private-role denials and deferred guard drift checks passed.'
+"${root[@]}" -c 'SET ROLE board_restriction_owner; UPDATE restrictions.capacity SET byte_limit=67108864 WHERE singleton'
+python3 scripts/thread-ban-reference-sql.py > "$cluster/thread-source-comparison.sql"
+chown postgres:postgres "$cluster/thread-source-comparison.sql"
+"${root[@]}" -f "$cluster/thread-source-comparison.sql"
+echo 'Thread batch SQL matched all 64 valid source traces and rejected invalid/root-forged inputs.'
+
+# Qualify both independent bounds, including a huge single-address thread.
+"${root[@]}" <<'SQL'
+SET ROLE board_migrator;
+INSERT INTO content.threads(id,board) VALUES(14750000,'tbref136'),(14770000,'tbref136');
+INSERT INTO content.posts(id,board,thread_id,name,subject,comment)
+ SELECT 14750000+i,'tbref136',14750000,'Anonymous','','Owned post-bound fixture' FROM generate_series(0,10000) i;
+INSERT INTO content.posts(id,board,thread_id,name,subject,comment)
+ SELECT 14770000+i,'tbref136',14770000,'Anonymous','','Owned actor-bound fixture' FROM generate_series(0,1000) i;
+INSERT INTO post_secrets.posting_history(post_id,board,thread_id,actor_hash,request_at)
+ SELECT p.id,p.board,p.thread_id,
+  CASE WHEN p.thread_id=14750000 THEN decode(repeat('8a',32),'hex')
+       ELSE sha256(convert_to('owned-bound:'||p.id,'UTF8')) END,
+  floor(extract(epoch FROM now()))::bigint
+ FROM content.posts p WHERE p.board='tbref136' AND p.thread_id IN(14750000,14770000);
+SET ROLE board_staff;
+DO $$ DECLARE target bigint; BEGIN
+ FOREACH target IN ARRAY ARRAY[14750000::bigint,14770000::bigint] LOOP
+  BEGIN
+   PERFORM * FROM content.issue_thread_restrictions(decode(repeat('a1',32),'hex'),decode(repeat('b1',32),'hex'),900,
+    'tbref136',target,'Owned OP bound','Owned reply bound',3,0);
+   RAISE EXCEPTION 'Thread batch exceeded its bound';
+  EXCEPTION WHEN SQLSTATE 'P134C' THEN NULL; END;
+ END LOOP;
+END $$;
+SET ROLE board_restriction_owner;
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM restrictions.bans WHERE board='tbref136' AND post_id BETWEEN 14750000 AND 14771000)
+    OR EXISTS(SELECT 1 FROM restrictions.pending_thread_batches) THEN
+  RAISE EXCEPTION 'Rejected batch retained restrictions or credentials'; END IF;
+END $$;
+RESET ROLE;
+SQL
+echo 'Thread batch rejects more than 10,000 live posts or 1,000 distinct identities without retained bans.'
+
 # Optional local Rust lane against the same disposable, socket-only database.
 # Ordinary CI runs this integration binary with the full workspace suite.
 if [[ ${RUN_RESTRICTION_RUST_TESTS:-0} = 1 ]]; then

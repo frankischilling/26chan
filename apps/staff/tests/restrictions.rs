@@ -192,6 +192,169 @@ async fn staff_issue_and_unban_use_live_session_scope_recent_auth_csrf_and_priva
         request(&app, "/ban/unban", Some(&unban), &cookie).await.0,
         StatusCode::SEE_OTHER
     );
+    let reply: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+        .fetch_one(&owner)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$3,'Anonymous','','Owned reply')")
+        .bind(reply).bind(&board).bind(post).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO post_secrets.posting_history(post_id,board,thread_id,actor_hash,request_at) VALUES($1,$2,$3,decode(repeat('74',32),'hex'),floor(extract(epoch FROM now()))::bigint)")
+        .bind(reply).bind(&board).bind(post).execute(&owner).await.unwrap();
+    let batch = format!(
+        "board={board}&target={post}&csrf={csrf}&op_reason=Owned+OP&rep_reason=Owned+replies&op_days=3&rep_days=0"
+    );
+    assert!(
+        !request(&app, &path, None, &cookie)
+            .await
+            .2
+            .contains("thread-ban-layer")
+    );
+    assert_eq!(
+        request(&app, "/ban/thread", Some(&batch), &cookie).await.0,
+        StatusCode::FORBIDDEN
+    );
+    sqlx::query("UPDATE staff_identity.accounts SET flags=ARRAY['threadban'] WHERE id=$1")
+        .bind(account)
+        .execute(&owner)
+        .await
+        .unwrap();
+    // Source has_flag('threadban') also checks no-board scope.
+    assert!(
+        !request(&app, &path, None, &cookie)
+            .await
+            .2
+            .contains("thread-ban-layer")
+    );
+    assert_eq!(
+        request(&app, "/ban/thread", Some(&batch), &cookie).await.0,
+        StatusCode::FORBIDDEN
+    );
+    sqlx::query("UPDATE staff_identity.accounts SET allow_boards=ARRAY['all'] WHERE id=$1")
+        .bind(account)
+        .execute(&owner)
+        .await
+        .unwrap();
+    let html = request(&app, &path, None, &cookie).await.2;
+    assert!(html.contains("thread-ban-layer"));
+    assert!(html.contains("Posting off-topic threads."));
+    assert!(html.contains("Replying to off-topic threads."));
+    assert!(
+        !request(
+            &app,
+            &format!("/ban?board={board}&target={reply}"),
+            None,
+            &cookie
+        )
+        .await
+        .2
+        .contains("thread-ban-layer")
+    );
+    assert_eq!(
+        request(&app, "/ban/thread", Some(&batch), "").await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        request(
+            &app,
+            "/ban/thread",
+            Some(&batch.replace(&format!("csrf={csrf}"), "csrf=untrusted")),
+            &cookie
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        request(
+            &app,
+            "/ban/thread",
+            Some(&batch.replace("op_days=3", "op_days=10000")),
+            &cookie
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        request(
+            &app,
+            "/ban/thread",
+            Some(&batch.replace(&format!("target={post}"), &format!("target={reply}"))),
+            &cookie
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    sqlx::query("UPDATE staff_identity.accounts SET deny_boards=ARRAY[$2] WHERE id=$1")
+        .bind(account)
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
+    assert_eq!(
+        request(&app, "/ban/thread", Some(&batch), &cookie).await.0,
+        StatusCode::FORBIDDEN
+    );
+    sqlx::query("UPDATE staff_identity.accounts SET deny_boards='{}' WHERE id=$1")
+        .bind(account)
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=now()-interval '11 minutes' WHERE account_id=$1")
+        .bind(account).execute(&owner).await.unwrap();
+    assert_eq!(
+        request(&app, "/ban/thread", Some(&batch), &cookie).await.0,
+        StatusCode::FORBIDDEN
+    );
+    sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=now() WHERE account_id=$1")
+        .bind(account)
+        .execute(&owner)
+        .await
+        .unwrap();
+    // Manager rank grants the source form without a global flag. Ordinary
+    // sticky-thread deletion still requires an administrator.
+    sqlx::query("UPDATE staff_identity.accounts SET role='manager',flags='{}',allow_boards=ARRAY[$2] WHERE id=$1")
+        .bind(account).bind(&board).execute(&owner).await.unwrap();
+    assert!(
+        request(&app, &path, None, &cookie)
+            .await
+            .2
+            .contains("thread-ban-layer")
+    );
+    sqlx::query("UPDATE content.threads SET sticky=true WHERE board=$1 AND id=$2")
+        .bind(&board)
+        .bind(post)
+        .execute(&owner)
+        .await
+        .unwrap();
+    assert!(
+        !request(&app, &path, None, &cookie)
+            .await
+            .2
+            .contains("thread-ban-layer")
+    );
+    assert_eq!(
+        request(&app, "/ban/thread", Some(&batch), &cookie).await.0,
+        StatusCode::FORBIDDEN
+    );
+    sqlx::query("UPDATE staff_identity.accounts SET role='admin' WHERE id=$1")
+        .bind(account)
+        .execute(&owner)
+        .await
+        .unwrap();
+    assert!(
+        request(&app, &path, None, &cookie)
+            .await
+            .2
+            .contains("thread-ban-layer")
+    );
+    let (code, headers, _) = request(&app, "/ban/thread", Some(&batch), &cookie).await;
+    assert_eq!(code, StatusCode::SEE_OTHER);
+    assert_eq!(headers["location"], "/reports");
+    let deleted: (bool,i64,i64)=sqlx::query_as("SELECT deleted,(SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND deleted),(SELECT count(*) FROM content.moderation_audit WHERE board=$1 AND target_id=$2 AND action='remove-thread') FROM content.threads WHERE board=$1 AND id=$2")
+        .bind(&board).bind(post).fetch_one(&owner).await.unwrap();
+    assert_eq!(deleted, (true, 2, 1));
     let mut tx = owner.begin().await.unwrap();
     sqlx::query("SET LOCAL ROLE board_restriction_owner")
         .execute(&mut *tx)
@@ -199,18 +362,39 @@ async fn staff_issue_and_unban_use_live_session_scope_recent_auth_csrf_and_priva
         .unwrap();
     let actual:(bool,String,i64)=sqlx::query_as("SELECT active,private_reason,(SELECT count(*) FROM restrictions.audit WHERE ban_id=$1) FROM restrictions.bans WHERE id=$1").bind(id).fetch_one(&mut *tx).await.unwrap();
     assert_eq!(actual, (false, "Synthetic private".into(), 2));
-    sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes-(SELECT charged_bytes FROM restrictions.bans WHERE id=$1) WHERE singleton").bind(id).execute(&mut *tx).await.unwrap();
-    sqlx::query("DELETE FROM restrictions.audit WHERE ban_id=$1")
-        .bind(id)
+    let rows:Vec<(i64,bool,bool,String,bool,i64)>=sqlx::query_as("SELECT b.post_id,b.global,b.warning,b.public_reason,b.automatic_identity IS NULL,(SELECT count(*) FROM restrictions.audit a WHERE a.ban_id=b.id) FROM restrictions.bans b WHERE b.board=$1 AND b.active ORDER BY b.post_id")
+        .bind(&board).fetch_all(&mut *tx).await.unwrap();
+    assert_eq!(
+        rows,
+        vec![
+            (post, true, false, "Owned OP".into(), true, 1),
+            (reply, true, true, "Owned replies".into(), true, 1)
+        ]
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM restrictions.pending_thread_batches")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap(),
+        0
+    );
+    sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes-(SELECT sum(charged_bytes) FROM restrictions.bans WHERE board=$1) WHERE singleton").bind(&board).execute(&mut *tx).await.unwrap();
+    sqlx::query("DELETE FROM restrictions.audit WHERE ban_id IN(SELECT id FROM restrictions.bans WHERE board=$1)")
+        .bind(&board)
         .execute(&mut *tx)
         .await
         .unwrap();
-    sqlx::query("DELETE FROM restrictions.bans WHERE id=$1")
-        .bind(id)
+    sqlx::query("DELETE FROM restrictions.bans WHERE board=$1")
+        .bind(&board)
         .execute(&mut *tx)
         .await
         .unwrap();
     sqlx::query("RESET ROLE").execute(&mut *tx).await.unwrap();
+    sqlx::query("DELETE FROM content.moderation_audit WHERE board=$1")
+        .bind(&board)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
     sqlx::query("DELETE FROM content.posts WHERE board=$1")
         .bind(&board)
         .execute(&mut *tx)

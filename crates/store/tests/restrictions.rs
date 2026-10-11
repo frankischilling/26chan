@@ -71,12 +71,6 @@ impl Fixture {
         capability: Option<(&Capability, bool)>,
     ) -> Result<i64, StoreError> {
         let peer: IpAddr = peer.parse().unwrap();
-        let now = Utc::now().with_nanosecond(0).unwrap();
-        let posting = PostingContext {
-            request_start: now,
-            peer: Some(peer),
-            op_password_proof: None,
-        };
         let parent: Option<i64> = sqlx::query_scalar(
             "SELECT min(id) FROM content.threads WHERE board=$1 AND NOT deleted",
         )
@@ -85,6 +79,22 @@ impl Fixture {
         .await
         .unwrap();
         let parent = parent.unwrap_or(0);
+        self.post_in_thread(board, parent, peer, capability).await
+    }
+
+    async fn post_in_thread(
+        &self,
+        board: usize,
+        parent: i64,
+        peer: IpAddr,
+        capability: Option<(&Capability, bool)>,
+    ) -> Result<i64, StoreError> {
+        let now = Utc::now().with_nanosecond(0).unwrap();
+        let posting = PostingContext {
+            request_start: now,
+            peer: Some(peer),
+            op_password_proof: None,
+        };
         let post = NewPost {
             name: "Anonymous".into(),
             subject: "Owned restriction".into(),
@@ -229,6 +239,11 @@ impl Fixture {
             .await
             .unwrap();
         sqlx::query("RESET ROLE").execute(&mut *tx).await.unwrap();
+        sqlx::query("DELETE FROM content.moderation_audit WHERE board=ANY($1)")
+            .bind(&self.boards)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
         sqlx::query("SELECT slug FROM content.boards WHERE slug=ANY($1) ORDER BY slug FOR UPDATE")
             .bind(&self.boards)
             .execute(&mut *tx)
@@ -820,5 +835,337 @@ async fn real_public_writer_enforces_scope_warning_expiry_identity_and_atomicity
         .execute(&f.owner)
         .await
         .unwrap();
+    thread_batch_checks(&f, original).await;
     f.cleanup(&cap).await;
+}
+
+fn batch(f: &Fixture, thread: i64) -> board_store::restrictions::ThreadBan<'_> {
+    board_store::restrictions::ThreadBan {
+        session: &f.session,
+        csrf: &f.csrf,
+        idle_seconds: 900,
+        board: &f.boards[0],
+        thread,
+        op_reason: "Owned OP <reason>",
+        reply_reason: "Owned reply reason",
+        op_days: 3,
+        reply_days: 0,
+    }
+}
+
+fn db_code(error: &StoreError) -> Option<String> {
+    match error {
+        StoreError::Database(error) => error
+            .as_database_error()
+            .and_then(|e| e.code())
+            .map(|code| code.into_owned()),
+        _ => None,
+    }
+}
+
+async fn thread_batch_checks(f: &Fixture, unrelated: i64) {
+    let cap = Capability::generate().unwrap();
+    let root = f
+        .post_in_thread(0, 0, "198.51.100.1".parse().unwrap(), Some((&cap, true)))
+        .await
+        .unwrap();
+    f.post_in_thread(0, root, "198.51.100.1".parse().unwrap(), None)
+        .await
+        .unwrap();
+    let reply = f
+        .post_in_thread(0, root, "198.51.100.2".parse().unwrap(), None)
+        .await
+        .unwrap();
+    f.post_in_thread(0, root, "198.51.100.2".parse().unwrap(), None)
+        .await
+        .unwrap();
+    let other = f
+        .post_in_thread(0, root, "198.51.100.3".parse().unwrap(), None)
+        .await
+        .unwrap();
+    assert_eq!(
+        db_code(
+            &board_store::ban_thread(&f.staff, batch(f, root))
+                .await
+                .unwrap_err()
+        )
+        .as_deref(),
+        Some("P134A")
+    );
+    sqlx::query("UPDATE staff_identity.accounts SET flags=ARRAY['threadban'] WHERE id=$1")
+        .bind(f.account)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    // A board-scoped flag cannot grant source no-board capabilities.
+    assert_eq!(
+        db_code(
+            &board_store::ban_thread(&f.staff, batch(f, root))
+                .await
+                .unwrap_err()
+        )
+        .as_deref(),
+        Some("P134A")
+    );
+    sqlx::query("UPDATE staff_identity.accounts SET allow_boards=ARRAY['all'] WHERE id=$1")
+        .bind(f.account)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    // Calling the definer without completing deletion must roll back all bans.
+    let mut incomplete = f.staff.begin().await.unwrap();
+    let count: (i32,i64) = sqlx::query_as("SELECT * FROM content.issue_thread_restrictions($1,$2,900,$3,$4,'Owned OP <reason>','Owned reply reason',3,0)")
+        .bind(f.session.as_slice()).bind(f.csrf.as_slice()).bind(&f.boards[0]).bind(root)
+        .fetch_one(&mut *incomplete).await.unwrap();
+    assert_eq!(count, (3, f.account));
+    let error = incomplete.commit().await.unwrap_err();
+    assert_eq!(
+        error.as_database_error().and_then(|e| e.code()).as_deref(),
+        Some("P136D")
+    );
+    let mut verification = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *verification)
+        .await
+        .unwrap();
+    let count: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM restrictions.bans WHERE board=$1 AND private_reason=$2",
+    )
+    .bind(&f.boards[0])
+    .bind(format!("Thread Ban No.{root}"))
+    .fetch_one(&mut *verification)
+    .await
+    .unwrap();
+    assert_eq!(count, 0);
+    let (used, limit): (i64, i64) =
+        sqlx::query_as("SELECT used_bytes,byte_limit FROM restrictions.capacity WHERE singleton")
+            .fetch_one(&mut *verification)
+            .await
+            .unwrap();
+    sqlx::query("UPDATE restrictions.capacity SET byte_limit=$1 WHERE singleton")
+        .bind(used + 1)
+        .execute(&mut *verification)
+        .await
+        .unwrap();
+    verification.commit().await.unwrap();
+    assert_eq!(
+        db_code(
+            &board_store::ban_thread(&f.staff, batch(f, root))
+                .await
+                .unwrap_err()
+        )
+        .as_deref(),
+        Some("P134C")
+    );
+    let mut verification = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *verification)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE restrictions.capacity SET byte_limit=$1 WHERE singleton")
+        .bind(limit)
+        .execute(&mut *verification)
+        .await
+        .unwrap();
+    verification.commit().await.unwrap();
+    assert_eq!(
+        db_code(
+            &board_store::ban_thread(&f.staff, batch(f, reply))
+                .await
+                .unwrap_err()
+        )
+        .as_deref(),
+        Some("P134N")
+    );
+    let mut invalid = batch(f, root);
+    invalid.op_days = 10000;
+    assert_eq!(
+        db_code(
+            &board_store::ban_thread(&f.staff, invalid)
+                .await
+                .unwrap_err()
+        )
+        .as_deref(),
+        Some("23514")
+    );
+    sqlx::query("UPDATE content.threads SET sticky=true WHERE id=$1")
+        .bind(root)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert_eq!(
+        db_code(
+            &board_store::ban_thread(&f.staff, batch(f, root))
+                .await
+                .unwrap_err()
+        )
+        .as_deref(),
+        Some("P134A")
+    );
+    sqlx::query("UPDATE content.threads SET sticky=false WHERE id=$1")
+        .bind(root)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+
+    // Valid at issuance, expired by commit. Bans AND completed deletion roll back.
+    sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '10 minutes'+interval '5 seconds' WHERE token_hash=$1")
+        .bind(f.session.as_slice()).execute(&f.owner).await.unwrap();
+    let mut expired = f.staff.begin().await.unwrap();
+    sqlx::query("SELECT * FROM content.issue_thread_restrictions($1,$2,900,$3,$4,'Owned OP <reason>','Owned reply reason',3,0)")
+        .bind(f.session.as_slice()).bind(f.csrf.as_slice()).bind(&f.boards[0]).bind(root)
+        .fetch_one(&mut *expired).await.unwrap();
+    sqlx::query("UPDATE content.posts SET deleted=true WHERE board=$1 AND thread_id=$2")
+        .bind(&f.boards[0])
+        .bind(root)
+        .execute(&mut *expired)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1")
+        .bind(root)
+        .execute(&mut *expired)
+        .await
+        .unwrap();
+    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+    let error = expired.commit().await.unwrap_err();
+    assert_eq!(
+        error.as_database_error().and_then(|e| e.code()).as_deref(),
+        Some("P134Q")
+    );
+    sqlx::query(
+        "UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp() WHERE token_hash=$1",
+    )
+    .bind(f.session.as_slice())
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    let live: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted",
+    )
+    .bind(&f.boards[0])
+    .bind(root)
+    .fetch_one(&f.owner)
+    .await
+    .unwrap();
+    assert_eq!(live, 5);
+
+    // Capture pauses on an actor lock, then a new reply arrives on a new stripe.
+    // Recapture must roll back instead of taking that stripe under the gate.
+    let root_actor = f
+        .key
+        .public_posting_rate_identity("198.51.100.1".parse().unwrap());
+    let mut blocking = f.public.begin().await.unwrap();
+    sqlx::query("SELECT content.lock_posting_actor($1,false)")
+        .bind(root_actor.as_bytes().as_slice())
+        .execute(&mut *blocking)
+        .await
+        .unwrap();
+    let mut queued_tx = f.staff.begin().await.unwrap();
+    let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *queued_tx)
+        .await
+        .unwrap();
+    let session = f.session;
+    let csrf = f.csrf;
+    let board = f.boards[0].clone();
+    let queued = tokio::spawn(async move {
+        let result = sqlx::query("SELECT * FROM content.issue_thread_restrictions($1,$2,900,$3,$4,'Owned OP <reason>','Owned reply reason',3,0)")
+            .bind(session.as_slice()).bind(csrf.as_slice()).bind(board).bind(root).fetch_one(&mut *queued_tx).await;
+        queued_tx.rollback().await.unwrap();
+        result
+    });
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        let waiting: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM pg_locks WHERE pid=$1 AND NOT granted)",
+        )
+        .bind(pid)
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+        if waiting {
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "Batch did not wait on the owned actor gate"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let stripe = |peer: IpAddr| {
+        let a = f.key.public_posting_rate_identity(peer);
+        (u16::from(a.as_bytes()[0]) * 256 + u16::from(a.as_bytes()[1])) % 4096
+    };
+    let known = [
+        stripe("198.51.100.1".parse().unwrap()),
+        stripe("198.51.100.2".parse().unwrap()),
+        stripe("198.51.100.3".parse().unwrap()),
+    ];
+    let late_peer = (10..200)
+        .map(|n| IpAddr::from([198, 51, 100, n]))
+        .find(|peer| !known.contains(&stripe(*peer)))
+        .unwrap();
+    let late = f.post_in_thread(0, root, late_peer, None).await.unwrap();
+    blocking.commit().await.unwrap();
+    let error = queued.await.unwrap().unwrap_err();
+    assert_eq!(
+        error.as_database_error().and_then(|e| e.code()).as_deref(),
+        Some("P136R")
+    );
+    assert_eq!(
+        board_store::ban_thread(&f.staff, batch(f, root))
+            .await
+            .unwrap(),
+        4
+    );
+    let mut verification = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *verification)
+        .await
+        .unwrap();
+    let rows: Vec<(i64,bool,bool,i64,bool,i64)> = sqlx::query_as("SELECT b.post_id,b.global,b.warning,extract(epoch FROM b.ends_at-b.starts_at)::bigint,b.automatic_identity IS NULL,(SELECT count(*) FROM restrictions.audit a WHERE a.ban_id=b.id) FROM restrictions.bans b WHERE b.board=$1 AND b.private_reason=$2 ORDER BY b.post_id")
+        .bind(&f.boards[0]).bind(format!("Thread Ban No.{root}")).fetch_all(&mut *verification).await.unwrap();
+    assert_eq!(
+        rows,
+        vec![
+            (root, true, false, 259200, true, 1),
+            (reply, true, true, 0, true, 1),
+            (other, true, true, 0, true, 1),
+            (late, true, true, 0, true, 1)
+        ]
+    );
+    let promises: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM restrictions.pending_thread_batches")
+            .fetch_one(&mut *verification)
+            .await
+            .unwrap();
+    assert_eq!(promises, 0);
+    verification.rollback().await.unwrap();
+    let (deleted, audit): (bool,i64)=sqlx::query_as("SELECT t.deleted,(SELECT count(*) FROM content.moderation_audit WHERE board=t.board AND target_id=t.id AND action='remove-thread') FROM content.threads t WHERE t.id=$1")
+        .bind(root).fetch_one(&f.owner).await.unwrap();
+    assert_eq!((deleted, audit), (true, 1));
+    let untouched: bool = sqlx::query_scalar("SELECT NOT deleted FROM content.posts WHERE id=$1")
+        .bind(unrelated)
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+    assert!(untouched);
+    rejected(
+        f.post(1, "198.51.100.1", None).await,
+        board_store::restrictions::BANNED,
+    );
+    rejected(
+        f.post(1, "198.51.100.2", None).await,
+        board_store::restrictions::WARNED,
+    );
+    // A changed host with the OP's valid cookie is allowed: batch SQL did NOT
+    // invent an automatic-password restriction that ban_post never writes.
+    f.post(1, "198.51.100.240", Some((&cap, false)))
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+        .bind(cap.storage_hash().as_slice())
+        .execute(&f.owner)
+        .await
+        .unwrap();
 }

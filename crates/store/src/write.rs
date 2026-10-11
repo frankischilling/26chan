@@ -1570,6 +1570,56 @@ pub async fn delete_post(pool: &PgPool, slug: &str, id: i64) -> Result<(), Store
     Ok(())
 }
 
+/// Source cpban through real staff authority. Ban capture, private audit,
+/// ordinary deletion guards and moderation audit commit as one transaction.
+pub async fn ban_thread(
+    pool: &PgPool,
+    input: crate::restrictions::ThreadBan<'_>,
+) -> Result<i32, StoreError> {
+    for attempt in 0..3 {
+        let mut tx = pool.begin().await?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+            .execute(&mut *tx)
+            .await?;
+        let issued = sqlx::query_as::<_, (i32, i64)>(
+            "SELECT * FROM content.issue_thread_restrictions($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+        )
+        .bind(input.session)
+        .bind(input.csrf)
+        .bind(input.idle_seconds)
+        .bind(input.board)
+        .bind(input.thread)
+        .bind(input.op_reason)
+        .bind(input.reply_reason)
+        .bind(input.op_days)
+        .bind(input.reply_days)
+        .fetch_one(&mut *tx)
+        .await;
+        let (count, account) = match issued {
+            Ok(issued) => issued,
+            Err(error) => {
+                let recapture =
+                    error.as_database_error().and_then(|e| e.code()).as_deref() == Some("P136R");
+                tx.rollback().await?;
+                if recapture && attempt < 2 {
+                    continue;
+                }
+                return Err(StoreError::Database(error));
+            }
+        };
+        // The definer retains actor, restriction, board, thread and post locks.
+        // It checked sticky authority and queued a deferred deletion promise.
+        delete_post_in(&mut tx, input.board, input.thread).await?;
+        sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES($1,$2,$3,'remove-thread')")
+            .bind(account).bind(input.board).bind(input.thread).execute(&mut *tx).await?;
+        // The deferred guard verifies complete deletion and live staff scope,
+        // credentials, CSRF, idle/absolute expiry, recent auth and flags here.
+        tx.commit().await?;
+        return Ok(count);
+    }
+    unreachable!("bounded thread capture attempts always return")
+}
+
 /// The proof is the SHA-256 of the stored hash actually verified by the server.
 /// Never deserialize this argument from a request. Expensive password work stays
 /// outside database locks; current authority is checked inside the mutation.

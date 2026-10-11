@@ -241,6 +241,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(restrictions::unban).layer(DefaultBodyLimit::max(4096)),
         )
         .route(
+            "/ban/thread",
+            post(restrictions::thread).layer(DefaultBodyLimit::max(65536)),
+        )
+        .route(
             "/reporter-clear",
             post(reporter_clear::submit).layer(DefaultBodyLimit::max(4096)),
         )

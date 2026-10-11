@@ -187,6 +187,14 @@ impl Permissions {
         })
     }
 
+    pub fn can_ban_thread(&self, role: &str, board: &str) -> bool {
+        self.allows(board)
+            && Level::parse(role).is_some_and(|level| {
+                level >= Level::Moderator
+                    && (level >= Level::Manager || self.has_global_flag("threadban"))
+            })
+    }
+
     pub fn action_allowed(&self, role: &str, board: &str, action: &str) -> bool {
         let Some(level) = Level::parse(role) else {
             return false;

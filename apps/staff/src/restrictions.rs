@@ -37,6 +37,17 @@ pub(crate) struct Unban {
     csrf: String,
     id: i64,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ThreadBan {
+    board: String,
+    target: i64,
+    csrf: String,
+    op_reason: String,
+    rep_reason: String,
+    op_days: i32,
+    rep_days: i32,
+}
 #[derive(Template)]
 #[template(path = "restrictions.html")]
 struct Page {
@@ -45,6 +56,7 @@ struct Page {
     csrf: String,
     recent: bool,
     restriction: Option<i64>,
+    can_ban_thread: bool,
 }
 
 fn validate(board: &str, target: i64) -> Result<(), AppError> {
@@ -73,7 +85,7 @@ fn database(error: sqlx::Error) -> AppError {
         Some("P134Q") => AppError::Recent,
         Some("P134N") => AppError::NotFound,
         Some("23514") => AppError::Invalid,
-        Some("P134C" | "55P03") => AppError::Capacity,
+        Some("P134C" | "P136R" | "55P03") => AppError::Capacity,
         _ => AppError::Database(error),
     }
 }
@@ -89,23 +101,78 @@ pub(crate) async fn show(
     authorize(session, &context.board)?;
     let csrf = auth::cookie(&headers, &format!("{}-csrf", state.config.cookie_name()))?;
     auth::csrf(session, &csrf)?;
-    let exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM content.posts p JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board WHERE p.id=$1 AND p.board=$2 AND NOT p.deleted AND NOT t.deleted AND t.archived_at IS NULL)")
-        .bind(context.target).bind(&context.board).fetch_one(&state.staff).await?;
-    if !exists {
-        return Err(AppError::NotFound);
-    }
+    let (root, sticky): (bool, bool) = sqlx::query_as("SELECT p.id=p.thread_id,t.sticky FROM content.posts p JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board WHERE p.id=$1 AND p.board=$2 AND NOT p.deleted AND NOT t.deleted AND t.archived_at IS NULL")
+        .bind(context.target).bind(&context.board).fetch_optional(&state.staff).await?.ok_or(AppError::NotFound)?;
+    let can_ban_thread = root
+        && session
+            .permissions
+            .can_ban_thread(&session.role, &context.board)
+        && (!sticky || session.at_least(Level::Admin));
     let html = Page {
         board: context.board,
         target: context.target,
         csrf,
         recent: session.recent,
         restriction: context.restriction.filter(|id| *id > 0),
+        can_ban_thread,
     }
     .render()
     .map_err(|_| AppError::Internal)?;
     authority.ensure_current(false).await?;
     authority.finish().await?;
     Ok(Html(html))
+}
+
+pub(crate) async fn thread(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Form(input): Form<ThreadBan>,
+) -> Result<Redirect, AppError> {
+    auth::origin(&headers, &state.config.origin)?;
+    validate(&input.board, input.target)?;
+    let session = auth::session(&state, &headers).await?;
+    authorize(&session, &input.board)?;
+    if !session
+        .permissions
+        .can_ban_thread(&session.role, &input.board)
+    {
+        return Err(AppError::Forbidden);
+    }
+    auth::csrf(&session, &input.csrf)?;
+    if !session.recent {
+        return Err(AppError::Recent);
+    }
+    for reason in [&input.op_reason, &input.rep_reason] {
+        if reason.is_empty() || reason == "0" || reason.len() > 16384 || reason.contains('\0') {
+            return Err(AppError::Invalid);
+        }
+    }
+    if !(0..=9999).contains(&input.op_days) || !(0..=9999).contains(&input.rep_days) {
+        return Err(AppError::Invalid);
+    }
+    let token = auth::hash(&auth::cookie(&headers, state.config.cookie_name())?);
+    let csrf = auth::hash(&input.csrf);
+    board_store::ban_thread(
+        &state.staff,
+        board_store::restrictions::ThreadBan {
+            session: &token,
+            csrf: &csrf,
+            idle_seconds: state.config.idle_timeout.as_secs() as i32,
+            board: &input.board,
+            thread: input.target,
+            op_reason: &input.op_reason,
+            reply_reason: &input.rep_reason,
+            op_days: input.op_days,
+            reply_days: input.rep_days,
+        },
+    )
+    .await
+    .map_err(|error| match error {
+        board_store::StoreError::Database(error) => database(error),
+        board_store::StoreError::NotFound => AppError::NotFound,
+        _ => AppError::Internal,
+    })?;
+    Ok(Redirect::to("/reports"))
 }
 
 pub(crate) async fn issue(
