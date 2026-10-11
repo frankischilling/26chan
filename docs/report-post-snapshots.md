@@ -70,3 +70,8 @@ This is a capture of the rewrite's supported public presentation, not every
 original JSON/media field. Original-file fidelity, the full source client,
 weighted ordering, ignored membership, weighted board counts and unlock remain
 open under #219 and the media parity issues.
+
+Current media restrictions still apply to captured attachments. A later spoiler
+action suppresses the thumbnail without changing the saved JSON; a captured
+spoiler cannot be undone by a later unspoiler action. Removed, expired or replaced
+files cannot be reopened through the saved metadata.

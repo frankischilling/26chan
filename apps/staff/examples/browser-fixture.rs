@@ -38,7 +38,6 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .bind(thread)
                 .execute(&mut *tx)
                 .await?;
-            let report:i64=sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES ($1,$2,'Review <b>text</b>') RETURNING id").bind(board).bind(post).fetch_one(&mut *tx).await?;
             // Trusted synthetic pixels only. This fixture bypasses intake and
             // guest execution; browser assertions concern staff and reader HTTP.
             let media_root = std::env::current_dir()?
@@ -65,6 +64,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .bind(&asset).bind(full.sha256()).bind(full.len() as i64).bind(full.md5()).bind(thumb.sha256()).bind(thumb.len() as i64).execute(&mut *tx).await?;
             let tim: i64 = sqlx::query_scalar("INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler) VALUES ($1,$2,$2,$3,$4,500,300,false) RETURNING tim")
                 .bind(post).bind(&asset).bind("<img src=x onerror=alert(1)> & \"fixture\".png").bind(full.len() as i64).fetch_one(&mut *tx).await?;
+            // Admit only after the complete synthetic post can be captured.
+            let report:i64=sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES ($1,$2,'Review <b>text</b>') RETURNING id").bind(board).bind(post).fetch_one(&mut *tx).await?;
             tx.commit().await?;
             println!(
                 "{}",

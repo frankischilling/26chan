@@ -66,6 +66,7 @@ struct Row {
     captured_at: DateTime<Utc>,
     payload: Option<String>,
     media_available: bool,
+    media_spoiler: bool,
 }
 
 pub(crate) struct ReportPostSnapshot {
@@ -116,7 +117,8 @@ pub(crate) async fn load(
                CASE WHEN s.page_bytes<=16777216 THEN s.payload::text END AS payload,
                coalesce(m.available AND m.tim=(s.payload->'attachment'->>'tim')::bigint
                    AND m.output_format::text=s.payload->'attachment'->>'output_format',false)
-                   AS media_available
+                   AS media_available,
+               coalesce(m.spoiler,false) AS media_spoiler
         FROM selected s LEFT JOIN content.staff_post_media m ON m.post_id=s.post_id
         ORDER BY s.report_id
     "#,
@@ -193,7 +195,7 @@ pub(crate) async fn load(
                     bytes: a.bytes,
                     width: a.width,
                     height: a.height,
-                    spoiler: a.spoiler,
+                    spoiler: a.spoiler || row.media_spoiler,
                     tim: a.tim,
                     thumbnail_width: a.thumbnail_width,
                     thumbnail_height: a.thumbnail_height,

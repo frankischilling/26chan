@@ -38,18 +38,14 @@ runuser -u postgres -- "$pg_bin/initdb" -D "$cluster/data" --auth=trust --encodi
 started=1
 runuser -u postgres -- "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.log" -o "-c listen_addresses='' -c unix_socket_directories='$cluster'" -w start >/dev/null
 db=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h "$cluster")
-if [[ $order = absent ]]; then
- runuser -u postgres -- "${db[@]}" -d postgres -f - < "$tree/deploy/roles.sql"
-else
- { cat "$transfer/deploy/roles.sql"; tail -n 3 "$tree/deploy/roles.sql"; } > "$cluster/roles.sql"
- runuser -u postgres -- "${db[@]}" -d postgres -f - < "$cluster/roles.sql"
-fi
+runuser -u postgres -- "${db[@]}" -d postgres -f - < "$tree/deploy/roles.sql"
 runuser -u postgres -- "${db[@]}" -d postgres -c 'CREATE DATABASE report_snapshot OWNER board_migrator;'
 runuser -u postgres -- "${db[@]}" -d postgres -c 'GRANT CONNECT ON DATABASE report_snapshot TO board_public,board_staff; ALTER ROLE board_staff LOGIN;'
 migrator=("${db[@]}" -U board_migrator -d report_snapshot)
 admin=(runuser -u postgres -- "${db[@]}" -d report_snapshot)
 for migration in "$tree"/migrations/*.sql; do
  [[ $(basename "$migration") != 0133_* ]] || continue
+ if [[ $order = absent && $(basename "$migration") = 0131_* ]]; then continue; fi
  if [[ $order != absent && ( $(basename "$migration") = 0131_* || $(basename "$migration") = 0132_* ) ]]; then continue; fi
  "${migrator[@]}" --single-transaction -f - < "$migration" >/dev/null 2>"$cluster/migration.log" || { tail -n 7 "$cluster/migration.log"; exit 1; }
 done
