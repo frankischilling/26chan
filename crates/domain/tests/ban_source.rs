@@ -27,7 +27,7 @@ fn matches_executed_original_posting_restrictions() {
                     id: row["no"].as_i64().unwrap(),
                     key: match key {
                         "host" => MatchKey::Address,
-                        "password" => MatchKey::DeletionCredential,
+                        "password" => MatchKey::AutomaticPassword,
                         "4pass_id" => MatchKey::Pass,
                         _ => unreachable!(),
                     },

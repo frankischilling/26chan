@@ -5,7 +5,7 @@
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MatchKey {
     Address,
-    DeletionCredential,
+    AutomaticPassword,
     Pass,
 }
 

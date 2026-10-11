@@ -113,7 +113,7 @@ pub(crate) fn scoped_error(error: sqlx::Error) -> StoreError {
             }
             _ => StoreError::Database(error),
         },
-        _ => StoreError::Database(error),
+        _ => crate::restrictions::insertion_error(error),
     }
 }
 

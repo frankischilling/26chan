@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}Posting restricted{% endblock %}
+{% block content %}<section class="message"><h1>Posting restricted</h1>
+<p id="errmsg">{% if warning %}Error: You were <a href="/banned?board={{ board }}" target="_blank" rel="noopener">warned</a>. You must first <a href="/banned?board={{ board }}" target="_blank" rel="noopener">view</a> this warning to post again.{% else %}Error: You are <a href="/banned?board={{ board }}" target="_blank" rel="noopener">banned</a>.{% endif %}</p>
+<p><a href="/{{ board }}/">Reload</a></p></section>{% endblock %}

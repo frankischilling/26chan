@@ -333,5 +333,12 @@ pub async fn check_identity(pool: &PgPool, expected: &str) -> Result<(), AppErro
     {
         return Err(AppError::Forbidden);
     }
+    if expected == "board_staff"
+        && !sqlx::query_scalar::<_, bool>("SELECT content.restrictions_ready()")
+            .fetch_one(pool)
+            .await?
+    {
+        return Err(AppError::Forbidden);
+    }
     Ok(())
 }

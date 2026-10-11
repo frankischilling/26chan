@@ -603,6 +603,22 @@ async fn create_post_in_context(
         .execute(&mut *tx)
         .await?;
     crate::posting_cooldown::lock(&mut tx, &posting_actor, parent == 0).await?;
+    if let Some(message) = crate::restrictions::prepare(
+        &mut tx,
+        &posting_actor,
+        anonymous
+            .as_ref()
+            .map(|session| &session.fingerprints.token),
+        slug,
+        context.request_start.timestamp(),
+    )
+    .await?
+    {
+        // No content or anonymous activity has been written. Persist only the
+        // source's visited expired rows even when a later match blocks posting.
+        tx.commit().await?;
+        return Err(StoreError::ContentRejected(message.into()));
+    }
     if staff.is_some() {
         let role: String = sqlx::query_scalar("SELECT current_user::text")
             .fetch_one(&mut *tx)
@@ -1537,7 +1553,7 @@ fn staff_post_error(error: sqlx::Error) -> StoreError {
     {
         StoreError::AuthorizationChanged
     } else {
-        StoreError::Database(error)
+        crate::restrictions::insertion_error(error)
     }
 }
 
