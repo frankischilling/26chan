@@ -203,6 +203,149 @@ async function verifyGroupedOptions(page, context, cdp, publicMediaRequests) {
   await page.goto('/reports');
 }
 
+async function verifyTextThreadTransfer(page, context, cdp) {
+  // Separate owned boards keep this action out of the main flow's exact audit
+  // assertions. Their setup media threads are never selected for transfer.
+  const boards = [0, 1].map(() => `s${randomBytes(5).toString('hex').slice(0, 9)}`);
+  const publicOrigin = 'http://127.0.0.1:3000';
+  const owned = [];
+  let publicPage;
+  let failure;
+  const cleanupErrors = [];
+  try {
+    for (const board of boards) {
+      const data = fixture('setup', board);
+      const mediaRoot = path.resolve(`.local/staff-media-${board}`);
+      owned.push({ board, mediaRoot });
+      expect(path.resolve(data.mediaRoot)).toBe(mediaRoot);
+    }
+    const [source, destination] = boards;
+    const post = async (thread, comment) => {
+      const response = await withPostingHistory(() => page.request.post(`${publicOrigin}/${source}/post`, {
+        headers: { Origin: publicOrigin }, maxRedirects: 0,
+        form: { resto: thread, name: 'Owned transfer author', sub: thread === '0' ? 'Owned text transfer' : '',
+          com: comment, password: 'owned-text-transfer-password' },
+      }));
+      expect(response.status()).toBe(303);
+      return response.headers().location;
+    };
+    const sourceThread = (await post('0', 'OwnedTransferBrowser original <b>literal</b>')).match(/thread\/(\d+)/)[1];
+    const sourceReply = (await post(sourceThread, `OwnedTransferBrowser reply >>${sourceThread}`)).match(/#p(\d+)$/)[1];
+    const sourceUrl = `${publicOrigin}/${source}/thread/${sourceThread}`;
+    const beforePublic = await page.request.get(`${sourceUrl}.json`);
+    expect(beforePublic.status()).toBe(200);
+    const originalPosts = (await beforePublic.json()).posts;
+    expect(originalPosts.map(post => String(post.no))).toEqual([sourceThread, sourceReply]);
+    const beforeSource = fixture('inspect', source), beforeDestination = fixture('inspect', destination);
+    await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
+    await page.goto(`/thread-options?board=${source}&target=${sourceThread}`);
+    const moveLink = page.getByRole('link', { name: 'Move a text-only thread', exact: true });
+    const recoveryPath = `/thread-transfer?board=${source}&target=${sourceThread}`;
+    await expect(moveLink).toHaveAttribute('href', recoveryPath);
+    await moveLink.click();
+    await expect(page.getByRole('heading', { name: `Move Thread: /${source}/${sourceThread}`, exact: true })).toBeVisible();
+    const form = page.locator('form[action="/thread-transfer"]');
+    await expect(form).toHaveAttribute('method', 'post');
+    const csrf = await form.locator('input[name=csrf]').inputValue();
+    expect(csrf).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    await expect(form.locator('input[name=board]')).toHaveValue(source);
+    await expect(form.locator('input[name=target]')).toHaveValue(sourceThread);
+    await expect(page.getByLabel('and delete the original thread', { exact: true })).not.toBeChecked();
+    await expect(form.locator('input[name=move_del]')).toHaveAttribute('required', '');
+    await expect(form.locator(`select[name=destination] option[value="${source}"]`)).toHaveCount(0);
+    const body = { board: source, target: sourceThread, destination, csrf, move_del: '1' };
+    const rejected = await page.request.post('/thread-transfer', {
+      headers: { Origin: 'http://localhost:3001', 'Sec-Fetch-Site': 'same-origin' },
+      form: { ...body, csrf: 'a'.repeat(43) }, maxRedirects: 0,
+    });
+    expect(rejected.status()).toBe(403);
+    expect(fixture('inspect', source)).toEqual(beforeSource);
+    expect(fixture('inspect', destination)).toEqual(beforeDestination);
+    await page.getByRole('combobox', { name: 'Move to', exact: true }).selectOption(destination);
+    await page.getByLabel('and delete the original thread', { exact: true }).check();
+    const [moved] = await Promise.all([
+      page.waitForResponse(response => response.url() === 'http://localhost:3001/thread-transfer'
+        && response.request().method() === 'POST'),
+      page.getByRole('button', { name: 'Move', exact: true }).click(),
+    ]);
+    expect(moved.status()).toBe(200);
+    expect(Object.fromEntries(new URLSearchParams(moved.request().postData()))).toEqual(body);
+    expect(moved.headers()['cache-control']).toBe('private, no-store');
+    await expect(page.getByRole('heading', { name: 'Thread Moved', exact: true })).toBeVisible();
+    await expect(page.locator('main')).toContainText(`Moved 2 posts from /${source}/${sourceThread} to /${destination}/`);
+    const movedLink = page.getByRole('link', { name: 'Open the moved thread', exact: true });
+    const movedUrl = await movedLink.getAttribute('href');
+    expect(movedUrl).toMatch(new RegExp(`^${publicOrigin}/${destination}/thread/[1-9][0-9]*$`));
+    await expect(movedLink).toHaveAttribute('referrerpolicy', 'no-referrer');
+    const destinationThread = movedUrl.match(/thread\/(\d+)$/)[1];
+    expect(destinationThread).not.toBe(sourceThread);
+    const resultText = await page.locator('main').innerText();
+    expect(resultText).toMatch(/Recorded action: [1-9][0-9]*\. Request: [a-f0-9-]{36}\./);
+    const afterSource = fixture('inspect', source), afterDestination = fixture('inspect', destination);
+    expect(afterSource.states).toEqual([[false, false, false], [false, false, true]]);
+    expect(afterSource.audit).toEqual(['text-thread-transfer']);
+    expect(afterSource.reports).toBe(beforeSource.reports); // Unrelated media report remains.
+    expect(afterDestination.states).toEqual([[false, false, false], [false, false, false]]);
+    expect((await page.request.get(`${sourceUrl}.json`, { headers: { 'If-None-Match': beforePublic.headers().etag } })).status()).toBe(404);
+    const destinationJson = await page.request.get(`${movedUrl}.json`);
+    expect(destinationJson.status()).toBe(200);
+    const destinationPosts = (await destinationJson.json()).posts;
+    expect(destinationPosts).toHaveLength(2);
+    expect(String(destinationPosts[0].no)).toBe(destinationThread);
+    for (const [index, post] of destinationPosts.entries()) {
+      expect(String(post.no)).not.toBe(String(originalPosts[index].no));
+      expect(post.name).toBe(originalPosts[index].name);
+      expect(post.time).toBe(originalPosts[index].time);
+    }
+    publicPage = await context.newPage();
+    await publicPage.goto(movedUrl);
+    await expect(publicPage.locator(`#p${destinationThread}`)).toContainText('OwnedTransferBrowser original <b>literal</b>');
+    await expect(publicPage.locator(`#p${destinationPosts[1].no}`)).toContainText(`OwnedTransferBrowser reply >>${destinationThread}`);
+    await expect(publicPage.locator(`#pi${destinationThread} .name`)).toContainText('Owned transfer author');
+    // GET recovery and refresh are read-only even after the source has gone.
+    await page.goto(recoveryPath);
+    await expect(page.locator('main')).toHaveText(resultText, { useInnerText: true });
+    await page.reload();
+    await expect(page.locator('main')).toHaveText(resultText, { useInnerText: true });
+    const repeated = await page.request.post('/thread-transfer', {
+      headers: { Origin: 'http://localhost:3001', 'Sec-Fetch-Site': 'same-origin' }, form: body, maxRedirects: 0,
+    });
+    expect(repeated.status()).toBe(200);
+    expect(await repeated.text()).toContain(movedUrl);
+    expect(fixture('inspect', source)).toEqual(afterSource);
+    expect(fixture('inspect', destination)).toEqual(afterDestination);
+  } catch (error) {
+    failure = error;
+  } finally {
+    // A timed-out test may already have closed the page. Keep that secondary
+    // error from hiding the failing action or skipping owned fixture cleanup.
+    try { await cdp.send('Emulation.setScriptExecutionDisabled', { value: false }); }
+    catch (error) { cleanupErrors.push(error); }
+    try { await publicPage?.close(); }
+    catch (error) { cleanupErrors.push(error); }
+    for (const { board, mediaRoot } of owned.reverse()) {
+      try { fixture('cleanup', board); }
+      catch (error) { cleanupErrors.push(error); }
+      try {
+        const privateRoot = path.resolve('.local');
+        if (path.dirname(mediaRoot) !== privateRoot || lstatSync(mediaRoot).isSymbolicLink()
+            || realpathSync(mediaRoot) !== path.join(realpathSync(privateRoot), `staff-media-${board}`)) throw new Error('Invalid text transfer media cleanup path');
+        rmSync(mediaRoot, { recursive: true });
+      } catch (error) { cleanupErrors.push(error); }
+    }
+  }
+  if (failure) {
+    if (cleanupErrors.length) {
+      failure.cause = new AggregateError([
+        ...(failure.cause ? [failure.cause] : []), ...cleanupErrors,
+      ], 'Text transfer cleanup also failed');
+    }
+    throw failure;
+  }
+  if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'Text transfer cleanup failed');
+  await page.goto('/reports');
+}
+
 async function verifyPermaageOption(page, board, target, visible) {
   await page.goto(`/thread-options?board=${board}&target=${target}`);
   await expect(page.getByRole('button', { name: 'Set Options', exact: true })).toBeVisible();
@@ -693,6 +836,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await report.getByRole('button', { name: 'Unsticky thread', exact: true }).click();
     await verifyUnstickyOrdering(page, context, publicMediaRequests);
     await verifyGroupedOptions(page, context, cdp, publicMediaRequests);
+    await verifyTextThreadTransfer(page, context, cdp);
     fixture('bump-limit', board);
     expect((await (await page.request.get(publicUrl)).json()).posts[0].bumplimit).toBe(1);
     await expect(report.getByRole('button', { name: 'Enable permaage', exact: true })).toHaveCount(0);

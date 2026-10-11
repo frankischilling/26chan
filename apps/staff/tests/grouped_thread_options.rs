@@ -1007,7 +1007,7 @@ async fn grouped_default_lock_timeout_rolls_back_flags_rank_clocks_and_audit() {
 #[tokio::test]
 async fn grouped_owned_audit_failure_rolls_back_all_flags_rank_and_clocks() {
     let f = Fixture::new().await;
-    // PostgreSQL DDL identifiers and trigger WHEN literals cannot use bind
+    // PostgreSQL DDL identifiers and partial-index predicates cannot use bind
     // parameters. Audit the only dynamic input before AssertSqlSafe: an owned
     // UUID-derived slug, never request data, with no quotes or SQL punctuation.
     assert!(f.boards[0].starts_with("sp"));
@@ -1017,26 +1017,48 @@ async fn grouped_owned_audit_failure_rolls_back_all_flags_rank_and_clocks() {
             .bytes()
             .all(|byte| byte.is_ascii_hexdigit())
     );
-    let function = format!("grouped_fail_{}", f.boards[0]);
-    // Unique board predicate prevents poisoning any unrelated concurrent fixture.
-    // No global audit table lock or globally failing trigger is used.
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE FUNCTION content.{function}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'owned grouped audit failure'; END $$")))
+    let index = format!("grouped_fail_{}", f.boards[0]);
+    // A board/action-scoped uniqueness conflict reaches the real late audit
+    // INSERT without changing the trigger/function inventory that readiness
+    // protects for every concurrent fixture.
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE UNIQUE INDEX {index} ON content.moderation_audit(target_id) WHERE board='{}' AND action='thread-options'", f.boards[0])))
         .execute(&f.owner).await.unwrap();
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE TRIGGER {function} BEFORE INSERT ON content.moderation_audit FOR EACH ROW WHEN (NEW.board='{}' AND NEW.action='thread-options') EXECUTE FUNCTION content.{function}()", f.boards[0])))
-        .execute(&f.owner).await.unwrap();
+    let seeded_audit: i64 = sqlx::query_scalar("INSERT INTO content.moderation_audit(account_id,board,target_id,action,before_mask,after_mask) VALUES($1,$2,$3,'thread-options',31,0) RETURNING id")
+        .bind(f.account).bind(&f.boards[0]).bind(f.posts[0])
+        .fetch_one(&f.owner).await.unwrap();
     let result = tokio::spawn({
         let f = f.clone();
         async move {
+            auth::check_identity(&f.auth, "board_auth").await.unwrap();
+            auth::check_identity(&f.staff, "board_staff").await.unwrap();
             f.role("manager", &["all".into()], &[]).await;
             f.seed(31, 60).await;
             let before = f.state().await;
+            let audit_before: serde_json::Value = sqlx::query_scalar(
+                "SELECT to_jsonb(a) FROM content.moderation_audit a WHERE id=$1",
+            )
+            .bind(seeded_audit)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
             assert_eq!(f.options("").await, StatusCode::SERVICE_UNAVAILABLE);
             assert_eq!(
                 f.state().await,
                 before,
                 "failed audit must undo unsticky bump and all grouped assignments"
             );
-            assert_eq!(f.audit_count().await, 0);
+            assert_eq!(f.audit_count().await, 1);
+            let audit_after: serde_json::Value = sqlx::query_scalar(
+                "SELECT to_jsonb(a) FROM content.moderation_audit a WHERE id=$1",
+            )
+            .bind(seeded_audit)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+            assert_eq!(
+                audit_after, audit_before,
+                "existing audit evidence is unchanged"
+            );
             // The predicate also proves another owned board can still audit normally.
             assert_eq!(
                 f.request(
@@ -1050,22 +1072,20 @@ async fn grouped_owned_audit_failure_rolls_back_all_flags_rank_and_clocks() {
                 .0,
                 StatusCode::SEE_OTHER
             );
-            assert_eq!(f.audit_count().await, 1);
+            assert_eq!(f.audit_count().await, 2);
         }
     })
     .await;
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
-        "DROP TRIGGER {function} ON content.moderation_audit"
-    )))
-    .execute(&f.owner)
-    .await
-    .unwrap();
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
-        "DROP FUNCTION content.{function}()"
-    )))
-    .execute(&f.owner)
-    .await
-    .unwrap();
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("DROP INDEX content.{index}")))
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.moderation_audit WHERE id=$1 AND account_id=$2")
+        .bind(seeded_audit)
+        .bind(f.account)
+        .execute(&f.owner)
+        .await
+        .unwrap();
     if result.is_ok() {
         assert_eq!(
             f.options("").await,

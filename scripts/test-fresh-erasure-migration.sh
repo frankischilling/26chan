@@ -470,11 +470,16 @@ for migration in migrations/*.sql; do
  [[ $(basename "$migration") > 0129_fresh_content_erasure.sql ]] || continue
  "${migrator[@]}" --single-transaction -f - < "$migration"
 done
-# 0130 adds a false-default post marker. Extend only the saved expectation;
-# any historical payload change or nonfalse marker must still fail comparison.
+# 0130/0131 add a false marker and two NULL presentation fields. Extend only
+# those saved expectations; every historical field remains compared in full.
 "${admin[@]}" <<'SQL'
-UPDATE public.unrelated_rows SET value=value||jsonb_build_object('file_deleted',false)
+UPDATE public.unrelated_rows SET value=value||jsonb_build_object('file_deleted',false,
+ 'saved_presentation',NULL,'saved_presentation_search',NULL)
 WHERE relation='content.posts';
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
+ THEN RAISE EXCEPTION 'Additive presentation fields rewrote historical content'; END IF;
+END $$;
 SQL
 cat > "$cluster/assert-erased.sql" <<'SQL'
 DO $$ DECLARE relation_name text; BEGIN
@@ -484,6 +489,7 @@ DO $$ DECLARE relation_name text; BEGIN
    OR trip IS NOT NULL OR poster_id IS NOT NULL OR json_op_poster_id IS NOT NULL OR capcode IS NOT NULL
    OR country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL
    OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR dice_result IS NOT NULL
+   OR saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL
    OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR comment_format<>0
    OR drawing_time_seconds IS NOT NULL OR drawing_source_post_id IS NOT NULL
    OR staff_authorized_limits OR image_spoiler OR board_flag_type<>'pol' OR created_at<>'epoch'::timestamptz))

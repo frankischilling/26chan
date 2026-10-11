@@ -187,7 +187,7 @@ async fn read_thread_snapshot(
     } else {
         None
     };
-    let body_bytes: i64 = sqlx::query_scalar("SELECT coalesce(sum(octet_length(comment)+coalesce(octet_length(wordfilter_payload),0)+coalesce(octet_length(wordfilter_search),0)),0)::bigint FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted AND ($3::bigint IS NULL OR id=$2 OR id>$3)")
+    let body_bytes: i64 = sqlx::query_scalar("SELECT coalesce(sum(octet_length(comment)+coalesce(octet_length(wordfilter_payload),0)+coalesce(octet_length(wordfilter_search),0)+coalesce(octet_length(saved_presentation),0)+coalesce(octet_length(saved_presentation_search),0)),0)::bigint FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted AND ($3::bigint IS NULL OR id=$2 OR id>$3)")
         .bind(slug).bind(id).bind(tail_id).fetch_one(&mut *tx).await?;
     if body_bytes > max_bytes as i64 {
         return Err(StoreError::ReadLimit);
@@ -322,7 +322,7 @@ pub async fn search(
     let rows: Vec<SearchHitRow> = sqlx::query_as(
         "WITH candidates AS MATERIALIZED (\
             SELECT p.board,p.thread_id,p.id,p.subject,\
-                coalesce(p.wordfilter_search,p.comment) || coalesce(E'\\n' || content.drawing_search_text(p.drawing_time_seconds,p.drawing_source_post_id),'') AS comment \
+                coalesce(p.saved_presentation_search,p.wordfilter_search,p.comment) || coalesce(E'\\n' || content.drawing_search_text(p.drawing_time_seconds,p.drawing_source_post_id),'') AS comment \
             FROM content.posts p \
             JOIN content.visible_threads t ON t.board=p.board AND t.id=p.thread_id \
             WHERE NOT p.deleted AND ($2::text IS NULL OR p.board=$2) \
@@ -380,14 +380,14 @@ pub async fn search(
         .map(|thread| (thread.id, thread))
         .collect();
 
-    let mut posts: Vec<Post> = sqlx::query_as(
-        "SELECT p.id,p.board,p.thread_id,p.name,p.trip,p.poster_id,p.json_op_poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,\
-                p.subject,p.image_spoiler,\
-                CASE WHEN char_length(p.comment) <= $4 THEN p.comment \
-                     WHEN strpos(lower(p.comment), lower($2)) > 0 THEN \
-                       substring(p.comment FROM greatest(1, strpos(lower(p.comment), lower($2)) - ($4 / 4)::integer) FOR $4::integer) \
-                     ELSE left(p.comment, $4::integer) END AS comment,\
-                p.drawing_time_seconds,p.drawing_source_post_id,p.dice_result,p.fortune_text,p.fortune_color,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.created_at,p.deleted,p.file_deleted \
+    // Count every persisted representation before fetching search bodies. This
+    // is the same bounded selection, in the same repeatable-read transaction.
+    let body_bytes: i64 = sqlx::query_scalar(
+        "SELECT coalesce(sum(octet_length(p.comment)::bigint\
+            +coalesce(octet_length(p.wordfilter_payload),0)\
+            +coalesce(octet_length(p.wordfilter_search),0)\
+            +coalesce(octet_length(p.saved_presentation),0)\
+            +coalesce(octet_length(p.saved_presentation_search),0)),0)::bigint \
          FROM unnest($1::bigint[]) WITH ORDINALITY AS selected(thread_id,ord) \
          CROSS JOIN LATERAL (\
             SELECT picked.* FROM (\
@@ -397,7 +397,38 @@ pub async fn search(
                 (SELECT reply.* FROM content.posts reply \
                  WHERE reply.thread_id=selected.thread_id AND reply.id<>selected.thread_id \
                    AND NOT reply.deleted \
-                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.wordfilter_search,reply.comment) || coalesce(E'\\n' || content.drawing_search_text(reply.drawing_time_seconds,reply.drawing_source_post_id),'')), lower($2)) > 0 \
+                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.saved_presentation_search,reply.wordfilter_search,reply.comment) || coalesce(E'\\n' || content.drawing_search_text(reply.drawing_time_seconds,reply.drawing_source_post_id),'')), lower($2)) > 0 \
+                 ORDER BY reply.id DESC LIMIT $3)\
+            ) picked ORDER BY picked.id\
+         ) p",
+    )
+    .bind(&ids)
+    .bind(query)
+    .bind(SEARCH_MATCHING_REPLIES_PER_THREAD)
+    .fetch_one(&mut *tx)
+    .await?;
+    if body_bytes > MAX_THREAD_READ_BYTES as i64 {
+        return Err(StoreError::ReadLimit);
+    }
+
+    let mut posts: Vec<Post> = sqlx::query_as(
+        "SELECT p.id,p.board,p.thread_id,p.name,p.trip,p.poster_id,p.json_op_poster_id,p.capcode,p.country,p.country_name,p.board_flag,p.board_flag_type,p.flag_name,\
+                p.subject,p.image_spoiler,\
+                CASE WHEN char_length(p.comment) <= $4 THEN p.comment \
+                     WHEN strpos(lower(p.comment), lower($2)) > 0 THEN \
+                       substring(p.comment FROM greatest(1, strpos(lower(p.comment), lower($2)) - ($4 / 4)::integer) FOR $4::integer) \
+                     ELSE left(p.comment, $4::integer) END AS comment,\
+                p.drawing_time_seconds,p.drawing_source_post_id,p.dice_result,p.fortune_text,p.fortune_color,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.saved_presentation,p.created_at,p.deleted,p.file_deleted \
+         FROM unnest($1::bigint[]) WITH ORDINALITY AS selected(thread_id,ord) \
+         CROSS JOIN LATERAL (\
+            SELECT picked.* FROM (\
+                (SELECT op.* FROM content.posts op \
+                 WHERE op.thread_id=selected.thread_id AND op.id=selected.thread_id AND NOT op.deleted) \
+                UNION ALL \
+                (SELECT reply.* FROM content.posts reply \
+                 WHERE reply.thread_id=selected.thread_id AND reply.id<>selected.thread_id \
+                   AND NOT reply.deleted \
+                   AND strpos(lower(reply.subject || E'\\n' || coalesce(reply.saved_presentation_search,reply.wordfilter_search,reply.comment) || coalesce(E'\\n' || content.drawing_search_text(reply.drawing_time_seconds,reply.drawing_source_post_id),'')), lower($2)) > 0 \
                  ORDER BY reply.id DESC LIMIT $3)\
             ) picked ORDER BY picked.id\
          ) p ORDER BY selected.ord,p.id",

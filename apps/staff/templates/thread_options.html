@@ -11,4 +11,6 @@
 {% if can_permaage %}<p><label><input type="checkbox" name="permaage" value="1"{% if options.permaage %} checked{% endif %}> Perma-age</label></p>{% endif %}
 <p><label><input type="checkbox" name="undead" value="1"{% if options.undead %} checked{% endif %}> Undead</label></p>
 <button type="submit">Set Options</button>
-</form></main></body></html>
+</form>
+{% if can_move %}<p><a href="/thread-transfer?board={{ board }}&amp;target={{ target }}">Move a text-only thread</a></p>{% endif %}
+</main></body></html>

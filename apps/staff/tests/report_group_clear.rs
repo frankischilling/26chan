@@ -168,6 +168,16 @@ impl Fixture {
             .unwrap()
     }
 
+    async fn audits(&self) -> Vec<serde_json::Value> {
+        sqlx::query_scalar(
+            "SELECT to_jsonb(a) FROM content.moderation_audit a WHERE account_id=$1 ORDER BY id",
+        )
+        .bind(self.account)
+        .fetch_all(&self.owner)
+        .await
+        .unwrap()
+    }
+
     async fn cleanup(self) {
         let mut cleanup = self.owner.begin().await.unwrap();
         sqlx::query("SELECT slug FROM content.boards WHERE slug=ANY($1) ORDER BY slug FOR UPDATE")
@@ -415,28 +425,58 @@ async fn mixed_unknown_weight_rejects_the_entire_group() {
 async fn audit_failure_rolls_back_every_marker_and_private_group_state() {
     let _serial = TEST.lock().await;
     let f = Fixture::new().await;
-    let function = format!("group_clear_fault_{}", f.boards[0]);
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE FUNCTION content.{function}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'owned group clear audit failure'; END $$; CREATE TRIGGER {function} BEFORE INSERT ON content.moderation_audit FOR EACH ROW WHEN (NEW.board='{}' AND NEW.action='report-group-clear') EXECUTE FUNCTION content.{function}()",f.boards[0]))).execute(&f.owner).await.unwrap();
+    // Validate the owned UUID slug before interpolating DDL identifiers.
+    assert!(f.boards[0].starts_with("gc"));
+    assert_eq!(f.boards[0].len(), 10);
+    assert!(
+        f.boards[0][2..]
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    );
+    assert!(f.posts[0] > 0);
+    let index = format!("group_clear_fault_{}", f.boards[0]);
+    // Keep readiness's trigger/function fingerprint intact while failing the
+    // real late audit INSERT for this board, action, and target only.
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE UNIQUE INDEX {index} ON content.moderation_audit(target_id) WHERE board='{}' AND action='report-group-clear' AND target_id={}", f.boards[0], f.posts[0])))
+        .execute(&f.owner).await.unwrap();
+    let seeded_audit: i64 = sqlx::query_scalar("INSERT INTO content.moderation_audit(account_id,board,target_id,action,group_clear_count) VALUES($1,$2,$3,'report-group-clear',1) RETURNING id")
+        .bind(f.account).bind(&f.boards[0]).bind(f.posts[0])
+        .fetch_one(&f.owner).await.unwrap();
     let result = tokio::spawn({
         let f = f.clone();
         async move {
+            auth::check_identity(&f.auth, "board_auth").await.unwrap();
+            auth::check_identity(&f.staff, "board_staff").await.unwrap();
             f.report(0, "open", 31, true, true).await;
             let before = f.snapshot(false).await;
+            let audits_before = f.audits().await;
             assert_eq!(f.clear(0).await.0, StatusCode::SERVICE_UNAVAILABLE);
             assert_eq!(f.snapshot(false).await, before);
             assert!(f.marked().await.is_empty());
-            assert_eq!(f.audit_count().await, 0);
+            assert_eq!(f.audit_count().await, 1);
+            assert_eq!(
+                f.audits().await,
+                audits_before,
+                "existing audit evidence is unchanged"
+            );
         }
     })
     .await;
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
-        "DROP TRIGGER {function} ON content.moderation_audit; DROP FUNCTION content.{function}()"
-    )))
-    .execute(&f.owner)
-    .await
-    .unwrap();
-    let retry = f.clear(0).await;
-    assert_eq!(retry.0, StatusCode::OK, "{}", retry.1);
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("DROP INDEX content.{index}")))
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.moderation_audit WHERE id=$1 AND account_id=$2")
+        .bind(seeded_audit)
+        .bind(f.account)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    if result.is_ok() {
+        let retry = f.clear(0).await;
+        assert_eq!(retry.0, StatusCode::OK, "{}", retry.1);
+        assert_eq!(f.audit_count().await, 1);
+    }
     f.cleanup().await;
     result.unwrap();
 }
@@ -708,28 +748,54 @@ async fn historical_deleted_targets_are_hidden_and_reject_stale_disposition_acti
 async fn deletion_audit_failure_rolls_back_reports_cascades_and_clear_history() {
     let _serial = TEST.lock().await;
     let f = Fixture::new().await;
-    let function = format!("report_delete_fault_{}", f.boards[0]);
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE FUNCTION content.{function}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'owned deletion audit failure'; END $$; CREATE TRIGGER {function} BEFORE INSERT ON content.moderation_audit FOR EACH ROW WHEN (NEW.board='{}' AND NEW.action='remove-thread') EXECUTE FUNCTION content.{function}()",f.boards[0]))).execute(&f.owner).await.unwrap();
+    // Validate the owned UUID slug before interpolating DDL identifiers.
+    assert!(f.boards[0].starts_with("gc"));
+    assert_eq!(f.boards[0].len(), 10);
+    assert!(
+        f.boards[0][2..]
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    );
+    assert!(f.posts[0] > 0);
+    let index = format!("report_delete_fault_{}", f.boards[0]);
+    // Keep readiness's trigger/function fingerprint intact while failing the
+    // real late audit INSERT for this board, action, and target only.
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE UNIQUE INDEX {index} ON content.moderation_audit(target_id) WHERE board='{}' AND action='remove-thread' AND target_id={}", f.boards[0], f.posts[0])))
+        .execute(&f.owner).await.unwrap();
+    let seeded_audit: i64 = sqlx::query_scalar("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES($1,$2,$3,'remove-thread') RETURNING id")
+        .bind(f.account).bind(&f.boards[0]).bind(f.posts[0])
+        .fetch_one(&f.owner).await.unwrap();
     let result=tokio::spawn({let f=f.clone();async move {
+        auth::check_identity(&f.auth, "board_auth").await.unwrap();
+        auth::check_identity(&f.staff, "board_staff").await.unwrap();
         f.report(0,"dismissed",90,true,true).await;
         assert_eq!(f.clear(0).await.0,StatusCode::OK);
         let before=f.snapshot(false).await;
+        let audits_before = f.audits().await;
         assert_eq!(f.moderate(0,f.posts[0],"remove-thread").await,StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(f.snapshot(false).await,before);
-        assert_eq!(f.audit_count().await,1);
+        assert_eq!(f.audit_count().await, 2);
+        assert_eq!(f.audits().await, audits_before, "existing audit evidence is unchanged");
         let deleted:bool=sqlx::query_scalar("SELECT p.deleted OR t.deleted FROM content.posts p JOIN content.threads t ON t.id=p.thread_id WHERE p.id=$1").bind(f.posts[0]).fetch_one(&f.owner).await.unwrap();
         assert!(!deleted);
     }}).await;
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
-        "DROP TRIGGER {function} ON content.moderation_audit; DROP FUNCTION content.{function}()"
-    )))
-    .execute(&f.owner)
-    .await
-    .unwrap();
-    assert_eq!(
-        f.moderate(0, f.posts[0], "remove-thread").await,
-        StatusCode::SEE_OTHER
-    );
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("DROP INDEX content.{index}")))
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.moderation_audit WHERE id=$1 AND account_id=$2")
+        .bind(seeded_audit)
+        .bind(f.account)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    if result.is_ok() {
+        assert_eq!(
+            f.moderate(0, f.posts[0], "remove-thread").await,
+            StatusCode::SEE_OTHER
+        );
+        assert_eq!(f.audit_count().await, 2);
+    }
     f.cleanup().await;
     result.unwrap();
 }

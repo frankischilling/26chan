@@ -238,6 +238,31 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         "cleanup" => {
             let mut tx = pool.begin().await?;
+            // Remove only this owned fixture board's pending work and receipts.
+            // The migration login is NOINHERIT; use its existing owner role
+            // under the transfer gate, then restore the ordinary fixture role.
+            sqlx::query("SET LOCAL ROLE board_thread_transfer_owner")
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query("SELECT singleton FROM post_secrets.thread_transfer_gate FOR UPDATE")
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query("RESET ROLE").execute(&mut *tx).await?;
+            let owned: Option<bool> = sqlx::query_scalar("SELECT true FROM content.boards WHERE slug=$1 AND title='Synthetic staff test' AND description='Harmless fixtures' FOR UPDATE")
+                .bind(board).fetch_optional(&mut *tx).await?;
+            if owned != Some(true) {
+                return Err("Owned staff fixture board is missing".into());
+            }
+            sqlx::query("SET LOCAL ROLE board_thread_transfer_owner")
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query("DELETE FROM post_secrets.thread_transfer_intents WHERE source_board=$1 OR destination_board=$1")
+                .bind(board).execute(&mut *tx).await?;
+            sqlx::query("DELETE FROM post_secrets.thread_transfer_result_posts WHERE request_id IN(SELECT request_id FROM post_secrets.thread_transfer_results WHERE source_board=$1 OR destination_board=$1)")
+                .bind(board).execute(&mut *tx).await?;
+            sqlx::query("DELETE FROM post_secrets.thread_transfer_results WHERE source_board=$1 OR destination_board=$1")
+                .bind(board).execute(&mut *tx).await?;
+            sqlx::query("RESET ROLE").execute(&mut *tx).await?;
             sqlx::query("DELETE FROM staff_identity.sessions WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&mut *tx).await?;
             sqlx::query("DELETE FROM staff_identity.credentials WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&mut *tx).await?;
             sqlx::query("DELETE FROM staff_identity.invitations WHERE account_id=(SELECT id FROM staff_identity.accounts WHERE username=$1)").bind(board).execute(&mut *tx).await?;

@@ -55,6 +55,9 @@ GRANT board_poll_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
 -- Run as the bootstrap administrator before migration 0129 on an existing database.
 CREATE ROLE board_content_erasure_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT board_content_erasure_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+-- Bootstrap before migration 0131 on existing installations. No runtime membership.
+CREATE ROLE board_thread_transfer_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_thread_transfer_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
 -- Bootstrap before migration 0133; application roles cannot assume this identity.
 CREATE ROLE board_report_snapshot_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT board_report_snapshot_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;

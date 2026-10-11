@@ -130,6 +130,7 @@ mod tests {
             comment_format: format,
             staff_authorized_limits: false,
             wordfilter_payload: None,
+            saved_presentation: None,
             dice_result: None,
             fortune_text: None,
             fortune_color: None,
@@ -182,6 +183,30 @@ mod tests {
         assert_eq!(
             keys,
             BTreeSet::from([QuoteTargetKey::new("g", 45).unwrap()])
+        );
+    }
+    #[test]
+    fn frozen_quotes_use_same_late_lexing_as_post_rendering() {
+        let saved = board_domain::saved_presentation::FrozenPresentation::from_saved(
+            board_domain::saved_presentation::SavedCommentRef {
+                comment: ">>00045 >>>/g/46",
+                format: 127,
+                source_board: "g",
+                wordfilter_payload: None,
+                saved_presentation: None,
+                limits: board_domain::PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS),
+            },
+        )
+        .unwrap();
+        let mut frozen = post("search excerpt".into(), 127);
+        frozen.board = "co".into();
+        frozen.saved_presentation = Some(saved.encode().unwrap());
+        assert_eq!(
+            collect_keys(&[frozen]).unwrap(),
+            BTreeSet::from([
+                QuoteTargetKey::new("co", 45).unwrap(),
+                QuoteTargetKey::new("g", 46).unwrap(),
+            ])
         );
     }
 }

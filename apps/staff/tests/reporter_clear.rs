@@ -159,6 +159,16 @@ impl Fixture {
             .unwrap()
     }
 
+    async fn audits(&self) -> Vec<serde_json::Value> {
+        sqlx::query_scalar(
+            "SELECT to_jsonb(a) FROM content.moderation_audit a WHERE account_id=$1 ORDER BY id",
+        )
+        .bind(self.account)
+        .fetch_all(&self.owner)
+        .await
+        .unwrap()
+    }
+
     async fn cleanup(self) {
         let mut cleanup = self.owner.begin().await.unwrap();
         sqlx::query("SELECT slug FROM content.boards WHERE slug=ANY($1) ORDER BY slug FOR UPDATE")
@@ -476,14 +486,30 @@ async fn audit_failure_rolls_back_markers_memberships_and_groups() {
     let f = Fixture::new().await;
     let seed = f.report(0, "open", 31, None, true).await;
     f.report(1, "resolved", 31, None, true).await;
-    let function = format!("reporter_clear_fault_{}", f.boards[0]);
-    assert!(f.boards[0][2..].bytes().all(|b| b.is_ascii_hexdigit()));
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE FUNCTION content.{function}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'owned reporter clear audit failure'; END $$"))).execute(&f.owner).await.unwrap();
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE TRIGGER {function} BEFORE INSERT ON content.moderation_audit FOR EACH ROW WHEN (NEW.board='{}' AND NEW.action='reporter-clear') EXECUTE FUNCTION content.{function}()",f.boards[0]))).execute(&f.owner).await.unwrap();
+    // Validate the owned UUID slug before interpolating DDL identifiers.
+    assert!(f.boards[0].starts_with("rc"));
+    assert_eq!(f.boards[0].len(), 10);
+    assert!(
+        f.boards[0][2..]
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    );
+    assert!(seed > 0);
+    let index = format!("reporter_clear_fault_{}", f.boards[0]);
+    // Keep readiness's trigger/function fingerprint intact while failing the
+    // real late audit INSERT for this board, action, and target only.
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE UNIQUE INDEX {index} ON content.moderation_audit(target_id) WHERE board='{}' AND action='reporter-clear' AND target_id={}", f.boards[0], seed)))
+        .execute(&f.owner).await.unwrap();
+    let seeded_audit: i64 = sqlx::query_scalar("INSERT INTO content.moderation_audit(account_id,board,target_id,action,reporter_clear_count) VALUES($1,$2,$3,'reporter-clear',1) RETURNING id")
+        .bind(f.account).bind(&f.boards[0]).bind(seed)
+        .fetch_one(&f.owner).await.unwrap();
     let result = tokio::spawn({
         let f = f.clone();
         async move {
+            auth::check_identity(&f.auth, "board_auth").await.unwrap();
+            auth::check_identity(&f.staff, "board_staff").await.unwrap();
             let history = f.history().await;
+            let audits_before = f.audits().await;
             let members = f.membership().await;
             assert_eq!(f.clear(0, seed).await.0, StatusCode::SERVICE_UNAVAILABLE);
             assert_eq!(f.history().await, history);
@@ -491,16 +517,29 @@ async fn audit_failure_rolls_back_markers_memberships_and_groups() {
             assert_eq!(f.group(0).await, Some((0, true)));
             assert_eq!(f.group(1).await, Some((0, true)));
             assert!(f.marked().await.is_empty());
-            assert_eq!(f.audit_count().await, 0);
+            assert_eq!(f.audit_count().await, 1);
+            assert_eq!(
+                f.audits().await,
+                audits_before,
+                "existing audit evidence is unchanged"
+            );
         }
     })
     .await;
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
-        "DROP TRIGGER {function} ON content.moderation_audit; DROP FUNCTION content.{function}()"
-    )))
-    .execute(&f.owner)
-    .await
-    .unwrap();
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("DROP INDEX content.{index}")))
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.moderation_audit WHERE id=$1 AND account_id=$2")
+        .bind(seeded_audit)
+        .bind(f.account)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    if result.is_ok() {
+        assert_eq!(f.clear(0, seed).await.0, StatusCode::OK);
+        assert_eq!(f.audit_count().await, 1);
+    }
     f.cleanup().await;
     result.unwrap();
 }

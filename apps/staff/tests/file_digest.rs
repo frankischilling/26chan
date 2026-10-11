@@ -47,13 +47,14 @@ impl Fixture {
                 .unwrap();
         sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES ($1,$2,$1,'Synthetic','','Keep this text')")
             .bind(post).bind(&board).execute(&owner).await.unwrap();
-        let report = sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES ($1,$2,'Synthetic') RETURNING id")
-            .bind(&board).bind(post).fetch_one(&owner).await.unwrap();
         let asset = uuid::Uuid::new_v4().simple().to_string();
         sqlx::query("INSERT INTO media.assets(id,job_id,lease_token,sha256,bytes,width,height,state,approved_at,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,output_format) VALUES ($1,$1,$1,repeat('a',64),100,500,300,'approved',clock_timestamp(),$2,CASE WHEN $2::text IS NOT NULL THEN repeat('c',64) END,CASE WHEN $2::text IS NOT NULL THEN 50 END,CASE WHEN $2::text IS NOT NULL THEN 250 END,CASE WHEN $2::text IS NOT NULL THEN 150 END,$3)")
             .bind(&asset).bind(digest).bind(output_format).execute(&owner).await.unwrap();
         sqlx::query("INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler) VALUES ($1,$2,$2,$3,100,500,300,false)")
             .bind(post).bind(&asset).bind("<img src=x onerror=alert(1)> & \"name\".png").execute(&owner).await.unwrap();
+        // Capture the approved media metadata when admitting the complete post.
+        let report = sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES ($1,$2,'Synthetic') RETURNING id")
+            .bind(&board).bind(post).fetch_one(&owner).await.unwrap();
         // Parallel cases deliberately reuse digest bytes. Keep each report
         // queue scoped to its fixture instead of observing another case's rows.
         let account: i64 = sqlx::query_scalar(

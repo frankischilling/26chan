@@ -1,0 +1,7 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Thread Moved</title></head><body><main>
+<h1>Thread Moved</h1>
+<p>Moved {{ result.post_count }} posts from /{{ result.source_board }}/{{ result.source_thread }} to /{{ result.destination_board }}/{{ result.destination_thread }}. The original thread was deleted.</p>
+<p><a href="{{ public_origin }}/{{ result.destination_board }}/thread/{{ result.destination_thread }}" rel="noopener noreferrer" referrerpolicy="no-referrer">Open the moved thread</a></p>
+<p>Recorded action: {{ result.audit_id }}. Request: {{ result.request_id }}.</p>
+<p><a href="/reports">Return to report queue</a></p>
+</main></body></html>

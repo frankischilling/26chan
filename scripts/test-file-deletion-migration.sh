@@ -223,6 +223,8 @@ fi
 "${admin[@]}" -f - < scripts/report-snapshot-upgrade-expectations.sql
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
+ THEN RAISE EXCEPTION 'File action created frozen presentation content'; END IF;
  -- Only live targets 2/3, their thread clocks, media flag 2 and reports on
  -- exact administrative target 2 may differ from the populated upgrade.
  IF EXISTS(

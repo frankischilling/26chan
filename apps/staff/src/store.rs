@@ -26,6 +26,7 @@ pub struct Report {
     pub comment_format: i16,
     pub staff_authorized_limits: bool,
     pub wordfilter_payload: Option<Vec<u8>>,
+    pub saved_presentation: Option<Vec<u8>>,
     pub state: String,
     pub closed: bool,
     pub sticky: bool,

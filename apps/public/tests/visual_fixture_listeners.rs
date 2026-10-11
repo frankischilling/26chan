@@ -14,6 +14,12 @@ use tokio::{
     sync::oneshot,
 };
 
+// The OS allocates ephemeral IPv4 and IPv6 ports independently. These tests
+// reserve one family and then claim the same port in the other; running their
+// reservations concurrently can make two owned fixtures select the same port.
+// Keep the real dual-family, refusal and shutdown assertions unchanged.
+static NETWORK_FIXTURE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 #[test]
 fn profile_is_finite_and_defaults_to_dual_loopback() {
     assert_eq!(
@@ -75,6 +81,7 @@ async fn request(address: SocketAddr) -> String {
 
 #[tokio::test]
 async fn dual_loopback_serves_identical_router_and_closes_both_listeners() {
+    let _fixture = NETWORK_FIXTURE.lock().await;
     let bound = bind_media(MediaProfile::DualLoopback, 0)
         .await
         .expect("both loopback families are required");
@@ -112,6 +119,7 @@ async fn dual_loopback_serves_identical_router_and_closes_both_listeners() {
 
 #[tokio::test]
 async fn diagnostic_profile_preserves_ipv4_only_workload() {
+    let _fixture = NETWORK_FIXTURE.lock().await;
     let bound = bind_media(MediaProfile::Ipv4Only, 0).await.unwrap();
     assert_eq!(bound.len(), 1);
     let address = bound[0].local_addr().unwrap();
@@ -139,6 +147,7 @@ async fn diagnostic_profile_preserves_ipv4_only_workload() {
 
 #[tokio::test]
 async fn ipv6_bind_failure_is_visible_and_releases_partial_ipv4_bind() {
+    let _fixture = NETWORK_FIXTURE.lock().await;
     let occupied = TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).await.unwrap();
     let port = occupied.local_addr().unwrap().port();
     // Verify this is a usable IPv4 port before exercising the second-bind error.
@@ -158,6 +167,7 @@ async fn ipv6_bind_failure_is_visible_and_releases_partial_ipv4_bind() {
 
 #[tokio::test]
 async fn shutdown_signal_error_still_releases_listener() {
+    let _fixture = NETWORK_FIXTURE.lock().await;
     let bound = bind_media(MediaProfile::Ipv4Only, 0).await.unwrap();
     let address = bound[0].local_addr().unwrap();
     let error = listeners::serve(
@@ -175,6 +185,7 @@ async fn shutdown_signal_error_still_releases_listener() {
 
 #[tokio::test]
 async fn shutdown_closes_an_existing_keep_alive_connection() {
+    let _fixture = NETWORK_FIXTURE.lock().await;
     let bound = bind_media(MediaProfile::Ipv4Only, 0).await.unwrap();
     let address = bound[0].local_addr().unwrap();
     let app = Router::new().route("/media", get(|| async { "keep-alive media" }));
@@ -215,6 +226,7 @@ async fn shutdown_closes_an_existing_keep_alive_connection() {
 
 #[tokio::test]
 async fn bounded_shutdown_drops_pending_handler_and_streaming_body() {
+    let _fixture = NETWORK_FIXTURE.lock().await;
     use std::{
         pin::Pin,
         sync::{
