@@ -1,7 +1,7 @@
 import { FILTER_LIMITS } from './native-filter-limits.js';
 import { isCommentElement } from './native-wordfilter-markup.js';
 
-// Public extension v1191 Linkify lexical rules. Offsets address a serialized text
+// Supplied extension Linkify lexical rules. Offsets address a serialized text
 // run with <wbr> represented as ZWS; this module never parses strings as HTML.
 export const LINKIFY_LIMITS = Object.freeze({ characters: 192000, nodes: 32001, depth: 32 });
 const probe = /(?:^|[^\B"])https?:\/\/[-.a-z0-9]+\.[a-z]{2,4}/;
@@ -39,7 +39,10 @@ export function sourceLinkSpans(serialized, probed = hasSourceLink(serialized)) 
   return output;
 }
 
-const escapeText = ch => ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch;
+// Match HTML text-node serialization, including NBSP. The source operates on
+// innerHTML, so this spelling participates in both the URL and its parameter.
+const escapeText = ch => ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;'
+  : ch === '\u00a0' ? '&nbsp;' : ch;
 const generated = 'data-native-linkified';
 
 // Runs cannot cross an element boundary except a soft break. Build a complete
@@ -100,7 +103,9 @@ function planMessage(message, projection) {
     for (const node of parent.childNodes) {
       if (projection?.has(node)) continue;
       if (++nodes > LINKIFY_LIMITS.nodes) throw new RangeError('link-nodes');
-      if (node.nodeType === 3) characters += (projection?.sourceText(node) ?? node.data).length * 5;
+      if (node.nodeType === 3) {
+        for (const ch of projection?.sourceText(node) ?? node.data) characters += escapeText(ch).length;
+      }
       else if (node.nodeType === 1 && isCommentElement(node, projection?.attributes(node) ?? node.attributes)) { attributes(node); charge(node, depth + 1); }
       else throw new TypeError('link-node');
       if (characters > LINKIFY_LIMITS.characters) throw new RangeError('link-characters');
@@ -125,7 +130,7 @@ function decorateMessage(message, planned, projection) {
     const anchor = document.createElement('a');
     anchor.setAttribute('href', `/derefer?url=${parameter}`);
     anchor.target = '_blank'; anchor.className = 'linkified';
-    anchor.rel = 'noreferrer ugc noopener';
+    anchor.rel = 'noreferrer nofollow noopener';
     anchor.setAttribute(generated, 'true');
     anchor.append(range.extractContents()); range.insertNode(anchor);
   }
