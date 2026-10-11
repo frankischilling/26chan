@@ -386,7 +386,23 @@ async fn clear_matches_flat_identity_union_across_boards_without_rewriting_histo
                 assert_eq!(f.request("/moderate",Some(format!("csrf={}&board={}&target={id}&action={action}",f.csrf,if id==seed {&f.boards[0]} else {&f.boards[1]}))).await.0,StatusCode::NOT_FOUND);
             }
         }
-        assert!(queue.1.contains(&format!("name=\"report_id\" value=\"{transitive_actor}\"")));
+        // Retained inventory groups by board/post, independently of private
+        // active membership. The newest open retained row represents board 0,
+        // including the historical row whose clear action correctly failed above.
+        for (board, selected, count) in [(0, historical, 3), (1, transitive_automatic, 1)] {
+            let marker = format!("<article id=\"report-group-{}-{}\">", f.boards[board], f.posts[board]);
+            assert_eq!(queue.1.matches(&marker).count(), 1);
+            let group = queue.1.split(&marker).nth(1).unwrap().split("</article>").next().unwrap();
+            assert_eq!(group.matches("<div id=\"report-").count(), 1);
+            assert!(group.contains(&format!("<div id=\"report-{selected}\">")));
+            assert!(group.contains(&format!("Selected report ID: {selected}.")));
+            assert!(group.contains(&format!("Uncleared retained reports: {count}.")));
+            assert!(group.contains(&format!("name=\"report_id\" value=\"{selected}\"")));
+        }
+        for hidden_member in [transitive_actor, null_identity] {
+            assert!(!queue.1.contains(&format!("id=\"report-{hidden_member}\"")));
+            assert!(!queue.1.contains(&format!("name=\"report_id\" value=\"{hidden_member}\"")));
+        }
         assert_eq!(f.history().await,before);
         assert_eq!(f.audit_count().await,1);
         // A NULL seed identity only matches its actor, not other NULL rows.

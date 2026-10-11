@@ -681,19 +681,25 @@ pub async fn login_finish(
     set_cookie(&mut response, &state, &ceremony_cookie(&state), "", 0)?;
     Ok(response)
 }
-pub async fn queue(State(state): Shared, headers: HeaderMap) -> Result<Html<String>, AppError> {
+pub async fn queue(
+    State(state): Shared,
+    headers: HeaderMap,
+    axum::extract::RawQuery(raw): axum::extract::RawQuery,
+) -> Result<Html<String>, AppError> {
     let mut authority = auth::guard(&state, &headers).await?;
     let session = &authority.session;
     let csrf = auth::cookie(&headers, &csrf_cookie(&state))?;
     auth::csrf(session, &csrf)?;
-    let reports = store::reports(&state.staff, session)
-        .await?
-        .into_iter()
-        .map(views::Preview::from)
-        .collect();
+    let filter = crate::report_queue_query::parse(raw.as_deref())?;
+    let page = crate::report_queue::load(&state.staff, session, filter).await?;
+    let (filter_label, filter_board) = views::queue_filter(&page.filter);
+    let reports = page.groups.into_iter().map(views::Preview::from).collect();
     let html = views::Queue {
         media_origin: state.config.media_origin.clone(),
         reports,
+        filter_label,
+        filter_board,
+        has_more: page.has_more,
         csrf,
         recent: session.recent,
         can_permaage: session.permissions.can_set_permaage(&session.role),
