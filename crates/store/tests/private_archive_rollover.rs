@@ -236,7 +236,7 @@ fn context(actor: u8) -> PostingContext {
 #[tokio::test]
 async fn private_active_threads_survive_while_archive_cleanup_and_rejections_remain_effective() {
     let _serial = TEST.lock().await;
-    for retention in [0, 3600] {
+    for retention in [0, 3600, -1] {
         let f = Fixture::new().await;
         let work = f.clone();
         let result = tokio::spawn(async move {
@@ -255,11 +255,13 @@ async fn private_active_threads_survive_while_archive_cleanup_and_rejections_rem
                 replies.push(reply);
             }
             // Seed archives through real staff posts, changing only owned
-            // lifecycle metadata. Only enabled age-based retention removes archives.
+            // lifecycle metadata. The expired root is older than the current
+            // one-hour policy, even after policy reconciliation. Unlimited age
+            // and disabled archives must both preserve its stored content.
             let expired = f.write(0, 40, true).await.unwrap();
             let over_cap = f.write(0, 41, true).await.unwrap();
             let retained = f.write(0, 42, true).await.unwrap();
-            for (id, age, expired) in [(expired, 90_i64, true), (over_cap, 300, false), (retained, 100, false)] {
+            for (id, age, expired) in [(expired, 7200_i64, true), (over_cap, 300, false), (retained, 100, false)] {
                 sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp()-make_interval(secs=>$2::double precision),archive_expires_at=clock_timestamp()+make_interval(secs=>$3::double precision) WHERE id=$1 AND board=$4")
                     .bind(id).bind(age).bind(if expired { -60_i64 } else { 3600 }).bind(&f.board).execute(&f.owner).await.unwrap();
             }

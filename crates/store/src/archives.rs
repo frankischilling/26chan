@@ -57,7 +57,7 @@ pub async fn archive_page_snapshot(
         .execute(&mut *tx)
         .await?;
     let board: Board = sqlx::query_as(
-        "SELECT * FROM content.boards WHERE slug=$1 AND archive_retention_seconds>0",
+        "SELECT * FROM content.boards WHERE slug=$1 AND archive_retention_seconds<>0",
     )
     .bind(slug)
     .fetch_optional(&mut *tx)
@@ -95,7 +95,7 @@ async fn read_archive_snapshot(
         .execute(&mut *tx)
         .await?;
     let board: Board = sqlx::query_as(
-        "SELECT * FROM content.boards WHERE slug=$1 AND archive_retention_seconds>0",
+        "SELECT * FROM content.boards WHERE slug=$1 AND archive_retention_seconds<>0",
     )
     .bind(slug)
     .fetch_optional(&mut *tx)
@@ -159,8 +159,8 @@ pub(crate) async fn make_room(
                     "Board capacity requires operator reconciliation.",
                 ));
             }
-            if board.archive_retention_seconds > 0 {
-                sqlx::query("UPDATE content.threads SET archived_at=statement_timestamp(),archive_expires_at=statement_timestamp()+make_interval(secs => $3::double precision),bumped_at=statement_timestamp() WHERE board=$1 AND id=ANY($2)")
+            if board.archives_enabled() {
+                sqlx::query("UPDATE content.threads SET archived_at=statement_timestamp(),archive_expires_at=CASE WHEN $3::integer=-1 THEN 'infinity'::timestamptz ELSE statement_timestamp()+make_interval(secs => $3::double precision) END,bumped_at=statement_timestamp() WHERE board=$1 AND id=ANY($2)")
                     .bind(&board.slug).bind(&victims).bind(board.archive_retention_seconds).execute(&mut **tx).await?;
             } else {
                 sqlx::query("UPDATE content.threads SET deleted=true,modified_at=clock_timestamp() WHERE board=$1 AND id=ANY($2)")
@@ -196,7 +196,7 @@ pub(crate) async fn autoarchive_after_reply(
     if !should_autoarchive(board.autoarchive_cap, true, sticky, undead, true, replies) {
         return Ok(());
     }
-    sqlx::query("UPDATE content.threads SET archived_at=statement_timestamp(),archive_expires_at=statement_timestamp()+make_interval(secs => $3::double precision),bumped_at=statement_timestamp() WHERE board=$1 AND id=$2")
+    sqlx::query("UPDATE content.threads SET archived_at=statement_timestamp(),archive_expires_at=CASE WHEN $3::integer=-1 THEN 'infinity'::timestamptz ELSE statement_timestamp()+make_interval(secs => $3::double precision) END,bumped_at=statement_timestamp() WHERE board=$1 AND id=$2")
         .bind(&board.slug).bind(parent).bind(board.archive_retention_seconds)
         .execute(&mut **tx).await?;
     Ok(())

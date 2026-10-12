@@ -26,11 +26,12 @@ readers that support the larger thread cardinality.
 ## Board policy
 
 Migration 0009 introduced archive retention and count settings. Migration 0086
-adds the source rollover-order setting. All remain operator-owned:
+adds the source rollover-order setting. Migration 0138 adds unlimited age and
+current-policy deadline updates. All remain operator-owned:
 
 | Setting | Range and default | Behavior |
 |---|---|---|
-| `archive_retention_seconds` | 0 through 2,592,000; default 0 | Zero disables archives; positive values fix each newly archived thread's lifetime |
+| `archive_retention_seconds` | -1 through 2,592,000; default 0 | Zero disables archives; -1 enables unlimited age; positive seconds apply to all retained archives |
 | `archive_limit` | Legacy column, 1 through 1,000 | Preserved for compatibility; no longer deletes archives |
 | `expire_neglected` | Boolean; default true, false on `/f/` | True chooses oldest bump clock; false chooses oldest OP number |
 
@@ -42,13 +43,12 @@ SET archive_retention_seconds=86400
 WHERE slug='demo';
 ```
 
-Runtime logins cannot change these settings. Increasing retention does not
-extend existing expiry timestamps. Disabling archives hides existing archived
-threads immediately; re-enabling may expose still-unexpired entries that have
-not been deleted. JSON reads return the complete retained set within the
+Runtime logins cannot change these settings. Retention changes recompute live
+archive deadlines from their archive times and require Read Committed isolation.
+Disabling archives hides existing archived threads immediately. Re-enabling
+applies the current policy to entries that have not been deleted. JSON reads return the complete retained set within the
 [archive reader budgets](archive-storage.md#reader-limits); the independent HTML
-read ceiling is 3,000 summaries. Fixed saved expiry still differs from the source's
-current-policy age calculation. Rollover ordering follows `EXPIRE_NEGLECTED`, including the active
+read ceiling is 3,000 summaries. Unlimited age skips age cleanup. Rollover ordering follows `EXPIRE_NEGLECTED`, including the active
 `/f/` override. Equal bump clocks use OP number as a deterministic local tie-break.
 
 Private boards skip active-thread rollover, matching the early return for

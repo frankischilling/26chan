@@ -64,6 +64,12 @@ def short_title(slug, title, historical_titles=False):
     return re.sub(rf"^{prefix}\s*-\s*", "", title)
 
 
+def archive_retention(enabled, hours):
+    if hours < 0:
+        raise ValueError("Archive age cannot be negative.")
+    return (hours * 3600 or -1) if enabled else 0
+
+
 def extract(root, names_encoding="utf-8", historical_titles=False):
     slugs = (root / "boardlist.txt").read_text(encoding="utf-8").split()
     if len(slugs) != len(set(slugs)) or any(not re.fullmatch(r"[a-z0-9]{1,10}", slug) for slug in slugs):
@@ -124,7 +130,7 @@ def extract(root, names_encoding="utf-8", historical_titles=False):
             "user_thread_limit": integer("MAX_USER_THREADS"),
             "user_thread_period_hours": integer("MAX_USER_THREADS_PERIOD"),
             "can_report_posts": boolean("CAN_REPORT_POSTS"),
-            "archive_retention_seconds": integer("ARCHIVE_MAX_AGE") * 3600 if boolean("ENABLE_ARCHIVE") else 0,
+            "archive_retention_seconds": archive_retention(boolean("ENABLE_ARCHIVE"), integer("ARCHIVE_MAX_AGE")),
             "json_tail_size": integer("JSON_TAIL_SIZE"), "permasage_hours": integer("PERMASAGE_HOURS"),
             "catalog_enabled": boolean("ENABLE_CATALOG"), "json_enabled": boolean("ENABLE_JSON"),
             "staff_only": boolean("JANITOR_BOARD"), "upload_board": boolean("UPLOAD_BOARD"),
