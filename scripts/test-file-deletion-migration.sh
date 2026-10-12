@@ -236,6 +236,25 @@ PYEXPECT
  "${admin[@]}" -f - < "$cluster/autoarchive-expectation.sql"
 fi
 "${admin[@]}" -f - < scripts/report-snapshot-upgrade-expectations.sql
+# Extend the saved baseline only with the reviewed additive retention fields.
+# Neither migration sweeps existing media payloads or moderation snapshots.
+"${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('snapshot_expires_at',
+ CASE WHEN value->>'snapshot_version' IS NOT NULL
+ THEN (value->>'created_at')::timestamptz+interval '720 hours' ELSE NULL END)
+WHERE relation='content.moderation_audit';
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('metadata_erased',false)
+WHERE relation='content.post_media';
+DO $$ BEGIN
+ IF content.moderation_retention_ready() IS DISTINCT FROM true
+ OR (SELECT count(*) FROM post_secrets.moderation_retention_catalog)<>1
+ THEN RAISE EXCEPTION 'Additive retention catalog is not ready'; END IF;
+END $$;
+INSERT INTO public.upgraded_rows VALUES(
+ 'post_secrets.moderation_retention_catalog',
+ jsonb_build_object('singleton',true,'definition_hash',
+  '\x'||encode(post_secrets.moderation_retention_catalog_hash(),'hex')));
+SQL
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
