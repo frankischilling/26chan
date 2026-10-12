@@ -142,7 +142,11 @@ async fn saved_staff_identities_and_omitted_badge_replies_follow_source_json_acr
         let persisted: (String, Option<String>, Option<String>) = sqlx::query_as("SELECT name,trip,poster_id FROM content.posts WHERE id=$1")
             .bind(thread).fetch_one(&owner).await.unwrap();
         assert_eq!(persisted, ("Owned & \"".into(), None, Some("Ab12+/CD".into())));
-        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) SELECT nextval('content.post_number'),$1,$2,'Anonymous','','Owned snapshot limit fixture' FROM generate_series(1,1001)")
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) SELECT nextval('content.post_number'),$1,$2,'Anonymous','','Owned snapshot limit fixture' FROM generate_series(1,1500)")
+            .bind(&board).bind(empty).execute(&owner).await.unwrap();
+        // The source autoarchive ceiling allows 1,500 replies plus the OP.
+        assert!(board_store::json_board_snapshot(&public,&board,board_store::BoardSelection::All,5).await.is_ok());
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES(nextval('content.post_number'),$1,$2,'Anonymous','','Owned excess snapshot fixture')")
             .bind(&board).bind(empty).execute(&owner).await.unwrap();
         assert!(matches!(board_store::json_board_snapshot(&public,&board,board_store::BoardSelection::All,5).await,Err(board_store::StoreError::ReadLimit)));
         sqlx::query("UPDATE content.boards SET staff_only=true WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
