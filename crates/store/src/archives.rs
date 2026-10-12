@@ -65,12 +65,15 @@ pub async fn archive_page_snapshot(
     .ok_or(StoreError::NotFound)?;
     // Apply the source HTML window and 3,000-row ceiling before fetching bodies.
     // JSON has a separate complete-list contract.
-    let bytes: i64 = sqlx::query_scalar("SELECT coalesce(sum(body_bytes),0)::bigint FROM (SELECT octet_length(p.subject)::bigint+octet_length(p.comment)+coalesce(octet_length(p.wordfilter_payload),0)+coalesce(octet_length(p.wordfilter_search),0)+coalesce(octet_length(p.saved_presentation),0)+coalesce(octet_length(p.saved_presentation_search),0)+coalesce(octet_length(p.dice_result),0)+coalesce(octet_length(p.fortune_text),0)+coalesce(octet_length(p.fortune_color),0) AS body_bytes FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000) selected")
+    // The lateral primary-key lookup prevents stale board statistics from
+    // reversing the join into one full thread scan for every post. LIMIT 1
+    // preserves the unique-ID join and keeps the post RLS policy in force.
+    let bytes: i64 = sqlx::query_scalar("SELECT coalesce(sum(body_bytes),0)::bigint FROM (SELECT octet_length(p.subject)::bigint+octet_length(p.comment)+coalesce(octet_length(p.wordfilter_payload),0)+coalesce(octet_length(p.wordfilter_search),0)+coalesce(octet_length(p.saved_presentation),0)+coalesce(octet_length(p.saved_presentation_search),0)+coalesce(octet_length(p.dice_result),0)+coalesce(octet_length(p.fortune_text),0)+coalesce(octet_length(p.fortune_color),0) AS body_bytes FROM content.visible_threads t JOIN LATERAL (SELECT p.* FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000) selected")
         .bind(slug).fetch_one(&mut *tx).await?;
     if bytes > MAX_ARCHIVE_PAGE_READ_BYTES as i64 {
         return Err(StoreError::ReadLimit);
     }
-    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at,p.comment,p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.saved_presentation,p.dice_result,p.fortune_text,p.fortune_color FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000")
+    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at,p.comment,p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.saved_presentation,p.dice_result,p.fortune_text,p.fortune_color FROM content.visible_threads t JOIN LATERAL (SELECT p.* FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000")
         .bind(slug).fetch_all(&mut *tx).await?;
     let navigation_boards = crate::read::snapshot_navigation(&mut tx, true).await?;
     tx.commit().await?;
@@ -100,12 +103,14 @@ async fn read_archive_snapshot(
     .ok_or(StoreError::NotFound)?;
     // JSON lists every retained archive ID, independently of the HTML window.
     // Count one beyond the finite reader budget, then reject the entire response.
-    let (count, bytes): (i64, i64) = sqlx::query_as("SELECT count(*),coalesce(sum(octet_length(subject)),0)::bigint FROM (SELECT p.subject FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT $2) selected")
+    // Use the same per-thread post lookup as HTML even when statistics predict
+    // just one row for a newly populated board.
+    let (count, bytes): (i64, i64) = sqlx::query_as("SELECT count(*),coalesce(sum(octet_length(subject)),0)::bigint FROM (SELECT p.subject FROM content.visible_threads t JOIN LATERAL (SELECT p.* FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT $2) selected")
         .bind(slug).bind(MAX_ARCHIVE_JSON_ENTRIES as i64 + 1).fetch_one(&mut *tx).await?;
     if count > MAX_ARCHIVE_JSON_ENTRIES as i64 || bytes > MAX_ARCHIVE_PAGE_READ_BYTES as i64 {
         return Err(StoreError::ReadLimit);
     }
-    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT $2")
+    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN LATERAL (SELECT p.* FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT $2")
         .bind(slug).bind(MAX_ARCHIVE_JSON_ENTRIES as i64).fetch_all(&mut *tx).await?;
     let navigation_boards = crate::read::snapshot_navigation(&mut tx, include_navigation).await?;
     tx.commit().await?;

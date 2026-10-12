@@ -25,6 +25,11 @@ are backend resource limits, not source archive-retention rules. The HTTP layer
 also keeps its configured response and shared-buffer budgets. An oversized
 response fails with 503 instead of returning a partial list.
 
+Each archive thread looks up its unique OP directly. This prevents stale board
+statistics from reversing the join into repeated full-board scans. Both JSON
+and HTML retain the database role's five-second statement limit and existing
+visibility checks.
+
 Board policy, entry count, byte count and rows are read in one repeatable-read
 transaction. A conditional request still checks visibility before returning 304.
 A matching ETag cannot expose a disabled or private board.
@@ -44,6 +49,11 @@ The tests in `crates/store/tests/archive_storage.rs` cover storage beyond the ol
 cap, separate JSON/HTML windows, rollover clocks, disabled retention, and complete
 reader-budget boundaries. `apps/public/tests/archive_storage_api.rs` exercises
 both JSON listeners, ETags, the HTML limit and configured response-budget refusal.
+
+The separate `archive_stale_statistics` regression analyzes an old board, retires
+it, then reads 10,001 archives on a new board without refreshing statistics. It
+checks complete JSON, the HTML window and private-board refusal using the actual
+public role.
 
 Source references: `imgboard.php` functions `archive_thread`, `trim_archive` and
 `rebuild_archive_list`, and `json.php` function `generate_board_archived_json` in
