@@ -187,7 +187,7 @@ pub(crate) async fn prepare_moderation(
     if action == "force-archive" {
         // Source forcearchive requires an archive-enabled board and an actual
         // nonsticky OP. Undead protects automatic pruning, not this action.
-        if archive_retention_seconds <= 0 {
+        if archive_retention_seconds == 0 {
             return Err(AppError::Invalid);
         }
         let (archived, sticky): (bool, bool) = sqlx::query_as(
@@ -210,7 +210,7 @@ pub(crate) async fn prepare_moderation(
         sqlx::query(
             "WITH stamp AS MATERIALIZED (SELECT clock_timestamp() AS at) \
              UPDATE content.threads SET closed=true,archived_at=stamp.at,\
-             archive_expires_at=stamp.at+make_interval(secs=>$3::integer),\
+             archive_expires_at=CASE WHEN $3::integer=-1 THEN 'infinity'::timestamptz ELSE stamp.at+make_interval(secs=>$3::integer) END,\
              bumped_at=stamp.at,modified_at=stamp.at FROM stamp WHERE board=$1 AND id=$2",
         )
         .bind(board)

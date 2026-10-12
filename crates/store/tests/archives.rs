@@ -652,8 +652,8 @@ async fn reply_and_rollover_serialize(owner: &PgPool, public: &PgPool, slug: &st
             .await
             .unwrap()
             .archive_expires_at,
-        before.archive_expires_at,
-        "changing policy must not extend an existing archive lifetime"
+        before.archived_at.map(|at| at + chrono::Duration::days(1)),
+        "current retention applies to archives that are still stored"
     );
     // The same protection predicate applies when ordinary rollover soft-deletes.
     sqlx::query("UPDATE content.boards SET archive_retention_seconds=0 WHERE slug=$1")

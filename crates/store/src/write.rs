@@ -803,7 +803,7 @@ async fn create_post_in_context(
         let thread: Thread = sqlx::query_as("SELECT * FROM content.threads WHERE board=$1 AND id=$2 AND NOT deleted AND EXISTS(SELECT 1 FROM content.visible_threads WHERE board=$1 AND id=$2) FOR UPDATE")
             .bind(slug).bind(parent).fetch_optional(&mut *tx).await?.ok_or(StoreError::NotFound)?;
         let autoarchive = board.autoarchive_cap > 0
-            && board.archive_retention_seconds > 0
+            && board.archives_enabled()
             && !thread.sticky
             && !thread.undead;
         let (reply_count, reply_limit) = if autoarchive {
@@ -1346,7 +1346,7 @@ async fn create_post_in_context(
             .bind(visible_after)
             .bind(slug)
             .bind((thread.sticky && thread.undead && board.reply_limit > 1)
-                || (board.autoarchive_cap > 0 && board.archive_retention_seconds > 0
+                || (board.autoarchive_cap > 0 && board.archives_enabled()
                     && !thread.sticky && !thread.undead))
             .execute(&mut *tx)
             .await?;

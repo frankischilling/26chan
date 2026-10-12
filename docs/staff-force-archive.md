@@ -16,7 +16,7 @@ Fetch Metadata and CSRF checks remain in place; authentication is rechecked
 after lock waits and before commit.
 
 The board row is locked before the thread and OP. Archives are enabled when the
-locked board's `archive_retention_seconds` is positive. Disabled archives,
+locked board's `archive_retention_seconds` is positive or -1 (unlimited age). Disabled archives,
 sticky threads and already archived threads return 400. Missing boards or
 threads, reply IDs, and deleted threads or OPs return 404. Invalid request values
 retain the existing form-validation errors. Archive and sticky denials happen
@@ -97,10 +97,10 @@ staff-interface parity:
 
 - The source extension/overlay interaction and full action-log reader are not
   reproduced by the script-free queue form and typed audit row.
-- Existing [archive retention](thread-archives.md) is project policy. Fixed
-  expiry, count limits and public hiding do not reproduce the source's complete
-  `ARCHIVE_MAX_AGE` pruning lifecycle. Force archive does not run a new global
-  age-cleanup sweep; existing automatic cleanup remains separate.
+- [Archive retention](thread-archives.md) applies the current age policy and
+  supports unlimited age. Read-time expiry and retained private records still
+  differ from the source pruning lifecycle. Force archive does not run a new
+  global age-cleanup sweep; automatic cleanup remains separate.
 - This action does not change automatic active-thread victim selection,
   protected-thread handling or the private-board rollover exemption.
 - Source clearing of email, host and pass ID, OP poster-ID regeneration and

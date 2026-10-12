@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod anonymous_session;
+mod archive_deadline;
 mod archives;
 pub mod automatic_admission;
 pub mod blotter;
@@ -182,10 +183,15 @@ pub struct Board {
 }
 
 impl Board {
+    /// Zero disables archives; -1 enables storage without an age limit.
+    pub fn archives_enabled(&self) -> bool {
+        self.archive_retention_seconds != 0
+    }
+
     /// Preserve the source's ordinary autoarchive threshold independently of
     /// the existing sticky/undead reply window.
     pub fn ordinary_reply_limit(&self) -> i32 {
-        if self.archive_retention_seconds > 0 {
+        if self.archives_enabled() {
             self.reply_limit.max(self.autoarchive_cap)
         } else {
             self.reply_limit
@@ -268,6 +274,7 @@ pub struct Thread {
     pub closed: bool,
     pub deleted: bool,
     pub archived_at: Option<DateTime<Utc>>,
+    #[sqlx(try_from = "archive_deadline::ArchiveDeadline")]
     pub archive_expires_at: Option<DateTime<Utc>>,
 }
 

@@ -106,7 +106,7 @@ const SELECT_PREVIEWS: &str = r#"
            (t.closed OR t.archived_at IS NOT NULL) AS closed,
            t.sticky,t.permasage,t.permaage,t.undead,
            (t.archived_at IS NOT NULL) AS archived,
-           (b.archive_retention_seconds>0) AS archives_enabled,
+           (b.archive_retention_seconds<>0) AS archives_enabled,
            (p.deleted OR t.deleted) AS deleted,
            b.comment_spoiler_cleanup AS spoilers_enabled,p.image_spoiler
     FROM content.reports r

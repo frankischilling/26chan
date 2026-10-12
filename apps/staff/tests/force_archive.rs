@@ -686,3 +686,39 @@ fn isolated_source_oracle_pins_rejection_order_and_unchanged_saved_op_fields() {
     assert_eq!(undead["thread"]["undead"], 1);
     assert!(undead["source"]["error"].is_null());
 }
+
+#[tokio::test]
+async fn force_archive_accepts_enabled_unlimited_age_and_keeps_audit() {
+    let f = Fixture::new().await;
+    let result = tokio::spawn({
+        let f = f.clone();
+        async move {
+            f.ready().await;
+            sqlx::query("UPDATE content.boards SET archive_retention_seconds=-1 WHERE slug=$1")
+                .bind(&f.boards[0])
+                .execute(&f.owner)
+                .await
+                .unwrap();
+            assert_eq!(
+                f.action(f.posts[0], "force-archive").await,
+                StatusCode::SEE_OTHER
+            );
+            let after = f.state().await;
+            assert_eq!(after["thread"]["closed"], true);
+            assert_eq!(after["thread"]["archive_expires_at"], "infinity");
+            assert!(after["thread"]["archived_at"].is_string());
+            let audits = f.audits().await;
+            assert_eq!(audits.len(), 1);
+            assert_eq!(audits[0]["action"], "force-archive");
+            assert_eq!(
+                f.action(f.posts[0], "force-archive").await,
+                StatusCode::BAD_REQUEST
+            );
+            assert_eq!(f.state().await, after);
+            assert_eq!(f.audits().await, audits);
+        }
+    })
+    .await;
+    f.cleanup().await;
+    result.unwrap();
+}

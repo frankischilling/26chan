@@ -125,7 +125,7 @@ pub async fn boards(
         },
         "meta_description": board.description, "text_only": 1
         });
-        if board.archive_retention_seconds > 0 {
+        if board.archives_enabled() {
             value["is_archived"] = json!(1);
         }
         if board.require_subject || board.text_only {
