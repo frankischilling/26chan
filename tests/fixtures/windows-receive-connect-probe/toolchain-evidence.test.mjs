@@ -38,7 +38,9 @@ test('actual PowerShell evidence controls cover deadlines, survivors, errors and
   assert.ifError(probe.error);
   assert.equal(probe.status, 0, probe.stderr);
   const result = spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-File', fileURLToPath(new URL('./toolchain-evidence.test.ps1', import.meta.url))], { encoding: 'utf8', timeout: 15000 });
-  assert.ifError(result.error);
+  const stages = [...(result.stderr || '').matchAll(/^evidence-stage: (parse|compile|controls|complete)\r?$/gm)].map(match => match[1]);
+  assert.equal(result.error, undefined, `PowerShell control process ${result.error?.code || 'failed'}; stages: ${stages.join(', ') || 'not entered'}`);
   assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(stages, ['parse', 'compile', 'controls', 'complete']);
   assert.match(result.stdout, /Toolchain evidence controls passed \(7\)\./);
 });

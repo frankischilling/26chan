@@ -220,6 +220,21 @@ pathlib.Path(sys.argv[1]).write_text(sql,encoding='utf-8')
 PY
  "${admin[@]}" -f - < "$cluster/image-policy-expectation.sql"
 fi
+# The source autoarchive migration adds one board field. Extend the saved
+# expectation from the pinned source fixture, never by recapturing live rows.
+if [[ -f migrations/0137_source_autoarchive.sql ]]; then
+ python3 - "$cluster/autoarchive-expectation.sql" <<'PYEXPECT'
+import json, pathlib, re, sys
+fixture=json.loads(pathlib.Path('fixtures/autoarchive-reference.json').read_text(encoding='utf-8'))
+assert fixture['default_cap']==0
+caps=fixture['board_caps']
+assert caps and all(re.fullmatch(r'[a-z0-9]{1,10}',slug) and type(cap) is int and 0<cap<=1500 for slug,cap in caps.items())
+cases=' '.join("WHEN '"+slug+"' THEN "+str(cap) for slug,cap in sorted(caps.items()))
+sql="UPDATE public.upgraded_rows SET value=value||jsonb_build_object('autoarchive_cap',CASE value->>'slug' "+cases+" ELSE 0 END) WHERE relation='content.boards';\n"
+pathlib.Path(sys.argv[1]).write_text(sql,encoding='utf-8')
+PYEXPECT
+ "${admin[@]}" -f - < "$cluster/autoarchive-expectation.sql"
+fi
 "${admin[@]}" -f - < scripts/report-snapshot-upgrade-expectations.sql
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
