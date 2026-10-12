@@ -1,6 +1,7 @@
 # Cross-platform deterministic controls; no Windows APIs, compiler or native probe.
 # Extract only the production functions, never execute the hosted entry point.
 $ErrorActionPreference='Stop'
+[Console]::Error.WriteLine('evidence-stage: parse')
 $tokens=$null; $parseErrors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'run-hosted.ps1'),[ref]$tokens,[ref]$parseErrors)
 if ($parseErrors.Count) { throw 'Hosted launcher parse failed.' }
@@ -12,6 +13,7 @@ foreach ($name in @('Save-EnvironmentObservation','Wait-ToolchainEnvironment')) 
 function Assert-Control($Condition,[string]$Label) { if (-not $Condition) { throw ('Evidence control failed: ' + $Label) } }
 # CLR getters match the production object. Explicit get_*() method calls in the
 # observer must surface these exceptions rather than silently returning null.
+[Console]::Error.WriteLine('evidence-stage: compile')
 Add-Type -TypeDefinition @'
 public sealed class ToolchainEvidenceControlChild {
   public bool Finished, RootExited, WaitThrows, ObservationThrows;
@@ -33,6 +35,7 @@ public sealed class ToolchainEvidenceControlChild {
   } }
 }
 '@
+[Console]::Error.WriteLine('evidence-stage: controls')
 function New-ControlChild([bool]$Finished,[bool]$RootExited,[int]$Code,[uint32]$Active,[bool]$WaitThrows=$false,[bool]$ObservationThrows=$false) {
   $child=[ToolchainEvidenceControlChild]::new()
   $child.Finished=$Finished; $child.RootExited=$RootExited; $child.Code=$Code; $child.Active=$Active
@@ -70,4 +73,5 @@ Assert-Control ($null -eq $errorText -and $status.environment_evidence.wait_resu
 $child=New-ControlChild $true $true 0 0 $false $true
 $errorText=Invoke-Control $child
 Assert-Control ($null -eq $errorText -and $status.environment_evidence.wait_result -eq 'completed' -and $status.environment_evidence.observation_failed -and $null -eq $status.environment_evidence.root_exited -and $null -eq $status.environment_evidence.root_exit -and $null -eq $status.environment_evidence.active_processes) 'failed observation preserves successful primary result'
+[Console]::Error.WriteLine('evidence-stage: complete')
 Write-Output 'Toolchain evidence controls passed (7).'

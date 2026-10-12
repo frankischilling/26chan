@@ -160,3 +160,63 @@ pub(crate) async fn make_room(
         .bind(&board.slug).bind(i64::from(board.archive_limit)).bind(board.archive_retention_seconds).execute(&mut **tx).await?;
     Ok(())
 }
+
+/// Caller holds the board and parent locks and has completed reply admission.
+/// Count live replies rather than the lifetime counter, matching source
+/// count_thread_replies after deleted rows have left the original table.
+pub(crate) async fn autoarchive_after_reply(
+    tx: &mut Transaction<'_, Postgres>,
+    board: &Board,
+    parent: i64,
+) -> Result<(), StoreError> {
+    if board.autoarchive_cap == 0 || board.archive_retention_seconds == 0 {
+        return Ok(());
+    }
+    let state: Option<(bool, bool, i64)> = sqlx::query_as("SELECT t.sticky,t.undead,(SELECT count(*) FROM content.posts p WHERE p.board=t.board AND p.thread_id=t.id AND p.id<>t.id AND NOT p.deleted) FROM content.threads t WHERE t.board=$1 AND t.id=$2 AND NOT t.deleted AND t.archived_at IS NULL")
+        .bind(&board.slug).bind(parent).fetch_optional(&mut **tx).await?;
+    let Some((sticky, undead, replies)) = state else {
+        return Ok(());
+    };
+    if !should_autoarchive(board.autoarchive_cap, true, sticky, undead, true, replies) {
+        return Ok(());
+    }
+    sqlx::query("UPDATE content.threads SET archived_at=statement_timestamp(),archive_expires_at=statement_timestamp()+make_interval(secs => $3::double precision),bumped_at=statement_timestamp() WHERE board=$1 AND id=$2")
+        .bind(&board.slug).bind(parent).bind(board.archive_retention_seconds)
+        .execute(&mut **tx).await?;
+    Ok(())
+}
+
+fn should_autoarchive(
+    cap: i32,
+    reply: bool,
+    sticky: bool,
+    undead: bool,
+    enabled: bool,
+    count: i64,
+) -> bool {
+    cap > 0 && reply && !sticky && !undead && enabled && count >= i64::from(cap)
+}
+
+#[cfg(test)]
+mod autoarchive_tests {
+    #[test]
+    fn source_decision_vectors() {
+        let reference: serde_json::Value =
+            serde_json::from_str(include_str!("../../../fixtures/autoarchive-reference.json"))
+                .unwrap();
+        for row in reference["cases"].as_array().unwrap() {
+            assert_eq!(
+                super::should_autoarchive(
+                    row["cap"].as_i64().unwrap() as i32,
+                    row["reply"].as_bool().unwrap(),
+                    row["sticky"].as_bool().unwrap(),
+                    row["undead"].as_bool().unwrap(),
+                    row["enabled"].as_bool().unwrap(),
+                    row["live_replies"].as_i64().unwrap()
+                ),
+                row["archive"].as_bool().unwrap(),
+                "{row}"
+            );
+        }
+    }
+}

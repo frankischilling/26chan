@@ -165,6 +165,7 @@ pub struct Board {
     pub worksafe: bool,
     pub archive_retention_seconds: i32,
     pub archive_limit: i32,
+    pub autoarchive_cap: i32,
     pub image_limit: i32,
     pub max_image_bytes: i64,
     pub min_image_width: i32,
@@ -180,6 +181,16 @@ pub struct Board {
 }
 
 impl Board {
+    /// Preserve the source's ordinary autoarchive threshold independently of
+    /// the existing sticky/undead reply window.
+    pub fn ordinary_reply_limit(&self) -> i32 {
+        if self.archive_retention_seconds > 0 {
+            self.reply_limit.max(self.autoarchive_cap)
+        } else {
+            self.reply_limit
+        }
+    }
+
     /// The ordinary PNG editor uses an already-enabled public upload workflow.
     /// Keep the imported source switch separate from this supported capability.
     pub fn ordinary_drawing_enabled(&self, media_enabled: bool) -> bool {

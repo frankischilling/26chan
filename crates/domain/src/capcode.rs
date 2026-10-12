@@ -159,7 +159,7 @@ pub fn capcode_reply_groups<'a>(
 ) -> Result<std::collections::BTreeMap<&'a str, Vec<i64>>, CapcodeReplyLimit> {
     let mut groups = std::collections::BTreeMap::new();
     for (index, (id, capcode)) in replies.into_iter().enumerate() {
-        if index >= 1000 {
+        if index >= 1500 {
             return Err(CapcodeReplyLimit);
         }
         let group = match capcode {
@@ -223,10 +223,10 @@ mod tests {
     }
 
     #[test]
-    fn badge_reply_groups_keep_the_existing_thousand_reply_bound() {
-        let groups = capcode_reply_groups((1..=1000).map(|id| (id, "admin_highlight"))).unwrap();
-        assert_eq!(groups["admin"], (1..=1000).collect::<Vec<_>>());
-        assert!(capcode_reply_groups((1..=1001).map(|id| (id, "mod"))).is_err());
+    fn badge_reply_groups_fit_the_autoarchive_reply_bound() {
+        let groups = capcode_reply_groups((1..=1500).map(|id| (id, "admin_highlight"))).unwrap();
+        assert_eq!(groups["admin"], (1..=1500).collect::<Vec<_>>());
+        assert!(capcode_reply_groups((1..=1501).map(|id| (id, "mod"))).is_err());
     }
 
     #[test]

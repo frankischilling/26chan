@@ -5,7 +5,7 @@ import { NativeUpdaterTransport, UPDATER_LIMITS, updaterContext, validatePostTre
 import { buildPostTree, checkPostTreeIds } from './native-post-tree.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 
-export const EXPANSION_LIMITS = Object.freeze({ threads: 100, posts: 1000, nodes: 100000, bytes: 4194304, applyMs: 10000 });
+export const EXPANSION_LIMITS = Object.freeze({ threads: 100, posts: 1500, nodes: 100000, bytes: 4194304, applyMs: 10000 });
 
 export function planThreadExpansion(snapshot, context, originalIds) {
   validateSnapshotMetadata(snapshot, context);

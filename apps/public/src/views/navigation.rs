@@ -167,6 +167,7 @@ mod tests {
             threads_per_page: 10,
             worksafe: true,
             archive_retention_seconds: 0,
+            autoarchive_cap: 0,
             archive_limit: 0,
             image_limit: 100,
             max_image_bytes: 4_194_304,

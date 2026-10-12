@@ -137,6 +137,7 @@ impl Fixture {
             custom_spoiler_count: 0,
             spoiler_thumbnail_assets: vec!["spoiler.png".into()],
             archive_retention_seconds: 3600,
+            autoarchive_cap: 0,
             ..board()
         };
         if let Some(slug) = source_board {

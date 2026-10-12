@@ -52,12 +52,12 @@ test('isolated expansion DOM and real parser-worker behavior', async t => {
   const css = await readFile(new URL('../../apps/public/static/board.css', import.meta.url), 'utf8');
   const browser = await chromium.launch({ headless: true });
   try {
-    async function setup({ real = false, snapshot = parsed(), config = {}, limits = {}, apply = 'ok', two = false } = {}) {
+    async function setup({ real = false, snapshot = parsed(), config = {}, limits = {}, apply = 'ok', two = false, source = wire(), originals = [thread, ...ids.slice(3)] } = {}) {
       const browserContext = await browser.newContext();
       const page = await browserContext.newPage(), requests = [], errors = [];
       page.on('pageerror', error => errors.push(error.message));
-      const section = `<section class="thread" id="t${thread}">${[thread, ...ids.slice(3)].map(no => post(no)).join('')}`
-        + `<p class="omitted">2 posts omitted. <a href="/demo/thread/${thread}">View thread</a></p></section>`;
+      const section = `<section class="thread" id="t${thread}">${originals.map(no => post(no)).join('')}`
+        + `<p class="omitted">${source.posts.length - originals.length} posts omitted. <a href="/demo/thread/${thread}">View thread</a></p></section>`;
       const second = two ? '<section class="thread" id="t200"><p class="omitted">1 post omitted. <a href="/demo/thread/200">View thread</a></p></section>' : '';
       await browserContext.route('**/*', async route => {
         const url = new URL(route.request().url());
@@ -67,7 +67,7 @@ test('isolated expansion DOM and real parser-worker behavior', async t => {
         else if (url.pathname === '/favicon.ico') await route.fulfill({ status: 204 });
         else if (url.href === `${origin}/_watch/demo/thread/${thread}/posts`) {
           requests.push({ url: url.href, headers: await route.request().allHeaders() });
-          await route.fulfill({ contentType: 'application/json', body: JSON.stringify(wire()) });
+          await route.fulfill({ contentType: 'application/json', body: JSON.stringify(source) });
         } else { requests.push({ unexpected: url.href }); await route.abort(); }
       });
       await page.goto(`${origin}/demo/`);
@@ -97,6 +97,29 @@ test('isolated expansion DOM and real parser-worker behavior', async t => {
       await page.evaluate(() => deliver());
       await page.waitForFunction(() => !expansion.stats().busy);
     };
+
+    await t.test('1500-reply archive expands through the released worker and collapses without losing original nodes', async () => {
+      const numbers = Array.from({ length: 1501 }, (_, index) => String(BigInt(thread) + BigInt(index)));
+      const source = { ...wire(), replies: 1500, archived: true,
+        posts: numbers.map(no => ({ no, file_deleted: false, html: post(no) })) };
+      const originals = [thread, ...numbers.slice(-3)];
+      const { context, page, requests, errors } = await setup({ real: true, source, originals });
+      try {
+        await page.getByRole('button', { name: `Expand thread ${thread}`, exact: true }).click();
+        await page.waitForFunction(() => document.querySelectorAll('.rExpanded').length === 1497 && !expansion.stats().busy);
+        assert.deepEqual(await page.locator('.thread > .postContainer').evaluateAll(nodes => nodes.map(node => node.id.slice(2))), numbers);
+        assert.equal(await page.evaluate(() => original.every(node => document.getElementById(node.id) === node)), true);
+        await page.getByRole('button', { name: `Collapse thread ${thread}`, exact: true }).click();
+        assert.equal(await page.locator('.rExpanded:visible').count(), 0);
+        assert.deepEqual(await page.locator('.thread > .postContainer:visible').evaluateAll(nodes => nodes.map(node => node.id.slice(2))), originals);
+        assert.equal(await page.evaluate(() => original.every(node => document.getElementById(node.id) === node)), true);
+        await page.getByRole('button', { name: `Expand thread ${thread}`, exact: true }).click();
+        assert.equal(await page.locator('.rExpanded:visible').count(), 1497);
+        assert.deepEqual(await page.locator('.thread > .postContainer:visible').evaluateAll(nodes => nodes.map(node => node.id.slice(2))), numbers);
+        assert.equal(requests.length, 1);
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
 
     await t.test('parsing completion describes only the new prefix and precedes expansion completion', async () => {
       const { context, page } = await setup();

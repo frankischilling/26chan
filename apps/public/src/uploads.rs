@@ -104,9 +104,14 @@ async fn settings(
     settings.check_attachment_allowed(resto, true)?;
     if resto > 0 {
         let thread = board_store::thread(&state.pool, board, resto).await?;
+        let reply_limit = if !thread.sticky && !thread.undead {
+            settings.ordinary_reply_limit()
+        } else {
+            settings.reply_limit
+        };
         if thread.archived_at.is_some()
             || thread.closed
-            || (thread.reply_count >= settings.reply_limit
+            || (thread.reply_count >= reply_limit
                 && !(thread.sticky && thread.undead && settings.reply_limit > 1))
         {
             return Err(AppError(
