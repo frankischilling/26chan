@@ -1,5 +1,10 @@
 # Thread rollover and archives
 
+Historical design for the initial archive implementation. The source audit and
+later changes supersede its protected-thread rejection, count-based storage and
+1,000-entry reader rules. Use [current archive notes](thread-archives.md) and
+[archive storage](archive-storage.md) for implemented behavior.
+
 Implement compatibility I-006 and the documented archive fields in I-001/I-002.
 The pinned public Archive.md describes read-only threads displaced from the last
 board page, retained temporarily, and an array of archived OP IDs. Boards.md

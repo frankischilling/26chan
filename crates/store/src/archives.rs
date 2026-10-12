@@ -43,6 +43,8 @@ pub struct ArchivePageSnapshot {
 
 /// Fail closed before loading potentially large saved comments/filter payloads.
 pub const MAX_ARCHIVE_PAGE_READ_BYTES: usize = 8 * 1024 * 1024;
+/// Refuse an oversized complete JSON listing instead of returning partial IDs.
+pub const MAX_ARCHIVE_JSON_ENTRIES: usize = 100_000;
 
 /// Include navigation and the comment-byte preflight in the same transaction.
 pub async fn archive_page_snapshot(
@@ -61,8 +63,8 @@ pub async fn archive_page_snapshot(
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(StoreError::NotFound)?;
-    // Same 72-hour transaction clock, 3,000-row ceiling and deterministic
-    // bump-clock/ID ordering as the metadata listing, before fetching bodies.
+    // Apply the source HTML window and 3,000-row ceiling before fetching bodies.
+    // JSON has a separate complete-list contract.
     let bytes: i64 = sqlx::query_scalar("SELECT coalesce(sum(body_bytes),0)::bigint FROM (SELECT octet_length(p.subject)::bigint+octet_length(p.comment)+coalesce(octet_length(p.wordfilter_payload),0)+coalesce(octet_length(p.wordfilter_search),0)+coalesce(octet_length(p.saved_presentation),0)+coalesce(octet_length(p.saved_presentation_search),0)+coalesce(octet_length(p.dice_result),0)+coalesce(octet_length(p.fortune_text),0)+coalesce(octet_length(p.fortune_color),0) AS body_bytes FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000) selected")
         .bind(slug).fetch_one(&mut *tx).await?;
     if bytes > MAX_ARCHIVE_PAGE_READ_BYTES as i64 {
@@ -96,8 +98,15 @@ async fn read_archive_snapshot(
     .fetch_optional(&mut *tx)
     .await?
     .ok_or(StoreError::NotFound)?;
-    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT 1000")
-        .bind(slug).fetch_all(&mut *tx).await?;
+    // JSON lists every retained archive ID, independently of the HTML window.
+    // Count one beyond the finite reader budget, then reject the entire response.
+    let (count, bytes): (i64, i64) = sqlx::query_as("SELECT count(*),coalesce(sum(octet_length(subject)),0)::bigint FROM (SELECT p.subject FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT $2) selected")
+        .bind(slug).bind(MAX_ARCHIVE_JSON_ENTRIES as i64 + 1).fetch_one(&mut *tx).await?;
+    if count > MAX_ARCHIVE_JSON_ENTRIES as i64 || bytes > MAX_ARCHIVE_PAGE_READ_BYTES as i64 {
+        return Err(StoreError::ReadLimit);
+    }
+    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN content.posts p ON p.board=t.board AND p.id=t.id WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT $2")
+        .bind(slug).bind(MAX_ARCHIVE_JSON_ENTRIES as i64).fetch_all(&mut *tx).await?;
     let navigation_boards = crate::read::snapshot_navigation(&mut tx, include_navigation).await?;
     tx.commit().await?;
     Ok(PageSnapshot {
@@ -146,7 +155,7 @@ pub(crate) async fn make_room(
                 ));
             }
             if board.archive_retention_seconds > 0 {
-                sqlx::query("UPDATE content.threads SET archived_at=statement_timestamp(),archive_expires_at=statement_timestamp()+make_interval(secs => $3::double precision),modified_at=clock_timestamp() WHERE board=$1 AND id=ANY($2)")
+                sqlx::query("UPDATE content.threads SET archived_at=statement_timestamp(),archive_expires_at=statement_timestamp()+make_interval(secs => $3::double precision),bumped_at=statement_timestamp() WHERE board=$1 AND id=ANY($2)")
                     .bind(&board.slug).bind(&victims).bind(board.archive_retention_seconds).execute(&mut **tx).await?;
             } else {
                 sqlx::query("UPDATE content.threads SET deleted=true,modified_at=clock_timestamp() WHERE board=$1 AND id=ANY($2)")
@@ -154,10 +163,12 @@ pub(crate) async fn make_room(
             }
         }
     }
-    // Source trim_archive is separate and has no private-board exemption.
-    // Keep the published archive response bounded, including when policy shrinks.
-    sqlx::query("UPDATE content.threads SET deleted=true,modified_at=clock_timestamp() WHERE board=$1 AND NOT deleted AND archived_at IS NOT NULL AND (archive_expires_at<=statement_timestamp() OR $3=0 OR id IN (SELECT id FROM content.threads WHERE board=$1 AND NOT deleted AND archived_at IS NOT NULL AND archive_expires_at>statement_timestamp() ORDER BY archived_at DESC,id DESC OFFSET $2))")
-        .bind(&board.slug).bind(i64::from(board.archive_limit)).bind(board.archive_retention_seconds).execute(&mut **tx).await?;
+    // The source has age-based storage retention, not an archive-count cap.
+    // Disabled archiving does not retroactively delete stored archives.
+    if board.archive_retention_seconds > 0 {
+        sqlx::query("UPDATE content.threads SET deleted=true,modified_at=clock_timestamp() WHERE board=$1 AND NOT deleted AND archived_at IS NOT NULL AND archive_expires_at<=statement_timestamp()")
+            .bind(&board.slug).execute(&mut **tx).await?;
+    }
     Ok(())
 }
 
