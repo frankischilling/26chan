@@ -68,8 +68,25 @@ deadlines once; operators should account for that work on large archives.
 Migration 0139 retires legacy deletion-password hashes on already-archived
 threads; see [archive credential retirement](archive-deletion-secrets.md).
 Issue #215 remains open for the remaining lifecycle and private-data comparison.
-These changes preserve the existing expiry boundary and report/audit retention
-rules. They do not claim that every archive lifecycle difference is resolved.
+Report/audit retention rules remain unchanged. These changes do not claim that
+every archive lifecycle difference is resolved.
+
+Cleanup follows the source's strict age comparison: a deadline equal to the
+cleanup cutoff remains stored; only an earlier deadline is retired. The cutoff
+comes from the database after acquiring the board lock. Public reads retain
+the stricter privacy rule already enforced by `content.visible_threads`: an
+archive at its deadline is hidden, even before a cleanup transaction erases it.
+Unlike a static PHP rebuild, visibility therefore does not wait for another post
+or an operator rebuild. This is a backend privacy distinction, not identical
+read-time behavior.
+
+The database-backed `archive_expiry_boundary` unit test uses the public role and
+checks one microsecond before, exactly at, and one microsecond after a fixed
+cutoff. It checks public visibility separately from stored deletion and erasure
+flags. Existing rollover integration tests exercise the caller and its lock.
+Private report membership and retained audit records follow
+[report-group lifetimes](report-group-lifetimes.md); unknown historical groups
+are not guessed or swept by this migration.
 
 The tests in `crates/store/tests/archive_storage.rs` cover storage beyond the old
 cap, separate JSON/HTML windows, rollover clocks, disabled retention, and complete

@@ -171,9 +171,24 @@ pub(crate) async fn make_room(
     // The source has age-based storage retention, not an archive-count cap.
     // Disabled archiving does not retroactively delete stored archives.
     if board.archive_retention_seconds > 0 {
-        sqlx::query("UPDATE content.threads SET deleted=true,modified_at=clock_timestamp() WHERE board=$1 AND NOT deleted AND archived_at IS NOT NULL AND archive_expires_at<=statement_timestamp()")
-            .bind(&board.slug).execute(&mut **tx).await?;
+        let cutoff = sqlx::query_scalar("SELECT statement_timestamp()")
+            .fetch_one(&mut **tx)
+            .await?;
+        retire_archives_before(tx, &board.slug, cutoff).await?;
     }
+    Ok(())
+}
+
+// Source trim_archive uses root < NOW() - age. Keep equality stored; the
+// public view independently enforces its stricter read-time privacy deadline.
+// The caller owns the board lock and captures the database cutoff after waiting.
+async fn retire_archives_before(
+    tx: &mut Transaction<'_, Postgres>,
+    board: &str,
+    cutoff: DateTime<Utc>,
+) -> Result<(), StoreError> {
+    sqlx::query("UPDATE content.threads SET deleted=true,modified_at=clock_timestamp() WHERE board=$1 AND NOT deleted AND archived_at IS NOT NULL AND archive_expires_at<$2")
+        .bind(board).bind(cutoff).execute(&mut **tx).await?;
     Ok(())
 }
 
@@ -234,5 +249,101 @@ mod autoarchive_tests {
                 "{row}"
             );
         }
+    }
+}
+
+#[cfg(all(test, feature = "database-tests"))]
+mod expiry_boundary_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn archive_expiry_boundary_preserves_equality_but_hides_it_from_public_reads() {
+        let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let public = crate::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let board: String =
+            sqlx::query_scalar("SELECT 'ab'||substr(replace(gen_random_uuid()::text,'-',''),1,8)")
+                .fetch_one(&owner)
+                .await
+                .unwrap();
+        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES($1,'Owned expiry boundary','',1000,100,100,100,10,86400)")
+            .bind(&board).execute(&owner).await.unwrap();
+        let (o, p, b) = (owner.clone(), public.clone(), board.clone());
+        let result =
+            tokio::spawn(async move {
+                let mut tx = p.begin().await.unwrap();
+                let cutoff: DateTime<Utc> = sqlx::query_scalar("SELECT transaction_timestamp()")
+                    .fetch_one(&mut *tx)
+                    .await
+                    .unwrap();
+                let mut ids = Vec::new();
+                for offset in [-1_i64, 0, 1] {
+                    let id: i64 = sqlx::query_scalar(
+                        "WITH inserted AS (
+                       INSERT INTO content.threads(board,archived_at,archive_expires_at)
+                       VALUES($1,$2::timestamptz-interval '1 day',$3) RETURNING id
+                     )
+                     INSERT INTO content.posts(id,board,thread_id,name,subject,comment)
+                     SELECT id,$1,id,'Anonymous','Owned boundary','Synthetic expiry boundary'
+                     FROM inserted RETURNING id",
+                    )
+                    .bind(&b)
+                    .bind(cutoff)
+                    .bind(cutoff + chrono::Duration::microseconds(offset))
+                    .fetch_one(&o)
+                    .await
+                    .unwrap();
+                    ids.push(id);
+                }
+                sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+                    .bind(&b)
+                    .fetch_one(&mut *tx)
+                    .await
+                    .unwrap();
+                let visible: Vec<i64> = sqlx::query_scalar(
+                    "SELECT id FROM content.visible_threads WHERE board=$1 ORDER BY id",
+                )
+                .bind(&b)
+                .fetch_all(&mut *tx)
+                .await
+                .unwrap();
+                assert_eq!(
+                    visible,
+                    vec![ids[2]],
+                    "read-time privacy excludes equality and expired entries"
+                );
+                retire_archives_before(&mut tx, &b, cutoff).await.unwrap();
+                tx.commit().await.unwrap();
+                let states: Vec<(i64, bool, bool)> = sqlx::query_as(
+                "SELECT id,deleted,content_erased FROM content.threads WHERE board=$1 ORDER BY id"
+            ).bind(&b).fetch_all(&o).await.unwrap();
+                assert_eq!(
+                    states,
+                    vec![
+                        (ids[0], true, true),
+                        (ids[1], false, false),
+                        (ids[2], false, false)
+                    ],
+                    "only strictly expired storage is erased; equality survives this cleanup"
+                );
+            })
+            .await;
+        for query in [
+            "DELETE FROM content.posts WHERE board=$1",
+            "DELETE FROM content.threads WHERE board=$1",
+            "DELETE FROM content.boards WHERE slug=$1",
+        ] {
+            sqlx::query(query)
+                .bind(&board)
+                .execute(&owner)
+                .await
+                .unwrap();
+        }
+        public.close().await;
+        owner.close().await;
+        result.unwrap();
     }
 }
