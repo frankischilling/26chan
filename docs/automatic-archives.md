@@ -60,10 +60,10 @@ these are extracted-contract tests, not an execution of the original server.
 - `sudo bash scripts/test-autoarchive-migration.sh` checks a populated upgrade,
   preserved operator settings, transfer-catalog drift and runtime policy denial.
 
-## Remaining archive work
+## Related lifecycle work
 
-This implements the automatic reply-threshold portion of issue #215. Fixed
-expiry timestamps, the project archive-count policy and historical retention
-still require the broader source comparison. Staff text transfer keeps its
+This implements the automatic reply-threshold portion of issue #215. Current
+age policy, count-independent storage and historical archive credentials are
+covered in the [lifecycle comparison](archive-lifecycle-audit.md). Staff text transfer keeps its
 existing 1,001-post admission bound. Full-page historical visual identity and
 production deployment qualification are not established by these tests.

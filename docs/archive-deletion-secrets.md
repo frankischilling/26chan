@@ -11,8 +11,9 @@ back both retirement and the archive transition.
 Retirement runs only when `content.threads.archived_at` changes from null to a
 timestamp. It covers the OP and all replies belonging to that thread, including
 soft-deleted posts. Installing 0091 leaves hashes on already-archived threads
-unchanged. The decision about a historical backfill remains pending; this
-migration performs none.
+unchanged. Migration 0139 separately retires those legacy hashes for every
+already-archived OP and reply, including deleted replies and archives on private
+or archive-disabled boards. Active threads keep their password authority.
 
 Hashes on active threads remain, including Sticky and Undead threads and
 active threads exempt from rollover on private boards. A soft-delete-only
@@ -21,8 +22,11 @@ that do transition receive the same retirement as other archives.
 
 This change does not erase post content, reports, audit records, media
 tombstones or password-proof derivatives in `post_secrets.anonymous_posts`.
-It does not change their existing lifecycle rules. It retires stored password
-authority, without claiming complete privacy cleanup or physical erasure.
+It does not change their existing lifecycle rules. A retained anonymous
+password-proof derivative cannot authorize deletion once its matching current
+password row is gone: both public proof functions join the current deletion
+row. This retires password authority without claiming complete privacy cleanup
+or physical erasure.
 
 ## Authority and concurrency
 
@@ -57,22 +61,32 @@ archived thread or partially retired password set.
 
 ## Deployment and recovery
 
-Stop public and staff writers, apply migrations through 0091, and deploy
+Stop public and staff writers, apply migrations through 0139, and deploy
 matching binaries before restoring posting. Existing bootstrap prerequisites
 are in [posting deployment](source-posting-cooldowns.md#deployment). Migration
-0091 reuses existing owners and requires no additional bootstrap role.
+0091 reuses existing owners and requires no additional bootstrap role. The 0139
+reconciliation runs as the migration role, locks affected boards in canonical
+order and changes no runtime privileges or function definitions. It requires
+Read Committed isolation and runs in the migration transaction. Any failure
+rolls back the entire retirement. It does not retain a recovery copy of the hashes.
 
 Both applications' readiness checks require the 0091 trigger/function
 metadata and restricted grants. They inspect database catalogs without
 reading hashes or invoking retirement. Readiness does not replace migration
 qualification or establish production readiness.
 
-Backups may contain hashes retired after the backup was taken. Restoring a
-current snapshot preserves its exact current state, including retained legacy
-hashes and the absence of newly retired hashes. It does not cleanse older
-backups or retroactively apply retirement to already-archived rows. Backup
-retention and deletion remain separate operator responsibilities; see
+Backups may contain hashes retired after the backup was taken. A current
+snapshot preserves the absence of retired hashes. After restoring a backup
+from before 0139, apply the pending migration before reopening traffic. The
+reconciliation is safe to repeat. It does not cleanse older backup files; backup
+retention and deletion remain separate operator responsibilities. See
 [backup and recovery](operations.md#backup-and-recovery).
 
 This document records the implementation boundary. Current-head test results
 and CI completion require separate qualification; no pass is claimed here.
+
+The legacy-retirement qualification starts at migration 0090, creates owned
+historical archives and active controls, and upgrades through 0138 before
+applying 0139. It checks public proof revocation, active proof preservation,
+unchanged content/report/audit/session rows, fixed-snapshot refusal, atomic
+failure rollback, restoration rejection, repeat execution and dump/restore.

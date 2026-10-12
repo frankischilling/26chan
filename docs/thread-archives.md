@@ -9,8 +9,9 @@ not. The board lock serializes replies, rollover, deletion, reports and staff
 mutations, so queued posts see protection changes committed before they resume.
 
 Archives are optional. An enabled board keeps displaced threads read-only until
-their fixed expiry. Archive count no longer shortens storage retention. A disabled board
-hides displaced threads using the existing soft-deletion model. This replaces
+the current board age expires, or indefinitely with unlimited age. Archive count
+no longer shortens storage retention. A disabled board retires displaced threads
+through the current whole-deletion path. This replaces
 the earlier behavior that rejected every new thread on a full board.
 
 [Sticky reply retention](sticky-reply-retention.md) separately rotates replies
@@ -109,8 +110,8 @@ clock for this three-day window. It is independent of storage expiry and does
 not shorten the JSON archive list. HTML reads use the source 3,000-entry ceiling
 from line 9264 without raising response or shared-buffer budgets. Stored retention is no longer capped by archive count, and JSON returns a
 complete ascending list within its backend reader budgets. See
-[archive storage](archive-storage.md) for the limits and remaining saved-expiry
-differences. This does not establish full archive-page visual parity.
+[archive storage](archive-storage.md) for the limits, current-age policy and
+read-time expiry distinction. This does not establish full archive-page visual parity.
 
 ### Archive rows and excerpts
 
