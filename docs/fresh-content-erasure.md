@@ -22,8 +22,9 @@ and normal update behavior are preserved. Thread expiry, rollover and sticky rep
 pruning use the same whole-deletion path. Archiving without deletion and file-only
 deletion retain their existing behavior.
 
-The migration itself does not sweep previously deleted content. Historical cleanup
-still needs a bounded operator procedure and an explicit retention decision.
+The migration itself does not sweep previously deleted content. Migration 0141
+adds an [explicit bounded operator procedure](historical-deletion-cleanup.md)
+with a preview and reviewed receipt; it is never run automatically by an upgrade.
 
 ## Transaction and permissions
 

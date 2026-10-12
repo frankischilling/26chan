@@ -32,7 +32,8 @@ bindings, restricted privileges and evidence cascades.
   for [verified staff self-file deletion](staff-self-deletion.md).
 - The migration does not sweep reports whose targets were already deleted.
   The staff queue and resolve/dismiss lookup exclude these targets. Historical
-  physical cleanup needs a separate bounded operator procedure.
+  report cleanup uses the [bounded operator procedure](historical-deletion-cleanup.md)
+  only after its preview and irreversible scope have been reviewed.
 - Migration 0122 alone retains post text. Migration 0129 adds
   [fresh content erasure](fresh-content-erasure.md) while preserving structural
   media tombstones. Historical retention and issue #214 remain open.
