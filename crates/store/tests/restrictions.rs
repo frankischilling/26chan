@@ -1026,7 +1026,15 @@ async fn thread_batch_checks(f: &Fixture, unrelated: i64) {
         .execute(&mut *expired)
         .await
         .unwrap();
-    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+    // Exercise commit-time authority expiry without tripping the independent
+    // five-second idle-transaction limit. Each active wait also stays below
+    // the unchanged five-second statement timeout used by CI.
+    for _ in 0..6 {
+        sqlx::query("SELECT pg_sleep(1)")
+            .execute(&mut *expired)
+            .await
+            .unwrap();
+    }
     let error = expired.commit().await.unwrap_err();
     assert_eq!(
         error.as_database_error().and_then(|e| e.code()).as_deref(),
