@@ -151,10 +151,13 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
   await page.locator('#size-ctrl').selectOption('large');
   await expect(page.locator('#threads')).toHaveClass('catalog extended-large');
   const index = await page.goto('/fixture/');
-  expect(index.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual(pageScripts);
+  expect(index.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual([
+    ...pageScripts, 'http://127.0.0.1:3000/static/source-post-actions.v1.js',
+  ]);
   expect(await page.locator('script').evaluateAll(nodes => nodes.map(node => ({
     src: node.getAttribute('src'), type: node.type,
   })))).toEqual([
+    { src: '/static/source-post-actions.v1.js', type: 'module' },
     { src: '/static/thread-watcher.v1.js', type: 'module' },
     { src: '/static/page-chrome.v1.js', type: 'module' },
   ]);

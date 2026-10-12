@@ -26,6 +26,13 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 .reply { display: inline-block; min-width: 250px; max-width: 100%; background: #f0e0d6; border: 1px solid #d9bfb7; border-top: 0; border-left: 0; padding: 5px 10px; }
 .op { padding: 5px 10px; }
 .postInfo { line-height: 1.6; overflow-wrap: anywhere; }
+.postInfo > input[form="delform"] { padding: 0; margin: 0 3px 0 0; vertical-align: middle; }
+.bottomCtrl { text-align: right; margin: 6px 0; }
+@media (max-width: 480px) {
+  .bottomCtrl.desktop { display: none; }
+}
+.deleteform { display: inline; }
+#deleteSelectionStatus:not(:empty) { display: block; margin-top: 4px; }
 .subject { color: #cc1105; font-weight: bold; margin-right: 5px; }
 .name { color: #117743; font-weight: bold; }
 .postertrip { color: #117743; font-weight: normal; }

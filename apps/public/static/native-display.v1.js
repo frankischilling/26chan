@@ -28,6 +28,8 @@ export function mountNativeDisplay({ root, settings, save, openSettings, project
   const document = root?.ownerDocument, window = document?.defaultView;
   if (!root || !window || !projection?.trackText) return { refresh() {}, openEditor() {}, destroy() {} };
   const dates = new Map(), menus = [];
+  const reportButton = document.getElementById('bottomReportBtn');
+  const reportHidden = reportButton?.hidden;
   let active = null, suspended = false, destroyed = false, queued = false;
   let menuKey = null, showAllKey = null;
   const clock = new Date();
@@ -139,6 +141,8 @@ export function mountNativeDisplay({ root, settings, save, openSettings, project
     observer.disconnect();
     try {
       const config = settings(), enabled = config.localTime !== false && config.disableAll !== true;
+      // Source Main.run keeps the core report control only with the extension off.
+      if (reportButton?.isConnected) reportButton.hidden = config.disableAll !== true;
       if (config.disableAll === true) closeEditor();
       navigation(config);
       for (const [element, entry] of dates) {
@@ -185,6 +189,7 @@ export function mountNativeDisplay({ root, settings, save, openSettings, project
   const storage = event => { if (event.key === null || event.key === '4chan-settings') refresh(); };
   const hide = () => {
     suspended = true; observer.disconnect(); closeEditor(false); restoreMenus();
+    if (reportButton?.isConnected) reportButton.hidden = reportHidden;
     for (const [element, entry] of dates) restoreDate(element, entry);
   };
   const show = () => { suspended = false; refresh(); };
