@@ -1044,7 +1044,21 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await report.getByRole('button', { name: 'Dismiss report', exact: true }).click(); await expect(report).toContainText('dismissed');
     const attachmentBefore = await page.request.get(publicUrl);
     expect((await attachmentBefore.json()).posts[1].tim).toBe(data.tim);
+    fixture('self-password', board);
+    const selfFileForm = report.locator('form[action="/moderate"]').filter({
+      has: page.getByRole('button', { name: 'Remove file only', exact: true }),
+    });
+    await selfFileForm.locator('summary').click();
+    await selfFileForm.locator('input[name="deletion_password"]').fill('owned-staff-self-password');
     await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
+    await selfFileForm.getByRole('button', { name: 'Remove file only', exact: true }).click();
+    await expect(report).toHaveCount(1);
+    await expect(report).toContainText('Harmless reply');
+    expect(fixture('inspect', board).reports, 'Self-file deletion preserves the report').toBe(1);
+    expect(fixture('inspect', board).audit.at(-1)).toBe('self-remove-file');
+    // The redirected form has no retained recovery password. Its ordinary
+    // administrative repeat still clears this synthetic peer-unmatched report.
+    await expect(selfFileForm.locator('input[name="deletion_password"]')).toHaveValue('');
     await report.getByRole('button', { name: 'Remove file only', exact: true }).click();
     await expect(report).toHaveCount(0);
     expect(fixture('inspect', board).reports, 'Administrative file deletion removes the target report from storage as well as the queue').toBe(0);
@@ -1101,7 +1115,7 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     const persisted = fixture('inspect', board);
     expect(persisted.reports).toBe(0);
     expect(persisted.states).toEqual([[false, false, true], [false, false, false], [false, false, false]]);
-    expect(persisted.audit).toEqual(['staff-post', 'spoiler', 'unspoiler', 'spoiler', 'close', 'reopen', 'sticky', 'unsticky', 'undead', 'unundead', 'permasage', 'permaage', 'unpermaage', 'permaage', 'unpermaage', 'staff-post', 'staff-post', 'staff-post', 'permaage', 'unpermasage', 'unpermaage', 'resolve', 'dismiss', 'remove-file', 'remove-post', 'remove-thread']);
+    expect(persisted.audit).toEqual(['staff-post', 'spoiler', 'unspoiler', 'spoiler', 'close', 'reopen', 'sticky', 'unsticky', 'undead', 'unundead', 'permasage', 'permaage', 'unpermaage', 'permaage', 'unpermaage', 'staff-post', 'staff-post', 'staff-post', 'permaage', 'unpermasage', 'unpermaage', 'resolve', 'dismiss', 'self-remove-file', 'remove-file', 'remove-post', 'remove-thread']);
     await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await expect(page).toHaveURL('http://localhost:3001/');
     expect((await page.request.get('/reports')).status()).toBe(401);
     expect(fixture('inspect', board).sessions).toBe(0);

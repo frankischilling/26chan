@@ -24,6 +24,24 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let board = &args[1];
     match args[0].as_str() {
+        "self-password" => {
+            use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
+            let hash = Argon2::default()
+                .hash_password(
+                    b"owned-staff-self-password",
+                    &SaltString::encode_b64(b"owned-browser-self")
+                        .map_err(|_| "Invalid synthetic salt")?,
+                )
+                .map_err(|_| "Synthetic password hashing failed")?
+                .to_string();
+            let mut tx = pool.begin().await?;
+            let result=sqlx::query("INSERT INTO post_secrets.deletion(post_id,password_hash) SELECT p.id,$2 FROM content.posts p JOIN content.boards b ON b.slug=p.board WHERE p.board=$1 AND b.title='Synthetic staff test' AND p.name='Synthetic reply' AND p.comment='Harmless reply' AND p.id<>p.thread_id AND NOT p.deleted")
+                .bind(board).bind(hash).execute(&mut *tx).await?;
+            if result.rows_affected() != 1 {
+                return Err("Expected one owned fixture reply".into());
+            }
+            tx.commit().await?;
+        }
         "setup" => {
             let mut tx = pool.begin().await?;
             sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES ($1,'Synthetic staff test','Harmless fixtures',16000,100,100,100,10)").bind(board).execute(&mut *tx).await?;

@@ -12,18 +12,17 @@ revocation checks and per-peer quota. A successful repeated or text-only action
 charges its batch just like another successful deletion. Public file-only actions
 preserve reports and post text.
 
-The staff route is an administrative action. It removes reports for the exact
+An administrative staff action removes reports for the exact
 target, including resolved, dismissed and historical reports, within the same
 transaction as the file marker, thread timestamp and audit record. Cascades remove
 private membership, anonymous ownership and weight evidence. Target report rows
 carrying clear history are removed too. Unrelated report history and independent
 moderation audit records remain. A failed authorization or audit write rolls back the whole action.
 
-The source distinguishes staff-self requests by password or host proof
-(`imgboard.php:2490–2497,2584–2594`). The current staff form carries neither proof.
-Account authorship does not substitute for them, so this change does not add a
-staff-self path. Public self-deletion remains available under its existing rules.
-Issue #214 stays open.
+Migration 0140 adds [staff self-deletion](staff-self-deletion.md) using a verified
+posting peer or recovery password, following `imgboard.php:2490–2497,2584–2594`.
+Those file-only requests preserve reports and use a distinct audit action.
+Account authorship does not substitute for either proof. Issue #214 stays open.
 
 ## Visibility and authority
 

@@ -15,6 +15,7 @@ mod report_queue_query;
 mod reporter_clear;
 mod restrictions;
 mod robot9000_cleanup;
+mod self_deletion;
 pub mod store;
 mod thread_options;
 mod thread_transfer;

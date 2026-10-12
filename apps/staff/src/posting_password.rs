@@ -53,6 +53,27 @@ pub(crate) async fn prepare(
     .map_err(|_| AppError::Internal)?
 }
 
+/// Verify only the fixed supported hash profile and keep the private fingerprint
+/// out of serialization. The mutation must compare it with the locked current hash.
+pub(crate) async fn ownership_proof(
+    password: String,
+    encoded: Option<String>,
+) -> Result<Option<[u8; 32]>, AppError> {
+    let Some(encoded) = encoded else {
+        return Ok(None);
+    };
+    let permit = HASHES
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| AppError::Capacity)?;
+    tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        verify(&password, &encoded).then(|| <[u8; 32]>::from(Sha256::digest(encoded.as_bytes())))
+    })
+    .await
+    .map_err(|_| AppError::Internal)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -415,6 +415,12 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     if !sticky_retirement {
         return Err(AppError::Internal);
     }
+    let self_deletion: bool = sqlx::query_scalar(crate::self_deletion::READINESS_SQL)
+        .fetch_one(&state.staff)
+        .await?;
+    if !self_deletion {
+        return Err(AppError::Internal);
+    }
     Ok("ready")
 }
 
@@ -1114,22 +1120,34 @@ pub struct Mutation {
     pub target: i64,
     #[serde(default)]
     pub action: String,
+    #[serde(default)]
+    pub deletion_password: String,
 }
 pub async fn moderate(
     State(state): Shared,
     headers: HeaderMap,
+    Extension(peer): Extension<StaffRequestPeer>,
     Form(input): Form<Mutation>,
 ) -> Result<Redirect, AppError> {
     auth::origin(&headers, &state.config.origin)?;
     let mut authority = auth::guard(&state, &headers).await?;
     let session = &authority.session;
     auth::csrf(session, &input.csrf)?;
+    let evidence = crate::self_deletion::prepare(
+        &state.staff,
+        session,
+        (&input.board, input.target, &input.action),
+        input.deletion_password,
+        state.config.poster_id_key.as_deref().zip(peer.ip()),
+    )
+    .await?;
     let transaction = store::prepare_moderation(
         &state.staff,
         session,
         &input.board,
         input.target,
         &input.action,
+        &evidence,
     )
     .await?;
     authority.ensure_current(true).await?;
