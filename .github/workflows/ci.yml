@@ -317,6 +317,8 @@ jobs:
         run: sudo bash scripts/test-autoarchive-migration.sh
       - name: Upgrade archive age policy without restoring deleted content
         run: sudo bash scripts/test-archive-age-migration.sh
+      - name: Retire legacy archive credentials without changing active authority
+        run: sudo bash scripts/test-archive-credential-retirement.sh
       - name: Upgrade source board image policy and verify private authority
         run: sudo bash scripts/test-image-board-policy-migration.sh
       - name: Upgrade source comment spacing without rewriting historical text

@@ -65,6 +65,8 @@ Upgrade all posting and staff instances before enabling unlimited age. Older
 writers do not understand the new setting. The migration updates live historical
 deadlines once; operators should account for that work on large archives.
 
+Migration 0139 retires legacy deletion-password hashes on already-archived
+threads; see [archive credential retirement](archive-deletion-secrets.md).
 Issue #215 remains open for the remaining lifecycle and private-data comparison.
 These changes preserve the existing expiry boundary and report/audit retention
 rules. They do not claim that every archive lifecycle difference is resolved.

@@ -114,9 +114,12 @@ GRANT board_anonymous_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
 ```
 
 Fresh bootstrap already includes these statements in `deploy/roles.sql`.
-The migration preserves historical posts and password hashes and invents no
-session membership for them. Existing explicit-password recovery remains
-available. Old encrypted source cookies are not imported.
+Migration 0065 preserves historical posts and password hashes and invents no
+session membership for them. Later archive retirement removes archived
+password authority: 0091 covers new transitions and 0139 reconciles older
+archives. Explicit-password recovery remains available on eligible active
+content. Old encrypted source cookies are not imported. See
+[archive credential retirement](archive-deletion-secrets.md).
 
 `scripts/test-anonymous-session-migration.sh` uses a private generated cluster
 with no TCP listener. It verifies historical preservation, actual restricted
