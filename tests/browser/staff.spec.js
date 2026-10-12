@@ -1056,10 +1056,22 @@ test('synthetic WebAuthn enrollment, login, audited moderation, recovery and log
     await expect(report).toContainText('Harmless reply');
     expect(fixture('inspect', board).reports, 'Self-file deletion preserves the report').toBe(1);
     expect(fixture('inspect', board).audit.at(-1)).toBe('self-remove-file');
-    // The redirected form has no retained recovery password. Its ordinary
-    // administrative repeat still clears this synthetic peer-unmatched report.
-    await expect(selfFileForm.locator('input[name="deletion_password"]')).toHaveValue('');
-    await report.getByRole('button', { name: 'Remove file only', exact: true }).click();
+    // File controls disappear once media is unavailable. The surviving
+    // deletion forms must not retain the recovery password.
+    await expect(report.getByRole('button', { name: 'Remove file only', exact: true })).toHaveCount(0);
+    const recoveryFields = report.locator('input[name="deletion_password"]');
+    expect(await recoveryFields.count()).toBeGreaterThan(0);
+    for (const field of await recoveryFields.all()) await expect(field).toHaveValue('');
+    // Exercise the supported administrative repeat through the real endpoint;
+    // this synthetic target has no matching posting-peer history.
+    const administrativeRepeat = await page.request.post('/moderate', {
+      maxRedirects: 0,
+      headers: { Origin: 'http://localhost:3001', 'Sec-Fetch-Site': 'same-origin' },
+      form: { csrf: await report.locator('input[name="csrf"]').first().inputValue(),
+        board, target: String(data.post), action: 'remove-file' },
+    });
+    expect(administrativeRepeat.status()).toBe(303);
+    await page.reload();
     await expect(report).toHaveCount(0);
     expect(fixture('inspect', board).reports, 'Administrative file deletion removes the target report from storage as well as the queue').toBe(0);
     await cdp.send('Emulation.setScriptExecutionDisabled', { value: false });
