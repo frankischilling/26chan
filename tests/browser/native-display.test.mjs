@@ -38,7 +38,8 @@ test('display controls preserve original content, finite navigation and lifecycl
     + '<div class="postInfo" id="pi100"><span class="name">Anonymous</span> '
     + '<time datetime="2026-03-08T09:59:59Z">03/08/26(Sun)05:59:59</time>'
     + '<span class="postNum"><a href="/test/thread/100#p100" title="Link to this post">No.</a><a href="/test/thread/100?quote=100#reply" title="Reply to this post">100</a></span></div>'
-    + '<blockquote class="postMessage" id="m100">Owned original comment</blockquote></div></article></main></body></html>';
+    + '<blockquote class="postMessage" id="m100">Owned original comment</blockquote></div></article></main>'
+    + '<input id="bottomReportBtn" type="button" value="Report"></body></html>';
   const browser = await chromium.launch({ headless: true });
   try {
     async function setup(timezoneId = 'America/Los_Angeles', config = {}) {
@@ -66,6 +67,19 @@ test('display controls preserve original content, finite navigation and lifecycl
       }, config);
       return { context, page, requests };
     }
+
+    await t.test('extension owns footer report visibility and restores the core control', async () => {
+      const { context, page } = await setup();
+      try {
+        assert.equal(await page.locator('#bottomReportBtn').isVisible(), false);
+        await page.evaluate(() => { config.disableAll = true; display.refresh(); });
+        assert.equal(await page.locator('#bottomReportBtn').isVisible(), true);
+        await page.evaluate(() => { config.disableAll = false; display.refresh(); });
+        assert.equal(await page.locator('#bottomReportBtn').isVisible(), false);
+        await page.evaluate(() => display.destroy());
+        assert.equal(await page.locator('#bottomReportBtn').isVisible(), true);
+      } finally { await context.close(); }
+    });
 
     await t.test('local-time formatting follows DST and non-hour offsets', async () => {
       for (const [timezone, first, second, title] of [

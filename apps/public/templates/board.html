@@ -68,6 +68,15 @@
 {% endif %}
 </div>
 {% if catalog %}<span id="search-label-bottom">Search: <span id="search-term-bottom"></span></span>{% endif %}
+{% if !catalog && !archived() %}
+<div class="bottomCtrl desktop">
+<form name="delform" id="delform" class="deleteform" action="/{{ board.slug }}/imgboard.php" method="post" data-board="{{ board.slug }}">
+<input type="hidden" name="mode" value="usrdel">Delete Post: [<label><input type="checkbox" name="onlyimgdel" value="on">File Only</label>]<input type="hidden" id="delPassword" name="pwd"> <input type="submit" value="Delete"> <input id="bottomReportBtn" type="button" value="Report">
+<span id="deleteSelectionStatus" role="status" aria-live="polite"></span>
+</form>
+</div>
+<script type="module" src="/static/source-post-actions.v1.js"></script>
+{% endif %}
 {% if posting_allowed() %}<div class="mobile postFormBottom" hidden><a class="mobilePostFormToggle button" href="#mpostform" data-worksafe="{{ board.worksafe }}" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a></div>{% endif %}
 {% if parent > 0 %}
 <div id="bottom">

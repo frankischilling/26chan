@@ -107,8 +107,9 @@ The modern `/delete` endpoint retains its existing missing-target response.
 
 The 20-field streamed form limit also bounds batch work. Canonical IDs, duplicate
 field rejection, the body limit and Origin checks remain security restrictions.
-A form with no selection is rejected. Original deletion action counters and full-page
-multi-selection controls remain separate work.
+A form with no selection is rejected. Migration 0085 enforces deletion action
+quotas. The [full-page selection controls](source-deletion-controls.md) submit
+this same ordered adapter without changing its authorization or partial success.
 
 ## Verification
 

@@ -20,7 +20,7 @@ const attributes = {
   article: ['class', 'id', 'data-custom-spoiler'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
   strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title'], blockquote: ['class', 'id'],
   br: [], wbr: [], b: [], s: [], small: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
-  input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required'],
+  input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required', 'form', 'aria-label'],
   label: ['for'], button: [], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
 };
 function require(value) { if (!value) throw new TypeError('invalid-snapshot'); }
@@ -104,7 +104,8 @@ export function postLinkUrl(raw, context) {
 export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limits = UPDATER_LIMITS) {
   budget.chars ??= 0;
   const charge = text => { budget.chars += text.length; require(budget.chars <= limits.bytes); };
-  const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'pim', 'm', 'f', 'fT', 'delete', 'report'].map(prefix => prefix + no));
+  const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'pim', 'm', 'f', 'fT', 'delete', 'report', 'select'].map(prefix => prefix + no));
+  let selection = null;
   function visit(node, depth, form = null, comment = false, link = false) {
     require(++budget.nodes <= limits.nodes && depth <= limits.depth);
     if (typeof node === 'string') { charge(node); return; }
@@ -134,7 +135,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       if (key === 'rel') require(['noopener noreferrer', 'nofollow noreferrer noopener'].includes(value));
       if (key === 'tabindex') require(value === '0');
       if (key === 'aria-hidden') require(value === 'true');
-      if (key === 'aria-label') require(value === 'Spoiler; focus to reveal');
+      if (key === 'aria-label') require(node.tag === 'input' ? value === `Select post No.${no}` : value === 'Spoiler; focus to reveal');
       if (key === 'loading') require(value === 'lazy');
       if (key === 'for') require([`delete${no}`, `report${no}`].includes(value));
       if (['width', 'height', 'minlength', 'maxlength'].includes(key)) require(/^[1-9][0-9]{0,3}$/.test(value));
@@ -186,13 +187,22 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     }
     if (node.tag === 'input') {
       const a = node.attrs;
-      require(form !== null);
-      require((a.type === 'hidden' && a.name === 'no' && a.value === no && !a.id)
-        || (form.endsWith('/delete') && a.type === 'hidden' && a.name === 'password' && a.id === `delete${no}`
-          && Object.keys(a).sort().join(',') === 'id,name,type')
-        || (form.endsWith('/delete') && a.type === 'password' && a.name === 'password' && a.id === `delete${no}` && a.value === undefined)
-        || (form.endsWith('/delete') && a.type === 'checkbox' && a.name === 'file_only' && a.value === 'true' && !a.id)
-        || (form.endsWith('/report') && !a.type && a.name === 'reason' && a.id === `report${no}` && a.value === undefined));
+      if (a.form !== undefined) {
+        require(selection === null && form === null && !comment && !link && node.children.length === 0
+          && Object.keys(a).sort().join(',') === 'aria-label,form,id,name,type,value'
+          && a.type === 'checkbox' && a.name === no && a.value === 'delete'
+          && a.form === 'delform' && a.id === `select${no}` && a['aria-label'] === `Select post No.${no}`);
+        selection = node;
+      } else {
+        require(a['aria-label'] === undefined);
+        require(form !== null);
+        require((a.type === 'hidden' && a.name === 'no' && a.value === no && !a.id)
+          || (form.endsWith('/delete') && a.type === 'hidden' && a.name === 'password' && a.id === `delete${no}`
+            && Object.keys(a).sort().join(',') === 'id,name,type')
+          || (form.endsWith('/delete') && a.type === 'password' && a.name === 'password' && a.id === `delete${no}` && a.value === undefined)
+          || (form.endsWith('/delete') && a.type === 'checkbox' && a.name === 'file_only' && a.value === 'true' && !a.id)
+          || (form.endsWith('/report') && !a.type && a.name === 'reason' && a.id === `report${no}` && a.value === undefined));
+      }
     }
     if (node.tag === 'button') require(form !== null);
     if (node.tag === 'pre') require(node.attrs.class === 'prettyprint');
@@ -213,6 +223,11 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     for (const child of node.children) visit(child, depth + 1, form, comment || message, link || node.tag === 'a');
   }
   visit(tree, 0);
+  if (selection) {
+    const post = tree.children.find(node => typeof node !== 'string' && node.tag === 'div' && node.attrs.id === `p${no}`);
+    const header = post?.children.find(node => typeof node !== 'string' && node.tag === 'div' && node.attrs.id === `pi${no}` && node.attrs.class === 'postInfo');
+    require(header?.children.includes(selection));
+  }
   validateCapcodeTree(tree, no);
   validatePostNumbers(tree, context, no);
   validateFilePresentation(tree, context, no);

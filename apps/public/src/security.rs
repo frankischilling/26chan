@@ -341,6 +341,15 @@ fn headers(
     } else {
         script
     };
+    let script = if full_board_page && page == Some(InteractivePage::Board) {
+        format!(
+            "{script} {}{}",
+            state.origin,
+            crate::ui_assets::SOURCE_POST_ACTIONS_PATH
+        )
+    } else {
+        script
+    };
     let script = if math {
         format!(
             "{script} {}{}",
@@ -798,6 +807,12 @@ mod tests {
                                 | InteractivePage::Archive
                         )
                     )
+                );
+                assert_eq!(
+                    directive("script-src")
+                        .split_whitespace()
+                        .any(|value| value == format!("{origin}/static/source-post-actions.v1.js")),
+                    page == Some(InteractivePage::Board)
                 );
                 if full {
                     assert_eq!(
