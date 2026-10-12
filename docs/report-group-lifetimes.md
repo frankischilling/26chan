@@ -75,9 +75,10 @@ membership-target rewrites are outside the supported runtime mutation paths.
 The counter alone does not authorize reporter purges. The separate
 [reporter-clear action](reporter-clear.md), added in 0106, uses the existing
 partial/empty-group behavior under global moderator authority. Source hard-clear
-workflows, complete reporter ownership matching, weighted queue priority and
-exact staff-self-delete distinctions remain separate parity work. Existing staff
-file-removal behavior is unchanged.
+workflows, complete reporter ownership matching and weighted queue priority
+remain separate parity work. Migration 0140 adds [staff self-deletion](staff-self-deletion.md):
+verified self-file actions preserve report membership and its group; administrative
+file removal retains its separate cleanup path.
 
 Migration 0100 establishes this counter contract; current reporter-clearing
 services also require 0106. Exact execution

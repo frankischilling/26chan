@@ -88,13 +88,12 @@ pub async fn reports(pool: &PgPool, session: &Session) -> Result<Vec<Report>, Ap
             .collect(),
     )
 }
-pub(crate) async fn prepare_moderation(
-    pool: &PgPool,
+pub(crate) fn validate_moderation(
     session: &Session,
     board: &str,
     target: i64,
     action: &str,
-) -> Result<sqlx::Transaction<'static, sqlx::Postgres>, AppError> {
+) -> Result<(), AppError> {
     if !session.at_least(crate::access::Level::Janitor) {
         return Err(AppError::Forbidden);
     }
@@ -131,11 +130,24 @@ pub(crate) async fn prepare_moderation(
     {
         return Err(AppError::Forbidden);
     }
+    Ok(())
+}
+
+pub(crate) async fn prepare_moderation(
+    pool: &PgPool,
+    session: &Session,
+    board: &str,
+    target: i64,
+    action: &str,
+    owner: &crate::self_deletion::Evidence,
+) -> Result<sqlx::Transaction<'static, sqlx::Postgres>, AppError> {
+    validate_moderation(session, board, target, action)?;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
     let mut audit_changed = true;
+    let mut self_deletion = false;
     let (spoilers_enabled, staff_only, archive_retention_seconds): (bool, bool, i32) = sqlx::query_as(
         "SELECT comment_spoiler_cleanup,staff_only,archive_retention_seconds FROM content.boards WHERE slug=$1 FOR UPDATE",
     )
@@ -180,9 +192,8 @@ pub(crate) async fn prepare_moderation(
         {
             return Err(AppError::Forbidden);
         }
-        // The staff form supplies no public password/host proof. This is an
-        // administrative deletion, regardless of who authored the post. The
-        // handler still revalidates live authority before committing the tx.
+        crate::self_deletion::ensure_ready(&mut tx).await?;
+        self_deletion = owner.matches(&mut tx, board, target).await?;
     }
     if action == "force-archive" {
         // Source forcearchive requires an archive-enabled board and an actual
@@ -310,7 +321,12 @@ pub(crate) async fn prepare_moderation(
         .await?;
         return Ok(tx);
     } else if action == "remove-file" {
-        sqlx::query("SELECT content.staff_delete_post_attachment($1,$2)")
+        let removal = if self_deletion {
+            "SELECT content.delete_post_attachment($1,$2)"
+        } else {
+            "SELECT content.staff_delete_post_attachment($1,$2)"
+        };
+        sqlx::query(removal)
             .bind(board)
             .bind(target)
             .execute(&mut *tx)
@@ -412,6 +428,16 @@ pub(crate) async fn prepare_moderation(
         }
     }
     if audit_changed {
+        let action = if self_deletion {
+            match action {
+                "remove-file" => "self-remove-file",
+                "remove-post" => "self-remove-post",
+                "remove-thread" => "self-remove-thread",
+                _ => return Err(AppError::Internal),
+            }
+        } else {
+            action
+        };
         sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES ($1,$2,$3,$4)").bind(session.account_id).bind(board).bind(target).bind(action).execute(&mut *tx).await?;
     }
     Ok(tx)
@@ -425,10 +451,17 @@ pub async fn moderate(
     target: i64,
     action: &str,
 ) -> Result<(), AppError> {
-    prepare_moderation(pool, session, board, target, action)
-        .await?
-        .commit()
-        .await?;
+    prepare_moderation(
+        pool,
+        session,
+        board,
+        target,
+        action,
+        &crate::self_deletion::Evidence::default(),
+    )
+    .await?
+    .commit()
+    .await?;
     Ok(())
 }
 

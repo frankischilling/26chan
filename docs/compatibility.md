@@ -749,9 +749,14 @@ rows/aggregate state. Staff deletion of other users' posts may copy selected
 content into the deletion log. Logical board-row erasure is therefore not a
 promise of complete erasure from logs or backups.
 
-The rewrite's soft deletion, Argon2 credential checks and retained reports
-remain explicit exceptions. Learning the old hard-delete branch must not
-silently change retention, restore or security policy.
+The rewrite now erases [fresh deleted payload](fresh-content-erasure.md) and
+[whole-deletion reports](deleted-report-cleanup.md) transactionally while keeping
+structural tombstones and separate audit records. [Staff self-deletion](staff-self-deletion.md)
+preserves reports for file-only actions proven by the current posting peer or
+recovery password and records a distinct audit event. Public authorization still
+uses strong capabilities or Argon2 passwords. Historical soft-deleted data,
+physical media retention and backup policy remain separate exceptions; these
+changes do not establish complete deletion parity.
 
 ### Archives and retention
 

@@ -10,8 +10,8 @@ request-start time. An authorized public request still cannot delete an archived
 post, a sticky OP, a `/vg/` OP, or an OP with a surviving staff-badged reply.
 
 Migration 0091 also [retires deletion-password hashes](archive-deletion-secrets.md)
-for the OP and replies on new archive transitions. Historical archived hashes
-remain unchanged pending a separate decision.
+for the OP and replies on new archive transitions. Migration 0139 also removes
+legacy archived hashes without changing archived content or expiry.
 
 The minimum age is 60 seconds when the current anonymous session's network
 lifetime is at least 900 seconds, and 600 seconds otherwise. Equality admits the
@@ -103,7 +103,8 @@ This slice does not complete issue #214. [Legacy batches](legacy-actions.md#mult
 now preserve submitted order and partial success. The source's peer-address-only authority,
 physical file erasure and historical cleanup remain separate work.
 [File-only actions](file-deletion-actions.md) also cover repeated and text-only
-requests and administrative report cleanup. Staff-self proof remains separate.
+requests and administrative report cleanup. [Staff-self proof](staff-self-deletion.md)
+now preserves reports for verified staff self-file actions.
 [Fresh whole-deletion report cleanup](deleted-report-cleanup.md) removes target
 report rows transactionally while preserving independent staff audit records.
 [Fresh content erasure](fresh-content-erasure.md) clears payload and per-post author

@@ -827,7 +827,7 @@ AND NOT EXISTS (
         ('moderation_audit_group_clear_count',ARRAY['action','group_clear_count'],
          'action=''report-group-clear''andgroup_clear_countisnotnullandgroup_clear_count>=1andgroup_clear_count<=10000oraction<>''report-group-clear''andgroup_clear_countisnull'),
         ('moderation_audit_action_check',ARRAY['action'],
-         'action=anyarray[''close'',''reopen'',''sticky'',''unsticky'',''permasage'',''unpermasage'',''permaage'',''unpermaage'',''remove-post'',''remove-file'',''remove-thread'',''resolve'',''dismiss'',''staff-post'',''spoiler'',''unspoiler'',''undead'',''unundead'',''thread-options'',''force-archive'',''reporter-clear'',''report-group-clear'',''text-thread-transfer'']')
+         'action=anyarray[''close'',''reopen'',''sticky'',''unsticky'',''permasage'',''unpermasage'',''permaage'',''unpermaage'',''remove-post'',''remove-file'',''remove-thread'',''resolve'',''dismiss'',''staff-post'',''spoiler'',''unspoiler'',''undead'',''unundead'',''thread-options'',''force-archive'',''reporter-clear'',''report-group-clear'',''text-thread-transfer'',''self-remove-post'',''self-remove-file'',''self-remove-thread'']')
     ) AS required(constraint_name,columns,expression)
     WHERE NOT EXISTS (
         SELECT 1 FROM relations c JOIN pg_catalog.pg_constraint k ON k.conrelid=c.oid
