@@ -16,6 +16,16 @@ credentials, expiring forms and atomic duplicate protection. The missing
 controller contract is reconstructed explicitly; exact original poll styling
 remains unqualified. Existing polls stay closed until an operator enables voting.
 
+[Bans and warnings](source-bans.md) add private board/global restrictions, staff
+issuance/unban, atomic OP/distinct-address global thread-ban batches,
+transactional posting/report refusal and a native public status/viewing flow.
+The policies are compared with 13,840 executed posting cases, 3,456 report
+cases and 88 valid thread-ban traces, including PHP day coercion. The missing public controller is
+reconstructed explicitly. Report range/ASN and account/Pass rules, templates,
+other combined actions, post notices, recent bans and original presentation
+remain open under [#220](https://github.com/frankischilling/26chan/issues/220).
+Runtime and current-head hosted checks are separate requirements.
+
 [Local blotter](local-blotter.md) implements operator-published messages, the
 source-gated newest-three preview and timestamp dismissal, and a local dated
 cursor-paginated page. Content is escaped plain text. Database and focused Node

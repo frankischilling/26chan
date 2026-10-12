@@ -1064,6 +1064,16 @@ async fn submit_post(
             return Ok(format.rule_error(&rejection.source_message()));
         }
         Err(StoreError::Robot9000Rejected(message) | StoreError::ContentRejected(message)) => {
+            if matches!(format, crate::posting_response::Format::Html)
+                && (message == board_store::restrictions::BANNED
+                    || message == board_store::restrictions::WARNED)
+            {
+                return crate::restrictions::posting_refusal(
+                    &state,
+                    &board,
+                    message == board_store::restrictions::WARNED,
+                );
+            }
             return Ok(format.rule_error(&message));
         }
         Err(StoreError::ContentQuiet { post: quiet }) => {

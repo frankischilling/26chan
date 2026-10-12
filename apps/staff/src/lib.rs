@@ -13,6 +13,7 @@ mod report_post_snapshot;
 pub mod report_queue;
 mod report_queue_query;
 mod reporter_clear;
+mod restrictions;
 mod robot9000_cleanup;
 pub mod store;
 mod thread_options;
@@ -229,6 +230,20 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/login/finish", post(handlers::login_finish))
         .route("/logout", post(handlers::logout))
         .route("/moderate", post(handlers::moderate))
+        .route(
+            "/ban",
+            get(restrictions::show)
+                .post(restrictions::issue)
+                .layer(DefaultBodyLimit::max(65536)),
+        )
+        .route(
+            "/ban/unban",
+            post(restrictions::unban).layer(DefaultBodyLimit::max(4096)),
+        )
+        .route(
+            "/ban/thread",
+            post(restrictions::thread).layer(DefaultBodyLimit::max(65536)),
+        )
         .route(
             "/reporter-clear",
             post(reporter_clear::submit).layer(DefaultBodyLimit::max(4096)),

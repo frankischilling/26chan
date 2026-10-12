@@ -61,3 +61,6 @@ GRANT board_thread_transfer_owner TO board_migrator WITH INHERIT FALSE, SET TRUE
 -- Bootstrap before migration 0133; application roles cannot assume this identity.
 CREATE ROLE board_report_snapshot_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT board_report_snapshot_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+-- Bootstrap before migration 0134. Neither application can assume this owner.
+CREATE ROLE board_restriction_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_restriction_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;

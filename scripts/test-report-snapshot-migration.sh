@@ -44,7 +44,9 @@ runuser -u postgres -- "${db[@]}" -d postgres -c 'GRANT CONNECT ON DATABASE repo
 migrator=("${db[@]}" -U board_migrator -d report_snapshot)
 admin=(runuser -u postgres -- "${db[@]}" -d report_snapshot)
 for migration in "$tree"/migrations/*.sql; do
- [[ $(basename "$migration") != 0133_* ]] || continue
+ # Freeze this historical upgrade at its target. Later migrations can depend
+ # on 0133 and must not run while this fixture deliberately withholds it.
+ [[ $(basename "$migration") < 0133_ ]] || break
  if [[ $order = absent && $(basename "$migration") = 0131_* ]]; then continue; fi
  if [[ $order != absent && ( $(basename "$migration") = 0131_* || $(basename "$migration") = 0132_* ) ]]; then continue; fi
  "${migrator[@]}" --single-transaction -f - < "$migration" >/dev/null 2>"$cluster/migration.log" || { tail -n 7 "$cluster/migration.log"; exit 1; }

@@ -22,6 +22,7 @@ mod post_preferences;
 mod post_receipts;
 mod posting_form;
 mod posting_response;
+mod restrictions;
 mod rss;
 mod search;
 mod security;
@@ -254,6 +255,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
         .merge(ui_assets::routes())
         .merge(search::routes())
         .merge(polls::routes())
+        .merge(restrictions::routes())
         .merge(blotter::routes())
         .route("/", get(handlers::home))
         .route("/derefer", get(derefer::get))

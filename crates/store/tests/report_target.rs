@@ -58,6 +58,21 @@ async fn rejected(
         .to_string(),
         expected
     );
+    assert_eq!(
+        board_store::report_categorical_with_anonymous_session(
+            public,
+            board,
+            id,
+            1,
+            1,
+            &report_identity(board, 201),
+            sessions.fresh(201)
+        )
+        .await
+        .unwrap_err()
+        .to_string(),
+        expected
+    );
 }
 
 #[tokio::test]
@@ -110,7 +125,9 @@ async fn report_targets_follow_source_policy_without_exposing_private_activity()
             assert_eq!(board_store::report_target(public, slug, reply).await.unwrap().worksafe, worksafe);
         }
         rejected(public, slug, -1, "Not found.", sessions).await;
+        rejected(public, slug, 0, "Not found.", sessions).await;
         rejected(public, "missing", op, "Not found.", sessions).await;
+        rejected(public, "bad/board", op, "Not found.", sessions).await;
 
         sqlx::query("UPDATE content.threads SET sticky=true,closed=true WHERE id=$1")
             .bind(op).execute(owner).await.unwrap();
@@ -135,6 +152,7 @@ async fn report_targets_follow_source_policy_without_exposing_private_activity()
             .bind(slug).execute(owner).await.unwrap();
         rejected(public, slug, op, DISABLED, sessions).await;
         rejected(public, slug, -1, DISABLED, sessions).await;
+        rejected(public, slug, 0, DISABLED, sessions).await;
         let before: i64 = sqlx::query_scalar("SELECT count(*) FROM content.reports WHERE board=$1")
             .bind(slug).fetch_one(owner).await.unwrap();
         assert_eq!(board_store::report_with_anonymous_session(public, slug, reply, "Rejected anonymous report", &report_identity(slug, 201), session).await.unwrap_err().to_string(), DISABLED);

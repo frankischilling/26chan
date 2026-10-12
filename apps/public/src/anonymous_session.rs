@@ -13,7 +13,10 @@ fn cookie_name(production: bool) -> &'static str {
     }
 }
 
-fn cookie(headers: &HeaderMap, production: bool) -> Result<Option<Capability>, AppError> {
+pub(crate) fn cookie(
+    headers: &HeaderMap,
+    production: bool,
+) -> Result<Option<Capability>, AppError> {
     let mut size = 0;
     let mut value = None;
     let mut present = false;

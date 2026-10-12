@@ -39,6 +39,7 @@ pub use quote_targets::{MAX_QUOTE_TARGETS, QuoteTargets};
 pub mod report_admission;
 pub mod report_catalog;
 pub mod report_categories;
+pub mod restrictions;
 pub use report_categories::{CategoryChoice, CategoryForm, CategoryKind, category_form};
 mod report_target;
 pub use report_target::{ReportTarget, report_target};
@@ -387,6 +388,13 @@ pub async fn connect_public(url: &str) -> Result<PgPool, StoreError> {
         .await?;
     let safe: bool = sqlx::query_scalar("SELECT current_user = 'board_public' AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member = pg_roles.oid) AND NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = current_database() AND datdba = pg_roles.oid) AND NOT has_schema_privilege(current_user, 'staff_identity', 'USAGE') AND NOT has_schema_privilege(current_user, 'deployment', 'USAGE') FROM pg_roles WHERE rolname = current_user").fetch_one(&pool).await?;
     if !safe {
+        pool.close().await;
+        return Err(StoreError::UnsafeRole);
+    }
+    let ready: bool = sqlx::query_scalar("SELECT content.restrictions_ready()")
+        .fetch_one(&pool)
+        .await?;
+    if !ready {
         pool.close().await;
         return Err(StoreError::UnsafeRole);
     }

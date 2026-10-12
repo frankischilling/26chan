@@ -167,67 +167,7 @@ pub struct DrawingSubmission<'a> {
 /// Bound raw values before parsing; invalid values cast to zero and do not
 /// authorize an annotation or a source identity.
 fn drawing_source_integer(value: &str) -> i64 {
-    let value = value.trim_start_matches(|character: char| character.is_ascii_whitespace());
-    let bytes = value.as_bytes();
-    let mut at = usize::from(
-        bytes
-            .first()
-            .is_some_and(|byte| *byte == b'+' || *byte == b'-'),
-    );
-    let mut digits = 0;
-    while bytes.get(at).is_some_and(u8::is_ascii_digit) {
-        digits += 1;
-        at += 1;
-    }
-    let mut float = false;
-    if bytes.get(at) == Some(&b'.') {
-        float = true;
-        at += 1;
-        while bytes.get(at).is_some_and(u8::is_ascii_digit) {
-            digits += 1;
-            at += 1;
-        }
-    }
-    if digits == 0 {
-        return 0;
-    }
-    if bytes
-        .get(at)
-        .is_some_and(|byte| *byte == b'e' || *byte == b'E')
-    {
-        let mut next = at + 1;
-        if bytes
-            .get(next)
-            .is_some_and(|byte| *byte == b'+' || *byte == b'-')
-        {
-            next += 1;
-        }
-        let start = next;
-        while bytes.get(next).is_some_and(u8::is_ascii_digit) {
-            next += 1;
-        }
-        if next > start {
-            at = next;
-            float = true;
-        }
-    }
-    let prefix = &value[..at];
-    if float {
-        prefix.parse::<f64>().map_or(
-            0,
-            |number| {
-                if number.is_finite() { number as i64 } else { 0 }
-            },
-        )
-    } else {
-        prefix.parse::<i64>().unwrap_or_else(|_| {
-            if prefix.starts_with('-') {
-                i64::MIN
-            } else {
-                i64::MAX
-            }
-        })
-    }
+    board_domain::php_scalar::integer(value)
 }
 
 pub async fn create_post_with_metadata(
@@ -603,6 +543,22 @@ async fn create_post_in_context(
         .execute(&mut *tx)
         .await?;
     crate::posting_cooldown::lock(&mut tx, &posting_actor, parent == 0).await?;
+    if let Some(message) = crate::restrictions::prepare(
+        &mut tx,
+        &posting_actor,
+        anonymous
+            .as_ref()
+            .map(|session| &session.fingerprints.token),
+        slug,
+        context.request_start.timestamp(),
+    )
+    .await?
+    {
+        // No content or anonymous activity has been written. Persist only the
+        // source's visited expired rows even when a later match blocks posting.
+        tx.commit().await?;
+        return Err(StoreError::ContentRejected(message.into()));
+    }
     if staff.is_some() {
         let role: String = sqlx::query_scalar("SELECT current_user::text")
             .fetch_one(&mut *tx)
@@ -1555,7 +1511,7 @@ fn staff_post_error(error: sqlx::Error) -> StoreError {
     {
         StoreError::AuthorizationChanged
     } else {
-        StoreError::Database(error)
+        crate::restrictions::insertion_error(error)
     }
 }
 
@@ -1570,6 +1526,56 @@ pub async fn delete_post(pool: &PgPool, slug: &str, id: i64) -> Result<(), Store
     delete_post_in(&mut tx, slug, id).await?;
     tx.commit().await?;
     Ok(())
+}
+
+/// Source cpban through real staff authority. Ban capture, private audit,
+/// ordinary deletion guards and moderation audit commit as one transaction.
+pub async fn ban_thread(
+    pool: &PgPool,
+    input: crate::restrictions::ThreadBan<'_>,
+) -> Result<i32, StoreError> {
+    for attempt in 0..3 {
+        let mut tx = pool.begin().await?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+            .execute(&mut *tx)
+            .await?;
+        let issued = sqlx::query_as::<_, (i32, i64)>(
+            "SELECT * FROM content.issue_thread_restrictions($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+        )
+        .bind(input.session)
+        .bind(input.csrf)
+        .bind(input.idle_seconds)
+        .bind(input.board)
+        .bind(input.thread)
+        .bind(input.op_reason)
+        .bind(input.reply_reason)
+        .bind(input.op_days)
+        .bind(input.reply_days)
+        .fetch_one(&mut *tx)
+        .await;
+        let (count, account) = match issued {
+            Ok(issued) => issued,
+            Err(error) => {
+                let recapture =
+                    error.as_database_error().and_then(|e| e.code()).as_deref() == Some("P136R");
+                tx.rollback().await?;
+                if recapture && attempt < 2 {
+                    continue;
+                }
+                return Err(StoreError::Database(error));
+            }
+        };
+        // The definer retains actor, restriction, board, thread and post locks.
+        // It checked sticky authority and queued a deferred deletion promise.
+        delete_post_in(&mut tx, input.board, input.thread).await?;
+        sqlx::query("INSERT INTO content.moderation_audit(account_id,board,target_id,action) VALUES($1,$2,$3,'remove-thread')")
+            .bind(account).bind(input.board).bind(input.thread).execute(&mut *tx).await?;
+        // The deferred guard verifies complete deletion and live staff scope,
+        // credentials, CSRF, idle/absolute expiry, recent auth and flags here.
+        tx.commit().await?;
+        return Ok(count);
+    }
+    unreachable!("bounded thread capture attempts always return")
 }
 
 /// The proof is the SHA-256 of the stored hash actually verified by the server.
@@ -1725,6 +1731,15 @@ pub async fn report(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::restrictions::prepare_report(
+        &mut tx,
+        identity,
+        None,
+        slug,
+        id,
+        chrono::Utc::now().timestamp(),
+    )
+    .await?;
     crate::report_admission::admit_on(&mut tx, slug, id, reason, identity).await?;
     tx.commit().await?;
     Ok(())
@@ -1743,6 +1758,15 @@ pub async fn report_with_anonymous_session(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::restrictions::prepare_report(
+        &mut tx,
+        identity,
+        Some(&session.fingerprints.token),
+        slug,
+        id,
+        session.now.timestamp(),
+    )
+    .await?;
     crate::report_admission::admit_with_session_on(&mut tx, slug, id, reason, identity, session)
         .await?;
     tx.commit().await?;
@@ -1765,6 +1789,15 @@ pub async fn report_categorical_with_anonymous_session(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::restrictions::prepare_report(
+        &mut tx,
+        identity,
+        Some(&session.fingerprints.token),
+        slug,
+        id,
+        session.now.timestamp(),
+    )
+    .await?;
     crate::report_admission::admit_categorical_with_session_on(
         &mut tx,
         slug,

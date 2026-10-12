@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ban or warn poster</title></head><body><main>
+<h1>Ban or warn poster</h1><p>/{{ board }}/ post {{ target }}</p>
+{% if !recent %}<p>Sign in again before changing restrictions.</p>{% endif %}
+{% if let Some(id) = restriction %}<p>Restriction ID: {{ id }}</p>{% endif %}
+<form action="/ban" method="post"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="target" value="{{ target }}"><input type="hidden" name="csrf" value="{{ csrf }}">
+<p><label>Scope <select name="scope"><option value="local">This board</option><option value="global">All boards</option></select></label></p>
+<p><label>Type <select name="kind"><option value="finite">Finite ban</option><option value="indefinite">Indefinite ban</option><option value="warning">Warning</option></select></label></p>
+<p><label>Duration in seconds <input name="seconds" type="number" value="0" min="0" max="863913600" required></label> Use 0 for a warning or indefinite ban.</p>
+<p><label>Public reason <textarea name="public_reason" required maxlength="16384"></textarea></label></p>
+<p><label>Private reason <textarea name="private_reason" maxlength="32768"></textarea></label></p>
+<button type="submit">Issue restriction</button></form>
+<form action="/ban/unban" method="post"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="target" value="{{ target }}"><input type="hidden" name="csrf" value="{{ csrf }}"><label>Restriction ID <input name="id" type="number" min="1" required></label><button type="submit">Unban</button></form>
+{% if can_ban_thread %}<section id="thread-ban-layer"><h2>Ban Entire Thread</h2>
+<form action="/ban/thread" method="post"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="target" value="{{ target }}"><input type="hidden" name="csrf" value="{{ csrf }}">
+<p><label>OP Reason <input name="op_reason" value="Posting off-topic threads." required maxlength="16384"></label></p>
+<p><label>OP Ban Length (days) <input name="op_days" type="text" autocomplete="off" maxlength="128" value="3"></label></p>
+<p><label>Rep. Reason <input name="rep_reason" value="Replying to off-topic threads." required maxlength="16384"></label></p>
+<p><label>Rep. Ban Length (days) <input name="rep_days" type="text" autocomplete="off" maxlength="128" value="0"></label></p>
+<p>Bans apply to all boards. Zero days issues a warning. The thread will be removed.</p>
+<button type="submit">Ban Entire Thread</button></form></section>{% endif %}
+<p><a href="/reports">Return to reports</a></p></main></body></html>

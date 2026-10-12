@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 pub mod admission_normalization;
 pub mod anonymous_session;
+pub mod ban;
 pub mod board_flags;
 pub mod capcode;
 pub mod content_admission;
@@ -9,6 +10,7 @@ pub mod drawing_annotation;
 pub mod identity;
 pub mod name_trip_admission;
 pub mod page_title;
+pub mod php_scalar;
 pub mod poll_voting;
 pub mod poster_id;
 pub mod preview;

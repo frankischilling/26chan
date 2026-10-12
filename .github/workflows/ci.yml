@@ -58,6 +58,7 @@ jobs:
           python3 scripts/test-dev-db-env.py
           python3 scripts/test-dev-staff-db-env.py
           sudo bash scripts/test-role-bootstrap.sh
+          sudo bash scripts/test-source-restrictions-migration.sh
           sudo bash scripts/dev-db.sh
           sudo bash scripts/dev-media-db.sh
           sudo bash scripts/dev-media-reader-db.sh

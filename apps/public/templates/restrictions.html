@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ban and warning status</title><link rel="stylesheet" href="/static/board.css"></head>
+<body><main><h1>Ban and warning status</h1>
+<p>Active bans prevent reporting. A scheduled end may have passed before the ban is retired.</p>
+{% if rows.is_empty() %}<p>No current ban or warning applies to this request on /{{ board }}/.</p>{% endif %}
+{% for row in rows %}<section>
+<h2>{% if row.warning %}Warning{% else %}Ban{% endif %}</h2>
+<p>{{ row.public_reason }}</p>
+<p>{% if row.global %}All boards{% else %}/{{ row.board }}/{% endif %}. Issued: {{ row.starts_at }}.</p>
+{% if !row.warning %}<p>{% if let Some(end) = row.ends_at %}Ends: {{ end }}.{% else %}No scheduled expiry.{% endif %}</p>{% endif %}
+{% if row.warning %}<form action="/banned" method="post"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="id" value="{{ row.id }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">I have viewed this warning</button></form>{% endif %}
+</section>{% endfor %}
+<p><a href="/{{ board }}/">Return to /{{ board }}/</a></p></main></body></html>
