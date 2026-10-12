@@ -29,6 +29,15 @@ async fn pool(key: &str) -> PgPool {
 
 #[tokio::test]
 async fn legacy_backfill_preserves_originals_fences_output_and_commits_cache_metadata() {
+    qualify(false).await;
+}
+
+#[tokio::test]
+async fn backfill_ownership_races_preserve_consumed_attachment_identities() {
+    qualify(true).await;
+}
+
+async fn qualify(ownership_only: bool) {
     let owner = pool("MIGRATION_DATABASE_URL").await;
     let board = ObjectId::generate().unwrap().to_string()[..10].to_owned();
     let destination_board = ObjectId::generate().unwrap().to_string()[..10].to_owned();
@@ -42,7 +51,28 @@ async fn legacy_backfill_preserves_originals_fences_output_and_commits_cache_met
     let task_board = board.clone();
     let task_destination_board = destination_board.clone();
     let result = tokio::spawn(async move {
-        exercise(&task_owner, &task_board, &task_destination_board, &task_ids).await
+        if ownership_only {
+            let temp = tempfile::tempdir().unwrap();
+            let quarantine = Quarantine::new(temp.path().join("quarantine")).unwrap();
+            let root = temp.path().join("objects");
+            let store = PublicationStore::new(&root, &quarantine).unwrap();
+            let files = ApprovedFiles::open(&root).unwrap();
+            let output = ValidatedOutput::read(frame(50).as_slice()).await.unwrap();
+            for destination in [&task_destination_board, &task_board] {
+                ownership_during_upgrade(
+                    &task_owner,
+                    &task_board,
+                    destination,
+                    &store,
+                    &files,
+                    &output,
+                    &task_ids,
+                )
+                .await;
+            }
+        } else {
+            exercise(&task_owner, &task_board, &task_destination_board, &task_ids).await;
+        }
     })
     .await;
     for board in [&board, &destination_board] {
@@ -342,7 +372,8 @@ async fn ownership_during_upgrade(
 
     assert_eq!(prior.len(), 2);
 
-    // Fixture-only relocation locks both owners before changing the attachment.
+    // Fixture-only live-post relocation locks both owners. The consumed
+    // attachment identity itself remains permanently attached to the same post.
     let mut relocation = owner.begin().await.unwrap();
     let fixture_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
         .fetch_one(&mut *relocation)
@@ -363,14 +394,33 @@ async fn ownership_during_upgrade(
         .fetch_one(&mut *relocation)
         .await
         .unwrap();
-    let relocated =
+    sqlx::query("SAVEPOINT identity_refusal")
+        .execute(&mut *relocation)
+        .await
+        .unwrap();
+    let rejected =
         sqlx::query("UPDATE content.post_media SET post_id=$1 WHERE post_id=$2 AND asset_id=$3")
             .bind(destination_post)
             .bind(source_post)
             .bind(&id)
             .execute(&mut *relocation)
             .await
-            .unwrap();
+            .unwrap_err();
+    assert_eq!(
+        rejected.as_database_error().unwrap().code().as_deref(),
+        Some("23514")
+    );
+    sqlx::query("ROLLBACK TO SAVEPOINT identity_refusal")
+        .execute(&mut *relocation)
+        .await
+        .unwrap();
+    let relocated = sqlx::query("UPDATE content.posts SET board=$1,thread_id=$2 WHERE id=$3")
+        .bind(destination_board)
+        .bind(destination_post)
+        .bind(source_post)
+        .execute(&mut *relocation)
+        .await
+        .unwrap();
 
     assert_eq!(relocated.rows_affected(), 1);
     let upgrade = complete_backfill(&admin, &guard, files, &before, output);
@@ -413,11 +463,11 @@ async fn ownership_during_upgrade(
         }
     }
     let timestamped: bool = sqlx::query_scalar("SELECT t.modified_at>=a.updated_at FROM content.threads t JOIN content.posts p ON p.thread_id=t.id JOIN content.post_media m ON m.post_id=p.id JOIN media.assets a ON a.id=m.asset_id WHERE p.id=$1")
-        .bind(destination_post).fetch_one(owner).await.unwrap();
+        .bind(source_post).fetch_one(owner).await.unwrap();
     assert!(timestamped);
     let retained: (String, String, i64) =
         sqlx::query_as("SELECT job_id,asset_id,tim FROM content.post_media WHERE post_id=$1")
-            .bind(destination_post)
+            .bind(source_post)
             .fetch_one(owner)
             .await
             .unwrap();
@@ -744,7 +794,8 @@ async fn cli_dispatch(temp: &Path, root: &Path, id: &str, mut disk: Vec<u8>) {
         .unwrap();
     assert!(
         result.status.success(),
-        "Offline CLI rejected controlled TLS output"
+        "Offline CLI rejected controlled TLS output: {}",
+        String::from_utf8_lossy(&result.stderr)
     );
     server.await.unwrap();
     assert_eq!(
