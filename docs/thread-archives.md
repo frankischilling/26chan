@@ -9,7 +9,7 @@ not. The board lock serializes replies, rollover, deletion, reports and staff
 mutations, so queued posts see protection changes committed before they resume.
 
 Archives are optional. An enabled board keeps displaced threads read-only until
-their fixed expiry or until its archive count is exceeded. A disabled board
+their fixed expiry. Archive count no longer shortens storage retention. A disabled board
 hides displaced threads using the existing soft-deletion model. This replaces
 the earlier behavior that rejected every new thread on a full board.
 
@@ -31,26 +31,24 @@ adds the source rollover-order setting. All remain operator-owned:
 | Setting | Range and default | Behavior |
 |---|---|---|
 | `archive_retention_seconds` | 0 through 2,592,000; default 0 | Zero disables archives; positive values fix each newly archived thread's lifetime |
-| `archive_limit` | 1 through 1,000; default 1,000 | Retain at most this many unexpired archived threads after each successful new OP |
+| `archive_limit` | Legacy column, 1 through 1,000 | Preserved for compatibility; no longer deletes archives |
 | `expire_neglected` | Boolean; default true, false on `/f/` | True chooses oldest bump clock; false chooses oldest OP number |
 
-For example, an operator may enable one day of archives and a 500-thread cap
-on a deliberately selected board:
+For example, an operator may enable one day of archives on a selected board:
 
 ```sql
 UPDATE content.boards
-SET archive_retention_seconds=86400, archive_limit=500
+SET archive_retention_seconds=86400
 WHERE slug='demo';
 ```
 
 Runtime logins cannot change these settings. Increasing retention does not
 extend existing expiry timestamps. Disabling archives hides existing archived
 threads immediately; re-enabling may expose still-unexpired entries that have
-not been soft-deleted. Lowering the count cap prunes oldest entries on the next
-successful new OP. Until then, reads retain the previous set. JSON reads are bounded to 1,000
-IDs; the independent HTML read ceiling is 3,000 summaries. These retention/count
-policies are project choices and do not reproduce the complete source archive
-lifecycle. Rollover ordering follows `EXPIRE_NEGLECTED`, including the active
+not been deleted. JSON reads return the complete retained set within the
+[archive reader budgets](archive-storage.md#reader-limits); the independent HTML
+read ceiling is 3,000 summaries. Fixed saved expiry still differs from the source's
+current-policy age calculation. Rollover ordering follows `EXPIRE_NEGLECTED`, including the active
 `/f/` override. Equal bump clocks use OP number as a deterministic local tie-break.
 
 Private boards skip active-thread rollover, matching the early return for
@@ -60,12 +58,12 @@ exemption follows board policy, not the `/j/` slug or the posting actor. It skip
 the active count, victim selection and archival or soft deletion of active
 threads. `/j/` therefore keeps old active threads beyond `thread_limit`.
 
-Archive cleanup still runs after a successful new OP, including on private
-boards. The source's separate `trim_archive` function (`imgboard.php:2788-2814`)
+Age cleanup runs after a successful new OP on archive-enabled boards, including
+private boards. The source's separate `trim_archive` function (`imgboard.php:2788-2814`)
 has no private-board exemption; the posting and rebuild callers invoke both
-functions (`imgboard.php:6709-6717,7743-7744`). The rewrite keeps its existing
-archive expiry and count cleanup. This change does not restore deleted content,
-change imported board settings or add a new retention policy.
+functions (`imgboard.php:6709-6717,7743-7744`). The rewrite removes expired entries without an archive-count cap. Disabled
+archive policy skips this new-OP cleanup. Existing deleted content is not restored
+and imported board settings are unchanged.
 
 Expiry hides threads on public reads even if no new post triggers cleanup.
 This is public visibility policy, not physical erasure. Base-table text remains
@@ -109,9 +107,10 @@ and JSON keep their distinct orderings within their existing read snapshots.
 The supplied `imgboard.php:9253` uses an inclusive comparison against the root
 clock for this three-day window. It is independent of storage expiry and does
 not shorten the JSON archive list. HTML reads use the source 3,000-entry ceiling
-from line 9264 without raising response or shared-buffer budgets. Normal stored
-retention is still independently capped at 1,000; restoring the read ceiling
-does not complete lifecycle parity or establish full archive-page visual parity.
+from line 9264 without raising response or shared-buffer budgets. Stored retention is no longer capped by archive count, and JSON returns a
+complete ascending list within its backend reader budgets. See
+[archive storage](archive-storage.md) for the limits and remaining saved-expiry
+differences. This does not establish full archive-page visual parity.
 
 ### Archive rows and excerpts
 

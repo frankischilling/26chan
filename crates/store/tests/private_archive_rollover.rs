@@ -255,7 +255,7 @@ async fn private_active_threads_survive_while_archive_cleanup_and_rejections_rem
                 replies.push(reply);
             }
             // Seed archives through real staff posts, changing only owned
-            // lifecycle metadata. Newest expired archive must not consume a slot.
+            // lifecycle metadata. Only enabled age-based retention removes archives.
             let expired = f.write(0, 40, true).await.unwrap();
             let over_cap = f.write(0, 41, true).await.unwrap();
             let retained = f.write(0, 42, true).await.unwrap();
@@ -275,7 +275,7 @@ async fn private_active_threads_survive_while_archive_cleanup_and_rejections_rem
             }
             let states: Vec<(i64, bool)> = sqlx::query_as("SELECT id,deleted FROM content.threads WHERE board=$1 AND id=ANY($2) ORDER BY id")
                 .bind(&f.board).bind(&[expired, over_cap, retained][..]).fetch_all(&f.owner).await.unwrap();
-            assert_eq!(states, vec![(expired, true), (over_cap, true), (retained, retention == 0)]);
+            assert_eq!(states, vec![(expired, retention > 0), (over_cap, false), (retained, false)]);
             let mut original_posts = active[..5].to_vec();
             original_posts.extend(replies);
             original_posts.sort_unstable();

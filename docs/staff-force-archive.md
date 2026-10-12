@@ -100,7 +100,7 @@ staff-interface parity:
 - Existing [archive retention](thread-archives.md) is project policy. Fixed
   expiry, count limits and public hiding do not reproduce the source's complete
   `ARCHIVE_MAX_AGE` pruning lifecycle. Force archive does not run a new global
-  expiry/count cleanup sweep; existing automatic cleanup remains separate.
+  age-cleanup sweep; existing automatic cleanup remains separate.
 - This action does not change automatic active-thread victim selection,
   protected-thread handling or the private-board rollover exemption.
 - Source clearing of email, host and pass ID, OP poster-ID regeneration and

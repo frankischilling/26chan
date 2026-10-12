@@ -180,10 +180,26 @@ async fn archive_lifecycle(
     let fifth = support::create_post(public, slug, 0, &post())
         .await
         .unwrap();
-    assert!(matches!(
-        board_store::thread(public, slug, second).await,
-        Err(StoreError::NotFound)
-    ));
+    assert!(
+        board_store::thread(public, slug, second)
+            .await
+            .unwrap()
+            .archived_at
+            .is_some()
+    );
+    assert_eq!(
+        board_store::archive_snapshot(public, slug)
+            .await
+            .unwrap()
+            .entries
+            .len(),
+        3,
+        "the legacy archive_limit must not delete retained source archives"
+    );
+    // Remove this owned row explicitly to keep the following expiry/report cases isolated.
+    board_store::delete_post(public, slug, second)
+        .await
+        .unwrap();
     assert_eq!(
         board_store::archive_snapshot(public, slug)
             .await
@@ -816,7 +832,7 @@ async fn expired_entries_do_not_displace_valid_archives(
     assert_eq!(
         ids,
         vec![older, newest],
-        "expired entries must not occupy archive capacity"
+        "age expiry removes only the expired archive"
     );
 }
 
@@ -1100,10 +1116,23 @@ async fn source_rollover_order(owner: &PgPool, public: &PgPool, slug: &str) {
                     .await
                     .unwrap();
                     assert!(marked, "A freshly deleted rollover victim is erased");
+                } else {
+                    let archived_at: chrono::DateTime<chrono::Utc> =
+                        sqlx::query_scalar("SELECT archived_at FROM content.threads WHERE id=$1")
+                            .bind(victim)
+                            .fetch_one(owner)
+                            .await
+                            .unwrap();
+                    let archived = expected_clocks
+                        .iter_mut()
+                        .find(|row| row.0 == victim)
+                        .unwrap();
+                    assert!(archived_at > archived.2);
+                    archived.2 = archived_at;
                 }
                 assert_eq!(
                     after_clocks, expected_clocks,
-                    "Rollover preserves retained clocks and clears only the deleted victim"
+                    "Rollover resets only the archived root clock and erases only a deleted victim"
                 );
                 let after_posts: Vec<serde_json::Value> = sqlx::query_scalar(
                     "SELECT to_jsonb(p) FROM content.posts p WHERE id=ANY($1) ORDER BY id",

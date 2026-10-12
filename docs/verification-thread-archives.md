@@ -10,7 +10,7 @@ Playwright 1.62.0/Chromium 151. No registry dependency or lockfile changed.
 - The first real-public-role test failed because a full board rejected its
   second OP. Atomic rollover then passed for disabled and enabled archives.
 - Store tests cover expiry across thread/post/quote/report/deletion lookups,
-  archive capacity, disabled policy, fixed expiry after policy increases,
+  retention beyond the legacy count cap, disabled policy, fixed expiry after policy increases,
   sage/bump order, mixed and all-pinned boards, and concurrent new OPs.
 - Actual PostgreSQL lock queues enforce both reply-versus-rollover orders. A
   reply that commits first persists and changes the rollover victim; a rollover
@@ -18,8 +18,8 @@ Playwright 1.62.0/Chromium 151. No registry dependency or lockfile changed.
   incrementing its lifetime count. A table-lock barrier commits archive policy
   between the two read statements and verifies one coherent response snapshot.
 - A regression reproduced expired newer entries wrongly displacing a valid
-  older archive at the count cap. Excluding expired entries from capacity
-  ranking made the same test pass.
+  older unexpired archive. Age cleanup now preserves that valid entry without
+  applying a count ranking.
 - The staff test first reproduced successful reopening of an archive. Reopen
   and sticky now return an explicit invalid-action result; removal remains
   audited, and reports display read-only state. Public closed/sticky/settings
