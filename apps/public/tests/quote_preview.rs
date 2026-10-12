@@ -280,8 +280,13 @@ mod database {
         let fragment = expected["post"]["html"].as_str().unwrap();
         let quote_url = format!("/{slug}/thread/{thread}?quote={reply}#reply");
         assert!(fragment.contains(&quote_url));
+        let selector = format!(
+            "<input type=\"checkbox\" id=\"select{reply}\" name=\"{reply}\" value=\"delete\" form=\"delform\" aria-label=\"Select post No.{reply}\"> "
+        );
+        assert_eq!(fragment.matches(&selector).count(), 1);
         expected["post"]["html"] = fragment
             .replace(&quote_url, &format!("/{slug}/thread/{thread}#p{reply}"))
+            .replace(&selector, "")
             .into();
         assert_eq!(json(archived_reply).await, expected);
         let archived_op = json(request(&web, "GET", &op_path, Some(&op_etag)).await).await;
