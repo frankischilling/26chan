@@ -6,6 +6,8 @@ for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['mob
     await page.setViewportSize(viewport);
     await page.goto('/demo/');
     await expect(page.locator('#m1000001')).toBeVisible();
+    if (name === 'mobile') await expect(page.locator('#delform')).toBeHidden();
+    else await expect(page.locator('#delform')).toBeVisible();
     await expect(page).toHaveScreenshot(`board-${name}.png`, { fullPage: true });
   });
 }

@@ -28,6 +28,9 @@ hr { border: 0; border-top: 1px solid #b7b7a4; margin: 20px 0; }
 .postInfo { line-height: 1.6; overflow-wrap: anywhere; }
 .postInfo > input[form="delform"] { padding: 0; margin: 0 3px 0 0; vertical-align: middle; }
 .bottomCtrl { text-align: right; margin: 6px 0; }
+@media (max-width: 480px) {
+  .bottomCtrl.desktop { display: none; }
+}
 .deleteform { display: inline; }
 #deleteSelectionStatus:not(:empty) { display: block; margin-top: 4px; }
 .subject { color: #cc1105; font-weight: bold; margin-right: 5px; }

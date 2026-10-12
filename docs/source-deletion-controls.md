@@ -43,3 +43,10 @@ ownership refusal after an earlier successful deletion.
 Private moderation snapshot retention is a separate operator policy. These
 controls do not erase audit snapshots or choose a retention period. Historical
 public erasure remains governed by the bounded operator cleanup procedure.
+
+Desktop regression baselines were reviewed from hosted run `38291301315`:
+board, empty board, attachment board/thread and all six persisted themes. The
+accepted changes add post selectors and the bottom controls, with the resulting
+footer movement. Mobile baselines remain unchanged; an explicit visibility
+assertion keeps the desktop form out of the mobile layout. These project
+baselines do not by themselves establish visual parity with the original site.
