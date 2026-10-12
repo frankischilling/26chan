@@ -467,6 +467,10 @@ jobs:
         run: sudo bash scripts/test-anonymous-session-migration.sh
       - name: Qualify staff self-deletion migration and restore
         run: sudo bash scripts/test-staff-self-deletion-migration.sh
+      - name: Qualify bounded historical deletion cleanup and restore
+        run: |
+          cargo build -p board-store --bin board-deletion-cleanup --locked
+          sudo bash scripts/test-historical-erasure-migration.sh
       - name: Restore disposable backup
         run: sudo bash scripts/restore-exercise.sh
       - name: Restore populated attachments and normalized files

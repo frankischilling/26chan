@@ -100,8 +100,12 @@ limits of happy-path browser qualification.
 ## Remaining scope
 
 This slice does not complete issue #214. [Legacy batches](legacy-actions.md#multiple-selections)
-now preserve submitted order and partial success. The source's peer-address-only authority,
-physical file erasure and historical cleanup remain separate work.
+now preserve submitted order and partial success. The source's peer-address-only
+public deletion authority remains excluded for security. Physical file erasure
+and historical cleanup use separate operator paths.
+[Historical cleanup](historical-deletion-cleanup.md) requires an explicit reviewed
+batch; [media reconciliation](post-attachments.md#output-retention-and-cleanup)
+removes eligible output files while preserving consumed-capability tombstones.
 [File-only actions](file-deletion-actions.md) also cover repeated and text-only
 requests and administrative report cleanup. [Staff-self proof](staff-self-deletion.md)
 now preserves reports for verified staff self-file actions.
