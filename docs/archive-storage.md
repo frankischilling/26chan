@@ -67,9 +67,9 @@ deadlines once; operators should account for that work on large archives.
 
 Migration 0139 retires legacy deletion-password hashes on already-archived
 threads; see [archive credential retirement](archive-deletion-secrets.md).
-Issue #215 remains open for the remaining lifecycle and private-data comparison.
-Report/audit retention rules remain unchanged. These changes do not claim that
-every archive lifecycle difference is resolved.
+The [lifecycle comparison](archive-lifecycle-audit.md) maps issue #215 to the
+implementation and its tests, including private-retention differences.
+Report/audit retention rules remain unchanged.
 
 Cleanup follows the source's strict age comparison: a deadline equal to the
 cleanup cutoff remains stored; only an earlier deadline is retired. The cutoff

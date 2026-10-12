@@ -50,9 +50,12 @@ marker cannot retire a surviving reply's proof. A caller holding a post lock
 before the board lock fails immediately if another transaction owns the board,
 preserving the existing lock order.
 
-The migration applies to fresh deletion transitions. Historical rows keep their
-existing retention policy. Retired post text remains in the soft-deleted base
-rows; this change bounds the visible reply window, not total database storage.
+Migration 0125 applies to fresh deletion transitions. Later migration 0129
+also clears newly retired reply payload and per-post author authority through
+the [whole-deletion path](fresh-content-erasure.md). Historical already-deleted
+rows and independent audit evidence keep their separate retention rules.
+Structural tombstones remain, so the visible reply window is not a total
+database storage bound.
 
 ## JSON and deployment
 

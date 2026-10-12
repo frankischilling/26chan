@@ -806,9 +806,10 @@ the newest `STICKY_CAP - 1` existing reply IDs before adding the incoming post.
 Imported source boards use 1,000 replies. [Reply retention](sticky-reply-retention.md)
 covers atomic retirement, current counts, media and report visibility, removal
 of private ownership proofs, and numeric OP `sticky_cap` across both JSON
-listeners. Base post text retains the rewrite's soft-deletion policy. This
-completes that window's behavior without establishing complete archive lifecycle
-or frontend parity.
+listeners. Fresh pruning also clears payload through migration 0129; historical
+already-deleted rows have separate retention. The [lifecycle comparison](archive-lifecycle-audit.md)
+records archive coverage and private-retention differences. Full frontend parity
+remains separate.
 
 ### Media
 
