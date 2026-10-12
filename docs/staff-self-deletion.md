@@ -61,7 +61,7 @@ This migration does not rewrite historical posts, reports or audit records and
 does not backfill past self-deletion events. Reverting application code cannot
 restore reports already removed by earlier administrative requests.
 
-## Qualification and remaining scope
+## Qualification and related behavior
 
 `apps/staff/tests/self_deletion.rs` exercises the real staff HTTP route with
 owned disposable PostgreSQL fixtures. It covers peer and password proof,
@@ -74,8 +74,9 @@ upgrade, unchanged historical data, role denials, archive retirement, restore an
 rejection of preexisting catalog drift. Exact executed results are recorded in
 the pull request.
 
-Issue #214 also tracks historical cleanup and physical media retention. This
-change does not claim physical erasure of stored media, backups or existing audit
-snapshots. See [fresh content erasure](fresh-content-erasure.md),
+Historical cleanup and media reconciliation remain explicit operator procedures.
+Independent audit content uses the [30-day retention policy](moderation-snapshot-retention.md).
+[Deletion parity](deletion-parity.md) describes the full issue coverage and security
+differences. None of these operations claims secure erasure from backups. See [fresh content erasure](fresh-content-erasure.md),
 [file-only actions](file-deletion-actions.md) and the
 [archive lifecycle audit](archive-lifecycle-audit.md).

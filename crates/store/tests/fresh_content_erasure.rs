@@ -851,3 +851,60 @@ async fn migrator_cannot_reassign_content_identity_but_unchanged_identity_update
     source.cleanup().await;
     result.unwrap();
 }
+
+#[tokio::test]
+async fn whole_deletion_erases_media_metadata_but_preserves_consumed_identities() {
+    let f = Fixture::new().await;
+    let work = f.clone();
+    let result=tokio::spawn(async move {
+        let f=work;
+        for pool in [&f.public,&f.staff,&f.owner] {
+            let ready:bool=sqlx::query_scalar(board_store::content_erasure::MEDIA_READINESS_SQL).fetch_one(pool).await.unwrap();
+            assert!(ready);
+        }
+        for id in &f.ids {
+            sqlx::query("INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler) VALUES($1,md5($1::text||'job'),md5($1::text||'asset'),'private-name.png',4321,120,80,false)")
+                .bind(id).execute(&f.owner).await.unwrap();
+        }
+        let before:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(m) FROM content.post_media m WHERE post_id=ANY($1) ORDER BY post_id")
+            .bind(&f.ids).fetch_all(&f.owner).await.unwrap();
+        board_store::post_media::delete_attachment(&f.public,&f.board,f.ids[1]).await.unwrap();
+        let file_only:(String,i64,bool)=sqlx::query_as("SELECT filename,bytes,metadata_erased FROM content.post_media WHERE post_id=$1")
+            .bind(f.ids[1]).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(file_only,("private-name.png".into(),4321,false));
+        let mut drift=f.owner.begin().await.unwrap();
+        sqlx::query("ALTER TABLE content.post_media ENABLE ROW LEVEL SECURITY").execute(&mut *drift).await.unwrap();
+        let ready:bool=sqlx::query_scalar(board_store::content_erasure::MEDIA_READINESS_SQL).fetch_one(&mut *drift).await.unwrap();
+        assert!(!ready);
+        board_lock(&mut drift,&f.board).await;
+        let refused=sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1").bind(f.ids[0]).execute(&mut *drift).await.unwrap_err();
+        assert_eq!(code(&refused),"42501","hidden attachment rows must never silently skip erasure");
+        drift.rollback().await.unwrap();
+        let mut tx=f.public.begin().await.unwrap();
+        board_lock(&mut tx,&f.board).await;
+        sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1").bind(f.ids[0]).execute(&mut *tx).await.unwrap();
+        tx.rollback().await.unwrap();
+        let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.post_media WHERE post_id=ANY($1) AND metadata_erased")
+            .bind(&f.ids).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(count,0,"media erasure rolls back with whole deletion");
+        let mut tx=f.staff.begin().await.unwrap();
+        board_lock(&mut tx,&f.board).await;
+        sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1").bind(f.ids[0]).execute(&mut *tx).await.unwrap();
+        tx.commit().await.unwrap();
+        let after:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(m) FROM content.post_media m WHERE post_id=ANY($1) ORDER BY post_id")
+            .bind(&f.ids).fetch_all(&f.owner).await.unwrap();
+        for (old,new) in before[..3].iter().zip(&after[..3]) {
+            let expected=json!({"post_id":old["post_id"],"job_id":old["job_id"],"asset_id":old["asset_id"],"tim":old["tim"],
+                "filename":"[deleted]","bytes":1,"width":1,"height":1,"spoiler":false,"file_deleted":true,"metadata_erased":true,"created_at":"1970-01-01T00:00:00+00:00"});
+            assert_eq!(*new,expected,"every retained field needs a structural purpose");
+        }
+        assert_eq!(before[3],after[3],"unrelated live attachment is unchanged");
+        for assignment in ["filename='restore.png'","metadata_erased=false","file_deleted=false","job_id=md5('replacement')"] {
+            let error=sqlx::query(sqlx::AssertSqlSafe(format!("UPDATE content.post_media SET {assignment} WHERE post_id=$1")))
+                .bind(f.ids[0]).execute(&f.owner).await.unwrap_err();
+            assert_eq!(code(&error),"23514");
+        }
+    }).await;
+    f.cleanup().await;
+    result.unwrap();
+}

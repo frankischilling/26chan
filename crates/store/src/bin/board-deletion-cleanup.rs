@@ -7,6 +7,13 @@ use std::{ffi::OsString, process::ExitCode, str::FromStr, time::Duration};
 const HELP: &str = "Usage: board-deletion-cleanup preview <board>
        board-deletion-cleanup apply <board> --confirm-permanent-erasure <receipt> --writers-stopped
 
+       board-deletion-cleanup preview-media <board>
+       board-deletion-cleanup apply-media <board> --confirm-permanent-erasure <receipt> --writers-stopped
+
+The media commands require migration 0143 and handle at most 64 attachment rows
+whose posts are already erased. They clear descriptive metadata and preserve
+consumed post/job/asset/media identities. They never change live or file-only posts.
+
 Requires MIGRATION_DATABASE_URL with the actual board_migrator login and
 migration 0141. Stop application writers and schema changes before cleanup.
 Preview changes no rows. Review its database, board, IDs and receipt before apply.
@@ -28,6 +35,8 @@ enum Command {
     Help,
     Preview(String),
     Apply(String, String),
+    PreviewMedia(String),
+    ApplyMedia(String, String),
 }
 
 fn parse(args: &[OsString]) -> Result<Command, &'static str> {
@@ -36,8 +45,9 @@ fn parse(args: &[OsString]) -> Result<Command, &'static str> {
     let command = match text.as_slice() {
         ["--help" | "-h"] => Command::Help,
         ["preview", board] => Command::Preview((*board).to_owned()),
+        ["preview-media", board] => Command::PreviewMedia((*board).to_owned()),
         [
-            "apply",
+            action @ ("apply" | "apply-media"),
             board,
             "--confirm-permanent-erasure",
             receipt,
@@ -47,7 +57,11 @@ fn parse(args: &[OsString]) -> Result<Command, &'static str> {
                 .bytes()
                 .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) =>
         {
-            Command::Apply((*board).to_owned(), (*receipt).to_owned())
+            if *action == "apply-media" {
+                Command::ApplyMedia((*board).to_owned(), (*receipt).to_owned())
+            } else {
+                Command::Apply((*board).to_owned(), (*receipt).to_owned())
+            }
         }
         _ => {
             return Err(
@@ -55,7 +69,11 @@ fn parse(args: &[OsString]) -> Result<Command, &'static str> {
             );
         }
     };
-    if let Command::Preview(board) | Command::Apply(board, _) = &command {
+    if let Command::Preview(board)
+    | Command::Apply(board, _)
+    | Command::PreviewMedia(board)
+    | Command::ApplyMedia(board, _) = &command
+    {
         board_domain::BoardSlug::parse(board).map_err(|_| "Invalid canonical board.")?;
     }
     Ok(command)
@@ -74,13 +92,19 @@ async fn main() -> ExitCode {
 
 async fn run(args: Vec<OsString>) -> Result<(), String> {
     let command = parse(&args)?;
+    let media = matches!(
+        command,
+        Command::PreviewMedia(_) | Command::ApplyMedia(_, _)
+    );
     let (board, receipt) = match command {
         Command::Help => {
             println!("{HELP}");
             return Ok(());
         }
-        Command::Preview(board) => (board, None),
-        Command::Apply(board, receipt) => (board, Some(receipt)),
+        Command::Preview(board) | Command::PreviewMedia(board) => (board, None),
+        Command::Apply(board, receipt) | Command::ApplyMedia(board, receipt) => {
+            (board, Some(receipt))
+        }
     };
     let database = std::env::var("MIGRATION_DATABASE_URL")
         .map_err(|_| "MIGRATION_DATABASE_URL must be set.")?;
@@ -94,17 +118,21 @@ async fn run(args: Vec<OsString>) -> Result<(), String> {
     .await
     .map_err(|_| "Database connection timed out.")?
     .map_err(|_| "Cannot connect to the migration database.")?;
-    let result = tokio::time::timeout(
-        Duration::from_secs(30),
-        cleanup(&mut connection, &board, receipt.as_deref()),
-    )
+    let result = tokio::time::timeout(Duration::from_secs(30), async {
+        if media {
+            serde_json::to_string(
+                &board_store::media_erasure::cleanup(&mut connection, &board, receipt.as_deref())
+                    .await?,
+            )
+        } else {
+            serde_json::to_string(&cleanup(&mut connection, &board, receipt.as_deref()).await?)
+        }
+        .map_err(|_| board_store::historical_erasure::ErasureError::Database)
+    })
     .await
     .map_err(|_| "Cleanup timed out; confirm database transaction outcome before retrying.")?
     .map_err(|error| error.to_string())?;
-    println!(
-        "{}",
-        serde_json::to_string(&result).map_err(|_| "Cannot format cleanup result.")?
-    );
+    println!("{result}");
     connection
         .close()
         .await
@@ -136,7 +164,30 @@ mod tests {
             .unwrap(),
             Command::Apply("test".into(), receipt.clone())
         );
+        assert_eq!(
+            command(&["preview-media", "test"]).unwrap(),
+            Command::PreviewMedia("test".into())
+        );
+        assert_eq!(
+            command(&[
+                "apply-media",
+                "test",
+                "--confirm-permanent-erasure",
+                &receipt,
+                "--writers-stopped"
+            ])
+            .unwrap(),
+            Command::ApplyMedia("test".into(), receipt.clone())
+        );
         for args in [
+            vec!["apply-media", "test"],
+            vec![
+                "apply-media",
+                "test",
+                "--confirm-permanent-erasure",
+                &receipt,
+            ],
+            vec!["preview-media", "../test"],
             vec!["apply", "test"],
             vec!["apply", "test", "--confirm-permanent-erasure", &receipt],
             vec![

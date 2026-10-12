@@ -199,7 +199,7 @@ assert rows() == changed
 
 # Independent staff history, shared sessions and another board stay byte-exact.
 unchanged_sql = """SELECT jsonb_agg(jsonb_build_array(relation,value) ORDER BY relation,value)::text
-FROM public.historical_rows() WHERE relation IN('staff_identity.accounts','content.moderation_audit','post_secrets.anonymous_sessions','content.post_media','media.jobs','media.assets','media_intake.handles')
+FROM public.historical_rows() WHERE relation IN('staff_identity.accounts','content.moderation_audit','post_secrets.anonymous_sessions','media.jobs','media.assets','media_intake.handles')
 OR (value->>'board'='hother') OR (relation='content.posts' AND value->>'id'='31001001')
 OR (relation='content.threads' AND value->>'id'='31001001')"""
 unrelated = sql(unchanged_sql)
@@ -219,6 +219,8 @@ assert sum(len(p["report_ids"]) for p in batches) == 70
 assert sum(len(p["post_ids"]) for p in batches) == 132
 assert sum(len(p["thread_ids"]) for p in batches) == 1
 assert sql(unchanged_sql) == unrelated, "Independent state changed"
+assert sql("SELECT metadata_erased AND filename='[deleted]' AND bytes=1 AND width=1 AND height=1 AND file_deleted FROM content.post_media WHERE post_id=31000001") == "t"
+assert sql("SELECT job_id=repeat('b1',16) AND asset_id=repeat('b4',16) FROM content.post_media WHERE post_id=31000001") == "t"
 assert sql("SELECT count(*) FROM content.posts WHERE board='hclean' AND content_erased") == "132"
 assert sql("SELECT count(*) FROM content.reports WHERE board='hclean'") == "1"
 assert sql("SELECT count(*) FROM post_secrets.report_membership WHERE board='hclean'") == "1"

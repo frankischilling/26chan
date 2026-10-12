@@ -61,8 +61,9 @@ budgets, snapshot grammar, form ownership, duplicate submission and page lifecyc
 Browser scenarios submit real forms with JavaScript on and off, including a later
 ownership refusal after an earlier successful deletion.
 
-Private moderation snapshot retention is a separate operator policy. These
-controls do not erase audit snapshots or choose a retention period. Historical
+Private moderation snapshots follow the separate
+[30-day retention policy](moderation-snapshot-retention.md). These controls do not
+run that cleanup themselves. Historical
 public erasure remains governed by the bounded operator cleanup procedure.
 
 Desktop regression baselines were reviewed from hosted run `38291301315`:

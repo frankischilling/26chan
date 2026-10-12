@@ -97,9 +97,10 @@ Exact commands and outcomes belong to the corresponding pull-request checkpoint.
 [Quota fixture isolation](deletion-quota-verification.md) explains the separate
 limits of happy-path browser qualification.
 
-## Remaining scope
+## Related deletion behavior
 
-This slice does not complete issue #214. [Legacy batches](legacy-actions.md#multiple-selections)
+[Deletion parity](deletion-parity.md) ties the issue criteria to their implementations
+and tests. [Legacy batches](legacy-actions.md#multiple-selections)
 now preserve submitted order and partial success. The source's peer-address-only
 public deletion authority remains excluded for security. Physical file erasure
 and historical cleanup use separate operator paths.

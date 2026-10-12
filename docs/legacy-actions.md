@@ -148,3 +148,7 @@ The consolidated verification result is recorded in
 [rewrite completion verification](verification-rewrite-completion.md). These
 routes advance the public compatibility inventory in #6; they do not establish
 the missing original report policy or production abuse controls.
+
+The POST dispatcher also accepts the source's `mode=delete` alias with the same
+strict deletion fields and authorization as `mode=usrdel`. Query and body modes
+must still agree exactly; conflicting aliases are rejected before mutation.

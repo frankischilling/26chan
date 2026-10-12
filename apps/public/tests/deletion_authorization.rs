@@ -39,7 +39,7 @@ fn request_with_password(
         vec![("no", id.as_str()), ("password", password)]
     } else {
         vec![
-            ("mode", "usrdel"),
+            ("mode", if route == 2 { "delete" } else { "usrdel" }),
             (id.as_str(), "delete"),
             ("pwd", password),
         ]

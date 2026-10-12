@@ -58,19 +58,22 @@ The post and thread identity rows and `post_media` associations remain. Removing
 those associations would make an already consumed upload look unattached and could
 reopen an approved media URL. The retained ledger keeps deleted attachments hidden
 and prevents reusing their upload capabilities, including after database restore.
-Media cleanup remains a separate operation.
+Migration 0143 clears descriptive attachment metadata while keeping those
+identities. See [deleted media metadata](deleted-media-metadata.md) for the
+canonical values and bounded historical cleanup. Physical media cleanup remains
+a separate operation.
 
-Independent moderation audit records, including saved drawing annotations, are
-unchanged. Shared sessions, cooldown and quota state, and Robot9000 state are also
+Independent moderation audit metadata remains. Its saved content, including
+drawing annotations, follows the [30-day snapshot policy](moderation-snapshot-retention.md). Shared sessions, cooldown and quota state, and Robot9000 state are also
 retained. Poll configuration, options and ballot receipts belong to global polls
 with no post or thread association, so whole-post deletion leaves them intact.
-This work creates no new copy of deleted post content. It does not settle retention
-of pre-existing audit data or media metadata.
+Whole-post erasure creates no new copy of deleted post content. Existing audit
+snapshots and descriptive media metadata follow the separate policies above.
 
 This is logical removal from the current database schema. It is not secure disk
 erasure and does not erase WAL, backups, logs or copies already held by clients.
-It narrows issue #214 but does not establish complete retention or hard-delete
-parity.
+Structural tombstones are a security adaptation to the source's physical row
+deletion. They retain consumed identities rather than deleted post content.
 
 ## Upgrade and verification
 

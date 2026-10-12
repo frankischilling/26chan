@@ -22,7 +22,8 @@ moderation audit records remain. A failed authorization or audit write rolls bac
 Migration 0140 adds [staff self-deletion](staff-self-deletion.md) using a verified
 posting peer or recovery password, following `imgboard.php:2490–2497,2584–2594`.
 Those file-only requests preserve reports and use a distinct audit action.
-Account authorship does not substitute for either proof. Issue #214 stays open.
+Account authorship does not substitute for either proof. See
+[deletion parity](deletion-parity.md) for the full acceptance coverage.
 
 ## Visibility and authority
 

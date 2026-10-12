@@ -78,7 +78,7 @@ fn deletion(fields: Vec<(String, String)>) -> Result<Deletion, Rejection> {
     let mut return_post = None;
     for (name, value) in fields {
         match name.as_str() {
-            "mode" if value == "usrdel" => {}
+            "mode" if matches!(value.as_str(), "usrdel" | "delete") => {}
             "pwd" | "password" if password.is_none() => password = Some(value),
             "onlyimgdel" if value == "on" => file_only = true,
             "res" if return_post.is_none() => {
@@ -220,7 +220,7 @@ impl<S: Send + Sync> FromRequest<S> for LegacyForm {
         }
         if fields
             .iter()
-            .any(|(name, mode)| name == "mode" && mode == "usrdel")
+            .any(|(name, mode)| name == "mode" && matches!(mode.as_str(), "usrdel" | "delete"))
         {
             return deletion(fields).map(|form| Self(Submission::Delete(form)));
         }
@@ -577,6 +577,48 @@ mod tests {
             };
             assert_eq!(form.posts, [17]);
             assert!(!form.file_only);
+        }
+    }
+
+    #[tokio::test]
+    async fn source_delete_alias_uses_the_same_strict_deletion_schema() {
+        for multipart in [false, true] {
+            for body_mode in [false, true] {
+                let mut fields = vec![("17", "delete"), ("pwd", "owned-password"), ("res", "11")];
+                if body_mode {
+                    fields.push(("mode", "delete"));
+                }
+                let Ok(LegacyForm(Submission::Delete(form))) = LegacyForm::from_request(
+                    request("/test/imgboard.php?mode=delete", &fields, multipart),
+                    &(),
+                )
+                .await
+                else {
+                    panic!("source delete alias was rejected")
+                };
+                assert_eq!(form.posts, [17]);
+                assert_eq!(form.return_post, Some(11));
+                assert_eq!(form.password, "owned-password");
+                fields.push(("unknown", "value"));
+                assert!(
+                    LegacyForm::from_request(
+                        request("/test/imgboard.php?mode=delete", &fields, multipart),
+                        &()
+                    )
+                    .await
+                    .is_err()
+                );
+            }
+            let fields = [("mode", "delete"), ("17", "delete")];
+            assert!(
+                LegacyForm::from_request(
+                    request("/test/imgboard.php?mode=usrdel", &fields, multipart),
+                    &()
+                )
+                .await
+                .is_err(),
+                "even equivalent aliases cannot disagree across query and body"
+            );
         }
     }
 
