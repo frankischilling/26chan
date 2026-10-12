@@ -289,7 +289,7 @@ impl Fixture {
     async fn rich_post(&self) {
         sqlx::query("UPDATE content.posts SET name='',trip='!!AbCdEf012+/',capcode='admin_highlight',subject='<b>saved & subject</b>',comment='[code]stored & <script> text[/code]',comment_format=127,staff_authorized_limits=true,dice_result='3d6: 2 + 4 + 6 = 12',fortune_text=NULL,fortune_color=NULL,drawing_time_seconds=3630,drawing_source_post_id=NULL WHERE id=$1")
             .bind(self.posts[0]).execute(&self.owner).await.unwrap();
-        // Filename survives deletion; no real bytes or media jobs are required.
+        // Filename survives file-only deletion; no real bytes or media jobs are required.
         let asset = uuid::Uuid::new_v4().simple().to_string();
         sqlx::query("INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler,file_deleted) VALUES($1,$2,$2,'<removed & name>.png',100,10,10,false,true)")
             .bind(self.posts[0]).bind(asset).execute(&self.owner).await.unwrap();
@@ -297,6 +297,15 @@ impl Fixture {
 }
 
 fn assert_snapshot(row: &serde_json::Value, expected: &serde_json::Value) {
+    let created =
+        chrono::DateTime::parse_from_rfc3339(row["created_at"].as_str().unwrap()).unwrap();
+    let expires =
+        chrono::DateTime::parse_from_rfc3339(row["snapshot_expires_at"].as_str().unwrap()).unwrap();
+    let captured = expires - chrono::Duration::hours(720);
+    assert!(captured >= created);
+    assert!(captured <= chrono::Utc::now());
+    let mut expected = expected.clone();
+    expected["snapshot_expires_at"] = row["snapshot_expires_at"].clone();
     let actual: serde_json::Map<String, serde_json::Value> = row
         .as_object()
         .unwrap()
@@ -304,7 +313,7 @@ fn assert_snapshot(row: &serde_json::Value, expected: &serde_json::Value) {
         .filter(|(key, _)| key.starts_with("snapshot_"))
         .map(|(key, value)| (key.clone(), value.clone()))
         .collect();
-    assert_eq!(&serde_json::Value::Object(actual), expected);
+    assert_eq!(serde_json::Value::Object(actual), expected);
     for forbidden in [
         "wordfilter_payload",
         "wordfilter_search",

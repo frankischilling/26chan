@@ -173,3 +173,32 @@ AND EXISTS(SELECT 1 FROM pg_catalog.pg_proc p
       AND p.proowner='board_attachment_owner'::regrole AND p.prosecdef
       AND position('NOT p.content_erased' in p.prosrc)>0)
 "#;
+
+// Additional 0143 catalog contract; use alongside READINESS_SQL.
+pub const MEDIA_READINESS_SQL: &str = r#"SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_class WHERE oid='content.post_media'::regclass
+ AND NOT relrowsecurity AND NOT relforcerowsecurity AND relkind='r' AND relpersistence='p')
+AND EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid='content.post_media'::regclass
+ AND attname='metadata_erased' AND attnotnull AND NOT attisdropped AND atttypid='boolean'::regtype)
+AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname IN('board_public','board_staff','board_auth','board_media','board_media_read','board_media_intake','board_monitor')
+ AND has_column_privilege(r.oid,'content.post_media','metadata_erased','INSERT,UPDATE'))
+AND NOT has_table_privilege('board_content_erasure_owner','content.post_media','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
+AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid='content.post_media'::regclass AND a.attnum>0 AND NOT a.attisdropped AND (
+ (has_column_privilege('board_content_erasure_owner',a.attrelid,a.attnum,'SELECT')<> (a.attname=ANY(ARRAY['post_id','metadata_erased'])))
+ OR (has_column_privilege('board_content_erasure_owner',a.attrelid,a.attnum,'UPDATE')<> (a.attname=ANY(ARRAY['filename','bytes','width','height','spoiler','file_deleted','created_at','metadata_erased'])))
+ OR has_column_privilege('board_content_erasure_owner',a.attrelid,a.attnum,'INSERT')))
+AND (SELECT count(*)=2 AND bool_and(p.proowner='board_content_erasure_owner'::regrole
+ AND p.prosecdef AND p.provolatile='v' AND p.pronargs=0 AND p.prorettype='trigger'::regtype
+ AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']::text[]
+ AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee<>p.proowner))
+ FROM pg_proc p WHERE p.pronamespace=(SELECT oid FROM pg_namespace WHERE nspname='post_secrets') AND p.proname IN('guard_media_erasure','erase_deleted_media'))
+AND NOT EXISTS(SELECT 1 FROM (VALUES
+ ('content.post_media','z_guard_media_erasure','guard_media_erasure',23,false),
+ ('content.posts','erase_deleted_media','erase_deleted_media',17,true)
+) v(relation,name,func,kind,conditional) WHERE NOT EXISTS(SELECT 1 FROM pg_trigger t
+ WHERE t.tgrelid=to_regclass(v.relation) AND t.tgname=v.name AND t.tgfoid=(SELECT oid FROM pg_proc WHERE pronamespace=(SELECT oid FROM pg_namespace WHERE nspname='post_secrets') AND proname=v.func AND pronargs=0)
+ AND t.tgtype=v.kind AND t.tgenabled='O' AND NOT t.tgisinternal AND t.tgnargs=0
+ AND t.tgconstraint=0 AND NOT t.tgdeferrable AND NOT t.tginitdeferred AND t.tgattr::text=''
+ AND t.tgoldtable IS NULL AND t.tgnewtable IS NULL
+ AND CASE WHEN v.conditional THEN translate(split_part(split_part(pg_get_triggerdef(t.oid,false),' WHEN ',2),' EXECUTE ',1),' ()','')='NOTold.content_erasedANDnew.content_erased'
+ ELSE t.tgqual IS NULL END))
+"#;

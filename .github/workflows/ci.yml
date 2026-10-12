@@ -471,6 +471,14 @@ jobs:
         run: |
           cargo build -p board-store --bin board-deletion-cleanup --locked
           sudo bash scripts/test-historical-erasure-migration.sh
+      - name: Qualify deleted-media metadata cleanup and restore
+        run: sudo bash scripts/test-deleted-media-migration.sh
+      - name: Qualify moderation snapshot expiry and restore
+        run: |
+          cargo build -p board-store --bin board-moderation-retention --locked
+          sudo bash scripts/test-moderation-retention-migration.sh
+          sudo install -D -m 0755 target/debug/board-moderation-retention /opt/paperboard/bin/board-moderation-retention
+          sudo systemd-analyze verify deploy/moderation-retention.service deploy/moderation-retention.timer
       - name: Restore disposable backup
         run: sudo bash scripts/restore-exercise.sh
       - name: Restore populated attachments and normalized files

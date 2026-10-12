@@ -161,7 +161,7 @@ pub async fn cleanup(
     Ok(preview)
 }
 
-async fn preflight(connection: &mut PgConnection) -> Result<(), ErasureError> {
+pub(crate) async fn preflight(connection: &mut PgConnection) -> Result<(), ErasureError> {
     // Do not let a later schema add an unreviewed cascade to this operator.
     // The existing report/snapshot checks below verify each expected FK too.
     let cascades: bool = sqlx::query_scalar("SELECT (SELECT count(*)=4 AND bool_and(k.confdeltype='c' AND k.convalidated AND k.conrelid IN ('post_secrets.report_membership'::regclass,'post_secrets.anonymous_reports'::regclass,'post_secrets.report_weight_evidence'::regclass,'post_secrets.report_post_snapshots'::regclass)) FROM pg_constraint k WHERE k.contype='f' AND k.confrelid='content.reports'::regclass) AND EXISTS(SELECT 1 FROM pg_class WHERE oid='content.reports'::regclass AND relowner='board_migrator'::regrole AND relkind='r' AND relpersistence='p' AND NOT relforcerowsecurity)")

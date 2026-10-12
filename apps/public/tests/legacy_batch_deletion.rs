@@ -66,12 +66,12 @@ impl Fixture {
             .unwrap()
     }
 
-    async fn submit(
+    async fn submit_response(
         &self,
         fields: &[(String, String)],
         multipart: bool,
         origin: Option<&str>,
-    ) -> (StatusCode, String) {
+    ) -> axum::response::Response {
         let (content_type, body) = if multipart {
             let mut body = String::new();
             for (name, value) in fields {
@@ -94,12 +94,20 @@ impl Fixture {
         if let Some(origin) = origin {
             request = request.header("origin", origin);
         }
-        let response = self
-            .app
+        self.app
             .clone()
             .oneshot(request.body(Body::from(body)).unwrap())
             .await
-            .unwrap();
+            .unwrap()
+    }
+
+    async fn submit(
+        &self,
+        fields: &[(String, String)],
+        multipart: bool,
+        origin: Option<&str>,
+    ) -> (StatusCode, String) {
+        let response = self.submit_response(fields, multipart, origin).await;
         let status = response.status();
         let body = response.into_body().collect().await.unwrap().to_bytes();
         (status, String::from_utf8(body.to_vec()).unwrap())
@@ -183,6 +191,80 @@ impl Fixture {
         }
     }
 
+    async fn navigation(&self) {
+        for multipart in [false, true] {
+            for (file_only, target) in [
+                (false, "op"),
+                (false, "reply"),
+                (true, "op"),
+                (false, "deleted"),
+                (false, "missing"),
+            ] {
+                self.reset_deletion_case().await;
+                let op = self.post(0).await;
+                let reply = self.post(op).await;
+                let selected = if target == "deleted" { op } else { reply };
+                let res = match target {
+                    "reply" => op,
+                    "missing" => i64::MAX,
+                    _ => op,
+                };
+                // The reply-target branch keeps its selected return post alive.
+                let selected = if target == "reply" {
+                    self.post(op).await
+                } else {
+                    selected
+                };
+                let res = if target == "reply" { reply } else { res };
+                let mut data = fields(&[selected], file_only);
+                data.push(("res".into(), res.to_string()));
+                let response = self.submit_response(&data, multipart, Some(ORIGIN)).await;
+                assert_eq!(response.headers()["cache-control"], "private, no-store");
+                if ["deleted", "missing"].contains(&target) {
+                    assert_eq!(response.status(), StatusCode::OK);
+                    assert!(response.headers().get("location").is_none());
+                    let body = response.into_body().collect().await.unwrap().to_bytes();
+                    let html = std::str::from_utf8(&body).unwrap();
+                    assert!(html.contains(&format!("content=\"2;URL=/{}/\"", self.board)));
+                    assert!(html.contains("<strong>Updating index...</strong>"));
+                    assert!(!html.contains("<script"));
+                } else {
+                    assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
+                    assert_eq!(
+                        response.headers()["location"],
+                        format!("/{}/thread/{op}#p{res}", self.board)
+                    );
+                    let body = response.into_body().collect().await.unwrap().to_bytes();
+                    assert_eq!(
+                        std::str::from_utf8(&body).unwrap().trim(),
+                        format!(
+                            "<meta http-equiv=\"refresh\" content=\"0;URL=/{}/thread/{op}#p{res}\">",
+                            self.board
+                        )
+                    );
+                }
+                assert_eq!(self.deleted(selected).await, !file_only);
+            }
+            self.reset_deletion_case().await;
+            let op = self.post(0).await;
+            for invalid in ["0", "01", "9223372036854775808", "https://other.invalid/"] {
+                let mut data = fields(&[op], false);
+                data.push(("res".into(), invalid.into()));
+                assert_eq!(
+                    self.submit(&data, multipart, Some(ORIGIN)).await.0,
+                    StatusCode::UNPROCESSABLE_ENTITY
+                );
+                assert!(!self.deleted(op).await);
+            }
+            // A single missing selection exits to updating_index even with a surviving return target.
+            let mut data = fields(&[i64::MAX], false);
+            data.push(("res".into(), op.to_string()));
+            let response = self.submit_response(&data, multipart, Some(ORIGIN)).await;
+            assert_eq!(response.status(), StatusCode::OK);
+            assert!(response.headers().get("location").is_none());
+        }
+    }
+
     async fn exercise(&self) {
         for multipart in [false, true] {
             self.reset_deletion_case().await;
@@ -239,7 +321,7 @@ impl Fixture {
                     "sticky" => "Error: You cannot delete this post.",
                     _ => "Error: You cannot delete a post this old.",
                 }));
-                assert!(!html.contains("The deletion was completed."));
+                assert!(!html.contains("<strong>Updating index...</strong>"));
                 assert!(self.deleted(first).await);
                 assert!(!self.deleted(denied).await && !self.deleted(last).await);
                 assert_eq!(
@@ -568,6 +650,7 @@ async fn legacy_batches_commit_in_submission_order_and_stop_at_the_first_error()
     };
     let outcome = tokio::spawn(async move {
         fixture.exercise().await;
+        fixture.navigation().await;
     })
     .await;
     for statement in [

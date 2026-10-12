@@ -74,9 +74,13 @@ Apply migration 0037 before deploying this deletion fix. It preserves existing
 posts, hashes and grants. Keep the additive schema on a binary rollback; older
 binaries do not perform the final password check and retain the original race.
 
-Successful legacy deletion returns bounded, escaped, script-free HTML with the
-public client's success marker and a return link. The existing `/delete` route
-keeps its redirect response. Neither route reflects the password.
+Successful legacy deletion without return context shows the source's bounded,
+script-free "Updating index..." page and two-second board refresh. A valid `res`
+field returns to a surviving post with a 301 and zero-delay meta refresh; a missing
+return target falls back to the index page. Both paths use local destinations and
+private, no-store responses. The native per-post client recognizes the complete
+fixed index document without executing it. The existing `/delete` route keeps its
+redirect response. Neither route reflects the password.
 
 The GET report route validates its query and applies the shared
 [source report eligibility gates](source-report-popup.md) before rendering an
@@ -144,3 +148,7 @@ The consolidated verification result is recorded in
 [rewrite completion verification](verification-rewrite-completion.md). These
 routes advance the public compatibility inventory in #6; they do not establish
 the missing original report policy or production abuse controls.
+
+The POST dispatcher also accepts the source's `mode=delete` alias with the same
+strict deletion fields and authorization as `mode=usrdel`. Query and body modes
+must still agree exactly; conflicting aliases are rejected before mutation.

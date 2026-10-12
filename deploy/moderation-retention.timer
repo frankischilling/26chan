@@ -1,0 +1,11 @@
+[Unit]
+Description=Run bounded moderation snapshot expiry every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=1s
+Unit=moderation-retention.service
+
+[Install]
+WantedBy=timers.target

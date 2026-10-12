@@ -36,7 +36,8 @@ bindings, restricted privileges and evidence cascades.
   only after its preview and irreversible scope have been reviewed.
 - Migration 0122 alone retains post text. Migration 0129 adds
   [fresh content erasure](fresh-content-erasure.md) while preserving structural
-  media tombstones. Historical retention and issue #214 remain open.
+  media tombstones. [Deletion parity](deletion-parity.md) describes the complete
+  behavior, historical cleanup and separate private retention policy.
 - Archive transitions that do not delete the thread retain their separate
   report-group retirement rules. Actual archive expiration is whole deletion.
 

@@ -109,7 +109,7 @@ pub(crate) async fn normalize_multipart<S: Send + Sync>(
         let deletion_field = legacy
             && (matches!(
                 name.as_str(),
-                "onlyimgdel" | "board" | "no" | "cat" | "cat_id" | "revision"
+                "onlyimgdel" | "res" | "board" | "no" | "cat" | "cat_id" | "revision"
             ) || (!name.is_empty()
                 && name.len() <= 19
                 && name.bytes().all(|byte| byte.is_ascii_digit())));

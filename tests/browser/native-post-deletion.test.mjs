@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { DELETION_LIMITS, deletionResult, sendNativeDeletion } from '../../apps/public/client/native-post-deletion.js';
 
-const template = await readFile(new URL('../../apps/public/templates/delete_success.html', import.meta.url), 'utf8');
+const template = await readFile(new URL('../../apps/public/templates/updating_index.html', import.meta.url), 'utf8');
 const success = board => template.replace('{{ board }}', board);
 const response = (body = success('demo'), options = {}) => new Response(body,
   { headers: { 'content-type': 'text/html; charset=utf-8' }, ...options });
@@ -13,7 +13,7 @@ test('only the entire current-board fixed server template confirms success', () 
   assert.equal(deletionResult(success('demo'), 'demo'), true);
   assert.equal(deletionResult(success('a'), 'a'), true);
   for (const body of [success('other'), 'Updating index', "Can't find the post", '<h1>Updating index</h1>',
-    success('demo') + '<script>evil()</script>', success('demo').replace('The deletion was completed.', 'Rejected'),
+    success('demo') + '<script>evil()</script>', success('demo').replace('<strong>Updating index...</strong>', 'Rejected'),
     'x'.repeat(DELETION_LIMITS.responseBytes + 1)]) assert.equal(deletionResult(body, 'demo'), false);
   for (const board of ['../demo', 'a/b', '', 1, 'a'.repeat(11)]) assert.equal(deletionResult(success('demo'), board), false);
 });

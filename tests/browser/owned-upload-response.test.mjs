@@ -120,7 +120,7 @@ test('browser capture retains the real upload and posting bodies after transport
 
 
 test('deletion capture requires HTTP 200 HTML and the unchanged success text', async () => {
-  const text = '<p>The deletion was completed.</p>', diagnostics = [];
+  const text = '<p><strong>Updating index...</strong></p>', diagnostics = [];
   assert.deepEqual(await ownedDeletionResponse({ status: () => 200,
     headers: () => ({ 'content-type': 'text/html; charset=utf-8' }), text: async () => text },
   value => diagnostics.push(value)), { status: 200, text });
@@ -155,7 +155,7 @@ test('invalid deletion statuses cannot enter safe diagnostics', async () => {
 
 test('deletion page capture survives deterministic native transport consumption and abort', async () => {
   const saved = globalThis.window;
-  const html = (await readFile(new URL('../../apps/public/templates/delete_success.html', import.meta.url), 'utf8'))
+  const html = (await readFile(new URL('../../apps/public/templates/updating_index.html', import.meta.url), 'utf8'))
     .replace('{{ board }}', 'demo');
   const original = new Response(html, { headers: { 'content-type': 'text/html' } });
   const calls = [], diagnostics = [];
@@ -189,7 +189,7 @@ test('browser capture retains native deletion HTML after actual transport cleanu
   const [transport, core, success] = await Promise.all([
     readFile(new URL('../../apps/public/client/native-post-deletion.js', import.meta.url)),
     readFile(new URL('../../apps/public/static/thread-watcher-core.v1.js', import.meta.url)),
-    readFile(new URL('../../apps/public/templates/delete_success.html', import.meta.url), 'utf8'),
+    readFile(new URL('../../apps/public/templates/updating_index.html', import.meta.url), 'utf8'),
   ]);
   const html = success.replace('{{ board }}', 'demo');
   const bodies = [];
@@ -238,7 +238,7 @@ test('browser capture retains native deletion HTML after actual transport cleanu
 
 test('deletion page capture bounds bytes and preserves the original response', async () => {
   const saved = globalThis.window;
-  const success = 'The deletion was completed.';
+  const success = '<strong>Updating index...</strong>';
   try {
     for (const [bytes, failure] of [
       [new TextEncoder().encode(success.padEnd(4096)), null],

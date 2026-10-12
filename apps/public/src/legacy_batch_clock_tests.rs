@@ -78,7 +78,7 @@ async fn captured_batch_session_clock_survives_a_delayed_first_deletion() {
         let delete_state = state.clone();
         let selected = ids.clone();
         let deleting = tokio::spawn(async move {
-            delete_selection(&delete_state,&mut batch,Deletion {
+            delete_selection(&delete_state,&mut batch,Deletion { return_post: None,
                 posts:selected,password:password.into(),file_only:false,
             }).await
         });

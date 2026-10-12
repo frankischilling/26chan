@@ -62,6 +62,10 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     for path in [format!("/{slug}/"), format!("/{slug}/thread/{thread}")] {
         let (html, csp) = get(&app, &path, 200).await;
         assert_eq!(html.matches("id=\"delform\"").count(), 1);
+        assert_eq!(
+            html.contains(&format!("name=\"res\" value=\"{thread}\"")),
+            path.contains("/thread/")
+        );
         assert!(html.contains(&format!(
             "action=\"/{slug}/imgboard.php\" method=\"post\" data-board=\"{slug}\""
         )));

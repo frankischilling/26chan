@@ -26,7 +26,9 @@ not make a post eligible. In particular, file-only public and staff-self deletio
 continues to preserve reports.
 
 Post/thread identity rows and attachment associations remain as irreversible
-media tombstones. The command leaves independent moderation audit records,
+media tombstones. With migration 0143, post erasure also clears descriptive
+attachment metadata. The separate [media preview and apply commands](deleted-media-metadata.md)
+handle attachments whose posts were erased before that migration. The command leaves independent moderation audit records,
 shared sessions, quotas, Robot9000 state, global polls and other boards intact.
 It does not copy deleted text into a new audit record.
 
@@ -99,10 +101,10 @@ retained archives remain protected. Historical database cleanup does not unlink
 files or remove consumed capability records.
 
 Independent staff audit snapshots are private evidence, as in the source's
-separate deletion log. Their retention is not tied to post cleanup. This command
-does not establish a deadline for audit history, logs or backups. Operators must
-set those policies before deployment and must reconcile later deletions when
-restoring an older backup. Logical deletion is not secure disk erasure and cannot
+separate deletion log. Their [30-day content-snapshot policy](moderation-snapshot-retention.md) runs
+independently of this cleanup command. Audit action metadata remains. Operators
+must separately govern logs and backups and reconcile later deletions and snapshot
+expiry when restoring an older backup. Logical deletion is not secure disk erasure and cannot
 recall copies already downloaded by clients.
 
 ## Qualification

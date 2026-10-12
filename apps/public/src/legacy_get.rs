@@ -22,6 +22,15 @@ struct UpdatingIndex<'a> {
     board: &'a str,
 }
 
+pub(crate) fn updating_index(state: &AppState, board: &str) -> Result<Response, AppError> {
+    let mut response = crate::output::html(state, &UpdatingIndex { board })?;
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    Ok(response)
+}
+
 pub(crate) async fn get(
     State(state): State<AppState>,
     Path(board): Path<String>,
@@ -41,12 +50,7 @@ pub(crate) async fn get(
         }
         // Source updating_index is navigation only, not a rebuild or mutation.
         // A local destination cannot inherit a foreign or downgraded Referer.
-        let mut response = crate::output::html(&state, &UpdatingIndex { board: &board })?;
-        response.headers_mut().insert(
-            header::CACHE_CONTROL,
-            HeaderValue::from_static("private, no-store"),
-        );
-        return Ok(response);
+        return updating_index(&state, &board);
     }
     let mut reporting = false;
     let mut res = false;

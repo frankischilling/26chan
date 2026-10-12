@@ -192,8 +192,14 @@ DO $$ BEGIN
  THEN RAISE EXCEPTION 'Reply cleanup or cascade failed'; END IF;
  IF (SELECT count(*) FROM content.reports)<>4
  OR NOT EXISTS(SELECT 1 FROM content.moderation_audit WHERE target_id=12200002)
- OR NOT EXISTS(SELECT 1 FROM content.post_media WHERE post_id=12200002 AND NOT file_deleted)
  THEN RAISE EXCEPTION 'Reply cleanup changed unrelated evidence'; END IF;
+ IF NOT EXISTS(
+  SELECT 1 FROM content.post_media
+  WHERE post_id=12200002 AND job_id=repeat('a',32) AND asset_id=repeat('b',32)
+    AND filename='[deleted]' AND bytes=1 AND width=1 AND height=1
+    AND NOT spoiler AND file_deleted AND metadata_erased AND created_at='epoch'::timestamptz
+ )
+ THEN RAISE EXCEPTION 'Reply cleanup did not erase media metadata while preserving consumed identities'; END IF;
 END $$;
 ROLLBACK;
 DO $$ BEGIN IF (SELECT count(*) FROM content.reports)<>7 THEN RAISE EXCEPTION 'Rollback lost reports'; END IF; END $$;

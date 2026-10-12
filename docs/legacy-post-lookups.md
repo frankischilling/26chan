@@ -77,3 +77,19 @@ short-buffer and retained-response output limits. Browser tests follow real live
 OP/reply redirect chains and native index meta refresh with JavaScript enabled
 and disabled. Browser execution
 requires exact-head CI; these contracts do not claim a locally run browser.
+
+## Deletion return navigation
+
+The POST deletion dispatcher accepts a separately validated `res` form field.
+After every selected deletion succeeds, it uses the same public lookup to return
+to a surviving OP or reply. A missing return target falls back to the two-second
+index page instead of the GET lookup's 404. A single missing deletion selection
+also exits to the index page before lookup. Deletion responses are private and
+uncacheable. See [full-page controls](source-deletion-controls.md) for the form,
+partial-success behavior and validation boundaries.
+
+The existing redirect fixture covers GET target selection, not a dynamic execution
+of the source deletion branch. The deletion branch was checked against
+`imgboard.php:6883-6936,7593-7601`; persisted HTTP tests exercise the Rust path with
+surviving OP/reply targets, deleted and missing targets, file-only actions,
+malformed return fields and a single missing selection.

@@ -8,7 +8,10 @@ use axum::{
     Extension, Form,
     body::Body,
     extract::{FromRequest, OriginalUri, Path, Request, State},
-    http::{HeaderMap, StatusCode, header::CONTENT_TYPE},
+    http::{
+        HeaderMap, HeaderValue, StatusCode,
+        header::{self, CONTENT_TYPE},
+    },
     response::{IntoResponse, Response},
 };
 use serde::{Deserialize, de};
@@ -32,6 +35,7 @@ struct Deletion {
     posts: Vec<i64>,
     password: String,
     file_only: bool,
+    return_post: Option<i64>,
 }
 
 // Enforce the field-count bound while deserializing, before an attacker can
@@ -71,11 +75,15 @@ fn deletion(fields: Vec<(String, String)>) -> Result<Deletion, Rejection> {
     let mut posts = Vec::new();
     let mut password = None;
     let mut file_only = false;
+    let mut return_post = None;
     for (name, value) in fields {
         match name.as_str() {
-            "mode" if value == "usrdel" => {}
+            "mode" if matches!(value.as_str(), "usrdel" | "delete") => {}
             "pwd" | "password" if password.is_none() => password = Some(value),
             "onlyimgdel" if value == "on" => file_only = true,
+            "res" if return_post.is_none() => {
+                return_post = Some(crate::legacy_report::positive_id(&value).ok_or_else(invalid)?);
+            }
             _ if value == "delete" => {
                 let id = name.parse::<i64>().map_err(|_| invalid())?;
                 if id <= 0 || id.to_string() != name {
@@ -93,6 +101,7 @@ fn deletion(fields: Vec<(String, String)>) -> Result<Deletion, Rejection> {
         posts,
         password: password.unwrap_or_default(),
         file_only,
+        return_post,
     })
 }
 
@@ -201,12 +210,17 @@ impl<S: Send + Sync> FromRequest<S> for LegacyForm {
             match fields.iter().find(|(name, _)| name == "mode") {
                 Some((_, mode)) if *mode != query_mode => return Err(invalid()),
                 Some(_) => {}
-                None => fields.push(("mode".into(), query_mode)),
+                None => {
+                    if fields.len() == MAX_FORM_FIELDS {
+                        return Err(invalid());
+                    }
+                    fields.push(("mode".into(), query_mode));
+                }
             }
         }
         if fields
             .iter()
-            .any(|(name, mode)| name == "mode" && mode == "usrdel")
+            .any(|(name, mode)| name == "mode" && matches!(mode.as_str(), "usrdel" | "delete"))
         {
             return deletion(fields).map(|form| Self(Submission::Delete(form)));
         }
@@ -222,12 +236,6 @@ impl<S: Send + Sync> FromRequest<S> for LegacyForm {
             .map(|Form(form)| Self(Submission::Post(Box::new(form))))
             .map_err(Rejection::Form)
     }
-}
-
-#[derive(Template)]
-#[template(path = "delete_success.html")]
-struct Deleted<'a> {
-    board: &'a str,
 }
 
 pub(crate) async fn submit(
@@ -346,15 +354,61 @@ async fn delete_selection(
                         )
                         .into_response();
                     }
-                    Ok(false) => break, // Source single missing: updating_index().
-                    Ok(true) => {}      // Missing authority/file is still an error.
+                    Ok(false) => {
+                        return crate::legacy_get::updating_index(state, &board)
+                            .unwrap_or_else(AppError::into_response);
+                    } // Source single missing exits before resredir.
+                    Ok(true) => {} // Missing authority/file is still an error.
                     Err(error) => return AppError::from(error).into_response(),
                 }
             }
             return error.into_response();
         }
     }
-    crate::output::html(state, &Deleted { board: &board }).unwrap_or_else(AppError::into_response)
+    deletion_navigation(state, &board, form.return_post)
+        .await
+        .unwrap_or_else(AppError::into_response)
+}
+
+#[derive(Template)]
+#[template(path = "deletion_redirect.html")]
+struct DeletionRedirect<'a> {
+    location: &'a str,
+}
+
+async fn deletion_navigation(
+    state: &AppState,
+    board: &str,
+    post: Option<i64>,
+) -> Result<Response, AppError> {
+    if let Some(post) = post {
+        match board_store::legacy_res_thread(&state.pool, board, post).await {
+            Ok(thread) => {
+                let location = format!("/{board}/thread/{thread}#p{post}");
+                let mut response = crate::output::html(
+                    state,
+                    &DeletionRedirect {
+                        location: &location,
+                    },
+                )?;
+                *response.status_mut() = StatusCode::MOVED_PERMANENTLY;
+                response.headers_mut().insert(
+                    header::LOCATION,
+                    HeaderValue::from_str(&location)
+                        .map_err(|_| AppError(StatusCode::BAD_REQUEST, INVALID))?,
+                );
+                // Authenticated mutation feedback must never become a shared cache entry.
+                response.headers_mut().insert(
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("private, no-store"),
+                );
+                return Ok(response);
+            }
+            Err(board_store::StoreError::NotFound) => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    crate::legacy_get::updating_index(state, board)
 }
 
 #[cfg(all(test, feature = "database-tests"))]
@@ -527,6 +581,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn source_delete_alias_uses_the_same_strict_deletion_schema() {
+        for multipart in [false, true] {
+            for body_mode in [false, true] {
+                let mut fields = vec![("17", "delete"), ("pwd", "owned-password"), ("res", "11")];
+                if body_mode {
+                    fields.push(("mode", "delete"));
+                }
+                let Ok(LegacyForm(Submission::Delete(form))) = LegacyForm::from_request(
+                    request("/test/imgboard.php?mode=delete", &fields, multipart),
+                    &(),
+                )
+                .await
+                else {
+                    panic!("source delete alias was rejected")
+                };
+                assert_eq!(form.posts, [17]);
+                assert_eq!(form.return_post, Some(11));
+                assert_eq!(form.password, "owned-password");
+                fields.push(("unknown", "value"));
+                assert!(
+                    LegacyForm::from_request(
+                        request("/test/imgboard.php?mode=delete", &fields, multipart),
+                        &()
+                    )
+                    .await
+                    .is_err()
+                );
+            }
+            let fields = [("mode", "delete"), ("17", "delete")];
+            assert!(
+                LegacyForm::from_request(
+                    request("/test/imgboard.php?mode=usrdel", &fields, multipart),
+                    &()
+                )
+                .await
+                .is_err(),
+                "even equivalent aliases cannot disagree across query and body"
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn multiple_selections_preserve_order_and_exact_ids_with_a_bounded_count() {
         for multipart in [false, true] {
             let fields = [
@@ -564,6 +660,84 @@ mod tests {
                 LegacyForm::from_request(request("/test/imgboard.php", &fields, multipart), &())
                     .await
                     .is_err()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn deletion_return_context_is_exact_and_validated_before_dispatch() {
+        for multipart in [false, true] {
+            for value in ["1", "9007199254740993", "9223372036854775807"] {
+                let fields = [("mode", "usrdel"), ("17", "delete"), ("res", value)];
+                let Ok(LegacyForm(Submission::Delete(form))) = LegacyForm::from_request(
+                    request("/test/imgboard.php", &fields, multipart),
+                    &(),
+                )
+                .await
+                else {
+                    panic!("valid return context refused: multipart={multipart}, res={value}");
+                };
+                assert_eq!(form.return_post, Some(value.parse().unwrap()));
+                assert_eq!(form.posts, [17]);
+            }
+            for value in [
+                "",
+                "0",
+                "01",
+                "-1",
+                "1.0",
+                "1e2",
+                "1\n",
+                "9223372036854775808",
+                "//other.invalid/",
+                "delete",
+            ] {
+                let fields = [("mode", "usrdel"), ("17", "delete"), ("res", value)];
+                assert!(
+                    LegacyForm::from_request(
+                        request("/test/imgboard.php", &fields, multipart),
+                        &()
+                    )
+                    .await
+                    .is_err()
+                );
+            }
+            let fields = [
+                ("mode", "usrdel"),
+                ("17", "delete"),
+                ("res", "1"),
+                ("res", "1"),
+            ];
+            assert!(
+                LegacyForm::from_request(request("/test/imgboard.php", &fields, multipart), &())
+                    .await
+                    .is_err()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn query_mode_consumes_the_same_field_budget_as_body_mode() {
+        for multipart in [false, true] {
+            let ids: Vec<_> = (1..=18).map(|id| id.to_string()).collect();
+            let mut fields = vec![("pwd", ""), ("res", "1")];
+            fields.extend(ids[..17].iter().map(|id| (id.as_str(), "delete")));
+            assert!(
+                LegacyForm::from_request(
+                    request("/test/imgboard.php?mode=usrdel", &fields, multipart),
+                    &()
+                )
+                .await
+                .is_ok()
+            );
+            fields.push((ids[17].as_str(), "delete"));
+            assert!(
+                LegacyForm::from_request(
+                    request("/test/imgboard.php?mode=usrdel", &fields, multipart),
+                    &()
+                )
+                .await
+                .is_err()
             );
         }
     }

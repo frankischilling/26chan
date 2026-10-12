@@ -23,6 +23,11 @@ test('field count includes mode, password and the optional file-only control', (
   assert.equal(selectionIds(ids.slice(0, 17), true).length, 17);
   assert.throws(() => selectionIds(ids), /at most 18/);
   assert.throws(() => selectionIds(ids.slice(0, 18), true), /at most 17/);
+  assert.equal(selectionIds(ids.slice(0, 17), false, true).length, 17);
+  assert.equal(selectionIds(ids.slice(0, 16), true, true).length, 16);
+  assert.throws(() => selectionIds(ids.slice(0, 18), false, true), /at most 17/);
+  assert.throws(() => selectionIds(ids.slice(0, 17), true, true), /at most 16/);
+  assert.throws(() => selectionIds(['1'], false, 'true'));
 });
 
 test('empty, duplicate, coerced and noncanonical selections fail before submission', () => {

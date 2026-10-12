@@ -154,7 +154,7 @@ try {
     assert.equal(type, 'confirm'); assert.equal(message, 'Delete file?');
     const removed = await finished();
     assert.equal(removed.status, 200);
-    assert.ok(removed.text.includes('The deletion was completed.'));
+    assert.ok(removed.text.includes('<strong>Updating index...</strong>'));
     await expect(page.locator('.nativeDeletionFeedback')).toHaveText(`Post No.${post}: File deleted.`);
     await expect(file).toHaveClass(/\bdeleted\b/);
     await expect(file.locator('.fileThumb > img')).toHaveClass(/\bdeleted\b/);

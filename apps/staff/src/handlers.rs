@@ -322,6 +322,12 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     sqlx::query("SELECT id,before_mask,after_mask,snapshot_version,snapshot_wordfiltered,snapshot_dice_result,snapshot_fortune_text,snapshot_fortune_color,snapshot_drawing_time_seconds,snapshot_drawing_source_post_id FROM content.moderation_audit LIMIT 0")
         .execute(&state.staff)
         .await?;
+    let retention: bool = sqlx::query_scalar("SELECT content.moderation_retention_ready()")
+        .fetch_one(&state.staff)
+        .await?;
+    if !retention {
+        return Err(AppError::Internal);
+    }
     sqlx::query("SELECT sticky_rank FROM content.visible_threads LIMIT 0")
         .execute(&state.staff)
         .await?;
@@ -394,6 +400,12 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
         .fetch_one(&state.staff)
         .await?;
     if !content_erasure {
+        return Err(AppError::Internal);
+    }
+    let media_erasure: bool = sqlx::query_scalar(board_store::content_erasure::MEDIA_READINESS_SQL)
+        .fetch_one(&state.staff)
+        .await?;
+    if !media_erasure {
         return Err(AppError::Internal);
     }
     let file_deletion: bool =

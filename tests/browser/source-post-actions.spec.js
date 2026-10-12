@@ -65,9 +65,9 @@ for (const javaScriptEnabled of [false, true]) {
       await page.getByRole('checkbox', { name: `Select post No.${first}`, exact: true }).check();
       await page.getByRole('checkbox', { name: `Select post No.${second}`, exact: true }).check();
       const fields = await page.locator('#delform').evaluate(form => [...new FormData(form)]);
-      expect(fields).toEqual([[first, 'delete'], [second, 'delete'], ['mode', 'usrdel'], ['pwd', '']]);
-      await submit(page, 200);
-      await expect(page.getByRole('heading', { name: 'Updating index', exact: true })).toBeVisible();
+      expect(fields).toEqual([[first, 'delete'], [second, 'delete'], ['mode', 'usrdel'], ['res', owned.thread], ['pwd', '']]);
+      await submit(page, 301);
+      await expect(page).toHaveURL(`${origin}${owned.url}#p${owned.thread}`);
       expect(await postIds(request, owned)).toEqual([owned.thread, keep]);
     });
 
@@ -76,11 +76,22 @@ for (const javaScriptEnabled of [false, true]) {
       await page.goto(owned.url);
       await page.getByRole('checkbox', { name: `Select post No.${reply}`, exact: true }).check();
       await page.locator('#delform [name="onlyimgdel"]').check();
-      await submit(page, 200);
+      await submit(page, 301);
       expect(await postIds(request, owned)).toEqual([owned.thread, reply]);
       const response = await request.get(`${owned.url}.json`);
       expect((await response.json()).posts[1].com).toContain('Owned file-only text remains');
     });
+
+    for (const fromIndex of [false, true]) {
+      test(`deleting the opening post from ${fromIndex ? 'index' : 'thread'} returns through the source updating-index page`, async ({ page, request, owned }) => {
+        await page.goto(fromIndex ? '/fixture/' : owned.url);
+        await expect(page.locator('#delform [name="res"]')).toHaveCount(fromIndex ? 0 : 1);
+        await page.getByRole('checkbox', { name: `Select post No.${owned.thread}`, exact: true }).check();
+        await submit(page, 200);
+        await expect(page).toHaveURL(`${origin}/fixture/`);
+        expect((await request.get(`${owned.url}.json`)).status()).toBe(404);
+      });
+    }
 
     test('a later ownership refusal preserves the earlier committed selection', async ({ page, request, browser, owned }) => {
       const first = await owned.write(owned.thread, 'Owned earlier successful selection');
