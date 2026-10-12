@@ -71,7 +71,7 @@
 {% if !catalog && !archived() %}
 <div class="bottomCtrl desktop">
 <form name="delform" id="delform" class="deleteform" action="/{{ board.slug }}/imgboard.php" method="post" data-board="{{ board.slug }}">
-<input type="hidden" name="mode" value="usrdel">Delete Post: [<label><input type="checkbox" name="onlyimgdel" value="on">File Only</label>]<input type="hidden" id="delPassword" name="pwd"> <input type="submit" value="Delete"> <input id="bottomReportBtn" type="button" value="Report">
+<input type="hidden" name="mode" value="usrdel">{% if parent > 0 %}<input type="hidden" name="res" value="{{ parent }}">{% endif %}Delete Post: [<label><input type="checkbox" name="onlyimgdel" value="on">File Only</label>]<input type="hidden" id="delPassword" name="pwd"> <input type="submit" value="Delete"> <input id="bottomReportBtn" type="button" value="Report">
 <span id="deleteSelectionStatus" role="status" aria-live="polite"></span>
 </form>
 </div>

@@ -9,16 +9,37 @@ existing per-post actions.
 Each checkbox belongs to the bottom `delform` through an explicit HTML form
 association. This avoids nesting the existing per-post forms. Native browser
 submission sends checked posts in document order, followed by `mode=usrdel`,
-optional `onlyimgdel=on` and the hidden password field. It works without
+the thread-only `res` context, optional `onlyimgdel=on` and the hidden password
+field. Board indexes omit `res`. It works without
 JavaScript. Session ownership and password authorization stay on the server.
 
 With JavaScript, the controls reject empty selections, changed form destinations,
 foreign controls and selected posts that have been removed or archived. The
-20-field parser budget allows 18 whole-post selections or 17 file-only selections.
+20-field parser budget allows 18 whole-post selections or 17 file-only selections
+on an index, and 17 or 16 respectively on a thread page. The thread return control
+must remain attached to its original form and match the displayed thread.
 The client leaves successful controls intact, never removes posts optimistically
 and never retries a deletion. A repeated submission, including after Back/Forward
 cache restoration, requires a reload. A later server refusal can leave earlier
 items committed; the form says so before navigation.
+
+After a successful thread-page deletion, the server resolves `res` against public
+post visibility. A surviving OP or reply returns a 301 Location and zero-delay
+meta refresh to its canonical thread and post anchor. A removed or unavailable
+return target instead shows the source "Updating index..." page, which refreshes
+to the board after two seconds. Index-page deletion uses that page directly.
+A single already-missing selected post takes the same index path before return
+lookup. Errors retain their status and do not redirect, including a later refusal
+in a partially committed batch.
+
+These rules follow `imgboard.php:2438-2452,6883-6936,7593-7601`. The return ID is
+validated before mutations as a canonical positive signed 64-bit decimal; malformed,
+duplicate and overflowing values fail without deleting anything. Targets stay on
+the local origin and authenticated deletion feedback uses `private, no-store`,
+rather than the source's Referer-derived scheme and short shared cache.
+The native per-post client omits `res` and recognizes the entire fixed index
+response without rendering or executing its HTML. It still refuses HTTP redirects
+and never follows a meta refresh itself.
 
 The core Report button opens the report page for the first selected post and does
 not submit deletion. The native extension hides this desktop button, as source

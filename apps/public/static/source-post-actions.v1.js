@@ -6,10 +6,10 @@ const canonicalId = value => typeof value === 'string' && /^[1-9][0-9]{0,18}$/.t
 const canonicalBoard = value => typeof value === 'string' && /^[a-z0-9]{1,10}$/.test(value) && !/[^a-z0-9]/.test(value);
 export const SELECTION_POSTS = 20001;
 
-export function selectionIds(ids, fileOnly = false) {
-  if (!Array.isArray(ids) || typeof fileOnly !== 'boolean' || ids.length === 0) throw new TypeError('Select a post first.');
-  // mode and pwd are always successful controls; onlyimgdel is optional.
-  const limit = 20 - 2 - Number(fileOnly);
+export function selectionIds(ids, fileOnly = false, returnContext = false) {
+  if (!Array.isArray(ids) || typeof fileOnly !== 'boolean' || typeof returnContext !== 'boolean' || ids.length === 0) throw new TypeError('Select a post first.');
+  // mode and pwd are always successful; file-only and thread return context are optional.
+  const limit = 20 - 2 - Number(fileOnly) - Number(returnContext);
   if (ids.length > limit) throw new RangeError(`Select at most ${limit} posts for one deletion.`);
   if (!ids.every(canonicalId) || new Set(ids).size !== ids.length) throw new TypeError('The selection changed. Reload before deleting.');
   return [...ids];
@@ -25,6 +25,8 @@ export function mountSourcePostActions({ document: doc, window: win } = {}) {
   const fileOnly = form.querySelector('input[name="onlyimgdel"]'), submit = form.querySelector('input[type="submit"]');
   const report = form.querySelector('#bottomReportBtn'), status = form.querySelector('#deleteSelectionStatus');
   if (![mode, password, fileOnly, submit, report].every(node => node instanceof win.HTMLInputElement) || !status) return null;
+  const res = form.querySelector('input[name="res"]'), returnPost = res?.value;
+  const controls = [mode, password, fileOnly, submit, report, ...(res ? [res] : [])];
   let retired = false, suspended = false, pending = false, api;
   const say = message => { if (status.isConnected) status.textContent = message; };
   const live = () => !retired && !suspended && form.isConnected && root.isConnected
@@ -48,17 +50,20 @@ export function mountSourcePostActions({ document: doc, window: win } = {}) {
   }
 
   function selected() {
-    if (!live() || form.elements.length > SELECTION_POSTS + 5
+    if (!live() || form.elements.length > SELECTION_POSTS + controls.length
       || mode.form !== form || mode.type !== 'hidden' || mode.name !== 'mode' || mode.value !== 'usrdel' || mode.disabled
       || password.form !== form || password.type !== 'hidden' || password.name !== 'pwd' || password.id !== 'delPassword' || password.disabled
       || fileOnly.form !== form || fileOnly.type !== 'checkbox' || fileOnly.name !== 'onlyimgdel' || fileOnly.value !== 'on' || fileOnly.disabled
       || submit.form !== form || submit.type !== 'submit' || submit.name || submit.disabled
       || report.form !== form || report.type !== 'button' || report.name
-      || [mode, password, fileOnly, submit, report].some(node => !form.contains(node)
+      || (res && (res.form !== form || res.type !== 'hidden' || res.name !== 'res' || res.disabled
+        || res.value !== returnPost || !canonicalId(returnPost)
+        || root.querySelectorAll('.thread').length !== 1 || root.querySelector('.thread')?.id !== `t${returnPost}`))
+      || controls.some(node => !form.contains(node)
         || node.hasAttribute('formaction') || node.hasAttribute('formmethod') || node.hasAttribute('formtarget') || node.hasAttribute('formenctype'))) {
       throw new TypeError('The controls changed. Reload before deleting.');
     }
-    const chosen = [], known = new Set([mode, password, fileOnly, submit, report]), seen = new Set();
+    const chosen = [], known = new Set(controls), seen = new Set();
     for (const input of form.elements) {
       if (known.has(input)) continue;
       if (!(input instanceof win.HTMLInputElement)) throw new TypeError('The controls changed. Reload before deleting.');
@@ -80,7 +85,7 @@ export function mountSourcePostActions({ document: doc, window: win } = {}) {
     try {
       if (pending) throw new TypeError('Deletion was submitted. Reload before trying again.');
       if (event.submitter && event.submitter !== submit) throw new TypeError('The controls changed. Reload before deleting.');
-      selectionIds(selected().map(item => item.id), fileOnly.checked);
+      selectionIds(selected().map(item => item.id), fileOnly.checked, !!res);
       pending = true;
       form.setAttribute('aria-busy', 'true');
       say('Submitting deletion. Earlier items may succeed even if a later item is refused.');

@@ -10,8 +10,8 @@ const safeBoard = board => typeof board === 'string' && /^[a-z0-9]{1,10}$/.test(
 export function deletionResult(text, board) {
   return safeBoard(board) && typeof text === 'string' && text.length <= DELETION_LIMITS.responseBytes
     && text.trim() === `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Updating index</title><link rel="stylesheet" href="/static/board.css"></head>
-<body><main><h1>Updating index</h1><p>The deletion was completed.</p><p><a href="/${board}/">Return to board</a></p></main></body></html>`;
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="2;URL=/${board}/"><title>Updating index...</title><link rel="stylesheet" href="/static/updating-index.v1.css"></head>
+<body><table class="updating-index" role="presentation"><tr><td><strong>Updating index...</strong></td></tr></table></body></html>`;
 }
 
 function failure(outcome = 'unknown') {

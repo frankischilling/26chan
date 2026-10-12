@@ -45,7 +45,7 @@ export async function ownedDeletionResponse(response, report = console.error) {
   if (status !== 200 || type !== 'html') reject('http');
   let text;
   try { text = await response.text(); } catch { reject('body'); }
-  if (typeof text !== 'string' || text.length > 4096 || !text.includes('The deletion was completed.')) reject('content');
+  if (typeof text !== 'string' || text.length > 4096 || !text.includes('<strong>Updating index...</strong>')) reject('content');
   return { status, text };
 }
 

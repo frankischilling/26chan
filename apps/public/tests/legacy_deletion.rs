@@ -488,7 +488,7 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let html = std::str::from_utf8(&body).unwrap();
         assert!(html.contains("Updating index"));
-        assert!(html.contains("href=\"/demo/\""));
+        assert!(html.contains("content=\"2;URL=/demo/\""));
         assert_eq!(thread_status(&app, &id).await, StatusCode::OK);
         let after: serde_json::Value = sqlx::query_scalar(original_state)
             .bind(id.parse::<i64>().unwrap())
@@ -534,7 +534,13 @@ async fn legacy_post_and_delete_share_password_origin_and_board_authorization() 
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let html = std::str::from_utf8(&body).unwrap();
         assert!(html.contains("Updating index"));
-        assert!(html.contains("href=\"/fixture/\""));
+        assert!(html.contains("content=\"2;URL=/fixture/\""));
+        assert_eq!(
+            html.trim(),
+            include_str!("../templates/updating_index.html")
+                .replace("{{ board }}", "fixture")
+                .trim()
+        );
         assert!(!html.contains(PASSWORD));
         assert_eq!(thread_status(&app, &id).await, StatusCode::NOT_FOUND);
         let popup = app

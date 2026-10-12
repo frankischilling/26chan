@@ -9,17 +9,17 @@ let browser;
 before(async () => { browser = await chromium.launch({ headless: true }); });
 after(async () => { await browser?.close(); });
 
-async function fixture(t, ids = [large, '2']) {
+async function fixture(t, ids = [large, '2'], returnPost = null) {
   const context = await browser.newContext();
   t.after(() => context.close());
   const page = await context.newPage();
   await page.route('**/*', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><body></body></html>' }));
   await page.goto('https://boards.test/demo/thread/1');
-  await page.evaluate(async ({ ids, source }) => {
+  await page.evaluate(async ({ ids, source, returnPost }) => {
     document.body.innerHTML = `<main class="board"><section class="thread" id="t1" data-archived="false">${ids.map(id =>
       `<article class="postContainer replyContainer" id="pc${id}"><div class="post reply" id="p${id}"><div class="postInfo" id="pi${id}"><input type="checkbox" id="select${id}" name="${id}" value="delete" form="delform" aria-label="Select post No.${id}"></div><blockquote>Owned</blockquote></div></article>`).join('')}</section></main>
       <form name="delform" id="delform" action="/demo/imgboard.php" method="post" data-board="demo">
-      <input type="hidden" name="mode" value="usrdel"><input type="checkbox" name="onlyimgdel" value="on">
+      <input type="hidden" name="mode" value="usrdel">${returnPost === null ? '' : `<input type="hidden" name="res" value="${returnPost}">`}<input type="checkbox" name="onlyimgdel" value="on">
       <input type="hidden" id="delPassword" name="pwd"><input type="submit" value="Delete">
       <input id="bottomReportBtn" type="button" value="Report"><span id="deleteSelectionStatus" role="status"></span></form>`;
     const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
@@ -32,7 +32,7 @@ async function fixture(t, ids = [large, '2']) {
     };
     window.opened = [];
     window.open = (...args) => { opened.push(args); return {}; };
-  }, { ids, source });
+  }, { ids, source, returnPost });
   return page;
 }
 
@@ -116,4 +116,33 @@ test('unselected retired posts do not block a healthy selection and bfcache neve
     window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
   });
   assert.equal((await page.evaluate(() => submitSelection())).refused, true);
+});
+
+
+test('thread context consumes a field and must stay bound to the original live thread', async t => {
+  const ids = Array.from({ length: 18 }, (_, index) => String(index + 2));
+  const page = await fixture(t, ids, '1');
+  await page.locator('input[form="delform"]').evaluateAll(nodes => nodes.forEach(node => { node.checked = true; }));
+  assert.match((await page.evaluate(() => submitSelection())).message, /at most 17/);
+  await page.locator('#select19').uncheck();
+  await page.locator('[name="onlyimgdel"]').check();
+  assert.match((await page.evaluate(() => submitSelection())).message, /at most 16/);
+  await page.locator('#select18').uncheck();
+  const accepted = await page.evaluate(() => submitSelection());
+  assert.equal(accepted.refused, false);
+  assert.equal(accepted.fields.length, 20);
+  assert.ok(accepted.fields.some(([name, value]) => name === 'res' && value === '1'));
+  for (const mutate of [
+    () => form.querySelector('[name="res"]').value = '2',
+    () => form.querySelector('[name="res"]').disabled = true,
+    () => form.querySelector('[name="res"]').remove(),
+    () => form.append(form.querySelector('[name="res"]').cloneNode()),
+    () => document.querySelector('.thread').id = 't2',
+  ]) {
+    const changed = await fixture(t, ['2'], '1');
+    await changed.locator('#select2').check();
+    await changed.evaluate(mutate);
+    assert.equal((await changed.evaluate(() => submitSelection())).refused, true, String(mutate));
+    await changed.context().close();
+  }
 });

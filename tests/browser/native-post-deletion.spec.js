@@ -175,7 +175,7 @@ for (const target of ['reply', 'id']) {
       expect(response.status()).toBe(200);
       const captured = await deleted();
       expect(captured.status).toBe(response.status());
-      expect(captured.text).toContain('The deletion was completed.');
+      expect(captured.text).toContain('<strong>Updating index...</strong>');
       await expect(feedback(page)).toHaveText(`Post No.${id}: Post deleted.`);
       await expect(page.locator(`#pc${id}`)).toHaveClass(/\bdeleted\b/);
       await expect(page.locator(`#pc${id}`)).toHaveCSS('opacity', '0.66');
@@ -242,7 +242,7 @@ test('duplicate mobile and fallback-form clicks stay bounded while the actual de
       await choose(page, owned.reply, true);
       const response = await held.ready;
       expect(response.status).toBe(200);
-      expect(response.body).toContain('The deletion was completed.');
+      expect(response.body).toContain('<strong>Updating index...</strong>');
       expect(await ids(request, owned)).toEqual([owned.id, owned.keep]);
       await expect(page.locator(`#p${owned.reply}`)).toHaveAttribute('aria-busy', 'true');
       await expect(page.locator(`#pc${owned.reply}`)).not.toHaveClass(/\bdeleted\b/);
