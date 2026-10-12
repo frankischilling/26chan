@@ -103,7 +103,7 @@ SQL
  runuser -u postgres -- "$pg_bin/pg_dump" -h "$cluster" -Fc "$database" > "$cluster/restore.dump"
  restored="${database}_restored"
  create_database "$restored"
- runuser -u postgres -- "$pg_bin/pg_restore" -h "$cluster" --exit-on-error -d "$restored" "$cluster/restore.dump"
+ runuser -u postgres -- "$pg_bin/pg_restore" -h "$cluster" --exit-on-error -d "$restored" < "$cluster/restore.dump"
  [[ $("${psql[@]}" -U board_staff -d "$restored" -Atc 'SELECT content.text_thread_transfer_ready()') = t ]]
  printf 'Staff-self %s and restore qualification passed.\n' "$mode" >&3
 done
