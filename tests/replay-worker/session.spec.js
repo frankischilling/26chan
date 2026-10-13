@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { FULL_CASES } from '../fixtures/replay-worker/full-cases.mjs';
 for (const row of FULL_CASES) test(`owned replay session: ${row.id}`, async({page})=>{
+  page.on('console', message => { if(message.type()==='error') console.error(message.text()); });
   await page.goto('/');
   const mismatch=await page.evaluate(async row=>{
     const {encodeOwnedCase}=await import('/cases.mjs');
