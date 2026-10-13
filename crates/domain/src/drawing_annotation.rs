@@ -79,6 +79,11 @@ impl DrawingAnnotation {
         let source = self
             .source_post
             .map(|id| format!(", Source: >>{id}"))
+            .or_else(|| {
+                self.replay_tim
+                    .filter(|id| *id > 0)
+                    .map(|_| ", Replay: View".into())
+            })
             .unwrap_or_default();
         vec![
             Token::Text(separator.into()),
@@ -97,6 +102,11 @@ impl DrawingAnnotation {
         let source = self
             .source_post
             .map(|id| format!(", Source: &gt;&gt;{id}"))
+            .or_else(|| {
+                self.replay_tim
+                    .filter(|id| *id > 0)
+                    .map(|_| ", Replay: View".into())
+            })
             .unwrap_or_default();
         format!(
             "<br><br><small><b>Oekaki Post</b> (Time: {}{source})</small>",

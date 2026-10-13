@@ -56,14 +56,15 @@ class PublicDrawingUpload(PublicUpload):
     def input_witness(self, job):
         return private_input(self.f.root, self.f.quarantine, self.f.intake_user.pw_uid, job)
 
-    def register_receipt(self, marker, job, capability_hash, target, owner_thread):
+    def register_receipt(self, marker, job, capability_hash, target, owner_thread, *, drawing=False):
         self._validate_owned()
         assert marker == self.marker and HEX.fullmatch(job) and job not in self.receipts
         assert re.fullmatch('[a-f0-9]{64}', capability_hash)
         assert target == ('0' if self.mode == 'ordinary' else owner_thread)
         ownership = self._ownership_sql(owner_thread)
         witness = self.input_witness(job)
-        drawing = self.mode == 'image-edit' and not self.approved
+        assert isinstance(drawing, bool)
+        assert not drawing or (self.mode == 'image-edit' and not self.approved)
         input_kind = 'paired-v2' if drawing else 'image-v1'
         # There is no job-to-board or job-to-actor relation in the schema.
         # These are separate witnesses: owner thread, receipt, and this run's
@@ -279,7 +280,8 @@ class PublicDrawingUpload(PublicUpload):
                     line, pending = pending.split(b'\n', 1)
                     assert len(line) <= 512
                     text = line.decode('ascii')
-                    receipt = re.fullmatch(r'DRAWING_RECEIPT ([a-f0-9]{32}) ([a-f0-9]{32}) ([a-f0-9]{64}) (0|[1-9][0-9]{0,18}) ([1-9][0-9]{0,18})', text)
+                    drawing_receipt = text.startswith('DRAWING_REPLAY_RECEIPT ')
+                    receipt = re.fullmatch(r'DRAWING_(?:REPLAY_)?RECEIPT ([a-f0-9]{32}) ([a-f0-9]{32}) ([a-f0-9]{64}) (0|[1-9][0-9]{0,18}) ([1-9][0-9]{0,18})', text)
                     action = re.fullmatch(r'DRAWING_(REVOKED|APPROVE) ([a-f0-9]{32}) ([a-f0-9]{32})', text)
                     owner = re.fullmatch(r'DRAWING_OWNER ([a-f0-9]{32}) ([1-9][0-9]{0,18})', text)
                     if owner:
@@ -287,7 +289,7 @@ class PublicDrawingUpload(PublicUpload):
                         self.register_owner(*owner.groups())
                         marker, job = owner.groups()
                     elif receipt:
-                        self.register_receipt(*receipt.groups())
+                        self.register_receipt(*receipt.groups(), drawing=drawing_receipt)
                         marker, job = receipt.group(1, 2)
                     elif action:
                         operation, marker, job = action.groups()
@@ -405,9 +407,9 @@ class PublicDrawingEdit(PublicDrawingUpload):
         assert sql(f"SELECT ({ownership}) AND (SELECT count(*) FROM content.posts WHERE board='i')=1 AND (SELECT count(*) FROM content.threads WHERE board='i')=1;") == 't'
         self.owner_thread = owner_thread
 
-    def register_receipt(self, marker, job, capability_hash, target, owner_thread):
+    def register_receipt(self, marker, job, capability_hash, target, owner_thread, *, drawing=False):
         assert self.owner_thread is not None and owner_thread == target == self.owner_thread
-        super().register_receipt(marker, job, capability_hash, target, owner_thread)
+        super().register_receipt(marker, job, capability_hash, target, owner_thread, drawing=drawing)
 
     def reset_deletion_quota(self):
         guard = self._policy_guard()

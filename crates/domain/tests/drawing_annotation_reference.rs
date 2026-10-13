@@ -461,3 +461,33 @@ fn a_supplied_different_post_never_satisfies_the_requested_source_id() {
         None
     );
 }
+
+#[test]
+fn approved_replay_metadata_survives_plain_text_projections() {
+    use board_domain::{Token, drawing_annotation::DrawingAnnotation};
+    let mut drawing = DrawingAnnotation::from_saved(Some(90), None).unwrap();
+    drawing.replay_tim = Some(123);
+    assert_eq!(
+        drawing.stored_html(),
+        "<br><br><small><b>Oekaki Post</b> (Time: 2m, Replay: View)</small>"
+    );
+    assert!(
+        drawing.tokens(" ").iter().any(
+            |token| matches!(token, Token::Text(value) if value == " (Time: 2m, Replay: View)")
+        )
+    );
+    drawing.source_post = Some(42);
+    assert!(drawing.stored_html().contains("Source: &gt;&gt;42"));
+    assert!(!drawing.stored_html().contains("Replay:"));
+    drawing.source_post = None;
+    for invalid in [None, Some(0), Some(-1)] {
+        drawing.replay_tim = invalid;
+        assert!(!drawing.stored_html().contains("Replay:"));
+        assert!(
+            !drawing
+                .tokens(" ")
+                .iter()
+                .any(|token| matches!(token, Token::Text(value) if value.contains("Replay:")))
+        );
+    }
+}

@@ -30,7 +30,8 @@ over the replay link.
 ## Playback
 
 The View link opens a player with Play/Pause, Rewind, Slower, Faster, Gapless
-and Close controls. Speeds are 0.5, 1, 2, 5, 10 and 25 times normal; gapless
+and Close controls. Zoom uses the source levels from 50% through 1600% without
+changing the underlying image pixels. Speeds are 0.5, 1, 2, 5, 10 and 25 times normal; gapless
 playback skips pauses longer than three seconds. Playback pauses when the page
 is hidden. Close, Escape and navigation release the worker and any pending
 acquisition. A replay does not replace an active, unsaved painting.

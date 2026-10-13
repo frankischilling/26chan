@@ -78,7 +78,8 @@ class PublicDrawingFixtureTest(unittest.TestCase):
     def register(self, fixture, db, job='a' * 32, capability_hash='b' * 64):
         target = '0' if fixture.mode == 'ordinary' else '41'
         with mock.patch('public_drawing_fixture.sql', side_effect=self.sql(db)):
-            fixture.register_receipt(fixture.marker, job, capability_hash, target, '41')
+            fixture.register_receipt(fixture.marker, job, capability_hash, target, '41',
+                                     drawing=fixture.mode == 'image-edit' and not fixture.approved)
 
     def test_separate_actor_receipt_and_private_input_witnesses_are_all_required(self):
         for mode in ('ordinary', 'quick-reply'):

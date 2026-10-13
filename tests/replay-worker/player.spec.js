@@ -31,3 +31,27 @@ test('close during acquisition prevents late playback and a missing recording sh
   await expect(dialog.getByRole('button',{name:'Play',exact:true})).toBeDisabled();
   await dialog.getByRole('button',{name:'Close',exact:true}).click();await expect(dialog).toHaveCount(0);
 });
+
+test('replay zoom uses source bounds without resizing the native bitmap and resets on reopen', async ({page}) => {
+  await page.goto('/player.html');
+  const open = page.getByRole('link', {name: 'View', exact: true});
+  await open.click();
+  const dialog = page.getByRole('dialog', {name: 'Oekaki replay'});
+  await expect(dialog.getByRole('status')).toHaveText('Replay finished.');
+  const canvas = dialog.locator('canvas'), label = dialog.locator('.nativeReplayZoom');
+  await expect(label).toHaveText('100%');
+  await dialog.getByRole('button', {name: 'Zoom out', exact: true}).click();
+  await expect(label).toHaveText('50%');
+  await expect(dialog.getByRole('button', {name: 'Zoom out', exact: true})).toBeDisabled();
+  await expect(canvas).toHaveCSS('width', '12px');
+  for (let i = 0; i < 5; i++) await dialog.getByRole('button', {name: 'Zoom in', exact: true}).click();
+  await expect(label).toHaveText('1600%');
+  await expect(dialog.getByRole('button', {name: 'Zoom in', exact: true})).toBeDisabled();
+  await expect(canvas).toHaveCSS('width', '384px');
+  await expect(canvas).toHaveAttribute('width', '24');
+  await dialog.getByRole('button', {name: 'Close', exact: true}).click();
+  await open.click();
+  await expect(dialog.getByRole('status')).toHaveText('Replay finished.');
+  await expect(label).toHaveText('100%');
+  await expect(canvas).toHaveCSS('width', '24px');
+});

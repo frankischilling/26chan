@@ -355,21 +355,7 @@ impl PostView {
     }
 
     pub fn drawing_annotation(&self) -> Option<DrawingAnnotation> {
-        let mut annotation = DrawingAnnotation::from_saved(
-            self.post.drawing_time_seconds,
-            self.post.drawing_source_post_id,
-        )?;
-        if annotation.source_post.is_none() && !self.post.deleted && !self.post.file_deleted {
-            annotation.replay_tim = self
-                .post
-                .attachment
-                .as_ref()
-                .filter(|attachment| {
-                    attachment.has_replay && !attachment.file_deleted && attachment.tim > 0
-                })
-                .map(|attachment| attachment.tim);
-        }
-        Some(annotation)
+        drawing_annotation(&self.post)
     }
 
     pub fn catalog_teaser(&self, board: &Board) -> crate::catalog::teaser::Prepared {
@@ -462,6 +448,21 @@ pub struct Comment<'a> {
 }
 
 pub use board_domain::drawing_annotation::DrawingAnnotation;
+
+pub(crate) fn drawing_annotation(post: &Post) -> Option<DrawingAnnotation> {
+    let mut annotation =
+        DrawingAnnotation::from_saved(post.drawing_time_seconds, post.drawing_source_post_id)?;
+    if annotation.source_post.is_none() && !post.deleted && !post.file_deleted {
+        annotation.replay_tim = post
+            .attachment
+            .as_ref()
+            .filter(|attachment| {
+                attachment.has_replay && !attachment.file_deleted && attachment.tim > 0
+            })
+            .map(|attachment| attachment.tim);
+    }
+    Some(annotation)
+}
 
 #[cfg(test)]
 mod comment_tests {

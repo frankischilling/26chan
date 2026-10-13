@@ -51,7 +51,7 @@ try {
     assert.equal(receipt.resto, target); assert.equal(receipt.state, 'queued');
     assert.match(receipt.upload_id, /^[a-f0-9]{32}$/); assert.match(receipt.upload_capability, /^[a-f0-9]{64}$/);
     // The private pipe passes the receipt hash, never the usable capability.
-    await signal('RECEIPT', receipt.upload_id, `${createHash('sha256').update(receipt.upload_capability).digest('hex')} ${target} ${ownerThread}`);
+    await signal(route === 'drawing' ? 'REPLAY_RECEIPT' : 'RECEIPT', receipt.upload_id, `${createHash('sha256').update(receipt.upload_capability).digest('hex')} ${target} ${ownerThread}`);
     return receipt;
   };
   const waitForReceipt = async receipt => {
