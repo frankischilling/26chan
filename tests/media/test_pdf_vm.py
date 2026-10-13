@@ -86,6 +86,22 @@ class PdfVmTest(unittest.TestCase):
                              'nullpage: success=true', 'jpeg: success=true', 'decode: ok'):
                 self.assertIn(expected, report, report)
 
+    def test_encrypted_document_is_rejected_and_next_job_recovers(self):
+        # The fixed host renderer generates only this owned test fixture. Real
+        # uploaded documents are parsed exclusively by the disposable guest.
+        with tempfile.TemporaryFile() as source:
+            source.write(document([RED]))
+            source.seek(0)
+            encrypted = run_owned(['/usr/bin/gs', '-q', '-dSAFER', '-dBATCH', '-dNOPAUSE',
+                                   '-sDEVICE=pdfwrite', '-sOwnerPassword=owned-owner',
+                                   '-sUserPassword=owned-reader', '-sOutputFile=%stdout', '-'],
+                                  stdin=source, stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE, timeout=10)
+        self.assertEqual(encrypted.returncode, 0, encrypted.stderr.decode(errors='replace'))
+        self.assertTrue(encrypted.stdout.startswith(b'%PDF-'))
+        self.decode(encrypted.stdout, valid=False)
+        self.assertIsNotNone(self.decode(document([RED])))
+
     def test_pdf_profile_preserves_worker_boundaries(self):
         for mode, count in [('inspect', 9), ('memory', 1), ('process', 1), ('disk', 1)]:
             with self.subTest(mode=mode), tempfile.TemporaryDirectory(prefix='owned-pdf-limits-') as directory:

@@ -294,11 +294,16 @@ pub async fn read_approved(
 }
 
 // Bounded framing only: PNG decoder admission stays inside the isolated guest.
-// Unsupported JPEG/GIF provenance is deliberately unknown, never a raw or
+// Unsupported JPEG/GIF/PDF provenance is deliberately unknown, never a raw or
 // normalized checksum fallback. Malformed PNG framing fails closed.
 fn source_provenance(
     snapshot: &InputSnapshot,
 ) -> Result<Option<SourceProvenance>, SourceDigestError> {
+    // PDF has its own explicit guest transport and never claims PNG cleanup.
+    // This signature only selects unknown provenance; it does not approve PDF.
+    if snapshot.bytes().starts_with(b"%PDF-") {
+        return Ok(None);
+    }
     let limit = MAX_INPUT_BYTES as usize;
     let limits = PngSourceDigestLimits::new(limit, limit, limit)?;
     match png_source_processed_digest(snapshot.bytes(), limits) {
@@ -336,7 +341,12 @@ mod provenance_tests {
 
     #[tokio::test]
     async fn coordinator_provenance_has_no_unsupported_or_malformed_hash_fallback() {
-        for input in [b"\xff\xd8jpeg".as_slice(), b"GIF87agif", b"GIF89agif"] {
+        for input in [
+            b"\xff\xd8jpeg".as_slice(),
+            b"GIF87agif",
+            b"GIF89agif",
+            b"%PDF-1.4\nowned document",
+        ] {
             assert_eq!(source_provenance(&snapshot(input).await).unwrap(), None);
         }
         for input in [
