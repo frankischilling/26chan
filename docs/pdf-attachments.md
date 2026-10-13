@@ -61,7 +61,10 @@ libraries still require trusted parent directories. Identical read-only resource
 files share one stored copy through guest-local symlinks; the complete initramfs
 still has the same 64 MiB cap. Adobe Font Metrics sidecars are omitted; PDF
 rendering uses the retained Type 1 font programs. CI packages the release-profile
-guest binaries, keeping debug metadata out of the boot image. The
+guest binaries, keeping debug metadata out of the boot image. PDF initramfs files
+use gzip with a fixed timestamp; both stored and unpacked bytes must fit the
+64 MiB cap. The pinned kernel enables `CONFIG_RD_GZIP`. Compression keeps the
+boot artifacts inside the existing private tmpfs without enlarging its quota. The
 image contains no host credentials, user font configuration or font caches.
 
 To update these resource pins, retrieve the packages from the official Ubuntu

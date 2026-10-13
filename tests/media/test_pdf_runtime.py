@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Pinned resource data cannot relax executable or ordinary resource ownership."""
 import hashlib
+import gzip
 import importlib.util
 import json
 import os
@@ -151,6 +152,24 @@ class PdfRuntimeTest(unittest.TestCase):
         self.assertEqual(entries['usr/share/b'], (stat.S_IFLNK | 0o777, b'/usr/share/a'))
         self.assertEqual(entries['usr/share/c'], (stat.S_IFREG | 0o644, b'other'))
         self.assertEqual(entries['worker'], (stat.S_IFREG | 0o755, b'same'))
+
+    def test_pdf_boot_compression_preserves_bytes_and_both_budgets(self):
+        spec = importlib.util.spec_from_file_location('pdf_boot', REPO / 'scripts/media/build-initramfs.py')
+        builder = importlib.util.module_from_spec(spec)
+        with mock.patch.dict(sys.modules, {'pdf_runtime': runtime}):
+            spec.loader.exec_module(builder)
+        raw = b'owned deterministic initramfs fixture' * 1024
+        self.assertEqual(builder.boot_image(raw, pdf_runtime=False), raw)
+        packed = builder.boot_image(raw, pdf_runtime=True)
+        self.assertEqual(gzip.decompress(packed), raw)
+        self.assertLess(len(packed), len(raw))
+        self.assertEqual(packed, builder.boot_image(raw, pdf_runtime=True))
+        with mock.patch.object(builder, 'MAX_IMAGE', len(raw) - 1):
+            with self.assertRaises(ValueError):
+                builder.boot_image(raw, pdf_runtime=True)
+        with mock.patch.object(builder, 'MAX_IMAGE', 1):
+            with self.assertRaisesRegex(ValueError, 'compressed initramfs'):
+                builder.boot_image(b'x', pdf_runtime=True)
 
 
 if __name__ == '__main__':

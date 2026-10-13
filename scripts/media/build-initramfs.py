@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Package reviewed static init/worker binaries into a deterministic newc image."""
 import argparse
+import gzip
 import json
 import pathlib
 import stat
 from pdf_runtime import collect as collect_pdf_runtime
+
+MAX_IMAGE = 64 * 1024 * 1024
 
 
 def entry(name, mode, data=b"", ino=1):
@@ -29,6 +32,17 @@ def file_entries(files, ino):
                 resources[data] = name
         ino += 1
     return image, ino
+
+
+def boot_image(image, *, pdf_runtime):
+    if len(image) > MAX_IMAGE:
+        raise ValueError(f'initramfs exceeds the existing artifact size budget: {len(image)} bytes')
+    # The pinned qualification kernel enables CONFIG_RD_GZIP. Compress only
+    # the PDF image so its kernel + initrd + disks fit the same private tmpfs.
+    output = gzip.compress(bytes(image), mtime=0) if pdf_runtime else image
+    if len(output) > MAX_IMAGE:
+        raise ValueError('compressed initramfs exceeds the artifact size budget')
+    return output
 
 
 def main():
@@ -60,11 +74,14 @@ def main():
     contents, ino = file_entries(files, ino)
     image += contents
     image += entry("TRAILER!!!", 0, ino=ino)
-    if len(image) > 64 * 1024 * 1024:
-        parser.error(f'initramfs exceeds the existing artifact size budget: {len(image)} bytes')
+    try:
+        packaged = boot_image(image, pdf_runtime=args.pdf_runtime)
+    except ValueError as error:
+        parser.error(str(error))
     with args.output.open("xb") as output:
-        output.write(image)
-    print(f'Packaged {len(image)} bytes (PDF runtime: {args.pdf_runtime}).')
+        output.write(packaged)
+    print(f'Packaged {len(packaged)} bytes from {len(image)} unpacked bytes '
+          f'(PDF runtime: {args.pdf_runtime}).')
 
 
 if __name__ == "__main__":
