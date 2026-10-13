@@ -9,6 +9,45 @@ pub struct PostQuote {
 }
 
 impl PostQuote {
+    /// The source's post-wrap cross-board alphabet accepts signed decimal and
+    /// lowercase exponent spellings. Parse the complete token before applying
+    /// PHP's string-to-integer conversion at its SQL `%d` boundary.
+    pub(crate) fn parse_source_cross(input: &str) -> Option<(Self, usize)> {
+        let rest = input.strip_prefix(">>>/")?;
+        let end = rest
+            .bytes()
+            .take_while(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+            .count();
+        if rest.as_bytes().get(end) != Some(&b'/') {
+            return None;
+        }
+        let board = crate::BoardSlug::parse(&rest[..end]).ok()?;
+        let rest = &rest[end + 1..];
+        let len = rest
+            .bytes()
+            .take_while(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || b"+/-".contains(c))
+            .count();
+        let spelling = &rest[..len];
+        if !crate::static_quote::numeric_term(spelling) {
+            return None;
+        }
+        let id = crate::php_scalar::integer(spelling).max(0) as u64;
+        let consumed = 4 + end + 1 + len;
+        Some((
+            Self {
+                board: Some(board.as_str().into()),
+                id,
+                label: input[..consumed].into(),
+                presentation: if id == 0 {
+                    QuotePresentation::Plain
+                } else {
+                    QuotePresentation::Unresolved
+                },
+            },
+            consumed,
+        ))
+    }
+
     pub fn href(&self, current_board: &str) -> String {
         format!(
             "/{}/post/{}",
@@ -92,17 +131,14 @@ impl PostQuote {
         &self.presentation
     }
 
-    /// Qualification applies to the token, not to adjacent text. Source local
-    /// syntax lexes `>>1e3` as `>>1` plus `e3`; cross-board syntax retains its
-    /// full term, so `>>>/co/1e3` never produces a PostQuote.
+    /// Local syntax lexes `>>1e3` as `>>1` plus `e3`; cross-board syntax
+    /// validates its entire numeric term before the source `%d` conversion.
     pub fn classify(&self, current_board: &str) -> QuoteClassification {
         let digits = self.digits();
-        if !digits.bytes().all(|c| c.is_ascii_digit()) {
+        if !crate::static_quote::numeric_term(digits) {
             return QuoteClassification::Unqualified;
         }
-        let Ok(id) = digits.parse::<i64>() else {
-            return QuoteClassification::Unqualified;
-        };
+        let id = crate::php_scalar::integer(digits);
         let board = self.board.as_deref().unwrap_or(current_board);
         if let Some(board) = self.board.as_deref() {
             if !crate::static_quote::reference_board(board) {
@@ -134,12 +170,32 @@ impl PostQuote {
             QuoteClassification::Dead => QuotePresentation::Dead,
             QuoteClassification::Lookup(_) => match target_thread.filter(|id| *id > 0) {
                 None => QuotePresentation::Dead,
-                Some(thread_id) if self.board.is_none() && current_thread == Some(thread_id) => {
+                Some(thread_id)
+                    if self.board.is_none()
+                        && current_thread.is_some_and(|current| {
+                            (thread_id as u64 != self.id && current == thread_id)
+                                || self.source_equals_thread(current)
+                        }) =>
+                {
                     QuotePresentation::LocalFragment
                 }
                 Some(thread_id) => QuotePresentation::Thread { thread_id },
             },
         };
+    }
+
+    // PHP compares an integer to a numeric string before constructing a local
+    // fragment. An overflowing decimal string compares as a double, while its
+    // separate SQL `%d` conversion saturates. Those are different operations.
+    fn source_equals_thread(&self, thread_id: i64) -> bool {
+        self.digits().parse::<i64>().map_or_else(
+            |_| {
+                self.digits()
+                    .parse::<f64>()
+                    .is_ok_and(|value| value == thread_id as f64)
+            },
+            |value| value == thread_id,
+        )
     }
 
     pub fn resolved_href(&self, current_board: &str) -> Option<String> {
@@ -262,15 +318,7 @@ mod tests {
             quote.resolve("g", Some(40), None);
             assert_eq!(quote.presentation(), &QuotePresentation::Dead);
         }
-        for input in [
-            ">>>/co/+42",
-            ">>>/co/-42",
-            ">>>/co/1e3",
-            ">>>/co/123abc",
-            ">>>/co/9223372036854775808",
-        ] {
-            assert!(quotes(input, 104, "g").is_empty(), "{input}");
-        }
+        assert!(quotes(">>>/co/123abc", 104, "g").is_empty());
         assert!(QuoteTargetKey::new("../g", 1).is_none());
         assert!(QuoteTargetKey::new("g", 0).is_none());
         assert!(QuoteTargetKey::new("g", -1).is_none());
@@ -334,17 +382,21 @@ mod tests {
             "545b7812d1849f7958d914950c91fdbbe38f6b22"
         );
         let cases = fixture["cases"].as_array().unwrap();
+        let numeric: serde_json::Value =
+            serde_json::from_str(include_str!("../../../fixtures/source-quote-numeric.json"))
+                .unwrap();
         assert!(cases.len() >= 108);
-        for case in cases {
+        assert!(numeric["cases"].as_array().unwrap().len() >= 53);
+        for case in cases.iter().chain(numeric["cases"].as_array().unwrap()) {
             let name = case["id"].as_str().unwrap();
             let board = case["source_board"].as_str().unwrap();
             let current_thread = case["source_thread_id"]
                 .as_str()
                 .map(|v| v.parse::<i64>().unwrap());
             let target_board = case["target_board"].as_str().unwrap();
-            let target_id = case["target_post_id"]
+            let target_id = case["lookup_post_id"]
                 .as_str()
-                .unwrap()
+                .unwrap_or_else(|| case["target_post_id"].as_str().unwrap())
                 .parse::<i64>()
                 .unwrap();
             let label = case["label_html"].as_str().unwrap().replace("&gt;", ">");
@@ -364,7 +416,7 @@ mod tests {
                 let mut quote = parsed.remove(0);
                 let classification = if expected["kind"] == "plain" {
                     QuoteClassification::Plain
-                } else if target_id == 0 || (board == "mlp" && matches!(target_board, "b" | "co")) {
+                } else if target_id <= 0 || (board == "mlp" && matches!(target_board, "b" | "co")) {
                     QuoteClassification::Dead
                 } else {
                     QuoteClassification::Lookup(

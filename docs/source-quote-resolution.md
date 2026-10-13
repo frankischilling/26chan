@@ -1,7 +1,7 @@
 # Source quote target resolution
 
 Public comments with source formatter profiles 104 through 111 or 120 through 127 resolve
-decimal post references against the same repeatable-read snapshot as their
+numeric post references against the same repeatable-read snapshot as their
 page. Stored comments and historical formatter profiles do not change.
 
 The pinned source callbacks in imgboard.php:4139-4217 determine presentation:
@@ -60,13 +60,17 @@ absence: an unknown cross-board reference stays plain.
 Source word wrapping runs before numeric matching. A generated break ends the
 digit run, including a run of zeroes. The implementation does not impose a
 19-character limit on leading-zero source labels; historical tokens retain
-their previous limit. Unsupported cross-board numeric spellings retain their
-existing unqualified path. No signed, exponent or nondecimal coercion is inferred.
-A same-board digit-prefix token, such as the first part of >>123abc, remains a
+their previous limit. Cross-board terms admit an optional sign and lowercase
+exponent, matching the source's post-wrap alphabet. The lookup uses PHP's 64-bit
+string conversion: fractional values truncate, finite overflow saturates, and
+infinite or underflowed values resolve to post-zero absence. Labels and hrefs
+retain the original spelling. Uppercase E and decimal points are outside this
+callback alphabet. A same-board digit-prefix token, such as the first part of >>123abc, remains a
 normal lexical match; the trailing text is not part of its lookup key.
 
-The browser validators admit contextual decimal post fragments and intended
-local thread routes. They preserve lexical spellings for DOM lookup and backlink
+The browser validators preserve these numeric post fragments and local thread
+routes. Source hover, inline quotes and mobile companion links recognize only
+decimal fragments; signed and exponent links retain ordinary navigation. They preserve lexical spellings for DOM lookup and backlink
 annotations. A leading-zero fragment therefore misses a canonical visible DOM
 post and uses remote lookup, as the source does. The transport requests its fixed
 same-origin endpoint with an exact canonical ID and omitted credentials.
@@ -79,6 +83,21 @@ restriction: the source self-quote check compares DOM spelling. Deadlink spans a
 acquire link, preview, inline-quote or backlink authority. Prepared remote quote
 copies bind fragments to their validated source thread rather than the viewing
 page.
+
+## Quote appearance
+
+Resolved missing references use the source theme's quote color and line-through
+decoration. The selector is scoped to comment deadlinks so watcher state styling
+keeps its own rules. Ordinary comment links also follow the source's 480px mobile
+color cascade: worksafe links use #34345c; non-worksafe links use #00e and quotes
+use #000080. Mobile hover colors follow the selected board family. Dark mobile
+links use #81a2be and hover at #5f89ac; non-link dead spans retain their theme color. The Never use
+mobile layout preference preserves desktop colors. The six supplied stylesheet excerpts are pinned in
+fixtures/source-quote-styles.json; the theme tests compare browser-computed
+properties and retain desktop/mobile page screenshots. A second reference uses
+full pages from the original renderer, with the same owned comments. See
+[source link page comparison](source-link-page-comparison.md) for its inputs,
+asset substitutions and review limits.
 
 ## Conditional responses
 
@@ -97,17 +116,26 @@ The optional PHP oracle executes the extracted lookup and rendering functions
 with synthetic database stubs, including the source `%d` conversion. It does not
 load the original application or contact a database.
 
-fixtures/source-quote-spellings.json also captures five exact functions from
+fixtures/source-quote-numeric.json adds 53 explicit signed, exponent and overflow
+cases, including the distinction between PHP comparison and SQL integer coercion.
+The five entity cases in the base fixture check the exact captured ENT_QUOTES
+statement. JSON comments use its named entity spellings after typed template
+escaping; no entity is decoded and historical profiles retain their output.
+
+fixtures/source-quote-spellings.json also captures seven exact functions from
 the pinned original extension. Isolated synthetic contexts check lexical DOM
-lookup, backlinks, remote JSON comparison and source self-quote behavior without
+lookup, backlinks, remote JSON comparison, source self-quote behavior and
+inert signed/exponent inline/mobile links without
 starting the source application. The numeric JavaScript comparison cases remain
 within safe integer precision; the rewrite retains exact signed i64 IDs.
 
-The local Linux checks cover 144 domain tests, the persisted public quote
+The earlier leading-zero change passed 144 domain tests, the persisted public quote
 resolution and conditional-response test, all 138 public library tests, strict
 all-target/all-feature Clippy, and actual Chromium preview/backlink/inline
 contracts. The isolated PHP oracle passes all 229 cases, and all 14 offline
-Python reference tests pass. Hosted CI still must qualify the exact PR head.
+Python reference tests passed. Those are historical results, not qualification
+of later changes. Current-head results belong in the pull request; complete
+hosted CI is required before merge.
 
 Generated resources retain their 256 KiB filter and 32 KiB quote-feature limits.
 Additional parse5 private methods are minified only after build checks establish

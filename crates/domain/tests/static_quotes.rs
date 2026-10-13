@@ -66,13 +66,13 @@ fn post_references_retain_leading_zero_labels_and_bounded_targets() {
 #[test]
 fn nondecimal_numeric_quotes_never_resolve_to_a_leading_digit_post() {
     for format in [104, 111, 120, 127] {
-        for term in [
-            "1e2",
-            "1e+2",
-            "1e-2",
-            "+001e+02",
-            "-1e2",
-            "1e999999999999999999999999999999999999",
+        for (term, expected_id) in [
+            ("1e2", 100),
+            ("1e+2", 100),
+            ("1e-2", 0),
+            ("+001e+02", 100),
+            ("-1e2", 0),
+            ("1e999999999999999999999999999999999999", 0),
         ] {
             let input = format!(">>>/po/{term}");
             let lines = board_domain::parse_post_comment_on_board(&input, format, "g");
@@ -81,6 +81,10 @@ fn nondecimal_numeric_quotes_never_resolve_to_a_leading_digit_post() {
                 match token {
                     Token::Text(text) => retained.push_str(text),
                     Token::WordBreak => {}
+                    Token::PostQuote(quote) => {
+                        assert_eq!(quote.id(), expected_id, "{input}");
+                        retained.push_str(quote.label());
+                    }
                     _ => panic!("Unexpected reference token for {input}: {token:?}"),
                 }
             }
@@ -130,14 +134,13 @@ fn source_post_wrap_lookup_gate_never_becomes_a_different_decimal_id() {
             .as_array()
             .unwrap()
             .iter()
-            .filter_map(|term| {
-                let value = term["number"].as_str().unwrap();
-                (value.bytes().all(|byte| byte.is_ascii_digit()))
-                    .then(|| value.parse::<u64>().unwrap())
-            })
+            .map(|term| term["number"].as_str().unwrap())
             .collect();
         assert_eq!(
-            quotes.iter().map(|quote| quote.id()).collect::<Vec<_>>(),
+            quotes
+                .iter()
+                .map(|quote| quote.digits())
+                .collect::<Vec<_>>(),
             expected,
             "{input}"
         );

@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / 'fixtures/quote-resolution-reference.json'
 REVISION = '545b7812d1849f7958d914950c91fdbbe38f6b22'
 EXCERPTS = {
+    'text_entities': ('imgboard.php', 7313, 7313, '0967feffb514019b3f19d7c39a9b161c90e614a5325279d5a6cde6faecd15e60'),
     'allowlist': ('imgboard.php', 189, 189, 'affb920ce918619fecf27427caf849cff4f03cc93086e2f6e5af37d45e9d35df'),
     'same_lookup': ('imgboard.php', 3886, 3904, '8936dba49ec451a8b6a74c01746466e8d5b5e0aba7482595a5a4e918a14a8a3f'),
     'cross_lookup': ('imgboard.php', 3940, 3963, '2d0999e7e3bb5a627a2f0df7bcb332baad2d3f406acff093da94d14ef52758e2'),
@@ -142,13 +143,20 @@ def generate(captured):
                 source_execution='not performed while generating this fixture; optional --php-oracle validates extracted functions only',
                 limits=['Decimal post spellings within signed i64, including leading zeroes, are qualified after source word wrapping.',
                         'Post zero is qualified only as controlled absence; the Rust store cannot contain post zero.',
-                        'Signed, exponent, nondecimal and overflow IDs and general MySQL coercion are explicitly unqualified.',
+                        'Signed, exponent and overflow spellings are checked separately in source-quote-numeric.json; this decimal fixture does not cover them.',
                         'Same-board tokenizer consumes a digit prefix in >>123abc or >>1e3; that canonical prefix is qualified, not a claim about MySQL nondecimal coercion.',
                         'Lookup answers are controlled stubs. Private-as-missing is an absence presentation scenario, not evidence of source SQL RLS.',
                         'Source URL constants are controlled: NEW_HTML=true, RES_DIR2=thread/, PHP_EXT2=empty, L::d=example.test. Cross-host deployment mapping is not qualified.',
                         'Only already-escaped input is passed to auto_link; this is not an HTML sanitizer.'],
                 excerpts={n: dict(file=v[0], start_line=v[1], end_line=v[2], sha256=v[3]) for n,v in EXCERPTS.items()},
                 captured_sources=captured, allowlist=allowlist, cases=cases, lexical_cases=lexical,
+                entity_cases=[
+                    dict(input="<tag> & \"quoted\" 'apostrophe'", expected="&lt;tag&gt; &amp; &quot;quoted&quot; &#039;apostrophe&#039;"),
+                    dict(input="&amp; &#39; &#039; &#x27; &lt;", expected="&amp;amp; &amp;#39; &amp;#039; &amp;#x27; &amp;lt;"),
+                    dict(input="https://example.test/a?a=1&b=2", expected="https://example.test/a?a=1&amp;b=2"),
+                    dict(input=">>>/g/+123", expected="&gt;&gt;&gt;/g/+123"),
+                    dict(input="雪 & 猫", expected="雪 &amp; 猫"),
+                ],
                 unqualified_ids=['+1', '-1', '1e3', '1.0', '0x10', str(I64_MAX+1)])
 
 
@@ -202,13 +210,18 @@ echo auto_link($c['input_html'], $c['source_thread_id'] === null ? 0 : (int)$c['
         if digits is None:
             match = re.search(r'&gt;&gt;([0-9]+)', case['input_html'])
             digits = match[1] if match else '0'
-        case['lookup_post_id'] = str(int(digits))
+        if 'lookup_post_id' not in case:
+            case['lookup_post_id'] = str(int(digits))
         case['lookup_board'] = case.get('target_board', case['source_board'])
         expected = case.get('expected_html', case.get('expected', {}).get('html'))
         result = subprocess.run([php, '-n', '-d', 'memory_limit=32M', '-d', 'max_execution_time=2', '-r', functions + harness], input=json.dumps(case), text=True, capture_output=True, timeout=5, check=True)
         require(result.stdout == expected and not result.stderr, f'PHP oracle mismatch: {case["id"]}: {result.stdout!r} {result.stderr!r}')
         count += 1
-    print(f'isolated extracted PHP oracle: {count} cases passed')
+    for case in fixture.get('entity_cases', []):
+        code = "$str = json_decode(stream_get_contents(STDIN), true);\n" + captured['text_entities'] + "echo $str;"
+        result = subprocess.run([php, '-n', '-d', 'memory_limit=32M', '-d', 'max_execution_time=2', '-r', code], input=json.dumps(case['input']), text=True, capture_output=True, timeout=5, check=True)
+        require(result.stdout == case['expected'] and not result.stderr, 'source entity spelling mismatch')
+    print(f'isolated extracted PHP oracle: {count} quote cases and {len(fixture.get("entity_cases", []))} entity cases passed')
 
 
 def main():

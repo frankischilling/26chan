@@ -25,10 +25,14 @@ const staff = 'npx playwright test --config playwright.staff.config.js';
 // Captured before splitting verification into CI lanes. Keep this expectation
 // independent of the runner's functions so a removed command cannot disappear
 // from both the full sequence and the combined lane coverage unnoticed.
+// Reviewed additions include the numeric-quote and source-style reference checks.
 // Timeout doubles also record the command they execute.
 const originalCommands = `python3 scripts/extract-preview-policy-reference.py
 python3 scripts/test-preview-policy-reference.py
 python3 scripts/extract-quote-resolution-reference.py
+python3 scripts/extract-quote-numeric-reference.py
+python3 scripts/extract-source-link-page.py
+node scripts/record-source-quote-styles.mjs
 python3 scripts/test-quote-resolution-reference.py
 python3 scripts/extract-navigation-reference.py
 python3 scripts/test-navigation-reference.py
@@ -42,7 +46,7 @@ timeout 300s npm run test:math
 npm run test:math
 python3 scripts/check-windows-test-exits.py
 npm run test:settings-categories
-node --test tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs
+node --test tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
@@ -297,6 +301,9 @@ test('CI suites preserve failures and never execute a command after a failed pre
     ['rust', [
       ...dependencyCommands, ...prerequisites,
       'python3 scripts/extract-preview-policy-reference.py',
+      'python3 scripts/extract-quote-numeric-reference.py',
+      'python3 scripts/extract-source-link-page.py',
+      'node scripts/record-source-quote-styles.mjs',
       'npm run check:generated',
       'cargo clippy --workspace --all-targets --all-features --locked -- -D warnings',
     ]],

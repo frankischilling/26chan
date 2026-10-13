@@ -1,0 +1,914 @@
+{
+  "schema_version": 1,
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "reference": "quote-resolution-reference.json",
+  "limits": [
+    "64-bit PHP string conversion at the source %d boundary; no database request is executed.",
+    "Controlled target visibility is not evidence for source database access policy.",
+    "Inputs represent the later post-wrap callback alphabet; earlier static links and wrapping are separate tests."
+  ],
+  "cases": [
+    {
+      "id": "positive-sign-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/+123",
+      "target_board": "co",
+      "target_post_id": "+123",
+      "lookup_post_id": "123",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/co/thread/+123#p+123",
+        "html": "<a href=\"//boards.example.test/co/thread/+123#p+123\" class=\"quotelink\">&gt;&gt;&gt;/co/+123</a>"
+      }
+    },
+    {
+      "id": "positive-sign-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/+123",
+      "target_board": "co",
+      "target_post_id": "+123",
+      "lookup_post_id": "123",
+      "lookup_resto": "1",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "//boards.example.test/co/thread/1#p+123",
+        "html": "<a href=\"//boards.example.test/co/thread/1#p+123\" class=\"quotelink\">&gt;&gt;&gt;/co/+123</a>"
+      }
+    },
+    {
+      "id": "positive-sign-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/+123",
+      "target_board": "co",
+      "target_post_id": "+123",
+      "lookup_post_id": "123",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/+123</span>"
+      }
+    },
+    {
+      "id": "positive-zero-prefix-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/+000123",
+      "target_board": "co",
+      "target_post_id": "+000123",
+      "lookup_post_id": "123",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "123",
+        "href": "//boards.example.test/co/thread/+000123#p+000123",
+        "html": "<a href=\"//boards.example.test/co/thread/+000123#p+000123\" class=\"quotelink\">&gt;&gt;&gt;/co/+000123</a>"
+      }
+    },
+    {
+      "id": "positive-zero-prefix-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/+000123",
+      "target_board": "co",
+      "target_post_id": "+000123",
+      "lookup_post_id": "123",
+      "lookup_resto": "1",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "//boards.example.test/co/thread/1#p+000123",
+        "html": "<a href=\"//boards.example.test/co/thread/1#p+000123\" class=\"quotelink\">&gt;&gt;&gt;/co/+000123</a>"
+      }
+    },
+    {
+      "id": "positive-zero-prefix-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/+000123",
+      "target_board": "co",
+      "target_post_id": "+000123",
+      "lookup_post_id": "123",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/+000123</span>"
+      }
+    },
+    {
+      "id": "negative-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/-123",
+      "target_board": "co",
+      "target_post_id": "-123",
+      "lookup_post_id": "-123",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/-123</span>"
+      }
+    },
+    {
+      "id": "negative-zero-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/-0000",
+      "target_board": "co",
+      "target_post_id": "-0000",
+      "lookup_post_id": "0",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/-0000</span>"
+      }
+    },
+    {
+      "id": "positive-zero-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/+0",
+      "target_board": "co",
+      "target_post_id": "+0",
+      "lookup_post_id": "0",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/+0</span>"
+      }
+    },
+    {
+      "id": "exponent-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/12e1",
+      "target_board": "co",
+      "target_post_id": "12e1",
+      "lookup_post_id": "120",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "120",
+        "href": "//boards.example.test/co/thread/12e1#p12e1",
+        "html": "<a href=\"//boards.example.test/co/thread/12e1#p12e1\" class=\"quotelink\">&gt;&gt;&gt;/co/12e1</a>"
+      }
+    },
+    {
+      "id": "exponent-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/12e1",
+      "target_board": "co",
+      "target_post_id": "12e1",
+      "lookup_post_id": "120",
+      "lookup_resto": "1",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "//boards.example.test/co/thread/1#p12e1",
+        "html": "<a href=\"//boards.example.test/co/thread/1#p12e1\" class=\"quotelink\">&gt;&gt;&gt;/co/12e1</a>"
+      }
+    },
+    {
+      "id": "exponent-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/12e1",
+      "target_board": "co",
+      "target_post_id": "12e1",
+      "lookup_post_id": "120",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/12e1</span>"
+      }
+    },
+    {
+      "id": "positive-exponent-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/12e+1",
+      "target_board": "co",
+      "target_post_id": "12e+1",
+      "lookup_post_id": "120",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "120",
+        "href": "//boards.example.test/co/thread/12e+1#p12e+1",
+        "html": "<a href=\"//boards.example.test/co/thread/12e+1#p12e+1\" class=\"quotelink\">&gt;&gt;&gt;/co/12e+1</a>"
+      }
+    },
+    {
+      "id": "positive-exponent-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/12e+1",
+      "target_board": "co",
+      "target_post_id": "12e+1",
+      "lookup_post_id": "120",
+      "lookup_resto": "1",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "//boards.example.test/co/thread/1#p12e+1",
+        "html": "<a href=\"//boards.example.test/co/thread/1#p12e+1\" class=\"quotelink\">&gt;&gt;&gt;/co/12e+1</a>"
+      }
+    },
+    {
+      "id": "positive-exponent-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/12e+1",
+      "target_board": "co",
+      "target_post_id": "12e+1",
+      "lookup_post_id": "120",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/12e+1</span>"
+      }
+    },
+    {
+      "id": "negative-exponent-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/120e-1",
+      "target_board": "co",
+      "target_post_id": "120e-1",
+      "lookup_post_id": "12",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "12",
+        "href": "//boards.example.test/co/thread/120e-1#p120e-1",
+        "html": "<a href=\"//boards.example.test/co/thread/120e-1#p120e-1\" class=\"quotelink\">&gt;&gt;&gt;/co/120e-1</a>"
+      }
+    },
+    {
+      "id": "negative-exponent-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/120e-1",
+      "target_board": "co",
+      "target_post_id": "120e-1",
+      "lookup_post_id": "12",
+      "lookup_resto": "1",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "//boards.example.test/co/thread/1#p120e-1",
+        "html": "<a href=\"//boards.example.test/co/thread/1#p120e-1\" class=\"quotelink\">&gt;&gt;&gt;/co/120e-1</a>"
+      }
+    },
+    {
+      "id": "negative-exponent-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/120e-1",
+      "target_board": "co",
+      "target_post_id": "120e-1",
+      "lookup_post_id": "12",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/120e-1</span>"
+      }
+    },
+    {
+      "id": "fraction-truncated-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/123e-1",
+      "target_board": "co",
+      "target_post_id": "123e-1",
+      "lookup_post_id": "12",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "12",
+        "href": "//boards.example.test/co/thread/123e-1#p123e-1",
+        "html": "<a href=\"//boards.example.test/co/thread/123e-1#p123e-1\" class=\"quotelink\">&gt;&gt;&gt;/co/123e-1</a>"
+      }
+    },
+    {
+      "id": "fraction-truncated-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/123e-1",
+      "target_board": "co",
+      "target_post_id": "123e-1",
+      "lookup_post_id": "12",
+      "lookup_resto": "1",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "//boards.example.test/co/thread/1#p123e-1",
+        "html": "<a href=\"//boards.example.test/co/thread/1#p123e-1\" class=\"quotelink\">&gt;&gt;&gt;/co/123e-1</a>"
+      }
+    },
+    {
+      "id": "fraction-truncated-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/123e-1",
+      "target_board": "co",
+      "target_post_id": "123e-1",
+      "lookup_post_id": "12",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/123e-1</span>"
+      }
+    },
+    {
+      "id": "fraction-to-zero-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/1e-1",
+      "target_board": "co",
+      "target_post_id": "1e-1",
+      "lookup_post_id": "0",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/1e-1</span>"
+      }
+    },
+    {
+      "id": "negative-fraction-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/-123e-1",
+      "target_board": "co",
+      "target_post_id": "-123e-1",
+      "lookup_post_id": "-12",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/-123e-1</span>"
+      }
+    },
+    {
+      "id": "negative-fraction-to-zero-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/-1e-1",
+      "target_board": "co",
+      "target_post_id": "-1e-1",
+      "lookup_post_id": "0",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/-1e-1</span>"
+      }
+    },
+    {
+      "id": "zero-exponent-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/0e9",
+      "target_board": "co",
+      "target_post_id": "0e9",
+      "lookup_post_id": "0",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/0e9</span>"
+      }
+    },
+    {
+      "id": "exponent-leading-zeroes-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/0012e+001",
+      "target_board": "co",
+      "target_post_id": "0012e+001",
+      "lookup_post_id": "120",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "120",
+        "href": "//boards.example.test/co/thread/0012e+001#p0012e+001",
+        "html": "<a href=\"//boards.example.test/co/thread/0012e+001#p0012e+001\" class=\"quotelink\">&gt;&gt;&gt;/co/0012e+001</a>"
+      }
+    },
+    {
+      "id": "exponent-leading-zeroes-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/0012e+001",
+      "target_board": "co",
+      "target_post_id": "0012e+001",
+      "lookup_post_id": "120",
+      "lookup_resto": "1",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "//boards.example.test/co/thread/1#p0012e+001",
+        "html": "<a href=\"//boards.example.test/co/thread/1#p0012e+001\" class=\"quotelink\">&gt;&gt;&gt;/co/0012e+001</a>"
+      }
+    },
+    {
+      "id": "exponent-leading-zeroes-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/0012e+001",
+      "target_board": "co",
+      "target_post_id": "0012e+001",
+      "lookup_post_id": "120",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/0012e+001</span>"
+      }
+    },
+    {
+      "id": "double-rounding-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/9007199254740993e0",
+      "target_board": "co",
+      "target_post_id": "9007199254740993e0",
+      "lookup_post_id": "9007199254740992",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "9007199254740992",
+        "href": "//boards.example.test/co/thread/9007199254740993e0#p9007199254740993e0",
+        "html": "<a href=\"//boards.example.test/co/thread/9007199254740993e0#p9007199254740993e0\" class=\"quotelink\">&gt;&gt;&gt;/co/9007199254740993e0</a>"
+      }
+    },
+    {
+      "id": "double-rounding-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/9007199254740993e0",
+      "target_board": "co",
+      "target_post_id": "9007199254740993e0",
+      "lookup_post_id": "9007199254740992",
+      "lookup_resto": "1",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "//boards.example.test/co/thread/1#p9007199254740993e0",
+        "html": "<a href=\"//boards.example.test/co/thread/1#p9007199254740993e0\" class=\"quotelink\">&gt;&gt;&gt;/co/9007199254740993e0</a>"
+      }
+    },
+    {
+      "id": "double-rounding-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/9007199254740993e0",
+      "target_board": "co",
+      "target_post_id": "9007199254740993e0",
+      "lookup_post_id": "9007199254740992",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/9007199254740993e0</span>"
+      }
+    },
+    {
+      "id": "integer-overflow-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/9223372036854775808",
+      "target_board": "co",
+      "target_post_id": "9223372036854775808",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "9223372036854775807",
+        "href": "//boards.example.test/co/thread/9223372036854775808#p9223372036854775808",
+        "html": "<a href=\"//boards.example.test/co/thread/9223372036854775808#p9223372036854775808\" class=\"quotelink\">&gt;&gt;&gt;/co/9223372036854775808</a>"
+      }
+    },
+    {
+      "id": "integer-overflow-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/9223372036854775808",
+      "target_board": "co",
+      "target_post_id": "9223372036854775808",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": "1",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "//boards.example.test/co/thread/1#p9223372036854775808",
+        "html": "<a href=\"//boards.example.test/co/thread/1#p9223372036854775808\" class=\"quotelink\">&gt;&gt;&gt;/co/9223372036854775808</a>"
+      }
+    },
+    {
+      "id": "integer-overflow-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/9223372036854775808",
+      "target_board": "co",
+      "target_post_id": "9223372036854775808",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/9223372036854775808</span>"
+      }
+    },
+    {
+      "id": "unsigned-overflow-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/18446744073709551615",
+      "target_board": "co",
+      "target_post_id": "18446744073709551615",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "9223372036854775807",
+        "href": "//boards.example.test/co/thread/18446744073709551615#p18446744073709551615",
+        "html": "<a href=\"//boards.example.test/co/thread/18446744073709551615#p18446744073709551615\" class=\"quotelink\">&gt;&gt;&gt;/co/18446744073709551615</a>"
+      }
+    },
+    {
+      "id": "unsigned-overflow-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/18446744073709551615",
+      "target_board": "co",
+      "target_post_id": "18446744073709551615",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": "1",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "//boards.example.test/co/thread/1#p18446744073709551615",
+        "html": "<a href=\"//boards.example.test/co/thread/1#p18446744073709551615\" class=\"quotelink\">&gt;&gt;&gt;/co/18446744073709551615</a>"
+      }
+    },
+    {
+      "id": "unsigned-overflow-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/18446744073709551615",
+      "target_board": "co",
+      "target_post_id": "18446744073709551615",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/18446744073709551615</span>"
+      }
+    },
+    {
+      "id": "positive-overflow-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/+99999999999999999999",
+      "target_board": "co",
+      "target_post_id": "+99999999999999999999",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "9223372036854775807",
+        "href": "//boards.example.test/co/thread/+99999999999999999999#p+99999999999999999999",
+        "html": "<a href=\"//boards.example.test/co/thread/+99999999999999999999#p+99999999999999999999\" class=\"quotelink\">&gt;&gt;&gt;/co/+99999999999999999999</a>"
+      }
+    },
+    {
+      "id": "positive-overflow-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/+99999999999999999999",
+      "target_board": "co",
+      "target_post_id": "+99999999999999999999",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": "1",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "//boards.example.test/co/thread/1#p+99999999999999999999",
+        "html": "<a href=\"//boards.example.test/co/thread/1#p+99999999999999999999\" class=\"quotelink\">&gt;&gt;&gt;/co/+99999999999999999999</a>"
+      }
+    },
+    {
+      "id": "positive-overflow-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/+99999999999999999999",
+      "target_board": "co",
+      "target_post_id": "+99999999999999999999",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/+99999999999999999999</span>"
+      }
+    },
+    {
+      "id": "negative-overflow-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/-99999999999999999999",
+      "target_board": "co",
+      "target_post_id": "-99999999999999999999",
+      "lookup_post_id": "-9223372036854775808",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/-99999999999999999999</span>"
+      }
+    },
+    {
+      "id": "finite-exponent-overflow-op",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/1e19",
+      "target_board": "co",
+      "target_post_id": "1e19",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "9223372036854775807",
+        "href": "//boards.example.test/co/thread/1e19#p1e19",
+        "html": "<a href=\"//boards.example.test/co/thread/1e19#p1e19\" class=\"quotelink\">&gt;&gt;&gt;/co/1e19</a>"
+      }
+    },
+    {
+      "id": "finite-exponent-overflow-reply",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/1e19",
+      "target_board": "co",
+      "target_post_id": "1e19",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": "1",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "1",
+        "href": "//boards.example.test/co/thread/1#p1e19",
+        "html": "<a href=\"//boards.example.test/co/thread/1#p1e19\" class=\"quotelink\">&gt;&gt;&gt;/co/1e19</a>"
+      }
+    },
+    {
+      "id": "finite-exponent-overflow-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/1e19",
+      "target_board": "co",
+      "target_post_id": "1e19",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/1e19</span>"
+      }
+    },
+    {
+      "id": "infinite-exponent-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/1e309",
+      "target_board": "co",
+      "target_post_id": "1e309",
+      "lookup_post_id": "0",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/1e309</span>"
+      }
+    },
+    {
+      "id": "negative-infinite-exponent-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/-1e309",
+      "target_board": "co",
+      "target_post_id": "-1e309",
+      "lookup_post_id": "0",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/-1e309</span>"
+      }
+    },
+    {
+      "id": "underflow-missing",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/1e-9999",
+      "target_board": "co",
+      "target_post_id": "1e-9999",
+      "lookup_post_id": "0",
+      "lookup_resto": null,
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/1e-9999</span>"
+      }
+    },
+    {
+      "id": "unknown-board-is-plain",
+      "source_board": "g",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/unknown/+123",
+      "target_board": "unknown",
+      "target_post_id": "+123",
+      "lookup_post_id": "123",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "plain",
+        "thread_id": null,
+        "href": null,
+        "html": "&gt;&gt;&gt;/unknown/+123"
+      }
+    },
+    {
+      "id": "mlp-forced-dead",
+      "source_board": "mlp",
+      "source_thread_id": "100",
+      "token_kind": "cross_board",
+      "label_html": "&gt;&gt;&gt;/co/12e1",
+      "target_board": "co",
+      "target_post_id": "12e1",
+      "lookup_post_id": "120",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "dead",
+        "thread_id": null,
+        "href": null,
+        "html": "<span class=\"deadlink\">&gt;&gt;&gt;/co/12e1</span>"
+      }
+    },
+    {
+      "id": "local-overflow-9223372036854775808",
+      "source_board": "g",
+      "source_thread_id": "9223372036854775807",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;9223372036854775808",
+      "target_board": "g",
+      "target_post_id": "9223372036854775808",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "local",
+        "thread_id": "9223372036854775807",
+        "href": "#p9223372036854775808",
+        "html": "<a href=\"#p9223372036854775808\" class=\"quotelink\">&gt;&gt;9223372036854775808</a>"
+      }
+    },
+    {
+      "id": "local-overflow-18446744073709551615",
+      "source_board": "g",
+      "source_thread_id": "9223372036854775807",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;18446744073709551615",
+      "target_board": "g",
+      "target_post_id": "18446744073709551615",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "9223372036854775807",
+        "href": "/g/thread/18446744073709551615#p18446744073709551615",
+        "html": "<a href=\"/g/thread/18446744073709551615#p18446744073709551615\" class=\"quotelink\">&gt;&gt;18446744073709551615</a>"
+      }
+    },
+    {
+      "id": "local-overflow-99999999999999999999",
+      "source_board": "g",
+      "source_thread_id": "9223372036854775807",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;99999999999999999999",
+      "target_board": "g",
+      "target_post_id": "99999999999999999999",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "thread",
+        "thread_id": "9223372036854775807",
+        "href": "/g/thread/99999999999999999999#p99999999999999999999",
+        "html": "<a href=\"/g/thread/99999999999999999999#p99999999999999999999\" class=\"quotelink\">&gt;&gt;99999999999999999999</a>"
+      }
+    },
+    {
+      "id": "local-overflow-rounded-current",
+      "source_board": "g",
+      "source_thread_id": "9223372036854775806",
+      "token_kind": "same_board",
+      "label_html": "&gt;&gt;9223372036854775808",
+      "target_board": "g",
+      "target_post_id": "9223372036854775808",
+      "lookup_post_id": "9223372036854775807",
+      "lookup_resto": "0",
+      "expected": {
+        "kind": "local",
+        "thread_id": "9223372036854775807",
+        "href": "#p9223372036854775808",
+        "html": "<a href=\"#p9223372036854775808\" class=\"quotelink\">&gt;&gt;9223372036854775808</a>"
+      }
+    }
+  ],
+  "lexical_cases": []
+}

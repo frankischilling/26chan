@@ -73,13 +73,15 @@ export function quoteTarget(raw, { origin, board, thread = null }) {
   if (typeof raw !== 'string' || raw.length > 512 || /[\u0000-\u0020\u007f\\]/.test(raw)
     || typeof board !== 'string' || !/^[a-z0-9]{1,10}$/.test(board) || /[^a-z0-9]/.test(board)) return null;
   if (raw.startsWith(`${origin}/`)) raw = raw.slice(origin.length);
-  const local = /^#p([0-9]+)$/.exec(raw);
-  const route = /^\/([a-z0-9]{1,10})\/(?:post\/([1-9][0-9]{0,18})|thread\/([0-9]+)#p([0-9]+))$/.exec(raw);
+  const local = /^#p([0-9e+\-]+)$/.exec(raw);
+  const route = /^\/([a-z0-9]{1,10})\/(?:post\/([1-9][0-9]{0,18})|thread\/([0-9e+\-]+)#p([0-9e+\-]+))$/.exec(raw);
   if ((!local && !route) || (local && thread === null)) return null;
   const post = local ? local[1] : route[2] ?? route[4];
   const parent = local ? thread : route[3] ?? null;
-  if (!quotePostId(post) || (local && (postId(parent) !== parent || /\D/.test(parent)))
-    || (parent !== null && (!quotePostId(parent) || BigInt(parent) > BigInt(post)))) return null;
+  const postIdentity = quotePostId(post), parentIdentity = parent === null ? null : quotePostId(parent);
+  if (!postIdentity || (route?.[2] && postId(route[2]) !== route[2])
+    || (local && (postId(parent) !== parent || /\D/.test(parent)))
+    || (parent !== null && (!parentIdentity || BigInt(parentIdentity) > BigInt(postIdentity)))) return null;
   return { board: local ? board : route[1], post, thread: parent };
 }
 

@@ -131,8 +131,9 @@ and the source post filter, ordinary posting removes literal nonbreaking spaces
 before storage. Literal `&nbsp;` text stays escaped; its serialized `&amp;nbsp;`
 spelling stays in the browser's parameter. Actual nonbreaking-space DOM input
 is qualified separately by the isolated source corpus. Askama's numeric
-ampersand spelling in server HTML/JSON normalizes to `&amp;` in the browser;
-exact source JSON entity spelling remains part of #208.
+ampersand spelling in server HTML normalizes to `&amp;` in the browser.
+Source-profile JSON now emits the source ENT_QUOTES spelling directly after
+safe template escaping. Historical JSON profiles keep their previous spelling.
 Other checks cover existing server anchors, desktop/mobile settings, disabled or
 unavailable storage, live option changes, synthetic preview insertion, bounded
 DOM and absence of a catalog mount.
@@ -161,5 +162,9 @@ To recheck the capture against an installed original checkout:
 node scripts/record-source-linkification.mjs --check --source /path/to/4chan-old
 ```
 
-Numeric quote coercion and complete original-page visual comparisons remain
-open in #165 and #208. These URL-linking checks do not establish those results.
+Numeric quote conversion and exact JSON entity spelling have separate source
+and persisted checks in [source quote resolution](source-quote-resolution.md).
+The [original-page comparison](source-link-page-comparison.md) covers links in
+full rendered pages. Its current-head browser run and paired screenshot review
+are required before completion. The URL-linking checks alone do not establish
+full frontend parity.

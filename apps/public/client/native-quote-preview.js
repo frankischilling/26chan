@@ -208,7 +208,12 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
     return value.quotePreview !== false && value.disableAll !== true;
   }
   const hidden = post => !!post.closest('.post-hidden,.native-thread-hidden,[hidden]');
-  const target = anchor => quoteTarget(anchor.getAttribute('href'), quoteContext?.(anchor) ?? page);
+  const target = anchor => {
+    const ref = quoteTarget(anchor.getAttribute('href'), quoteContext?.(anchor) ?? page);
+    // Source hover/mobile companions only recognize decimal post fragments,
+    // even when the server emitted a valid signed or exponent quote link.
+    return ref && /^[0-9]+$/.test(ref.post) ? ref : null;
+  };
   function candidate(node) {
     const anchor = node?.closest?.('a.quotelink');
     return anchor && root.contains(anchor) && !anchor.classList.contains('linkfade')
@@ -300,7 +305,7 @@ export function mountNativeQuotePreview({ root, board, thread = null, mediaOrigi
     const article = post?.closest('.postContainer'), section = post?.closest('.thread');
     const parent = section && postId(section.id.slice(1));
     if (post && root.contains(post) && article?.id === `pc${ref.post}` && parent
-      && BigInt(parent) <= BigInt(ref.post) && (ref.thread === null || quotePostId(ref.thread) === parent)) {
+      && BigInt(parent) <= BigInt(quotePostId(ref.post)) && (ref.thread === null || quotePostId(ref.thread) === parent)) {
       value.target = post;
       const rect = post.getBoundingClientRect();
       if (rect.top > 0 && rect.bottom < document.documentElement.clientHeight && post.getClientRects().length && !hidden(post)) {
