@@ -154,9 +154,7 @@ class PublicDrawingUpload(PublicUpload):
                 AND j.input_kind='{input_kind}'
                 AND j.drawing_publication={'true' if receipt['drawing'] else 'false'}
                 AND h.capability_hash=decode('{receipt['capability_hash']}','hex'));""") == 't'
-            dispatch = (self.f.launch([self.f.bin / 'media-publish', 'dispatch-drawing',
-                                       self.f.private / 'client.json', self.f.private / 'objects'],
-                                      self.f.coordinator, self.f.writer)
+            dispatch = (self.f.dispatch_drawing()
                         if receipt['drawing'] else self.f.dispatch())
             try:
                 asset = self.f.finish(dispatch).decode().strip()

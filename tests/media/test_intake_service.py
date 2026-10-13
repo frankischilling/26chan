@@ -134,9 +134,15 @@ class IntakeExercise(MediaHttpExercise):
                          {'Content-Type': 'application/octet-stream', 'Upload-Capability': cap}, chunked=chunked)
 
     def dispatch(self):
+        return self._dispatch('dispatch')
+
+    def dispatch_drawing(self):
+        return self._dispatch('dispatch-drawing')
+
+    def _dispatch(self, command):
         # The development operator reads intake-owned 0700 storage. This does
         # not qualify a future deployed coordinator's storage access policy.
-        return self.launch([self.bin / 'media-publish', 'dispatch', self.operator / 'client.json', self.objects],
+        return self.launch([self.bin / 'media-publish', command, self.operator / 'client.json', self.objects],
                            env=self.writer)
 
     def incomplete_upload(self):

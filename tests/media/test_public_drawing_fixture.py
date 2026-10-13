@@ -7,9 +7,26 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
+from test_intake_service import IntakeExercise
 from drawing_input_witness import private_input, private_inputs
 from public_drawing_fixture import PublicDrawingUpload, PublicDrawingEdit
 
+
+class IntakeDispatchControls(unittest.TestCase):
+    def test_both_dispatch_modes_preserve_the_owned_intake_operator_paths(self):
+        fixture = object.__new__(IntakeExercise)
+        fixture.bin = pathlib.Path('/owned/bin')
+        fixture.operator = pathlib.Path('/owned/operator')
+        fixture.objects = pathlib.Path('/owned/objects')
+        fixture.writer = {'APP_ENV': 'development'}
+        fixture.launch = mock.Mock()
+        for method, command in ((fixture.dispatch, 'dispatch'),
+                                (fixture.dispatch_drawing, 'dispatch-drawing')):
+            fixture.launch.reset_mock()
+            method()
+            fixture.launch.assert_called_once_with(
+                [fixture.bin / 'media-publish', command,
+                 fixture.operator / 'client.json', fixture.objects], env=fixture.writer)
 
 class PublicDrawingFixtureTest(unittest.TestCase):
     def fixture(self, mode='ordinary'):
