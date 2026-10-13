@@ -31,6 +31,7 @@ for (const path of Object.keys(result.metafile.inputs)) assert.ok([
   'apps/public/client/native-drawing.js',
   'apps/public/client/native-drawing-core.js',
   'apps/public/client/native-drawing-painter.js',
+  'apps/public/client/native-drawing-replay.js',
   'apps/public/client/native-quick-reply-transport.js',
   'apps/public/client/native-post-form.js',
   'apps/public/client/native-quick-reply-position.js',

@@ -1,4 +1,5 @@
 import { drawingDimensions, drawingPngFile } from './native-drawing-core.js';
+import { drawingReplayFile } from './native-drawing-replay.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 
 // Own browser download URLs without exposing them to upload/posting state.
@@ -36,7 +37,7 @@ export function createDrawingDownload({ exportFile = drawingPngFile,
 export function createDrawingPainter({ load = () => import('/static/tegaki/tegaki-0.9.4.v1.js').then(module => module.Tegaki),
   activeChanged = () => {}, confirmReplacement = () => confirm('Replace the drawing in the other form?'),
   confirmImportReplacement = () => confirm('Replace the current drawing with this post image?'),
-  exportFile = drawingPngFile, downloads = createDrawingDownload({ exportFile }),
+  exportFile = drawingPngFile, exportReplay = drawingReplayFile, downloads = createDrawingDownload({ exportFile }),
   createImage = () => new Image(), schedule = setTimeout, unschedule = clearTimeout, now = Date.now } = {}) {
   let engine, loading, owner = null, active = false, generation = 0, disposed = false, pendingSource = null, pendingOpen = null;
   const setActive = value => { active = value; if (!value) downloads.invalidate(); activeChanged(value); };
@@ -143,7 +144,11 @@ export function createDrawingPainter({ load = () => import('/static/tegaki/tegak
       }
       const painter = await ready();
       if (disposed || epoch !== generation || client.disposed() || (client.allowed && !client.allowed())) return false;
-      const replacing = !!painter.bg && (sourceUrl || (owner && owner !== client && (owner.key !== client.key || owner.target !== client.target)));
+      // Imported pixels have no recorded drawing history. A retained editor
+      // cannot retroactively acquire or discard recording by changing a checkbox.
+      const saveReplay = !sourceUrl && client.recordReplay?.() === true;
+      const replacing = !!painter.bg && (sourceUrl || !!painter.saveReplay !== saveReplay
+        || (owner && owner !== client && (owner.key !== client.key || owner.target !== client.target)));
       if (replacing && owner) {
         // A canvas can contain unsent strokes after Finish, Clear, or QR
         // dismissal even when the old controller reports no pending upload.
@@ -169,7 +174,10 @@ export function createDrawingPainter({ load = () => import('/static/tegaki/tegak
           const seconds = tracked ? Math.max(0, Math.round((now() - painter.startTimeStamp) / 1000)) : 0;
           const file = await exportFile(painter.flatten());
           if (disposed || owner !== client || epoch !== generation || client.disposed()) return;
-          await client.finished(file, seconds);
+          const replay = painter.saveReplay
+            ? await exportReplay(painter.replayRecorder.toBlob()) : null;
+          if (disposed || owner !== client || epoch !== generation || client.disposed()) return;
+          await client.finished(file, seconds, replay);
         } catch {
           if (!disposed && owner === client && epoch === generation && !client.disposed()) {
             client.error('The drawing could not be exported. Use Edit to check the canvas (maximum 1024 × 1024), then Finish again.');
@@ -184,7 +192,7 @@ export function createDrawingPainter({ load = () => import('/static/tegaki/tegak
       // must be rebound explicitly when a form is reopened.
       painter.onDoneCb = onDone; painter.onCancelCb = onCancel;
       setActive(true);
-      painter.open({ ...dimensions, onDone, onCancel, saveReplay: false, replayMode: false });
+      painter.open({ ...dimensions, onDone, onCancel, saveReplay, replayMode: false });
       if (image) {
         // Tegaki's own image importer creates one layer and resets history.
         // Never expose its unbounded file picker or arbitrary-URL loading path.

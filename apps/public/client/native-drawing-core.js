@@ -32,7 +32,7 @@ export async function drawingPngFile(canvas) {
 // Owns exactly one upload capability. Every asynchronous completion is tied to
 // both its generation and its target; stale responses can never reattach it.
 export function createDrawingUpload({ board, target, changed = () => {},
-  upload = uploadQuickReplyFile, check = checkQuickReplyUpload, cancel = cancelQuickReplyUpload,
+  upload = uploadQuickReplyFile, uploadPair = null, check = checkQuickReplyUpload, cancel = cancelQuickReplyUpload,
   schedule = setTimeout, unschedule = clearTimeout }) {
   let receipt = null, phase = 'empty', error = '', generation = 0, controller, timer, polls = 0, disposed = false, posting = false;
   let operation = null, intent = 0;
@@ -84,14 +84,20 @@ export function createDrawingUpload({ board, target, changed = () => {},
     })();
     return operation;
   }
-  async function select(file) {
+  async function select(file, replay = null) {
     if (disposed || posting) return false;
+    // A recorded drawing is one upload. Never silently downgrade it to an
+    // image-only request when the paired transport is unavailable.
+    if (replay !== null && typeof uploadPair !== 'function') {
+      error = 'Replay upload is unavailable. Keep the drawing and try again.'; notify(); return false;
+    }
     const id = target(), request = ++intent;
     if (!uploadTarget(id) || !await clear(false) || disposed || target() !== id || request !== intent) return false;
     stop();
     const epoch = ++generation; controller = new AbortController(); phase = 'uploading'; error = ''; notify();
     try {
-      const next = await upload({ board, thread: id, file, signal: controller.signal });
+      const next = await (replay === null ? upload : uploadPair)({ board, thread: id, file,
+        ...(replay === null ? {} : { replay }), signal: controller.signal });
       if (!valid(epoch, id)) { cleanup(next, id); return false; }
       receipt = next; controller = null; phase = next.state; notify(); poll(); return true;
     } catch (failure) {

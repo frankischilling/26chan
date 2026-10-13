@@ -14,6 +14,7 @@ mod promotion;
 mod publication;
 mod quarantine;
 pub mod replay_cost;
+pub mod replay_envelope;
 pub mod replay_state;
 pub mod replay_wire;
 pub mod source_digest;

@@ -9,6 +9,8 @@ export const REPLAY_WIRE_LIMITS = Object.freeze({
 });
 
 const candidates = new WeakSet();
+// Brand proves immutable structural decoding only, never execution authority.
+export function isReplayCandidate(value) { return candidates.has(value); }
 const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
 const typedArrayTag = Object.getOwnPropertyDescriptor(typedArrayPrototype, Symbol.toStringTag).get;
 const typedArrayLength = Object.getOwnPropertyDescriptor(typedArrayPrototype, 'byteLength').get;
@@ -171,6 +173,20 @@ export function prepareReplayCandidate(candidate, replayViewer) {
   for (const event of candidate.events) {
     if ([13, 14, 17, 21, 22, 23].includes(event.tag)) reject('unsupported-core-tag');
   }
+  return prepareSourceData(candidate, replayViewer);
+}
+
+/** Full pinned-source vocabulary for the isolated worker integration.
+ * This is only immutable constructor preparation. It does not dispatch events,
+ * validate logical history, approve publication, or supply resource budgets.
+ * Keep the restricted qualification API above unchanged for its existing probes.
+ */
+export function prepareFullReplayCandidate(candidate, replayViewer) {
+  if (!candidates.has(candidate)) reject('candidate-brand');
+  return prepareSourceData(candidate, replayViewer);
+}
+
+function prepareSourceData(candidate, replayViewer) {
   if (!replayViewer || typeof replayViewer.getEventIdMap !== 'function') reject('constructor-provider');
   const constructors = replayViewer.getEventIdMap();
   if (!constructors || typeof constructors !== 'object') reject('constructor-map');

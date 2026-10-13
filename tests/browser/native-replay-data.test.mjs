@@ -328,3 +328,32 @@ test('candidate module has no runtime decoding, browser, import, dynamic-code or
   assert.doesNotMatch(source, /\b(?:eval|Function|fetch|loadFromURL|loadFromBuffer|decompressData|UZIP|document|window|TegakiBinReader)\s*(?:\(|\.|\[)/);
   assert.doesNotMatch(source, /\bimport\s|\.dispatch\s*\(|\.init\s*\(|\.open\s*\(|\.play\s*\(/);
 });
+
+import { prepareFullReplayCandidate } from '../../apps/public/client/native-replay-data.js';
+
+test('full worker preparation retains all pinned source command constructors without dispatch', async () => {
+  const runtime = await createInertReplayRuntime();
+  const before = { ...runtime.viewer };
+  const result = prepareFullReplayCandidate(decode(commandsWire), runtime.viewer);
+  assert.equal(result.events.length, oracle.events.length);
+  const constructors = runtime.viewer.getEventIdMap();
+  result.events.forEach((event, index) => {
+    assert.equal(event.constructor, constructors[oracle.events[index].tag]);
+    assert.deepEqual(ownEventFields(event), oracle.events[index].ownFields);
+    assert.equal(Object.isFrozen(event), true);
+  });
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result.events), true);
+  assert.deepEqual({ ...runtime.viewer }, before);
+  assert.deepEqual(runtime.calls, []);
+});
+
+test('full vocabulary still refuses unbranded data before consulting executable providers', () => {
+  let calls = 0;
+  const provider = { getEventIdMap() { calls++; throw new Error('unexpected provider call'); } };
+  const candidate = decode(emptyWire);
+  for (const value of [null, {}, { ...candidate }, structuredClone(candidate)]) {
+    assert.throws(() => prepareFullReplayCandidate(value, provider), error => error.code === 'candidate-brand');
+  }
+  assert.equal(calls, 0);
+});
