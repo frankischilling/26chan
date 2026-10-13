@@ -2,7 +2,8 @@
 
 //! Explicit, test-only SQL coordinator qualification against the owned mTLS
 //! gateway, root broker and real Firecracker guest. No fake result producer,
-//! guest-library linkage, approval, encoder or public route is used here.
+//! guest-library linkage or public route is used here. Separate enrolled drawing
+//! cases also qualify publication after the candidate-only controls.
 //!
 //! The Python qualification harness starts the services and invokes this native
 //! test binary as the nonroot coordinator with:
@@ -139,11 +140,25 @@ async fn real_guest_candidates_remain_nonpublishable() {
             &task_ids,
         )
         .await;
+        exercise_drawings(
+            &intake,
+            &queue,
+            &task_admin,
+            &task_quarantine,
+            &client,
+            &task_ids,
+        )
+        .await;
         intake.close().await.unwrap();
     })
     .await;
 
     let ids = ids.lock().unwrap().clone();
+    sqlx::query("DELETE FROM media.assets WHERE job_id=ANY($1)")
+        .bind(&ids)
+        .execute(&admin)
+        .await
+        .unwrap();
     sqlx::query("DELETE FROM media.jobs WHERE id=ANY($1)")
         .bind(&ids)
         .execute(&admin)
@@ -316,5 +331,127 @@ async fn exercise(
         assert_eq!(quarantine.inspect_pair(id).await.unwrap(), receipt);
         assert_idle(admin).await;
         println!("PASS paired coordinator {case}: failed, no output metadata or assets");
+    }
+}
+
+async fn exercise_drawings(
+    intake: &IntakeStore,
+    queue: &MediaQueue,
+    admin: &sqlx::PgPool,
+    quarantine: &Quarantine,
+    client: &DispatchClient,
+    ids: &Mutex<Vec<String>>,
+) {
+    let root = tempfile::tempdir().unwrap();
+    let store = board_media::PublicationStore::new(root.path(), quarantine).unwrap();
+    let files = board_media::ApprovedFiles::open(root.path()).unwrap();
+    let large = include_bytes!("fixtures/red-640x480.png").as_slice();
+    for (name, png, replay, expected_wire, succeeds) in [
+        ("enrolled-png", large, None, None, true),
+        (
+            "enrolled-empty",
+            large,
+            Some(EMPTY_REPLAY),
+            Some(EMPTY_WIRE),
+            true,
+        ),
+        (
+            "enrolled-commands",
+            large,
+            Some(COMMANDS_REPLAY),
+            Some(COMMANDS_WIRE),
+            true,
+        ),
+        (
+            "enrolled-invalid-replay",
+            large,
+            Some(b"invalid TGKR".as_slice()),
+            None,
+            false,
+        ),
+    ] {
+        assert_idle(admin).await;
+        let reservation = intake
+            .reserve_drawing("drawing-vm-qualification.png")
+            .await
+            .unwrap();
+        ids.lock().unwrap().push(reservation.id.clone());
+        println!("\nPAIRED_VM_OWNED_JOB={}", reservation.id);
+        std::io::stdout().flush().unwrap();
+        let id: ObjectId = reservation.id.parse().unwrap();
+        let wire = paired::encode_input(InputKind::PairedV2, id.bytes(), png, replay).unwrap();
+        intake
+            .begin_drawing_upload(&reservation.id, &reservation.capability)
+            .await
+            .unwrap();
+        let receipt = quarantine.receive_pair(id, wire.as_slice()).await.unwrap();
+        intake
+            .finish_pair_upload(
+                &reservation.id,
+                &reservation.capability,
+                &PairedInputDescriptor {
+                    bytes: receipt.bytes,
+                    sha256: digest(&receipt.sha256),
+                    image_bytes: receipt.image_bytes,
+                    image_sha256: digest(&receipt.image_sha256),
+                    replay_bytes: receipt.replay_bytes,
+                    replay_sha256: receipt.replay_sha256.as_ref().map(|value| digest(value)),
+                },
+            )
+            .await
+            .unwrap();
+        assert!(queue.claim().await.unwrap().is_none());
+        assert!(queue.claim_paired_candidate().await.unwrap().is_none());
+        let result = board_media_admin::drawing::dispatch(queue, quarantine, &store, client).await;
+        assert_eq!(result.is_ok(), succeeds, "drawing case {name}");
+        if let Ok(asset) = result {
+            assert_eq!((asset.width, asset.height), (640, 480));
+            let mut red = Vec::from(b"IBRGBA01".as_slice());
+            red.extend_from_slice(&640_u32.to_be_bytes());
+            red.extend_from_slice(&480_u32.to_be_bytes());
+            red.extend_from_slice(&[255, 0, 0, 255].repeat(640 * 480));
+            let expected = board_media::ValidatedOutput::read(red.as_slice())
+                .await
+                .unwrap()
+                .encode()
+                .unwrap();
+            assert_eq!(
+                asset.sha256,
+                expected.sha256(),
+                "real guest must decode the independent red PNG exactly"
+            );
+            files
+                .read(asset.id.parse().unwrap(), &asset.sha256, asset.bytes as u64)
+                .unwrap();
+            let metadata: Option<(String, i64)> =
+                sqlx::query_as("SELECT sha256,bytes FROM media.replay_assets WHERE asset_id=$1")
+                    .bind(&asset.id)
+                    .fetch_optional(admin)
+                    .await
+                    .unwrap();
+            assert_eq!(metadata.is_some(), expected_wire.is_some());
+            if let Some((hash, length)) = metadata {
+                let actual = files
+                    .read_replay(asset.id.parse().unwrap(), &hash, length as u64)
+                    .unwrap();
+                assert_eq!(actual, expected_wire.unwrap());
+            }
+            let status = intake
+                .status(&reservation.id, &reservation.capability)
+                .await
+                .unwrap();
+            assert_eq!(status.state, "published");
+            assert_eq!(status.output_id.as_deref(), Some(asset.id.as_str()));
+        } else {
+            assert_eq!(queue.get(&reservation.id).await.unwrap().state, "failed");
+            let count: i64 =
+                sqlx::query_scalar("SELECT count(*) FROM media.assets WHERE job_id=$1")
+                    .bind(&reservation.id)
+                    .fetch_one(admin)
+                    .await
+                    .unwrap();
+            assert_eq!(count, 0);
+        }
+        println!("PASS real guest drawing {name}: publication={succeeds}");
     }
 }

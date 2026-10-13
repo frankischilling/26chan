@@ -77,10 +77,10 @@ class PairedExercise(Exercise):
         process = self.launch([destination, '--ignored', '--exact',
                                'real_guest_candidates_remain_nonpublishable', '--nocapture'],
                               self.coordinator, environment)
-        # Five sequential real guest requests, each retaining the existing
+        # Nine sequential real guest requests, each retaining the existing
         # per-operation bounds. This only extends harness supervision.
         try:
-            out, err = process.communicate(timeout=180)
+            out, err = process.communicate(timeout=300)
         finally:
             if process.poll() is None:
                 self.stop(process)
@@ -89,7 +89,7 @@ class PairedExercise(Exercise):
                 self.ids.append(match.group(1).decode('ascii'))
         check_coordinator_completion(process.returncode, out)
         self.clean_vm()
-        print('PASS actual paired SQL coordinator -> Rust mTLS -> gateway -> root broker -> guest; no publication', flush=True)
+        print('PASS actual paired SQL coordinator -> Rust mTLS -> gateway -> root broker -> guest; candidate isolation and enrolled drawing publication', flush=True)
 
     def exercise_paired(self):
         f.qualification_guard()

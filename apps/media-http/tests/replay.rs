@@ -259,7 +259,10 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>, board: &str
             country_database: None,
             flag: "",
             options: "",
-            drawing: None,
+            drawing: Some(board_store::DrawingSubmission {
+                time: "90",
+                source_post: None,
+            }),
         },
     )
     .await
@@ -268,6 +271,13 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>, board: &str
         .await
         .unwrap()
         .unwrap();
+    let saved_time: Option<i32> =
+        sqlx::query_scalar("SELECT drawing_time_seconds FROM content.posts WHERE id=$1")
+            .bind(post)
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    assert_eq!(saved_time, Some(90));
     let url = format!("/replay/{board}/{}.ibr", attachment.tim);
     let thumb = format!("/{board}/{}s.jpg", attachment.tim);
     let object = format!("/media/{}.png", approved.id);
