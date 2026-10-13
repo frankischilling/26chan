@@ -53,8 +53,13 @@ count and artifact byte budgets. The
 Ubuntu font and Ghostscript resource packages, archive checksums and file hashes.
 CI's writable `/usr/share` directory cannot authenticate those resources, so the
 builder checks the exact bounded bytes against the reviewed digests instead.
-Different resource contents fail the build. Executables, shared libraries and
-resources without a content pin still require trusted parent directories. The
+Missing resources or different contents fail the build. The packager includes only
+that reviewed inventory, not the host's extra font hooks or configuration files.
+These pins currently match Ubuntu 24.04's listed packages; a different resource
+package revision needs a reviewed manifest update. Executables and shared
+libraries still require trusted parent directories. Identical read-only resource
+files share one stored copy through guest-local symlinks; the complete initramfs
+still has the same 64 MiB cap. The
 image contains no host credentials, user font configuration or font caches.
 
 To update these resource pins, retrieve the packages from the official Ubuntu

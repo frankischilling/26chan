@@ -15,6 +15,22 @@ def entry(name, mode, data=b"", ino=1):
     return prefix + bytes(-len(prefix) % 4) + data + bytes(-len(data) % 4)
 
 
+def file_entries(files, ino):
+    """Store identical read-only resource bytes once, with guest-local aliases."""
+    resources = {}
+    image = bytearray()
+    for name, (mode, data) in sorted(files.items()):
+        if mode == 0o644 and data in resources:
+            image += entry(name, stat.S_IFLNK | 0o777,
+                           ('/' + resources[data]).encode('ascii'), ino=ino)
+        else:
+            image += entry(name, stat.S_IFREG | mode, data, ino=ino)
+            if mode == 0o644:
+                resources[data] = name
+        ino += 1
+    return image, ino
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=pathlib.Path)
@@ -41,9 +57,8 @@ def main():
     for name in sorted(directories, key=lambda value: (value.count('/'), value)):
         image += entry(name, stat.S_IFDIR | 0o755, ino=ino)
         ino += 1
-    for name, (mode, data) in sorted(files.items()):
-        image += entry(name, stat.S_IFREG | mode, data, ino=ino)
-        ino += 1
+    contents, ino = file_entries(files, ino)
+    image += contents
     image += entry("TRAILER!!!", 0, ino=ino)
     if len(image) > 64 * 1024 * 1024:
         parser.error('initramfs exceeds the existing artifact size budget')

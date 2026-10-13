@@ -87,17 +87,23 @@ def collect():
         if not data.startswith(b'\x7fELF'):
             raise ValueError('Ghostscript dependency must be ELF')
         files[value[1:]] = (0o755, data)
-    for root in DATA_ROOTS:
-        if not root.is_dir():
-            raise ValueError('Required Ghostscript data package is absent')
-        for path in sorted(root.rglob('*')):
-            if path.is_file():
-                files[str(path)[1:]] = (0o644, checked_bytes(path, resource=True))
-                if len(files) > MAX_FILES:
-                    raise ValueError('PDF runtime has too many files')
-    # Font selection is limited to the installed base fonts; neither the host's
-    # fontconfig configuration nor its caches are copied into the guest.
-    if sum(len(data) for _, data in files.values()) > MAX_TOTAL:
+    # Do not sweep /usr/share/ghostscript: distro font hooks can add unrelated
+    # host font configuration there. Package only the reviewed archive inventory.
+    for path in sorted(PINNED_RESOURCES):
+        files[str(path)[1:]] = (0o644, checked_bytes(path, resource=True))
+        if len(files) > MAX_FILES:
+            raise ValueError('PDF runtime has too many files')
+    # The initramfs writer stores duplicate read-only resource bytes once and
+    # uses guest-local symlinks for aliases. Budget those physical file bytes.
+    seen_resources = set()
+    total = 0
+    for mode, data in files.values():
+        if mode == 0o644:
+            if data in seen_resources:
+                continue
+            seen_resources.add(data)
+        total += len(data)
+    if total > MAX_TOTAL:
         raise ValueError('PDF runtime exceeds the guest image budget')
     manifest = {name: hashlib.sha256(data).hexdigest()
                 for name, (_, data) in sorted(files.items())}

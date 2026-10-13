@@ -5,9 +5,12 @@ import importlib.util
 import json
 import os
 import pathlib
+import stat
+import sys
 import tempfile
 import unittest
 from unittest import mock
+from types import SimpleNamespace
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location('pdf_runtime', REPO / 'scripts/media/pdf_runtime.py')
@@ -107,6 +110,45 @@ class PdfRuntimeTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'directory is not trusted'):
                 runtime.checked_bytes(path, resource=True)
             read_pin.assert_not_called()
+
+    def test_collect_uses_only_reviewed_inventory(self):
+        def checked(path, *, resource=False):
+            if resource:
+                self.assertIn(path, runtime.PINNED_RESOURCES)
+                return b'owned resource'
+            return b'\x7fELFowned executable'
+        with mock.patch.object(runtime, 'checked_bytes', side_effect=checked), \
+                mock.patch.object(runtime.subprocess, 'run', return_value=SimpleNamespace(stdout='/lib/libowned.so')), \
+                mock.patch.object(pathlib.Path, 'rglob', side_effect=AssertionError('must not sweep host resources')):
+            files, manifest = runtime.collect()
+        self.assertEqual(set(files), {'usr/bin/gs', 'lib/libowned.so'} |
+                         {str(path)[1:] for path in runtime.PINNED_RESOURCES})
+        self.assertEqual(set(files), set(manifest))
+
+    def test_archive_deduplicates_only_read_only_resource_bytes(self):
+        spec = importlib.util.spec_from_file_location('pdf_initramfs', REPO / 'scripts/media/build-initramfs.py')
+        builder = importlib.util.module_from_spec(spec)
+        with mock.patch.dict(sys.modules, {'pdf_runtime': runtime}):
+            spec.loader.exec_module(builder)
+        files = {'usr/share/a': (0o644, b'same'), 'usr/share/b': (0o644, b'same'),
+                 'worker': (0o755, b'same'), 'usr/share/c': (0o644, b'other')}
+        image, next_inode = builder.file_entries(files, 5)
+        self.assertEqual(next_inode, 9)
+        self.assertEqual(builder.file_entries(dict(reversed(list(files.items()))), 5)[0], image)
+        entries = {}
+        offset = 0
+        while offset < len(image):
+            self.assertEqual(image[offset:offset + 6], b'070701')
+            fields = [int(image[offset + 6 + n * 8:offset + 14 + n * 8], 16) for n in range(13)]
+            size, name_size = fields[6], fields[11]
+            name = image[offset + 110:offset + 110 + name_size - 1].decode()
+            data_offset = (offset + 110 + name_size + 3) // 4 * 4
+            entries[name] = fields[1], image[data_offset:data_offset + size]
+            offset = (data_offset + size + 3) // 4 * 4
+        self.assertEqual(entries['usr/share/a'], (stat.S_IFREG | 0o644, b'same'))
+        self.assertEqual(entries['usr/share/b'], (stat.S_IFLNK | 0o777, b'/usr/share/a'))
+        self.assertEqual(entries['usr/share/c'], (stat.S_IFREG | 0o644, b'other'))
+        self.assertEqual(entries['worker'], (stat.S_IFREG | 0o755, b'same'))
 
 
 if __name__ == '__main__':
