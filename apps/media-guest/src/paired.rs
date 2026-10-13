@@ -10,6 +10,7 @@ pub enum InputKind {
     ImageV1,
     PairedV2,
     GifV3,
+    PdfV4,
 }
 
 impl InputKind {
@@ -18,6 +19,7 @@ impl InputKind {
             "image-v1" => Ok(Self::ImageV1),
             "paired-v2" => Ok(Self::PairedV2),
             "gif-v3" => Ok(Self::GifV3),
+            "pdf-v4" => Ok(Self::PdfV4),
             _ => Err(rejected()),
         }
     }
@@ -27,6 +29,7 @@ impl InputKind {
             Self::ImageV1 => "image-v1",
             Self::PairedV2 => "paired-v2",
             Self::GifV3 => "gif-v3",
+            Self::PdfV4 => "pdf-v4",
         }
     }
 
@@ -35,6 +38,7 @@ impl InputKind {
             Self::ImageV1 => 4_194_816,
             Self::PairedV2 => RESULT_BYTES as u64,
             Self::GifV3 => 17_825_792,
+            Self::PdfV4 => 4_194_816,
         }
     }
 }

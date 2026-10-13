@@ -175,6 +175,7 @@ mod tests {
             min_image_height: 1,
             max_image_dimension: 10000,
             gif_only: false,
+            pdf_enabled: false,
             dice_roll: false,
             fortune_trip: false,
             robot9000: false,

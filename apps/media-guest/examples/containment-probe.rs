@@ -1,5 +1,9 @@
 #![forbid(unsafe_code)]
 
+#[cfg(target_os = "linux")]
+#[path = "support/pdf_diagnostic.rs"]
+mod pdf_diagnostic;
+
 fn probe_text(bytes: &[u8]) -> Result<&str, std::str::Utf8Error> {
     // Only the disposable qualification guest recognizes this exact envelope.
     // It reaches live-VM cancellation through the coordinator's format gate.
@@ -63,6 +67,7 @@ fn probe() -> std::io::Result<()> {
     let mut lines = text.lines();
     let mut checks = Vec::new();
     match lines.next() {
+        Some("pdf-runtime") => return pdf_diagnostic::run(),
         Some("boundaries") => {
             for line in lines {
                 if checks.len() == 32 {

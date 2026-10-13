@@ -23,7 +23,7 @@ const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQ
 // Independent 1x1 red/blue GIF89a, 200 ms frames, infinite loop.
 const animatedPixel = Buffer.from('47494638396101000100800000ff00000000ff21ff0b4e45545343415045322e30030100000021f90404140000002c000000000100010000020244010021f90404140000002c00000000010001000002024c01003b', 'hex');
 
-async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false } = {}) {
+async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, pdf = false } = {}) {
   const context = await browser.newContext();
   t.after(() => context.close());
   const page = await context.newPage();
@@ -39,7 +39,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
   });
   await page.goto('about:blank');
   await page.addStyleTag({ content: css });
-  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif }) => {
+  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, pdf }) => {
     const module = async text => {
       const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
       try { return await import(url); } finally { URL.revokeObjectURL(url); }
@@ -51,6 +51,9 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
       const id = index + 1, type = id === 1 ? 'op' : 'reply';
       return `<article class="postContainer ${type}Container" id="pc${id}"><div class="post ${type}" id="p${id}"><div class="postInfo" id="pi${id}"><span class="name">Owned</span></div><div class="file" id="f${id}"><p>File: <a href="https://media.test/demo/${id}.png" rel="noopener noreferrer">Owned.png</a></p><a class="fileThumb" href="https://media.test/demo/${id}.png" rel="noopener noreferrer"><img src="https://media.test/demo/${id}s.jpg" alt="Owned" width="10" height="10" loading="lazy"></a></div><blockquote class="postMessage" id="m${id}">Owned</blockquote></div></article>`;
     }).join('') + '</main>';
+    if (pdf) for (const anchor of document.querySelectorAll('.file a[href]')) {
+      anchor.href = anchor.href.replace(/\.png$/, '.pdf');
+    }
     if (gif) for (const anchor of document.querySelectorAll('.file a[href]')) {
       anchor.href = anchor.href.replace(/\.png$/, '.gif');
     }
@@ -66,7 +69,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
       anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
       return intercepted;
     };
-  }, { source, projection, quotes, limits, config, count, preview, gif });
+  }, { source, projection, quotes, limits, config, count, preview, gif, pdf });
   await page.waitForFunction(() => [...document.querySelectorAll('.fileThumb img')].every(img => img.complete && img.naturalWidth > 0));
   return { page, requests, modes, held };
 }
@@ -287,4 +290,17 @@ test('retirement capacity never evicts a deleted URL or permits late media loads
   assert.match(await page.locator('.nativeImageFeedback').textContent(), /Refresh this page/);
   for (const id of [1, 2, 3]) assert.equal(await page.evaluate(id => clickImage(id), id), true);
   assert.equal(await page.locator('.expanded-thumb,#image-hover').count(), 0);
+});
+
+test('PDF thumbnail keeps ordinary document navigation without image hover or expansion', async t => {
+  const { page, requests } = await fixture(t, { pdf: true, count: 1,
+    config: { imageExpansion: true, imageHover: true } });
+  assert.equal(await page.evaluate(() => clickImage(1)), false);
+  await page.locator('#f1 .fileThumb').hover();
+  await page.waitForTimeout(100);
+  assert.equal(requests.some(url => url.endsWith('.pdf')), false);
+  assert.equal(await page.locator('.expandedImage,.nativeImageHover').count(), 0);
+  assert.equal(await page.locator('#f1 .fileThumb').getAttribute('href'), 'https://media.test/demo/1.pdf');
+  assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/1.pdf')), true);
+  assert.equal(await page.evaluate(() => clickImage(1)), true);
 });

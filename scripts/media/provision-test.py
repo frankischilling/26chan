@@ -60,9 +60,14 @@ def main():
         initramfs = target / f'{name}.initramfs'
         subprocess.run(['/usr/bin/python3', str(REPO / 'scripts/media/build-initramfs.py'),
                         str(binaries / 'board-media-guest'), str(worker), str(initramfs)], check=True)
+        pdf_initramfs = target / f'{name}-pdf.initramfs'
+        subprocess.run(['/usr/bin/python3', str(REPO / 'scripts/media/build-initramfs.py'),
+                        str(binaries / 'board-media-guest'), str(worker), str(pdf_initramfs),
+                        '--pdf-runtime'], check=True)
         config = {}
         for key, path in [('firecracker', target / 'firecracker'), ('jailer', target / 'jailer'),
-                          ('kernel', target / 'vmlinux'), ('initramfs', initramfs)]:
+                          ('kernel', target / 'vmlinux'), ('initramfs', initramfs),
+                          ('pdf_initramfs', pdf_initramfs)]:
             config[key] = {'path': str(path), 'sha256': digest(path)}
         destination = target / f'{name}.json'
         destination.write_text(json.dumps(config, indent=2) + '\n')

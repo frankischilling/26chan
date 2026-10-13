@@ -131,6 +131,7 @@ impl Fixture {
             min_image_height: 1,
             max_image_dimension: 10000,
             gif_only: false,
+            pdf_enabled: false,
             posting_reply_seconds: 0,
             posting_image_seconds: 0,
             posting_thread_seconds: 0,

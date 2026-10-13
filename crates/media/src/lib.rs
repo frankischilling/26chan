@@ -12,6 +12,7 @@ mod id;
 mod output;
 pub mod paired;
 pub mod paired_snapshot;
+pub mod pdf;
 mod promotion;
 mod publication;
 mod quarantine;

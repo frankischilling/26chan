@@ -24,11 +24,13 @@ export function validateFilePresentation(tree, context, no) {
         && parent.attrs.id === `f${no}` && node.children.length === 3 && node.children[0] === 'File: ');
       const link = node.children[1], tail = node.children[2];
       require(link?.tag === 'a' && elements(node).length === 1 && typeof tail === 'string'
-        && /^ \([0-9]+(?:\.[0-9]{1,2})? (?:B|KB|MB), [1-9][0-9]{0,4}x[1-9][0-9]{0,4}\)$/.test(tail)
+        && /^ \([0-9]+(?:\.[0-9]{1,2})? (?:B|KB|MB), (?:PDF|[1-9][0-9]{0,4}x[1-9][0-9]{0,4})\)$/.test(tail)
         && link.children.every(child => typeof child === 'string'));
       const prefix = `${context.mediaOrigin}/${context.board}/`;
       require(context.mediaOrigin && link.attrs.href?.startsWith(prefix)
-        && /^[1-9][0-9]{0,18}\.(?:png|gif)$/.test(link.attrs.href.slice(prefix.length)));
+        && /^[1-9][0-9]{0,18}\.(?:png|gif|pdf)$/.test(link.attrs.href.slice(prefix.length)));
+      const pdf = link.attrs.href.endsWith('.pdf');
+      require(pdf === tail.endsWith(', PDF)'));
       const thumb = elements(parent).find(child => ['fileThumb', 'fileThumb imgspoiler'].includes(child.attrs.class));
       if (thumb) {
         require(elements(thumb).length === 2 && elements(thumb).filter(child => child.attrs.class === 'mFileInfo mobile').length === 1);
@@ -43,7 +45,8 @@ export function validateFilePresentation(tree, context, no) {
             && parent.attrs['data-image-filename'] === node.attrs.title);
         } else {
           require(node.attrs.title === undefined && bounded(image.attrs.alt)
-            && [link.attrs.href, link.attrs.href.slice(0, -4) + 's.jpg'].includes(image.attrs.src)
+            && (pdf ? image.attrs.src === link.attrs.href.slice(0, -4) + 's.jpg'
+              : [link.attrs.href, link.attrs.href.slice(0, -4) + 's.jpg'].includes(image.attrs.src))
             && text(link) === fileLabel(image.attrs.alt, no === context.thread));
           require(['width', 'height'].every(key => /^[1-9][0-9]{0,2}$/.test(image.attrs[key] ?? '') && Number(image.attrs[key]) <= 250));
           require(link.attrs.title === undefined ? text(link) === image.attrs.alt : link.attrs.title === image.attrs.alt);
@@ -57,7 +60,7 @@ export function validateFilePresentation(tree, context, no) {
       const header = elements(grandparent).find(child => child.attrs.class === 'fileText');
       require(header && parent.attrs.href === header.children[1]?.attrs.href);
       const size = /^ \(([^,]+),/.exec(header.children[2]);
-      const extension = /\.(png|gif)$/.exec(parent.attrs.href);
+      const extension = /\.(png|gif|pdf)$/.exec(parent.attrs.href);
       require(size && extension && node.children[0] === `${size[1]} ${extension[1].toUpperCase()}`);
     }
     if ((node.attrs.class || '').split(' ').includes('imgspoiler')) {

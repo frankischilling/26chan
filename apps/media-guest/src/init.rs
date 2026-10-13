@@ -40,6 +40,17 @@ fn boot() -> io::Result<()> {
         )?;
     }
     let kind = board_media_guest::paired::kernel_input_kind(&fs::read_to_string("/proc/cmdline")?)?;
+    let pdf = kind == board_media_guest::paired::InputKind::PdfV4;
+    if pdf {
+        fs::create_dir_all("/tmp")?;
+        mount(
+            "tmpfs",
+            "/tmp",
+            "tmpfs",
+            MountFlags::NOSUID | MountFlags::NODEV | MountFlags::NOEXEC,
+            Some(c"size=16m,mode=0700,uid=1000,gid=1000"),
+        )?;
+    }
     fs::set_permissions("/dev/vda", fs::Permissions::from_mode(0o444))?;
     fs::set_permissions("/dev/vdb", fs::Permissions::from_mode(0o666))?;
     for (resource, maximum) in [
@@ -48,7 +59,16 @@ fn boot() -> io::Result<()> {
         (Resource::As, 96 * 1024 * 1024),
         (Resource::Nproc, 16),
         (Resource::Nofile, 32),
-        (Resource::Fsize, kind.output_bytes()),
+        // Ghostscript may spool its bounded stdin to the private tmpfs. The
+        // output disk remains independently fixed by the broker and validator.
+        (
+            Resource::Fsize,
+            if pdf {
+                8 * 1024 * 1024
+            } else {
+                kind.output_bytes()
+            },
+        ),
     ] {
         setrlimit(
             resource,

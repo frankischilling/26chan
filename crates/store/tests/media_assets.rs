@@ -144,6 +144,7 @@ async fn exercise_approval(f: Fixture) {
         .await
         .unwrap();
     exercise_gif_bounds(&f, &reader).await;
+    exercise_pdf_bounds(&f, &reader).await;
     let mut writer = PgConnection::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -843,4 +844,107 @@ async fn retention_owner_has_only_fixed_retirement_authority() {
     let functions: bool = sqlx::query_scalar("SELECT count(*)=1 AND bool_and(p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'] AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0)) FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner WHERE r.rolname='board_media_retention_owner'").fetch_one(&admin).await.unwrap();
     assert!(functions);
     admin.close().await;
+}
+
+async fn exercise_pdf_bounds(f: &Fixture, reader: &MediaReader) {
+    let (job, token) = f.claim().await;
+    let meta = OutputMetadata {
+        sha256: "d".repeat(64),
+        bytes: 1,
+        width: 1,
+        height: 1,
+    };
+    let variants = OutputVariants {
+        md5: "e".repeat(32),
+        thumbnail: OutputMetadata {
+            sha256: "f".repeat(64),
+            bytes: 100,
+            width: 250,
+            height: 125,
+        },
+    };
+    for invalid in [
+        OutputMetadata {
+            width: 2,
+            ..meta.clone()
+        },
+        OutputMetadata {
+            height: 2,
+            ..meta.clone()
+        },
+        OutputMetadata {
+            bytes: 0,
+            ..meta.clone()
+        },
+        OutputMetadata {
+            bytes: 8_388_609,
+            ..meta.clone()
+        },
+    ] {
+        assert!(matches!(
+            f.queue
+                .prepare_pdf_output(&job, &token, &invalid, &variants)
+                .await,
+            Err(StoreError::Invalid(_))
+        ));
+    }
+    // Retained documents must match the queue's immutable input size.
+    assert!(
+        f.queue
+            .prepare_pdf_output(
+                &job,
+                &token,
+                &OutputMetadata {
+                    bytes: 2,
+                    ..meta.clone()
+                },
+                &variants
+            )
+            .await
+            .is_err()
+    );
+    assert!(
+        f.queue
+            .prepare_output_with_variants(&job, &token, &meta, Some(&variants))
+            .await
+            .is_err()
+    );
+    let pending = f
+        .queue
+        .prepare_pdf_output(&job, &token, &meta, &variants)
+        .await
+        .unwrap();
+    assert_eq!(pending.output_format, MediaFormat::Pdf);
+    assert_eq!(
+        f.queue
+            .prepare_pdf_output(&job, &token, &meta, &variants)
+            .await
+            .unwrap(),
+        pending
+    );
+    assert!(matches!(
+        reader.get(&pending.id).await,
+        Err(StoreError::NotFound)
+    ));
+    let approved = f
+        .queue
+        .approve_output(&job, &token, &pending.id)
+        .await
+        .unwrap();
+    assert_eq!(approved, pending);
+    assert_eq!(reader.get(&pending.id).await.unwrap(), approved);
+    assert_eq!(reader.get_thumbnail(&pending.id).await.unwrap().width, 250);
+    assert!(
+        f.queue
+            .prepare_gif_output(&job, &token, &meta, &variants)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        f.queue
+            .prepare_pdf_output(&job, &token, &meta, &variants)
+            .await
+            .unwrap(),
+        approved
+    );
 }
