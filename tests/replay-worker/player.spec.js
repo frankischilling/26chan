@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 test('release player works under fixed CSP and owns pause, rewind, speed, gapless and close',async({page})=>{
-  const failures=[];page.on('pageerror',error=>failures.push(error.message));
+  const failures=[];page.on('pageerror',error=>{failures.push(error.message);console.error(error.message);});
   await page.goto('/player.html');await page.getByRole('link',{name:'View',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Oekaki replay'});
   await expect(dialog).toBeVisible();await expect(dialog.getByRole('status')).toHaveText('Replay finished.');
@@ -109,7 +109,7 @@ for (const id of ['pencil-pressure','brush-dynamics','layer-history-order']) {
       const player = mountReplayPlayer({board:'i',mediaOrigin:location.origin,acquire:async()=>bytes.buffer});
       link.click();
       try {
-        const shadow = document.getElementById('native-replay-player').shadowRoot;
+        const shadow = document.getElementById('native-replay-player').firstElementChild.shadowRoot;
         await new Promise((resolve,reject) => {
           const deadline = performance.now()+5000;
           function check() {

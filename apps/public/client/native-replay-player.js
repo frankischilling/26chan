@@ -21,7 +21,8 @@ export function mountReplayPlayer({ root = document, board, mediaOrigin,
     opener = link;
     const epoch = generation;
     const panel = node('dialog'); panel.id = 'native-replay-player'; panel.setAttribute('aria-label', 'Oekaki replay');
-    const shadow = panel.attachShadow({mode: 'open'});
+    const host = node('div'); panel.append(host);
+    const shadow = host.attachShadow({mode: 'open'});
     const stylesheet = node('link'); stylesheet.rel = 'stylesheet'; stylesheet.href = '/static/tegaki/tegaki-0.9.4.v1.css';
     shadow.append(stylesheet);
     const zooms = [.5, 1, 2, 4, 8, 16]; let zoomIndex = 1, gapless = true;
