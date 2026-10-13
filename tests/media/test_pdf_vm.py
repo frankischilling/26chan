@@ -51,12 +51,13 @@ class PdfVmTest(unittest.TestCase):
                                 str(source), str(output)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=35)
             jobs = pathlib.Path('/run/26chan-media-jobs')
             self.assertEqual(sorted(path.name for path in jobs.iterdir()), ['runner.lock'])
-            if not valid:
-                self.assertNotEqual(result.returncode, 0, 'invalid document unexpectedly published')
-                self.assertFalse(output.exists())
-                return None
             self.assertEqual(result.returncode, 0, result.stderr.decode(errors='replace'))
             pixels = output.read_bytes()
+            if not valid:
+                # Transport success is not decoder approval. A rejected input
+                # leaves the fixed disk zeroed for the host validator to reject.
+                self.assertEqual(pixels, bytes(4_194_816))
+                return None
             self.assertEqual(len(pixels), 4_194_816)
             self.assertEqual(pixels[:8], b'IBRGBA01')
             width, height = struct.unpack('>II', pixels[8:16])
@@ -64,6 +65,25 @@ class PdfVmTest(unittest.TestCase):
             used = 16 + width * height * 4
             self.assertFalse(any(pixels[used:]))
             return pixels[:used]
+
+    def test_compiled_owned_fixture_reports_renderer_readiness(self):
+        with tempfile.TemporaryDirectory(prefix='owned-pdf-runtime-') as directory:
+            root = pathlib.Path(directory)
+            source, output = root / 'input', root / 'output'
+            source.write_bytes(b'pdf-runtime')
+            result = run_owned([sys.executable, str(REPO / 'scripts/media/run-job.py'),
+                                '--input-kind', 'pdf-v4', os.environ['MEDIA_VM_PROBE_CONFIG'],
+                                str(source), str(output)], stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, timeout=35)
+            self.assertEqual(result.returncode, 0, result.stderr.decode(errors='replace'))
+            data = output.read_bytes()
+            self.assertEqual(data[:8], b'IBPDFDBG', 'diagnostic worker did not report')
+            length = int.from_bytes(data[8:12], 'big')
+            self.assertLessEqual(length, 4096)
+            report = data[12:12 + length].decode(errors='replace')
+            for expected in ('uid=1000', 'tmp_write=true', 'version: success=true',
+                             'nullpage: success=true', 'jpeg: success=true', 'decode: ok'):
+                self.assertIn(expected, report, report)
 
     def test_first_page_font_and_recovery(self):
         first = self.decode(document([RED]))
