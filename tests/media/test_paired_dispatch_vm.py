@@ -77,19 +77,19 @@ class PairedExercise(Exercise):
         process = self.launch([destination, '--ignored', '--exact',
                                'real_guest_candidates_remain_nonpublishable', '--nocapture'],
                               self.coordinator, environment)
-        # Five sequential real guest requests, each retaining the existing
+        # Ten sequential real guest requests, each retaining the existing
         # per-operation bounds. This only extends harness supervision.
         try:
-            out, err = process.communicate(timeout=180)
+            out, err = process.communicate(timeout=300)
         finally:
             if process.poll() is None:
                 self.stop(process)
             captured, _ = process.communicate(timeout=2)
             for match in re.finditer(rb'^PAIRED_VM_OWNED_JOB=([0-9a-f]{32})$', captured, re.MULTILINE):
                 self.ids.append(match.group(1).decode('ascii'))
-        check_coordinator_completion(process.returncode, out)
+        check_coordinator_completion(process.returncode, out, err)
         self.clean_vm()
-        print('PASS actual paired SQL coordinator -> Rust mTLS -> gateway -> root broker -> guest; no publication', flush=True)
+        print('PASS actual paired SQL coordinator -> Rust mTLS -> gateway -> root broker -> guest; candidate isolation and enrolled drawing publication', flush=True)
 
     def exercise_paired(self):
         f.qualification_guard()
@@ -153,10 +153,16 @@ def check_client_completion(returncode, output, error):
     raise RuntimeError('paired Unix client failed: diagnostic unavailable')
 
 
-def check_coordinator_completion(returncode, output):
+def check_coordinator_completion(returncode, output, error=b''):
     # Explicit checks remain effective even independently of the entry guards.
     if returncode != 0:
-        raise RuntimeError('actual paired coordinator qualification failed')
+        # Publish only a bounded source location, never captured process output.
+        location = re.search(rb'panicked at apps/media-admin/tests/paired_vm\.rs:([0-9]{1,5}):([0-9]{1,4})', error)
+        suffix = (' at paired_vm.rs:' + location.group(1).decode() + ':' + location.group(2).decode()) if location else ''
+        stage = re.search(rb'^DRAWING_VM_FAILURE=(enrolled-(?:png|empty|stroke|commands|invalid-replay)):(processing|database|storage|other)$', output, re.MULTILINE)
+        if stage:
+            suffix += ' (' + stage.group(1).decode() + ': ' + stage.group(2).decode() + ')'
+        raise RuntimeError('actual paired coordinator qualification failed' + suffix)
     summaries = re.findall(rb'^test result: [^\r\n]+', output, re.MULTILINE)
     if len(summaries) != 1 or not re.fullmatch(
             rb'test result: ok\. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in [0-9.]+s',

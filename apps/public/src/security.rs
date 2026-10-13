@@ -72,6 +72,21 @@ pub(crate) fn drawing_page(mut response: Response, enabled: bool) -> Response {
     response
 }
 
+#[derive(Clone, Copy)]
+struct ReplayPage;
+#[derive(Clone, Copy)]
+struct ReplayWorker;
+pub(crate) fn replay_page(mut response: Response, enabled: bool) -> Response {
+    if enabled && response.status().is_success() {
+        response.extensions_mut().insert(ReplayPage);
+    }
+    response
+}
+pub(crate) fn replay_worker(mut response: Response) -> Response {
+    response.extensions_mut().insert(ReplayWorker);
+    response
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum InteractivePage {
     Board,
@@ -243,6 +258,10 @@ fn headers(
     let drawing = interactive
         && page == Some(InteractivePage::Board)
         && response.extensions().get::<DrawingPage>().is_some();
+    let replay = interactive
+        && page == Some(InteractivePage::Board)
+        && response.extensions().get::<ReplayPage>().is_some();
+    let replay_worker = response.extensions().get::<ReplayWorker>().is_some();
     let math = interactive
         && page == Some(InteractivePage::Board)
         && response.extensions().get::<MathPage>().is_some();
@@ -378,6 +397,30 @@ fn headers(
     } else {
         "'none'".into()
     };
+    let connect = if drawing {
+        match posting.and_then(|value| value.strip_suffix("imgboard.php")) {
+            Some(base) => format!("{connect} {base}drawing"),
+            None => connect,
+        }
+    } else {
+        connect
+    };
+    let connect = if replay {
+        match (
+            state.media.as_ref(),
+            posting
+                .and_then(|value| value.strip_prefix(&format!("{}/", state.origin)))
+                .and_then(|value| value.strip_suffix("/imgboard.php")),
+        ) {
+            (Some(media), Some(board)) => format!(
+                "{connect} {}/replay/{board}/",
+                media.settings.origin.as_string()
+            ),
+            _ => connect,
+        }
+    } else {
+        connect
+    };
     let worker = if full_board_page {
         format!(
             "{}{} {}{}",
@@ -403,6 +446,24 @@ fn headers(
     } else {
         "'none'".into()
     };
+    let worker = if replay {
+        format!(
+            "{worker} {}{}",
+            state.origin,
+            crate::ui_assets::REPLAY_WORKER_PATH
+        )
+    } else {
+        worker
+    };
+    let script = if replay {
+        format!(
+            "{script} {}{}",
+            state.origin,
+            crate::ui_assets::REPLAY_PLAYER_PATH
+        )
+    } else {
+        script
+    };
     let frames = if interactive && page == Some(InteractivePage::Board) {
         "https://www.youtube-nocookie.com/embed/ https://w.soundcloud.com/player/"
     } else {
@@ -417,7 +478,7 @@ fn headers(
     } else {
         script
     };
-    let font = if drawing {
+    let font = if drawing || replay {
         format!(
             "font-src {}{}; ",
             state.origin,
@@ -443,7 +504,13 @@ fn headers(
     if let Some(media) = &state.media {
         images = format!("{} {images}", media.settings.origin.as_string());
     }
-    let policy = if script_resource {
+    let policy = if script_resource && replay_worker {
+        format!(
+            "default-src 'none'; script-src {}{}; connect-src 'none'; worker-src 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'",
+            state.origin,
+            crate::ui_assets::REPLAY_RUNTIME_PATH
+        )
+    } else if script_resource {
         // A script used as a worker receives this policy in its own execution
         // context. The initial module has no imports or network authority.
         "default-src 'none'; script-src 'none'; connect-src 'none'; worker-src 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'".into()
@@ -507,7 +574,10 @@ pub(crate) fn math_fixture_response(
     let response = crate::output::html(&state, page)
         .map_err(|_| "Fixture rendering exceeded its budget.".to_owned())?;
     let response = drawing_page(
-        math_page(response, page.board.math_tags && !page.catalog),
+        replay_page(
+            math_page(response, page.board.math_tags && !page.catalog),
+            page.board.oekaki_replays && !page.catalog && !page.media_origin.is_empty(),
+        ),
         page.drawing_controls_allowed(),
     );
     Ok(headers(

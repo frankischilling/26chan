@@ -40,11 +40,7 @@ pub(crate) fn from_post(post: &board_store::Post, board: &board_store::Board) ->
             post.fortune_text
                 .as_deref()
                 .zip(post.fortune_color.as_deref()),
-            crate::views::DrawingAnnotation::from_saved(
-                post.drawing_time_seconds,
-                post.drawing_source_post_id,
-            )
-            .as_ref(),
+            crate::views::drawing_annotation(post).as_ref(),
         )
         .serialized,
     )

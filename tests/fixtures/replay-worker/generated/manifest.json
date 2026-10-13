@@ -11,8 +11,8 @@
     "sha256": "5537da5500f7e499496e6f6b493aa319836eb5a4ed42ebd98928acb640fe34b2"
   },
   "canonicalAdapter": {
-    "bytes": 10410,
-    "sha256": "612da625118876021417faa06bc58a3e239d78aa17fb9760d927a06acdabe423"
+    "bytes": 11162,
+    "sha256": "5fa62a3278c082b91723570257f2ac4e761a95e524f09c590c4348d1502e13ac"
   },
   "artifacts": {
     "consumer-v1.mjs": {
@@ -20,8 +20,8 @@
       "sha256": "8015211feca77db2236b1ce7d84c222cb0fa377ba29ac572627722f40006cbdc"
     },
     "canonical-data.mjs": {
-      "bytes": 10410,
-      "sha256": "612da625118876021417faa06bc58a3e239d78aa17fb9760d927a06acdabe423"
+      "bytes": 11162,
+      "sha256": "5fa62a3278c082b91723570257f2ac4e761a95e524f09c590c4348d1502e13ac"
     },
     "tegaki.css": {
       "bytes": 18974,

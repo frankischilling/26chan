@@ -1,4 +1,5 @@
 use crate::animation::{EncodedGif, MAX_GIF_BYTES};
+use crate::canonical_replay::CanonicalReplay;
 use crate::{EncodedOutput, MAX_PNG_BYTES, MediaError, ObjectId, Promotion, Quarantine};
 use sha2::{Digest, Sha256};
 use std::{
@@ -29,10 +30,11 @@ pub struct ApprovedFiles {
     root: PathBuf,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Format {
     Png,
     Gif,
+    Replay,
 }
 
 impl Format {
@@ -40,18 +42,21 @@ impl Format {
         match self {
             Self::Png => "png",
             Self::Gif => "gif",
+            Self::Replay => "ibr",
         }
     }
     fn opposite(self) -> &'static str {
         match self {
             Self::Png => "gif",
             Self::Gif => "png",
+            Self::Replay => unreachable!("replays have no opposite image format"),
         }
     }
     fn byte_limit(self) -> u64 {
         match self {
             Self::Png => MAX_PNG_BYTES as u64,
             Self::Gif => MAX_GIF_BYTES as u64,
+            Self::Replay => crate::replay_wire::MAX_WIRE_BYTES as u64,
         }
     }
 }
@@ -143,6 +148,15 @@ impl PublicationGuard<'_> {
         self.install_bytes(id, output.bytes(), output.sha256(), Format::Gif, false)
     }
 
+    /// Caller must reserve replay metadata bound to the same paired image job.
+    pub fn install_replay(
+        &self,
+        id: ObjectId,
+        replay: &CanonicalReplay,
+    ) -> Result<Promotion, MediaError> {
+        self.install_bytes(id, replay.bytes(), replay.sha256(), Format::Replay, false)
+    }
+
     pub fn install_thumbnail(
         &self,
         id: ObjectId,
@@ -174,7 +188,7 @@ impl PublicationGuard<'_> {
         if bytes.is_empty() || bytes.len() as u64 > format.byte_limit() {
             return Err(MediaError::InvalidOutput);
         }
-        if !thumbnail {
+        if !thumbnail && format != Format::Replay {
             let opposite = self.store.root.join(format!("{id}.{}", format.opposite()));
             match fs::symlink_metadata(opposite) {
                 Ok(_) => return Err(MediaError::Conflict),
@@ -182,7 +196,13 @@ impl PublicationGuard<'_> {
                 Err(error) => return Err(error.into()),
             }
         }
-        let suffix = if thumbnail { ".thumb" } else { "" };
+        let suffix = if thumbnail {
+            ".thumb"
+        } else if format == Format::Replay {
+            ".replay"
+        } else {
+            ""
+        };
         let staging = self.store.root.join(format!("{id}{suffix}.part"));
         remove_regular(&staging)?;
         let mut options = OpenOptions::new();
@@ -235,7 +255,15 @@ impl PublicationGuard<'_> {
     /// Caller must first durably mark this reservation deleting while holding
     /// this guard. Approved or currently leased objects must never reach here.
     pub fn remove(&self, id: ObjectId) -> Result<(), MediaError> {
-        for suffix in ["part", "png", "gif", "thumb.part", "thumb.png"] {
+        for suffix in [
+            "part",
+            "png",
+            "gif",
+            "thumb.part",
+            "thumb.png",
+            "replay.part",
+            "replay.ibr",
+        ] {
             remove_regular(&self.store.root.join(format!("{id}.{suffix}")))?;
         }
         sync_directory(&self.store.root)?;
@@ -274,6 +302,21 @@ impl ApprovedFiles {
             sha256,
             bytes,
             MAX_GIF_BYTES as u64,
+        )
+    }
+
+    /// Call only after live-post visibility and replay hash/size approval.
+    pub fn read_replay(
+        &self,
+        id: ObjectId,
+        sha256: &str,
+        bytes: u64,
+    ) -> Result<Vec<u8>, MediaError> {
+        read_checked(
+            &self.root.join(format!("{id}.replay.ibr")),
+            sha256,
+            bytes,
+            crate::replay_wire::MAX_WIRE_BYTES as u64,
         )
     }
 

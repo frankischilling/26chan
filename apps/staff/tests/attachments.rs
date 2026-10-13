@@ -884,7 +884,23 @@ async fn interrupted_audit_rolls_back_file_removal(f: &Fixture) {
     blocker.rollback().await.unwrap();
     assert!(waiting, "Moderation never reached the audit lock");
     assert!(stopped.unwrap_err().is_cancelled());
+    // Dropping the SQLx transaction queues rollback; joining the cancelled task
+    // does not prove PostgreSQL has released its board lock. Wait on that exact
+    // fixture row before asserting rollback and starting a tuple-first write.
+    let mut settled = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL lock_timeout='2s'")
+        .execute(&mut *settled)
+        .await
+        .unwrap();
+    let board: String =
+        sqlx::query_scalar("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+            .bind(&f.board)
+            .fetch_one(&mut *settled)
+            .await
+            .unwrap();
+    assert_eq!(board, f.board);
     f.unchanged().await;
+    settled.rollback().await.unwrap();
 }
 
 #[tokio::test]

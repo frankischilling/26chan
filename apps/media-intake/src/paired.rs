@@ -1,6 +1,5 @@
-//! Qualification-only handler implementations. The production router deliberately
-//! registers no v2 routes. Callers must apply the same authenticated protection
-//! layer as v1 before routing these handlers in a qualification harness.
+//! Shared bounded paired transport. Candidate-only routes stay in qualification;
+//! the explicit drawing routes enroll a separate publication-capable receipt.
 use crate::{
     AppState,
     http::{capability, error, single, store_error},
@@ -24,7 +23,13 @@ struct ReservationRequest {
     filename: String,
 }
 
-pub async fn reserve(State(state): State<AppState>, request: Request) -> Response {
+pub async fn reserve(state: State<AppState>, request: Request) -> Response {
+    reserve_kind(state, request, false).await
+}
+pub async fn reserve_drawing(state: State<AppState>, request: Request) -> Response {
+    reserve_kind(state, request, true).await
+}
+async fn reserve_kind(State(state): State<AppState>, request: Request, drawing: bool) -> Response {
     if single(request.headers(), "content-type") != Some("application/json") {
         return error(StatusCode::UNSUPPORTED_MEDIA_TYPE);
     }
@@ -47,7 +52,12 @@ pub async fn reserve(State(state): State<AppState>, request: Request) -> Respons
     let Ok(input) = serde_json::from_slice::<ReservationRequest>(&body) else {
         return error(StatusCode::BAD_REQUEST);
     };
-    match state.store.reserve_pair(&input.filename).await {
+    let reserved = if drawing {
+        state.store.reserve_drawing(&input.filename).await
+    } else {
+        state.store.reserve_pair(&input.filename).await
+    };
+    match reserved {
         Ok(value) => (
             StatusCode::CREATED,
             Json(json!({"id":value.id,"capability":value.capability,"state":"receiving"})),
@@ -57,10 +67,21 @@ pub async fn reserve(State(state): State<AppState>, request: Request) -> Respons
     }
 }
 
-pub async fn upload(
+pub async fn upload(state: State<AppState>, path: Path<String>, request: Request) -> Response {
+    upload_kind(state, path, request, false).await
+}
+pub async fn upload_drawing(
+    state: State<AppState>,
+    path: Path<String>,
+    request: Request,
+) -> Response {
+    upload_kind(state, path, request, true).await
+}
+async fn upload_kind(
     State(state): State<AppState>,
     Path(id): Path<String>,
     request: Request,
+    drawing: bool,
 ) -> Response {
     let (object, capability) = match capability(request.headers(), &id) {
         Ok(value) => value,
@@ -72,7 +93,12 @@ pub async fn upload(
     let Ok(_permit) = state.uploads.try_acquire() else {
         return error(StatusCode::SERVICE_UNAVAILABLE);
     };
-    if let Err(value) = state.store.begin_pair_upload(&id, &capability).await {
+    let begun = if drawing {
+        state.store.begin_drawing_upload(&id, &capability).await
+    } else {
+        state.store.begin_pair_upload(&id, &capability).await
+    };
+    if let Err(value) = begun {
         return store_error(value);
     }
     let mut received_bytes = 0u64;

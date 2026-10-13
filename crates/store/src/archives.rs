@@ -27,6 +27,8 @@ pub struct ArchivePageEntry {
     pub comment: String,
     pub drawing_time_seconds: Option<i32>,
     pub drawing_source_post_id: Option<i64>,
+    #[sqlx(default)]
+    pub replay_tim: Option<i64>,
     pub comment_format: i16,
     pub staff_authorized_limits: bool,
     pub wordfilter_payload: Option<Vec<u8>>,
@@ -73,8 +75,27 @@ pub async fn archive_page_snapshot(
     if bytes > MAX_ARCHIVE_PAGE_READ_BYTES as i64 {
         return Err(StoreError::ReadLimit);
     }
-    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at,p.comment,p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.saved_presentation,p.dice_result,p.fortune_text,p.fortune_color FROM content.visible_threads t JOIN LATERAL (SELECT p.* FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000")
+    let mut entries: Vec<ArchivePageEntry> = sqlx::query_as("SELECT t.id,p.subject,t.archived_at,p.comment,p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.saved_presentation,p.dice_result,p.fortune_text,p.fortune_color FROM content.visible_threads t JOIN LATERAL (SELECT p.* FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000")
         .bind(slug).fetch_all(&mut *tx).await?;
+    // Only the bounded HTML selection can contribute replay labels. Keep the
+    // visibility/policy lookup in this snapshot; private replay rows stay hidden.
+    if board.oekaki_replays {
+        let ids: Vec<i64> = entries
+            .iter()
+            .filter(|entry| {
+                entry.drawing_time_seconds.is_some() && entry.drawing_source_post_id.is_none()
+            })
+            .map(|entry| entry.id)
+            .collect();
+        if !ids.is_empty() {
+            let rows: Vec<(i64, i64)> = sqlx::query_as("SELECT post_id,tim FROM content.visible_post_media WHERE post_id=ANY($1) AND has_replay AND NOT file_deleted")
+                .bind(&ids).fetch_all(&mut *tx).await?;
+            let mut replays: std::collections::BTreeMap<_, _> = rows.into_iter().collect();
+            for entry in &mut entries {
+                entry.replay_tim = replays.remove(&entry.id);
+            }
+        }
+    }
     let navigation_boards = crate::read::snapshot_navigation(&mut tx, true).await?;
     tx.commit().await?;
     Ok(PageSnapshot {

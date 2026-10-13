@@ -1,5 +1,9 @@
 //! Release-owned public UI bytes, never upload storage or a filesystem server.
-use axum::{Router, http::header, routing::get};
+use axum::{Router, http::header, response::IntoResponse, routing::get};
+
+pub(crate) const REPLAY_PLAYER_PATH: &str = "/static/native-replay/player.v1.js";
+pub(crate) const REPLAY_WORKER_PATH: &str = "/static/native-replay/worker.v1.js";
+pub(crate) const REPLAY_RUNTIME_PATH: &str = "/static/native-replay/runtime.v1.js";
 
 pub(crate) const NATIVE_BLOTTER_PATH: &str = "/static/native-blotter.v1.js";
 pub(crate) const REPORT_POPUP_PATH: &str = "/static/report-popup.v1.js";
@@ -872,6 +876,30 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
             )
         }),
     );
+    router = router.route(
+        REPLAY_WORKER_PATH,
+        get(|| async {
+            crate::security::replay_worker(
+                (
+                    [
+                        (header::CONTENT_TYPE, "text/javascript; charset=utf-8"),
+                        (header::CACHE_CONTROL, "public, max-age=0, must-revalidate"),
+                    ],
+                    include_bytes!("../static/native-replay/worker.v1.js").as_slice(),
+                )
+                    .into_response(),
+            )
+        }),
+    );
+    router = router.route(
+        "/static/native-replay/player.v1.css",
+        get(|| async {
+            (
+                [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+                include_bytes!("../static/native-replay/player.v1.css").as_slice(),
+            )
+        }),
+    );
     for &(path, mime, bytes) in ASSETS {
         router = router.route(
             path,
@@ -966,6 +994,14 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
         (
             NATIVE_POST_DELETION_PATH,
             include_bytes!("../static/native-post-deletion.v1.js").as_slice(),
+        ),
+        (
+            REPLAY_PLAYER_PATH,
+            include_bytes!("../static/native-replay/player.v1.js").as_slice(),
+        ),
+        (
+            REPLAY_RUNTIME_PATH,
+            include_bytes!("../static/native-replay/runtime.v1.js").as_slice(),
         ),
         (
             NATIVE_BACKLINKS_PATH,

@@ -11,7 +11,7 @@
 {% block body_attributes %}{% if board.math_tags && !catalog %} data-math-tags="1"{% endif %} data-worksafe="{{ board.worksafe }}" data-page-catalog="{{ catalog }}"{% if !catalog %} data-post-headers="true"{% endif %} class="publicPageChrome {% if board.worksafe %}ws{% else %}nws{% endif %}{% if catalog %} is_catalog{% endif %}{% if board.text_only %} text_only{% endif %}"{% endblock %}
 {% block favicon %}<link rel="shortcut icon" type="image/x-icon" href="/static/notifications/favicon{% if board.worksafe %}-ws{% endif %}.ico">{% endblock %}
 {% block theme_stylesheet %}<link rel="stylesheet" data-native-theme-stylesheet href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
-{% block drawing_stylesheet %}{% if drawing_controls_allowed() %}<link rel="stylesheet" href="/static/tegaki/tegaki-0.9.4.v1.css">{% endif %}{% endblock %}
+{% block drawing_stylesheet %}{% if board.oekaki_replays && !catalog && !media_origin.is_empty() %}<link rel="stylesheet" href="/static/native-replay/player.v1.css">{% endif %}{% if drawing_controls_allowed() || (board.oekaki_replays && !catalog && !media_origin.is_empty()) %}<link rel="stylesheet" href="/static/tegaki/tegaki-0.9.4.v1.css">{% endif %}{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
 {% block feature_notice %}{% if media_origin.is_empty() %}Text posts only.{% else %}Development media workflow.{% endif %}{% endblock %}
 {% block board_navigation %}{% if catalog %}<div id="topnav" class="boardnav">{% endif %}{% call page_navigation::desktop(navigation(), board.worksafe, false) %}{% endcall %}{% if catalog %}</div>{% endif %}{% call page_navigation::mobile(mobile_navigation(), board, navigation_fallback()) %}{% endcall %}{% endblock %}
@@ -35,7 +35,7 @@
 <button type="submit">Upload file</button>
 </form>
 {% endif %}
-<form id="reply" name="post" action="/{{ board.slug }}/imgboard.php" method="post" enctype="multipart/form-data" class="postEditor"{% if drawing_allowed() %} data-drawing-allowed="true"{% endif %}{% if drawing_edit_allowed() %} data-drawing-edit-allowed="true"{% endif %}{% if drawing_controls_allowed() %} data-drawing-width="{{ board.oekaki_width }}" data-drawing-height="{{ board.oekaki_height }}"{% endif %} data-comment-limit="{{ board.max_comment_chars }}" data-spoilers="{{ board.comment_spoiler_cleanup }}" data-posting-reply-seconds="{{ board.posting_reply_seconds }}" data-posting-image-seconds="{{ board.posting_image_seconds }}">
+<form id="reply" name="post" action="/{{ board.slug }}/imgboard.php" method="post" enctype="multipart/form-data" class="postEditor"{% if drawing_allowed() %} data-drawing-allowed="true"{% endif %}{% if drawing_edit_allowed() %} data-drawing-edit-allowed="true"{% endif %}{% if drawing_controls_allowed() %} data-drawing-replays="{{ board.oekaki_replays }}" data-drawing-width="{{ board.oekaki_width }}" data-drawing-height="{{ board.oekaki_height }}"{% endif %} data-comment-limit="{{ board.max_comment_chars }}" data-spoilers="{{ board.comment_spoiler_cleanup }}" data-posting-reply-seconds="{{ board.posting_reply_seconds }}" data-posting-image-seconds="{{ board.posting_image_seconds }}">
 <div id="mpostform" class="mobile" hidden><a href="#postForm" class="mobilePostFormToggle mobile hidden button" data-worksafe="{{ board.worksafe }}" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a></div>
 <div id="togglePostFormLink" class="desktop" hidden>[<a href="#postForm" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a>]</div>
 <h2>{% if parent == 0 %}Start a new thread{% else %}Post a reply{% endif %}</h2>
@@ -89,4 +89,5 @@
 {% if catalog %}<template id="catalogFiltered">{% if board.text_only %}<table><tbody>{% for view in catalog_hidden %}{% call catalog_text_rows::row(view, board) %}{% endcall %}{% endfor %}</tbody></table>{% else %}{% for view in catalog_hidden %}{% call catalog_cards::card(view, board, media_origin, catalog_options, self.catalog_spoiler_thumbnail()) %}{% endcall %}{% endfor %}{% endif %}</template>{% endif %}
 <div id="watcher-context" hidden{% if board.math_tags && !catalog %} data-math-tags="1"{% endif %} data-public-origin="{{ public_origin }}" data-board="{{ board.slug }}" data-thread="{{ parent }}" data-catalog="{{ catalog }}" data-worksafe="{{ board.worksafe }}" data-media-origin="{{ media_origin }}"></div>
 <script type="module" src="/static/thread-watcher.v1.js"></script>
+{% if board.oekaki_replays && !catalog && !media_origin.is_empty() %}<script type="module" src="/static/native-replay/player.v1.js"></script>{% endif %}
 {% endblock %}

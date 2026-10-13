@@ -205,7 +205,6 @@ impl Board {
     pub fn ordinary_drawing_enabled(&self, media_enabled: bool) -> bool {
         media_enabled
             && self.oekaki
-            && !self.oekaki_replays
             && !self.staff_only
             && !self.text_only
             && self.image_limit > 0

@@ -78,6 +78,30 @@ impl IntakeStore {
             .map_err(scoped_error)
     }
 
+    /// Reserve a drawing pair for the separate production publication path.
+    pub async fn reserve_drawing(&self, filename: &str) -> Result<IntakeReservation, StoreError> {
+        if filename.contains('\0') {
+            return Err(StoreError::Invalid(
+                "Invalid media intake metadata or size.",
+            ));
+        }
+        sqlx::query_as("SELECT id, capability FROM media_intake.reserve_drawing($1)")
+            .bind(filename)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(scoped_error)
+    }
+
+    pub async fn begin_drawing_upload(&self, id: &str, capability: &str) -> Result<(), StoreError> {
+        sqlx::query("SELECT media_intake.begin_drawing_upload($1, $2)")
+            .bind(id)
+            .bind(capability)
+            .execute(&self.pool)
+            .await
+            .map_err(scoped_error)?;
+        Ok(())
+    }
+
     pub async fn begin_pair_upload(&self, id: &str, capability: &str) -> Result<(), StoreError> {
         sqlx::query("SELECT media_intake.begin_pair_upload($1, $2)")
             .bind(id)
@@ -210,7 +234,9 @@ const SAFE_ROLE: &str = r#"
 WITH expected_functions(signature, result) AS (VALUES
  ('media_intake.reserve(text)', 'TABLE(id text, capability text)'),
  ('media_intake.reserve_pair(text)', 'TABLE(id text, capability text)'),
+ ('media_intake.reserve_drawing(text)', 'TABLE(id text, capability text)'),
  ('media_intake.begin_pair_upload(text,text)', 'void'),
+ ('media_intake.begin_drawing_upload(text,text)', 'void'),
  ('media_intake.finish_pair_upload(text,text,bigint,text,bigint,text,bigint,text)', 'void'),
  ('media_intake.begin_upload(text,text)', 'void'),
  ('media_intake.finish_upload(text,text,bigint)', 'void'),
@@ -222,6 +248,7 @@ WITH expected_functions(signature, result) AS (VALUES
  ('media.queue_policy','singleton','UPDATE'),
  ('media.jobs','id','SELECT'), ('media.jobs','state','SELECT'),
  ('media.jobs','input_bytes','SELECT'), ('media.jobs','expires_at','SELECT'),
+ ('media.jobs','drawing_publication','SELECT'), ('media.jobs','drawing_publication','INSERT'),
  ('media.jobs','input_kind','SELECT'), ('media.jobs','input_kind','INSERT'),
  ('media.jobs','input_sha256','SELECT'), ('media.jobs','input_sha256','UPDATE'),
  ('media.jobs','input_image_bytes','SELECT'), ('media.jobs','input_image_bytes','UPDATE'),

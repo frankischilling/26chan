@@ -62,6 +62,8 @@ impl fmt::Display for DrawingTime {
 pub struct DrawingAnnotation {
     pub time: DrawingTime,
     pub source_post: Option<i64>,
+    /// Filled only from the caller's approved attachment projection.
+    pub replay_tim: Option<i64>,
 }
 
 impl DrawingAnnotation {
@@ -69,6 +71,7 @@ impl DrawingAnnotation {
         Some(Self {
             time: DrawingTime::from_seconds(i64::from(seconds?))?,
             source_post: source.filter(|id| *id > 0),
+            replay_tim: None,
         })
     }
 
@@ -76,6 +79,11 @@ impl DrawingAnnotation {
         let source = self
             .source_post
             .map(|id| format!(", Source: >>{id}"))
+            .or_else(|| {
+                self.replay_tim
+                    .filter(|id| *id > 0)
+                    .map(|_| ", Replay: View".into())
+            })
             .unwrap_or_default();
         vec![
             Token::Text(separator.into()),
@@ -94,6 +102,11 @@ impl DrawingAnnotation {
         let source = self
             .source_post
             .map(|id| format!(", Source: &gt;&gt;{id}"))
+            .or_else(|| {
+                self.replay_tim
+                    .filter(|id| *id > 0)
+                    .map(|_| ", Replay: View".into())
+            })
             .unwrap_or_default();
         format!(
             "<br><br><small><b>Oekaki Post</b> (Time: {}{source})</small>",

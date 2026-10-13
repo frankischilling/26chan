@@ -105,17 +105,10 @@ fn check_page_gates(board: &Board) {
     page.threads[0].thread.archived_at = Some(now);
     assert!(!page.drawing_allowed());
     page.threads[0].thread.archived_at = None;
-    for boundary in [
-        "disabled",
-        "replays",
-        "text_only",
-        "image_limit",
-        "staff_only",
-    ] {
+    for boundary in ["disabled", "text_only", "image_limit", "staff_only"] {
         page.board = board.clone();
         match boundary {
             "disabled" => page.board.oekaki = false,
-            "replays" => page.board.oekaki_replays = true,
             "text_only" => page.board.text_only = true,
             "image_limit" => page.board.image_limit = 0,
             "staff_only" => page.board.staff_only = true,
@@ -139,11 +132,11 @@ fn check_image_edit_gates(board: &Board) {
     source.image_limit = 100;
     let mut view = page(source.clone(), true);
     assert!(
-        !view.drawing_allowed(),
-        "replay policy keeps ordinary /i/ Draw disabled"
+        view.drawing_allowed(),
+        "replay-enabled /i/ exposes ordinary Draw"
     );
     assert!(!view.drawing_edit_allowed(), "/i/ index has no post Edit");
-    assert!(!view.drawing_controls_allowed());
+    assert!(view.drawing_controls_allowed());
 
     view.parent = 1;
     assert!(
@@ -156,8 +149,8 @@ fn check_image_edit_gates(board: &Board) {
         "a live /i/ thread enables imported Edit"
     );
     assert!(
-        !view.drawing_allowed(),
-        "imported Edit does not enable blank Draw"
+        view.drawing_allowed(),
+        "ordinary Draw and imported Edit have separate recording policies"
     );
     assert!(view.drawing_controls_allowed());
 

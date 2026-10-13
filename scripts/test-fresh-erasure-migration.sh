@@ -480,6 +480,10 @@ WHERE relation='content.posts';
 UPDATE public.independent_rows SET value=value||jsonb_build_object('snapshot_expires_at',
  CASE WHEN value->>'snapshot_version' IS NOT NULL THEN (value->>'created_at')::timestamptz+interval '720 hours' ELSE NULL END)
 WHERE relation='content.moderation_audit';
+-- 0144 adds explicit drawing enrollment. Historical jobs must remain outside
+-- that publication path; compare every earlier field without alteration.
+UPDATE public.independent_rows SET value=value||jsonb_build_object('drawing_publication',false)
+WHERE relation='media.jobs';
 -- Every attachment identity remains byte-exact; only erased payload changes.
 UPDATE public.independent_rows SET value=value||jsonb_build_object('metadata_erased',true,
  'filename','[deleted]','bytes',1,'width',1,'height',1,'spoiler',false,'file_deleted',true,'created_at','epoch'::timestamptz)

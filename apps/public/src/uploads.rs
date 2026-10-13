@@ -168,6 +168,84 @@ pub async fn upload(
     finish(&state, format, result)
 }
 
+/// Drawings keep their PNG and optional recording in one immutable intake job.
+pub async fn drawing(
+    State(state): State<AppState>,
+    Path(board): Path<String>,
+    request: Request,
+) -> Response {
+    let format = Format::from_headers(request.headers());
+    let result = receive_drawing(&state, &board, request, format).await;
+    finish(&state, format, result)
+}
+
+async fn receive_drawing(
+    state: &AppState,
+    board: &str,
+    request: Request,
+    format: Format,
+) -> Result<Response, AppError> {
+    let media = state.media.as_ref().ok_or_else(intake::unavailable)?;
+    let _permit = state.limits.uploads.try_acquire().map_err(|_| {
+        AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Uploads are busy. Try again later.",
+        )
+    })?;
+    let mut multipart = crate::paired_upload::from_request(request).map_err(|_| invalid())?;
+    let declaration = multipart.read_declaration().await.map_err(|_| invalid())?;
+    let board_settings = settings(state, board, declaration.resto).await?;
+    if !board_settings.oekaki
+        || board_settings.staff_only
+        || board_settings.text_only
+        || board_settings.gif_only
+        || (declaration.replay_bytes.is_some() && !board_settings.oekaki_replays)
+    {
+        return Err(AppError(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "Drawing uploads are unavailable on this board.",
+        ));
+    }
+    if declaration.image_bytes > board_settings.image_file_limit() as u64 {
+        return Err(AppError(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "Error: File too large.",
+        ));
+    }
+    let transport = media.transport()?;
+    let reservation = media.reserve_drawing("tegaki.png").await?;
+    if multipart
+        .upload_drawing(&transport, &reservation)
+        .await
+        .is_err()
+    {
+        // Cancellation revokes one-use post authority even after an uncertain
+        // intake response. The quarantine cleanup owns any completed bytes.
+        let _ = board_store::post_media::cancel_upload(
+            &state.pool,
+            &reservation.id,
+            &reservation.capability,
+        )
+        .await;
+        return Err(AppError(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "The drawing upload was incomplete or rejected.",
+        ));
+    }
+    page(
+        state,
+        board_settings,
+        UploadForm {
+            upload_id: reservation.id,
+            upload_capability: reservation.capability,
+            resto: declaration.resto,
+        },
+        UploadState::Queued,
+        "Your drawing is queued for isolated processing. Check its status before posting.",
+        format,
+    )
+}
+
 async fn receive(
     state: &AppState,
     board: &str,

@@ -38,7 +38,7 @@ fn map_error(error: IntakeError) -> AppError {
 }
 
 impl IntakeClient {
-    fn transport(&self) -> Result<board_intake_client::IntakeClient, AppError> {
+    pub(crate) fn transport(&self) -> Result<board_intake_client::IntakeClient, AppError> {
         board_intake_client::IntakeClient::new(self.settings.intake, self.settings.token.clone())
             .map_err(map_error)
     }
@@ -49,6 +49,13 @@ impl IntakeClient {
 
     pub async fn reserve(&self, filename: &str) -> Result<Reservation, AppError> {
         self.transport()?.reserve(filename).await.map_err(map_error)
+    }
+
+    pub async fn reserve_drawing(&self, filename: &str) -> Result<Reservation, AppError> {
+        self.transport()?
+            .reserve_drawing(filename)
+            .await
+            .map_err(map_error)
     }
 
     pub async fn upload(&self, id: &str, capability: &str, body: Body) -> Result<(), AppError> {

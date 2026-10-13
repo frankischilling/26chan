@@ -19,6 +19,7 @@ SOURCE = ROOT / "apps/media-guest/tests/fixtures/replay"
 PINNED = {
     "empty": "f43a6b843eb6078492f6aafa1dd1c95ed89e184622b6e65e75886ad22f6d2bb8",
     "commands": "f70ca7c89e105986da4d995bf70df141f55680b1467614445e8b9eefcf2e10b7",
+    "bounded-stroke": "1eee81478a919516474d7d952fc4527826539be634ba32ac4ac3a45828b60968",
 }
 PAYLOAD_SIZE = {
     0: 0, 1: 6, 2: 6, 3: 0, 4: 0, 5: 0, 6: 3, 7: 4, 8: 4,

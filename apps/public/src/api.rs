@@ -707,6 +707,7 @@ mod tests {
                 thumbnail_width: Some(32),
                 thumbnail_height: Some(24),
                 output_format: board_store::media_assets::MediaFormat::Gif,
+                has_replay: false,
             });
             let value = post_json(
                 post,
@@ -825,6 +826,7 @@ mod preview_reference_tests {
             thumbnail_width: Some(10),
             thumbnail_height: Some(10),
             output_format: board_store::media_assets::MediaFormat::Png,
+            has_replay: false,
         });
         post
     }

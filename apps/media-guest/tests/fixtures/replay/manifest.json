@@ -187,6 +187,38 @@
           "size": 5
         }
       ]
+    },
+    {
+      "name": "bounded-stroke",
+      "bytes": 134,
+      "sha256": "1eee81478a919516474d7d952fc4527826539be634ba32ac4ac3a45828b60968",
+      "events": [
+        {
+          "tag": 0,
+          "timestamp": 2123,
+          "size": 5
+        },
+        {
+          "tag": 7,
+          "timestamp": 2400,
+          "size": 9
+        },
+        {
+          "tag": 8,
+          "timestamp": 2410,
+          "size": 9
+        },
+        {
+          "tag": 3,
+          "timestamp": 2420,
+          "size": 5
+        },
+        {
+          "tag": 255,
+          "timestamp": 3123,
+          "size": 5
+        }
+      ]
     }
   ]
 }

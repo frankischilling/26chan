@@ -65,6 +65,46 @@ fn absent_and_present_replay_controls_with_independent_dimensions() {
 }
 
 #[test]
+fn publication_fixture_has_exact_pixels_and_canonical_recordings() {
+    let image = include_bytes!("../../media-admin/tests/fixtures/red-640x480.png");
+    let mut pixels = Vec::from(b"IBRGBA01".as_slice());
+    pixels.extend_from_slice(&640_u32.to_be_bytes());
+    pixels.extend_from_slice(&480_u32.to_be_bytes());
+    pixels.extend_from_slice(&[255, 0, 0, 255].repeat(640 * 480));
+    for (replay, canonical) in [
+        (None, b"".as_slice()),
+        (
+            Some(include_bytes!("fixtures/replay/empty.tgkr").as_slice()),
+            include_bytes!("../../../tests/media/fixtures/replay-wire/empty.ibr").as_slice(),
+        ),
+        (
+            Some(include_bytes!("fixtures/replay/commands.tgkr").as_slice()),
+            include_bytes!("../../../tests/media/fixtures/replay-wire/commands.ibr").as_slice(),
+        ),
+        (
+            Some(include_bytes!("fixtures/replay/bounded-stroke.tgkr").as_slice()),
+            include_bytes!("../../../tests/media/fixtures/replay-wire/bounded-stroke.ibr")
+                .as_slice(),
+        ),
+    ] {
+        let output = decode_disk(Cursor::new(disk(image, replay))).unwrap();
+        assert_eq!(
+            u64::from_be_bytes(output[48..56].try_into().unwrap()),
+            pixels.len() as u64
+        );
+        assert_eq!(
+            u64::from_be_bytes(output[56..64].try_into().unwrap()),
+            canonical.len() as u64
+        );
+        assert_eq!(&output[64..64 + pixels.len()], pixels);
+        let end = 64 + pixels.len() + canonical.len();
+        assert_eq!(&output[64 + pixels.len()..end], canonical);
+        assert!(output[end..].iter().all(|&byte| byte == 0));
+    }
+    assert!(decode_disk(Cursor::new(disk(image, Some(b"invalid TGKR")))).is_err());
+}
+
+#[test]
 fn rejects_truncation_extension_nonzero_padding_and_wrong_envelope() {
     let valid = disk(&png(), None);
     for end in [0, 8, 47, 48, 49, valid.len() - 1] {

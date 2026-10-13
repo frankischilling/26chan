@@ -5,7 +5,8 @@ source's existing-image **Edit** action to live `/i/` thread pages. It opens an
 approved post image in Quick Reply's Tegaki 0.9.4 editor, then posts the edited
 PNG through the existing isolated attachment workflow. The earlier
 [ordinary PNG drawing integration](native-drawing.md) remains available on its
-supported non-replay boards. Full `/i/` drawing and replay support is still open.
+supported boards. [Drawing replay integration](drawing-replays.md) describes
+blank-canvas `/i/` recording and playback, including its current verification limits.
 
 ## Source and page eligibility
 
@@ -25,7 +26,8 @@ The rewrite requires the literal board slug `i`, both imported `oekaki` and
 `oekaki_replays` policy, enabled public media, a positive image limit, a public
 non-text board and supported board dimensions. Edit appears on a real, open,
 unarchived thread, with no controls on the index, catalog, missing thread or
-closed thread. Ordinary blank-canvas **Draw** remains disabled on `/i/`.
+closed thread. Ordinary blank-canvas **Draw** is also available on `/i/`,
+with recording controlled separately from imported-image Edit.
 [`Board::drawing_edit_enabled`](../crates/store/src/lib.rs),
 [`BoardPage::drawing_edit_allowed`](../apps/public/src/views.rs) and
 [`board.html`](../apps/public/templates/board.html) enforce the server gate.
@@ -162,8 +164,8 @@ removed for its exact owned attachments. Browser behavior is exercised through
 [`drawing-upload.mjs`](../tests/browser/drawing-upload.mjs) and the
 [native Edit tests](../tests/browser/native-drawing-edit.test.mjs).
 
-Replay recording, validation, storage, delivery and playback still need full
-integration. Ordinary `/i/` Draw and its replay controls remain disabled, and
-the source's `javascript:oeReplay(...)` link is not generated. Complete source
-parity still requires those replay paths. [Native replay data](native-replay-data.md) records
-the existing replay format work.
+Imported-image Edit keeps replay recording disabled. Blank-canvas Draw can
+record on enabled boards and publishes a safe View link for approved recordings.
+[Drawing replay integration](drawing-replays.md) covers recording, isolated
+validation, storage, delivery, playback and pending end-to-end qualification.
+[Native replay data](native-replay-data.md) describes the canonical format.

@@ -119,6 +119,15 @@ vm.runInContext(`
   r.push(new TegakiEventHistoryDummy(ts++));
 `, sandbox, {timeout: 2000});
 finish('commands');
+vm.runInContext(`
+  Tegaki.replayRecorder = new TegakiReplayRecorder();
+  Tegaki.replayRecorder.start();
+  const boundedRecorder = Tegaki.replayRecorder;
+  boundedRecorder.push(new TegakiEventDrawStartNoP(2400, 10, 10));
+  boundedRecorder.push(new TegakiEventDrawNoP(2410, 20, 20));
+  boundedRecorder.push(new TegakiEventDrawCommit(2420));
+`, sandbox, {timeout: 2000});
+finish('bounded-stroke');
 checkOrRecord('manifest.json', JSON.stringify({
   sourceCommit: '545b7812d1849f7958d914950c91fdbbe38f6b22',
   sourceFile: 'js/tegaki.min.js', sourceSha256: expectedSourceSha256,

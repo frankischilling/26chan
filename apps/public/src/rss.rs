@@ -152,6 +152,7 @@ struct Description<'a> {
     dice: Option<&'a str>,
     fortune: Option<&'a str>,
     color: Option<&'a str>,
+    drawing: Option<crate::views::DrawingAnnotation>,
 }
 
 // lib/rss.php emits saved comment HTML without calling the page's post-number
@@ -204,10 +205,8 @@ fn write_feed(
                 board_domain::source_html_entities(text)
             ));
         }
-        if let Some(drawing) = crate::views::DrawingAnnotation::from_saved(
-            post.drawing_time_seconds,
-            post.drawing_source_post_id,
-        ) {
+        let drawing = crate::views::drawing_annotation(post);
+        if let Some(drawing) = drawing {
             stored.push_str(&drawing.stored_html());
         }
         let title = item_title(post, &stored, board.forced_anon);
@@ -266,6 +265,7 @@ fn write_feed(
             dice: post.dice_result.as_deref(),
             fortune: post.fortune_text.as_deref(),
             color: post.fortune_color.as_deref(),
+            drawing,
         }
         .render_into(&mut XmlText(writer))?;
         writer.write_str("</description></item>")?;
@@ -340,6 +340,7 @@ mod tests {
             dice: None,
             fortune: None,
             color: None,
+            drawing: None,
         }
         .render()
         .unwrap();
@@ -389,6 +390,7 @@ mod tests {
                 dice: None,
                 fortune: None,
                 color: None,
+                drawing: None,
             }
             .render()
             .unwrap();
@@ -417,6 +419,7 @@ mod tests {
             dice: Some("Rolled 1 (1d1)"),
             fortune: Some("<script> & fortune"),
             color: Some("#7fec11"),
+            drawing: None,
         }
         .render()
         .unwrap();
@@ -429,5 +432,28 @@ mod tests {
         assert!(description.contains("style=\"color:#7fec11\""));
         assert!(description.contains("Your fortune: &#60;script&#62; &#38; fortune"));
         assert!(!description.contains("<script>"));
+    }
+    #[test]
+    fn feed_description_keeps_drawing_metadata_without_script_links() {
+        let mut drawing = crate::views::DrawingAnnotation::from_saved(Some(90), None).unwrap();
+        drawing.replay_tim = Some(123);
+        let description = Description {
+            lines: &[],
+            board: "i",
+            origin: "https://boards.example",
+            source: String::new(),
+            thumbnail: String::new(),
+            spoilers: false,
+            dice: None,
+            fortune: None,
+            color: None,
+            drawing: Some(drawing),
+        }
+        .render()
+        .unwrap();
+        assert!(description.contains("<b>Oekaki Post</b> (Time: 2m, Replay: View)"));
+        assert!(
+            !description.contains("javascript:") && !description.contains("data-drawing-replay")
+        );
     }
 }

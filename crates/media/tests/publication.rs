@@ -333,3 +333,56 @@ fn publication_lock_child() {
         std::thread::park();
     }
 }
+
+#[tokio::test]
+async fn canonical_replay_has_independent_immutable_storage_and_joint_cleanup() {
+    use board_media::canonical_replay::CanonicalReplay;
+    let directory = tempfile::tempdir().unwrap();
+    let quarantine = Quarantine::new(directory.path().join("input")).unwrap();
+    let root = directory.path().join("output");
+    let store = PublicationStore::new(&root, &quarantine).unwrap();
+    let files = ApprovedFiles::open(&root).unwrap();
+    let id = ObjectId::generate().unwrap();
+    let replay = CanonicalReplay::check(
+        include_bytes!("../../../tests/media/fixtures/replay-wire/empty.ibr").to_vec(),
+    )
+    .unwrap();
+    let guard = store.try_lock().unwrap();
+    guard
+        .install(id, &pixels(19).await.encode().unwrap())
+        .unwrap();
+    let first = guard.install_replay(id, &replay).unwrap();
+    assert!(!first.already_published);
+    assert!(guard.install_replay(id, &replay).unwrap().already_published);
+    assert_eq!(
+        files.read_replay(id, &first.sha256, first.bytes).unwrap(),
+        replay.bytes()
+    );
+    assert!(files.read_replay(id, &"0".repeat(64), first.bytes).is_err());
+    assert!(
+        files
+            .read_replay(id, &first.sha256, first.bytes + 1)
+            .is_err()
+    );
+    let mut changed = replay.bytes().to_vec();
+    changed[28] ^= 1;
+    let changed = CanonicalReplay::check(changed).unwrap();
+    assert!(guard.install_replay(id, &changed).is_err());
+    assert_eq!(
+        files.read_replay(id, &first.sha256, first.bytes).unwrap(),
+        replay.bytes()
+    );
+    guard.remove(id).unwrap();
+    for suffix in ["png", "replay.ibr", "replay.part"] {
+        assert!(!root.join(format!("{id}.{suffix}")).exists());
+    }
+}
+
+#[test]
+fn canonical_replay_rejects_compressed_or_out_of_envelope_bytes() {
+    use board_media::canonical_replay::CanonicalReplay;
+    assert!(CanonicalReplay::check(b"TGK\x01compressed".to_vec()).is_err());
+    let mut bytes = include_bytes!("../../../tests/media/fixtures/replay-wire/empty.ibr").to_vec();
+    bytes[65] = 255;
+    assert!(CanonicalReplay::check(bytes).is_err());
+}

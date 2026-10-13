@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { chromium, expect } from '@playwright/test';
 import { createInterface } from 'node:readline';
 import { assertOwnedThreadResponse, ownedUploadResponse } from './owned-upload-response.mjs';
-import { canvasProof, closePainter, decodedPngProof, drawingControls, pointerDrawing, pointerDrawingEdit, seedDrawingPng, tegakiModule, observeDrawingResponse, exportDrawingProof, observeDrawingCancellation, reportDrawingEditFailure } from './helpers/drawing-browser.mjs';
+import { canvasProof, closePainter, decodedPngProof, drawingControls, pointerDrawing, pointerDrawingEdit, tegakiModule, observeDrawingResponse, exportDrawingProof, observeDrawingCancellation, reportDrawingEditFailure } from './helpers/drawing-browser.mjs';
 
 const [rawOrigin, board, marker, mode] = process.argv.slice(2), origin = new URL(rawOrigin);
 assert.equal(process.argv.length, 6); assert.equal(origin.hostname, '127.0.0.1'); assert.equal(origin.protocol, 'http:');
@@ -44,14 +44,14 @@ try {
   if (mode === 'image-edit') await signal('OWNER', ownerThread);
   const location = url(target === '0' ? `/${board}/` : `/${board}/thread/${target}`);
   let form, controls;
-  const emitReceipt = async () => {
-    const captured = await observeDrawingResponse(page, url(`/${board}/upload`), 'upload');
+  const emitReceipt = async (route = 'upload') => {
+    const captured = await observeDrawingResponse(page, url(`/${board}/${route}`), 'upload');
     await page.locator('#tegaki-finish-btn').click();
     const result = await captured(); assert.equal(result.status, 200); const receipt = result.result;
     assert.equal(receipt.resto, target); assert.equal(receipt.state, 'queued');
     assert.match(receipt.upload_id, /^[a-f0-9]{32}$/); assert.match(receipt.upload_capability, /^[a-f0-9]{64}$/);
     // The private pipe passes the receipt hash, never the usable capability.
-    await signal('RECEIPT', receipt.upload_id, `${createHash('sha256').update(receipt.upload_capability).digest('hex')} ${target} ${ownerThread}`);
+    await signal(route === 'drawing' ? 'REPLAY_RECEIPT' : 'RECEIPT', receipt.upload_id, `${createHash('sha256').update(receipt.upload_capability).digest('hex')} ${target} ${ownerThread}`);
     return receipt;
   };
   const waitForReceipt = async receipt => {
@@ -71,45 +71,26 @@ try {
     assert.doesNotMatch(ready.headers()['content-security-policy'], /unsafe-eval/);
     const ordinary = page.locator('form.postEditor').first();
     await expect(ordinary).toHaveAttribute('data-drawing-edit-allowed', 'true');
-    await expect(ordinary).not.toHaveAttribute('data-drawing-allowed', 'true');
-    await expect(ordinary.locator('[data-drawing-draw]')).toBeHidden();
-    assert.equal(requests.some(request => request.url.endsWith(tegakiModule)), false, 'Edit-only Tegaki remains lazy');
+    await expect(ordinary).toHaveAttribute('data-drawing-allowed', 'true');
+    const reveal = page.locator('#togglePostFormLink a');
+    if (await reveal.isVisible()) await reveal.click();
+    await expect(ordinary.locator('[data-drawing-draw]')).toBeVisible();
+    assert.equal(requests.some(request => request.url.endsWith(tegakiModule)), false, 'Tegaki remains lazy before Draw or post Edit');
 
-    const seed = await seedDrawingPng(page);
-    const response = await context.request.post(url(`/${board}/upload`), {
-      headers: { Origin: origin.origin, Accept: 'application/json' },
-      multipart: { resto: target, upfile: { name: 'tegaki.png', mimeType: 'image/png', buffer: seed.buffer } },
-    });
-    const received = await ownedUploadResponse(response, 'upload');
-    assert.equal(received.status, 200); const firstReceipt = received.result;
-    assert.equal(firstReceipt.resto, target); assert.equal(firstReceipt.state, 'queued');
-    assert.match(firstReceipt.upload_id, /^[a-f0-9]{32}$/);
-    assert.match(firstReceipt.upload_capability, /^[a-f0-9]{64}$/);
-    await signal('RECEIPT', firstReceipt.upload_id,
-      `${createHash('sha256').update(firstReceipt.upload_capability).digest('hex')} ${target} ${ownerThread}`);
+    form = ordinary; controls = drawingControls(ordinary);
+    await expect(form.locator('.oe-r-cb')).toBeChecked();
+    await controls.draw.click();
+    const seed = { proof: await pointerDrawing(page, { replay: true }) };
+    await exportDrawingProof(page, seed.proof);
+    const firstReceipt = await emitReceipt('drawing');
     await signal('APPROVE', firstReceipt.upload_id);
-    const deadline = Date.now() + 60000;
-    for (;;) {
-      assert.ok(Date.now() < deadline, 'seed image approval deadline exceeded');
-      const checked = await context.request.post(url(`/${board}/upload/status`), {
-        headers: { Origin: origin.origin, Accept: 'application/json' },
-        form: { resto: target, upload_id: firstReceipt.upload_id, upload_capability: firstReceipt.upload_capability },
-      });
-      const result = await ownedUploadResponse(checked, 'upload');
-      assert.equal(result.status, 200);
-      assert.equal(result.result.resto, target); assert.equal(result.result.upload_id, firstReceipt.upload_id);
-      assert.equal(result.result.upload_capability, firstReceipt.upload_capability);
-      if (result.result.state === 'approved') break;
-      assert.ok(['queued', 'processing'].includes(result.result.state), 'seed image approval failed');
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-
-    const seedPosted = await context.request.post(url(`/${board}/imgboard.php`), {
-      headers: { Origin: origin.origin, Accept: 'application/json' },
-      multipart: { resto: target, mode: 'regist', pwd: password, com: `Drawing qualification ${marker}`,
-        upload_id: firstReceipt.upload_id, upload_capability: firstReceipt.upload_capability },
-    });
-    const seedResult = await ownedUploadResponse(seedPosted, 'post');
+    await waitForReceipt(firstReceipt);
+    await form.locator('[name=com]').fill(`Drawing qualification ${marker}`);
+    const seedPosted = await observeDrawingResponse(page, url(`/${board}/imgboard.php`), 'post', { annotation: true });
+    await form.locator('button[type=submit],input[type=submit]').click();
+    const seedResult = await seedPosted();
+    assert.match(seedResult.annotation?.oe_time, /^[1-9][0-9]*$/);
+    assert.equal(seedResult.annotation?.oe_src, null);
     assert.equal(seedResult.status, 200); assert.equal(String(seedResult.result.tid), target);
     assert.ok(Number.isSafeInteger(seedResult.result.pid) && seedResult.result.pid > Number(target));
     const seedPost = String(seedResult.result.pid), api = url(`/${board}/thread/${target}.json`);
@@ -117,7 +98,9 @@ try {
     const sourcePost = originalPosts.find(value => String(value.no) === seedPost);
     assert.ok(sourcePost); assert.equal(sourcePost.ext, '.png');
     assert.equal(sourcePost.filename, 'tegaki'); assert.equal(sourcePost.w, 400); assert.equal(sourcePost.h, 400);
-    assert.equal(sourcePost.com, `Drawing qualification ${marker}`);
+    assert.ok(sourcePost.com.includes(`Drawing qualification ${marker}`));
+    assert.ok(sourcePost.com.includes('data-drawing-replay="'));
+    await page.waitForURL(value => value.hash === `#p${seedPost}`);
     await page.goto(location);
     const seedFile = page.locator(`#f${seedPost}`);
     const media = await seedFile.locator('a[class="fileThumb"]').getAttribute('href');
@@ -127,6 +110,27 @@ try {
     const normalizedProof = await decodedPngProof(page, await normalized.body());
     assert.equal(normalizedProof.width, 400); assert.equal(normalizedProof.height, 400);
     assert.equal(normalizedProof.hash, seed.proof.hash, 'isolated seed preserves its generated canvas pixels');
+
+    const replayLink = page.locator(`#m${seedPost} [data-drawing-replay]`);
+    await expect(replayLink).toHaveText('View');
+    const replayTim = await replayLink.getAttribute('data-drawing-replay');
+    const replayUrl = new URL(`/replay/${board}/${replayTim}.ibr`, media).href;
+    const replayResponse = page.waitForResponse(value => value.url() === replayUrl);
+    await replayLink.click();
+    const deliveredReplay = await replayResponse;
+    assert.equal(deliveredReplay.status(), 200);
+    assert.equal((await deliveredReplay.allHeaders())['access-control-allow-origin'], origin.origin);
+    assert.equal((await deliveredReplay.request().allHeaders()).cookie, undefined);
+    const player = page.locator('#native-replay-player');
+    await expect(player.getByRole('status')).toHaveText('Replay finished.', { timeout: 30000 });
+    const replayHash = await player.locator('#tegaki-canvas').evaluate(async canvas => {
+      const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      return [...new Uint8Array(await crypto.subtle.digest('SHA-256', pixels))]
+        .map(value => value.toString(16).padStart(2, '0')).join('');
+    });
+    assert.equal(replayHash, seed.proof.hash, 'real recorded strokes survive isolated publication and native playback');
+    await player.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(player).toHaveCount(0);
 
     const edit = page.locator(`#fT${seedPost} [data-drawing-edit]`);
     await expect(edit).toHaveText('Edit');
@@ -164,7 +168,7 @@ try {
     assert.ok(Number.isSafeInteger(Number(posted.annotation.oe_time)) && Number(posted.annotation.oe_time) <= 5_184_000);
     const editedPost = String(posted.result.pid); assert.notEqual(editedPost, seedPost);
     await expect(form.locator('[name=upload_id], [name=upload_capability]')).toHaveCount(0);
-    await expect(controls.draw).toBeHidden();
+    await expect(controls.draw).toBeVisible();
 
     const updatedFile = page.locator(`#f${editedPost}`);
     await expect(updatedFile.locator('[data-drawing-edit]')).toHaveText('Edit');
@@ -203,6 +207,9 @@ try {
       assert.equal(missing.status(), 404); assert.equal(missing.headers()['access-control-allow-origin'], undefined);
       assert.equal((await (await context.request.get(api)).json()).posts.find(value => String(value.no) === id).filedeleted, 1);
     }
+    const missingReplay = await context.request.get(replayUrl, { headers: { Origin: origin.origin } });
+    assert.equal(missingReplay.status(), 404);
+    assert.equal(missingReplay.headers()['access-control-allow-origin'], undefined);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(ordinary.locator('[data-drawing-draw]')).toBeHidden();
     assert.deepEqual(violations, []);

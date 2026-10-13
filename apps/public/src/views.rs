@@ -355,10 +355,7 @@ impl PostView {
     }
 
     pub fn drawing_annotation(&self) -> Option<DrawingAnnotation> {
-        DrawingAnnotation::from_saved(
-            self.post.drawing_time_seconds,
-            self.post.drawing_source_post_id,
-        )
+        drawing_annotation(&self.post)
     }
 
     pub fn catalog_teaser(&self, board: &Board) -> crate::catalog::teaser::Prepared {
@@ -452,6 +449,21 @@ pub struct Comment<'a> {
 
 pub use board_domain::drawing_annotation::DrawingAnnotation;
 
+pub(crate) fn drawing_annotation(post: &Post) -> Option<DrawingAnnotation> {
+    let mut annotation =
+        DrawingAnnotation::from_saved(post.drawing_time_seconds, post.drawing_source_post_id)?;
+    if annotation.source_post.is_none() && !post.deleted && !post.file_deleted {
+        annotation.replay_tim = post
+            .attachment
+            .as_ref()
+            .filter(|attachment| {
+                attachment.has_replay && !attachment.file_deleted && attachment.tim > 0
+            })
+            .map(|attachment| attachment.tim);
+    }
+    Some(annotation)
+}
+
 #[cfg(test)]
 mod comment_tests {
     use super::*;
@@ -526,6 +538,63 @@ mod comment_tests {
                 }
             };
             assert_eq!(html, format!("x {expected}"), "{}", row["id"]);
+        }
+    }
+
+    #[test]
+    fn replay_annotation_uses_only_visible_approved_attachment_metadata() {
+        let fixture = crate::native_updater_snapshot::tests::fixture();
+        for (stored, deleted, source, expected) in [
+            (true, false, None, true),
+            (false, false, None, false),
+            (true, true, None, false),
+            (true, false, Some(42), false),
+        ] {
+            let mut post = fixture.posts[0].clone();
+            post.drawing_time_seconds = Some(90);
+            post.drawing_source_post_id = source;
+            post.attachment = Some(board_store::post_media::PostAttachment {
+                post_id: post.id,
+                asset_id: "a".repeat(32),
+                filename: "tegaki.png".into(),
+                bytes: 100,
+                width: 400,
+                height: 400,
+                spoiler: false,
+                file_deleted: deleted,
+                tim: 123,
+                md5: None,
+                thumbnail_width: None,
+                thumbnail_height: None,
+                output_format: board_store::media_assets::MediaFormat::Png,
+                has_replay: stored,
+            });
+            let search = crate::catalog::search_post_text(&post, &fixture.board);
+            assert_eq!(search.contains("Replay: View"), expected);
+            let view = PostView {
+                post,
+                lines: Vec::new(),
+                now: String::new(),
+            };
+            let drawing = view.drawing_annotation();
+            assert_eq!(drawing.unwrap().replay_tim, expected.then_some(123));
+            let html = Comment {
+                lines: &[],
+                board: "i",
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
+                drawing,
+            }
+            .render()
+            .unwrap();
+            assert_eq!(
+                html.contains(
+                    "Replay: <a href=\"#replay-123\" data-drawing-replay=\"123\">View</a>"
+                ),
+                expected
+            );
+            assert!(!html.contains("javascript:"));
         }
     }
 

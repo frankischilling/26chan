@@ -1,6 +1,6 @@
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { cancelQuickReplyUpload, checkQuickReplyUpload, commentLengthWarning, quoteInsertion, sendQuickReply,
-  uploadQuickReplyFile } from './native-quick-reply-transport.js';
+  uploadQuickReplyFile, uploadDrawingFile } from './native-quick-reply-transport.js';
 import { mountNativePostForm } from './native-post-form.js';
 import { quickReplyPosition } from './native-quick-reply-position.js';
 import { restorePostPreferences, mountBoardFlagPreference } from './native-post-preferences.js';
@@ -306,7 +306,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     if (!drawing || !form || !uploadInput) return;
     form.querySelector('#qr-painter-ctrl')?.remove();
     qrDrawing = drawing.mountQuickReply({ form, fileInput: uploadInput, target: () => current,
-      prepare: () => cancelInlineUpload(), accept: file => selectUpload(file, true), clear: () => cancelInlineUpload(),
+      prepare: () => cancelInlineUpload(), accept: (file, replay) => selectUpload(file, true, replay), clear: () => cancelInlineUpload(),
       approved: () => uploadReceipt?.state === 'approved' && !uploadBusy,
       changed: () => { cancelAuto(); sync(); }, canOpen: () => !busy && !uploadBusy && !closed(current) && !disabled(),
     });
@@ -337,7 +337,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     const fields = Object.fromEntries(new FormData(form));
     // Source attaches the import post and elapsed time only to the QR drawing
     // that produced the approved upload, not a replacement file or old draft.
-    if (board === 'i' && drawing?.editAllowed && uploadOwned) Object.assign(fields, qrDrawing?.annotation() ?? {});
+    if (board === 'i' && drawing && uploadOwned) Object.assign(fields, qrDrawing?.annotation() ?? {});
     postingAttachment = typeof fields.upload_id === 'string' && fields.upload_id.length > 0;
     renderUpload();
     try {
@@ -424,7 +424,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       message(failure instanceof Error ? failure.message : 'Upload could not be canceled. Try again.', 'upload'); renderUpload(); return false;
     }
   }
-  async function selectUpload(file, fromDrawing = false) {
+  async function selectUpload(file, fromDrawing = false, replay = null) {
     if (busy) return;
     if (disabled()) { close(); return; }
     if (!dialog || !postId(current)) return;
@@ -442,7 +442,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     const active = ++uploadEpoch, id = current; uploadName = file.name; uploadPhase = 'uploading'; uploadCanCheck = false; uploadPolls = 0;
     removeInlineCapability(); uploadController = new AbortController(); uploadBusy = true; message(''); renderUpload();
     try {
-      const receipt = await uploadQuickReplyFile({ board, thread: id, file, signal: uploadController.signal });
+      const receipt = await (fromDrawing && replay !== null ? uploadDrawingFile : uploadQuickReplyFile)({ board, thread: id, file, ...(fromDrawing ? { replay } : {}), signal: uploadController.signal });
       if (active !== uploadEpoch || !dialog || current !== id) {
         void cancelQuickReplyUpload({ board, thread: id, receipt, keepalive: true }).catch(() => {}); return;
       }

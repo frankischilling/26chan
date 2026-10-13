@@ -9,7 +9,7 @@ const clear = /  function clearAttachment\(\) \{\n[^]*?\n  \}/.exec(source)?.[0]
 const cancelListener = source.split('\n').find(line => line.includes("uploadCancel.addEventListener('click'"));
 const shiftListener = source.split('\n').find(line => line.includes("uploadInput.addEventListener('click'"));
 
-test('/i/ edit-only mounting requires its literal server flag and installs no ordinary Draw posting hooks', () => {
+test('/i/ edit-only mounting stays separate from explicit ordinary Draw enrollment', () => {
   const originalDocument = globalThis.document, originalWindow = globalThis.window;
   const events = { source: [], upload: [], file: [], window: [] };
   const makeControl = (key, tag = 'input') => ({ key, tag, value: '400', dataset: {}, style: {}, disabled: false,
@@ -44,8 +44,6 @@ test('/i/ edit-only mounting requires its literal server flag and installs no or
       assert.equal(mountNativeDrawing({ board, source: createSource({ drawingEditAllowed: 'true' }), uploadForm }), null,
         `${board} cannot mount an editor with only the /i/ Edit flag`);
     }
-    assert.equal(mountNativeDrawing({ board: 'i', source: createSource({ drawingAllowed: 'true' }), uploadForm }), null,
-      '/i/ ordinary Draw must remain disabled even if drawingAllowed is accidentally set');
     const edit = mountNativeDrawing({ board: 'i', source: createSource({ drawingEditAllowed: 'true' }), uploadForm });
     assert.ok(edit?.editAllowed);
     assert.deepEqual(events.source, [], 'no ordinary form submit/reset hooks');
@@ -64,10 +62,10 @@ test('/i/ edit-only mounting requires its literal server flag and installs no or
       'edit-only QR removes the ordinary Size and dimensions separator text');
     controller.dispose();
 
-    for (const board of ['qst', 'vip']) {
+    for (const board of ['i', 'qst', 'vip']) {
       const ordinary = mountNativeDrawing({ board, source: createSource({ drawingAllowed: 'true', drawingEditAllowed: 'true' }), uploadForm });
       assert.ok(ordinary, `${board} retains ordinary Draw`);
-      assert.equal(ordinary.editAllowed, false, `${board} never gains post Edit`);
+      assert.equal(ordinary.editAllowed, board === 'i', `${board} preserves the source post Edit scope`);
     }
     assert.ok(events.source.includes('submit') && events.source.includes('reset'));
     assert.ok(events.upload.includes('submit') && events.file.includes('change'));
@@ -90,7 +88,7 @@ test('edit-only QR controls keep source metadata across Done/Edit and clear it o
   const fileInput = { style: {}, disabled: false, value: '' }, group = {
     hidden: false, querySelector: selector => fields.get(selector),
   };
-  const context = { painter: { active: () => false, invalidate() {}, retained: () => false,
+  const context = { recordEnabled: false, painter: { active: () => false, invalidate() {}, retained: () => false,
     open(owner) { client = owner; }, importFromPost(owner, image) {
       client = owner;
       if (image.id === 'bad') { owner.loading(true); owner.error('Image could not be loaded'); owner.loading(false); return Promise.resolve(false); }
@@ -205,6 +203,7 @@ test('QR file picker combines drawing load/export with upload, status, cancel, a
   buttons.get('[data-drawing-height]').value = '400';
   const fileInput = { style: {}, disabled: false, value: '' };
   const context = {
+    recordEnabled: false,
     painter: { active: () => false, retained: () => false, invalidate() {},
       open(client) { context.editorClient = client; client.loading(true); } },
     drawing: null, qrDrawing: null,

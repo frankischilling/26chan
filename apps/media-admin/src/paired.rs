@@ -111,7 +111,7 @@ fn descriptor(lease: &PairedCandidateLease) -> PublicationResult<PairedInputDesc
     })
 }
 
-fn sha256(value: &str) -> PublicationResult<[u8; 32]> {
+pub(crate) fn sha256(value: &str) -> PublicationResult<[u8; 32]> {
     if value.len() != 64
         || !value
             .bytes()
@@ -125,7 +125,9 @@ fn sha256(value: &str) -> PublicationResult<[u8; 32]> {
     }
     Ok(digest)
 }
-fn png_provenance(snapshot: &PairedInputSnapshot) -> PublicationResult<SourceProvenance> {
+pub(crate) fn png_provenance(
+    snapshot: &PairedInputSnapshot,
+) -> PublicationResult<SourceProvenance> {
     let cap = paired::MAX_PNG_INPUT_BYTES as usize;
     let digest = png_source_processed_digest(
         snapshot.image_bytes(),

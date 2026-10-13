@@ -698,6 +698,7 @@ pub(crate) mod tests {
             thumbnail_width: Some(32),
             thumbnail_height: Some(24),
             output_format: board_store::media_assets::MediaFormat::Png,
+            has_replay: false,
         }
     }
 

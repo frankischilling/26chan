@@ -762,3 +762,19 @@ test('autoarchive-sized full and tail snapshots retain every reply', () => {
   assert.equal(parse(tail).status, 'ok');
   assert.equal(parse(rangedSnapshot(1501, 0, false)).status, 'invalid-snapshot');
 });
+
+
+test('approved replay controls survive snapshots only as exact inert View anchors', () => {
+  const link='<a href="#replay-123" data-drawing-replay="123">View</a>';
+  const value=snapshot(`Drawing<br><br><small><b>Oekaki Post</b> (Time: 5s, Replay: ${link})</small>`);
+  assert.equal(parse(value).status,'ok');
+  const no=value.posts[1].no;
+  assert.equal(parseQuotePreviewSnapshot(JSON.stringify({version:1,board:context.board,thread:context.thread,post:value.posts[1]}),{...context,post:no}).status,'ok');
+  assert.equal(parseBoardPageSnapshot(JSON.stringify(annotationPage(value.posts)),{...context,page:0}).status,'ok');
+  for(const bad of [link.replace('123">','124">'), link.replace('#replay-123','https://other.example/'),
+    link.replace('>View<','><b>View</b><'),link.replace('>View<','>Download<'),link.replace('href=', 'onclick="bad()" href='),
+    link.replaceAll('123','9007199254740992'), link.replace('data-drawing-replay="123"','data-drawing-replay="01"')]) {
+    assert.notEqual(parse(snapshot(bad)).status,'ok');
+  }
+  assert.equal(parse(value,{...context,mediaOrigin:''}).status,'ok', 'The fragment grants no fetching authority without a mounted player');
+});
