@@ -36,6 +36,7 @@ pub fn run() -> io::Result<()> {
                 "-dBATCH",
                 "-dPDFSTOPONERROR",
                 "-dPDFSTOPONWARNING",
+                "-sICCProfilesDir=/usr/share/color/icc/ghostscript/",
             ])
             .args(device)
             .env_clear()

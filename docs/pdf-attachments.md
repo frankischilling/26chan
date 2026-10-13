@@ -71,8 +71,9 @@ image in addition to the baseline image worker's 128 MiB. Qualification at
 The rootfs keeps the kernel's default tmpfs quota; switching to ramfs did not
 resolve the boot-time memory shortage and is not used. The worker cannot write
 the root, and its temporary files use a separate 16 MiB tmpfs.
-The host cgroup remains capped at 256 MiB with no swap; the worker's 96 MiB
-address-space limit, artifact caps, CPU quota and deadlines are unchanged.
+The host cgroup remains capped at 256 MiB with its existing swap policy
+(zero swap on cgroup v2; a combined memory/swap cap on v1). The worker's
+96 MiB address-space limit, artifact caps, CPU quota and deadlines are unchanged.
 PNG, drawing and GIF guests still use 128 MiB. The
 image contains no host credentials, user font configuration or font caches.
 
@@ -87,7 +88,10 @@ The manifest is reviewed repository data; runtime packaging performs no download
 
 
 Ghostscript receives the snapshot on stdin, a cleared environment and fixed
-arguments. No upload supplies a command, output pathname or renderer option.
+arguments, including a fixed ICC profile directory pointing at the pinned color
+resources. This avoids depending on the host package's directory symlink.
+[Ghostscript documents this search-directory option](https://ghostscript.readthedocs.io/en/gs10.02.0/GhostscriptColorManagement.html).
+No upload supplies a command, output pathname or renderer option.
 The whole-document check and first-page renderer share a six-second deadline.
 The guest's process limits, no-network VM and broker deadline remain in force.
 PDF spooling uses a private 16 MiB tmpfs. Password-protected files and documents

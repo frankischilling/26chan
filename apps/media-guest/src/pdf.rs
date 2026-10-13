@@ -52,6 +52,7 @@ fn run(input: &[u8], device: &[&str], maximum: usize, deadline: Instant) -> io::
             "-dBATCH",
             "-dPDFSTOPONERROR",
             "-dPDFSTOPONWARNING",
+            "-sICCProfilesDir=/usr/share/color/icc/ghostscript/",
         ])
         .args(device)
         .arg("-")
