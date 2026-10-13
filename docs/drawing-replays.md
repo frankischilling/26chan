@@ -53,15 +53,16 @@ unapproved recordings cannot be fetched. Raw TGKR uploads are never served.
 
 ## Verification status
 
-The existing 41 native browser checks and 64 source-renderer/worker-session
-comparisons passed at commit `7d846d53dece51821b10af7bfb8c96d1b5cc29dc` in
-[run 38347375915](https://github.com/frankischilling/26chan/actions/runs/38347375915).
+The existing 41 native browser checks and 66 source-renderer, worker-session
+and player checks passed at commit `d10c5f7c141f90197174b0c4611260ea6749fbee` in
+[run 38349796710](https://github.com/frankischilling/26chan/actions/runs/38349796710).
 The release-bundle checks caught a constructor-name minification error; the
 build now preserves the names used by Tegaki's event table.
 
-The newer public controls, CSP, annotation and complete drawing-post paths
-still need final hosted qualification. Local focused PostgreSQL, intake,
-delivery and mTLS fixture tests passed before those UI changes. The local
+The complete drawing-post path and real-guest publication extension still need
+final hosted qualification. Local focused PostgreSQL, intake, delivery,
+annotation and mTLS fixture tests passed. The new real-guest coordinator cases
+compile and pass strict Clippy; that does not establish guest runtime success. The local
 sandbox cannot create the Unix socket used by one public transport test;
 that test remains enabled in hosted CI. No merge or issue closure is implied
 by these intermediate results.

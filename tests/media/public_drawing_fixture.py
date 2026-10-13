@@ -63,16 +63,19 @@ class PublicDrawingUpload(PublicUpload):
         assert target == ('0' if self.mode == 'ordinary' else owner_thread)
         ownership = self._ownership_sql(owner_thread)
         witness = self.input_witness(job)
+        drawing = self.mode == 'image-edit' and not self.approved
+        input_kind = 'paired-v2' if drawing else 'image-v1'
         # There is no job-to-board or job-to-actor relation in the schema.
         # These are separate witnesses: owner thread, receipt, and this run's
         # private intake input. Never infer ownership from filename alone.
         assert sql(f"""SELECT ({ownership}) AND EXISTS (SELECT 1 FROM media.jobs j
             JOIN media_intake.handles h ON h.job_id=j.id WHERE j.id='{job}' AND j.filename='tegaki.png'
             AND j.state='queued' AND j.lease_token IS NULL AND j.attempts=0 AND j.input_bytes={witness[2]}
+            AND j.input_kind='{input_kind}' AND j.drawing_publication={'true' if drawing else 'false'}
             AND h.capability_hash=decode('{capability_hash}','hex')) AND NOT EXISTS
             (SELECT 1 FROM content.post_media WHERE job_id='{job}');""") == 't'
         self.receipts[job] = dict(marker=marker, target=target, owner_thread=owner_thread,
-                                  capability_hash=capability_hash, input=witness, revoked=False)
+                                  capability_hash=capability_hash, input=witness, drawing=drawing, revoked=False)
         self.f.ids.append(job)
 
     def _receipt(self, marker, job):
@@ -134,6 +137,7 @@ class PublicDrawingUpload(PublicUpload):
         receipt = self._receipt(marker, job)
         assert job not in [item[0] for item in self.approved]
         source = self.approval_source_sql(receipt)
+        input_kind = 'paired-v2' if receipt['drawing'] else 'image-v1'
         assert self.input_witness(job) == receipt['input']
         ownership = self._ownership_sql(receipt['owner_thread'])
         # Reservations take this existing singleton lock. Holding it through
@@ -146,8 +150,13 @@ class PublicDrawingUpload(PublicUpload):
                 JOIN media_intake.handles h ON h.job_id=j.id WHERE j.id='{job}' AND j.state='queued'
                 AND j.lease_token IS NULL AND j.attempts=0 AND j.filename='tegaki.png'
                 AND j.input_bytes={receipt['input'][2]} AND j.expires_at>clock_timestamp()
+                AND j.input_kind='{input_kind}'
+                AND j.drawing_publication={'true' if receipt['drawing'] else 'false'}
                 AND h.capability_hash=decode('{receipt['capability_hash']}','hex'));""") == 't'
-            dispatch = self.f.dispatch()
+            dispatch = (self.f.launch([self.f.bin / 'media-publish', 'dispatch-drawing',
+                                       self.f.private / 'client.json', self.f.private / 'objects'],
+                                      self.f.coordinator, self.f.writer)
+                        if receipt['drawing'] else self.f.dispatch())
             try:
                 asset = self.f.finish(dispatch).decode().strip()
                 assert HEX.fullmatch(asset)
@@ -304,6 +313,7 @@ class PublicDrawingUpload(PublicUpload):
         for _, asset in self.approved:
             assert not (self.f.objects / f'{asset}.png').exists()
             assert not (self.f.objects / f'{asset}.thumb.png').exists()
+            assert not (self.f.objects / f'{asset}.replay.ibr').exists()
             assert sql(f"SELECT NOT EXISTS (SELECT 1 FROM media.assets WHERE id='{asset}');") == 't'
         # Record retirement only after the real reconciler removed both outputs
         # and approval metadata for every already-verified owned attachment.

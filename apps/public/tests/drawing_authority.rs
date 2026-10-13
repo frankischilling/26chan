@@ -101,8 +101,11 @@ fn controls(html: &str, ordinary: bool, edit: bool) {
         html.contains(&format!("href=\"{STYLE}\"")),
         ordinary || edit
     );
-    assert_eq!(html.contains("<div class=\"painter-ctrl\" hidden>"), edit);
-    if edit {
+    assert_eq!(
+        html.contains("<div class=\"painter-ctrl\" hidden>"),
+        edit && !ordinary
+    );
+    if edit && !ordinary {
         assert!(
             !html.contains("data-type=\"Painter\""),
             "/i/ Edit has no ordinary Draw row"
@@ -142,7 +145,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
         for (label, enabled, replay, text_only, image_limit) in [
             ("supported", true, false, false, 100),
             ("disabled", false, false, false, 100),
-            ("replay unsupported", true, true, false, 100),
+            ("replay enabled", true, true, false, 100),
             ("text only", true, false, true, 100),
             ("no images", true, false, false, 0),
             ("reenabled", true, false, false, 100),
@@ -150,7 +153,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
             sqlx::query("UPDATE content.boards SET oekaki=$2,oekaki_replays=$3,text_only=$4,image_limit=$5 WHERE slug=$1")
                 .bind(slug).bind(enabled).bind(replay).bind(text_only).bind(image_limit)
                 .execute(owner).await.unwrap();
-            let admitted = media_enabled && enabled && !replay && !text_only && image_limit > 0;
+            let admitted = media_enabled && enabled && !text_only && image_limit > 0;
             for path in [format!("/{slug}/"), format!("/{slug}/thread/{id}")] {
                 for method in ["GET", "HEAD"] {
                     let (status, headers, html) = request(&web, method, &path).await;
@@ -338,7 +341,7 @@ async fn source_i_edit_requires_a_live_thread_and_media_in_the_real_renderer_and
             let images = authority(&headers, true);
             assert!(images.contains(MEDIA_ORIGIN), "enabled media origin is exact");
             if method == "GET" {
-                controls(&html, false, true);
+                controls(&html, true, true);
                 assert!(html.contains("data-drawing-width=\"400\""));
                 assert!(html.contains("data-drawing-height=\"400\""));
                 assert!(html.contains("class=\"postEditor\""));
@@ -366,9 +369,10 @@ async fn source_i_edit_requires_a_live_thread_and_media_in_the_real_renderer_and
             for method in ["GET", "HEAD"] {
                 let (status, headers, html) = request(app, method, &path).await;
                 assert_eq!(status, expected, "{method} {path}");
-                authority(&headers, false);
+                let ordinary = path == "/i/";
+                authority(&headers, ordinary);
                 if method == "GET" {
-                    controls(&html, false, false);
+                    controls(&html, ordinary, false);
                 } else {
                     assert!(html.is_empty(), "HEAD {path}");
                 }

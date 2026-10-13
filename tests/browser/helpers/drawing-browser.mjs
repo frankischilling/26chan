@@ -24,7 +24,7 @@ export async function canvasProof(page) {
   }, tegakiModule);
 }
 
-export async function pointerDrawing(page) {
+export async function pointerDrawing(page, { replay = false } = {}) {
   await expect(page.locator('#tegaki-cursor-layer')).toBeVisible();
   const before = await canvasProof(page); assert.equal(before.version, '0.9.4'); assert.equal(before.ink, 0);
   // Use trusted mouse-generated pointer events on Tegaki's real stroke target.
@@ -36,7 +36,7 @@ export async function pointerDrawing(page) {
   await page.mouse.move(target.x + 100, target.y + 225); await page.mouse.down();
   await page.mouse.move(target.x + 260, target.y + 270, { steps: 35 }); await page.mouse.up();
   const proof = await canvasProof(page);
-  assert.equal(proof.width, 400); assert.equal(proof.height, 400); assert.equal(proof.replay, false);
+  assert.equal(proof.width, 400); assert.equal(proof.height, 400); assert.equal(proof.replay, replay);
   assert.ok(proof.ink > 100, 'actual pointer strokes must export more than a blank canvas');
   assert.ok(proof.white > 10000, 'the white background remains visible'); assert.notEqual(proof.hash, before.hash);
   return proof;

@@ -48,6 +48,14 @@ class PairedVmControls(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             check_coordinator_completion(1, success)
 
+    def test_coordinator_diagnostic_never_publishes_captured_content(self):
+        from test_paired_dispatch_vm import check_coordinator_completion
+        error = b"private credentials\nthread panicked at apps/media-admin/tests/paired_vm.rs:407:9:\nprivate error text"
+        with self.assertRaisesRegex(RuntimeError, r"^actual paired coordinator qualification failed at paired_vm.rs:407:9$"):
+            check_coordinator_completion(1, b'private output', error)
+        with self.assertRaisesRegex(RuntimeError, r"^actual paired coordinator qualification failed$"):
+            check_coordinator_completion(1, b'private output', b'private error text')
+
     def test_direct_entries_require_explicit_development_and_opt_in(self):
         import test_paired_vm as vm
         import test_paired_dispatch_vm as dispatch

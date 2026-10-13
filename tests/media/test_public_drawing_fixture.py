@@ -42,7 +42,7 @@ class PublicDrawingFixtureTest(unittest.TestCase):
           CREATE TABLE content.boards(slug TEXT,title TEXT,description TEXT,oekaki BOOLEAN,oekaki_replays BOOLEAN,oekaki_width INT,oekaki_height INT,staff_only BOOLEAN);
           CREATE TABLE content.posts(id INT,board TEXT,thread_id INT,deleted BOOLEAN,comment TEXT);
           CREATE TABLE post_secrets.posting_history(post_id INT,board TEXT,thread_id INT,actor_hash BLOB);
-          CREATE TABLE media.jobs(id TEXT,filename TEXT,state TEXT,lease_token TEXT,attempts INT,input_bytes INT);
+          CREATE TABLE media.jobs(id TEXT,filename TEXT,state TEXT,lease_token TEXT,attempts INT,input_bytes INT,input_kind TEXT,drawing_publication BOOLEAN);
           CREATE TABLE media_intake.handles(job_id TEXT,capability_hash BLOB);
           CREATE TABLE content.post_media(post_id INT,job_id TEXT,asset_id TEXT,width INT,height INT,file_deleted BOOLEAN);
           CREATE TABLE media.assets(id TEXT,job_id TEXT,state TEXT,output_format TEXT);
@@ -56,7 +56,10 @@ class PublicDrawingFixtureTest(unittest.TestCase):
         return value, db
 
     def input(self, fixture, db, job='a' * 32, file=True, state='queued', size=40):
-        db.execute('INSERT INTO media.jobs VALUES (?,?,?,?,?,?)', (job, 'tegaki.png', state, None, 0, size))
+        drawing = fixture.mode == 'image-edit' and not fixture.approved
+        db.execute('INSERT INTO media.jobs VALUES (?,?,?,?,?,?,?,?)',
+                   (job, 'tegaki.png', state, None, 0, size,
+                    'paired-v2' if drawing else 'image-v1', drawing))
         db.execute('INSERT INTO media_intake.handles VALUES (?,?)', (job, bytes.fromhex('b' * 64)))
         if file:
             path = fixture.f.quarantine / (job + '.input')
@@ -307,6 +310,21 @@ class PublicDrawingFixtureTest(unittest.TestCase):
         with mock.patch('public_drawing_fixture.sql') as sql, self.assertRaises(AssertionError):
             fixture.approve_receipt(fixture.marker, job)
         sql.assert_not_called()
+
+    def test_recorded_seed_requires_explicit_drawing_enrollment(self):
+        for mode, mutation in (
+            ('image-edit', "UPDATE media.jobs SET drawing_publication=false"),
+            ('image-edit', "UPDATE media.jobs SET input_kind='image-v1'"),
+            ('ordinary', "UPDATE media.jobs SET drawing_publication=true"),
+            ('ordinary', "UPDATE media.jobs SET input_kind='paired-v2'"),
+        ):
+            with self.subTest(mode=mode, mutation=mutation):
+                fixture, db = self.fixture(mode)
+                self.input(fixture, db)
+                db.execute(mutation)
+                with self.assertRaises(AssertionError):
+                    self.register(fixture, db)
+                self.assertEqual(fixture.f.ids, [])
 
     def test_unregistered_foreign_job_cannot_reach_cleanup_or_dispatch(self):
         fixture, db = self.fixture()
