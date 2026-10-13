@@ -159,6 +159,9 @@ def check_coordinator_completion(returncode, output, error=b''):
         # Publish only a bounded source location, never captured process output.
         location = re.search(rb'panicked at apps/media-admin/tests/paired_vm\.rs:([0-9]{1,5}):([0-9]{1,4})', error)
         suffix = (' at paired_vm.rs:' + location.group(1).decode() + ':' + location.group(2).decode()) if location else ''
+        stage = re.search(rb'^DRAWING_VM_FAILURE=(enrolled-(?:png|empty|commands|invalid-replay)):(processing|database|storage|other)$', output, re.MULTILINE)
+        if stage:
+            suffix += ' (' + stage.group(1).decode() + ': ' + stage.group(2).decode() + ')'
         raise RuntimeError('actual paired coordinator qualification failed' + suffix)
     summaries = re.findall(rb'^test result: [^\r\n]+', output, re.MULTILINE)
     if len(summaries) != 1 or not re.fullmatch(

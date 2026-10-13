@@ -403,6 +403,20 @@ async fn exercise_drawings(
         assert!(queue.claim().await.unwrap().is_none());
         assert!(queue.claim_paired_candidate().await.unwrap().is_none());
         let result = board_media_admin::drawing::dispatch(queue, quarantine, &store, client).await;
+        if let Err(error) = &result {
+            // Fixed diagnostic vocabulary only: never expose source bytes,
+            // capabilities, database messages or paths from a failed dispatch.
+            let kind = if error.to_string() == "drawing input or isolated output rejected" {
+                "processing"
+            } else if error.downcast_ref::<sqlx::Error>().is_some() {
+                "database"
+            } else if error.downcast_ref::<board_media::MediaError>().is_some() {
+                "storage"
+            } else {
+                "other"
+            };
+            println!("DRAWING_VM_FAILURE={name}:{kind}");
+        }
         assert_eq!(result.is_ok(), succeeds, "drawing case {name}");
         if let Ok(asset) = result {
             assert_eq!((asset.width, asset.height), (640, 480));

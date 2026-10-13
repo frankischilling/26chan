@@ -55,6 +55,13 @@ class PairedVmControls(unittest.TestCase):
             check_coordinator_completion(1, b'private output', error)
         with self.assertRaisesRegex(RuntimeError, r"^actual paired coordinator qualification failed$"):
             check_coordinator_completion(1, b'private output', b'private error text')
+        with self.assertRaisesRegex(RuntimeError, r"^actual paired coordinator qualification failed \(enrolled-png: database\)$"):
+            check_coordinator_completion(1, b'private output\nDRAWING_VM_FAILURE=enrolled-png:database\nprivate output')
+        for marker in (b'DRAWING_VM_FAILURE=private:database',
+                       b'DRAWING_VM_FAILURE=enrolled-png:private',
+                       b'DRAWING_VM_FAILURE=enrolled-png:database private'):
+            with self.assertRaisesRegex(RuntimeError, r"^actual paired coordinator qualification failed$"):
+                check_coordinator_completion(1, marker)
 
     def test_direct_entries_require_explicit_development_and_opt_in(self):
         import test_paired_vm as vm
