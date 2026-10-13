@@ -1,0 +1,1837 @@
+{
+  "provenance": "Archives retrieved from Ubuntu over HTTPS. Archive SHA-256 values matched the noble and noble-updates package indexes. Resource sizes and SHA-256 values were measured from regular archive members without installing or executing them. Package symlink aliases bind their archive paths to the pinned target file bytes.",
+  "indexes": [
+    "https://archive.ubuntu.com/ubuntu/dists/noble/main/binary-amd64/Packages.xz",
+    "https://archive.ubuntu.com/ubuntu/dists/noble-updates/main/binary-amd64/Packages.xz"
+  ],
+  "packages": {
+    "fonts-droid-fallback": {
+      "version": "1:6.0.1r16-1.1build1",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/f/fonts-android/fonts-droid-fallback_6.0.1r16-1.1build1_all.deb",
+      "sha256": "353e093dd32677e48edbdc9c94c4e92db0e80763fc326ddec1ba8281d8553a5e"
+    },
+    "fonts-urw-base35": {
+      "version": "20200910-8",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/f/fonts-urw-base35/fonts-urw-base35_20200910-8_all.deb",
+      "sha256": "46e75490faa7fd6fddbc8df234d14e0f7b60ea5e98563227a24d6bf5e5008647"
+    },
+    "libgs-common": {
+      "version": "10.02.1~dfsg1-0ubuntu7.9",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/g/ghostscript/libgs-common_10.02.1~dfsg1-0ubuntu7.9_all.deb",
+      "sha256": "c45d0534100c2f74435a21560cc5eff6a6c26bc2757d26be8912d2c0d372f12a"
+    },
+    "libgs10-common": {
+      "version": "10.02.1~dfsg1-0ubuntu7.9",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/g/ghostscript/libgs10-common_10.02.1~dfsg1-0ubuntu7.9_all.deb",
+      "sha256": "26d4f70b2ce6c1aceb745c0931e4d9d1b39bd5a089aa2893bf756be833d53792"
+    }
+  },
+  "files": {
+    "/usr/share/color/icc/ghostscript/a98.icc": {
+      "size": 564,
+      "sha256": "c0995b8b196223f1c029c013b04d0ee11bce3d3dd8a23f814cac73e50ac0719a",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/default_cmyk.icc": {
+      "size": 187484,
+      "sha256": "8472fa1493a024b800b67dee9424835ec0c41ab79490200ae8ec4a689fd1b9a9",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/default_gray.icc": {
+      "size": 2460,
+      "sha256": "d3aaaa8ad45ec8a0108fd393a07488073ee24561fd5ed2d1f88c59771278cabd",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/default_rgb.icc": {
+      "size": 2576,
+      "sha256": "eddaf344b5edea13269e0d20055f335610e5e0b6e33e6e536f2701bc18c5f7d5",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/esrgb.icc": {
+      "size": 12840,
+      "sha256": "4e09b5549edaff8a229e385306215991481b7d70f02d3ed891cfcd78f196e359",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/gray_to_k.icc": {
+      "size": 5340,
+      "sha256": "8f122dead5f0b823d92575ef131e706f20df34f2b4fe13547c77acdd9d334252",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/lab.icc": {
+      "size": 1972,
+      "sha256": "ba46e78e9723a02b36ec823c8df90ac3f2e9272a52980c6f5ad403068609286f",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/ps_cmyk.icc": {
+      "size": 5340,
+      "sha256": "020236a6458406743848a12c6be280e54bcd0fd8e2d4bea9c4899410cef98cb2",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/ps_gray.icc": {
+      "size": 416,
+      "sha256": "184719ed5960bc9350022c724e3c35be20569fc3b15be3e41cd42d219d4672a2",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/ps_rgb.icc": {
+      "size": 564,
+      "sha256": "2f83ca112acedf317291315a14e856556e7e36594c601c639a6cae751d491d5f",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/rommrgb.icc": {
+      "size": 564,
+      "sha256": "52f5eade48da10b9ddfe132e6f30ac111b8764acb1228b7a8c5a4033cc6ff072",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/scrgb.icc": {
+      "size": 552,
+      "sha256": "c338c5e2fb5cf9baa2d4bb79325a54337de7c6ae8dabc4ca79aa42d8341d8172",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/sgray.icc": {
+      "size": 416,
+      "sha256": "0976fe7bc0f118a47c89747cb707c6f76044b48baf670dad811d0514bc2c4214",
+      "package": "libgs-common"
+    },
+    "/usr/share/color/icc/ghostscript/srgb.icc": {
+      "size": 2576,
+      "sha256": "eddaf344b5edea13269e0d20055f335610e5e0b6e33e6e536f2701bc18c5f7d5",
+      "package": "libgs-common"
+    },
+    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf": {
+      "size": 4033420,
+      "sha256": "acb6440a713d880a13a21b468ba7cd43f5a2b2934972e51be791c880730777b8",
+      "package": "fonts-droid-fallback"
+    },
+    "/usr/share/fonts/type1/urw-base35/C059-BdIta.afm": {
+      "size": 115241,
+      "sha256": "dd1681081a8df343257de7830a5058ed2d0461f80b29e6c1ee5afae8557585e2",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/C059-BdIta.t1": {
+      "size": 152585,
+      "sha256": "f7aafd96bbb8ef07792d33302fb4905bfe7a47888b08782d95f6f1b8a388f5ee",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/C059-Bold.afm": {
+      "size": 114368,
+      "sha256": "47d2f35bc59778cace585cb7f0a6f236900a1ed525f29aa5fb0bdf5c102039cb",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/C059-Bold.t1": {
+      "size": 146014,
+      "sha256": "78110e7b34a1e89c86f010ae1fb87d3cffba73bbd557374bd16dfd41bdc3c60f",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/C059-Italic.afm": {
+      "size": 115058,
+      "sha256": "c80ccf7936de97f2bb19f215d59fa937337c751cf1d8b01f8c80a1d51a837064",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/C059-Italic.t1": {
+      "size": 148928,
+      "sha256": "304c523c14d49e90733a73c301055377a0176d4b5b087b6fd2ef74d723348fe2",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/C059-Roman.afm": {
+      "size": 114648,
+      "sha256": "9047996ab64eb8b14286917fc7a22aed11cc2eae0fc97868ea32bb95121371d1",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/C059-Roman.t1": {
+      "size": 145084,
+      "sha256": "be8224624a91fc315b66bbf640e18ebddc79076937bdb3bbb5b96aaf90ec84c5",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/D050000L.afm": {
+      "size": 9340,
+      "sha256": "74dc56c84ed90216f0ebc4ab80fbff2d7863512ec8187b19889cbbd81b1d6de9",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/D050000L.t1": {
+      "size": 43343,
+      "sha256": "51cc2fe0953718f9fc93e0de7853a700557cc8d0cd58089c9a2d531d06c8fa4b",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Bold.afm": {
+      "size": 40690,
+      "sha256": "1d9f9ad40ac1763eaecacdd8c7ca091fae54e6f0418146b0d5d5441c19598dfe",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Bold.t1": {
+      "size": 155992,
+      "sha256": "63e2c80d0e6983c68dd986f7044944e9f58463f8bb118c21fb4372c298906b18",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-BoldItalic.afm": {
+      "size": 40868,
+      "sha256": "212fcf75b839ecb1ba75c260d8373cc21a45ea9b3ea0c4e593b45d954bab75d7",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-BoldItalic.t1": {
+      "size": 154177,
+      "sha256": "f9006fd0749c906fe51a570bb246883e0af127eff2ca13cdbd250db3e5a1cec9",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Italic.afm": {
+      "size": 40869,
+      "sha256": "db7ef8596964939991612bdc764aa79bd66f9f01c60da020ca24aaf4fae5960e",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Italic.t1": {
+      "size": 142983,
+      "sha256": "0db4cd31b146794a931de48ca15f8bad3252ad744deb651a582f75af4c7ae8df",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Regular.afm": {
+      "size": 40724,
+      "sha256": "9e924a1613db3c20837f308af9595c96c27ee1be1c2054d4140dddd4ab9df59d",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Regular.t1": {
+      "size": 140353,
+      "sha256": "b1c0f23ba9732ee495ea52658684dc36064d3c439ac81b7dfcf922e790e5160f",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusRoman-Bold.afm": {
+      "size": 116920,
+      "sha256": "c0297ae3c7e862f978468af94e0372dc4109ea642e163243f81f9e87161a687c",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusRoman-Bold.t1": {
+      "size": 133004,
+      "sha256": "4d31149fe14fb8fb9f84f8c6171eb90a654b6f7c4db8213a6e501b32e712e290",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusRoman-BoldItalic.afm": {
+      "size": 116379,
+      "sha256": "2c10df752037ab9568492b1981c4132f2e38effff875ed2fd7b8ee816da80756",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusRoman-BoldItalic.t1": {
+      "size": 140953,
+      "sha256": "4a305bcf1950e2db6bb03ed68715a74930d00d630661d6e0c03375b3cc983888",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusRoman-Italic.afm": {
+      "size": 115725,
+      "sha256": "1787d941bf5d085bcfee14a2e635bd41a146c78510a644fbf7362ff8d4948e96",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusRoman-Italic.t1": {
+      "size": 142085,
+      "sha256": "0c5cc5161c325440ed7a9de00869535e8f10f0eeccf1e65dbcd2c387ffbc1eb4",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusRoman-Regular.afm": {
+      "size": 116054,
+      "sha256": "e476212c416039aa9805f20d945e2b3a522be5de15125cb566d257482379ccd9",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusRoman-Regular.t1": {
+      "size": 133527,
+      "sha256": "cd63681b669f41d2b1cc828a6e26eeeee668ae3f9144f6ae2c1bad971fc146f2",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSans-Bold.afm": {
+      "size": 114648,
+      "sha256": "a8ae3eb69d98409b8242c81cc09a2438799b93eb18f5a04b3c43a3ee7ba5fa5c",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSans-Bold.t1": {
+      "size": 107795,
+      "sha256": "ebf5ba685a44a194cc61ba3e34a1bf4718980871e5b72304ba9633411c7d6391",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSans-BoldItalic.afm": {
+      "size": 115601,
+      "sha256": "01b5c9378a4250441ad61f7d44abc1eaaf418a711f9901faa461e3f2fe9f49bc",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSans-BoldItalic.t1": {
+      "size": 123308,
+      "sha256": "73871c05c5c4670d39b690b802aacd5369b9209256ff3abe7db755c276e2deda",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSans-Italic.afm": {
+      "size": 117166,
+      "sha256": "bc7c0b75b03d69cba0112f07e26ab24ed8e853a908334e79613db3a30616d115",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSans-Italic.t1": {
+      "size": 120927,
+      "sha256": "b0527ec015601b5d29eecdb75a982b39fe316d5d53caf45108d712f99debe98e",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSans-Regular.afm": {
+      "size": 116120,
+      "sha256": "ed4ead49b4d090c80c1d4a8d771879153a41af262d331168dd2635508634cfa1",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSans-Regular.t1": {
+      "size": 104001,
+      "sha256": "779a9c820bbe8b470d36e77bcf949eef7bf1b889184274ba0f51da4c8c883cfa",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Bold.afm": {
+      "size": 114214,
+      "sha256": "6852234e3bb5a8e8dec111de0927ddad662e2e0790eb4993e365331afaa99d62",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Bold.t1": {
+      "size": 106239,
+      "sha256": "a383bbf4d6f8887a8ccda9e5ad2d6b2b6353c0620f4a29f49b27d68177d84ee2",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-BoldOblique.afm": {
+      "size": 114642,
+      "sha256": "5ce429eab3d90a8a2d8779225521d62bccc60d0cf4b4a9574a4af950da161463",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-BoldOblique.t1": {
+      "size": 109815,
+      "sha256": "df4df8204bc5ac63dc13162e9a604adadebb779fd524d6f457fec118d530af31",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Oblique.afm": {
+      "size": 115429,
+      "sha256": "5d0d7a262c837e1db95bdc70d1b720f7c75e69c6f5a297e76bcb0d6ca39ac1bc",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Oblique.t1": {
+      "size": 107359,
+      "sha256": "eb92b8ab971fe2b53882b05948127940f23c3003b6f6f3f7bb25d6ed226a652e",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Regular.afm": {
+      "size": 114632,
+      "sha256": "d79f9c81683e7c09397e51f0ef97bb77070ca33bde73c2f5a7b36d9c6bf4accd",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Regular.t1": {
+      "size": 104252,
+      "sha256": "77561ac22852f0c289012e3e8578ff56afe016d3bcae05a33562369cb675127f",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/P052-Bold.afm": {
+      "size": 114349,
+      "sha256": "8c87c2e0e7e40286d2ce00a74ac8cda7a344f51119d1d45776e1637c6ec58280",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/P052-Bold.t1": {
+      "size": 162196,
+      "sha256": "8e56ad1e6b08c6c931d4ff93fa4388abc6ea5be8c6a0ab23d0fdf9a504c1cdba",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/P052-BoldItalic.afm": {
+      "size": 114422,
+      "sha256": "13ae171e34e2e8ea5c91c6dbf1a0b149e08f57d2e257765daebaeed6ca1e13f1",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/P052-BoldItalic.t1": {
+      "size": 163906,
+      "sha256": "557c1aad252d91a3ae4a19acf18277657cb34cd02caead1ea1d686961678cfd8",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/P052-Italic.afm": {
+      "size": 116400,
+      "sha256": "9dcef8af45e3e7fe363ad948a38af58dded75e5a39b7b105d6bd299a0465d17c",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/P052-Italic.t1": {
+      "size": 161531,
+      "sha256": "d384c8219f35cee51693c0ee09247fbf395910f7e6259e0956a90ab5173a8dbf",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/P052-Roman.afm": {
+      "size": 117126,
+      "sha256": "572d6c20bb9a08b65b327a04c7fdf1eaaa738e553b178ae353a1382c88c575d0",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/P052-Roman.t1": {
+      "size": 159843,
+      "sha256": "99a8259f8eaec4604ad8794dc63e67b0d4fe189bdf6acbd1a7047dbe1ef9c86f",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/StandardSymbolsPS.afm": {
+      "size": 9647,
+      "sha256": "f5874fdf1377f6d2d3c99c97996320f380122cfba35b6f963f7b42c4c812868d",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/StandardSymbolsPS.t1": {
+      "size": 31444,
+      "sha256": "b2f78d6ad103708a4483f75087c6ecb71753e9210170c14462b37ef05a3f957a",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWBookman-Demi.afm": {
+      "size": 114660,
+      "sha256": "80a6ec6eb01126e23e79e0d622ed822ad21db84d1b253281bfcb871768f87a10",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWBookman-Demi.t1": {
+      "size": 137163,
+      "sha256": "baee9214653525ad01de0bc326e3c11b7826c51567336619517d50eab313e37b",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWBookman-DemiItalic.afm": {
+      "size": 115611,
+      "sha256": "b9452ebadaf2d48866f25e64998386f220d033d3a993a90632f45f700b486c03",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWBookman-DemiItalic.t1": {
+      "size": 142686,
+      "sha256": "c2877b3b139dec0544fa9b924517ccaa30600a206e89a9b9f89707ee003cbdfe",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWBookman-Light.afm": {
+      "size": 115315,
+      "sha256": "a0babd6f002f1b803ba0c622f98d56107cc942bcdb9fbac6f0e21ea3414c63b8",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWBookman-Light.t1": {
+      "size": 137614,
+      "sha256": "17c7e83cf66537d631a9e0920af9bfa37c8db1a40e29d951869c3562100174ca",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWBookman-LightItalic.afm": {
+      "size": 116761,
+      "sha256": "13a0302ad74c2082d06ebdb11cdb30cf2943eeb835146166a325e14c2c7042db",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWBookman-LightItalic.t1": {
+      "size": 143233,
+      "sha256": "ab7166058aefa485d11109195a0736633c17e5ad2164083492d94418ee0a657e",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWGothic-Book.afm": {
+      "size": 115307,
+      "sha256": "6372963f2bc62765d9b3827418c434d7aa6617fa14cb3a878e97c8bec11fbfae",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWGothic-Book.t1": {
+      "size": 100637,
+      "sha256": "aebc5a18ff50235f0850b3812d86a29d18932c4bb8a097b004b8abafc433a395",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWGothic-BookOblique.afm": {
+      "size": 115233,
+      "sha256": "8e693f815f3b738f8b9fa7d35f15225630107155d2c146a928cf61078b00e395",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWGothic-BookOblique.t1": {
+      "size": 102403,
+      "sha256": "03dd97fc09205d48cfb02cb00e1bb181cb10b1aeadef814ac107de21eb91c0b4",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWGothic-Demi.afm": {
+      "size": 115270,
+      "sha256": "b5f1a65e1505498c144f3d7dac11b0f197f8fd1b812c7f8641af46c40c7771f3",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWGothic-Demi.t1": {
+      "size": 103428,
+      "sha256": "83cb6f17a042dea63345e222593be1a1ccb13ded278482d13f6511cad0768c54",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWGothic-DemiOblique.afm": {
+      "size": 115731,
+      "sha256": "ad6832fd7ae5ac0837ab6796a74b5a3049ca719945490da85ca58d7c18f87faa",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/URWGothic-DemiOblique.t1": {
+      "size": 105110,
+      "sha256": "bcd4c23341a2324459079f8757f6761cfc0c95781d61a4baf4132453ba80a832",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/Z003-MediumItalic.afm": {
+      "size": 114253,
+      "sha256": "b6c1253e5810cbfbf178373a8f2e3bb01f4215662779b3cca38656f4fb13ad50",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/fonts/type1/urw-base35/Z003-MediumItalic.t1": {
+      "size": 166540,
+      "sha256": "84ff513d45b7255ddc1ac0bad4b03b1a0fd055f9093617034b59d333ec77b1b6",
+      "package": "fonts-urw-base35"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/CIDFSubst/DroidSansFallback.ttf": {
+      "size": 4033420,
+      "sha256": "acb6440a713d880a13a21b468ba7cd43f5a2b2934972e51be791c880730777b8",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/CIDFont/ArtifexBullet": {
+      "size": 2587,
+      "sha256": "e81ed8d0b1d3dce08237e6b6d62551ceeb61d3a9d0091ac77341562039513394",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/ColorSpace/DefaultCMYK": {
+      "size": 1225,
+      "sha256": "e742c792ad9d338c799666d0ee85b338d367527338e4aa034f1f0627d96ad356",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/ColorSpace/DefaultGray": {
+      "size": 909,
+      "sha256": "51317d42a7b0896ec6abcb23cc11ecb46ac0b4fd7365ef5f29671f10ae7d3947",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/ColorSpace/DefaultRGB": {
+      "size": 993,
+      "sha256": "141e9d991a8029178cdee61399189c4c015b662d1a3fc452da56c8b3330ef4da",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/ColorSpace/TrivialCMYK": {
+      "size": 1221,
+      "sha256": "5a5305838a49823bfb3fc619c79890c4850831333394677e8405769f22102df3",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/ColorSpace/sGray": {
+      "size": 1112,
+      "sha256": "2c516537a6d611e803d43fd02cb02d4b39ade25183e84ea976556b75224315e3",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/ColorSpace/sRGB": {
+      "size": 1117,
+      "sha256": "a5c7ba0cfba2c1e99304259b48bf357e76e6f5d5656af960b892fc65234e229d",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Decoding/FCO_Dingbats": {
+      "size": 3427,
+      "sha256": "9b07c21dac368125a4e194720beda9701b24aebc0a108a3975bd52e137c792c4",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Decoding/FCO_Symbol": {
+      "size": 4045,
+      "sha256": "858f497de2cef8455b8a5e550fe75a4dada4ede9310198ae59d27917b5ac5cea",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Decoding/FCO_Unicode": {
+      "size": 69850,
+      "sha256": "8f92dad161bff41e7a393044f9b60d77672609c2970b710abc53e0b533607aa9",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Decoding/FCO_Wingdings": {
+      "size": 4892,
+      "sha256": "acbe5fb257f9a7ab2c3c1977696bfa0b206c63a81432edf92475502c0b7de250",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Decoding/Latin1": {
+      "size": 7974,
+      "sha256": "7dc18ea45c692b798287746b24fd93161a57810cc10416dbe17872e37f2f0cf8",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Decoding/StandardEncoding": {
+      "size": 2833,
+      "sha256": "cd51dac500d885baa782811750e1e1b6f9d3db5827d957d71bf065257829dab6",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Decoding/Unicode": {
+      "size": 137525,
+      "sha256": "c52699317d722b6a1f068ffa608a558b4e26c27eb9d33383426b469010fcf1e1",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Encoding/CEEncoding": {
+      "size": 2744,
+      "sha256": "ead534074e19016d346586b4e3be22a78e5c4e24994d868289ec016edce2447a",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Encoding/ExpertEncoding": {
+      "size": 3591,
+      "sha256": "935507249ccd3b11abfdad9b3763144de72012f1f3b05d6e1dd9a043c35885a7",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Encoding/ExpertSubsetEncoding": {
+      "size": 3342,
+      "sha256": "0bc158080773a5b76e1be40dd324d287bc24a032dce2a537a211c0bd5cd833cd",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Encoding/NotDefEncoding": {
+      "size": 701,
+      "sha256": "0557eac69c4fb8769a54c9a67eafec4ccf472d1432ff23c376a17a4c053f7488",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Encoding/Wingdings": {
+      "size": 5753,
+      "sha256": "62138a6459a23013e6581f67cf776478e825116177ef1b0c16d372331baf87cb",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/C059-BdIta": {
+      "size": 152585,
+      "sha256": "f7aafd96bbb8ef07792d33302fb4905bfe7a47888b08782d95f6f1b8a388f5ee",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/C059-BdIta.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/C059-Bold": {
+      "size": 146014,
+      "sha256": "78110e7b34a1e89c86f010ae1fb87d3cffba73bbd557374bd16dfd41bdc3c60f",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/C059-Bold.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/C059-Italic": {
+      "size": 148928,
+      "sha256": "304c523c14d49e90733a73c301055377a0176d4b5b087b6fd2ef74d723348fe2",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/C059-Italic.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/C059-Roman": {
+      "size": 145084,
+      "sha256": "be8224624a91fc315b66bbf640e18ebddc79076937bdb3bbb5b96aaf90ec84c5",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/C059-Roman.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/D050000L": {
+      "size": 43343,
+      "sha256": "51cc2fe0953718f9fc93e0de7853a700557cc8d0cd58089c9a2d531d06c8fa4b",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/D050000L.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusMonoPS-Bold": {
+      "size": 155992,
+      "sha256": "63e2c80d0e6983c68dd986f7044944e9f58463f8bb118c21fb4372c298906b18",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Bold.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusMonoPS-BoldItalic": {
+      "size": 154177,
+      "sha256": "f9006fd0749c906fe51a570bb246883e0af127eff2ca13cdbd250db3e5a1cec9",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-BoldItalic.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusMonoPS-Italic": {
+      "size": 142983,
+      "sha256": "0db4cd31b146794a931de48ca15f8bad3252ad744deb651a582f75af4c7ae8df",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Italic.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusMonoPS-Regular": {
+      "size": 140353,
+      "sha256": "b1c0f23ba9732ee495ea52658684dc36064d3c439ac81b7dfcf922e790e5160f",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Regular.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusRoman-Bold": {
+      "size": 133004,
+      "sha256": "4d31149fe14fb8fb9f84f8c6171eb90a654b6f7c4db8213a6e501b32e712e290",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusRoman-Bold.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusRoman-BoldItalic": {
+      "size": 140953,
+      "sha256": "4a305bcf1950e2db6bb03ed68715a74930d00d630661d6e0c03375b3cc983888",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusRoman-BoldItalic.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusRoman-Italic": {
+      "size": 142085,
+      "sha256": "0c5cc5161c325440ed7a9de00869535e8f10f0eeccf1e65dbcd2c387ffbc1eb4",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusRoman-Italic.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusRoman-Regular": {
+      "size": 133527,
+      "sha256": "cd63681b669f41d2b1cc828a6e26eeeee668ae3f9144f6ae2c1bad971fc146f2",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusRoman-Regular.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusSans-Bold": {
+      "size": 107795,
+      "sha256": "ebf5ba685a44a194cc61ba3e34a1bf4718980871e5b72304ba9633411c7d6391",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusSans-Bold.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusSans-BoldItalic": {
+      "size": 123308,
+      "sha256": "73871c05c5c4670d39b690b802aacd5369b9209256ff3abe7db755c276e2deda",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusSans-BoldItalic.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusSans-Italic": {
+      "size": 120927,
+      "sha256": "b0527ec015601b5d29eecdb75a982b39fe316d5d53caf45108d712f99debe98e",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusSans-Italic.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusSans-Regular": {
+      "size": 104001,
+      "sha256": "779a9c820bbe8b470d36e77bcf949eef7bf1b889184274ba0f51da4c8c883cfa",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusSans-Regular.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusSansNarrow-Bold": {
+      "size": 106239,
+      "sha256": "a383bbf4d6f8887a8ccda9e5ad2d6b2b6353c0620f4a29f49b27d68177d84ee2",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Bold.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusSansNarrow-BoldOblique": {
+      "size": 109815,
+      "sha256": "df4df8204bc5ac63dc13162e9a604adadebb779fd524d6f457fec118d530af31",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-BoldOblique.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusSansNarrow-Oblique": {
+      "size": 107359,
+      "sha256": "eb92b8ab971fe2b53882b05948127940f23c3003b6f6f3f7bb25d6ed226a652e",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Oblique.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/NimbusSansNarrow-Regular": {
+      "size": 104252,
+      "sha256": "77561ac22852f0c289012e3e8578ff56afe016d3bcae05a33562369cb675127f",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Regular.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/P052-Bold": {
+      "size": 162196,
+      "sha256": "8e56ad1e6b08c6c931d4ff93fa4388abc6ea5be8c6a0ab23d0fdf9a504c1cdba",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/P052-Bold.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/P052-BoldItalic": {
+      "size": 163906,
+      "sha256": "557c1aad252d91a3ae4a19acf18277657cb34cd02caead1ea1d686961678cfd8",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/P052-BoldItalic.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/P052-Italic": {
+      "size": 161531,
+      "sha256": "d384c8219f35cee51693c0ee09247fbf395910f7e6259e0956a90ab5173a8dbf",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/P052-Italic.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/P052-Roman": {
+      "size": 159843,
+      "sha256": "99a8259f8eaec4604ad8794dc63e67b0d4fe189bdf6acbd1a7047dbe1ef9c86f",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/P052-Roman.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/StandardSymbolsPS": {
+      "size": 31444,
+      "sha256": "b2f78d6ad103708a4483f75087c6ecb71753e9210170c14462b37ef05a3f957a",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/StandardSymbolsPS.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/URWBookman-Demi": {
+      "size": 137163,
+      "sha256": "baee9214653525ad01de0bc326e3c11b7826c51567336619517d50eab313e37b",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/URWBookman-Demi.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/URWBookman-DemiItalic": {
+      "size": 142686,
+      "sha256": "c2877b3b139dec0544fa9b924517ccaa30600a206e89a9b9f89707ee003cbdfe",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/URWBookman-DemiItalic.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/URWBookman-Light": {
+      "size": 137614,
+      "sha256": "17c7e83cf66537d631a9e0920af9bfa37c8db1a40e29d951869c3562100174ca",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/URWBookman-Light.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/URWBookman-LightItalic": {
+      "size": 143233,
+      "sha256": "ab7166058aefa485d11109195a0736633c17e5ad2164083492d94418ee0a657e",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/URWBookman-LightItalic.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/URWGothic-Book": {
+      "size": 100637,
+      "sha256": "aebc5a18ff50235f0850b3812d86a29d18932c4bb8a097b004b8abafc433a395",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/URWGothic-Book.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/URWGothic-BookOblique": {
+      "size": 102403,
+      "sha256": "03dd97fc09205d48cfb02cb00e1bb181cb10b1aeadef814ac107de21eb91c0b4",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/URWGothic-BookOblique.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/URWGothic-Demi": {
+      "size": 103428,
+      "sha256": "83cb6f17a042dea63345e222593be1a1ccb13ded278482d13f6511cad0768c54",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/URWGothic-Demi.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/URWGothic-DemiOblique": {
+      "size": 105110,
+      "sha256": "bcd4c23341a2324459079f8757f6761cfc0c95781d61a4baf4132453ba80a832",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/URWGothic-DemiOblique.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Font/Z003-MediumItalic": {
+      "size": 166540,
+      "sha256": "84ff513d45b7255ddc1ac0bad4b03b1a0fd055f9093617034b59d333ec77b1b6",
+      "package": "libgs10-common",
+      "target": "/usr/share/fonts/type1/urw-base35/Z003-MediumItalic.t1"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/IdiomSet/PPI_CUtils": {
+      "size": 869,
+      "sha256": "1ba5e08e3d5789d1bd55fa399aec36808855fb4cf0b27e91e223962d06399e9e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/IdiomSet/Pscript5Idiom": {
+      "size": 9392,
+      "sha256": "907b85c6371729ca6052f2f2bc4388a5a37c22d43d095a91112334390b55acf7",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/FAPIcidfmap": {
+      "size": 1483,
+      "sha256": "8dbddadcc1fb0296b0af08872d6f0a6c092dfcc12774ad09a6e2b615f86acfeb",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/FAPIconfig": {
+      "size": 815,
+      "sha256": "8102a09e7cd52cabe7156c2265ff3af442c6e0fd1a40e5193547f3bb953dca45",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/FAPIfontmap": {
+      "size": 1468,
+      "sha256": "a722b43ba6ea2d4c9e3e2209a28f2c8b32f27fab0c749bc1a02f7b4c492d2a57",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/FCOfontmap-PCLPS2": {
+      "size": 2841,
+      "sha256": "ce93ddb0de02a9763254d99f289bf46cca6c9fee836c35104556c3c40ea4651c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/Fontmap": {
+      "size": 109,
+      "sha256": "61c0e0e8684575dd9cada02dce8b0629be7d48a893e2897f7a6193dd014b2171",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/Fontmap.GS": {
+      "size": 13200,
+      "sha256": "8aa296ad2dd700abde8bc7b215eec689f2f8b0b8692a70647361d698c1f4ea43",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_agl.ps": {
+      "size": 218005,
+      "sha256": "2379596c149bb01462a04a7ca4e06cedb1bbac94ba81af81dc266f852eb6b7f1",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_btokn.ps": {
+      "size": 12749,
+      "sha256": "22ef60c83e227c0a350ad2904aa45f0e6d7d4ea9e773bcba80bea1a1f82cd74e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_cet.ps": {
+      "size": 4964,
+      "sha256": "b316c29173809a4091fe179f7f6fa6da581f8b7405560ae0334c25dc30fe6dd6",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_cff.ps": {
+      "size": 6953,
+      "sha256": "06168e4b1684e8de96df28b3086423c5e0b5a3d4e6bb96fdc45fe22215ad4d80",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_cidcm.ps": {
+      "size": 16811,
+      "sha256": "b8164a193f8e0004c479095fdc14d4aed3e3533bc2619edbf3ef011f4a436ea0",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_ciddc.ps": {
+      "size": 8489,
+      "sha256": "dd8726046ecb6c5f6217e62e223938d6c3c5ffce67fae3bfbde23e5d78e15b09",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_cidfm.ps": {
+      "size": 8053,
+      "sha256": "518841c436e3daf5c16ff193fd01c0ac14e502ac982b49ee9b907dc4ff129eed",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_cidfn.ps": {
+      "size": 14531,
+      "sha256": "2a28539e7596cf20b4a9fdc5ab074b95f26be8416c7b242125a5ce7a00b2fb97",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_cidtt.ps": {
+      "size": 5831,
+      "sha256": "84a34d89b2465c9ef9042cca41196c6b9ead19d9f685be77193db2ce7d89fa59",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_cmap.ps": {
+      "size": 18699,
+      "sha256": "454e498700886d51ee832fbf294dc3beb9e4c3b4b5b01893ddf1988c162fcaca",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_cspace.ps": {
+      "size": 4043,
+      "sha256": "8501fdd71815c0ede284cb86d37389efe8127a5b4a1de5ae6dfa8b18a113c32c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_dbt_e.ps": {
+      "size": 2118,
+      "sha256": "c386b7bdbc524425975724d803684d30bd2d561af34ae66c58271fa1f24019af",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_diskn.ps": {
+      "size": 6851,
+      "sha256": "fdb49613070036c6905868bf66d6c1ec5c2f85c35c691e92328b85d8b44f56cf",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_dps1.ps": {
+      "size": 4746,
+      "sha256": "ac4503a3fcbe453333ef3576c8987d7a3f6e6d12c4b613c8921b014cb3d26576",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_dps2.ps": {
+      "size": 8755,
+      "sha256": "b6326ac40bca83983946933cf2fed5ae7ed109c633e2c91701cb025608dbeea9",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_dscp.ps": {
+      "size": 3922,
+      "sha256": "62fe23bfa0c976840e1b9a145591abf0806f282b551dfabc75e84ca268068989",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_epsf.ps": {
+      "size": 12240,
+      "sha256": "3d47f29f80d18c40a8e12af13ab9dd5227bb86be2359251eaaf9fce50171a747",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_fapi.ps": {
+      "size": 15595,
+      "sha256": "935066b60d9f2de0ee2b78aebb6b8231403f2ba088d810b43215c93ec316766d",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_fntem.ps": {
+      "size": 11373,
+      "sha256": "dcc8580aec4ebd25f0d5807760c35a18e1d7948239ca2b45fd27442566526d3c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_fonts.ps": {
+      "size": 48905,
+      "sha256": "2a5bc3f49b92b8a46d2ba4365a9f6251fc68fb9ad4ebe9d808e87aa48658060a",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_frsd.ps": {
+      "size": 3764,
+      "sha256": "7b4f86d2ade255dc3e26b7ad8093b7ddff683b515d4cf97304ccbebe16e89d42",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_icc.ps": {
+      "size": 3088,
+      "sha256": "9185865da6804b8d4b9cebf80656f682118c3ac484b7025617a183f28f0c8659",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_il1_e.ps": {
+      "size": 2706,
+      "sha256": "f9b491650587719fa13f04908d70cfea8e99ddb90be43f4dba93ac8b4cb0b967",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_img.ps": {
+      "size": 23982,
+      "sha256": "124e37a74e7805553901a81c1fa33b225a12d42d21d117acb4915bcbbf40cc74",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_init.ps": {
+      "size": 95001,
+      "sha256": "ce876a1b9de9c41128471f41bf8b9fd883385f4d35e71db48fedfad85d0a97d1",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_lev2.ps": {
+      "size": 43867,
+      "sha256": "a03de60ad2fcd542fae5416b49b9a8f87240e9fe3693af85d946c50a0f605cda",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_ll3.ps": {
+      "size": 19564,
+      "sha256": "6df2b02880d27d89ae26b51492f8636e849b674f4ec961d3a3c59d2791afa048",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_mex_e.ps": {
+      "size": 3827,
+      "sha256": "6ecb0a3177b8b27e8a74ea4494c44128bd283dfd318075386172178677909b71",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_mgl_e.ps": {
+      "size": 2165,
+      "sha256": "18a970be06c37f82848aafcb7531859c2c1dce7d81bf14e474b480645ac1e3d3",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_mro_e.ps": {
+      "size": 2490,
+      "sha256": "38452b7f668945524428a19f0163c0ca761d6a58448644a5d7b16b05cbb2ab8c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_pdf_e.ps": {
+      "size": 1540,
+      "sha256": "a635f0453997268947b9dbb23b8eac2fdc76050ce7b66d10d28bf0f201aaf1ca",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_pdfwr.ps": {
+      "size": 33273,
+      "sha256": "da87de4cc9b2ddcf0ba40ead52de562083675f337cb1fa7cd8bcbc7a3dd9c0b1",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_res.ps": {
+      "size": 42029,
+      "sha256": "a8ebfe0156408b7fed51534fdd4db3b9e4d9288d66b2ea1b00b9ed9603fc77bf",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_resmp.ps": {
+      "size": 22466,
+      "sha256": "b74a613893bb99a63fa20decad25f5d36e02c25a7e69c64285b5c2e309b20f7f",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_setpd.ps": {
+      "size": 38475,
+      "sha256": "753a09b7d11ad0e8decd36f211501a001c44639227611ec0a66c88d8fcb45933",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_statd.ps": {
+      "size": 18119,
+      "sha256": "3fd68653f590cc0b07152427cfd79612f73554128d92d26a80e5f342ace6e3be",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_std_e.ps": {
+      "size": 3127,
+      "sha256": "2fbb5d8048a958dc0b11cced7cc5f94e404f46b927a3455dca80ab532facaeef",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_sym_e.ps": {
+      "size": 3088,
+      "sha256": "c2c998a783b1800cc032b7d118a400abd13ab982959ee02fc41a20152cbd246e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_trap.ps": {
+      "size": 2930,
+      "sha256": "5eee8e3d7d521b7d326486962902b3d62882f2d8aa4cd2e33dad0674133c75c4",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_ttf.ps": {
+      "size": 66605,
+      "sha256": "f64bcb9182a28081d972b42e65a16018f14b4542c1d71b58ca4f480fa58e7229",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_typ32.ps": {
+      "size": 4544,
+      "sha256": "2ed17fbaea0b2ccc172d22994c9832fcdb607acbed8b2766a4dd8e5830e27b31",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_typ42.ps": {
+      "size": 2080,
+      "sha256": "e2582ad21c6ba7960e969e1cef1683127e32cd6c94b1c0b7c880f35089cc1029",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_type1.ps": {
+      "size": 12795,
+      "sha256": "21261e419dcf8dc0df4a240363bb4bfc6688bfde01a9b1e514d0e72a7438d79c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/gs_wan_e.ps": {
+      "size": 1547,
+      "sha256": "133a73e05309bc0173fe5ea37938dba525cef866f1aa60c92bfbf24df776f086",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/pdf_main.ps": {
+      "size": 43231,
+      "sha256": "bf35f757224bd789f01b95c54730eaae5d0704bd7d0851ace18369d1fe6c67bc",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/Init/xlatmap": {
+      "size": 1767,
+      "sha256": "deecfe4ae3335df8c20e2fc767fd50595349514bd9c6994b2c3c4dc7cd8261a2",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/SubstCID/CNS1-WMode": {
+      "size": 1430,
+      "sha256": "dc34baad6667808c4dc98eca237c0787729a35c221fe4ccfd5ec6f6ccff4368d",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/SubstCID/GB1-WMode": {
+      "size": 1855,
+      "sha256": "ad9de609256c04fda14053859593107d613a7fd06a12e077ee6e1377e74ee13b",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/SubstCID/Japan1-WMode": {
+      "size": 2474,
+      "sha256": "eb5821d46f2a30270e1f4805aae8910d5245f1a0d225d5312cc5bb34579fd7f3",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/Resource/SubstCID/Korea1-WMode": {
+      "size": 2020,
+      "sha256": "d7cd5e74d422953105af4bc433c409ef5ed42290fcc67be11da912a0c8b1a3c4",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/PDFA_def.ps": {
+      "size": 3055,
+      "sha256": "b38d571fbacc0eedf7d2b37d38fbdeec5056542c4acf23c5b54aead734d0ef6d",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/PDFX_def.ps": {
+      "size": 3864,
+      "sha256": "18b4c0aec559c09be62e9248698306eef41dfbe16358e40c9ef34d8d1a55cbff",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/PM760p.upp": {
+      "size": 1160,
+      "sha256": "dc7e64eeae8c5d8cf73f84df5c2253c52763d27f1349ded5272079a9151d3e83",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/PM760pl.upp": {
+      "size": 1124,
+      "sha256": "331839fe23ffc984cef1f4508dbaf86debb1e83bbd5a2e13c4d84f4048c1f81b",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/PM820p.upp": {
+      "size": 1142,
+      "sha256": "5894bf8d3cff80ed2af9f4c07dad9d5b6b64240f84ce9395985f658c705223ae",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/PM820pl.upp": {
+      "size": 1117,
+      "sha256": "a298b48f4884d699b2b7870fa0480c7bf01b5e5366373586ae67a88abc98f5a2",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stc670p.upp": {
+      "size": 1159,
+      "sha256": "4392e35a366868b70288092705712a969b1232ae503781b9c549cb25bf538bf2",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stc670pl.upp": {
+      "size": 1124,
+      "sha256": "f186e701f39b823a08eed3a3ecf470458c5a47a8424f52478cf3c825a3560192",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stc680p.upp": {
+      "size": 1140,
+      "sha256": "99d93da14739bf2d348e1b0a1d154ad9f78775a5d0685a49205e258f54fe3027",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stc680pl.upp": {
+      "size": 1115,
+      "sha256": "bb669c51242ab07868baefbc922ed23cdd904ed67bb91ad1803a0d14d86ba7e1",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stc740p.upp": {
+      "size": 1039,
+      "sha256": "e38b279d4e81e0306e3c558cfc2ce331dd35742cdac8da0ae5c3909b7aacfadd",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stc740pl.upp": {
+      "size": 1115,
+      "sha256": "86c6b33c60cfd85e398ac9945e2fba92c70883daf0fa2faded77d084f2cff64d",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stc760p.upp": {
+      "size": 1141,
+      "sha256": "e1b35dab50d0a45804dd2fe616f31a29bf06535f4d8405616436f617083c0549",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stc760pl.upp": {
+      "size": 1115,
+      "sha256": "045fb1b17a9a02e3535e61e5a347df05318c4a7863321bbfb792e3b9a8bcfb31",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stc777p.upp": {
+      "size": 1140,
+      "sha256": "0644a3ca98f5d7816f38c4ff8618ee0261227d4d06c3e74ea594be012fb5a39d",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stc777pl.upp": {
+      "size": 1115,
+      "sha256": "268f482c512d569304a271a7a69d84df375dc4fc7c37389c3e481b447c7ab399",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stp720p.upp": {
+      "size": 1158,
+      "sha256": "34044914ec00f76814495d6eb5d9a4e2d86217000d7d22348774c8dbfb0d141c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stp720pl.upp": {
+      "size": 1115,
+      "sha256": "78fb41be8fecdad119c600033d3e149cf48cd516797068333e8e7ba3b40f599e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stp870p.upp": {
+      "size": 1140,
+      "sha256": "64675ddde6513f23b857cbd0c635d41598ba1aec61c7b30963c1e4e5514c56fc",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/Stp870pl.upp": {
+      "size": 1115,
+      "sha256": "de67687b49b74d5a97f453486eaffc3b2ae028fc0aad838f2a9757918a84978c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/acctest.ps": {
+      "size": 4269,
+      "sha256": "4f3aa79817806dc00b5ec34309cc7613e4440941b48a097b1ee24463fe5af207",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/align.ps": {
+      "size": 2140,
+      "sha256": "eb943cd12e5c30d637afc011dfd89bd1571d1758b377166252e459d6435ad95d",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bj8.rpd": {
+      "size": 639,
+      "sha256": "1e6113001d6fc5dcfb94a2b06653dd69d6eda966159627b9b7aae659a260ed9e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bj8gc12f.upp": {
+      "size": 1532,
+      "sha256": "0971d8c684eeef96006ddeaf4bf4a656e753cb5ea93522f8d36db963ebecef82",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bj8hg12f.upp": {
+      "size": 1531,
+      "sha256": "8d18eb8f26dce23db0c870c33e8fb7dee880c46e6c224e1e8547d6aca9538e4c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bj8oh06n.upp": {
+      "size": 1517,
+      "sha256": "ea04a1bdc5506da3fe1a770796b4e5b717d75ca2ee3e6fa4f3196328188df79e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bj8pa06n.upp": {
+      "size": 1525,
+      "sha256": "ed6ae6cde403a8e394c62e028f863879d2f4decf45965946b74d40b89d27e810",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bj8pp12f.upp": {
+      "size": 1542,
+      "sha256": "265390ef8a4b203e86c9d65c309177a4131210f54055c7f9aa8f804ca90da971",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bj8ts06n.upp": {
+      "size": 1530,
+      "sha256": "cdafd54e1f176564709d428d1f1adc519ff9d40d08eb69600d68c06111a4368e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc6000a1.upp": {
+      "size": 1660,
+      "sha256": "00c972ad4d3636d9fd3db0f43f6343c38c6569dafbf48781d0634988cc9d96c0",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc6000b1.upp": {
+      "size": 1660,
+      "sha256": "190ac4eb1be70c2ef6e9058c8fe31cd55e497d423def8a4c300a9b89d6e1a3f0",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610a0.upp": {
+      "size": 1527,
+      "sha256": "4cbfa40eae203fe068c1a154bc3bb1c39d659d8ed8dc840060630259faa1cd2f",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610a1.upp": {
+      "size": 1516,
+      "sha256": "810220f0bd4309dece1587c98431ad744880292b09db3c78250710cf94616051",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610a2.upp": {
+      "size": 1517,
+      "sha256": "57dbd7b910cf4097ec3781e43bb0b066f6356deba8086e6392e9fbdd0c036b2b",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610a3.upp": {
+      "size": 1522,
+      "sha256": "ada21961a86254d4d8003e7f6399ec14bc211a84e152af23356ee0f6a06bd0e8",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610a4.upp": {
+      "size": 1530,
+      "sha256": "8f39800fec647cd4e4c10dde12752b7443a06e7672080eb37f60416d9ff63b9c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610a5.upp": {
+      "size": 1517,
+      "sha256": "fda6bc2931f878b6b40bdde6d1714de93a2400122ea105253d509492e6bcabe2",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610a6.upp": {
+      "size": 1517,
+      "sha256": "79c1eba4460dcf6af066a922cdfd33da03c9964b8f942a6cff64c4db665eb781",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610a7.upp": {
+      "size": 1520,
+      "sha256": "f18a01fc50e55745c47ce03782fb3125eac8e39317b53ecd7c70cd9220abf728",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610a8.upp": {
+      "size": 1526,
+      "sha256": "a422df1e096044bd651b62c5991b55f05025466a5b068944eaf226ed4bd7311b",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610b1.upp": {
+      "size": 1516,
+      "sha256": "8b3d347099f5e58671b6e12a93485449ef429d7d8243dba941d9e7209f79c7bf",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610b2.upp": {
+      "size": 1517,
+      "sha256": "0e90cfd91fd0bc9f44272912e1d950f6d3e7c291f8c83fa237bc70f05cc1dad8",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610b3.upp": {
+      "size": 1522,
+      "sha256": "86c5d2c36d74de5ce9abbcbfe0564a1cecf14313c2a61a6ec357180c81b006a8",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610b4.upp": {
+      "size": 1530,
+      "sha256": "1ab92424301325d4b8c4feff1eb8bb0e667eac88369943cf70dfcb7d4be854b4",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610b6.upp": {
+      "size": 1517,
+      "sha256": "6569f80d84d84749b17b4211a56c9f37246e02131df72bca13cd82820d8781b3",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610b7.upp": {
+      "size": 1521,
+      "sha256": "d387bda50edfaef50f9223021adfc2460caab9ec067992e88fb25d87ac86ccdc",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/bjc610b8.upp": {
+      "size": 1526,
+      "sha256": "62c3cd85acc7b33705ce3ad3662c8430644715ebd3096eeaf62bfe137d0e109e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/caption.ps": {
+      "size": 1743,
+      "sha256": "9072f1a5ab91120eb2317dc93690b6ec10f3a92a74f11b20cf1f002aeb99c616",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/cbjc600.ppd": {
+      "size": 11148,
+      "sha256": "64c31de3938fa8076d14985417dd50a001d74e62d3626d2f158d6031f9e00c82",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/cbjc800.ppd": {
+      "size": 11491,
+      "sha256": "e7c73109d85db98ee0c508e34840e856018faf09fd3c7772172386db9d5866b1",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/cdj550.upp": {
+      "size": 1690,
+      "sha256": "9307cbd9932dfd799b833680ed51b44d620a75e9b2993a79b93c822aef9df926",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/cdj690.upp": {
+      "size": 1999,
+      "sha256": "f11d410acdd0abac139c842c09d864e63366791edf0bc70ef9e009c9b396e531",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/cdj690ec.upp": {
+      "size": 2060,
+      "sha256": "ce93569357edfa20d04a3184e537287618529af45f2e5e2ffcc1bad05d941831",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/cid2code.ps": {
+      "size": 4475,
+      "sha256": "7b8f15b7e702ba8c10765f1f7d859936cc27380b2faf81820ef3fbd0a5208623",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/dnj750c.upp": {
+      "size": 2808,
+      "sha256": "655fb643172514aee24fc5a0cf412e6404c733ba0ca9269b7b6562f1a1cd9bf4",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/dnj750m.upp": {
+      "size": 1975,
+      "sha256": "82a578078abcfb4bcffd378b3ac0c5b4ae09bfa39be8a13cdca5fa61e182ac1e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/docie.ps": {
+      "size": 7482,
+      "sha256": "a0d75cf0156a16ac4ff197effb34ce9e617f052ff053a05afc949d03b775c2a7",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/font2pcl.ps": {
+      "size": 18539,
+      "sha256": "1ca03bacba4928c7940a4f946319b0ea5f974ab04e2e91099aea14785b4bea65",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/ghostpdf.ppd": {
+      "size": 25643,
+      "sha256": "ef6b8e51eefdaa206a25b916b8a3839c876b49c1e2289a025c0cd19d7399674c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_ce_e.ps": {
+      "size": 2203,
+      "sha256": "6623512fa6214303819c7b843d8c02b5b1190ce802547be3a5f37e8dbf26f492",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_css_e.ps": {
+      "size": 4922,
+      "sha256": "b7b4274c279f9f67e818dbca7b35494d9240083bd4952060ff4bbc20a8d627ea",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_il2_e.ps": {
+      "size": 2615,
+      "sha256": "430b2377d1f15e29e953e879ec9ffb68ab930d34a4d9c549bc41d4f1be56ff99",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_kanji.ps": {
+      "size": 3991,
+      "sha256": "07cb27fba8e5897c5a60da825cb9a368e22f8be5b7a756b578d52186ad3e109d",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_ksb_e.ps": {
+      "size": 3129,
+      "sha256": "d31f57e8da42f2c3c356e57429aadf298de47d89688869021f3e852c52d933b3",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_l.xbm": {
+      "size": 1945,
+      "sha256": "fc59c26def746ed3ad28ad9ed70fc1b75055688b42f97aa3eaf9ef522eed0dd8",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_l.xpm": {
+      "size": 2751,
+      "sha256": "f6fd376366042384bc39677d306dc0371d439147f7a5a9c2adcc7d68193736ec",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_l_m.xbm": {
+      "size": 1955,
+      "sha256": "c2c75908097a02b1f9dccf8b732bc1003a9df20c0920bbf2c4056b23fefa6606",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_lgo_e.ps": {
+      "size": 2718,
+      "sha256": "e229a0c33ca9ed397de9a3366cb21637320370044b2442a8655af6250a9186b6",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_lgx_e.ps": {
+      "size": 1750,
+      "sha256": "7b1b79434690fd04af06797881a7404990b7419edcc06c53558a9e318cc5e90e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_m.xbm": {
+      "size": 945,
+      "sha256": "e5f468d6370111399618b78bed865b7f5a913b922754aafe0e783c4475dbbf4c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_m.xpm": {
+      "size": 1437,
+      "sha256": "7b255806a18b67ca77ae48958c53e672deaf1da5202588f76a92db43cd93e254",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_m_m.xbm": {
+      "size": 955,
+      "sha256": "83a2cc50c827166fdefcc8f5a3a1fb59d3e1eea5e5a7c31276ff165bd32fd94e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_s.xbm": {
+      "size": 594,
+      "sha256": "b314eb8b372a6d4eccfc8e5c707a0c0ac5d3893b964f21758874a3e1f21fb948",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_s.xpm": {
+      "size": 957,
+      "sha256": "aae679c392cb58f89927007fd5f2d42e686c9aa45e3c8aabeb794c635c3e450f",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_s_m.xbm": {
+      "size": 604,
+      "sha256": "8dfd0b7cec0e1d5eb0b9605c3a5914b9c1cbf181c102140ea282650ce7d324dd",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_t.xbm": {
+      "size": 345,
+      "sha256": "cf42461b5d011b0360142f17628ad17d9c066068e45e0399e1b88257c00bf8b7",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_t.xpm": {
+      "size": 605,
+      "sha256": "cd6f58f5d43276a1b8788db6250d30f8fd971c35c7843ffe79de337ea400a727",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_t_m.xbm": {
+      "size": 355,
+      "sha256": "e0e68139137ec2fc8abc1b835a70be795cf575921bd13c607304535724cd3ab4",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_wl1_e.ps": {
+      "size": 2479,
+      "sha256": "c26a5df21bb44fa05398dcb671e33d08b8f5f0914b26452e6aa0cb67e437a130",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_wl2_e.ps": {
+      "size": 2478,
+      "sha256": "db6c460b0b0b94428c52e8fe57d75ba7790ee519a799af4594c8eb23e8015278",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gs_wl5_e.ps": {
+      "size": 2496,
+      "sha256": "c4393cea940efc2e3adb7c84afa7b89893f5c0c9ccf45a81d8349c0aa2023326",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gslp.ps": {
+      "size": 22307,
+      "sha256": "d843b9cc812178e99bdc2cb7947611c52b1b3b8c15d54ed68e5f3587b2f5e262",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/gsnup.ps": {
+      "size": 2618,
+      "sha256": "08b170188ad846363529a0599037ab31eea68d5b0cee7fba271d3989facb7f01",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/ht_ccsto.ps": {
+      "size": 228143,
+      "sha256": "baf1f10ccc728f30d1ce5c1e79566b18e920e1f4112749109d058133975e9737",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/image-qa.ps": {
+      "size": 73034,
+      "sha256": "5797407ccc059163a0b89c0044473ad70ae88fa00ddc9cae02ddef35e9e4fb37",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/jispaper.ps": {
+      "size": 768,
+      "sha256": "7c00c4748f5d0cc3ebc33724e876b683c1476e2669b2c71c72d86761e7db0f2f",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/landscap.ps": {
+      "size": 1468,
+      "sha256": "95dd151aff119653e9fa61763293eac3ccd38ab257499c94733ef91299e5edb5",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/lines.ps": {
+      "size": 3720,
+      "sha256": "9761c117f5d9ed3ae22e431118fec6a4718e327c4fdc6164447b08a3997c642e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/mkcidfm.ps": {
+      "size": 22305,
+      "sha256": "c14f4987a3ef74707893417f8b058b2402835eeb3c80fc06413c2ec9456abca8",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/necp2x.upp": {
+      "size": 1045,
+      "sha256": "18bb0b3fdfee77abdb3892154f5166dc3e9dc84176ad1d7d473887db1151ea97",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/necp2x6.upp": {
+      "size": 1069,
+      "sha256": "8f1d0fb2b8379867db1887b8776169aba6890c06fbe477b48deba4c3df2f3b6c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/pdf2dsc.ps": {
+      "size": 8047,
+      "sha256": "8ff50735c2690dfb87e4d1f74c0f093e311ab3fa039cb646a05fba2ccc998a4c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/pdf_info.ps": {
+      "size": 20257,
+      "sha256": "632abf81be6c4f15904506f0b82d43b688facfb6d42497077e9b558ec83340b2",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/pf2afm.ps": {
+      "size": 15295,
+      "sha256": "eb6e1a625db95f69c22c2e0063a2a1f25f57a2708347ac9b275c65bdc8c7bb97",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/pfbtopfa.ps": {
+      "size": 980,
+      "sha256": "73adde7b40f5f577de9680a2494e437d7de6848d562c9206d0300350267e1822",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/ppath.ps": {
+      "size": 1803,
+      "sha256": "864ad3ba210b0f12de7c8d408e7965a28776a24be724b9057c694c11c5eef156",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/pphs.ps": {
+      "size": 6828,
+      "sha256": "3ae1a373fa58ed79eb90d4a29a639e0347cf98676c120d1e12f9bd24ae4b2e7f",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/prfont.ps": {
+      "size": 7197,
+      "sha256": "9c21604584d4049247579c5e959c61181103ff794867d8e28e504c38ef1a2e27",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/printafm.ps": {
+      "size": 4898,
+      "sha256": "e35862c73d283222ff32dbc031b1b7f9f520345bea1f6bca65db881d0f85c992",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/ps2ai.ps": {
+      "size": 22290,
+      "sha256": "7fbc5df9e92401d63ab74f84bafa7c0cd41e6a9965f62783a9c895394fa75d53",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/ps2epsi.ps": {
+      "size": 6032,
+      "sha256": "8393dcfdd20755240af7ed418424b892e6a846ce8cc05fda979546ab3fd20bd9",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/ras1.upp": {
+      "size": 215,
+      "sha256": "e79d4747c5392532c902bff45cefb7f3f645c765b1e828d1f3b1601840ba63b6",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/ras24.upp": {
+      "size": 219,
+      "sha256": "f437eabb758facae9c10d064e081c944ee207f2c2d26167cd84c1b848b6f90cd",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/ras3.upp": {
+      "size": 214,
+      "sha256": "a28915c7682f6350f7c5decf1b6eaa34bdadb59815e08755c10a2ad178d5f50c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/ras32.upp": {
+      "size": 196,
+      "sha256": "97b20b1a1012d2488b0deb2c4b94784ca1cb898bd09e77e0197cf8ebde0471a9",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/ras4.upp": {
+      "size": 220,
+      "sha256": "eed86dc1b4af515566ebab5f3b8fdf76154350d274eb2e29812c677af6b43d5f",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/ras8m.upp": {
+      "size": 209,
+      "sha256": "6c7031170881dca72e5fd8b7163074804e8fe7322d9b82c6bad93b9ee3557148",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/rollconv.ps": {
+      "size": 12510,
+      "sha256": "e84bc297b7e4bcd62153f2e88a46587e6901f32e8be85735a7918221d8a2ff0e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/s400a1.upp": {
+      "size": 1454,
+      "sha256": "7e1446624ded72531065f748b84805ca6424b6dc0d6b05b33bb9869c4af722fd",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/s400b1.upp": {
+      "size": 1603,
+      "sha256": "d081922618dd159b54bc21778ce326f6cd6933eb9a12574bccce2cf21c04e6af",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/sharp.upp": {
+      "size": 1936,
+      "sha256": "d935cd5ae2565c1107601ec2501703aa27b161b37fb8aa9efbaadb931188e685",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/sipixa6.upp": {
+      "size": 529,
+      "sha256": "7576a1c03e420d85d3fd3916e44a95e5c6539165e36aa1cb55e45446bf1fd626",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/st640ih.upp": {
+      "size": 2281,
+      "sha256": "ab17a5a51e7348ea73884703544c0841690cc3388f4665745f59fcbe29df2112",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/st640ihg.upp": {
+      "size": 1508,
+      "sha256": "7090e923a47e1c0910ae4167c56ab5283fcfbc88595199b8fd1df9cd1a6b1432",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/st640p.upp": {
+      "size": 1914,
+      "sha256": "2155e58ac44cbc41e9d9e94d838da4058db39eed036f5591bc355b5dbe814cd6",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/st640pg.upp": {
+      "size": 1141,
+      "sha256": "01b3a4fd615aa11247917ea6c8002eae723007ae664d59c21534fee197b8fc64",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/st640pl.upp": {
+      "size": 1878,
+      "sha256": "46b3bf1c57f92c2235cc2342e449affe1664988ac609f566133913ce963dbee1",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/st640plg.upp": {
+      "size": 1105,
+      "sha256": "64de0f0e8baf1c730f723a39bc18dbb9a294c6eede14af728ac2c6fe4d8e27b9",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc.upp": {
+      "size": 1923,
+      "sha256": "247d754856b9615613aab92aa89a84de5e42ac4740f9756d001b22d4488512fb",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc1520h.upp": {
+      "size": 2154,
+      "sha256": "fc8a80c1936ce51a2bad1a5e85a4be12c502c3529fb75642c815d6d5ed266910",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc2.upp": {
+      "size": 1904,
+      "sha256": "21e117ce4eadf813c3ee269d165c994785fb7b5926dbf997e4851000603965bc",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc200_h.upp": {
+      "size": 1848,
+      "sha256": "6fdc33e38660e3dda0a404c0052490f96ea6da22318a84441e56d53ddecad9ab",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc2_h.upp": {
+      "size": 1879,
+      "sha256": "41a85f3a0bf7885c87accf148c8474a4ef444c2f49a915e6c2e7d564a94f0edd",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc2s_h.upp": {
+      "size": 2272,
+      "sha256": "af6f2d136e880ce0e2ce911c33dd6bd41adbb5bffb976d90a04587c625277997",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc300.upp": {
+      "size": 2136,
+      "sha256": "eb5289c412586d316a9458a852672d8d6b3f3afa79d3a6a80cc1168642f62b94",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc300bl.upp": {
+      "size": 1341,
+      "sha256": "29dd2819ecede70eb20fab8ac1e18981f2dc602a57f2fa99431f57a9d60befda",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc300bm.upp": {
+      "size": 1430,
+      "sha256": "6564a9e4e1f7e1ada4f33ba25323f47b5683d3fc3601bb193ebf47785fb1b2dd",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc500p.upp": {
+      "size": 1903,
+      "sha256": "a551d8d5fab7e6a1eeec78ba74c0311e2ce192109af1398346986d3bc8d87ca9",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc500ph.upp": {
+      "size": 1903,
+      "sha256": "4d7b8032c41ca4a06f93fa233fd2fdf3246dd97501ad49b729246babf8a55032",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc600ih.upp": {
+      "size": 2281,
+      "sha256": "6b91ef9e999c01a0e2448a7ffa9d878f281f23c7681062c71e7435adc4f977bc",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc600p.upp": {
+      "size": 1151,
+      "sha256": "3169f3ee3785e2300b3c68eae6e4a95e48c686d5b3d098a019a13b1ac039fa1d",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc600pl.upp": {
+      "size": 1115,
+      "sha256": "6148b5fa462c886f82c4c520c95c9f4b68802d5660e49c4806450027be62a20c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc640p.upp": {
+      "size": 1095,
+      "sha256": "8ba67e9f7be498834512bc64c04469492973fd3272914d01262a8abb0ce9d47c",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc740ih.upp": {
+      "size": 2123,
+      "sha256": "7cce3acf50695b8153c3102fe275f56a013f62951502a0794496ee5a593748b5",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc800ih.upp": {
+      "size": 2158,
+      "sha256": "cc472d6bfeb66b0f6cde0a423e7e8ae0de0f61105c348b813769ef98ef58426d",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc800p.upp": {
+      "size": 1115,
+      "sha256": "dd8f952868db0697cd010ce75e83d4b32aff69733c896a7f71b0234974a4109a",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc800pl.upp": {
+      "size": 1097,
+      "sha256": "c1940cd5c900f597842a1118dc9643865fcd06caa63f7ed87cca9b2794f4381f",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc_h.upp": {
+      "size": 1913,
+      "sha256": "4e4f78576d00346a5cb6961daa5e99570cc91c06975dc9414d41144e2cfa3e32",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stc_l.upp": {
+      "size": 734,
+      "sha256": "e91b3d96cfe1a1da5021e0564e761575aea4963b087a240d158a6e1c78423eb8",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stcany.upp": {
+      "size": 673,
+      "sha256": "dee624e837ad678deceefa2820dc5358a6725ce9b40d549da599529d184a809e",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stcany_h.upp": {
+      "size": 681,
+      "sha256": "27f353a5bd71c3d1fa7c983782a13c47462b7837efde44b83e02a93df3210ece",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stcinfo.ps": {
+      "size": 25464,
+      "sha256": "42eaa7419e301272fd67b71227a44d3077eb164c953b43d1bd872dfb2592b126",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stcolor.ps": {
+      "size": 5018,
+      "sha256": "a4c64f1707d04c5aef0e2f8711d6862452e161c454b3f3a9e7e420d37514ea5b",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/stocht.ps": {
+      "size": 2478,
+      "sha256": "ab70b3d75ee99332628125d8b382a295f013790436e6711e8a7d3d72e92139df",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/traceimg.ps": {
+      "size": 1366,
+      "sha256": "0edb16423f2871617f42651a3c0b447b28c22fc6172b72b8d88f85a9e59188b4",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/traceop.ps": {
+      "size": 2556,
+      "sha256": "45de2855f2f43afedd61907222934ca3fc97d74d1712e4468daf30ff48b2fd37",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/uninfo.ps": {
+      "size": 5970,
+      "sha256": "f8701e982372959b70698b28e22f3a8965a5f96252677538f5270c31c6d0e758",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/viewcmyk.ps": {
+      "size": 2165,
+      "sha256": "1777fc9d531703d8ae8537b17f00a956767f3751a161209b06dd00e4cb849a6f",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/viewgif.ps": {
+      "size": 5424,
+      "sha256": "afa6e49c99f44ab96d0ae8ae8e031657a91f75e99f0efc112a1346d7ca1101c0",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/viewjpeg.ps": {
+      "size": 5866,
+      "sha256": "5e44d8bde7db63eb4322ee14cd8e23aad9a4214347d88a4d44d3fdbdfe11d463",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/viewmiff.ps": {
+      "size": 4237,
+      "sha256": "8537d7cc84c7af154a523dc34e1968edd48236ee7fddf7d7b95e98180c4f9785",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/viewpbm.ps": {
+      "size": 10463,
+      "sha256": "ed521c7ad072ffddacfb97c5ff37dd9d4133a857f66ca6e02b53199683ad1787",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/viewpcx.ps": {
+      "size": 5413,
+      "sha256": "a48ad70fb47d23858b0efbf08ececc05a687d78d22371e498d991a670f1851f6",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/viewps2a.ps": {
+      "size": 1120,
+      "sha256": "179b8ea0a6bf00413cc95c2f3850f0659e490c87918cf6fa0436d65d8524d381",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/winmaps.ps": {
+      "size": 3589,
+      "sha256": "c835be902ad12fde39cea867c98c596e7b5a5cc22a4f1ca97ea7e5b5280bdfdc",
+      "package": "libgs10-common"
+    },
+    "/usr/share/ghostscript/10.02.1/lib/zeroline.ps": {
+      "size": 2301,
+      "sha256": "bb6c308efc145272038840d677cf4a88fb2f7f211fb062145b5b6102960c2edc",
+      "package": "libgs10-common"
+    }
+  }
+}

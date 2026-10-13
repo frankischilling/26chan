@@ -5,6 +5,7 @@ is passed to ldd, and no host credentials or general system configuration enter
 the image. The resulting initramfs digest remains part of the operator manifest.
 """
 import hashlib
+import json
 import pathlib
 import os
 import re
@@ -20,15 +21,16 @@ DATA_ROOTS = (
 MAX_FILE = 32 * 1024 * 1024
 MAX_TOTAL = 60 * 1024 * 1024
 MAX_FILES = 2048
-# Ubuntu's CI image has a writable truetype parent. Only this exact font is
-# authenticated by content instead; provenance is in docs/pdf-runtime-font.json.
-PINNED_FONTS = {
-    pathlib.Path('/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf'):
-        (4033420, 'acb6440a713d880a13a21b468ba7cd43f5a2b2934972e51be791c880730777b8'),
+# Resource packages have reviewed content pins because some CI images make
+# /usr/share writable. These pins never apply to executables or shared libraries.
+RESOURCE_MANIFEST = pathlib.Path(__file__).resolve().parents[2] / 'docs/pdf-runtime-resources.json'
+PINNED_RESOURCES = {
+    pathlib.Path(name): (value['size'], value['sha256'])
+    for name, value in json.loads(RESOURCE_MANIFEST.read_text())['files'].items()
 }
 
 
-def pinned_font_bytes(path, expected):
+def pinned_resource_bytes(path, expected):
     size, digest = expected
     # Read and hash the same bounded bytes that enter the image. A path or
     # directory replacement cannot substitute different bytes after validation.
@@ -36,14 +38,14 @@ def pinned_font_bytes(path, expected):
     with os.fdopen(descriptor, 'rb') as stream:
         info = os.fstat(stream.fileno())
         if not stat.S_ISREG(info.st_mode) or info.st_size != size or size > MAX_FILE:
-            raise ValueError('Pinned PDF font is not a bounded regular file')
+            raise ValueError('Pinned PDF resource is not a bounded regular file')
         data = stream.read(size + 1)
     if len(data) != size or hashlib.sha256(data).hexdigest() != digest:
-        raise ValueError('Pinned PDF font differs from the reviewed package')
+        raise ValueError('Pinned PDF resource differs from the reviewed package')
     return data
 
 
-def checked_bytes(path):
+def checked_bytes(path, *, resource=False):
     resolved = path.resolve(strict=True)
     allowed = (pathlib.Path('/usr'), pathlib.Path('/lib'), pathlib.Path('/lib64'))
     if not any(resolved.is_relative_to(root) for root in allowed):
@@ -52,8 +54,8 @@ def checked_bytes(path):
     if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
             or info.st_mode & 0o022 or not 0 <= info.st_size <= MAX_FILE):
         raise ValueError('PDF runtime source is not a bounded root-owned file')
-    if resolved in PINNED_FONTS:
-        return pinned_font_bytes(resolved, PINNED_FONTS[resolved])
+    if resource and path in PINNED_RESOURCES:
+        return pinned_resource_bytes(resolved, PINNED_RESOURCES[path])
     for parent in resolved.parents:
         metadata = parent.stat()
         if metadata.st_uid != 0 or metadata.st_mode & 0o022:
@@ -90,7 +92,7 @@ def collect():
             raise ValueError('Required Ghostscript data package is absent')
         for path in sorted(root.rglob('*')):
             if path.is_file():
-                files[str(path)[1:]] = (0o644, checked_bytes(path))
+                files[str(path)[1:]] = (0o644, checked_bytes(path, resource=True))
                 if len(files) > MAX_FILES:
                     raise ValueError('PDF runtime has too many files')
     # Font selection is limited to the installed base fonts; neither the host's

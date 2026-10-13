@@ -48,13 +48,24 @@ The document parser runs only inside the disposable guest. The PDF image carries
 the installed root-owned Ghostscript executable, its shared libraries, bundled
 resources and URW base fonts. `pdf-runtime.json` records their SHA-256 hashes.
 The builder rejects writable or untrusted runtime files and enforces the file
-count and artifact byte budgets. One fallback font has an additional content pin:
-[Droid font provenance](pdf-runtime-font.json) records its official Ubuntu package
-and SHA-256. CI's writable TrueType parent cannot authenticate that font, so the
-builder checks the exact bounded bytes against the reviewed digest instead.
-Different font contents fail the build. Executables, libraries and other resources
-still require trusted parent directories. The image contains no host credentials,
-user font configuration or font caches.
+count and artifact byte budgets. The
+[resource provenance manifest](pdf-runtime-resources.json) records the official
+Ubuntu font and Ghostscript resource packages, archive checksums and file hashes.
+CI's writable `/usr/share` directory cannot authenticate those resources, so the
+builder checks the exact bounded bytes against the reviewed digests instead.
+Different resource contents fail the build. Executables, shared libraries and
+resources without a content pin still require trusted parent directories. The
+image contains no host credentials, user font configuration or font caches.
+
+To update these resource pins, retrieve the packages from the official Ubuntu
+archive over HTTPS, verify their SHA-256 values against the package index, and
+hash the regular files under the fixed resource roots directly from the archives.
+Record package symlink aliases with their target bytes, binding each expected hash
+to the requested archive path.
+Do not derive new approved hashes from a writable installed directory. Package
+extraction for this review does not require installing or executing the packages.
+The manifest is reviewed repository data; runtime packaging performs no downloads.
+
 
 Ghostscript receives the snapshot on stdin, a cleared environment and fixed
 arguments. No upload supplies a command, output pathname or renderer option.
