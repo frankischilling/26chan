@@ -235,6 +235,15 @@ pathlib.Path(sys.argv[1]).write_text(sql,encoding='utf-8')
 PYEXPECT
  "${admin[@]}" -f - < "$cluster/autoarchive-expectation.sql"
 fi
+# PDF policy adds only this source-derived field to retained board rows.
+# Keep every historical value in the saved snapshot; never recapture live rows.
+if [[ -f migrations/0146_pdf_attachments.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object(
+ 'pdf_enabled',(value->>'slug') IN ('po','sci','qst','tg','gd'))
+WHERE relation='content.boards';
+SQL
+fi
 "${admin[@]}" -f - < scripts/report-snapshot-upgrade-expectations.sql
 # Extend the saved baseline only with the reviewed additive retention fields.
 # Neither migration sweeps existing media payloads or moderation snapshots.
