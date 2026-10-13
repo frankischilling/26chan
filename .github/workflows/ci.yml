@@ -835,6 +835,17 @@ jobs:
           retention-days: 3
           compression-level: 0
           include-hidden-files: false
+      - name: Retain synthetic source link page screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-source-links-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          # Six themes, each with one desktop and one mobile owned fixture.
+          path: test-results/**/*-source-links.png
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: false
       - name: Retain synthetic Windows theme shard failure diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
