@@ -88,7 +88,11 @@ page.
 
 Resolved missing references use the source theme's quote color and line-through
 decoration. The selector is scoped to comment deadlinks so watcher state styling
-keeps its own rules. The six supplied stylesheet excerpts are pinned in
+keeps its own rules. Ordinary comment links also follow the source's 480px mobile
+color cascade: worksafe links use #34345c; non-worksafe links use #00e and quotes
+use #000080. Mobile hover colors follow the selected board family. Dark mobile
+links use #81a2be and hover at #5f89ac; non-link dead spans retain their theme color. The Never use
+mobile layout preference preserves desktop colors. The six supplied stylesheet excerpts are pinned in
 fixtures/source-quote-styles.json; the theme tests compare browser-computed
 properties and retain desktop/mobile page screenshots. A second reference uses
 full pages from the original renderer, with the same owned comments. See

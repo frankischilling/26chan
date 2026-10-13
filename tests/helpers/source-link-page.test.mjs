@@ -8,9 +8,9 @@ function elements(node, result = []) {
   for (const child of node.childNodes ?? []) elements(child, result);
   return result;
 }
-for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'photon', 'tomorrow']) {
-  test(`${theme} source page keeps the original document but cannot load scripts or external assets`, () => {
-    const html = sourceLinkPage(theme);
+for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'photon', 'tomorrow']) for (const worksafe of [true, false]) {
+  test(`${theme} ${worksafe ? "ws" : "nws"} source page keeps the original document but cannot load scripts or external assets`, () => {
+    const html = sourceLinkPage(theme, worksafe);
     const nodes = elements(parse(html, { scriptingEnabled: false }));
     const attr = (node, name) => node.attrs.find(item => item.name === name)?.value;
     assert.equal(nodes.filter(node => node.tagName === 'script').length, 0);

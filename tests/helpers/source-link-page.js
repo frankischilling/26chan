@@ -11,6 +11,7 @@ const assets = {};
 for (const [name, path, mime] of [
   ['fade.png', 'themes/fade.png', 'image/png'],
   ['fade-blue.png', 'themes/fade-blue.png', 'image/png'],
+  ['buttonfade.png', 'watcher/buttonfade.png', 'image/png'],
   ['buttonfade-blue.png', 'watcher/buttonfade-blue.png', 'image/png'],
   ['closed.gif', 'catalog/closed.gif', 'image/gif'],
 ]) {
@@ -18,7 +19,7 @@ for (const [name, path, mime] of [
   assets[name] = `data:${mime};base64,${raw.toString('base64')}`;
 }
 
-export function sourceLinkPage(theme) {
+export function sourceLinkPage(theme, worksafe = true) {
   assert.ok(Object.hasOwn(reference.themes, theme));
   let scripts = 0;
   let sheets = 0;
@@ -26,7 +27,7 @@ export function sourceLinkPage(theme) {
   assert.equal(scripts, 4);
   html = html.replace(/<link\b[^>]*rel="(?:alternate )?stylesheet"[^>]*>/gi, () => { sheets++; return ''; });
   assert.equal(sheets, 9);
-  const css = `${reference.themes[theme].css}\n${reference.mobile_css}`.replace(/url\(([^)]+)\)/g, (_all, value) => {
+  const css = `${reference.themes[theme].css}\n${worksafe ? reference.mobile_css : reference.mobile_nws_css}\n@media (max-width: 480px) { ${reference.dark_link_css} }`.replace(/url\(([^)]+)\)/g, (_all, value) => {
     const name = value.replace(/^['"]|['"]$/g, '').split('/').pop();
     if (assets[name]) return `url("${assets[name]}")`;
     // This closed, anonymous fixture has no pass badge or red-button element.

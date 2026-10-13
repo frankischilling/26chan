@@ -568,7 +568,8 @@ async fn main() -> std::io::Result<()> {
         .merge(flags::routes())
         .merge(catalog_filters::routes().await)
         .merge(polls::routes())
-        .route("/link-visual/", get(|| async { Html(links::page()) }))
+        .route("/link-visual-nws/", get(|| async { Html(links::page(false)) }))
+        .route("/link-visual/", get(|| async { Html(links::page(true)) }))
         .route(
             "/",
             get(|| async { Html(views::Home { boards: vec![] }.render().unwrap()) }),

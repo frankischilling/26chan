@@ -37,6 +37,25 @@ hr, .thread, .boardDirectory article { border-color: var(--edge); }
 .quotelink { color: var(--quote-link); }
 .postMessage .deadlink { color: var(--quote-link); text-decoration: line-through; }
 .quotelink:hover { color: var(--quote-hover); }
+/* Original mobile comment-link cascade; board policy selects the family. */
+@media (max-width: 480px) {
+  body.publicPageChrome[data-worksafe="true"]:not([data-native-never-mobile="true"]) {
+    --mobile-comment-link: #34345c; --mobile-comment-quote: var(--quote-link);
+    --mobile-comment-dead: var(--quote-link); --mobile-comment-hover: #d00;
+  }
+  body.publicPageChrome[data-worksafe="false"]:not([data-native-never-mobile="true"]) {
+    --mobile-comment-link: #00e; --mobile-comment-quote: #000080;
+    --mobile-comment-dead: #000080; --mobile-comment-hover: #f00;
+  }
+  body.publicPageChrome.m-dark:not([data-native-never-mobile="true"]) {
+    --mobile-comment-link: #81a2be; --mobile-comment-quote: #81a2be; --mobile-comment-hover: #5f89ac;
+  }
+  body.publicPageChrome:not([data-native-never-mobile="true"]) .postMessage a { color: var(--mobile-comment-link); }
+  body.publicPageChrome:not([data-native-never-mobile="true"]) .postMessage a:is(.quotelink, .quoteLink) { color: var(--mobile-comment-quote); }
+  body.publicPageChrome:not([data-native-never-mobile="true"]) .postMessage .deadlink { color: var(--mobile-comment-dead); }
+  body.publicPageChrome:not([data-native-never-mobile="true"]) .postMessage a:hover { color: var(--mobile-comment-hover); }
+}
+
 .fortune-0 { color: #7fec11; }
 .fortune-1 { color: #bac200; }
 .fortune-2 { color: #e7890c; }

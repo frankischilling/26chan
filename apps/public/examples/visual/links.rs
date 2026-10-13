@@ -3,8 +3,9 @@ use super::views::PostView;
 use askama::Template;
 use board_domain::Token;
 
-pub fn page() -> String {
+pub fn page(worksafe: bool) -> String {
     let mut page = super::fixture_page(false, false, false, false);
+    page.board.worksafe = worksafe;
     page.board.slug = "g".into();
     page.board.title = "Owned source links".into();
     page.navigation_boards = vec![page.board.clone()];

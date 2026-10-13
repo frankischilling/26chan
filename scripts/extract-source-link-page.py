@@ -13,6 +13,8 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / 'fixtures/source-link-page.json'
 HTML_SHA256 = '615914bd0f92191881ffba72f15e5ea287cf1f6c06fd5513ff45a3071ad4e90e'
+DARK_LINK_CSS = '.m-dark a, .m-dark div#absbot a { color: #81A2BE !important; }\n.m-dark a:hover { color: #5F89AC !important; }'
+EXTENSION_SHA256 = '05b3b34f68377a44c071e4f74f629d2700fef61e064dcd2e836b161ee9ee0c31'
 SOURCE_PINS = {'imgboard.php': {'sha256': 'caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445',
                   'functions': {'renderPostHtml': {'first_line': 1915,
                                                    'last_line': 2430,
@@ -88,11 +90,18 @@ def check(fixture):
         require(row['file'] == styles['themes'][theme]['file'], 'Theme path drift')
         require(sha(row['css'].encode()) == styles['themes'][theme]['source_sha256'], 'Full source stylesheet drift')
     require(sha(fixture['mobile_css'].encode()) == '3cb6eb4ec8fcb261b2f0496390484fa613d27ec1bad26fc97127b7dcb848d6ff', 'Mobile stylesheet drift')
+    require(sha(fixture['mobile_nws_css'].encode()) == '872810133bc5dff715746b30127d531e7cd6d93d8405781af23dc7c4760eb023', 'NWS mobile stylesheet drift')
+    require(fixture['dark_link_css'] == DARK_LINK_CSS, 'Dark comment-link rules drift')
+    require(fixture['extension_sha256'] == EXTENSION_SHA256, 'Extension source pin drift')
     require(fixture['missing_source_assets'] == ['css/xa24extra.css'], 'Missing asset inventory drift')
     return fixture
 
 
 def capture(source):
+    extension = (source / 'js/extension.js').read_bytes()
+    require(sha(extension) == EXTENSION_SHA256, 'Original extension hash differs')
+    for rule in DARK_LINK_CSS.splitlines():
+        require(rule in extension.decode(), 'Original dark comment-link rule differs')
     functions = {}
     for path, pin in SOURCE_PINS.items():
         raw = (source / path).read_bytes()
@@ -116,6 +125,8 @@ def capture(source):
                 themes={theme: dict(file=row['file'], css=(source / row['file']).read_bytes().decode())
                         for theme, row in styles['themes'].items()},
                 mobile_css=(source / 'css/yotsubluemobile.css').read_bytes().decode(),
+                mobile_nws_css=(source / 'css/yotsubamobile.css').read_bytes().decode(),
+                dark_link_css=DARK_LINK_CSS, extension_sha256=EXTENSION_SHA256,
                 missing_source_assets=['css/xa24extra.css'])
 
 
@@ -133,7 +144,7 @@ def main():
             require(fixture == json.loads(FIXTURE.read_text()), 'Reproduced page differs from stored source capture')
     else:
         check(json.loads(FIXTURE.read_text()))
-    print('Owned original full-page HTML and seven complete stylesheets match their pins.')
+    print('Owned original full-page HTML and eight complete stylesheets match their pins.')
 
 
 if __name__ == '__main__':
