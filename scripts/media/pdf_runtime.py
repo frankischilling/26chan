@@ -104,7 +104,8 @@ def collect():
             seen_resources.add(data)
         total += len(data)
     if total > MAX_TOTAL:
-        raise ValueError('PDF runtime exceeds the guest image budget')
+        largest = sorted(((len(data), name) for name, (_, data) in files.items()), reverse=True)[:10]
+        raise ValueError(f'PDF runtime exceeds the guest image budget: {total} bytes; largest={largest}')
     manifest = {name: hashlib.sha256(data).hexdigest()
                 for name, (_, data) in sorted(files.items())}
     return files, manifest
