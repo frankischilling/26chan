@@ -45,7 +45,7 @@ fn directive<'a>(policy: &'a str, name: &str) -> Option<&'a str> {
         .find(|value| value.split_ascii_whitespace().next() == Some(name))
 }
 
-fn authority(headers: &HeaderMap, enabled: bool) -> String {
+fn authority(headers: &HeaderMap, enabled: bool, replay: bool) -> String {
     let policy = headers["content-security-policy"].to_str().unwrap();
     let script = directive(policy, "script-src").unwrap();
     let tegaki_scripts: Vec<_> = script
@@ -63,7 +63,7 @@ fn authority(headers: &HeaderMap, enabled: bool) -> String {
     );
     assert_eq!(
         directive(policy, "font-src"),
-        enabled
+        (enabled || replay)
             .then(|| format!("font-src {ORIGIN}{FONT}"))
             .as_deref()
     );
@@ -87,19 +87,23 @@ fn authority(headers: &HeaderMap, enabled: bool) -> String {
     for name in ["worker-src", "connect-src", "media-src", "frame-src"] {
         assert!(!directive(policy, name).unwrap().contains("tegaki"));
     }
-    if !enabled {
+    if !enabled && !replay {
         assert!(!policy.contains("tegaki"));
     }
     images.to_owned()
 }
 
-fn controls(html: &str, ordinary: bool, edit: bool) {
+fn controls(html: &str, ordinary: bool, edit: bool, replay: bool) {
     assert_eq!(html.contains("data-drawing-allowed=\"true\""), ordinary);
     assert_eq!(html.contains("data-drawing-edit-allowed=\"true\""), edit);
     assert_eq!(html.contains("data-drawing-draw"), ordinary || edit);
     assert_eq!(
+        html.contains("href=\"/static/native-replay/player.v1.css\""),
+        replay
+    );
+    assert_eq!(
         html.contains(&format!("href=\"{STYLE}\"")),
-        ordinary || edit
+        ordinary || edit || replay
     );
     assert_eq!(
         html.contains("<div class=\"painter-ctrl\" hidden>"),
@@ -146,6 +150,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
             ("supported", true, false, false, 100),
             ("disabled", false, false, false, 100),
             ("replay enabled", true, true, false, 100),
+            ("playback without drawing", false, true, false, 100),
             ("text only", true, false, true, 100),
             ("no images", true, false, false, 0),
             ("reenabled", true, false, false, 100),
@@ -164,14 +169,14 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
                             .unwrap()
                             .starts_with("text/html")
                     );
-                    let images = authority(&headers, admitted);
+                    let images = authority(&headers, admitted, media_enabled && replay);
                     assert_eq!(
                         image_authority.get_or_insert_with(|| images.clone()),
                         &images,
                         "drawing must not widen image authority"
                     );
                     if method == "GET" {
-                        controls(&html, admitted, false);
+                        controls(&html, admitted, false, media_enabled && replay);
                     } else {
                         assert!(html.is_empty());
                     }
@@ -192,12 +197,12 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
         ] {
             let (status, headers, html) = request(app, "GET", &path).await;
             assert_eq!(status, expected, "{path}");
-            authority(&headers, false);
-            controls(&html, false, false);
+            authority(&headers, false, false);
+            controls(&html, false, false, false);
         }
         let (status, headers, _) = request(&web, "POST", &format!("/{slug}/")).await;
         assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED);
-        authority(&headers, false);
+        authority(&headers, false, false);
         for archived in [false, true] {
             sqlx::query("UPDATE content.threads SET closed=true,archived_at=CASE WHEN $2 THEN now() ELSE NULL END,archive_expires_at=CASE WHEN $2 THEN now()+interval '1 hour' ELSE NULL END WHERE board=$1 AND id=$3")
                 .bind(slug).bind(archived).bind(id).execute(owner).await.unwrap();
@@ -205,9 +210,9 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
                 let (status, headers, html) =
                     request(&web, method, &format!("/{slug}/thread/{id}")).await;
                 assert_eq!(status, StatusCode::OK);
-                authority(&headers, false);
+                authority(&headers, false, false);
                 if method == "GET" {
-                    controls(&html, false, false);
+                    controls(&html, false, false, false);
                     assert!(!html.contains("class=\"postEditor\""));
                 }
             }
@@ -338,10 +343,10 @@ async fn source_i_edit_requires_a_live_thread_and_media_in_the_real_renderer_and
         for method in ["GET", "HEAD"] {
             let (status, headers, html) = request(&enabled, method, &thread).await;
             assert_eq!(status, StatusCode::OK, "{method} {thread}");
-            let images = authority(&headers, true);
+            let images = authority(&headers, true, true);
             assert!(images.contains(MEDIA_ORIGIN), "enabled media origin is exact");
             if method == "GET" {
-                controls(&html, true, true);
+                controls(&html, true, true, true);
                 assert!(html.contains("data-drawing-width=\"400\""));
                 assert!(html.contains("data-drawing-height=\"400\""));
                 assert!(html.contains("class=\"postEditor\""));
@@ -370,9 +375,9 @@ async fn source_i_edit_requires_a_live_thread_and_media_in_the_real_renderer_and
                 let (status, headers, html) = request(app, method, &path).await;
                 assert_eq!(status, expected, "{method} {path}");
                 let ordinary = path == "/i/";
-                authority(&headers, ordinary);
+                authority(&headers, ordinary, ordinary);
                 if method == "GET" {
-                    controls(&html, ordinary, false);
+                    controls(&html, ordinary, false, ordinary);
                 } else {
                     assert!(html.is_empty(), "HEAD {path}");
                 }
@@ -381,9 +386,9 @@ async fn source_i_edit_requires_a_live_thread_and_media_in_the_real_renderer_and
         for method in ["GET", "HEAD"] {
             let (status, headers, html) = request(&without_media, method, &thread).await;
             assert_eq!(status, StatusCode::OK, "media-off {method} {thread}");
-            assert!(!authority(&headers, false).contains(MEDIA_ORIGIN));
+            assert!(!authority(&headers, false, false).contains(MEDIA_ORIGIN));
             if method == "GET" {
-                controls(&html, false, false);
+                controls(&html, false, false, false);
             } else {
                 assert!(html.is_empty());
             }
@@ -401,9 +406,9 @@ async fn source_i_edit_requires_a_live_thread_and_media_in_the_real_renderer_and
             for method in ["GET", "HEAD"] {
                 let (status, headers, html) = request(&enabled, method, &thread).await;
                 assert_eq!(status, StatusCode::OK, "closed/archived {method} {thread}");
-                authority(&headers, false);
+                authority(&headers, false, true);
                 if method == "GET" {
-                    controls(&html, false, false);
+                    controls(&html, false, false, true);
                     assert!(!html.contains("class=\"postEditor\""));
                 } else {
                     assert!(html.is_empty());

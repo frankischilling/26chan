@@ -478,7 +478,7 @@ fn headers(
     } else {
         script
     };
-    let font = if drawing {
+    let font = if drawing || replay {
         format!(
             "font-src {}{}; ",
             state.origin,

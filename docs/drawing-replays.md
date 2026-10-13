@@ -53,6 +53,10 @@ contains no markup, URLs or source events. Uploaded recording bytes stay outside
 the UI builders. The separate UI instance cannot replace the painter's retained
 canvas or reuse its element IDs.
 
+Replay-only pages, including closed and archived threads, load the pinned
+stylesheet and icon font. Their CSP permits only that exact font URL; it does
+not enable the full painter script or drawing controls.
+
 The full engine uses native OffscreenCanvas operations. Canvas and typed-array
 allocation charges are conservative cumulative limits, not browser RSS
 measurements. Rewind starts a fresh worker. Larger or unusually costly
