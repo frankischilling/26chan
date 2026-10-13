@@ -187,6 +187,7 @@ pub(crate) async fn load(
                 let output_format = match a.output_format.as_str() {
                     "png" => board_store::media_assets::MediaFormat::Png,
                     "gif" => board_store::media_assets::MediaFormat::Gif,
+                    "pdf" => board_store::media_assets::MediaFormat::Pdf,
                     _ => return Err(AppError::Internal),
                 };
                 Ok(Attachment {

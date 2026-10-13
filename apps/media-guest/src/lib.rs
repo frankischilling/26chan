@@ -7,6 +7,8 @@ mod jpeg;
 
 pub mod animation;
 pub mod paired;
+#[cfg(target_os = "linux")]
+pub mod pdf;
 pub mod replay;
 pub mod replay_output;
 

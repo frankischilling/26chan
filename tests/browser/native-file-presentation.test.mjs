@@ -60,3 +60,16 @@ test('fixed spoiler and deleted assets require their complete original file reci
     '<img src="/static/catalog/spoiler.png" alt="2 KB" width="100" height="100">',
   ]) assert.equal(parse(wrap(changed)).status, 'invalid-snapshot', changed);
 });
+
+test('PDF captions identify a document and only its static preview can load as an image', () => {
+  const pdf = original.replaceAll('/demo/1.png', '/demo/1.pdf')
+    .replace('2 KB PNG', '2 KB PDF').replace('600x360', 'PDF');
+  assert.equal(parse(pdf).status, 'ok');
+  for (const changed of [pdf.replace(', PDF)', ', 1x1)'),
+    pdf.replace('2 KB PDF', '2 KB PNG'),
+    pdf.replace('/demo/1s.jpg', '/demo/1.pdf'),
+    pdf.replaceAll('/demo/1.pdf', '/demo/1.PDF'),
+    original.replace('600x360', 'PDF')]) {
+    assert.equal(parse(changed).status, 'invalid-snapshot');
+  }
+});

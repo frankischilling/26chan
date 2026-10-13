@@ -4,16 +4,22 @@ import { configureSpoilerPreference } from './native-spoilers.js';
 // Only approved, normalized images from the configured media origin may load.
 export const IMAGE_LIMITS = Object.freeze({ expansions: 8, reveals: 1501, retired: 20001, loadMs: 10000, dimension: 1024 });
 
-export function imageTarget(raw, mediaOrigin) {
+export function attachmentTarget(raw, mediaOrigin) {
   if (typeof raw !== 'string' || typeof mediaOrigin !== 'string' || raw.length > 512
     || /[\u0000-\u0020\u007f\\]/.test(raw)) return null;
   try {
     const origin = new URL(mediaOrigin);
     if (!['http:', 'https:'].includes(origin.protocol) || origin.origin !== mediaOrigin) return null;
-    const match = /^\/([a-z0-9]{1,10})\/([1-9][0-9]{0,18})\.(?:png|gif)$/.exec(raw.slice(mediaOrigin.length));
+    const match = /^\/([a-z0-9]{1,10})\/([1-9][0-9]{0,18})\.(?:png|gif|pdf)$/.exec(raw.slice(mediaOrigin.length));
     if (!raw.startsWith(mediaOrigin) || !match || BigInt(match[2]) > 9223372036854775807n) return null;
     return { url: raw, thumbnail: raw.slice(0, -4) + 's.jpg' };
   } catch { return null; }
+}
+
+// Documents open normally; never send them to an image loader or expansion.
+export function imageTarget(raw, mediaOrigin) {
+  const target = attachmentTarget(raw, mediaOrigin);
+  return target && !target.url.endsWith(".pdf") ? target : null;
 }
 
 export function imageSize(width, height, availableWidth, availableHeight = Infinity) {
@@ -186,7 +192,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     if (file.dataset.imageSpoiler !== 'true' || !available(file)) return null;
     const details = Array.from(file.children).find(element => element.localName === 'details');
     const placeholder = file.querySelector(':scope > a.fileThumb.imgspoiler');
-    const link = placeholder ?? details?.querySelector('a[href]'), source = link && imageTarget(link.getAttribute('href'), mediaOrigin);
+    const link = placeholder ?? details?.querySelector('a[href]'), source = link && attachmentTarget(link.getAttribute('href'), mediaOrigin);
     const caption = file.querySelector(':scope > .fileText > a[href],:scope > p > a[href]');
     if (!source || isRetired(source.url) || caption?.getAttribute('href') !== source.url) return null;
     const filename = file.dataset.imageFilename;
@@ -287,7 +293,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   // Deletion tombstones are exact validated URLs, shared by original posts,
   // inline clones and quote previews. Never evict them while this page survives.
   function retire(raw) {
-    const file = imageTarget(raw, mediaOrigin);
+    const file = attachmentTarget(raw, mediaOrigin);
     if (!file || disposed) return false;
     if (retired.has(file.url)) return true;
     if (retired.size >= bounds.retired) {

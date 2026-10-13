@@ -20,7 +20,7 @@ import uuid
 
 from job_lifecycle import ENV, JOBS, locked_jobs, reconcile_jobs, remove_workspace, run_service, stop_job
 
-from dispatch_protocol import (IMAGE_V1, PAIRED_V2, GIF_V3, INPUT_BYTES, OUTPUT_BYTES,
+from dispatch_protocol import (IMAGE_V1, PAIRED_V2, GIF_V3, PDF_V4, INPUT_BYTES, OUTPUT_BYTES,
                                PAIRED_INPUT_BYTES, output_bytes, request_kind)
 
 
@@ -76,7 +76,8 @@ def trusted_file(path, maximum):
 def configuration(path):
     path = trusted_file(path, 4096)
     config = json.loads(path.read_bytes())
-    if set(config) != {'firecracker', 'jailer', 'kernel', 'initramfs'}:
+    required = {'firecracker', 'jailer', 'kernel', 'initramfs'}
+    if set(config) not in (required, required | {'pdf_initramfs'}):
         raise ValueError('invalid artifact configuration')
     for name, artifact in config.items():
         if set(artifact) != {'path', 'sha256'}:
@@ -99,10 +100,10 @@ def input_disk(source, destination, *, input_kind=IMAGE_V1):
     descriptor = os.open(source, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(descriptor, 'rb') as reader, destination.open('xb') as writer:
         info = os.fstat(reader.fileno())
-        maximum = INPUT_BYTES if input_kind in (IMAGE_V1, GIF_V3) else 48 + PAIRED_INPUT_BYTES
+        maximum = INPUT_BYTES if input_kind in (IMAGE_V1, GIF_V3, PDF_V4) else 48 + PAIRED_INPUT_BYTES
         if not stat.S_ISREG(info.st_mode) or not 1 <= info.st_size <= maximum:
             raise ValueError('input size or file type rejected')
-        if input_kind in (IMAGE_V1, GIF_V3):
+        if input_kind in (IMAGE_V1, GIF_V3, PDF_V4):
             writer.write(info.st_size.to_bytes(8, 'big'))
             disk_size = info.st_size + 8
             remaining = info.st_size
@@ -127,6 +128,9 @@ def input_disk(source, destination, *, input_kind=IMAGE_V1):
 
 def run(config, source, destination, *, input_kind=IMAGE_V1):
     result_size = output_bytes(input_kind)
+    # PDF libraries must not inflate every ordinary image/GIF guest's memory.
+    # An older artifact manifest has no PDF authority and cannot fall back.
+    initramfs = config['pdf_initramfs'] if input_kind == PDF_V4 else config['initramfs']
     user = pwd.getpwnam('board-media-vmm')
     if user.pw_uid == 0 or user.pw_gid == 0 or user.pw_shell != '/usr/sbin/nologin':
         raise ValueError('VMM identity rejected')
@@ -153,7 +157,7 @@ def run(config, source, destination, *, input_kind=IMAGE_V1):
             jail = root / 'firecracker' / job_id / 'root'
             jail.mkdir(parents=True, mode=0o700)
             for name in ('kernel', 'initramfs'):
-                shutil.copyfile(config[name], jail / name)
+                shutil.copyfile(initramfs if name == 'initramfs' else config[name], jail / name)
                 (jail / name).chmod(0o444)
             input_disk(source, jail / 'input.disk', input_kind=input_kind)
             (jail / 'input.disk').chmod(0o444)
@@ -227,7 +231,7 @@ def run(config, source, destination, *, input_kind=IMAGE_V1):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--input-kind', choices=(IMAGE_V1, PAIRED_V2, GIF_V3), default=IMAGE_V1,
+    parser.add_argument('--input-kind', choices=(IMAGE_V1, PAIRED_V2, GIF_V3, PDF_V4), default=IMAGE_V1,
                         help='explicit input contract; paired-v2 takes a complete IBJOB002 request')
     parser.add_argument('--reconcile', action='store_true', help='recover abandoned operator jobs without collecting output')
     parser.add_argument('config', nargs='?')
@@ -259,6 +263,8 @@ def main():
                 run(config, args.input, args.output, input_kind=PAIRED_V2)
             elif args.input_kind == GIF_V3:
                 run(config, args.input, args.output, input_kind=GIF_V3)
+            elif args.input_kind == PDF_V4:
+                run(config, args.input, args.output, input_kind=PDF_V4)
             else:
                 run(config, args.input, args.output)
     except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:

@@ -59,3 +59,18 @@ test('updater accepts bounded spoiler dimensions and rejects metadata that can b
   }
   assert.equal(IMAGE_LIMITS.dimension, 1024);
 });
+
+test('PDF attachments keep their thumbnail route but are never image expansion targets', async () => {
+  const { attachmentTarget } = await import('../../apps/public/client/native-images.js');
+  const origin = 'https://media.example';
+  for (const id of ['1', '9007199254740993', '9223372036854775807']) {
+    const url = `${origin}/sci/${id}.pdf`;
+    assert.deepEqual(attachmentTarget(url, origin), { url, thumbnail: `${origin}/sci/${id}s.jpg` });
+    assert.equal(imageTarget(url, origin), null);
+  }
+  for (const path of ['/sci/01.pdf', '/sci/1.PDF', '/sci/1.pdf?x', '/sci/1.pdf#x',
+    '/sci/1.pdf\n', '/sci/1.pdf.png', '/sci/9223372036854775808.pdf']) {
+    assert.equal(attachmentTarget(origin + path, origin), null);
+  }
+  assert.equal(attachmentTarget('https://elsewhere.example/sci/1.pdf', origin), null);
+});

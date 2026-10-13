@@ -9,13 +9,14 @@ use crate::{
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Duration;
 
-/// Format of the approved host-encoded file, never the upload's filename.
+/// Format of the approved file, never the upload's filename.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "text", rename_all = "lowercase")]
 pub enum MediaFormat {
     #[default]
     Png,
     Gif,
+    Pdf,
 }
 
 impl MediaFormat {
@@ -23,6 +24,7 @@ impl MediaFormat {
         match self {
             Self::Png => "png",
             Self::Gif => "gif",
+            Self::Pdf => "pdf",
         }
     }
 
@@ -30,6 +32,7 @@ impl MediaFormat {
         match self {
             Self::Png => "PNG",
             Self::Gif => "GIF",
+            Self::Pdf => "PDF",
         }
     }
 
@@ -37,6 +40,7 @@ impl MediaFormat {
         match self {
             Self::Png => "image/png",
             Self::Gif => "image/gif",
+            Self::Pdf => "application/pdf",
         }
     }
 
@@ -44,6 +48,7 @@ impl MediaFormat {
         match self {
             Self::Png => 5_242_880,
             Self::Gif => 20_971_520,
+            Self::Pdf => 8_388_608,
         }
     }
 }
@@ -165,6 +170,7 @@ impl OutputMetadata {
         if !(1..=format.byte_limit()).contains(&self.bytes)
             || !(1..=1024).contains(&self.width)
             || !(1..=1024).contains(&self.height)
+            || (format == MediaFormat::Pdf && (self.width != 1 || self.height != 1))
         {
             return Err(StoreError::Invalid(
                 "Output metadata is outside the permitted range.",
@@ -337,6 +343,26 @@ impl MediaQueue {
         .await
     }
 
+    /// Reserve exact retained PDF bytes and a static PNG thumbnail.
+    /// PDF bytes remain untrusted; only the isolated preview is decoded.
+    pub async fn prepare_pdf_output(
+        &self,
+        job_id: &str,
+        token: &str,
+        metadata: &OutputMetadata,
+        variants: &OutputVariants,
+    ) -> Result<Asset, StoreError> {
+        self.prepare_formatted_output(
+            job_id,
+            token,
+            metadata,
+            Some(variants),
+            None,
+            MediaFormat::Pdf,
+        )
+        .await
+    }
+
     async fn prepare_formatted_output(
         &self,
         job_id: &str,
@@ -357,8 +383,9 @@ impl MediaQueue {
             variants.thumbnail.validate()?;
             if variants.thumbnail.width > 250
                 || variants.thumbnail.height > 250
-                || variants.thumbnail.width > metadata.width
-                || variants.thumbnail.height > metadata.height
+                || (format != MediaFormat::Pdf
+                    && (variants.thumbnail.width > metadata.width
+                        || variants.thumbnail.height > metadata.height))
             {
                 return Err(StoreError::Invalid("Invalid thumbnail dimensions."));
             }
@@ -393,7 +420,7 @@ impl MediaQueue {
             }
         }
         // The statement that inserts or reuses pending metadata rechecks the lease.
-        let asset = sqlx::query_as("INSERT INTO media.assets (id, job_id, lease_token, sha256, bytes, width, height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5,output_format) SELECT replace(gen_random_uuid()::text, '-', ''), id, lease_token, $3, $4, $5, $6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13) ON CONFLICT (job_id, lease_token) DO UPDATE SET updated_at = media.assets.updated_at WHERE media.assets.state = 'pending' AND media.assets.output_format = $17 AND media.assets.sha256 = $3 AND media.assets.bytes = $4 AND media.assets.width = $5 AND media.assets.height = $6 AND (media.assets.md5,media.assets.thumbnail_sha256,media.assets.thumbnail_bytes,media.assets.thumbnail_width,media.assets.thumbnail_height) IS NOT DISTINCT FROM ($7,$8,$9,$10,$11) AND (media.assets.source_input_sha256,media.assets.source_input_bytes,media.assets.source_profile,media.assets.source_retained_bytes,media.assets.source_md5) IS NOT DISTINCT FROM ($12,$13,$14,$15,$16) AND EXISTS (SELECT 1 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13)) RETURNING id, sha256, bytes, width, height, output_format")
+        let asset = sqlx::query_as("INSERT INTO media.assets (id, job_id, lease_token, sha256, bytes, width, height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5,output_format) SELECT replace(gen_random_uuid()::text, '-', ''), id, lease_token, $3, $4, $5, $6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13) AND ($17::text <> 'pdf' OR input_bytes=$4) ON CONFLICT (job_id, lease_token) DO UPDATE SET updated_at = media.assets.updated_at WHERE media.assets.state = 'pending' AND media.assets.output_format = $17 AND media.assets.sha256 = $3 AND media.assets.bytes = $4 AND media.assets.width = $5 AND media.assets.height = $6 AND (media.assets.md5,media.assets.thumbnail_sha256,media.assets.thumbnail_bytes,media.assets.thumbnail_width,media.assets.thumbnail_height) IS NOT DISTINCT FROM ($7,$8,$9,$10,$11) AND (media.assets.source_input_sha256,media.assets.source_input_bytes,media.assets.source_profile,media.assets.source_retained_bytes,media.assets.source_md5) IS NOT DISTINCT FROM ($12,$13,$14,$15,$16) AND EXISTS (SELECT 1 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13) AND ($17::text <> 'pdf' OR input_bytes=$4)) RETURNING id, sha256, bytes, width, height, output_format")
             .bind(job_id).bind(token).bind(&metadata.sha256).bind(metadata.bytes).bind(metadata.width).bind(metadata.height)
             .bind(variants.map(|v| &v.md5)).bind(variants.map(|v| &v.thumbnail.sha256))
             .bind(variants.map(|v| v.thumbnail.bytes)).bind(variants.map(|v| v.thumbnail.width)).bind(variants.map(|v| v.thumbnail.height))

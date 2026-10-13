@@ -119,6 +119,13 @@ impl Gateway {
                     self.authorize(&fingerprint)?;
                     protocol::write_gif_response(&disk, &mut stream).await
                 }
+                protocol::Request::PdfV4(input) => {
+                    protocol::write_pdf_request(input.as_slice(), input.len() as u64, &mut broker)
+                        .await?;
+                    let disk = protocol::read_pdf_response(&mut broker).await?;
+                    self.authorize(&fingerprint)?;
+                    protocol::write_pdf_response(&disk, &mut stream).await
+                }
             }
         })
         .await

@@ -176,6 +176,7 @@ pub struct Board {
     pub min_image_height: i32,
     pub max_image_dimension: i32,
     pub gif_only: bool,
+    pub pdf_enabled: bool,
     pub dice_roll: bool,
     pub fortune_trip: bool,
     pub robot9000: bool,

@@ -18,6 +18,8 @@ pub async fn image(
     let thumbnail = name.ends_with(".thumb.png");
     let (suffix, format) = if thumbnail {
         (".thumb.png", MediaFormat::Png)
+    } else if name.ends_with(".pdf") {
+        (".pdf", MediaFormat::Pdf)
     } else if name.ends_with(".gif") {
         (".gif", MediaFormat::Gif)
     } else {
@@ -50,6 +52,8 @@ pub async fn post_image(
     let thumbnail = name.ends_with("s.jpg");
     let (suffix, format) = if thumbnail {
         ("s.jpg", MediaFormat::Png)
+    } else if name.ends_with(".pdf") {
+        (".pdf", MediaFormat::Pdf)
     } else if name.ends_with(".gif") {
         (".gif", MediaFormat::Gif)
     } else {
@@ -189,6 +193,8 @@ async fn serve(
                 .map_err(|_| board_media::MediaError::Conflict)?;
             if thumbnail {
                 files.read_thumbnail(id, &asset.sha256, size)
+            } else if format == MediaFormat::Pdf {
+                files.read_pdf(id, &asset.sha256, size)
             } else if format == MediaFormat::Gif {
                 files.read_gif(id, &asset.sha256, size)
             } else {

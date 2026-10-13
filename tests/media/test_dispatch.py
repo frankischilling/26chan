@@ -192,11 +192,11 @@ class Exercise:
         wait_until(ready)
         return process
 
-    def intake(self, payload=red_png()):
+    def intake(self, payload=red_png(), filename="untrusted/display.png"):
         assert sql("SELECT count(*) FROM media.jobs WHERE state IN ('receiving','queued','processing')") == '0', 'queue became busy'
         source = self.private / 'input.png'
         self.write(source, payload, self.coordinator)
-        result = self.finish(self.launch([self.bin / 'board-media-admin', 'intake', source, 'untrusted/display.png'], self.coordinator, self.writer))
+        result = self.finish(self.launch([self.bin / 'board-media-admin', 'intake', source, filename], self.coordinator, self.writer))
         job = json.loads(result)['id']
         assert HEX.fullmatch(job)
         self.ids.append(job)
@@ -256,6 +256,30 @@ class Exercise:
             assert sql(f"SELECT md5 FROM media.assets WHERE id='{gif_asset}'") == hashlib.md5(expected).hexdigest()
             self.clean_vm()
         print('PASS GIF-v3 actual guest dispatch, typed GIF approval, static PNG thumbnail and checked restricted reader', flush=True)
+
+        from test_pdf_vm import document, RED, BLUE
+        for name, payload in [('single', document([RED])), ('multiple', document([RED, BLUE])),
+                              ('text', document([b'BT /F1 18 Tf 8 24 Td (Owned text) Tj ET'], 144, 72))]:
+            pdf_job = self.intake(payload, filename='owned.PDF')
+            pdf_asset = self.finish(self.dispatch()).decode().strip()
+            assert HEX.fullmatch(pdf_asset) and pdf_asset != pdf_job
+            assert sql(f"SELECT count(*) FROM media.assets WHERE id='{pdf_asset}' AND job_id='{pdf_job}' AND state='approved' AND output_format='pdf' AND width=1 AND height=1 AND source_profile IS NULL") == '1'
+            destination = self.private / f'{name}-read.pdf'
+            self.finish(self.launch([self.bin / 'media-read', pdf_asset, self.private / 'objects', destination], self.coordinator, self.reader))
+            assert destination.read_bytes() == payload
+            assert (self.private / 'objects' / f'{pdf_asset}.pdf').read_bytes() == payload
+            assert not (self.private / 'objects' / f'{pdf_asset}.png').exists()
+            assert (self.private / 'objects' / f'{pdf_asset}.thumb.png').read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
+            assert sql(f"SELECT sha256 FROM media.assets WHERE id='{pdf_asset}'") == hashlib.sha256(payload).hexdigest()
+            assert sql(f"SELECT md5 FROM media.assets WHERE id='{pdf_asset}'") == hashlib.md5(payload).hexdigest()
+            self.clean_vm()
+        for payload, filename in [(document([RED]), 'owned.png'),
+                                  (document([RED, b'bad compressed stream'], invalid_page=1), 'owned.pdf')]:
+            failed = self.intake(payload, filename=filename)
+            self.finish(self.dispatch(), False)
+            self.no_approval(failed)
+            self.clean_vm()
+        print('PASS PDF-v4 actual guest dispatch, exact retained bytes, preview and restricted reader', flush=True)
 
         for identity, allowed_path in [(self.gateway, self.keys / 'server.key'), (self.coordinator, self.private / 'client.key')]:
             self.read(identity, allowed_path, True)

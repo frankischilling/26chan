@@ -612,6 +612,7 @@ pub(crate) mod tests {
             min_image_height: 1,
             max_image_dimension: 10000,
             gif_only: false,
+            pdf_enabled: false,
             dice_roll: false,
             fortune_trip: false,
             robot9000: false,
@@ -908,6 +909,39 @@ pub(crate) mod tests {
             assert!(html.contains("href=\"https://media.example/test/9223372036854775807.gif\""));
             assert!(html.contains(" GIF</div>"));
             assert!(!html.contains("9223372036854775807.png"));
+            if spoiler {
+                assert!(html.contains("/static/catalog/spoiler.png"));
+                assert!(html.contains("class=\"fileThumb imgspoiler\""));
+            } else {
+                assert!(
+                    html.contains("src=\"https://media.example/test/9223372036854775807s.jpg\"")
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn pdf_preview_keeps_the_approved_suffix_static_thumbnail_and_no_script_link() {
+        for spoiler in [false, true] {
+            let mut snapshot = preview_fixture(false);
+            let mut file = attachment();
+            file.output_format = board_store::media_assets::MediaFormat::Pdf;
+            file.spoiler = spoiler;
+            file.width = 1;
+            file.height = 1;
+            // The user-supplied name does not select the approved format.
+            file.filename = "owned.pdf".into();
+            snapshot.post.attachment = Some(file);
+            let preview: serde_json::Value = serde_json::from_slice(
+                &encode_preview(snapshot, "https://media.example", MAX_PREVIEW_BYTES).unwrap(),
+            )
+            .unwrap();
+            let html = preview["post"]["html"].as_str().unwrap();
+            assert!(html.contains("href=\"https://media.example/test/9223372036854775807.pdf\""));
+            assert!(html.contains(" PDF</div>"));
+            assert!(!html.contains("9223372036854775807.png"));
+            assert!(html.contains(", PDF)"));
+            assert!(!html.contains(", 1x1)"));
             if spoiler {
                 assert!(html.contains("/static/catalog/spoiler.png"));
                 assert!(html.contains("class=\"fileThumb imgspoiler\""));

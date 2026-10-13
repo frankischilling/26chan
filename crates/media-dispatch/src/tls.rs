@@ -121,6 +121,37 @@ impl DispatchClient {
             .map_err(|_| Error::Deadline)?
     }
 
+    /// Explicit PDF transport; no image/GIF response or fallback is accepted.
+    pub async fn process_pdf<R: AsyncRead + Unpin>(
+        &self,
+        input: R,
+        length: u64,
+    ) -> Result<Vec<u8>> {
+        if !(1..=protocol::MAX_INPUT).contains(&length) {
+            return Err(Error::Frame);
+        }
+        let mut stream = timeout(INTAKE, async {
+            let socket = TcpStream::connect(self.endpoint)
+                .await
+                .map_err(|_| Error::Transport)?;
+            self.connector
+                .connect(self.name.clone(), socket)
+                .await
+                .map_err(|_| Error::Authentication)
+        })
+        .await
+        .map_err(|_| Error::Deadline)??;
+        timeout(
+            INTAKE,
+            protocol::write_pdf_request(input, length, &mut stream),
+        )
+        .await
+        .map_err(|_| Error::Deadline)??;
+        timeout(PROCESSING, protocol::read_pdf_response(&mut stream))
+            .await
+            .map_err(|_| Error::Deadline)?
+    }
+
     /// Explicit GIF transport; a v1/v2 response is never accepted or retried.
     pub async fn process_gif<R: AsyncRead + Unpin>(
         &self,

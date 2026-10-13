@@ -36,7 +36,8 @@ class PairedTransportTest(unittest.TestCase):
     def test_runner_cli_keeps_v1_default_and_selects_v2_explicitly(self):
         for options, keywords in (([], {}), (['--input-kind', protocol.IMAGE_V1], {}),
                                   (['--input-kind', protocol.PAIRED_V2], {'input_kind': protocol.PAIRED_V2}),
-                                  (['--input-kind', protocol.GIF_V3], {'input_kind': protocol.GIF_V3})):
+                                  (['--input-kind', protocol.GIF_V3], {'input_kind': protocol.GIF_V3}),
+                                  (['--input-kind', protocol.PDF_V4], {'input_kind': protocol.PDF_V4})):
             argv = ['run-job.py', *options, 'owned-config', 'owned-input', 'owned-output']
             with self.subTest(options=options), mock.patch.object(sys, 'argv', argv), \
                     mock.patch.dict(os.environ, {}, clear=True), \
@@ -59,13 +60,14 @@ class PairedTransportTest(unittest.TestCase):
     def test_explicit_versions_and_caps(self):
         for magic, low, high, kind in ((b'IBJOB001', 1, 8_388_608, protocol.IMAGE_V1),
                                        (b'IBJOB002', 57, 16_777_272, protocol.PAIRED_V2),
-                                       (b'IBJOB003', 1, 8_388_608, protocol.GIF_V3)):
+                                       (b'IBJOB003', 1, 8_388_608, protocol.GIF_V3),
+                                       (b'IBJOB004', 1, 8_388_608, protocol.PDF_V4)):
             for size in (low, high):
                 self.assertEqual(protocol.request_kind(magic + size.to_bytes(8, 'big')), (kind, size))
             for size in (0, low - 1, high + 1, 2**64 - 1):
                 with self.assertRaises(ValueError):
                     protocol.request_kind(magic + size.to_bytes(8, 'big'))
-        for magic in (b'IBJOB004', b'IBPAIR02', b'IBOUT002'):
+        for magic in (b'IBJOB005', b'IBPAIR02', b'IBOUT002'):
             with self.assertRaises(ValueError):
                 protocol.request_kind(magic + (57).to_bytes(8, 'big'))
         with self.assertRaises(ValueError):
@@ -198,16 +200,16 @@ class PairedTransportTest(unittest.TestCase):
     def test_mocked_runner_preserves_limits_and_retains_output_inode(self):
         cases = ((kind, size, mutation)
                  for kind, size in ((protocol.IMAGE_V1, 4_194_816), (protocol.PAIRED_V2, 4_456_960),
-                                    (protocol.GIF_V3, 17_825_792))
+                                    (protocol.GIF_V3, 17_825_792), (protocol.PDF_V4, 4_194_816))
                  for mutation in ('rename', 'truncate', 'grow'))
         for kind, size, mutation in cases:
             with self.subTest(kind=kind, mutation=mutation), tempfile.TemporaryDirectory() as directory:
                 root = pathlib.Path(directory)
                 source = root / 'source'
                 source.write_bytes(request() if kind == protocol.PAIRED_V2 else b'x')
-                config = {name: root / name for name in ('kernel', 'initramfs', 'firecracker', 'jailer')}
+                config = {name: root / name for name in ('kernel', 'initramfs', 'pdf_initramfs', 'firecracker', 'jailer')}
                 for value in config.values():
-                    value.write_bytes(b'fixture')
+                    value.write_bytes(value.name.encode())
                 def run_service(args, lock):
                     self.assertIn('fsize=' + str(size), args)
                     for prop in ('MemoryMax=256M', 'MemorySwapMax=0', 'TasksMax=32',
@@ -215,6 +217,8 @@ class PairedTransportTest(unittest.TestCase):
                         self.assertIn('--property=' + prop, args)
                     vm = next(root.glob('*/firecracker/*/root/vm.json'))
                     machine = json.loads(vm.read_text())
+                    self.assertEqual(vm.with_name('initramfs').read_bytes(),
+                                     b'pdf_initramfs' if kind == protocol.PDF_V4 else b'initramfs')
                     self.assertEqual(machine['machine-config']['mem_size_mib'], 128)
                     self.assertIn('board_media_input_kind=' + kind, machine['boot-source']['boot_args'])
                     output = vm.with_name('output.disk')

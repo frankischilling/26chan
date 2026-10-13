@@ -12,12 +12,13 @@ GIF_OUTPUT_BYTES = 17_825_792
 IMAGE_V1 = "image-v1"
 PAIRED_V2 = "paired-v2"
 GIF_V3 = "gif-v3"
+PDF_V4 = "pdf-v4"
 TRANSFER_SECONDS = 3
 BUFFER_BYTES = 65_536
 
 
 def output_bytes(input_kind):
-    if input_kind == IMAGE_V1:
+    if input_kind in (IMAGE_V1, PDF_V4):
         return OUTPUT_BYTES
     if input_kind == PAIRED_V2:
         return PAIRED_OUTPUT_BYTES
@@ -37,6 +38,8 @@ def request_kind(header):
         return PAIRED_V2, size
     if header[:8] == b"IBJOB003" and 1 <= size <= INPUT_BYTES:
         return GIF_V3, size
+    if header[:8] == b"IBJOB004" and 1 <= size <= INPUT_BYTES:
+        return PDF_V4, size
     raise ValueError("dispatch frame rejected")
 
 
@@ -85,7 +88,8 @@ def receive_request(connection, destination, *, deadline=None):
 
 def send_response(connection, source, *, input_kind=IMAGE_V1, deadline=None):
     size = output_bytes(input_kind)
-    magic = {IMAGE_V1: b"IBOUT001", PAIRED_V2: b"IBOUT002", GIF_V3: b"IBOUT003"}[input_kind]
+    magic = {IMAGE_V1: b"IBOUT001", PAIRED_V2: b"IBOUT002", GIF_V3: b"IBOUT003",
+             PDF_V4: b"IBOUT004"}[input_kind]
     deadline = time.monotonic() + TRANSFER_SECONDS if deadline is None else deadline
     descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
     with os.fdopen(descriptor, 'rb') as input_file:

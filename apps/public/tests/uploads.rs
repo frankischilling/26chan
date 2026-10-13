@@ -701,6 +701,36 @@ async fn source_image_upload_hints_and_stream_bound(
     assert!(page.contains("accept=\"image/gif\""));
     assert!(page.contains("Upload a GIF first"));
     assert!(page.contains("Maximum file size: 17 bytes."));
+    for (gif_only, expected) in [
+        (true, "image/gif,application/pdf,.pdf"),
+        (false, "image/png,image/jpeg,image/gif,application/pdf,.pdf"),
+    ] {
+        sqlx::query("UPDATE content.boards SET pdf_enabled=true,gif_only=$2 WHERE slug=$1")
+            .bind(board)
+            .bind(gif_only)
+            .execute(admin)
+            .await
+            .unwrap();
+        let page = html(
+            app.clone()
+                .oneshot(
+                    Request::get(format!("/{board}/"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap(),
+            StatusCode::OK,
+        )
+        .await;
+        assert!(page.contains(&format!("accept=\"{expected}\"")));
+        assert!(page.contains("or a PDF first"));
+    }
+    sqlx::query("UPDATE content.boards SET pdf_enabled=false,gif_only=true WHERE slug=$1")
+        .bind(board)
+        .execute(admin)
+        .await
+        .unwrap();
     assert_eq!(
         app.clone()
             .oneshot(multipart(board, vec![1; 18], false))

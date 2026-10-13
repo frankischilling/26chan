@@ -8,6 +8,7 @@ pub mod paired;
 use board_media::{
     ApprovedFiles, InputSnapshot, MAX_INPUT_BYTES, PublicationStore, Quarantine, ValidatedOutput,
     animation::ValidatedAnimation,
+    pdf::RetainedPdf,
     source_digest::{
         PngSourceDigestLimits, SourceDigestError, SourceDigestProfile, png_source_processed_digest,
     },
@@ -54,15 +55,21 @@ pub async fn dispatch(
         // Fixed signature selects an explicit transport. Complex GIF admission
         // and decoding remain in the disposable guest.
         let gif = matches!(snapshot.bytes().get(..6), Some(b"GIF87a" | b"GIF89a"));
-        let disk = if gif {
+        let pdf = snapshot.bytes().starts_with(b"%PDF-");
+        if pdf && !job.filename.to_ascii_lowercase().ends_with(".pdf") {
+            return Err("private input rejected");
+        }
+        let disk = if pdf {
+            client.process_pdf(snapshot.bytes(), length).await
+        } else if gif {
             client.process_gif(snapshot.bytes(), length).await
         } else {
             client.process(snapshot.bytes(), length).await
         }
         .map_err(|_| "dispatch processing failed")?;
-        Ok::<_, &str>((disk, provenance, gif))
+        Ok::<_, &str>((disk, provenance, gif, pdf.then_some(snapshot)))
     };
-    let (disk, provenance, gif) =
+    let (disk, provenance, gif, pdf) =
         match tokio::time::timeout(std::time::Duration::from_secs(29), processed).await {
             Ok(Ok(disk)) => disk,
             _ => {
@@ -95,6 +102,12 @@ pub async fn dispatch(
             return Err("dispatch output rejected".into());
         }
     };
+    if let Some(snapshot) = pdf {
+        let document = RetainedPdf::from_processed_snapshot(snapshot, output)?;
+        return publish_pdf(queue, store, &job.id, token, &document)
+            .await
+            .map_err(|_| "dispatch approval unavailable".into());
+    }
     // Preserve publication's reservation/lock and uncertain-commit recovery.
     // Never remove or fail a possibly approved object after an approval error.
     publish_with_provenance(queue, store, &job.id, token, &output, provenance.as_ref())
@@ -144,6 +157,50 @@ pub async fn publish_animation(
         .await?;
     let receipt = guard.install_gif(pending.id.parse()?, &encoded)?;
     if pending.output_format != MediaFormat::Gif
+        || receipt.sha256 != pending.sha256
+        || receipt.bytes != pending.bytes as u64
+    {
+        return Err("output reservation differs from installed bytes".into());
+    }
+    let receipt = guard.install_thumbnail(pending.id.parse()?, &thumbnail)?;
+    if receipt.sha256 != variants.thumbnail.sha256
+        || receipt.bytes != variants.thumbnail.bytes as u64
+    {
+        return Err("thumbnail reservation differs from installed bytes".into());
+    }
+    Ok(queue.approve_output(job_id, token, &pending.id).await?)
+}
+
+/// Retain the exact dispatched PDF and publish its separately validated preview.
+async fn publish_pdf(
+    queue: &MediaQueue,
+    store: &PublicationStore,
+    job_id: &str,
+    token: &str,
+    encoded: &RetainedPdf,
+) -> PublicationResult<Asset> {
+    let thumbnail = encoded.preview().thumbnail()?;
+    let metadata = OutputMetadata {
+        sha256: encoded.sha256().to_owned(),
+        bytes: encoded.len() as i64,
+        width: 1,
+        height: 1,
+    };
+    let variants = OutputVariants {
+        md5: encoded.md5().to_owned(),
+        thumbnail: OutputMetadata {
+            sha256: thumbnail.sha256().to_owned(),
+            bytes: thumbnail.len() as i64,
+            width: thumbnail.dimensions().0 as i32,
+            height: thumbnail.dimensions().1 as i32,
+        },
+    };
+    let guard = store.try_lock()?;
+    let pending = queue
+        .prepare_pdf_output(job_id, token, &metadata, &variants)
+        .await?;
+    let receipt = guard.install_pdf(pending.id.parse()?, encoded)?;
+    if pending.output_format != MediaFormat::Pdf
         || receipt.sha256 != pending.sha256
         || receipt.bytes != pending.bytes as u64
     {
@@ -232,6 +289,7 @@ pub async fn read_approved(
     Ok(match approved.output_format {
         MediaFormat::Png => files.read(id, &approved.sha256, size)?,
         MediaFormat::Gif => files.read_gif(id, &approved.sha256, size)?,
+        MediaFormat::Pdf => files.read_pdf(id, &approved.sha256, size)?,
     })
 }
 

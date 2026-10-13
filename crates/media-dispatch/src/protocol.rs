@@ -8,12 +8,14 @@ pub const MIN_PAIRED_INPUT: u64 = 57;
 pub const MAX_PAIRED_INPUT: u64 = 16_777_272;
 pub const PAIRED_OUTPUT_LENGTH: u64 = 4_456_960;
 pub const GIF_OUTPUT_LENGTH: u64 = 17_825_792;
+pub const PDF_OUTPUT_LENGTH: u64 = OUTPUT_LENGTH;
 
 /// Transport framing only: the binding and completed pair remain opaque here.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Request {
     ImageV1(Vec<u8>),
     GifV3(Vec<u8>),
+    PdfV4(Vec<u8>),
     PairedV2 { binding: [u8; 32], input: Vec<u8> },
 }
 
@@ -26,6 +28,9 @@ pub async fn read_versioned_request<R: AsyncRead + Unpin>(input: &mut R) -> Resu
         }
         b"IBJOB003" if (1..=MAX_INPUT).contains(&length) => {
             Ok(Request::GifV3(read_body(input, length).await?))
+        }
+        b"IBJOB004" if (1..=MAX_INPUT).contains(&length) => {
+            Ok(Request::PdfV4(read_body(input, length).await?))
         }
         b"IBJOB002" if (MIN_PAIRED_INPUT..=MAX_PAIRED_INPUT).contains(&length) => {
             let (binding, input) = read_paired_body(input, length).await?;
@@ -78,6 +83,28 @@ pub async fn read_response<R: AsyncRead + Unpin>(input: &mut R) -> Result<Vec<u8
 
 pub async fn read_gif_response<R: AsyncRead + Unpin>(input: &mut R) -> Result<Vec<u8>> {
     read_frame(input, b"IBOUT003", GIF_OUTPUT_LENGTH, GIF_OUTPUT_LENGTH).await
+}
+
+pub async fn read_pdf_response<R: AsyncRead + Unpin>(input: &mut R) -> Result<Vec<u8>> {
+    read_frame(input, b"IBOUT004", PDF_OUTPUT_LENGTH, PDF_OUTPUT_LENGTH).await
+}
+
+pub async fn write_pdf_request<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
+    input: R,
+    length: u64,
+    output: &mut W,
+) -> Result<()> {
+    if !(1..=MAX_INPUT).contains(&length) {
+        return Err(Error::Frame);
+    }
+    write_frame(input, length, output, b"IBJOB004").await
+}
+
+pub async fn write_pdf_response<W: AsyncWrite + Unpin>(bytes: &[u8], output: &mut W) -> Result<()> {
+    if bytes.len() as u64 != PDF_OUTPUT_LENGTH {
+        return Err(Error::Frame);
+    }
+    write_frame(bytes, PDF_OUTPUT_LENGTH, output, b"IBOUT004").await
 }
 
 pub async fn write_gif_request<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(

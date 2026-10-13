@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Package reviewed static init/worker binaries into a deterministic newc image."""
 import argparse
+import json
 import pathlib
 import stat
+from pdf_runtime import collect as collect_pdf_runtime
 
 
 def entry(name, mode, data=b"", ino=1):
@@ -18,16 +20,33 @@ def main():
     parser.add_argument("binary", type=pathlib.Path)
     parser.add_argument("worker", type=pathlib.Path)
     parser.add_argument("output", type=pathlib.Path)
+    parser.add_argument("--pdf-runtime", action="store_true",
+                        help="include the fixed installed Ghostscript runtime")
     args = parser.parse_args()
     binary = args.binary.read_bytes()
     worker = args.worker.read_bytes()
     if any(len(data) > 16 * 1024 * 1024 or not data.startswith(b"\x7fELF") for data in (binary, worker)):
         parser.error("expected a bounded ELF guest binary")
-    image = entry("init", stat.S_IFREG | 0o755, binary)
-    image += entry("worker", stat.S_IFREG | 0o755, worker, ino=2)
-    for ino, name in enumerate(("dev", "proc", "sys"), 3):
+    files = {"init": (0o755, binary), "worker": (0o755, worker)}
+    directories = {"dev", "proc", "sys"}
+    if args.pdf_runtime:
+        runtime, manifest = collect_pdf_runtime()
+        files.update(runtime)
+        files['pdf-runtime.json'] = (0o444, (json.dumps(manifest, sort_keys=True) + '\n').encode())
+        for name in files:
+            directories.update(str(parent) for parent in pathlib.PurePosixPath(name).parents
+                               if str(parent) != '.')
+    image = bytearray()
+    ino = 1
+    for name in sorted(directories, key=lambda value: (value.count('/'), value)):
         image += entry(name, stat.S_IFDIR | 0o755, ino=ino)
-    image += entry("TRAILER!!!", 0, ino=6)
+        ino += 1
+    for name, (mode, data) in sorted(files.items()):
+        image += entry(name, stat.S_IFREG | mode, data, ino=ino)
+        ino += 1
+    image += entry("TRAILER!!!", 0, ino=ino)
+    if len(image) > 64 * 1024 * 1024:
+        parser.error('initramfs exceeds the existing artifact size budget')
     with args.output.open("xb") as output:
         output.write(image)
 

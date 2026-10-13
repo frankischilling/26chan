@@ -24,7 +24,7 @@ assert.deepEqual(Object.keys(result.metafile.inputs).sort(), [
 ].sort());
 const [output] = Object.values(result.metafile.outputs);
 assert.deepEqual(output.imports, []);
-assert.deepEqual([...output.exports].sort(), ['IMAGE_LIMITS', 'imageSize', 'imageTarget', 'mountNativeImages']);
+assert.deepEqual([...output.exports].sort(), ['IMAGE_LIMITS', 'attachmentTarget', 'imageSize', 'imageTarget', 'mountNativeImages']);
 const bytes = result.outputFiles[0].contents;
 assert.ok(bytes.length <= 16384, 'Image controls exceed the 16 KiB release budget');
 const target = new URL('apps/public/static/native-images.v1.js', root);
