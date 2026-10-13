@@ -314,3 +314,17 @@ ring-independent retention, and the real pinned Playwright reporter path without
 a browser. Rust checks cover guard completion/cancellation, overflow and the
 existing real TCP/HTTP listener shutdown contract. Hosted Windows qualification
 is still required before treating this collector as qualified on that platform.
+
+## Evidence-control setup timeout
+
+At `2ab0c16`, the [serialized randomized job](https://github.com/frankischilling/26chan/actions/runs/38368912445/job/115200709499)
+failed before running its network experiment. The deterministic PowerShell
+control process reached `parse` and `compile`, then exceeded its 15-second
+outer deadline before reporting `controls`. This locates the timeout inside
+the `Add-Type` setup stage; it does not establish why compilation stalled.
+
+The test wrapper now allows 60 seconds for PowerShell startup, compilation and
+the seven controls together. It still requires every stage, exit status zero
+and all seven assertions. The production 20-second environment wait, native
+probe deadlines, cleanup checks and failure classification are unchanged.
+Exact-head Windows qualification is still required.

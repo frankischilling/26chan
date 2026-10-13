@@ -37,7 +37,11 @@ const unavailable = process.platform !== 'win32' && probe.error?.code === 'ENOEN
 test('actual PowerShell evidence controls cover deadlines, survivors, errors and success', { skip: unavailable ? 'pwsh unavailable; static contracts only on this host' : false }, () => {
   assert.ifError(probe.error);
   assert.equal(probe.status, 0, probe.stderr);
-  const result = spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-File', fileURLToPath(new URL('./toolchain-evidence.test.ps1', import.meta.url))], { encoding: 'utf8', timeout: 15000 });
+  // This process also cold-starts Roslyn through Add-Type. Hosted Windows
+  // reached compile but not controls before the old 15-second harness deadline.
+  // Keep a bounded setup allowance; the seven controls still require the exact
+  // production 20-second wait budget and do not sleep or run the network probe.
+  const result = spawnSync('pwsh', ['-NoLogo', '-NoProfile', '-File', fileURLToPath(new URL('./toolchain-evidence.test.ps1', import.meta.url))], { encoding: 'utf8', timeout: 60000 });
   const stages = [...(result.stderr || '').matchAll(/^evidence-stage: (parse|compile|controls|complete)\r?$/gm)].map(match => match[1]);
   assert.equal(result.error, undefined, `PowerShell control process ${result.error?.code || 'failed'}; stages: ${stages.join(', ') || 'not entered'}`);
   assert.equal(result.status, 0, result.stderr);
