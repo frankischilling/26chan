@@ -54,9 +54,9 @@ unapproved recordings cannot be fetched. Raw TGKR uploads are never served.
 
 ## Verification status
 
-The existing 41 native browser checks and 66 source-renderer, worker-session
-and player checks passed at commit `d10c5f7c141f90197174b0c4611260ea6749fbee` in
-[run 38349796710](https://github.com/frankischilling/26chan/actions/runs/38349796710).
+The native drawing, source-renderer, worker-session and player suites passed at
+commit `38e94e52a3c80b8815528b8754c61ba3791bb78e` in
+[run 38359030629](https://github.com/frankischilling/26chan/actions/runs/38359030629).
 The release-bundle checks caught a constructor-name minification error; the
 build now preserves the names used by Tegaki's event table.
 
@@ -67,10 +67,17 @@ rejection control; `bounded-stroke.tgkr` supplies a separate positive recording,
 packed by the pinned recorder with an independently transcribed canonical wire.
 Neither synthetic recording claims pixel agreement with the red PNG fixture.
 
-The complete drawing-post path and real-guest publication extension still need
-final hosted qualification. Local focused PostgreSQL, intake, delivery,
-annotation and mTLS fixture tests passed. The new real-guest coordinator cases
-compile and pass strict Clippy; that does not establish guest runtime success. The local
-sandbox cannot create the Unix socket used by one public transport test;
-that test remains enabled in hosted CI. No merge or issue closure is implied
-by these intermediate results.
+The real-guest coordinator and complete HTTP intake qualification steps passed
+at the same commit in
+[run 38359011401](https://github.com/frankischilling/26chan/actions/runs/38359011401).
+The browser records trusted pointer strokes, submits the image and recording,
+posts the approved attachment, compares playback pixels, edits the source post,
+and checks that deletion revokes image and replay access. The coordinator cases
+exercise joint publication and both parser and numeric-envelope refusals through
+the actual mTLS gateway, broker and disposable guest.
+
+Local PostgreSQL, intake, delivery, annotation and mTLS fixture tests also passed.
+The local sandbox cannot create the Unix socket used by one public transport
+test; that test remains enabled in hosted CI. These results describe the named
+suites, not the outcome of every CI job. Merge still requires the complete check
+matrix to pass on the final head.
