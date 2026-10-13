@@ -222,6 +222,8 @@ class PairedTransportTest(unittest.TestCase):
                                      b'pdf_initramfs' if kind == protocol.PDF_V4 else b'initramfs')
                     self.assertEqual(machine['machine-config']['mem_size_mib'], 128)
                     self.assertIn('board_media_input_kind=' + kind, machine['boot-source']['boot_args'])
+                    self.assertEqual('rootfstype=ramfs' in machine['boot-source']['boot_args'],
+                                     kind == protocol.PDF_V4)
                     output = vm.with_name('output.disk')
                     self.assertEqual(output.stat().st_size, size)
                     if mutation == 'rename':

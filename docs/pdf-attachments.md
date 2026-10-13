@@ -65,6 +65,12 @@ guest binaries, keeping debug metadata out of the boot image. PDF initramfs file
 use gzip with a fixed timestamp; both stored and unpacked bytes must fit the
 64 MiB cap. The pinned kernel enables `CONFIG_RD_GZIP`. Compression keeps the
 boot artifacts inside the existing private tmpfs without enlarging its quota. The
+PDF guest selects `rootfstype=ramfs` for its root-owned boot files because the
+kernel's default tmpfs root could not unpack the reviewed image. This setting is
+documented in the [Linux rootfs guide](https://www.kernel.org/doc/html/v6.4/filesystems/ramfs-rootfs-initramfs.html).
+The worker cannot write that root; its writable temporary files still use the
+separate 16 MiB tmpfs. The 128 MiB VM memory limit and 64 MiB unpacked-image cap
+remain in force. The
 image contains no host credentials, user font configuration or font caches.
 
 To update these resource pins, retrieve the packages from the official Ubuntu
