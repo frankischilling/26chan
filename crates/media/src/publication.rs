@@ -19,10 +19,19 @@ pub struct PublicationStore {
 }
 
 /// Retains the operating system lock through database approval or cleanup.
-/// The file is closed (releasing the lock) on cancellation or process death.
+/// Normal guard destruction explicitly unlocks before closing the file.
 pub struct PublicationGuard<'a> {
     store: &'a PublicationStore,
     _lock: File,
+}
+
+impl Drop for PublicationGuard<'_> {
+    fn drop(&mut self) {
+        // Closing only this descriptor can leave flock held by a descriptor
+        // inherited during another thread's process launch. Release at the
+        // guard's actual lifetime boundary, before the owned file is closed.
+        let _ = self._lock.unlock();
+    }
 }
 
 /// Read-only filesystem access. Callers must obtain approval from the database
@@ -406,4 +415,29 @@ fn sync_directory(root: &Path) -> Result<(), MediaError> {
     #[cfg(not(unix))]
     let _ = root;
     Ok(())
+}
+
+#[cfg(test)]
+mod lock_lifetime_tests {
+    use super::*;
+
+    #[test]
+    fn duplicate_descriptor_cannot_extend_the_publication_guard_lifetime() {
+        let directory = tempfile::tempdir().unwrap();
+        let quarantine = Quarantine::new(directory.path().join("input")).unwrap();
+        let store = PublicationStore::new(directory.path().join("objects"), &quarantine).unwrap();
+        let guard = store.try_lock().unwrap();
+        let inherited = guard._lock.try_clone().unwrap();
+        assert!(matches!(store.try_lock(), Err(MediaError::Busy)));
+        drop(guard);
+        // Model the descriptor retained between fork and exec without forking
+        // the multithreaded test process or changing any process permissions.
+        assert!(inherited.metadata().is_ok());
+        let next = store.try_lock().unwrap();
+        assert!(matches!(store.try_lock(), Err(MediaError::Busy)));
+        drop(inherited);
+        assert!(matches!(store.try_lock(), Err(MediaError::Busy)));
+        drop(next);
+        assert!(store.try_lock().is_ok());
+    }
 }

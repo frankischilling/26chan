@@ -48,7 +48,7 @@ class PdfVmTest(unittest.TestCase):
             source.write_bytes(data)
             result = run_owned([sys.executable, str(REPO / 'scripts/media/run-job.py'),
                                 '--input-kind', 'pdf-v4', os.environ['MEDIA_VM_TEST_CONFIG'],
-                                str(source), str(output)], capture_output=True, timeout=35)
+                                str(source), str(output)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=35)
             jobs = pathlib.Path('/run/26chan-media-jobs')
             self.assertEqual(sorted(path.name for path in jobs.iterdir()), ['runner.lock'])
             if not valid:
