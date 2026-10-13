@@ -153,5 +153,51 @@ class QuoteResolutionReferenceTests(unittest.TestCase):
                 ref.FIXTURE = original
 
 
+class NumericQuoteReferenceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location('numeric_reference', Path(__file__).with_name('extract-quote-numeric-reference.py'))
+        cls.ref = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.ref)
+        cls.fixture = cls.ref.load_fixture()
+        cls.cases = {case['id']: case for case in cls.fixture['cases']}
+
+    def test_complete_unique_cases_preserve_spelling_and_explicit_identity(self):
+        self.assertEqual(len(self.cases), 53)
+        self.assertEqual(len(self.cases), len(self.fixture['cases']))
+        for case in self.cases.values():
+            self.assertIn(case['label_html'], case['expected']['html'])
+            if case['expected']['href']:
+                self.assertTrue(case['expected']['href'].endswith('#p' + case['target_post_id']))
+        self.assertEqual(self.cases['double-rounding-op']['lookup_post_id'], '9007199254740992')
+        self.assertEqual(self.cases['integer-overflow-op']['lookup_post_id'], '9223372036854775807')
+        self.assertEqual(self.cases['infinite-exponent-missing']['lookup_post_id'], '0')
+        self.assertEqual(self.cases['fraction-truncated-reply']['lookup_post_id'], '12')
+        self.assertEqual(self.cases['unknown-board-is-plain']['expected']['kind'], 'plain')
+        self.assertEqual(self.cases['mlp-forced-dead']['expected']['kind'], 'dead')
+
+    def test_php_comparison_does_not_equal_the_clamped_lookup_identity(self):
+        near = self.cases['local-overflow-9223372036854775808']
+        far = self.cases['local-overflow-18446744073709551615']
+        self.assertEqual(near['lookup_post_id'], far['lookup_post_id'])
+        self.assertEqual(near['expected']['kind'], 'local')
+        self.assertEqual(far['expected']['kind'], 'thread')
+
+    def test_fixture_expectation_and_lookup_tampering_are_rejected(self):
+        original = self.ref.FIXTURE
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'numeric.json'
+            try:
+                self.ref.FIXTURE = path
+                for field in ['lookup_post_id', 'target_post_id']:
+                    changed = copy.deepcopy(self.fixture)
+                    changed['cases'][0][field] = '999'
+                    path.write_text(json.dumps(changed))
+                    with self.assertRaisesRegex(ValueError, 'numeric fixture differs'):
+                        self.ref.load_fixture()
+            finally:
+                self.ref.FIXTURE = original
+
+
 if __name__ == '__main__':
     unittest.main()

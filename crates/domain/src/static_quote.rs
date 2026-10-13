@@ -111,7 +111,7 @@ pub(crate) fn unresolved_post_reference_prefix(input: &str) -> Option<usize> {
 /// PHP is_numeric() over the source static-link alphabet [a-z0-9+/,l-]*.
 /// Check syntax rather than converting to a bounded integer or float: an
 /// arbitrarily large exponent is still numeric to the source callback.
-fn numeric_term(term: &str) -> bool {
+pub(crate) fn numeric_term(term: &str) -> bool {
     fn digits(value: &str) -> bool {
         !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit())
     }

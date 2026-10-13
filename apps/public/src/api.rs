@@ -3,7 +3,6 @@ use crate::{
     handlers::AppError,
     views::{Comment, PostView},
 };
-use askama::Template;
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, HeaderValue, StatusCode},
@@ -188,7 +187,7 @@ fn post_json(
         fortune_color: post.post.fortune_color.as_deref(),
         drawing: post.drawing_annotation(),
     }
-    .render()?;
+    .render_json(post.post.comment_format)?;
     let op = post.post.id == thread.id;
     let mut value = json!({ "no": post.post.id, "resto": if op { 0 } else { thread.id },
         "now": post.now, "time": post.post.created_at.timestamp() });

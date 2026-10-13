@@ -89,7 +89,10 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         for router in [&app, &api] {
             let body = get(router, &format!("/{slug}/thread/{id}.json")).await;
             let json: serde_json::Value = serde_json::from_str(&body).unwrap();
-            assert_eq!(json["posts"][0]["com"], expected);
+            assert_eq!(
+                json["posts"][0]["com"],
+                expected.replace("&#60;", "&lt;").replace("&#62;", "&gt;")
+            );
             assert!(json["posts"][0].get("comment_format").is_none());
         }
         let body = get(&app, &format!("/_watch/{slug}/thread/{id}/posts")).await;
@@ -166,7 +169,10 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         if expected.is_empty() {
             assert!(json["posts"][0].get("com").is_none());
         } else {
-            assert_eq!(json["posts"][0]["com"], expected);
+            assert_eq!(
+                json["posts"][0]["com"],
+                expected.replace("&#60;", "&lt;").replace("&#62;", "&gt;")
+            );
         }
         let html = get(&app, &format!("/{slug}/thread/{id}")).await;
         assert!(html.contains(&format!("id=\"m{id}\">{expected}</blockquote>")));

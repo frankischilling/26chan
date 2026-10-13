@@ -156,6 +156,14 @@ test('isolated DOM quote preview contracts', async t => {
         assert.equal(api[0].headers.cookie, undefined);
         await page.evaluate(() => window.out());
         assert.equal(await page.locator('#quote-preview').count(), 0);
+        for (const spelling of ['+101', '101e0', '1010e-1']) {
+          await page.evaluate(spelling => {
+            document.getElementById('quote').setAttribute('href', `#p${spelling}`); window.over();
+          }, spelling);
+          assert.equal(await page.locator('#quote-preview').count(), 0);
+          assert.equal(requests.filter(row => row.url.includes('/_watch/')).length, 1);
+          await page.evaluate(() => window.out());
+        }
       } finally { await context.close(); }
     });
 

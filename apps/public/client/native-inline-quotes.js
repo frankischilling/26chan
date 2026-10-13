@@ -24,6 +24,11 @@ export function mountNativeInlineQuotes({ root, board, thread = null, mediaOrigi
     || /[^a-z0-9]/.test(board) || (thread !== null && !validId(thread))) return null;
   try { if (new URL(origin).origin !== origin || !/^https?:\/\//.test(origin)) return null; }
   catch { return null; }
+  const renderedTarget = quoteTarget;
+  quoteTarget = (raw, context) => {
+    const ref = renderedTarget(raw, context);
+    return ref && /^[0-9]+$/.test(ref.post) ? ref : null;
+  };
   const bounds = { ...INLINE_LIMITS };
   for (const [key, value] of Object.entries(limits)) {
     if (!Object.hasOwn(bounds, key) || !Number.isInteger(value) || value < 1 || value > bounds[key]) throw new RangeError('inline-limits');

@@ -69,7 +69,7 @@ async fn persisted_posting_json_deletion_and_database_denials() {
         value["posts"][0]["com"]
             .as_str()
             .unwrap()
-            .contains("&#60;script&#62;")
+            .contains("&lt;script&gt;")
     );
     assert!(value["posts"][0].get("password").is_none());
     assert!(value["posts"][0].get("tim").is_none());

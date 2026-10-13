@@ -35,6 +35,7 @@ hr, .thread, .boardDirectory article { border-color: var(--edge); }
 .highlightPost:not(.op) { background: var(--capcode-highlight, #f0d6d6) !important; border-color: var(--capcode-highlight-edge, #d69595) !important; }
 .quote { color: var(--quote); }
 .quotelink { color: var(--quote-link); }
+.postMessage .deadlink { color: var(--quote-link); text-decoration: line-through; }
 .quotelink:hover { color: var(--quote-hover); }
 .fortune-0 { color: #7fec11; }
 .fortune-1 { color: #bac200; }

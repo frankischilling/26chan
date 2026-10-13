@@ -145,8 +145,8 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         assert_eq!(
             saved["com"],
             expected
-                .replace('<', "&#60;")
-                .replace('>', "&#62;")
+                .replace('<', "&lt;")
+                .replace('>', "&gt;")
                 .replace('\n', "<br>")
         );
     }
@@ -533,7 +533,7 @@ async fn line_rules(app: &axum::Router, owner: &PgPool, public: &PgPool, slug: &
                 .unwrap()["com"]
                 .as_str()
                 .unwrap();
-            assert!(saved.contains("&#60;script&#62;<br>line1<br>line2<br>line3"));
+            assert!(saved.contains("&lt;script&gt;<br>line1<br>line2<br>line3"));
             assert!(!saved.contains("class=\"spoiler\""));
             assert_eq!(saved.contains("[spoiler]b[/spoiler]"), !spoilers);
             let before = board_store::thread(public, slug, thread).await.unwrap();

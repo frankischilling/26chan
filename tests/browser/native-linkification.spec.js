@@ -115,9 +115,8 @@ test('persisted entity links preserve source sanitation across script-free, JSON
   const jsonPath = `${owned.url}.json`;
   const before = await (await request.get(jsonPath)).json();
   const comment = before.posts.find(post => String(post.no) === reply).com;
-  // Askama emits a numeric ampersand entity. The browser canonicalizes it to
-  // &amp; before either URL linker reads innerHTML.
-  expect(comment).toContain('https://example.test/a&#38;nbsp;b');
+  // Source-profile JSON preserves ENT_QUOTES spelling before the browser sees it.
+  expect(comment).toContain('https://example.test/a&amp;nbsp;b');
   // imgboard.php:5318 and the source post filter remove literal NBSP before
   // storage. Literal entity text stays escaped and is not promoted to markup.
   expect(comment).not.toContain('\u00a0');

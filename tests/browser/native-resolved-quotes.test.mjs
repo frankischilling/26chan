@@ -48,7 +48,7 @@ test('bare fragments require exact positive i64 identity and an identified conta
     assert.deepEqual(quoteTarget(`#p${id}`, context), { board: 'g', thread: no, post: id });
   }
   for (const href of ['#p0', '#p01', '#p+1', '#p-1', '#p1.0', '#p1e2', '#p%31', '#P1', '#p',
-    '#p9223372036854775808', '#p99999999999999999999', `#p${target}\n`, `#p${target}\r`,
+    `#p${target}\n`, `#p${target}\r`,
     `#p${target}\t`, `#p${target}#p1`, `#p${target}?x=1`, `#p${target}/`, '#p1']) {
     assert.equal(postLinkUrl(href, context), false, href);
     assert.equal(quoteTarget(href, context), null, href);
@@ -61,9 +61,13 @@ test('bare fragments require exact positive i64 identity and an identified conta
     assert.equal(quoteTarget(`#p${target}`, { ...context, ...patch }), null);
   }
   for (const href of ['//evil.example/g/thread/1#p2', 'https://evil.example/g/thread/1#p2',
-    '/g/thread/2#p1', '/g/thread/00#p2', '/g/thread/1#p9223372036854775808',
+    '/g/thread/2#p1', '/g/thread/00#p2', '/g/post/9223372036854775808',
     '/g/../co/thread/1#p2', '/g/thread/%31#p2', '/g/thread/1#p2?x=1']) {
     assert.equal(quoteTarget(href, context), null, href);
+  }
+  for (const spelling of ['9223372036854775808', '99999999999999999999', '+9223372036854775807', '1e19']) {
+    assert.equal(postLinkUrl(`#p${spelling}`, context), true);
+    assert.equal(parse(live(`#p${spelling}`)).status, 'ok');
   }
   assert.equal(parse(`<a href="#p${target}">ordinary link</a>`).status, 'invalid-snapshot');
   const tree = parse(live(`#p${target}`)).snapshot.posts[0].tree;

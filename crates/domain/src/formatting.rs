@@ -309,6 +309,11 @@ pub(crate) fn tokenize_spanned(
             found = Some((Token::StaticQuote(quote, Vec::new()), consumed));
         } else if quotes
             && source_quotes
+            && let Some((quote, consumed)) = crate::post_quote::PostQuote::parse_source_cross(tail)
+        {
+            found = Some((Token::PostQuote(quote), consumed));
+        } else if quotes
+            && source_quotes
             && let Some(consumed) = crate::static_quote::unresolved_post_reference_prefix(tail)
         {
             found = Some((Token::Text(tail[..consumed].into()), consumed));
@@ -396,7 +401,11 @@ fn post_number(input: &str, source_quotes: bool) -> Option<(u64, usize)> {
     if len == 0 || (!source_quotes && len > 19) {
         return None;
     }
-    let id = input[..len].parse::<u64>().ok()?;
+    let id = if source_quotes {
+        crate::php_scalar::integer(&input[..len]) as u64
+    } else {
+        input[..len].parse::<u64>().ok()?
+    };
     ((source_quotes || id > 0) && id <= i64::MAX as u64).then_some((id, len))
 }
 

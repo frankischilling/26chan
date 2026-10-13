@@ -14,11 +14,11 @@ zeros while their destinations use bounded positive IDs.
 
 Boundary handling follows the source's byte-mode pattern, including its wildcard
 before `php`, ASCII whitespace and PHP's falsey `0` captures. The static-link gate recognizes signed exponent notation without converting
-to a bounded float. Non-decimal or incomplete numeric terms reaching post resolution remain
-literal: the rewrite does not resolve the source database's numeric coercions
-or link only the leading digits to a different post. This is a remaining
-post-resolution compatibility gap. As in the source, wrapping happens first;
-a break can end a reference before an exponent, leaving a decimal prefix. Rules links retain lowercase alphanumeric board names independently of
+to a bounded float. The later post-resolution pass applies the source's 64-bit
+PHP string conversion to signed, exponent and overflow spellings, while retaining
+their labels and destinations. Missing or nonpositive targets are deadlinks;
+unknown boards stay plain. Wrapping still happens first, so a break can end a
+reference before its exponent. Rules links retain lowercase alphanumeric board names independently of
 routing-slug limits. Bare host slashes and trailing punctuation remain outside
 server anchors. Entity-escaped input still has its own normalization boundary.
 
@@ -28,7 +28,9 @@ normalization, 49 static-link and 15 server-link cases. It checks the exact pinn
 source bytes without loading the application. The escaped-input cases establish
 normalization behavior only, not full HTML identity. Another 20 cases execute
 the original post-wrap numeric gate with a recording missing-post stub. They
-check the lookup term, not database coercion or existence.
+check the lookup term. The separate 53-case numeric reference checks PHP
+conversion with controlled target answers; persisted tests cover visible and
+missing targets through both JSON routers.
 
 The server links remaining HTTP(S) URLs only for the source's `4chan.org`,
 `4channel.org` and `4cdn.org` hosts. It retains their lexical spelling. Other
@@ -38,11 +40,10 @@ that preference never changes persisted comments, server HTML or JSON.
 
 Board, catalog and rules references use local routes. Canonical source-profile
 post references use [snapshot target resolution](source-quote-resolution.md);
-unqualified spellings retain the existing bounded post route. New-window links add
+numeric spellings preserve their source href while lookup keys stay canonical. New-window links add
 `noopener` and `noreferrer`; user text never supplies HTML or executable URLs.
 Staff previews use the same parser, escape labels and keep quote navigation
-inert. The original rules page remains under #194. Remaining quote-resolution
-spellings and surfaces stay open under #165 and #208.
+inert. The original rules page remains under #194. The wider text-admission and formatting inventory is tracked in #208.
 
 Catalog search reconstructs the source's stored-comment representation before
 post-number resolution. Static-link spelling contributes to the `/b/` length

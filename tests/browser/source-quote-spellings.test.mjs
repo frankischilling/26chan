@@ -23,7 +23,7 @@ const packet = (no = '123', thread = '100') => ({ version: 1, board: 'g', thread
   post: { no, file_deleted: false, html: html(no) } });
 
 test('original hover uses lexical DOM IDs and sends missing aliases to remote lookup', () => {
-  for (const digits of ['123', '000123']) {
+  for (const digits of ['123', '000123', '+123', '123e0', '1230e-1']) {
     const looked = [], remote = [], marks = [];
     const post = { id: 'p123', parentNode: {}, getBoundingClientRect: () => ({ top: 10, bottom: 30 }) };
     source(['QuotePreview.init', 'QuotePreview.resolve'], {
@@ -33,14 +33,15 @@ test('original hover uses lexical DOM IDs and sends missing aliases to remote lo
       $: { hasClass: () => false, addClass: (node, cls) => marks.push(cls) },
       link: { getAttribute: name => name === 'href' ? `/g/thread/100#p${digits}` : null },
     }, 'QuotePreview.init(); QuotePreview.resolve(link);');
-    assert.deepEqual(looked, [`p${digits}`]);
+    const recognized = /^[0-9]+$/.test(digits);
+    assert.deepEqual(looked, recognized ? [`p${digits}`] : []);
     assert.deepEqual(marks, digits === '123' ? ['highlight'] : []);
-    assert.deepEqual(remote, digits === '123' ? [] : [['g', '100', '000123']]);
+    assert.deepEqual(remote, !recognized || digits === '123' ? [] : [['g', '100', digits]]);
   }
 });
 
 test('original backlinks preserve lexical target misses and OP comparisons on canonical page IDs', () => {
-  for (const digits of ['100', '000100', '000123']) {
+  for (const digits of ['100', '000100', '000123', '+100', '1e2']) {
     const looked = [], link = { textContent: `>>${digits}`, getAttribute: () => `#p${digits}` };
     source(['Parser.parseBacklinks'], { Parser: {}, Main: { tid: '100' },
       document: { getElementById(id) { looked.push(id); return id === 'm124' ? { getElementsByClassName: () => [link] } : null; } },
@@ -51,7 +52,7 @@ test('original backlinks preserve lexical target misses and OP comparisons on ca
 });
 
 test('original remote JSON builder compares numeric post IDs with lexical decimal quote labels', () => {
-  for (const pid of ['123', '000123', '000124']) {
+  for (const pid of ['123', '000123', '+123', '123e0', '1230e-1', '000124']) {
     const globals = { Parser: { buildHTMLFromJSON: row => ({ lastElementChild: { no: row.no } }) },
       Main: { board: 'g' }, Config: { revealSpoilers: true, IDColor: false }, pid };
     const result = source(['Parser.buildPost'], globals, "Parser.buildPost([{no:123}], 'g', pid)");
@@ -60,7 +61,7 @@ test('original remote JSON builder compares numeric post IDs with lexical decima
 });
 
 test('original self detection is lexical; the rewrite additionally fences numeric aliases as cycle authority', () => {
-  for (const pid of ['123', '000123']) {
+  for (const pid of ['123', '000123', '+123', '123e0', '1230e-1']) {
     const result = source(['QuoteInline.isSelfQuote'], { QuoteInline: {}, Main: { board: 'g' }, pid,
       node: { parentNode: { nodeName: 'BLOCKQUOTE', id: 'm123', parentNode: { id: 'p123' } } },
     }, "QuoteInline.isSelfQuote(node, pid, 'g')");
@@ -79,7 +80,7 @@ test('quote grammar retains decimal spellings while lookup authority remains exa
     }
   }
   assert.deepEqual(quoteTarget('/g/thread/000123#p000123', page), { board: 'g', thread: '000123', post: '000123' });
-  for (const value of ['0', '000', '+123', '-123', '123e0', '123\n', '１２３', '0009223372036854775808', '0'.repeat(513)]) {
+  for (const value of ['0', '000', '-123', '123E0', '1e309', '1e-1', '1e+', '123\n', '１２３', '0'.repeat(513)]) {
     assert.equal(quotePostId(value), null, value);
   }
 });
@@ -118,4 +119,42 @@ test('atomic updater admits leading-zero comment anchors without accepting nonca
   assert.equal(parseUpdaterSnapshot(JSON.stringify(value), page).status, 'ok');
   value.posts[1].no = '000123';
   assert.equal(parseUpdaterSnapshot(JSON.stringify(value), page).status, 'invalid-snapshot');
+});
+
+
+test('source numeric lookup identities retain lexical anchors without weakening canonical wire IDs', async () => {
+  const numeric = JSON.parse(await readFile(new URL('../../fixtures/source-quote-numeric.json', import.meta.url), 'utf8'));
+  for (const row of numeric.cases) {
+    const expected = BigInt(row.lookup_post_id) > 0n ? row.lookup_post_id : null;
+    assert.equal(quotePostId(row.target_post_id), expected, row.id);
+    if (row.expected.href && row.expected.kind === 'thread') {
+      const href = row.expected.href.replace('//boards.example.test', '');
+      const ref = quoteTarget(href, page);
+      assert.ok(ref, row.id);
+      assert.equal(ref.post, row.target_post_id, row.id);
+      assert.equal(quotePostId(ref.post), expected, row.id);
+    }
+  }
+  for (const value of ['+123', '123e0', '0009223372036854775808']) {
+    assert.equal(quoteTarget(`/g/post/${value}`, page), null, 'post routes remain canonical');
+  }
+  for (const [post, id] of [['+123', '123'], ['123e0', '123'], ['0009223372036854775808', '9223372036854775807']]) {
+    assert.deepEqual(quoteTarget(`/co/thread/${post}#p${post}`, page), { board: 'co', thread: post, post });
+    assert.equal(quotePostId(post), id);
+  }
+});
+
+
+test('original inline and mobile companions leave signed and exponent anchors as navigation', () => {
+  for (const spelling of ['+123', '123e0', '1230e-1']) {
+    const calls = [];
+    const link = { getAttribute: () => `/g/thread/100#p${spelling}` };
+    source(['QuoteInline.toggle', 'Parser.parseMobileQuotelinks'], {
+      QuoteInline: { isSelfQuote() { calls.push('self'); } }, Parser: {}, link,
+      event: { preventDefault() { calls.push('prevent'); } },
+      $: { cls: () => [link], id() { calls.push('lookup'); } },
+      document: { createElement() { calls.push('companion'); } },
+    }, 'QuoteInline.toggle(link, event); Parser.parseMobileQuotelinks({});');
+    assert.deepEqual(calls, []);
+  }
 });

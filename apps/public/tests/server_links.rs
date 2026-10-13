@@ -105,7 +105,7 @@ fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
     std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
 }
 
-async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
+async fn exercise(owner: &PgPool, public: &PgPool, board: &str, target: i64, target_reply: i64) {
     // Reserve an ID without inserting a post, so this quote cannot accidentally
     // resolve against another concurrently running fixture.
     let missing: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
@@ -134,7 +134,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
     for mode in 0..8 {
         let op = submit(&app, board, 0, mode, &initial).await;
         let reply = format!(
-            "{external} https://boards.4chan.org/{board}/thread/{op} https://boards.4chan.org/{board}/fooXphp?res={op} https://boards.4chan.org/{board}/thread/{op}#p0 >>>/po/{raw_missing} >>>/po/1e2"
+            "{external} https://boards.4chan.org/{board}/thread/{op} https://boards.4chan.org/{board}/fooXphp?res={op} https://boards.4chan.org/{board}/thread/{op}#p0 >>>/po/{raw_missing} >>>/po/+{missing} >>>/po/{missing}e0 >>>/po/{missing}0e-1 >>>/po/1e2 >>>/b/+{target} >>>/b/{target_reply}e0 entityneedle & <tag> \"quoted\" 'apostrophe' &amp; &#39;"
         );
         let id = submit(&app, board, op, mode, &reply).await;
         let saved = board_store::find_post(public, board, id).await.unwrap();
@@ -144,6 +144,17 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
         let html = get(&app, &path).await;
         assert!(html.contains(&format!("href=\"#p{op}\">&gt;&gt;{op}</a>")));
         assert!(html.contains(&missing_quote));
+        for (spelling, parent) in [
+            (format!("+{target}"), format!("+{target}")),
+            (format!("{target_reply}e0"), target.to_string()),
+        ] {
+            assert!(
+                html.contains(&format!(
+                    "href=\"/b/thread/{parent}#p{spelling}\">&gt;&gt;&gt;/b/{spelling}</a>"
+                )),
+                "{html}"
+            );
+        }
         assert!(!html.contains(&format!("href=\"/po/post/{missing}\"")));
         assert!(!html.contains("/po/catalog#s=1e2"));
         assert!(!html.contains("href=\"/po/post/1\""));
@@ -168,6 +179,31 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str) {
             assert!(!comment.contains(&format!("href=\"{external}\"")));
             assert!(!comment.contains("boards.4chan.org"));
             assert!(comment.contains(&missing_quote));
+            for (spelling, parent) in [
+                (format!("+{target}"), format!("+{target}")),
+                (format!("{target_reply}e0"), target.to_string()),
+            ] {
+                assert!(
+                    comment.contains(&format!(
+                        "href=\"/b/thread/{parent}#p{spelling}\">&gt;&gt;&gt;/b/{spelling}</a>"
+                    )),
+                    "{comment}"
+                );
+            }
+            for spelling in [
+                format!("+{missing}"),
+                format!("{missing}e0"),
+                format!("{missing}0e-1"),
+            ] {
+                assert!(
+                    comment.contains(&format!(
+                        "<span class=\"deadlink\">&gt;&gt;&gt;/po/{spelling}</span>"
+                    )),
+                    "{comment}"
+                );
+            }
+            assert!(comment.contains("entityneedle &amp; &lt;tag&gt; &quot;quoted&quot; &#039;apostrophe&#039; &amp;amp; &amp;#39;"), "{comment}");
+            assert!(!comment.contains("<tag>"));
         }
         let snapshot: serde_json::Value =
             serde_json::from_str(&get(&app, &format!("/_watch/{board}/thread/{op}/posts")).await)
@@ -236,11 +272,25 @@ async fn persisted_links_use_source_normalization_in_both_forms_routes_and_respo
     // letting the unrelated actor quota preempt link-normalization checks.
     sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Owned server links','',1000,100,100,100,10,0,0,0,100)")
         .bind(&board).execute(&owner).await.unwrap();
+    // Owned posts on an allowlisted board exercise real cross-board resolution.
+    let target: i64 =
+        sqlx::query_scalar("INSERT INTO content.threads(board) VALUES('b') RETURNING id")
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+    let target_reply: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
+        .fetch_one(&owner)
+        .await
+        .unwrap();
+    for id in [target, target_reply] {
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,'b',$2,'Anonymous','','Owned numeric target')")
+            .bind(id).bind(target).execute(&owner).await.unwrap();
+    }
     let result = tokio::spawn({
         let owner = owner.clone();
         let public = public.clone();
         let board = board.clone();
-        async move { exercise(&owner, &public, &board).await }
+        async move { exercise(&owner, &public, &board, target, target_reply).await }
     })
     .await;
     public.close().await;
@@ -256,6 +306,16 @@ async fn persisted_links_use_source_normalization_in_both_forms_routes_and_respo
             .await
             .unwrap();
     }
+    sqlx::query("DELETE FROM content.posts WHERE board='b' AND thread_id=$1")
+        .bind(target)
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.threads WHERE board='b' AND id=$1")
+        .bind(target)
+        .execute(&owner)
+        .await
+        .unwrap();
     owner.close().await;
     result.unwrap();
 }

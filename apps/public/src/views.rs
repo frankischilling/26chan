@@ -447,6 +447,25 @@ pub struct Comment<'a> {
     pub drawing: Option<DrawingAnnotation>,
 }
 
+impl Comment<'_> {
+    /// JSON keeps the source ENT_QUOTES spelling after the typed template has
+    /// escaped every value. This only changes equivalent entity spellings; it
+    /// never decodes entities, parses user HTML, or changes historical profiles.
+    pub(crate) fn render_json(&self, format: i16) -> askama::Result<String> {
+        let html = self.render()?;
+        if matches!(format, 104..=111 | 120..=127) {
+            Ok(html
+                .replace("&#38;", "&amp;")
+                .replace("&#60;", "&lt;")
+                .replace("&#62;", "&gt;")
+                .replace("&#34;", "&quot;")
+                .replace("&#39;", "&#039;"))
+        } else {
+            Ok(html)
+        }
+    }
+}
+
 pub use board_domain::drawing_annotation::DrawingAnnotation;
 
 pub(crate) fn drawing_annotation(post: &Post) -> Option<DrawingAnnotation> {
@@ -469,6 +488,66 @@ mod comment_tests {
     use super::*;
     use board_domain::parse_post_comment;
     use board_domain::{CommentSpacing, parse_comment, prepare_post_comment};
+
+    #[test]
+    fn source_json_entity_spellings_match_independent_php_cases() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../fixtures/quote-resolution-reference.json"
+        ))
+        .unwrap();
+        for case in fixture["entity_cases"].as_array().unwrap() {
+            let lines = vec![Line {
+                green: false,
+                tokens: vec![Token::Text(case["input"].as_str().unwrap().into())],
+            }];
+            let comment = Comment {
+                lines: &lines,
+                board: "g",
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
+                drawing: None,
+            };
+            for profile in (104..=111).chain(120..=127) {
+                assert_eq!(
+                    comment.render_json(profile).unwrap(),
+                    case["expected"].as_str().unwrap()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn source_json_entities_are_equivalent_escaped_spellings_not_html_decoding() {
+        for text in [
+            "<script> & \" ' &lt; &#38; &#039;",
+            "https://boards.4chan.org/g/?a=1&b=2",
+            "<&<>\"'&>",
+        ] {
+            let lines = vec![Line {
+                green: false,
+                tokens: vec![Token::Text(text.into())],
+            }];
+            let comment = Comment {
+                lines: &lines,
+                board: "g",
+                dice_result: None,
+                fortune_text: None,
+                fortune_color: None,
+                drawing: None,
+            };
+            let historical = comment.render().unwrap();
+            for profile in (104..=111).chain(120..=127) {
+                let html = comment.render_json(profile).unwrap();
+                assert_eq!(html, board_domain::source_html_entities(text));
+                assert!(!html.contains("<script>"));
+                assert!(!html.contains("&#38;"));
+            }
+            for profile in [0, 1, 8, 40, 72, 88, 96, 103, 112, 128] {
+                assert_eq!(comment.render_json(profile).unwrap(), historical);
+            }
+        }
+    }
 
     fn render(input: &str, format: i16) -> String {
         Comment {

@@ -107,7 +107,7 @@ test('isolated current-source inline quote DOM contracts', async t => {
 
     await t.test('leading-zero inline targets load remotely without bypassing ancestor or self limits', async () => {
       const { page, context, requests, errors } = await setup({ remote: true,
-        messages: [['100', quote('000101', 'alias', '#p000101') + quote('000100', 'self', '#p000100')], ['101', 'Visible local target']],
+        messages: [['100', quote('000101', 'alias', '#p000101') + quote('000100', 'self', '#p000100') + quote('+101', 'signed', '#p+101') + quote('101e0', 'exponent', '#p101e0')], ['101', 'Visible local target']],
         handler: route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(envelope('101',
           `Remote target ${quote('000100', '', '#p000100')}`)) }),
       });
@@ -127,6 +127,10 @@ test('isolated current-source inline quote DOM contracts', async t => {
         assert.equal(await page.locator('.inlined').count(), 1);
         const self = await page.evaluate(() => window.fire('#self'));
         assert.equal(self.outcome, 'ordinarynav');
+        for (const selector of ['#signed', '#exponent']) {
+          const numeric = await page.evaluate(selector => window.fire(selector), selector);
+          assert.equal(numeric.outcome, 'ordinarynav');
+        }
         assert.equal(requests.filter(row => row.url.includes('/_watch/')).length, 1);
         assert.deepEqual(errors, []);
       } finally { await context.close(); }

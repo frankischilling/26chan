@@ -1,0 +1,42 @@
+{
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "scope": "Exact supplied stylesheet rules for quote and deadlink color/decoration. These excerpts do not establish whole-page layout.",
+  "themes": {
+    "yotsuba": {
+      "file": "css/yotsubanew.css",
+      "source_sha256": "05d61b9a886aca60bd418b63a5b86d2ef3050d1d90c640da64f2206dda740db9",
+      "excerpt": ".quoteLink, .quotelink, .deadlink, .pageJump a {\r\n\tcolor: #000080 !important;\r\n\ttext-decoration: underline;\r\n}\n.deadlink {\r\n\ttext-decoration: line-through;\r\n}",
+      "excerpt_sha256": "34df7f82bbf620645ecbd9f24d8179404b638760f20b69bbbf8295ea0007ae14"
+    },
+    "yotsuba-b": {
+      "file": "css/yotsubluenew.css",
+      "source_sha256": "d6abc7c9fb8c2d9c168554b39a54b4569f68243aa4bcb972b8452264cbdd1a65",
+      "excerpt": ".quoteLink, .quotelink, .deadlink {\r\n\tcolor: #D00 !important;\r\n\ttext-decoration: underline;\r\n}\n.deadlink {\r\n\ttext-decoration: line-through;\r\n}",
+      "excerpt_sha256": "2e11ac0939e14d7e85dc6b72dbfbd9653f31beaa599619977287828d369113dc"
+    },
+    "futaba": {
+      "file": "css/futabanew.css",
+      "source_sha256": "8beb159cfcf83d042a68b1037997511c7b0bb959289eb1b5757036cdd7aa0945",
+      "excerpt": ".quoteLink, .quotelink, .deadlink {\r\n\tcolor: #000080 !important;\r\n}\n.deadlink {\r\n\ttext-decoration: line-through;\r\n}",
+      "excerpt_sha256": "117e2b7f2e523ba437d9954808fc988551c4071ad36d323f74cd04291c26e7fa"
+    },
+    "burichan": {
+      "file": "css/burichannew.css",
+      "source_sha256": "71a5a5b8362aa78269c19e89cacc249cda48f2af2393fda7d3638fa518307b18",
+      "excerpt": ".quoteLink, .quotelink, .deadlink {\r\n\tcolor: #D00 !important;\r\n}\n.deadlink {\r\n\ttext-decoration: line-through;\r\n}",
+      "excerpt_sha256": "914f7994bb0b24e10a284848799cca5291cfc7c175749e6492f95df212833a3e"
+    },
+    "photon": {
+      "file": "css/photon.css",
+      "source_sha256": "a4741759760d959b4a2e29d9622ab63a91d1cdc49f10679335b71f5b16e9575d",
+      "excerpt": ".quoteLink, .quotelink, .deadlink {\r\n\tcolor: #FF6600 !important;\r\n\ttext-decoration: underline;\r\n}\n.deadlink {\r\n\ttext-decoration: line-through;\r\n}",
+      "excerpt_sha256": "3bf4d47382b3a713847bf2f35bca5fbdef4bd2b16724ea840c3d960422376027"
+    },
+    "tomorrow": {
+      "file": "css/tomorrow.css",
+      "source_sha256": "40b4c474a93e87737811c77a50cce9af4fadc9b025a3863e126ca418a8f33a4a",
+      "excerpt": ".quoteLink, .quotelink, .deadlink {\r\n\tcolor: #5F89AC !important;\r\n\ttext-decoration: underline;\r\n}\n.deadlink {\r\n\ttext-decoration: line-through;\r\n}",
+      "excerpt_sha256": "bb0004aada4517015e5936657e85de1cc2f2a4d929f6d67613084f1b9a65e256"
+    }
+  }
+}

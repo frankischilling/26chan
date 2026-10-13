@@ -12,6 +12,8 @@ mod catalog_limits;
 mod flags;
 #[path = "visual/headers.rs"]
 mod headers;
+#[path = "visual/links.rs"]
+mod links;
 #[path = "visual/listeners.rs"]
 mod listeners;
 #[path = "visual/media.rs"]
@@ -566,6 +568,7 @@ async fn main() -> std::io::Result<()> {
         .merge(flags::routes())
         .merge(catalog_filters::routes().await)
         .merge(polls::routes())
+        .route("/link-visual/", get(|| async { Html(links::page()) }))
         .route(
             "/",
             get(|| async { Html(views::Home { boards: vec![] }.render().unwrap()) }),

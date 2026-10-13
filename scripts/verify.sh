@@ -30,6 +30,8 @@ reference_checks() {
   python3 scripts/extract-preview-policy-reference.py
   python3 scripts/test-preview-policy-reference.py
   python3 scripts/extract-quote-resolution-reference.py
+  python3 scripts/extract-quote-numeric-reference.py
+  node scripts/record-source-quote-styles.mjs
   python3 scripts/test-quote-resolution-reference.py
   python3 scripts/extract-navigation-reference.py
   python3 scripts/test-navigation-reference.py

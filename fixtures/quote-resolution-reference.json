@@ -6,13 +6,19 @@
   "limits": [
     "Decimal post spellings within signed i64, including leading zeroes, are qualified after source word wrapping.",
     "Post zero is qualified only as controlled absence; the Rust store cannot contain post zero.",
-    "Signed, exponent, nondecimal and overflow IDs and general MySQL coercion are explicitly unqualified.",
+    "Signed, exponent and overflow spellings are checked separately in source-quote-numeric.json; this decimal fixture does not cover them.",
     "Same-board tokenizer consumes a digit prefix in >>123abc or >>1e3; that canonical prefix is qualified, not a claim about MySQL nondecimal coercion.",
     "Lookup answers are controlled stubs. Private-as-missing is an absence presentation scenario, not evidence of source SQL RLS.",
     "Source URL constants are controlled: NEW_HTML=true, RES_DIR2=thread/, PHP_EXT2=empty, L::d=example.test. Cross-host deployment mapping is not qualified.",
     "Only already-escaped input is passed to auto_link; this is not an HTML sanitizer."
   ],
   "excerpts": {
+    "text_entities": {
+      "file": "imgboard.php",
+      "start_line": 7313,
+      "end_line": 7313,
+      "sha256": "0967feffb514019b3f19d7c39a9b161c90e614a5325279d5a6cde6faecd15e60"
+    },
     "allowlist": {
       "file": "imgboard.php",
       "start_line": 189,
@@ -63,6 +69,7 @@
     }
   },
   "captured_sources": {
+    "text_entities": "\t\t$str = htmlspecialchars( $str, ENT_QUOTES );\r\n",
     "allowlist": "$valid_boards = \"3|aco|adv|an|biz|diy|fa|fit|gd|gif|int|lit|hc|hr|a|b|ck|co|cm|c|d|e|f|g|h|i|k|lgbt|m|n|o|out|p|r|s|t|u|vp|vg|vr|v|w|x|y|wg|ic|cgl|hm|mlp|mu|pol|po|r9k|s4s|sci|soc|tg|tv|toy|trv|jp|sp|wsg|qa|qst|his|trash|news|wsr|vip|bant|vrpg|vmg|vst|vt|vm|pw|xs\";\r\n",
     "same_lookup": "function post_resto($no) {\r\n  global $log;\r\n  \r\n  if (isset($log[$no])) {\r\n    return $log[$no]['resto'];\r\n  }\r\n  \r\n  $q = mysql_board_call('SELECT resto FROM `%s` WHERE no=%d', SQLLOG, $no);\r\n  if (!mysql_num_rows($q)) {\r\n    $log[$no] = array('resto' => false);\r\n    return false;\r\n  }\r\n  $r = (int)mysql_fetch_row($q)[0];\r\n  $log[$no] = array('resto' => $r);\r\n  return $r;\r\n  \r\n  return false;\r\n}\r\n\r\n",
     "cross_lookup": "function other_board_resto( $board, $resno )\r\n{\r\n\t// this function is a little slow\r\n\t// board requirements - either is the current board (for /test/) or is public (in boardlist)\r\n\t// returns -\r\n\t// FALSE if resno does not exist\r\n\t// 0 if resno is a thread\r\n\t// an id if resno is a reply to a thread\r\n\r\n\tstatic $boardlist = array();\r\n\r\n\tif( !$boardlist )\r\n\t\t$boardlist = array_flip( mysql_column_array( mysql_global_call( \"select sql_cache dir from boardlist\" ) ) );\r\n\r\n\tif( $board != BOARD_DIR && !isset( $boardlist[$board] ) )\r\n\t\treturn false;\r\n\r\n\t$q = mysql_board_call( \"select resto from `%s` where no=%d\", $board, $resno );\r\n\tif( !mysql_num_rows( $q ) )\r\n\t\treturn false;\r\n\t$r = mysql_result( $q, 0 );\r\n\r\n\treturn $r;\r\n}\r\n",
@@ -4002,6 +4009,28 @@
       "lookup_resto": "100",
       "input_html": "&gt;&gt;&gt;/G/123",
       "expected_html": "&gt;&gt;&gt;/G/123"
+    }
+  ],
+  "entity_cases": [
+    {
+      "input": "<tag> & \"quoted\" 'apostrophe'",
+      "expected": "&lt;tag&gt; &amp; &quot;quoted&quot; &#039;apostrophe&#039;"
+    },
+    {
+      "input": "&amp; &#39; &#039; &#x27; &lt;",
+      "expected": "&amp;amp; &amp;#39; &amp;#039; &amp;#x27; &amp;lt;"
+    },
+    {
+      "input": "https://example.test/a?a=1&b=2",
+      "expected": "https://example.test/a?a=1&amp;b=2"
+    },
+    {
+      "input": ">>>/g/+123",
+      "expected": "&gt;&gt;&gt;/g/+123"
+    },
+    {
+      "input": "雪 & 猫",
+      "expected": "雪 &amp; 猫"
     }
   ],
   "unqualified_ids": [
