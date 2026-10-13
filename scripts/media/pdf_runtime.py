@@ -33,7 +33,9 @@ def checked_bytes(path):
     for parent in resolved.parents:
         metadata = parent.stat()
         if metadata.st_uid != 0 or metadata.st_mode & 0o022:
-            raise ValueError('PDF runtime source directory is not trusted')
+            raise ValueError(f'PDF runtime source directory is not trusted: {parent} '
+                             f'(uid={metadata.st_uid}, mode={stat.S_IMODE(metadata.st_mode):04o}) '
+                             f'for {resolved}')
     return resolved.read_bytes()
 
 
