@@ -12,13 +12,16 @@ for (const [theme, source] of Object.entries(reference.themes)) {
     for (const worksafe of [true, false]) {
       const family = worksafe ? 'ws' : 'nws';
       await oracle.setContent(sourceLinkPage(theme, worksafe));
-      await context.addCookies([{ name: `board-theme-${family}`, value: theme, url: 'http://127.0.0.1:3000', httpOnly: true, sameSite: 'Lax' }]);
+      await context.addCookies([{ name: worksafe ? 'board-theme-ws' : 'board-theme', value: theme, url: 'http://127.0.0.1:3000', httpOnly: true, sameSite: 'Lax' }]);
+      await page.goto(`/settings/theme?worksafe=${worksafe}`);
+      await expect(page.getByLabel('Style', { exact: true })).toHaveValue(theme);
       for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 });
         await oracle.setViewportSize({ width, height: 900 });
         await page.mouse.move(0, 0);
         await oracle.mouse.move(0, 0);
         await page.goto(worksafe ? '/link-visual/' : '/link-visual-nws/');
+        await expect(page.locator('body')).toHaveAttribute('data-worksafe', String(worksafe));
         for (const [name, target] of [['original', oracle], ['replacement', page]]) {
           const path = info.outputPath(`${theme}-${family}-${width}-${name}-source-links.png`);
           await target.screenshot({ path, fullPage: true });
