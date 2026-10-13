@@ -32,7 +32,7 @@ self.onmessage = async ({ data }) => {
     stage = 'frame';
     bitmap = runtime.frame();
     self.postMessage({ type: 'frame', sequence, index, count: runtime.eventCount,
-      next: runtime.nextTimestamp(), bitmap }, [bitmap]);
+      next: runtime.nextTimestamp(), start: runtime.start, end: runtime.end, presentation: runtime.presentation(), bitmap }, [bitmap]);
     bitmap = null; busy = false;
   } catch {
     bitmap?.close();

@@ -32,8 +32,10 @@ over the replay link.
 The View link opens a player with Play/Pause, Rewind, Slower, Faster, Gapless
 and Close controls. Zoom uses the source levels from 50% through 1600% without
 changing the underlying image pixels. Speeds are 0.5, 1, 2, 5, 10 and 25 times normal; gapless
-playback skips pauses longer than three seconds. Playback pauses when the page
-is hidden. Close, Escape and navigation release the worker and any pending
+playback skips pauses longer than three seconds. Elapsed and total time use the
+source formatter. Playback pauses when the page is hidden and resumes on return
+only if it was playing before that automatic pause. Manual pause and rewind
+clear the pending resume. Close, Escape and navigation release the worker and any pending
 acquisition. A replay does not replace an active, unsaved painting.
 
 The player fetches at most 262,400 canonical bytes, without credentials or
@@ -42,6 +44,13 @@ worker command has a separate ten-second deadline and advances at most 50
 source events. Only fixed, release-owned JavaScript can run in the worker;
 it cannot fetch uploaded scripts or create another worker. Returned frames
 are native ImageBitmaps and are closed after display or cancellation.
+
+The read-only interface uses the pinned source UI builders in a separate shadow
+root. Tool settings, color, layer selection, visibility and 24-pixel previews
+come from a checked worker receipt. The receipt allows at most 25 layers and
+contains no markup, URLs or source events. Uploaded recording bytes stay outside
+the UI builders. The separate UI instance cannot replace the painter's retained
+canvas or reuse its element IDs.
 
 The full engine uses native OffscreenCanvas operations. Canvas and typed-array
 allocation charges are conservative cumulative limits, not browser RSS
@@ -53,6 +62,11 @@ integrity on each request, including conditional requests. Deleted, hidden or
 unapproved recordings cannot be fetched. Raw TGKR uploads are never served.
 
 ## Verification status
+
+The source UI projection, elapsed timer and visibility-resume changes have local
+controller and receipt-validation coverage. Their release-browser comparison
+with the original UI is pending; the runs below describe earlier playback and
+publication coverage.
 
 The native drawing, source-renderer, worker-session and player suites passed at
 commit `38e94e52a3c80b8815528b8754c61ba3791bb78e` in

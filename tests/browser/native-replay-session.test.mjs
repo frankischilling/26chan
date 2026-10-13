@@ -6,7 +6,7 @@ function setup() {
   const worker = { sent: [], terminated: 0, postMessage(data, transfer) { this.sent.push({ data, transfer }); }, terminate() { this.terminated++; } };
   const session = createReplaySession(new ArrayBuffer(288), {workerFactory:()=>worker,schedule:fn=>{deadline=fn;return 1;},unschedule:()=>{deadline=null;}});
   const bitmap = () => ({ width:2,height:2,closed:0,close(){this.closed++;} });
-  const frame = (extra={}) => ({ type:'frame',sequence:worker.sent.length,index:0,count:2,next:0,bitmap:bitmap(),...extra });
+  const frame = (extra={}) => ({ presentation:{color:'#000000',tool:{id:1,size:1,alpha:1,flow:1,tipId:0,sizeDynamicsEnabled:false,alphaDynamicsEnabled:false,flowDynamicsEnabled:false,preserveAlphaEnabled:false},layers:[{id:1,alpha:1,visible:true,selected:true,active:true,width:1,height:1,pixels:new Uint8ClampedArray(4)}]},start:0,end:1000,type:'frame',sequence:worker.sent.length,index:0,count:2,next:0,bitmap:bitmap(),...extra });
   return {worker,session,frame,expire:()=>deadline()};
 }
 test('one init owns a private transferable copy and one command at a time',async()=>{
@@ -30,13 +30,13 @@ test('late bitmap ownership is released after close',async()=>{
   const late=f.frame();f.worker.onmessage({data:late});assert.equal(late.bitmap.closed,1);
 });
 test('invalid sequence, progress, dimensions and response types fail closed',async()=>{
-  for(const extra of [{sequence:2},{index:3},{count:16385},{next:null},{type:'error'},{bitmap:{width:1025,height:1,close(){}}}]) {
+  for(const extra of [{start:-1},{end:0xffffffff},{end:-1},{start:0.5},{sequence:2},{index:3},{count:16385},{next:null},{type:'error'},{bitmap:{width:1025,height:1,close(){}}}]) {
     const f=setup();f.worker.onmessage({data:f.frame(extra)});await assert.rejects(f.session.ready,/limits/);
     assert.equal(f.worker.terminated,1);
   }
 });
 test('dimensions and total event count cannot change after initialization',async()=>{
-  for(const extra of [{count:3},{bitmap:{width:3,height:2,close(){}}}]) {
+  for(const extra of [{start:1},{end:999},{count:3},{bitmap:{width:3,height:2,close(){}}}]) {
     const f=setup();f.worker.onmessage({data:f.frame()});(await f.session.ready).bitmap.close();
     const pending=f.session.advance(1);f.worker.onmessage({data:f.frame(extra)});await assert.rejects(pending,/limits/);
   }

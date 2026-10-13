@@ -85,6 +85,7 @@ jobs:
           node --test tests/browser/native-replay-envelope.test.mjs \
             tests/browser/native-replay-worker-boundary.test.mjs \
             tests/browser/native-replay-worker-allocations.test.mjs \
+            tests/browser/native-replay-presentation.test.mjs \
             tests/browser/native-replay-session.test.mjs \
             tests/browser/native-replay-playback.test.mjs \
             tests/browser/native-replay-acquire.test.mjs

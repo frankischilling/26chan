@@ -14,7 +14,7 @@ function setup() {
       sessions.push(session);return session;
     },
   });
-  const response=(index=0,next=100)=>({index,count:3,next,bitmap:{closed:0,close(){this.closed++;}}});
+  const response=(index=0,next=100)=>({start:100,end:1000,index,count:3,next,bitmap:{closed:0,close(){this.closed++;}}});
   return {controller,sessions,states,frames,response,clock:value=>{clock=value;},tick:()=>callback?.()};
 }
 test('pause, speed and gapless controls preserve source event scheduling',async()=>{
@@ -44,4 +44,35 @@ test('close during initialization discards the bitmap and suppresses later state
 test('worker failure enters a terminal visible state and cannot resume',async()=>{
   const f=setup();f.sessions[0].init.reject(new Error('deadline'));await f.controller.ready;
   assert.equal(f.states.at(-1).phase,'failed');f.controller.play();assert.equal(f.sessions.length,1);f.controller.close();
+});
+
+test('visibility resumes only an automatically paused replay, preserving elapsed scheduling', async () => {
+  const f = setup(); f.sessions[0].init.resolve(f.response()); await f.controller.ready;
+  f.controller.play(); f.clock(20); f.controller.visibility(false);
+  assert.equal(f.states.at(-1).phase, 'paused');
+  f.clock(10000); f.controller.visibility(false); f.controller.visibility(true);
+  assert.equal(f.states.at(-1).phase, 'playing');
+  const pending = f.tick(); assert.equal(f.sessions[0].calls[0].until, 120);
+  f.sessions[0].calls[0].resolve(f.response(1, 300)); await pending;
+  f.controller.pause(); f.controller.visibility(false); f.controller.visibility(true);
+  assert.equal(f.states.at(-1).phase, 'paused', 'A manual pause stays paused');
+  f.controller.play(); f.controller.visibility(false); f.controller.pause(); f.controller.visibility(true);
+  assert.equal(f.states.at(-1).phase, 'paused', 'Manual pause clears pending auto-resume');
+  f.controller.play(); f.controller.visibility(false);
+  const reset = f.controller.rewind(); f.sessions[1].init.resolve(f.response()); await reset;
+  f.controller.visibility(true); assert.equal(f.states.at(-1).phase, 'paused');
+  f.controller.play(); f.controller.visibility(false); f.controller.close();
+  const count = f.states.length; f.controller.visibility(true); assert.equal(f.states.length, count);
+});
+
+test('elapsed time follows playback rather than waiting for a drawing event', async () => {
+  const f = setup(); f.sessions[0].init.resolve(f.response()); await f.controller.ready;
+  assert.equal(f.states.at(-1).elapsed, 0); assert.equal(f.states.at(-1).duration, 900);
+  f.controller.play(); const pending = f.tick();
+  f.sessions[0].calls[0].resolve(f.response(1, 1000)); await pending;
+  f.clock(300); await f.tick(); assert.equal(f.states.at(-1).elapsed, 300);
+  f.controller.pause(); f.clock(9999); f.controller.speed(2);
+  assert.equal(f.states.at(-1).elapsed, 300);
+  const reset = f.controller.rewind(); f.sessions[1].init.resolve(f.response()); await reset;
+  assert.equal(f.states.at(-1).elapsed, 0); f.controller.close();
 });

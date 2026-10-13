@@ -1,3 +1,4 @@
+import { validReplayPresentation } from './native-replay-presentation.js';
 // Own one disposable worker and at most one pending command. A replacement gets
 // a fresh source history and allocation budget. The caller owns returned frames.
 export function createReplaySession(bytes, {
@@ -5,7 +6,7 @@ export function createReplaySession(bytes, {
   timeoutMs = 10000, schedule = setTimeout, unschedule = clearTimeout,
 } = {}) {
   if (!(bytes instanceof ArrayBuffer) || bytes.byteLength < 288 || bytes.byteLength > 262400) throw new Error('Invalid replay bytes.');
-  let worker = null, pending = null, sequence = 0, closed = false, dimensions = null, previous = 0, count = null;
+  let worker = null, pending = null, sequence = 0, closed = false, dimensions = null, previous = 0, count = null, bounds = null;
   function close() {
     if (closed) return;
     closed = true;
@@ -21,9 +22,14 @@ export function createReplaySession(bytes, {
     if (closed || !pending) { bitmap?.close?.(); return; }
     if (!data || data.type !== 'frame' || data.sequence !== sequence
       || !Number.isInteger(data.count) || data.count < 2 || data.count > 16384
+      || !Number.isInteger(data.start) || !Number.isInteger(data.end)
+      || data.start < 0 || data.end < data.start || data.end > 0xffffffff || data.end - data.start > 86400000
+      || (bounds && (data.start !== bounds[0] || data.end !== bounds[1]))
+      || (data.next !== null && (data.next < data.start || data.next > data.end))
       || !Number.isInteger(data.index) || data.index < previous || data.index > data.count
       || (data.next !== null && (!Number.isInteger(data.next) || data.next < 0 || data.next > 0xffffffff))
       || (data.next === null) !== (data.index === data.count)
+      || !validReplayPresentation(data.presentation)
       || !bitmap || typeof bitmap.close !== 'function'
       || !Number.isInteger(bitmap.width) || !Number.isInteger(bitmap.height)
       || bitmap.width < 1 || bitmap.height < 1 || bitmap.width > 1024 || bitmap.height > 1024
@@ -31,9 +37,9 @@ export function createReplaySession(bytes, {
       || (count !== null && count !== data.count)) {
       bitmap?.close?.(); fail(); return;
     }
-    dimensions = [bitmap.width, bitmap.height]; previous = data.index; count = data.count;
+    bounds = [data.start, data.end]; dimensions = [bitmap.width, bitmap.height]; previous = data.index; count = data.count;
     const active = pending; pending = null; unschedule(active.timer);
-    active.resolve({ bitmap, index: data.index, count: data.count, next: data.next });
+    active.resolve({ bitmap, index: data.index, count: data.count, next: data.next, start: data.start, end: data.end, presentation: data.presentation });
   }
   function command(type, values, transfer = []) {
     if (closed || pending) return Promise.reject(new Error('Replay is closed or busy.'));

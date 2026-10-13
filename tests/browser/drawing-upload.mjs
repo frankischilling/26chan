@@ -123,7 +123,7 @@ try {
     assert.equal((await deliveredReplay.request().allHeaders()).cookie, undefined);
     const player = page.locator('#native-replay-player');
     await expect(player.getByRole('status')).toHaveText('Replay finished.', { timeout: 30000 });
-    const replayHash = await player.locator('canvas').evaluate(async canvas => {
+    const replayHash = await player.locator('#tegaki-canvas').evaluate(async canvas => {
       const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
       return [...new Uint8Array(await crypto.subtle.digest('SHA-256', pixels))]
         .map(value => value.toString(16).padStart(2, '0')).join('');

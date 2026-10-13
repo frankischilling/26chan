@@ -47,9 +47,14 @@ export function createReplayRuntime(bytes, boundary) {
   if (Tegaki.replayRecorder !== null) throw new Error('Unexpected replay recording');
   const presentation = new OffscreenCanvas(1, 1), context = presentation.getContext('2d');
   if (!context) throw new Error('Native replay presentation unavailable');
+  const [previewWidth, previewHeight] = $T.calcThumbSize(candidate.metadata.width, candidate.metadata.height, 24);
+  const preview = new OffscreenCanvas(previewWidth, previewHeight), previewContext = preview.getContext('2d');
+  if (!previewContext) throw new Error('Native layer preview unavailable');
+  previewContext.imageSmoothingEnabled = false;
   let index = 0;
   return Object.freeze({
     eventCount: prepared.events.length,
+    start: prepared.events[0].timeStamp, end: prepared.events.at(-1).timeStamp,
     width: candidate.metadata.width, height: candidate.metadata.height,
     nextTimestamp: () => prepared.events[index]?.timeStamp ?? null,
     step() {
@@ -66,6 +71,21 @@ export function createReplayRuntime(bytes, boundary) {
       index++;
       if (Tegaki.layers.length > 25) throw new Error('Replay layer limit exceeded');
       return index;
+    },
+    presentation() {
+      const tool = Tegaki.tool;
+      return { color: Tegaki.toolColor, tool: {
+        id: tool.id, size: tool.size, alpha: tool.alpha, flow: tool.flow, tipId: tool.tipId ?? 0,
+        sizeDynamicsEnabled: tool.sizeDynamicsEnabled, alphaDynamicsEnabled: tool.alphaDynamicsEnabled,
+        flowDynamicsEnabled: tool.flowDynamicsEnabled, preserveAlphaEnabled: tool.preserveAlphaEnabled,
+      }, layers: Tegaki.layers.map(layer => {
+        previewContext.clearRect(0, 0, previewWidth, previewHeight);
+        previewContext.drawImage(layer.canvas, 0, 0, previewWidth, previewHeight);
+        return { id: layer.id, alpha: layer.alpha, visible: layer.visible,
+          active: Tegaki.activeLayer === layer, selected: Tegaki.selectedLayers.has(layer.id),
+          width: previewWidth, height: previewHeight,
+          pixels: previewContext.getImageData(0, 0, previewWidth, previewHeight).data };
+      }) };
     },
     frame() {
       Tegaki.flatten(context);
