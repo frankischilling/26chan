@@ -6,6 +6,7 @@ the image. The resulting initramfs digest remains part of the operator manifest.
 """
 import hashlib
 import pathlib
+import os
 import re
 import stat
 import subprocess
@@ -19,6 +20,27 @@ DATA_ROOTS = (
 MAX_FILE = 32 * 1024 * 1024
 MAX_TOTAL = 60 * 1024 * 1024
 MAX_FILES = 2048
+# Ubuntu's CI image has a writable truetype parent. Only this exact font is
+# authenticated by content instead; provenance is in docs/pdf-runtime-font.json.
+PINNED_FONTS = {
+    pathlib.Path('/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf'):
+        (4033420, 'acb6440a713d880a13a21b468ba7cd43f5a2b2934972e51be791c880730777b8'),
+}
+
+
+def pinned_font_bytes(path, expected):
+    size, digest = expected
+    # Read and hash the same bounded bytes that enter the image. A path or
+    # directory replacement cannot substitute different bytes after validation.
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size != size or size > MAX_FILE:
+            raise ValueError('Pinned PDF font is not a bounded regular file')
+        data = stream.read(size + 1)
+    if len(data) != size or hashlib.sha256(data).hexdigest() != digest:
+        raise ValueError('Pinned PDF font differs from the reviewed package')
+    return data
 
 
 def checked_bytes(path):
@@ -30,6 +52,8 @@ def checked_bytes(path):
     if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
             or info.st_mode & 0o022 or not 0 <= info.st_size <= MAX_FILE):
         raise ValueError('PDF runtime source is not a bounded root-owned file')
+    if resolved in PINNED_FONTS:
+        return pinned_font_bytes(resolved, PINNED_FONTS[resolved])
     for parent in resolved.parents:
         metadata = parent.stat()
         if metadata.st_uid != 0 or metadata.st_mode & 0o022:

@@ -48,8 +48,13 @@ The document parser runs only inside the disposable guest. The PDF image carries
 the installed root-owned Ghostscript executable, its shared libraries, bundled
 resources and URW base fonts. `pdf-runtime.json` records their SHA-256 hashes.
 The builder rejects writable or untrusted runtime files and enforces the file
-count and artifact byte budgets. It does not copy host credentials, user font
-configuration or font caches.
+count and artifact byte budgets. One fallback font has an additional content pin:
+[Droid font provenance](pdf-runtime-font.json) records its official Ubuntu package
+and SHA-256. CI's writable TrueType parent cannot authenticate that font, so the
+builder checks the exact bounded bytes against the reviewed digest instead.
+Different font contents fail the build. Executables, libraries and other resources
+still require trusted parent directories. The image contains no host credentials,
+user font configuration or font caches.
 
 Ghostscript receives the snapshot on stdin, a cleared environment and fixed
 arguments. No upload supplies a command, output pathname or renderer option.
