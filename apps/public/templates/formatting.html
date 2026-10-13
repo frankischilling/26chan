@@ -1,5 +1,5 @@
 {% macro drawing_annotation(annotation) -%}
-{%- if let Some(drawing) = annotation -%}<br><br><small><b>Oekaki Post</b> (Time: {{ drawing.time }}{% if let Some(source) = drawing.source_post %}, Source: &gt;&gt;{{ source }}{% endif %})</small>{%- endif -%}
+{%- if let Some(drawing) = annotation -%}<br><br><small><b>Oekaki Post</b> (Time: {{ drawing.time }}{% if let Some(tim) = drawing.replay_tim %}, Replay: <a href="#replay-{{ tim }}" data-drawing-replay="{{ tim }}">View</a>{% endif %}{% if let Some(source) = drawing.source_post %}, Source: &gt;&gt;{{ source }}{% endif %})</small>{%- endif -%}
 {%- endmacro %}
 {% macro comment(lines, board, origin = "") -%}
 {%- for line in lines -%}

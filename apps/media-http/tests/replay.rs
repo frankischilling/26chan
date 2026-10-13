@@ -449,11 +449,25 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>, board: &str
     assert_eq!(response.status(), StatusCode::MISDIRECTED_REQUEST);
     assert_cors(&response, false, false);
 
+    assert!(
+        board_store::post_media::attachment(&public, post)
+            .await
+            .unwrap()
+            .unwrap()
+            .has_replay
+    );
     sqlx::query("UPDATE content.boards SET oekaki_replays=false WHERE slug=$1")
         .bind(board)
         .execute(&admin)
         .await
         .unwrap();
+    assert!(
+        !board_store::post_media::attachment(&public, post)
+            .await
+            .unwrap()
+            .unwrap()
+            .has_replay
+    );
     let response = send(&app, Method::GET, &url, &[CANONICAL_PUBLIC], Some(&etag)).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     assert_cors(&response, false, false);

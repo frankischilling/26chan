@@ -1,5 +1,5 @@
 // Appended to the unchanged pinned Tegaki source by the replay build. This
-// module is not served until the complete worker/delivery path is qualified.
+// module runs only inside the disposable replay worker.
 import { decodeReplayCandidateWire } from './native-replay-data.js';
 import { prepareBoundedReplayCandidate } from './native-replay-envelope.js';
 

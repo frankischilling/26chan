@@ -17,6 +17,7 @@ const options = { absWorkingDir:fileURLToPath(root), bundle:true, platform:'brow
 const outputs = [
   ['runtime.v1.js', await build({...options, stdin:{contents:`${source}\n${runtime}`,resolveDir:fileURLToPath(new URL('apps/public/client/',root)),sourcefile:'native-replay-runtime.js'},banner:{js:`/*!\n${notices.join('\n')}*/`}})],
   ['worker.v1.js', await build({...options,entryPoints:['apps/public/client/native-replay-worker.js'],external:['./runtime.v1.js']})],
+  ['player.v1.js', await build({...options,entryPoints:['apps/public/client/native-replay-player.js']})],
 ];
 const dir = new URL('apps/public/static/native-replay/',root);
 if (!check) await mkdir(dir,{recursive:true});
@@ -28,6 +29,8 @@ for (const [name,result] of outputs) {
   for(const input of Object.keys(result.metafile.inputs)) assert.ok([
     'apps/public/client/native-replay-worker.js', 'apps/public/client/native-replay-worker-allocations.js',
     'apps/public/client/native-replay-worker-boundary.js', 'apps/public/client/native-replay-data.js',
+    'apps/public/client/native-replay-acquire.js', 'apps/public/client/native-replay-playback.js',
+    'apps/public/client/native-replay-session.js', 'apps/public/client/native-replay-player.js',
     'apps/public/client/native-replay-envelope.js', 'apps/public/client/native-replay-runtime.js',
   ].includes(input), `Unexpected replay dependency: ${input}`);
   const bytes=result.outputFiles[0].contents;

@@ -1,10 +1,11 @@
 # Isolated replay candidate preparation
 
-The replay data and worker modules are not served by the public application.
-The dedicated browser fixtures import them for qualification. The media service
-has a checked replay delivery route; public playback controls are still pending. Structural decoding and
-constructor preparation do not establish publication authority, PNG agreement,
-valid logical history, or a browser memory guarantee.
+The public player acquires canonical replay bytes from the media service and
+runs the pinned drawing engine in a disposable worker. Raw compressed uploads
+stay in isolated processing. Structural decoding and constructor preparation do
+not establish publication authority, PNG agreement, valid logical history, or a
+browser memory guarantee. See [drawing replay integration](drawing-replays.md)
+for the upload, delivery and playback paths.
 
 ## Full-vocabulary worker qualification
 
@@ -31,8 +32,9 @@ correctly or that issue #207 is complete.
 
 The worker has separate cumulative limits for source canvas allocations and
 pixel/typed-array allocations. These are conservative accounting limits, not
-measurements or hard caps on browser RSS. Acquisition, per-command deadlines,
-and interactive playback ownership remain separate work.
+measurements or hard caps on browser RSS. Acquisition has a byte limit and deadline;
+each worker command has a parent-owned deadline and processes at most 50 events.
+Closing or rewinding discards the worker and its source history.
 
 Rust `CanonicalReplay` owns bytes after independent structural and numeric
 checks. Its filesystem path is an immutable `.replay.ibr` companion with
@@ -213,6 +215,6 @@ origin. Raw uploaded TGKR files are never served by this route.
 Local PostgreSQL tests cover drawing enrollment, lease and publication checks,
 intake framing/cancellation/reconciliation, public board-policy gates, and checked
 HTTP delivery. The mTLS dispatcher test uses controlled isolated-output fixtures;
-it is not a new real-VM qualification. The client transport has a paired upload
-function, but the public editor has not yet been connected to it. These changes
-do not finish issue #207.
+it is not a new real-VM qualification. The public editor uses paired uploads for recorded drawings; image-only drawings
+retain the existing PNG upload path.
+Full issue #207 qualification is still pending.

@@ -673,6 +673,7 @@ async fn board_page(
             hidden_views.push(view);
         }
     }
+    let replay = board.oekaki_replays && !catalog && state.media.is_some();
     let math_tags = board.math_tags && !catalog;
     let drawing = !catalog && board.ordinary_drawing_enabled(state.media.is_some());
     let response = crate::output::html(
@@ -708,7 +709,7 @@ async fn board_page(
         },
     )?;
     Ok(crate::security::drawing_page(
-        crate::security::math_page(response, math_tags),
+        crate::security::replay_page(crate::security::math_page(response, math_tags), replay),
         drawing,
     ))
 }
@@ -779,6 +780,7 @@ pub async fn thread(
         .into_iter()
         .map(|post| PostView::resolved(post, &quote_targets, Some(thread.id)))
         .collect();
+    let replay = board.oekaki_replays && state.media.is_some();
     let math_tags = board.math_tags;
     let drawing = !thread.closed
         && thread.archived_at.is_none()
@@ -818,7 +820,7 @@ pub async fn thread(
         },
     )?;
     Ok(crate::security::drawing_page(
-        crate::security::math_page(response, math_tags),
+        crate::security::replay_page(crate::security::math_page(response, math_tags), replay),
         drawing,
     ))
 }

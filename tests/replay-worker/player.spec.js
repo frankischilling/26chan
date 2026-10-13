@@ -1,0 +1,33 @@
+import { test, expect } from '@playwright/test';
+test('release player works under fixed CSP and owns pause, rewind, speed, gapless and close',async({page})=>{
+  const failures=[];page.on('pageerror',error=>failures.push(error.message));
+  await page.goto('/player.html');await page.getByRole('link',{name:'View',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Oekaki replay'});
+  await expect(dialog).toBeVisible();await expect(dialog.getByRole('status')).toHaveText('Replay finished.');
+  await expect(dialog.locator('canvas')).toHaveAttribute('width','24');
+  await dialog.getByRole('button',{name:'Rewind',exact:true}).click();
+  await expect(dialog.getByRole('button',{name:'Play',exact:true})).toBeEnabled();
+  await dialog.getByLabel('Gapless').uncheck();
+  await dialog.getByRole('button',{name:'Faster',exact:true}).click();await expect(dialog.locator('.nativeReplayToolbar')).toContainText('2×');
+  await dialog.getByRole('button',{name:'Play',exact:true}).click();
+  await dialog.getByRole('button',{name:'Pause',exact:true}).click();
+  await expect(dialog.getByRole('button',{name:'Play',exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('link',{name:'View',exact:true})).toBeFocused();
+  await page.getByRole('link',{name:'View',exact:true}).click();await expect(dialog.getByRole('status')).toHaveText('Replay finished.');
+  await dialog.getByRole('button',{name:'Close',exact:true}).click();await expect(dialog).toHaveCount(0);
+  expect(failures).toEqual([]);
+});
+test('close during acquisition prevents late playback and a missing recording shows a bounded failure',async({page})=>{
+  let resolve;const held=new Promise(done=>{resolve=done;});
+  await page.route('**/replay/i/123.ibr',async route=>{await held;try{await route.continue();}catch{}});
+  await page.goto('/player.html');await page.getByRole('link',{name:'View',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'Oekaki replay'});
+  await expect(dialog.getByRole('status')).toHaveText('Loading replay…');
+  await dialog.getByRole('button',{name:'Close',exact:true}).click();resolve();await page.unroute('**/replay/i/123.ibr');
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole('link',{name:'Missing',exact:true}).click();
+  await expect(dialog.getByRole('status')).toContainText('Could not load');
+  await expect(dialog.getByRole('button',{name:'Play',exact:true})).toBeDisabled();
+  await dialog.getByRole('button',{name:'Close',exact:true}).click();await expect(dialog).toHaveCount(0);
+});

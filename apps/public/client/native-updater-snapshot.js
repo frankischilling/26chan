@@ -18,7 +18,7 @@ const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'side
   'fortune-7', 'fortune-8', 'fortune-9', 'fortune-10', 'fortune-11', 'fortune-12']);
 const attributes = {
   article: ['class', 'id', 'data-custom-spoiler'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
-  strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title'], blockquote: ['class', 'id'],
+  strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title', 'data-drawing-replay'], blockquote: ['class', 'id'],
   br: [], wbr: [], b: [], s: [], small: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required', 'form', 'aria-label'],
   label: ['for'], button: [], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
@@ -119,6 +119,14 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     }
     require(Object.hasOwn(attributes, node.tag));
     if (node.tag === 'small') require(comment && !link);
+    const replay = node.attrs['data-drawing-replay'];
+    if (replay !== undefined) {
+      require(node.tag === 'a' && comment && !link
+        && typeof replay === 'string' && /^[1-9][0-9]{0,15}$/.test(replay)
+        && BigInt(replay) <= 9007199254740991n && node.attrs.href === `#replay-${replay}`
+        && Object.keys(node.attrs).sort().join(',') === 'data-drawing-replay,href'
+        && node.children.length === 1 && node.children[0] === 'View');
+    }
     for (const [key, value] of Object.entries(node.attrs)) {
       // Rust permits 64 KiB of comment UTF-8; URL percent encoding can triple
       // that size. Preserve those valid links within the aggregate wire budget.
@@ -127,7 +135,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       if (key === 'class') require(value.split(' ').every(token => classes.has(token) || isPostFlagToken(token) || isCapcodeToken(token))
         || value === 'deadlink'); // Its exact inert placement is checked below.
       if (key === 'id') { require(expectedIds.has(value) && !ids.has(value)); ids.add(value); }
-      if (key === 'href') require(postLinkUrl(value, context));
+      if (key === 'href') require(replay !== undefined || postLinkUrl(value, context));
       if (key === 'src') require(postMediaUrl(value, context) || postIdentityUrl(value) || postFileAssetUrl(value));
       if (key === 'action') require([`/${context.board}/delete`, `/${context.board}/report`].includes(value));
       if (key === 'method') require(value === 'post');
@@ -142,6 +150,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       if (key === 'autocomplete') require(value === 'off');
       if (key === 'required') require(value === '');
       if (key.startsWith('data-')) {
+        if (key === 'data-drawing-replay') continue; // Exact anchor checked above.
         if (key === 'data-custom-spoiler') {
           require(depth === 0 && node.tag === 'article' && /^(?:[1-9]|[1-5][0-9]|6[0-4])$/.test(value));
           continue;
@@ -216,7 +225,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     if (node.tag === 'img') require(typeof node.attrs.src === 'string' && typeof node.attrs.alt === 'string');
     if (node.tag === 'a') {
       require(typeof node.attrs.href === 'string');
-      if (node.attrs.href.startsWith('#')) require(comment && node.attrs.class === 'quotelink');
+      if (node.attrs.href.startsWith('#')) require(replay !== undefined || (comment && node.attrs.class === 'quotelink'));
       else if (!node.attrs.href.startsWith('/')) require(['noopener noreferrer', 'nofollow noreferrer noopener'].includes(node.attrs.rel));
     }
     const message = node.tag === 'blockquote' && node.attrs.class === 'postMessage' && node.attrs.id === `m${no}`;

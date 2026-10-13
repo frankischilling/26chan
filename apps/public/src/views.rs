@@ -355,10 +355,21 @@ impl PostView {
     }
 
     pub fn drawing_annotation(&self) -> Option<DrawingAnnotation> {
-        DrawingAnnotation::from_saved(
+        let mut annotation = DrawingAnnotation::from_saved(
             self.post.drawing_time_seconds,
             self.post.drawing_source_post_id,
-        )
+        )?;
+        if annotation.source_post.is_none() && !self.post.deleted && !self.post.file_deleted {
+            annotation.replay_tim = self
+                .post
+                .attachment
+                .as_ref()
+                .filter(|attachment| {
+                    attachment.has_replay && !attachment.file_deleted && attachment.tim > 0
+                })
+                .map(|attachment| attachment.tim);
+        }
+        Some(annotation)
     }
 
     pub fn catalog_teaser(&self, board: &Board) -> crate::catalog::teaser::Prepared {

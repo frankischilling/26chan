@@ -252,7 +252,7 @@ async function sendPost({ board, thread, fields, signal, origin = location.origi
   const base = new URL(origin);
   if (!['http:', 'https:'].includes(base.protocol) || base.origin !== origin || base.username || base.password) throw new Error('Invalid posting origin.');
   const annotated = fields.oe_time !== undefined || fields.oe_src !== undefined;
-  if (annotated && (board !== 'i' || allowNew || typeof fields.oe_time !== 'string'
+  if (annotated && (board !== 'i' || typeof fields.oe_time !== 'string'
     || !/^(0|[1-9][0-9]*)$/.test(fields.oe_time) || !Number.isSafeInteger(Number(fields.oe_time))
     || (fields.oe_src !== undefined && !postId(fields.oe_src))
     || !fields.upload_id || !fields.upload_capability)) throw new Error('Invalid drawing annotation.');

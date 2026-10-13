@@ -1,6 +1,6 @@
-// Full-vocabulary worker boundary, not yet served or activated.
+// Full-vocabulary boundary for the disposable replay worker.
 // This bounds source canvas allocations only. ImageData/typed-array accounting
-// and independent parent command deadlines remain integration requirements.
+// and parent command deadlines are enforced by separate modules.
 // No raster emulation. Canvas/context/ImageData operations are always native.
 // Sinks are closed to the exact DOM vocabulary reached by the pinned core.
 const fail = name => { throw new Error(`Unreviewed worker boundary: ${String(name)}`); };

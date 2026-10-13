@@ -71,9 +71,9 @@ try {
     assert.doesNotMatch(ready.headers()['content-security-policy'], /unsafe-eval/);
     const ordinary = page.locator('form.postEditor').first();
     await expect(ordinary).toHaveAttribute('data-drawing-edit-allowed', 'true');
-    await expect(ordinary).not.toHaveAttribute('data-drawing-allowed', 'true');
-    await expect(ordinary.locator('[data-drawing-draw]')).toBeHidden();
-    assert.equal(requests.some(request => request.url.endsWith(tegakiModule)), false, 'Edit-only Tegaki remains lazy');
+    await expect(ordinary).toHaveAttribute('data-drawing-allowed', 'true');
+    await expect(ordinary.locator('[data-drawing-draw]')).toBeVisible();
+    assert.equal(requests.some(request => request.url.endsWith(tegakiModule)), false, 'Tegaki remains lazy before Draw or post Edit');
 
     const seed = await seedDrawingPng(page);
     const response = await context.request.post(url(`/${board}/upload`), {
@@ -204,7 +204,7 @@ try {
       assert.equal((await (await context.request.get(api)).json()).posts.find(value => String(value.no) === id).filedeleted, 1);
     }
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(ordinary.locator('[data-drawing-draw]')).toBeHidden();
+    await expect(ordinary.locator('[data-drawing-draw]')).toBeVisible();
     assert.deepEqual(violations, []);
     assert.equal(requests.some(request => /\.tgkr(?:$|\?)/.test(request.url)), false);
     console.log('PASS drawing image-edit: real Tegaki pointer strokes, isolated seed receipt, anonymous CORS import, source annotation, updater, one-use posting and owned deletion');

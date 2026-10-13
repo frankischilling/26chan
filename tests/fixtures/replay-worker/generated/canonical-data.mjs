@@ -1,5 +1,5 @@
-// Isolated candidate preparation only. Nothing imports this module in a served
-// asset. Neither result authorizes playback, storage, publication, or PNG claims.
+// Isolated candidate preparation used inside the bounded replay worker.
+// Neither result authorizes storage, publication, or PNG agreement claims.
 // State, cost, provenance, acquisition limits/deadlines, and runtime isolation
 // remain separate obligations. In particular, no Tegaki upload is parsed here.
 

@@ -41,7 +41,7 @@ for (const path of Object.keys(result.metafile.inputs)) assert.ok([
   'apps/public/static/watcher-position.v1.js',
 ].includes(path), `Unexpected Quick Reply source: ${path}`);
 const bytes = result.outputFiles[0].contents;
-assert.ok(bytes.length <= 49152, 'Quick Reply and drawing adapter exceed their 48 KiB budget');
+assert.ok(bytes.length <= 51200, 'Quick Reply and paired drawing adapter exceed their 50 KiB budget');
 const target = new URL('apps/public/static/native-quick-reply.v1.js', root);
 if (args[0] === '--check') assert.ok(Buffer.from(bytes).equals(await readFile(target)), 'Quick Reply bundle is stale');
 else await writeFile(target, bytes);

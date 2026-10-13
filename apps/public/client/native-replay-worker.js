@@ -23,9 +23,9 @@ self.onmessage = async ({ data }) => {
     } else if (data.type === 'advance' && runtime !== null
       && Object.keys(data).sort().join(',') === 'sequence,type,until'
       && Number.isSafeInteger(data.until) && data.until >= 0 && data.until <= 0xffffffff) {
-      // One command processes at most 64 events. Parent deadlines also cover a
+      // One command processes at most 50 events. Parent deadlines also cover a
       // slow individual native canvas operation that cannot yield here.
-      for (let n = 0; n < 64 && index < runtime.eventCount && runtime.nextTimestamp() <= data.until; n++) {
+      for (let n = 0; n < 50 && index < runtime.eventCount && runtime.nextTimestamp() <= data.until; n++) {
         index = runtime.step();
       }
     } else throw new Error('Invalid replay command');
@@ -34,10 +34,9 @@ self.onmessage = async ({ data }) => {
     self.postMessage({ type: 'frame', sequence, index, count: runtime.eventCount,
       next: runtime.nextTimestamp(), bitmap }, [bitmap]);
     bitmap = null; busy = false;
-  } catch (error) {
+  } catch {
     bitmap?.close();
     self.postMessage({ type: 'error', sequence, stage });
-    console.error('Replay qualification failure', stage, error);
     stop();
   }
 };

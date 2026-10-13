@@ -62,6 +62,8 @@ impl fmt::Display for DrawingTime {
 pub struct DrawingAnnotation {
     pub time: DrawingTime,
     pub source_post: Option<i64>,
+    /// Filled only from the caller's approved attachment projection.
+    pub replay_tim: Option<i64>,
 }
 
 impl DrawingAnnotation {
@@ -69,6 +71,7 @@ impl DrawingAnnotation {
         Some(Self {
             time: DrawingTime::from_seconds(i64::from(seconds?))?,
             source_post: source.filter(|id| *id > 0),
+            replay_tim: None,
         })
     }
 

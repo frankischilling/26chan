@@ -1,6 +1,6 @@
 import { createDrawingUpload, drawingDimensions } from './native-drawing-core.js';
 import { createDrawingPainter } from './native-drawing-painter.js';
-import { sendDrawingPost, uploadTarget } from './native-quick-reply-transport.js';
+import { sendDrawingPost, uploadDrawingFile, uploadTarget } from './native-quick-reply-transport.js';
 
 // The media server, not a post's filename or any user-supplied link, chooses
 // the URL. JPEG uploads also appear here as approved, normalized .png output.
@@ -74,7 +74,8 @@ export function mountDrawingEditLinks({ root = document, section, board, mediaOr
 
 export function mountNativeDrawing({ board, source, uploadForm }) {
   const template = source?.querySelector('.painter-ctrl');
-  const ordinaryAllowed = board !== 'i' && source?.dataset.drawingAllowed === 'true';
+  const ordinaryAllowed = source?.dataset.drawingAllowed === 'true';
+  const recordEnabled = source?.dataset.drawingReplays === 'true';
   const editAllowed = board === 'i' && source?.dataset.drawingEditAllowed === 'true'
     && source?.elements.namedItem('resto')?.value !== '0';
   if ((!ordinaryAllowed && !editAllowed) || !template || !/^[a-z0-9]{1,10}$/.test(board)
@@ -90,6 +91,13 @@ export function mountNativeDrawing({ board, source, uploadForm }) {
     const width = controls.querySelector('[data-drawing-width]'), height = controls.querySelector('[data-drawing-height]');
     const status = controls.querySelector('[data-drawing-status]');
     if (!draw || !reset || !width || !height || !status) return null;
+    let replayCheck = controls.querySelector('[data-drawing-record]');
+    if (recordEnabled && canDraw && !replayCheck) {
+      const label = node('label'); label.title = 'Generate a replay animation of your drawing';
+      replayCheck = node('input'); replayCheck.type = 'checkbox'; replayCheck.checked = true;
+      replayCheck.className = 'oe-r-cb'; replayCheck.dataset.drawingRecord = '';
+      label.append(replayCheck, 'Replay'); controls.insertBefore(label, status);
+    }
     let data = false, exporting = false, loading = false, disposed = false, error = '', clearing = null;
     let sourcePost = null, elapsed = null;
     const clearSource = () => { sourcePost = null; elapsed = null; };
@@ -104,7 +112,8 @@ export function mountNativeDrawing({ board, source, uploadForm }) {
       reset.hidden = !canDraw && sourcePost === null;
       reset.disabled = !data && !exporting;
       width.hidden = height.hidden = !canDraw;
-      width.disabled = height.disabled = !canDraw || data || exporting || loading;
+      width.disabled = height.disabled = !canDraw || data || exporting || loading || sourcePost !== null;
+      if (replayCheck) replayCheck.disabled = loading || exporting || painter.active() || sourcePost !== null;
       if (fileInput) {
         fileInput.style.visibility = data || exporting ? 'hidden' : '';
         fileInput.disabled = data || exporting || loading || !canOpen();
@@ -133,10 +142,11 @@ export function mountNativeDrawing({ board, source, uploadForm }) {
       suspended() { loading = false; exporting = false; render(); },
       exporting() { data = true; exporting = true; error = ''; render(); },
       async prepare() { error = ''; const result = await prepare(); render(); return result; },
-      async finished(file, seconds) {
+      recordReplay: () => recordEnabled && sourcePost === null && replayCheck?.checked === true,
+      async finished(file, seconds, replay) {
         data = true; exporting = false; error = '';
-        if (sourcePost !== null) elapsed = String(seconds);
-        render(); await accept(file); render();
+        if (recordEnabled || sourcePost !== null) elapsed = String(seconds);
+        render(); await accept(file, replay); render();
       },
       imported(id) { sourcePost = id ?? null; elapsed = null; render(); },
       sourcePost: () => sourcePost,
@@ -155,8 +165,8 @@ export function mountNativeDrawing({ board, source, uploadForm }) {
     return { clear: clearDrawing, sync: render, pending: () => data || exporting,
       retained: () => painter.retained(client.key, client.target),
       blocked: () => painter.active() || loading || exporting || (data && !approved()),
-      annotation: () => data && !exporting && sourcePost && elapsed !== null && approved()
-        ? { oe_src: sourcePost, oe_time: elapsed } : null,
+      annotation: () => data && !exporting && elapsed !== null && approved()
+        ? { ...(sourcePost ? { oe_src: sourcePost } : {}), oe_time: elapsed } : null,
       importFromPost(source) {
         if (disposed || loading || exporting || painter.active() || !canOpen()) return Promise.resolve(false);
         return painter.importFromPost(client, source);
@@ -187,7 +197,7 @@ export function mountNativeDrawing({ board, source, uploadForm }) {
       if (comment) comment.required = receipt?.state === 'approved' ? false : originalRequired;
       if (spoiler) { spoiler.disabled = receipt?.state !== 'approved' || busy; if (!receipt) spoiler.checked = false; }
     }
-    transfer = createDrawingUpload({ board, target: () => source.elements.namedItem('resto').value, changed: state => {
+    transfer = createDrawingUpload({ board, uploadPair: uploadDrawingFile, target: () => source.elements.namedItem('resto').value, changed: state => {
       capabilities(state.approved ? state.receipt : null);
       check.hidden = !state.canCheck; check.disabled = busy;
       const labels = { uploading: 'Uploading tegaki.png…', queued: 'tegaki.png queued for processing.', processing: 'tegaki.png is processing.',
@@ -198,7 +208,7 @@ export function mountNativeDrawing({ board, source, uploadForm }) {
     } });
     const sync = () => { for (const button of buttons) button.disabled = busy || !!ordinary?.blocked() || transfer.snapshot().busy; };
     ordinary = controlsFor(source, template, { fileInput, key: 'ordinary', target: () => source.elements.namedItem('resto').value,
-      prepare: () => transfer.clear(), accept: file => transfer.select(file), clear: () => transfer.clear(),
+      prepare: () => transfer.clear(), accept: (file, replay) => transfer.select(file, replay), clear: () => transfer.clear(),
       approved: () => transfer.snapshot().approved, changed: sync, canOpen: () => !busy && !dead && !suspended });
     if (!ordinary) { transfer.dispose(); painter.dispose(); return null; }
     check.addEventListener('click', () => { void transfer.status(); });
@@ -215,6 +225,7 @@ export function mountNativeDrawing({ board, source, uploadForm }) {
       if (dead || suspended || busy || ordinary.blocked() || !transfer.snapshot().approved || !source.reportValidity()) return;
       const target = source.elements.namedItem('resto').value, epoch = ++postEpoch;
       const fields = Object.fromEntries(new FormData(source));
+      Object.assign(fields, ordinary.annotation() ?? {});
       busy = true; transfer.posting(true); ordinary.sync(); sync(); postController = new AbortController();
       if (status) status.textContent = 'Posting drawing…';
       try {
@@ -270,7 +281,7 @@ export function mountNativeDrawing({ board, source, uploadForm }) {
     mountQuickReply({ form, fileInput, target, prepare, accept, clear, approved, changed, canOpen }) {
       const controls = node('div'); controls.id = 'qr-painter-ctrl'; controls.className = 'painter-ctrl desktop';
       for (const child of template.childNodes) controls.append(child.cloneNode(true));
-      if (editAllowed) for (const child of [...controls.childNodes]) {
+      if (editAllowed && !ordinaryAllowed) for (const child of [...controls.childNodes]) {
         // /i/ has no blank-canvas Draw, including the ordinary size label.
         if (child.nodeType === 3 && /^(?:\s*Size\s*|\s*×\s*)$/.test(child.textContent)) child.remove();
       }
