@@ -11,7 +11,9 @@ const source = await readFile(new URL('apps/public/vendor/tegaki/0.9.4/tegaki.mi
 assert.equal(createHash('sha256').update(source).digest('hex'), 'daea182c52df0c032eadbecb4de8f91f634a61bf82aaf35dda077fab50e68744');
 const runtime = await readFile(new URL('apps/public/client/native-replay-runtime.inc.js', root), 'utf8');
 const notices = await Promise.all(['tegaki-MIT.txt','tegaki-UZIP-MIT.txt'].map(name=>readFile(new URL(`docs/licenses/${name}`,root),'utf8')));
-const options = { absWorkingDir:fileURLToPath(root), bundle:true, platform:'browser',format:'esm',target:['es2022'],minify:true,charset:'ascii',write:false,metafile:true,logLevel:'silent' };
+// Source event constructors index TegakiEvents through this.constructor.name.
+// Preserve names through bundling; changing them changes the replay language.
+const options = { absWorkingDir:fileURLToPath(root), bundle:true, platform:'browser',format:'esm',target:['es2022'],keepNames:true,minify:true,charset:'ascii',write:false,metafile:true,logLevel:'silent' };
 const outputs = [
   ['runtime.v1.js', await build({...options, stdin:{contents:`${source}\n${runtime}`,resolveDir:fileURLToPath(new URL('apps/public/client/',root)),sourcefile:'native-replay-runtime.js'},banner:{js:`/*!\n${notices.join('\n')}*/`}})],
   ['worker.v1.js', await build({...options,entryPoints:['apps/public/client/native-replay-worker.js'],external:['./runtime.v1.js']})],
