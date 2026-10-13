@@ -52,6 +52,9 @@ export function createReplayPlayback(bytes, { frame, changed = () => {},
     try {
       const value = await session.advance(until);
       if (!display(value, epoch)) return;
+      // The source freezes its timeline at the next due event when the
+      // per-frame event cap is reached, rather than racing through a backlog.
+      if (phase === 'playing' && next !== null && next <= until) { cursor = next; wall = now(); }
       busy = false; notify(); queue();
     } catch { fail(epoch); }
   }

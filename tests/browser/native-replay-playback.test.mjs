@@ -76,3 +76,13 @@ test('elapsed time follows playback rather than waiting for a drawing event', as
   const reset = f.controller.rewind(); f.sessions[1].init.resolve(f.response()); await reset;
   assert.equal(f.states.at(-1).elapsed, 0); f.controller.close();
 });
+
+test('a capped source batch resets the playback clock at the next due event', async () => {
+  const f=setup(); f.sessions[0].init.resolve(f.response()); await f.controller.ready;
+  f.controller.gapless(false); f.controller.play(); f.clock(5000);
+  const first=f.tick(); assert.equal(f.sessions[0].calls[0].until,5100);
+  f.sessions[0].calls[0].resolve(f.response(1,200)); await first;
+  assert.equal(f.states.at(-1).elapsed,100);
+  f.clock(5010); const second=f.tick(); assert.equal(f.sessions[0].calls[1].until,210);
+  f.sessions[0].calls[1].resolve(f.response(3,null)); await second; f.controller.close();
+});

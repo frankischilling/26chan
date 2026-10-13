@@ -61,6 +61,7 @@ test('source replay chrome shows elapsed time, tools and layers without touching
   await page.goto('/player.html');
   await page.evaluate(() => {
     const retained = document.createElement('div'); retained.id = 'tegaki';
+    retained.className = 'tegaki-hidden';
     retained.textContent = 'retained unsaved painter'; document.body.append(retained);
   });
   await page.getByRole('link', {name:'View', exact:true}).click();
