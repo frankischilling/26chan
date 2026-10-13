@@ -1,4 +1,4 @@
-//! Inactive drawing-upload transport. Production routers do not call this module.
+//! Bounded drawing-upload transport with a separate candidate qualification path.
 //!
 //! Ordered ordinary FormData fields: resto, png_bytes, replay_bytes, upfile,
 //! optional replay. Filenames are tegaki.png and tegaki.tgkr. Length declarations
@@ -105,12 +105,29 @@ impl<R: AsyncRead + Unpin> PairedMultipart<R> {
     }
 
     /// Connect the bounded forwarder to the fixed-endpoint intake client. Board,
-    /// thread, and form checks belong before reservation in a future route. The
+    /// thread, and form checks must precede reservation in the caller. The
     /// reservation remains a bearer; this helper invents no actor binding.
     pub async fn upload(
         self,
         client: &board_intake_client::IntakeClient,
         reservation: &board_intake_client::Reservation,
+    ) -> io::Result<()> {
+        self.upload_kind(client, reservation, false).await
+    }
+
+    pub async fn upload_drawing(
+        self,
+        client: &board_intake_client::IntakeClient,
+        reservation: &board_intake_client::Reservation,
+    ) -> io::Result<()> {
+        self.upload_kind(client, reservation, true).await
+    }
+
+    async fn upload_kind(
+        self,
+        client: &board_intake_client::IntakeClient,
+        reservation: &board_intake_client::Reservation,
+        drawing: bool,
     ) -> io::Result<()> {
         let job = reservation.id.parse().map_err(|_| invalid())?;
         let (sender, receiver) = mpsc::channel(1);
@@ -118,14 +135,17 @@ impl<R: AsyncRead + Unpin> PairedMultipart<R> {
             receiver.recv().await.map(|chunk| (chunk, receiver))
         });
         let remote = async {
-            client
-                .upload_pair(
-                    &reservation.id,
-                    &reservation.capability,
-                    axum::body::Body::from_stream(stream),
-                )
-                .await
-                .map_err(|_| io::Error::other("paired intake unavailable"))
+            let body = axum::body::Body::from_stream(stream);
+            let result = if drawing {
+                client
+                    .upload_drawing(&reservation.id, &reservation.capability, body)
+                    .await
+            } else {
+                client
+                    .upload_pair(&reservation.id, &reservation.capability, body)
+                    .await
+            };
+            result.map_err(|_| io::Error::other("paired intake unavailable"))
         };
         tokio::try_join!(remote, self.forward(job, sender))?;
         Ok(())

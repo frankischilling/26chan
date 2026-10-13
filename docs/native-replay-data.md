@@ -1,8 +1,8 @@
 # Isolated replay candidate preparation
 
 The replay data and worker modules are not served by the public application.
-The dedicated browser fixtures import them for qualification. There is still no
-approved replay delivery route or public playback UI. Structural decoding and
+The dedicated browser fixtures import them for qualification. The media service
+has a checked replay delivery route; public playback controls are still pending. Structural decoding and
 constructor preparation do not establish publication authority, PNG agreement,
 valid logical history, or a browser memory guarantee.
 
@@ -20,18 +20,19 @@ updates become closed, audited sinks. Layer history cloning preserves canvas
 metadata and native pixel-copy behavior. The parent terminates the qualification
 worker on its deadline and closes every returned bitmap.
 
-At commit `345c5240f68f4f053cab5ce819fc2c2d68491056`, the
-[native qualification run](https://github.com/frankischilling/26chan/actions/runs/38343623264)
-passed the existing 41 browser tests and 24 full-worker comparisons against the
+At commit `d3a706911570fad3d34a3a4f492eb51f4ddcd78e`, the
+[native qualification run](https://github.com/frankischilling/26chan/actions/runs/38344197743)
+passed the existing 41 browser tests and 32 full-worker comparisons against the
 original DOM renderer. The added cases exercise bucket/pipette, pressure
-dynamics, deleting/merging/moving layers, and undo across layer creation. These
+dynamics, deleting/merging/moving layers, undo across layer creation, 25 layers,
+and 400 x 400 and 1024 x 1024 canvases. These
 are owned synthetic transcripts, not proof that arbitrary uploads render
 correctly or that issue #207 is complete.
 
 The worker has separate cumulative limits for source canvas allocations and
 pixel/typed-array allocations. These are conservative accounting limits, not
 measurements or hard caps on browser RSS. Acquisition, per-command deadlines,
-interactive playback ownership, and approved delivery remain separate work.
+and interactive playback ownership remain separate work.
 
 Rust `CanonicalReplay` owns bytes after independent structural and numeric
 checks. Its filesystem path is an immutable `.replay.ibr` companion with
@@ -183,3 +184,35 @@ payload layout, tool flags and ordering, nonfinite values, exact float/pressure
 semantics, metadata/tool-map shapes, mutation/forgery, missing constructors,
 and forbidden-path traps. They do not exercise event dispatch, raster output,
 source lifecycle, a real browser, or a delivery/approval path.
+
+## Drawing intake and publication
+
+The public `/{board}/drawing` endpoint accepts the bounded, ordered multipart
+contract. It checks the board, thread and recording policy before reserving a
+job. The existing same-origin middleware and upload semaphore apply. A malformed
+final boundary or missing HTTP EOF cannot finalize the pair.
+
+`/v2/drawings` enrolls a separate publication-capable receipt. The earlier
+candidate-only v2 routes remain absent from the production intake router. Their
+jobs cannot acquire drawing publication authority. Both paths retain the same
+bounded framing, actual-byte digests and one-use upload capability rules.
+
+`media-publish dispatch-drawing` sends an immutable input snapshot through the
+existing authenticated isolated-dispatch channel. The coordinator checks the
+returned attempt binding, image bytes, canonical recording, matching dimensions
+and source PNG provenance. SQL reserves the image, thumbnail and optional replay
+under one fresh drawing lease. Approval occurs only after all expected files
+are installed. An uncertain approval is left for reconciliation rather than
+being treated as permission to delete potentially approved files.
+
+`/replay/{board}/{tim}.ibr` serves only canonical bytes belonging to a visible,
+approved post on a recording-enabled board. It checks the file's length and hash
+before conditional responses. Its CORS policy permits only the configured public
+origin. Raw uploaded TGKR files are never served by this route.
+
+Local PostgreSQL tests cover drawing enrollment, lease and publication checks,
+intake framing/cancellation/reconciliation, public board-policy gates, and checked
+HTTP delivery. The mTLS dispatcher test uses controlled isolated-output fixtures;
+it is not a new real-VM qualification. The client transport has a paired upload
+function, but the public editor has not yet been connected to it. These changes
+do not finish issue #207.

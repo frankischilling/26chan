@@ -147,3 +147,34 @@ test('stale paired completion retires its receipt instead of reattaching it', as
   assert.deepEqual(canceled, [uploadReceipt]);
   transfer.dispose();
 });
+
+
+test('drawing transport sends the exact ordered atomic pair and never retries as PNG-only', async () => {
+  const { uploadDrawingFile } = await import('../../apps/public/client/native-quick-reply-transport.js');
+  const file = new File([new Uint8Array(33)], 'tegaki.png', { type: 'image/png' });
+  const recording = new File([new Uint8Array(13)], 'tegaki.tgkr');
+  const receipt = { upload_id: 'a'.repeat(32), upload_capability: 'b'.repeat(64), resto: '0', state: 'queued' };
+  let calls = 0;
+  for (const replay of [null, recording]) {
+    const result = await uploadDrawingFile({ origin: 'https://board.example', board: 'i', thread: '0', file, replay,
+      fetcher: async (url, options) => {
+        calls++;
+        assert.equal(url, 'https://board.example/i/drawing');
+        assert.equal(options.credentials, 'same-origin'); assert.equal(options.redirect, 'error');
+        assert.deepEqual([...options.body.keys()], ['resto', 'png_bytes', 'replay_bytes', 'upfile', ...(replay ? ['replay'] : [])]);
+        assert.equal(options.body.get('png_bytes'), '33'); assert.equal(options.body.get('replay_bytes'), replay ? '13' : '0');
+        assert.equal(options.body.get('upfile').name, 'tegaki.png');
+        return new Response(JSON.stringify(receipt), { headers: { 'content-type': 'application/json' } });
+      } });
+    assert.deepEqual(result, receipt);
+  }
+  assert.equal(calls, 2);
+  await assert.rejects(uploadDrawingFile({ origin: 'https://board.example', board: 'i', thread: '0', file, replay: recording,
+    fetcher: async () => { calls++; throw new Error('isolated intake unavailable'); } }), /Keep the drawing/);
+  assert.equal(calls, 3);
+  for (const replay of [{}, new File([], 'tegaki.tgkr'), new File([new Uint8Array(13)], 'other.tgkr')]) {
+    await assert.rejects(uploadDrawingFile({ origin: 'https://board.example', board: 'i', thread: '0', file, replay,
+      fetcher: async () => { calls++; throw new Error('must not send'); } }), /Invalid drawing recording/);
+  }
+  assert.equal(calls, 3);
+});

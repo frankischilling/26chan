@@ -71,6 +71,95 @@ pub async fn post_image(
     serve(state, asset, thumbnail, format, headers, drawing_png).await
 }
 
+/// Canonical records only. Never expose compressed TGKR or private input files.
+pub async fn post_replay(
+    State(state): State<AppState>,
+    Path((board, name)): Path<(String, String)>,
+    uri: Uri,
+    headers: HeaderMap,
+) -> Response {
+    let Some(tim) = name
+        .strip_suffix(".ibr")
+        .and_then(|value| value.parse::<i64>().ok())
+    else {
+        return error(StatusCode::NOT_FOUND);
+    };
+    if uri.path() != format!("/replay/{board}/{tim}.ibr") {
+        return error(StatusCode::NOT_FOUND);
+    }
+    let asset = match state.reader.get_post_replay(&board, tim).await {
+        Ok(asset) => asset,
+        Err(StoreError::NotFound) => return error(StatusCode::NOT_FOUND),
+        Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE),
+    };
+    let Ok(id) = asset.id.parse::<ObjectId>() else {
+        return error(StatusCode::SERVICE_UNAVAILABLE);
+    };
+    let etag = format!("\"{}\"", asset.sha256);
+    let files = state.files.clone();
+    let bytes = match state
+        .blocking(move || {
+            let size = asset
+                .bytes
+                .try_into()
+                .map_err(|_| board_media::MediaError::Conflict)?;
+            files.read_replay(id, &asset.sha256, size)
+        })
+        .await
+    {
+        Ok(bytes) => bytes,
+        Err(status) => return error(status),
+    };
+    // A conditional response must never bypass current visibility or disk checks.
+    let unchanged = headers
+        .get_all(header::IF_NONE_MATCH)
+        .iter()
+        .filter_map(|h| h.to_str().ok())
+        .any(|value| matches_etag(value, &etag));
+    let length = bytes.len();
+    let mut response = if unchanged {
+        StatusCode::NOT_MODIFIED.into_response()
+    } else {
+        Body::from(bytes).into_response()
+    };
+    let h = response.headers_mut();
+    h.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, no-cache, must-revalidate"),
+    );
+    h.insert(
+        header::ETAG,
+        HeaderValue::from_str(&etag).expect("bounded hex etag"),
+    );
+    h.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/octet-stream"),
+    );
+    h.insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_static("attachment; filename=\"tegaki.ibr\""),
+    );
+    h.insert(header::ACCEPT_RANGES, HeaderValue::from_static("none"));
+    h.insert(header::VARY, HeaderValue::from_static("Origin"));
+    let mut origins = headers.get_all(header::ORIGIN).iter();
+    if let Some(origin) = origins.next()
+        && origins.next().is_none()
+        && origin.as_bytes() == state.public_origin.as_bytes()
+    {
+        h.insert(
+            header::ACCESS_CONTROL_ALLOW_ORIGIN,
+            state.public_origin.clone(),
+        );
+    }
+    if !unchanged {
+        h.insert(
+            header::CONTENT_LENGTH,
+            HeaderValue::from_str(&length.to_string()).expect("bounded length"),
+        );
+    }
+    response
+}
+
 async fn serve(
     state: AppState,
     asset: Result<board_store::media_assets::Asset, StoreError>,

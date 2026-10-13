@@ -20,7 +20,7 @@ export function renderReference(bytes) {
   Tegaki.initFromReplay(); Tegaki.init(); Tegaki.setTool(Tegaki.defaultTool);
   for (const event of prepared.events) event.dispatch();
   const canvas = Tegaki.flatten();
-  return Array.from(canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data);
+  return canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
 }
 `);
 await writeFile(new URL('reference.js', output), Buffer.concat([source, Buffer.from('\n'), reference]));

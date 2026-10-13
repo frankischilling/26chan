@@ -139,6 +139,30 @@ export async function uploadQuickReplyFile({
   });
 }
 
+// Ordered fields match the streaming drawing endpoint. A recording never falls
+// back to the file-only route, including after cancellation or a server error.
+export async function uploadDrawingFile({
+  board, thread, file, replay = null, signal, origin = location.origin, fetcher = fetch,
+}) {
+  const context = uploadContext(board, thread, origin);
+  if (!(file instanceof Blob) || file.name !== 'tegaki.png' || file.type !== 'image/png'
+    || file.size < 33 || file.size > QUICK_REPLY_UPLOAD_LIMITS.bytes) throw new Error('Invalid drawing PNG.');
+  if (replay !== null && (!(replay instanceof Blob) || replay.name !== 'tegaki.tgkr'
+    || replay.size < 13 || replay.size > QUICK_REPLY_UPLOAD_LIMITS.bytes)) throw new Error('Invalid drawing recording.');
+  const form = new FormData();
+  form.append('resto', context.thread);
+  form.append('png_bytes', String(file.size));
+  form.append('replay_bytes', String(replay?.size ?? 0));
+  form.append('upfile', file, 'tegaki.png');
+  if (replay !== null) form.append('replay', replay, 'tegaki.tgkr');
+  return uploadRequest({
+    url: `${context.origin}/${context.board}/drawing`, body: form, signal, fetcher,
+    timeout: QUICK_REPLY_UPLOAD_LIMITS.uploadMs,
+    failure: 'Drawing upload failed. Keep the drawing and try again.',
+    parse: text => parseQuickReplyUpload(text, context.thread),
+  });
+}
+
 function receiptBody(receipt, context) {
   const checked = parseQuickReplyUpload(JSON.stringify(receipt), context.thread);
   return new URLSearchParams({

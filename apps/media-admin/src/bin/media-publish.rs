@@ -35,12 +35,14 @@ async fn run() -> PublicationResult<()> {
     let settings = MediaAdminSettings::from_env()?;
     let args: Vec<_> = std::env::args_os().skip(1).collect();
     match args.first().and_then(|arg| arg.to_str()) {
-        Some("dispatch") if args.len() == 3 => {
+        Some(command @ ("dispatch" | "dispatch-drawing")) if args.len() == 3 => {
             let client = DispatchClient::new(&ClientSettings::read(Path::new(&args[1]))?)?;
             let quarantine = Quarantine::new(settings.quarantine.ok_or("private quarantine path required")?)?;
             let store = publication_store(Path::new(&args[2]), &quarantine, settings.group_read)?;
             let queue = MediaQueue::connect(&settings.database_url).await?;
-            let approved = dispatch(&queue, &quarantine, &store, &client).await?;
+            let approved = if command == "dispatch-drawing" {
+                board_media_admin::drawing::dispatch(&queue, &quarantine, &store, &client).await?
+            } else { dispatch(&queue, &quarantine, &store, &client).await? };
             println!("{}", approved.id);
         }
         Some("claim") if args.len() == 2 => {
@@ -80,7 +82,7 @@ async fn run() -> PublicationResult<()> {
             let queue = MediaQueue::connect(&settings.database_url).await?;
             println!("{}", reconcile(&queue, &store).await?);
         }
-        _ => return Err("usage: media-publish dispatch CLIENT_CONFIG PRIVATE_STORE | claim LEASE_FILE | publish LEASE_FILE OUTPUT_DISK PRIVATE_STORE | reconcile PRIVATE_STORE".into()),
+        _ => return Err("usage: media-publish dispatch CLIENT_CONFIG PRIVATE_STORE | dispatch-drawing CLIENT_CONFIG PRIVATE_STORE | claim LEASE_FILE | publish LEASE_FILE OUTPUT_DISK PRIVATE_STORE | reconcile PRIVATE_STORE".into()),
     }
     Ok(())
 }

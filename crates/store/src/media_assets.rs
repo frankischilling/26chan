@@ -4,7 +4,7 @@
 //! approval, and output-cleanup operation, including the associated file changes.
 use crate::{
     StoreError,
-    media::{MediaQueue, changed, validate_hex},
+    media::{Job, MediaQueue, changed, validate_hex},
 };
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Duration;
@@ -56,6 +56,16 @@ pub struct Asset {
     pub width: i32,
     pub height: i32,
     pub output_format: MediaFormat,
+}
+
+/// Canonical replay companion, returned only for a currently visible post.
+#[derive(Clone, Debug, PartialEq, Eq, sqlx::FromRow)]
+pub struct ReplayAsset {
+    pub id: String,
+    pub sha256: String,
+    pub bytes: i64,
+    pub width: i32,
+    pub height: i32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -182,7 +192,90 @@ fn unavailable() -> StoreError {
     StoreError::Conflict("Media reservation or lease is no longer valid.")
 }
 
+/// Drawing-only processing lease. It cannot be passed to candidate completion.
+pub struct DrawingLease {
+    job: Job,
+}
+impl DrawingLease {
+    pub fn job(&self) -> &Job {
+        &self.job
+    }
+}
+
 impl MediaQueue {
+    pub async fn claim_drawing(&self) -> Result<Option<DrawingLease>, StoreError> {
+        let job: Option<Job> = sqlx::query_as("SELECT * FROM media.claim_drawing()")
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(job.map(|job| DrawingLease { job }))
+    }
+
+    /// Hold the filesystem publication lock through reservation, all companion
+    /// installs and approval. Numeric replay checks alone do not grant this lease.
+    pub async fn prepare_drawing_output(
+        &self,
+        lease: &DrawingLease,
+        image: &OutputMetadata,
+        variants: &OutputVariants,
+        source: &SourceProvenance,
+        replay: Option<&OutputMetadata>,
+    ) -> Result<Asset, StoreError> {
+        image.validate()?;
+        variants.thumbnail.validate()?;
+        source.validate()?;
+        validate_hex(&variants.md5, 32)?;
+        let token = lease.job.lease_token.as_deref().ok_or_else(unavailable)?;
+        if variants.thumbnail.width > image.width
+            || variants.thumbnail.height > image.height
+            || variants.thumbnail.width > 250
+            || variants.thumbnail.height > 250
+            || lease.job.input_image_sha256.as_deref() != Some(source.input_sha256.as_str())
+            || lease.job.input_image_bytes != Some(source.input_bytes)
+            || lease.job.input_replay_bytes.is_some() != replay.is_some()
+        {
+            return Err(StoreError::Invalid(
+                "Drawing output does not match its input receipt.",
+            ));
+        }
+        if let Some(replay) = replay {
+            validate_hex(&replay.sha256, 64)?;
+            if !(288..=262400).contains(&replay.bytes)
+                || (replay.bytes - 256) % 16 != 0
+                || replay.width != image.width
+                || replay.height != image.height
+            {
+                return Err(StoreError::Invalid("Invalid canonical replay metadata."));
+            }
+        }
+        sqlx::query_as("SELECT id,sha256,bytes,width,height,output_format FROM media.prepare_drawing_output($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)")
+            .bind(&lease.job.id).bind(token).bind(&image.sha256).bind(image.bytes).bind(image.width).bind(image.height)
+            .bind(&variants.md5).bind(&variants.thumbnail.sha256).bind(variants.thumbnail.bytes)
+            .bind(variants.thumbnail.width).bind(variants.thumbnail.height).bind(source.retained_bytes)
+            .bind(source.md5.as_slice()).bind(replay.map(|r|r.sha256.as_str())).bind(replay.map(|r|r.bytes))
+            .fetch_one(&self.pool).await.map_err(StoreError::Database)
+    }
+
+    pub async fn approve_drawing_output(
+        &self,
+        lease: DrawingLease,
+        asset: &str,
+    ) -> Result<Asset, StoreError> {
+        validate_hex(asset, 32)?;
+        let token = lease.job.lease_token.as_deref().ok_or_else(unavailable)?;
+        sqlx::query_as("SELECT id,sha256,bytes,width,height,output_format FROM media.approve_drawing_output($1,$2,$3)")
+            .bind(&lease.job.id).bind(token).bind(asset).fetch_one(&self.pool).await.map_err(StoreError::Database)
+    }
+
+    pub async fn fail_drawing(
+        &self,
+        lease: DrawingLease,
+        failure: crate::media::Failure,
+        retryable: bool,
+    ) -> Result<(), StoreError> {
+        let token = lease.job.lease_token.as_deref().ok_or_else(unavailable)?;
+        self.fail(&lease.job.id, token, failure, retryable).await
+    }
+
     /// Reserve exact host-encoded bytes while holding the publication storage lock.
     pub async fn prepare_output(
         &self,
@@ -435,6 +528,9 @@ impl MediaReader {
         sqlx::query("SELECT id FROM media.approved_assets LIMIT 1")
             .fetch_optional(&self.pool)
             .await?;
+        sqlx::query("SELECT id FROM media.approved_post_replays LIMIT 1")
+            .fetch_optional(&self.pool)
+            .await?;
         sqlx::query("SELECT id FROM media.approved_post_assets LIMIT 1")
             .fetch_optional(&self.pool)
             .await?;
@@ -475,6 +571,11 @@ impl MediaReader {
              AND NOT has_table_privilege(current_user, 'media.approved_post_assets', 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
              AND NOT has_any_column_privilege(current_user, 'media.approved_post_assets', 'INSERT,UPDATE,REFERENCES')
              AND has_table_privilege(current_user, 'media.approved_post_assets', 'SELECT')
+             AND NOT has_table_privilege(current_user, 'media.replay_assets', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+             AND NOT has_any_column_privilege(current_user, 'media.replay_assets', 'SELECT,INSERT,UPDATE,REFERENCES')
+             AND has_table_privilege(current_user, 'media.approved_post_replays', 'SELECT')
+             AND NOT has_table_privilege(current_user, 'media.approved_post_replays', 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+             AND NOT has_any_column_privilege(current_user, 'media.approved_post_replays', 'INSERT,UPDATE,REFERENCES')
              FROM pg_roles WHERE rolname = current_user")
             .fetch_one(&pool).await?;
         if !safe {
@@ -499,6 +600,15 @@ impl MediaReader {
         validate_hex(output_id, 32)?;
         sqlx::query_as("SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height,'png'::text AS output_format FROM media.approved_assets WHERE id=$1 AND thumbnail_sha256 IS NOT NULL")
             .bind(output_id).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
+    }
+
+    pub async fn get_post_replay(&self, board: &str, tim: i64) -> Result<ReplayAsset, StoreError> {
+        board_domain::BoardSlug::parse(board).map_err(|_| StoreError::NotFound)?;
+        if !(1..=9_007_199_254_740_991).contains(&tim) {
+            return Err(StoreError::NotFound);
+        }
+        sqlx::query_as("SELECT id,sha256,bytes,width,height FROM media.approved_post_replays WHERE board=$1 AND tim=$2")
+            .bind(board).bind(tim).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
     }
 
     pub async fn get_post(

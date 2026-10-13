@@ -44,6 +44,39 @@ fn upload(board: &str, bytes: &[u8]) -> Request<Body> {
         .unwrap()
 }
 
+fn drawing(board: &str, replay: Option<&[u8]>, trailing: bool) -> Request<Body> {
+    let image = b"synthetic drawing PNG";
+    let mut body = Vec::new();
+    for (name, value) in [
+        ("resto", "0".to_owned()),
+        ("png_bytes", image.len().to_string()),
+        ("replay_bytes", replay.map_or(0, |r| r.len()).to_string()),
+    ] {
+        body.extend_from_slice(
+            format!(
+                "--owned\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"
+            )
+            .as_bytes(),
+        );
+    }
+    body.extend_from_slice(b"--owned\r\nContent-Disposition: form-data; name=\"upfile\"; filename=\"tegaki.png\"\r\nContent-Type: image/png\r\n\r\n");
+    body.extend_from_slice(image);
+    if let Some(replay) = replay {
+        body.extend_from_slice(b"\r\n--owned\r\nContent-Disposition: form-data; name=\"replay\"; filename=\"tegaki.tgkr\"\r\nContent-Type: application/octet-stream\r\n\r\n");
+        body.extend_from_slice(replay);
+    }
+    body.extend_from_slice(b"\r\n--owned--\r\n");
+    if trailing {
+        body.push(b'x');
+    }
+    Request::post(format!("/{board}/drawing"))
+        .header("origin", ORIGIN)
+        .header("accept", "application/json")
+        .header("content-type", "multipart/form-data; boundary=owned")
+        .body(Body::from(body))
+        .unwrap()
+}
+
 async fn native(response: Response, status: StatusCode) -> Value {
     assert_eq!(response.status(), status);
     assert_eq!(response.headers()["content-type"], "application/json");
@@ -124,6 +157,136 @@ impl Fixture {
     async fn status(&self, body: &str, expected: StatusCode) -> Value {
         self.send(form(&self.board, "upload/status", body.into()), expected)
             .await
+    }
+
+    async fn exercise_drawings(&self) {
+        let count_before: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM media.jobs WHERE drawing_publication")
+                .fetch_one(&self.owner)
+                .await
+                .unwrap();
+        self.send(
+            drawing(&self.board, None, false),
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+        )
+        .await;
+        sqlx::query("UPDATE content.boards SET oekaki=true WHERE slug=$1")
+            .bind(&self.board)
+            .execute(&self.owner)
+            .await
+            .unwrap();
+        self.send(
+            drawing(&self.board, Some(b"recording"), false),
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+        )
+        .await;
+        let mut cross_origin = drawing(&self.board, None, false);
+        cross_origin
+            .headers_mut()
+            .insert("origin", "http://other.invalid".parse().unwrap());
+        assert_eq!(
+            self.app
+                .clone()
+                .oneshot(cross_origin)
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>(
+                "SELECT count(*) FROM media.jobs WHERE drawing_publication"
+            )
+            .fetch_one(&self.owner)
+            .await
+            .unwrap(),
+            count_before
+        );
+        sqlx::query("UPDATE content.boards SET oekaki_replays=true WHERE slug=$1")
+            .bind(&self.board)
+            .execute(&self.owner)
+            .await
+            .unwrap();
+        for replay in [None, Some(b"recording".as_slice())] {
+            let pending = self
+                .send(drawing(&self.board, replay, false), StatusCode::OK)
+                .await;
+            let status_body = receipt(&pending);
+            assert_eq!(pending["state"], "queued");
+            assert_eq!(self.status(&status_body, StatusCode::OK).await, pending);
+            let id = pending["upload_id"].as_str().unwrap();
+            let pair = std::fs::read(self.root.join(format!("{id}.input"))).unwrap();
+            let parsed = board_media::paired::decode_input(
+                board_media::paired::InputKind::PairedV2,
+                &pair,
+                id.parse::<board_media::ObjectId>().unwrap().bytes(),
+            )
+            .unwrap();
+            assert_eq!(parsed.image_bytes(), b"synthetic drawing PNG");
+            assert_eq!(parsed.replay_upload_bytes(), replay);
+            let enrolled: bool =
+                sqlx::query_scalar("SELECT drawing_publication FROM media.jobs WHERE id=$1")
+                    .bind(id)
+                    .fetch_one(&self.owner)
+                    .await
+                    .unwrap();
+            assert!(enrolled);
+            // Earlier v1 cases intentionally leave an expired attachment with
+            // a still-queued processing receipt. It may be claimed here.
+            while let Some(other) = self.queue.claim().await.unwrap() {
+                assert_ne!(other.id, id, "Drawings never reach the image-v1 consumer");
+                assert_eq!(other.input_kind, "image-v1");
+                self.queue
+                    .fail(
+                        &other.id,
+                        other.lease_token.as_deref().unwrap(),
+                        Failure::Processing,
+                        false,
+                    )
+                    .await
+                    .unwrap();
+            }
+            self.send(
+                form(&self.board, "upload/cancel", status_body),
+                StatusCode::OK,
+            )
+            .await;
+            self.status(&receipt(&pending), StatusCode::NOT_FOUND).await;
+            sqlx::query("DELETE FROM media.jobs WHERE id=$1")
+                .bind(id)
+                .execute(&self.owner)
+                .await
+                .unwrap();
+        }
+        self.send(
+            drawing(&self.board, Some(b"recording"), true),
+            StatusCode::UNPROCESSABLE_ENTITY,
+        )
+        .await;
+        let bad: Vec<String> = sqlx::query_scalar(
+            "SELECT id FROM media.jobs WHERE drawing_publication AND filename='tegaki.png'",
+        )
+        .fetch_all(&self.owner)
+        .await
+        .unwrap();
+        for id in bad {
+            let complete: bool = sqlx::query_scalar(
+                "SELECT state='queued' OR state='published' FROM media.jobs WHERE id=$1",
+            )
+            .bind(&id)
+            .fetch_one(&self.owner)
+            .await
+            .unwrap();
+            assert!(
+                !complete,
+                "Trailing multipart data cannot become a publishable job"
+            );
+            sqlx::query("DELETE FROM media.jobs WHERE id=$1")
+                .bind(&id)
+                .execute(&self.owner)
+                .await
+                .unwrap();
+        }
     }
 
     async fn exercise(&self) {
@@ -448,7 +611,11 @@ async fn native_uploads_preserve_isolated_intake_and_one_use_posting_authority()
         board: board.clone(),
         root: root.path().to_owned(),
     };
-    let outcome = tokio::spawn(async move { fixture.exercise().await }).await;
+    let outcome = tokio::spawn(async move {
+        fixture.exercise().await;
+        fixture.exercise_drawings().await;
+    })
+    .await;
     let _ = stop.send(());
     server.await.unwrap();
     for statement in [

@@ -64,6 +64,8 @@ impl AppState {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/v1/reservations", post(http::reserve))
+        .route("/v2/drawings", post(paired::reserve_drawing))
+        .route("/v2/drawings/{id}", put(paired::upload_drawing))
         .route("/v1/uploads/{id}", put(http::upload).get(http::status))
         .route(
             "/healthz",
@@ -92,7 +94,7 @@ pub fn observed_router(state: AppState) -> (board_observe::Metrics, Router) {
 mod tests;
 
 /// Local qualification only. The production binary uses `router`, which has no
-/// v2 routes. This harness retains v1 authentication, deadlines, and concurrency.
+/// candidate v2 reservation/upload routes. This harness retains v1 authentication, deadlines, and concurrency.
 #[cfg(feature = "database-tests")]
 pub fn paired_qualification_router(state: AppState) -> Router {
     Router::new()
