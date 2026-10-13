@@ -15,6 +15,7 @@ import shutil
 import signal
 import stat
 import subprocess
+import sys
 import tempfile
 import uuid
 
@@ -126,7 +127,7 @@ def input_disk(source, destination, *, input_kind=IMAGE_V1):
         writer.write(bytes(-disk_size % 512))
 
 
-def run(config, source, destination, *, input_kind=IMAGE_V1):
+def run(config, source, destination, *, input_kind=IMAGE_V1, diagnostics=False):
     result_size = output_bytes(input_kind)
     # PDF libraries must not inflate every ordinary image/GIF guest's memory.
     # An older artifact manifest has no PDF authority and cannot fall back.
@@ -182,6 +183,10 @@ def run(config, source, destination, *, input_kind=IMAGE_V1):
             }
             (jail / 'vm.json').write_text(json.dumps(machine))
             (jail / 'vm.json').chmod(0o444)
+            if diagnostics:
+                with (root / 'console.log').open('xb'):
+                    pass
+                (root / 'console.log').chmod(0o600)
             # The service-side gate checks kernel controls before jailer runs.
             # It also pins jailer's parent selection to the verified membership.
             args = ['/usr/bin/systemd-run', '--quiet', '--wait', '--collect', '--no-ask-password',
@@ -192,6 +197,8 @@ def run(config, source, destination, *, input_kind=IMAGE_V1):
                          'LimitCORE=0', 'LimitFSIZE=67108864', 'LimitNOFILE=64',
                          'StandardInput=null', 'StandardOutput=null', 'StandardError=null'):
                 args.append('--property=' + prop)
+            if diagnostics:
+                args.append('--property=StandardOutput=append:' + str(root / 'console.log'))
             args += ['/usr/bin/python3', '-I', str(root / 'verify-cgroups.py'), unit,
                      str(config['jailer']), '--id', job_id, '--exec-file', str(config['firecracker']),
                      '--uid', str(user.pw_uid), '--gid', str(user.pw_gid),
@@ -226,18 +233,34 @@ def run(config, source, destination, *, input_kind=IMAGE_V1):
             # remove its storage while a process may still have it open.
             stop_job(unit)
             if root is not None:
-                remove_workspace(root)
+                try:
+                    if diagnostics:
+                        # Fixed root-owned operator log, read only after the
+                        # service stops. Never copy a path returned by a guest.
+                        try:
+                            with (root / 'console.log').open('rb') as console:
+                                size = os.fstat(console.fileno()).st_size
+                                console.seek(max(0, size - 16 * 1024))
+                                sys.stderr.buffer.write(console.read(16 * 1024))
+                        except OSError:
+                            pass
+                finally:
+                    remove_workspace(root)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input-kind', choices=(IMAGE_V1, PAIRED_V2, GIF_V3, PDF_V4), default=IMAGE_V1,
                         help='explicit input contract; paired-v2 takes a complete IBJOB002 request')
+    parser.add_argument('--owned-diagnostics', action='store_true',
+                        help='bounded boot console for operator-owned PDF fixtures only')
     parser.add_argument('--reconcile', action='store_true', help='recover abandoned operator jobs without collecting output')
     parser.add_argument('config', nargs='?')
     parser.add_argument('input', nargs='?')
     parser.add_argument('output', nargs='?')
     args = parser.parse_args()
+    if args.owned_diagnostics and (args.input_kind != PDF_V4 or args.reconcile):
+        parser.error('--owned-diagnostics requires a PDF fixture job')
     if args.reconcile:
         if any(value is not None for value in (args.config, args.input, args.output)):
             parser.error('--reconcile takes no job arguments')
@@ -264,7 +287,10 @@ def main():
             elif args.input_kind == GIF_V3:
                 run(config, args.input, args.output, input_kind=GIF_V3)
             elif args.input_kind == PDF_V4:
-                run(config, args.input, args.output, input_kind=PDF_V4)
+                if args.owned_diagnostics:
+                    run(config, args.input, args.output, input_kind=PDF_V4, diagnostics=True)
+                else:
+                    run(config, args.input, args.output, input_kind=PDF_V4)
             else:
                 run(config, args.input, args.output)
     except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:

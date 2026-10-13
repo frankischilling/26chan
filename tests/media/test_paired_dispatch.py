@@ -37,7 +37,8 @@ class PairedTransportTest(unittest.TestCase):
         for options, keywords in (([], {}), (['--input-kind', protocol.IMAGE_V1], {}),
                                   (['--input-kind', protocol.PAIRED_V2], {'input_kind': protocol.PAIRED_V2}),
                                   (['--input-kind', protocol.GIF_V3], {'input_kind': protocol.GIF_V3}),
-                                  (['--input-kind', protocol.PDF_V4], {'input_kind': protocol.PDF_V4})):
+                                  (['--input-kind', protocol.PDF_V4], {'input_kind': protocol.PDF_V4}),
+                                  (['--input-kind', protocol.PDF_V4, '--owned-diagnostics'], {'input_kind': protocol.PDF_V4, 'diagnostics': True})):
             argv = ['run-job.py', *options, 'owned-config', 'owned-input', 'owned-output']
             with self.subTest(options=options), mock.patch.object(sys, 'argv', argv), \
                     mock.patch.dict(os.environ, {}, clear=True), \

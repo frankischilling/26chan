@@ -124,3 +124,8 @@ PDF guest. `tests/media/test_dispatch.py` also checks queue intake, authenticate
 transport, guest processing, typed approval and exact document readback. These
 native checks require the reviewed disposable Linux qualification environment.
 Full CI and browser qualification must pass before merging the feature.
+
+The PDF qualification test can request a bounded boot-console tail with
+`--owned-diagnostics`. This operator-only option is off by default and is used
+with synthetic fixtures. It does not enable renderer logging for application
+uploads. The separate probe reports only its compiled-in owned document.
