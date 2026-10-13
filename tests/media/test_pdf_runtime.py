@@ -26,6 +26,8 @@ class PdfRuntimeTest(unittest.TestCase):
             for name, entry in provenance['files'].items()
         })
         self.assertGreater(len(runtime.PINNED_RESOURCES), 300)
+        self.assertFalse(any(path.suffix == '.afm' for path in runtime.PINNED_RESOURCES))
+        self.assertEqual(sum(path.suffix == '.t1' for path in runtime.PINNED_RESOURCES), 35)
         for path in runtime.PINNED_RESOURCES:
             self.assertTrue(any(path.is_relative_to(root) for root in runtime.DATA_ROOTS)
                             or str(path) == '/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf')

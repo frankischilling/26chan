@@ -1,5 +1,5 @@
 {
-  "provenance": "Archives retrieved from Ubuntu over HTTPS. Archive SHA-256 values matched the noble and noble-updates package indexes. Resource sizes and SHA-256 values were measured from regular archive members without installing or executing them. Package symlink aliases bind their archive paths to the pinned target file bytes.",
+  "provenance": "Archives retrieved from Ubuntu over HTTPS. Archive SHA-256 values matched the noble and noble-updates package indexes. Resource sizes and SHA-256 values were measured from regular archive members without installing or executing them. Package symlink aliases bind their archive paths to the pinned target file bytes. Adobe Font Metrics sidecars are omitted; the Type 1 font programs remain included.",
   "indexes": [
     "https://archive.ubuntu.com/ubuntu/dists/noble/main/binary-amd64/Packages.xz",
     "https://archive.ubuntu.com/ubuntu/dists/noble-updates/main/binary-amd64/Packages.xz"
@@ -102,19 +102,9 @@
       "sha256": "acb6440a713d880a13a21b468ba7cd43f5a2b2934972e51be791c880730777b8",
       "package": "fonts-droid-fallback"
     },
-    "/usr/share/fonts/type1/urw-base35/C059-BdIta.afm": {
-      "size": 115241,
-      "sha256": "dd1681081a8df343257de7830a5058ed2d0461f80b29e6c1ee5afae8557585e2",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/C059-BdIta.t1": {
       "size": 152585,
       "sha256": "f7aafd96bbb8ef07792d33302fb4905bfe7a47888b08782d95f6f1b8a388f5ee",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/C059-Bold.afm": {
-      "size": 114368,
-      "sha256": "47d2f35bc59778cace585cb7f0a6f236900a1ed525f29aa5fb0bdf5c102039cb",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/C059-Bold.t1": {
@@ -122,19 +112,9 @@
       "sha256": "78110e7b34a1e89c86f010ae1fb87d3cffba73bbd557374bd16dfd41bdc3c60f",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/C059-Italic.afm": {
-      "size": 115058,
-      "sha256": "c80ccf7936de97f2bb19f215d59fa937337c751cf1d8b01f8c80a1d51a837064",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/C059-Italic.t1": {
       "size": 148928,
       "sha256": "304c523c14d49e90733a73c301055377a0176d4b5b087b6fd2ef74d723348fe2",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/C059-Roman.afm": {
-      "size": 114648,
-      "sha256": "9047996ab64eb8b14286917fc7a22aed11cc2eae0fc97868ea32bb95121371d1",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/C059-Roman.t1": {
@@ -142,19 +122,9 @@
       "sha256": "be8224624a91fc315b66bbf640e18ebddc79076937bdb3bbb5b96aaf90ec84c5",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/D050000L.afm": {
-      "size": 9340,
-      "sha256": "74dc56c84ed90216f0ebc4ab80fbff2d7863512ec8187b19889cbbd81b1d6de9",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/D050000L.t1": {
       "size": 43343,
       "sha256": "51cc2fe0953718f9fc93e0de7853a700557cc8d0cd58089c9a2d531d06c8fa4b",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Bold.afm": {
-      "size": 40690,
-      "sha256": "1d9f9ad40ac1763eaecacdd8c7ca091fae54e6f0418146b0d5d5441c19598dfe",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Bold.t1": {
@@ -162,19 +132,9 @@
       "sha256": "63e2c80d0e6983c68dd986f7044944e9f58463f8bb118c21fb4372c298906b18",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-BoldItalic.afm": {
-      "size": 40868,
-      "sha256": "212fcf75b839ecb1ba75c260d8373cc21a45ea9b3ea0c4e593b45d954bab75d7",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-BoldItalic.t1": {
       "size": 154177,
       "sha256": "f9006fd0749c906fe51a570bb246883e0af127eff2ca13cdbd250db3e5a1cec9",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Italic.afm": {
-      "size": 40869,
-      "sha256": "db7ef8596964939991612bdc764aa79bd66f9f01c60da020ca24aaf4fae5960e",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Italic.t1": {
@@ -182,19 +142,9 @@
       "sha256": "0db4cd31b146794a931de48ca15f8bad3252ad744deb651a582f75af4c7ae8df",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Regular.afm": {
-      "size": 40724,
-      "sha256": "9e924a1613db3c20837f308af9595c96c27ee1be1c2054d4140dddd4ab9df59d",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/NimbusMonoPS-Regular.t1": {
       "size": 140353,
       "sha256": "b1c0f23ba9732ee495ea52658684dc36064d3c439ac81b7dfcf922e790e5160f",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/NimbusRoman-Bold.afm": {
-      "size": 116920,
-      "sha256": "c0297ae3c7e862f978468af94e0372dc4109ea642e163243f81f9e87161a687c",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/NimbusRoman-Bold.t1": {
@@ -202,19 +152,9 @@
       "sha256": "4d31149fe14fb8fb9f84f8c6171eb90a654b6f7c4db8213a6e501b32e712e290",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/NimbusRoman-BoldItalic.afm": {
-      "size": 116379,
-      "sha256": "2c10df752037ab9568492b1981c4132f2e38effff875ed2fd7b8ee816da80756",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/NimbusRoman-BoldItalic.t1": {
       "size": 140953,
       "sha256": "4a305bcf1950e2db6bb03ed68715a74930d00d630661d6e0c03375b3cc983888",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/NimbusRoman-Italic.afm": {
-      "size": 115725,
-      "sha256": "1787d941bf5d085bcfee14a2e635bd41a146c78510a644fbf7362ff8d4948e96",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/NimbusRoman-Italic.t1": {
@@ -222,19 +162,9 @@
       "sha256": "0c5cc5161c325440ed7a9de00869535e8f10f0eeccf1e65dbcd2c387ffbc1eb4",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/NimbusRoman-Regular.afm": {
-      "size": 116054,
-      "sha256": "e476212c416039aa9805f20d945e2b3a522be5de15125cb566d257482379ccd9",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/NimbusRoman-Regular.t1": {
       "size": 133527,
       "sha256": "cd63681b669f41d2b1cc828a6e26eeeee668ae3f9144f6ae2c1bad971fc146f2",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/NimbusSans-Bold.afm": {
-      "size": 114648,
-      "sha256": "a8ae3eb69d98409b8242c81cc09a2438799b93eb18f5a04b3c43a3ee7ba5fa5c",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/NimbusSans-Bold.t1": {
@@ -242,19 +172,9 @@
       "sha256": "ebf5ba685a44a194cc61ba3e34a1bf4718980871e5b72304ba9633411c7d6391",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/NimbusSans-BoldItalic.afm": {
-      "size": 115601,
-      "sha256": "01b5c9378a4250441ad61f7d44abc1eaaf418a711f9901faa461e3f2fe9f49bc",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/NimbusSans-BoldItalic.t1": {
       "size": 123308,
       "sha256": "73871c05c5c4670d39b690b802aacd5369b9209256ff3abe7db755c276e2deda",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/NimbusSans-Italic.afm": {
-      "size": 117166,
-      "sha256": "bc7c0b75b03d69cba0112f07e26ab24ed8e853a908334e79613db3a30616d115",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/NimbusSans-Italic.t1": {
@@ -262,19 +182,9 @@
       "sha256": "b0527ec015601b5d29eecdb75a982b39fe316d5d53caf45108d712f99debe98e",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/NimbusSans-Regular.afm": {
-      "size": 116120,
-      "sha256": "ed4ead49b4d090c80c1d4a8d771879153a41af262d331168dd2635508634cfa1",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/NimbusSans-Regular.t1": {
       "size": 104001,
       "sha256": "779a9c820bbe8b470d36e77bcf949eef7bf1b889184274ba0f51da4c8c883cfa",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Bold.afm": {
-      "size": 114214,
-      "sha256": "6852234e3bb5a8e8dec111de0927ddad662e2e0790eb4993e365331afaa99d62",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Bold.t1": {
@@ -282,19 +192,9 @@
       "sha256": "a383bbf4d6f8887a8ccda9e5ad2d6b2b6353c0620f4a29f49b27d68177d84ee2",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-BoldOblique.afm": {
-      "size": 114642,
-      "sha256": "5ce429eab3d90a8a2d8779225521d62bccc60d0cf4b4a9574a4af950da161463",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-BoldOblique.t1": {
       "size": 109815,
       "sha256": "df4df8204bc5ac63dc13162e9a604adadebb779fd524d6f457fec118d530af31",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Oblique.afm": {
-      "size": 115429,
-      "sha256": "5d0d7a262c837e1db95bdc70d1b720f7c75e69c6f5a297e76bcb0d6ca39ac1bc",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Oblique.t1": {
@@ -302,19 +202,9 @@
       "sha256": "eb92b8ab971fe2b53882b05948127940f23c3003b6f6f3f7bb25d6ed226a652e",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Regular.afm": {
-      "size": 114632,
-      "sha256": "d79f9c81683e7c09397e51f0ef97bb77070ca33bde73c2f5a7b36d9c6bf4accd",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/NimbusSansNarrow-Regular.t1": {
       "size": 104252,
       "sha256": "77561ac22852f0c289012e3e8578ff56afe016d3bcae05a33562369cb675127f",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/P052-Bold.afm": {
-      "size": 114349,
-      "sha256": "8c87c2e0e7e40286d2ce00a74ac8cda7a344f51119d1d45776e1637c6ec58280",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/P052-Bold.t1": {
@@ -322,19 +212,9 @@
       "sha256": "8e56ad1e6b08c6c931d4ff93fa4388abc6ea5be8c6a0ab23d0fdf9a504c1cdba",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/P052-BoldItalic.afm": {
-      "size": 114422,
-      "sha256": "13ae171e34e2e8ea5c91c6dbf1a0b149e08f57d2e257765daebaeed6ca1e13f1",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/P052-BoldItalic.t1": {
       "size": 163906,
       "sha256": "557c1aad252d91a3ae4a19acf18277657cb34cd02caead1ea1d686961678cfd8",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/P052-Italic.afm": {
-      "size": 116400,
-      "sha256": "9dcef8af45e3e7fe363ad948a38af58dded75e5a39b7b105d6bd299a0465d17c",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/P052-Italic.t1": {
@@ -342,19 +222,9 @@
       "sha256": "d384c8219f35cee51693c0ee09247fbf395910f7e6259e0956a90ab5173a8dbf",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/P052-Roman.afm": {
-      "size": 117126,
-      "sha256": "572d6c20bb9a08b65b327a04c7fdf1eaaa738e553b178ae353a1382c88c575d0",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/P052-Roman.t1": {
       "size": 159843,
       "sha256": "99a8259f8eaec4604ad8794dc63e67b0d4fe189bdf6acbd1a7047dbe1ef9c86f",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/StandardSymbolsPS.afm": {
-      "size": 9647,
-      "sha256": "f5874fdf1377f6d2d3c99c97996320f380122cfba35b6f963f7b42c4c812868d",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/StandardSymbolsPS.t1": {
@@ -362,19 +232,9 @@
       "sha256": "b2f78d6ad103708a4483f75087c6ecb71753e9210170c14462b37ef05a3f957a",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/URWBookman-Demi.afm": {
-      "size": 114660,
-      "sha256": "80a6ec6eb01126e23e79e0d622ed822ad21db84d1b253281bfcb871768f87a10",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/URWBookman-Demi.t1": {
       "size": 137163,
       "sha256": "baee9214653525ad01de0bc326e3c11b7826c51567336619517d50eab313e37b",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/URWBookman-DemiItalic.afm": {
-      "size": 115611,
-      "sha256": "b9452ebadaf2d48866f25e64998386f220d033d3a993a90632f45f700b486c03",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/URWBookman-DemiItalic.t1": {
@@ -382,19 +242,9 @@
       "sha256": "c2877b3b139dec0544fa9b924517ccaa30600a206e89a9b9f89707ee003cbdfe",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/URWBookman-Light.afm": {
-      "size": 115315,
-      "sha256": "a0babd6f002f1b803ba0c622f98d56107cc942bcdb9fbac6f0e21ea3414c63b8",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/URWBookman-Light.t1": {
       "size": 137614,
       "sha256": "17c7e83cf66537d631a9e0920af9bfa37c8db1a40e29d951869c3562100174ca",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/URWBookman-LightItalic.afm": {
-      "size": 116761,
-      "sha256": "13a0302ad74c2082d06ebdb11cdb30cf2943eeb835146166a325e14c2c7042db",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/URWBookman-LightItalic.t1": {
@@ -402,19 +252,9 @@
       "sha256": "ab7166058aefa485d11109195a0736633c17e5ad2164083492d94418ee0a657e",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/URWGothic-Book.afm": {
-      "size": 115307,
-      "sha256": "6372963f2bc62765d9b3827418c434d7aa6617fa14cb3a878e97c8bec11fbfae",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/URWGothic-Book.t1": {
       "size": 100637,
       "sha256": "aebc5a18ff50235f0850b3812d86a29d18932c4bb8a097b004b8abafc433a395",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/URWGothic-BookOblique.afm": {
-      "size": 115233,
-      "sha256": "8e693f815f3b738f8b9fa7d35f15225630107155d2c146a928cf61078b00e395",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/URWGothic-BookOblique.t1": {
@@ -422,29 +262,14 @@
       "sha256": "03dd97fc09205d48cfb02cb00e1bb181cb10b1aeadef814ac107de21eb91c0b4",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/URWGothic-Demi.afm": {
-      "size": 115270,
-      "sha256": "b5f1a65e1505498c144f3d7dac11b0f197f8fd1b812c7f8641af46c40c7771f3",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/URWGothic-Demi.t1": {
       "size": 103428,
       "sha256": "83cb6f17a042dea63345e222593be1a1ccb13ded278482d13f6511cad0768c54",
       "package": "fonts-urw-base35"
     },
-    "/usr/share/fonts/type1/urw-base35/URWGothic-DemiOblique.afm": {
-      "size": 115731,
-      "sha256": "ad6832fd7ae5ac0837ab6796a74b5a3049ca719945490da85ca58d7c18f87faa",
-      "package": "fonts-urw-base35"
-    },
     "/usr/share/fonts/type1/urw-base35/URWGothic-DemiOblique.t1": {
       "size": 105110,
       "sha256": "bcd4c23341a2324459079f8757f6761cfc0c95781d61a4baf4132453ba80a832",
-      "package": "fonts-urw-base35"
-    },
-    "/usr/share/fonts/type1/urw-base35/Z003-MediumItalic.afm": {
-      "size": 114253,
-      "sha256": "b6c1253e5810cbfbf178373a8f2e3bb01f4215662779b3cca38656f4fb13ad50",
       "package": "fonts-urw-base35"
     },
     "/usr/share/fonts/type1/urw-base35/Z003-MediumItalic.t1": {
