@@ -245,6 +245,9 @@ UPDATE public.upgraded_rows SET value=value||jsonb_build_object('snapshot_expire
 WHERE relation='content.moderation_audit';
 UPDATE public.upgraded_rows SET value=value||jsonb_build_object('metadata_erased',false)
 WHERE relation='content.post_media';
+-- Drawing enrollment is additive and false for every historical job.
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('drawing_publication',false)
+WHERE relation='media.jobs';
 DO $$ BEGIN
  IF content.moderation_retention_ready() IS DISTINCT FROM true
  OR (SELECT count(*) FROM post_secrets.moderation_retention_catalog)<>1
