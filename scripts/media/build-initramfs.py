@@ -61,9 +61,10 @@ def main():
     image += contents
     image += entry("TRAILER!!!", 0, ino=ino)
     if len(image) > 64 * 1024 * 1024:
-        parser.error('initramfs exceeds the existing artifact size budget')
+        parser.error(f'initramfs exceeds the existing artifact size budget: {len(image)} bytes')
     with args.output.open("xb") as output:
         output.write(image)
+    print(f'Packaged {len(image)} bytes (PDF runtime: {args.pdf_runtime}).')
 
 
 if __name__ == "__main__":

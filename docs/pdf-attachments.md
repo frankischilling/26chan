@@ -60,7 +60,8 @@ package revision needs a reviewed manifest update. Executables and shared
 libraries still require trusted parent directories. Identical read-only resource
 files share one stored copy through guest-local symlinks; the complete initramfs
 still has the same 64 MiB cap. Adobe Font Metrics sidecars are omitted; PDF
-rendering uses the retained Type 1 font programs. The
+rendering uses the retained Type 1 font programs. CI packages the release-profile
+guest binaries, keeping debug metadata out of the boot image. The
 image contains no host credentials, user font configuration or font caches.
 
 To update these resource pins, retrieve the packages from the official Ubuntu
