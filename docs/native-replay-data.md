@@ -1,11 +1,43 @@
 # Isolated replay candidate preparation
 
-`apps/public/client/native-replay-data.js` is not served or wired into the runtime.
-No served asset or application module imports or activates it. The asset build,
-routes, CSP, editor and UI remain unchanged. Isolated Node tests import it, and
-the package test scripts run those tests. There is no approved replay delivery
-route or playback type. Neither API approves playback, storage, publication,
-provenance, PNG correspondence, logical state, or resource cost.
+The replay data and worker modules are not served by the public application.
+The dedicated browser fixtures import them for qualification. There is still no
+approved replay delivery route or public playback UI. Structural decoding and
+constructor preparation do not establish publication authority, PNG agreement,
+valid logical history, or a browser memory guarantee.
+
+## Full-vocabulary worker qualification
+
+The separate `prepareFullReplayCandidate` API preserves all 28 event tags and
+uses the pinned source constructors without dispatching them. The older
+`prepareReplayCandidate` API retains its restricted vocabulary for the existing
+core probes. `isReplayCandidate` checks only the private structural snapshot
+brand; it grants no execution or publication authority.
+
+The full worker adds numeric preflight before source constructors, then uses
+unchanged Tegaki event dispatch and native OffscreenCanvas rendering. Source UI
+updates become closed, audited sinks. Layer history cloning preserves canvas
+metadata and native pixel-copy behavior. The parent terminates the qualification
+worker on its deadline and closes every returned bitmap.
+
+At commit `345c5240f68f4f053cab5ce819fc2c2d68491056`, the
+[native qualification run](https://github.com/frankischilling/26chan/actions/runs/38343623264)
+passed the existing 41 browser tests and 24 full-worker comparisons against the
+original DOM renderer. The added cases exercise bucket/pipette, pressure
+dynamics, deleting/merging/moving layers, and undo across layer creation. These
+are owned synthetic transcripts, not proof that arbitrary uploads render
+correctly or that issue #207 is complete.
+
+The worker has separate cumulative limits for source canvas allocations and
+pixel/typed-array allocations. These are conservative accounting limits, not
+measurements or hard caps on browser RSS. Acquisition, per-command deadlines,
+interactive playback ownership, and approved delivery remain separate work.
+
+Rust `CanonicalReplay` owns bytes after independent structural and numeric
+checks. Its filesystem path is an immutable `.replay.ibr` companion with
+hash/size-checked reads and joint image/replay cleanup. The filesystem API does
+not authorize a database reservation or a public read; those callers must
+supply current approval and visibility checks.
 
 ## Two explicit boundaries
 

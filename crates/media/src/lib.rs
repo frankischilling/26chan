@@ -1,11 +1,13 @@
 #![forbid(unsafe_code)]
 
-//! Bounded private intake and encoder-only output promotion. This crate does not
+//! Bounded private intake, encoded images and checked canonical replay storage.
+//! This crate does not
 //! execute workers, decode uploads, expose public routes, or establish process
 //! isolation. Deployment permissions and job deadlines belong to the caller.
 
 pub mod animation;
 mod block;
+pub mod canonical_replay;
 mod id;
 mod output;
 pub mod paired;

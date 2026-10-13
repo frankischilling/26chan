@@ -59,9 +59,9 @@ pub fn check(replay: &UntrustedReplay) -> Result<EnvelopeCheckedReplay<'_>, Repl
     }
     let first = replay.events[0].timestamp_ms;
     let last = replay.events[replay.events.len() - 1].timestamp_ms;
-    if !last
+    if last
         .checked_sub(first)
-        .is_some_and(|span| span <= MAX_DURATION_MS)
+        .is_none_or(|span| span > MAX_DURATION_MS)
     {
         return reject();
     }
