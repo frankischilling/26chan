@@ -1,4 +1,5 @@
 import './full-build.mjs';
+import '../../../scripts/build-native-replay.mjs';
 import { createServer } from 'node:http';
 import { readFile, readdir } from 'node:fs/promises';
 import { makeHandler } from './serve.mjs';
@@ -7,6 +8,8 @@ for (const name of ['full-worker.mjs','full-cases.mjs','cases.mjs']) files.set(`
 for (const name of await readdir(new URL('./full-generated/',import.meta.url))) {
   if (/^[a-z.-]+\.js$/.test(name)) files.set(`/full-generated/${name}`,await readFile(new URL(`full-generated/${name}`,import.meta.url)));
 }
+for (const name of ['worker.v1.js','runtime.v1.js']) files.set(`/static/native-replay/${name}`, await readFile(new URL(`../../../apps/public/static/native-replay/${name}`,import.meta.url)));
+files.set('/session.js', await readFile(new URL('../../../apps/public/client/native-replay-session.js',import.meta.url)));
 files.set('/', Buffer.from('<!doctype html><html><head><meta charset="utf-8"><title>Full replay qualification</title></head><body></body></html>'));
 createServer((request,response)=>{
   // Existing strict handler uses mjs MIME; fixed .js routes are JS too.

@@ -84,7 +84,8 @@ jobs:
           set -euo pipefail
           node --test tests/browser/native-replay-envelope.test.mjs \
             tests/browser/native-replay-worker-boundary.test.mjs \
-            tests/browser/native-replay-worker-allocations.test.mjs
+            tests/browser/native-replay-worker-allocations.test.mjs \
+            tests/browser/native-replay-session.test.mjs
           timeout --signal=TERM --kill-after=10s 330s \
             npx --no-install playwright test --config playwright.replay-full.config.js \
             --forbid-only --workers=1 --retries=0 --max-failures=1 --global-timeout=300000 \
