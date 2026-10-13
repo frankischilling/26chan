@@ -77,7 +77,7 @@ class PairedExercise(Exercise):
         process = self.launch([destination, '--ignored', '--exact',
                                'real_guest_candidates_remain_nonpublishable', '--nocapture'],
                               self.coordinator, environment)
-        # Nine sequential real guest requests, each retaining the existing
+        # Ten sequential real guest requests, each retaining the existing
         # per-operation bounds. This only extends harness supervision.
         try:
             out, err = process.communicate(timeout=300)
@@ -159,7 +159,7 @@ def check_coordinator_completion(returncode, output, error=b''):
         # Publish only a bounded source location, never captured process output.
         location = re.search(rb'panicked at apps/media-admin/tests/paired_vm\.rs:([0-9]{1,5}):([0-9]{1,4})', error)
         suffix = (' at paired_vm.rs:' + location.group(1).decode() + ':' + location.group(2).decode()) if location else ''
-        stage = re.search(rb'^DRAWING_VM_FAILURE=(enrolled-(?:png|empty|commands|invalid-replay)):(processing|database|storage|other)$', output, re.MULTILINE)
+        stage = re.search(rb'^DRAWING_VM_FAILURE=(enrolled-(?:png|empty|stroke|commands|invalid-replay)):(processing|database|storage|other)$', output, re.MULTILINE)
         if stage:
             suffix += ' (' + stage.group(1).decode() + ': ' + stage.group(2).decode() + ')'
         raise RuntimeError('actual paired coordinator qualification failed' + suffix)

@@ -356,11 +356,26 @@ async fn exercise_drawings(
             true,
         ),
         (
+            "enrolled-stroke",
+            large,
+            Some(
+                include_bytes!("../../media-guest/tests/fixtures/replay/bounded-stroke.tgkr")
+                    .as_slice(),
+            ),
+            Some(
+                include_bytes!("../../../tests/media/fixtures/replay-wire/bounded-stroke.ibr")
+                    .as_slice(),
+            ),
+            true,
+        ),
+        // This structural fixture contains i16-extreme coordinates. Decoding
+        // succeeds, but publication must still reject its numeric envelope.
+        (
             "enrolled-commands",
             large,
             Some(COMMANDS_REPLAY),
-            Some(COMMANDS_WIRE),
-            true,
+            None,
+            false,
         ),
         (
             "enrolled-invalid-replay",
@@ -403,7 +418,7 @@ async fn exercise_drawings(
         assert!(queue.claim().await.unwrap().is_none());
         assert!(queue.claim_paired_candidate().await.unwrap().is_none());
         let result = board_media_admin::drawing::dispatch(queue, quarantine, &store, client).await;
-        if let Err(error) = &result {
+        if succeeds && let Err(error) = &result {
             // Fixed diagnostic vocabulary only: never expose source bytes,
             // capabilities, database messages or paths from a failed dispatch.
             let kind = if error.to_string() == "drawing input or isolated output rejected" {

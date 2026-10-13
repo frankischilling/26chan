@@ -81,6 +81,11 @@ fn publication_fixture_has_exact_pixels_and_canonical_recordings() {
             Some(include_bytes!("fixtures/replay/commands.tgkr").as_slice()),
             include_bytes!("../../../tests/media/fixtures/replay-wire/commands.ibr").as_slice(),
         ),
+        (
+            Some(include_bytes!("fixtures/replay/bounded-stroke.tgkr").as_slice()),
+            include_bytes!("../../../tests/media/fixtures/replay-wire/bounded-stroke.ibr")
+                .as_slice(),
+        ),
     ] {
         let output = decode_disk(Cursor::new(disk(image, replay))).unwrap();
         assert_eq!(

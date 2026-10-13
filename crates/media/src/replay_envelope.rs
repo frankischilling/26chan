@@ -190,6 +190,27 @@ mod tests {
     }
 
     #[test]
+    fn recorder_stroke_is_admitted_but_structural_extrema_remain_rejected() {
+        let stroke = decode(include_bytes!(
+            "../../../tests/media/fixtures/replay-wire/bounded-stroke.ibr"
+        ))
+        .unwrap();
+        assert!(check(&stroke).is_ok());
+        let commands = decode(include_bytes!(
+            "../../../tests/media/fixtures/replay-wire/commands.ibr"
+        ))
+        .unwrap();
+        assert!(commands.events.iter().any(|event| matches!(
+            event.kind,
+            Event::DrawStartNoPressure {
+                x: i16::MIN,
+                y: i16::MAX
+            }
+        )));
+        assert!(check(&commands).is_err());
+    }
+
+    #[test]
     fn layer_and_history_events_are_not_silently_replaced_by_a_smaller_vocabulary() {
         let mut replay = candidate();
         let stamp = replay.events[0].timestamp_ms;

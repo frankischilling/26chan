@@ -60,6 +60,13 @@ and player checks passed at commit `d10c5f7c141f90197174b0c4611260ea6749fbee` in
 The release-bundle checks caught a constructor-name minification error; the
 build now preserves the names used by Tegaki's event table.
 
+The real-guest publication test also exposed a fixture mistake: `commands.tgkr`
+deliberately contains extreme signed coordinates for structural decoder tests.
+Its decoded result must fail the publication envelope. That case now remains a
+rejection control; `bounded-stroke.tgkr` supplies a separate positive recording,
+packed by the pinned recorder with an independently transcribed canonical wire.
+Neither synthetic recording claims pixel agreement with the red PNG fixture.
+
 The complete drawing-post path and real-guest publication extension still need
 final hosted qualification. Local focused PostgreSQL, intake, delivery,
 annotation and mTLS fixture tests passed. The new real-guest coordinator cases
