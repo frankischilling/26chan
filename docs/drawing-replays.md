@@ -25,7 +25,8 @@ Submitted drawing time keeps the source's wall-clock semantics; it is not an
 authenticated measure of work. The existing post-write path resolves source
 post references. The replay link comes from approved attachment metadata,
 never a submitted URL or filename. A saved source reference takes precedence
-over the replay link.
+over the replay link. Archive previews and catalog search use the same visible
+replay label as post rendering, without inserting a playback link into excerpts.
 
 ## Playback
 
@@ -63,10 +64,14 @@ unapproved recordings cannot be fetched. Raw TGKR uploads are never served.
 
 ## Verification status
 
-The source UI projection, elapsed timer and visibility-resume changes have local
-controller and receipt-validation coverage. Their release-browser comparison
-with the original UI is pending; the runs below describe earlier playback and
-publication coverage.
+The source UI projection, elapsed timer and visibility-resume changes passed
+native browser qualification at commit
+`5258f75729b7f7ae328ae212209ed94566a2810b` in
+[run 38367825987](https://github.com/frankischilling/26chan/actions/runs/38367825987).
+The suite compares tool controls and layer previews with the original UI and
+checks cancellation, rewind, zoom, timing and visibility transitions. Archive and
+catalog projection checks run with the focused public and PostgreSQL tests. The
+final PR head must also pass the complete CI matrix.
 
 The native drawing, source-renderer, worker-session and player suites passed at
 commit `38e94e52a3c80b8815528b8754c61ba3791bb78e` in

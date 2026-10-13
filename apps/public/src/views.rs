@@ -569,6 +569,8 @@ mod comment_tests {
                 output_format: board_store::media_assets::MediaFormat::Png,
                 has_replay: stored,
             });
+            let search = crate::catalog::search_post_text(&post, &fixture.board);
+            assert_eq!(search.contains("Replay: View"), expected);
             let view = PostView {
                 post,
                 lines: Vec::new(),

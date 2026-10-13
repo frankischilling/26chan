@@ -4,6 +4,7 @@ use serde::Deserialize;
 
 mod filter;
 mod search_fields;
+pub(crate) use search_fields::from_post as search_post_text;
 pub mod teaser;
 
 /// Shared by the public view and the independently compiled visual fixtures.
@@ -112,7 +113,7 @@ impl Options {
                         .iter()
                         .find(|post| post.id == preview.thread.id)
                         .is_some_and(|post| {
-                            query.matches(&search_fields::from_post(post, &snapshot.board))
+                            query.matches(&search_post_text(post, &snapshot.board))
                                 || post.attachment.as_ref().is_some_and(|file| {
                                     !post.file_deleted() && query.matches(&file.filename)
                                 })

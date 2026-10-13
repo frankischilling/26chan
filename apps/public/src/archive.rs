@@ -214,10 +214,15 @@ pub(crate) fn row(
             board_domain::source_html_entities(text)
         ));
     }
-    let drawing = crate::views::DrawingAnnotation::from_saved(
+    let mut drawing = crate::views::DrawingAnnotation::from_saved(
         entry.drawing_time_seconds,
         entry.drawing_source_post_id,
     );
+    if let Some(drawing) = &mut drawing
+        && drawing.source_post.is_none()
+    {
+        drawing.replay_tim = entry.replay_tim;
+    }
     if let Some(drawing) = &drawing {
         comment.push_str(&drawing.stored_html());
     }
@@ -351,6 +356,28 @@ mod tests {
         });
         let source = "body<span class=\"fortune\" style=\"color:green\"> <b>Your fortune: Good Luck</b></span>";
         assert_eq!(prepared.serialized, source);
+    }
+
+    #[test]
+    fn replay_label_is_plain_text_in_archive_previews() {
+        let mut drawing = crate::views::DrawingAnnotation::from_saved(Some(90), None).unwrap();
+        drawing.replay_tim = Some(123);
+        let lines = board_domain::parse_comment("body");
+        let prepared = prepare(Input {
+            subject: "",
+            lines: &lines,
+            board: "i",
+            format: 0,
+            sjis: false,
+            dice: None,
+            fortune: None,
+            drawing: Some(&drawing),
+        });
+        assert_eq!(
+            prepared.serialized,
+            "body <small><b>Oekaki Post</b> (Time: 2m, Replay: View)</small>"
+        );
+        assert!(!prepared.serialized.contains("href"));
     }
 
     #[test]

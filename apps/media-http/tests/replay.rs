@@ -466,6 +466,21 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>, board: &str
             .unwrap()
             .has_replay
     );
+    sqlx::query("UPDATE content.boards SET archive_retention_seconds=3600 WHERE slug=$1")
+        .bind(board)
+        .execute(&admin)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1")
+        .bind(post).execute(&admin).await.unwrap();
+    let archived = board_store::archive_page_snapshot(&public, board)
+        .await
+        .unwrap();
+    assert_eq!(archived.snapshot.entries.len(), 1);
+    assert_eq!(
+        archived.snapshot.entries[0].replay_tim,
+        Some(attachment.tim)
+    );
     sqlx::query("UPDATE content.boards SET oekaki_replays=false WHERE slug=$1")
         .bind(board)
         .execute(&admin)
@@ -478,11 +493,21 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>, board: &str
             .unwrap()
             .has_replay
     );
+    let archived = board_store::archive_page_snapshot(&public, board)
+        .await
+        .unwrap();
+    assert_eq!(archived.snapshot.entries[0].replay_tim, None);
     let response = send(&app, Method::GET, &url, &[CANONICAL_PUBLIC], Some(&etag)).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     assert_cors(&response, false, false);
     sqlx::query("UPDATE content.boards SET oekaki_replays=true WHERE slug=$1")
         .bind(board)
+        .execute(&admin)
+        .await
+        .unwrap();
+
+    sqlx::query("UPDATE content.threads SET archived_at=NULL,archive_expires_at=NULL WHERE id=$1")
+        .bind(post)
         .execute(&admin)
         .await
         .unwrap();
