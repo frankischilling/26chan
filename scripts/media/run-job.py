@@ -172,15 +172,18 @@ def run(config, source, destination, *, input_kind=IMAGE_V1, diagnostics=False):
             machine = {
                 'boot-source': {'kernel_image_path': '/kernel', 'initrd_path': '/initramfs',
                                 'boot_args': 'console=ttyS0 reboot=k panic=1 pci=off rdinit=/init '
-                                             + 'board_media_input_kind=' + input_kind
-                                             + (' rootfstype=ramfs' if input_kind == PDF_V4 else '')},
+                                             + 'board_media_input_kind=' + input_kind},
                 'drives': [
                     {'drive_id': 'input', 'path_on_host': '/input.disk', 'is_root_device': False,
                      'is_read_only': True},
                     {'drive_id': 'output', 'path_on_host': '/output.disk', 'is_root_device': False,
                      'is_read_only': False},
                 ],
-                'machine-config': {'vcpu_count': 1, 'mem_size_mib': 128, 'smt': False},
+                # PDF adds a bounded 64 MiB runtime image to the baseline VM.
+                # Keep the default quota-backed rootfs and the same host cgroup.
+                'machine-config': {'vcpu_count': 1,
+                                   'mem_size_mib': 192 if input_kind == PDF_V4 else 128,
+                                   'smt': False},
             }
             (jail / 'vm.json').write_text(json.dumps(machine))
             (jail / 'vm.json').chmod(0o444)

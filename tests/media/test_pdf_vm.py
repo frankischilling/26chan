@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from owned_process import run_owned
+from test_vm import check_probe_report
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
@@ -84,6 +85,21 @@ class PdfVmTest(unittest.TestCase):
             for expected in ('uid=1000', 'tmp_write=true', 'version: success=true',
                              'nullpage: success=true', 'jpeg: success=true', 'decode: ok'):
                 self.assertIn(expected, report, report)
+
+    def test_pdf_profile_preserves_worker_boundaries(self):
+        for mode, count in [('inspect', 9), ('memory', 1), ('process', 1), ('disk', 1)]:
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory(prefix='owned-pdf-limits-') as directory:
+                root = pathlib.Path(directory)
+                source, output = root / 'input', root / 'output'
+                source.write_text(mode)
+                result = run_owned([sys.executable, str(REPO / 'scripts/media/run-job.py'),
+                                    '--input-kind', 'pdf-v4', '--owned-diagnostics',
+                                    os.environ['MEDIA_VM_PROBE_CONFIG'], str(source), str(output)],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=35)
+                self.assertEqual(result.returncode, 0, result.stderr.decode(errors='replace'))
+                check_probe_report(output.read_bytes(), count)
+                self.assertEqual(sorted(path.name for path in pathlib.Path('/run/26chan-media-jobs').iterdir()),
+                                 ['runner.lock'])
 
     def test_first_page_font_and_recovery(self):
         first = self.decode(document([RED]))
