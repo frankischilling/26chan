@@ -4,7 +4,7 @@ const unit = n => Number.isFinite(n) && n >= 0 && n <= 1;
 const keys = (value, expected) => value && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).sort().join(',') === expected;
 export function validReplayPresentation(value) {
-  if (!keys(value, 'color,layers,tool') || typeof value.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(value.color)
+  if (!keys(value, 'color,layers,tool') || (value.color !== null && (typeof value.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(value.color)))
     || !keys(value.tool, 'alpha,alphaDynamicsEnabled,flow,flowDynamicsEnabled,id,preserveAlphaEnabled,size,sizeDynamicsEnabled,tipId')
     || !integer(value.tool.id, 1, 8) || !integer(value.tool.size, 1, 64)
     || !unit(value.tool.alpha) || !unit(value.tool.flow) || !integer(value.tool.tipId, 0, 2)

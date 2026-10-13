@@ -6,6 +6,8 @@ const receipt = () => ({color:'#123abc',tool:{id:1,size:64,alpha:.5,flow:1,tipId
   layers:[{id:1,alpha:1,visible:true,active:true,selected:true,width:24,height:24,pixels:new Uint8ClampedArray(24*24*4)}]});
 test('display receipt admits only bounded tool values and 24px layer previews', () => {
   assert.equal(validReplayPresentation(receipt()), true);
+  const untouchedColor = receipt(); untouchedColor.color = null;
+  assert.equal(validReplayPresentation(untouchedColor), true, 'The source has not updated its initial color control');
   for (const change of [v=>v.color=['#123abc'],v=>v.color='url(https://example.test)',v=>v.url='anything',
     v=>v.tool.size=65,v=>v.tool.alpha=NaN,v=>v.tool.flow=Infinity,v=>v.tool.id=9,v=>v.tool.tipId=3,
     v=>v.tool.sizeDynamicsEnabled=1,v=>v.tool.name='<svg>',v=>v.layers=[],v=>v.layers[0].active=false,

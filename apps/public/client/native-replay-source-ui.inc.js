@@ -87,10 +87,12 @@ return {
     context.drawImage(bitmap, 0, 0);
     Tegaki.baseWidth = bitmap.width; Tegaki.baseHeight = bitmap.height;
     const tool = tools.find(tool => tool.id === receipt.tool.id);
-    Object.assign(tool, receipt.tool); Tegaki.tool = tool; Tegaki.toolColor = receipt.color;
+    Object.assign(tool, receipt.tool); Tegaki.tool = tool;
     for (const item of tools) document.getElementById(`tegaki-tool-btn-${item.name}`).classList.toggle('tegaki-tool-active', item === tool);
-    document.getElementById('tegaki-color').style.backgroundColor = receipt.color;
-    document.getElementById('tegaki-colorpicker').value = receipt.color;
+    if (receipt.color !== null) {
+      document.getElementById('tegaki-color').style.backgroundColor = receipt.color;
+      document.getElementById('tegaki-colorpicker').value = receipt.color;
+    }
     // This source callback only updates read-only controls. No source event runs.
     TegakiUI.updateToolSize(); TegakiUI.updateToolAlpha(); TegakiUI.updateToolFlow(); TegakiUI.updateToolModes();
     document.getElementById('tegaki-toolmode-bar').classList.remove('tegaki-hidden');

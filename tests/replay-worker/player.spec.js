@@ -28,7 +28,8 @@ test('close during acquisition prevents late playback and a missing recording sh
   await expect(dialog).toHaveCount(0);
   await page.getByRole('link',{name:'Missing',exact:true}).click();
   await expect(dialog.getByRole('status')).toContainText('Could not load');
-  await expect(dialog.getByRole('button',{name:'Play',exact:true})).toBeDisabled();
+  const failedPlay = dialog.getByRole('button',{name:'Play',exact:true,includeHidden:true});
+  await expect(failedPlay).toBeDisabled(); await expect(failedPlay).toBeHidden();
   await dialog.getByRole('button',{name:'Close',exact:true}).click();await expect(dialog).toHaveCount(0);
 });
 

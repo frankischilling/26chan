@@ -103,6 +103,7 @@ jobs:
           path: |
             test-results/replay-worker-evidence/**
             test-results/replay-worker-native/**
+            test-results/replay-worker-full/**
           if-no-files-found: warn
           retention-days: 3
           compression-level: 0

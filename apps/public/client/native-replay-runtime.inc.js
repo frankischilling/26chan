@@ -11,6 +11,11 @@ export function createReplayRuntime(bytes, boundary) {
   const candidate = decodeReplayCandidateWire(bytes);
   const viewer = new TegakiReplayViewer();
   const prepared = prepareBoundedReplayCandidate(candidate, viewer);
+  const [previewWidth, previewHeight] = $T.calcThumbSize(candidate.metadata.width, candidate.metadata.height, 24);
+  const preview = new OffscreenCanvas(previewWidth, previewHeight), previewContext = preview.getContext('2d');
+  if (!previewContext) throw new Error('Native layer preview unavailable');
+  previewContext.imageSmoothingEnabled = false;
+  const previews = new Map();
   const forbid = name => () => { throw new Error(`Unavailable replay source path: ${name}`); };
   for (const name of Object.getOwnPropertyNames(TegakiReplayViewer.prototype)) {
     if (name !== 'constructor' && name !== 'getEventIdMap') TegakiReplayViewer.prototype[name] = forbid(name);
@@ -28,6 +33,16 @@ export function createReplayRuntime(bytes, boundary) {
     if (typeof value !== 'function' || name === 'updateUndoRedo') continue;
     TegakiUI[name] = sinks.has(name) ? () => boundary.record(`UI:${name}`) : forbid(`UI.${name}`);
   }
+  TegakiUI.updateLayersGridAdd = layer => {
+    boundary.record('UI:updateLayersGridAdd');
+    previews.set(layer.id, new Uint8ClampedArray(previewWidth * previewHeight * 4));
+  };
+  TegakiUI.updateLayerPreview = layer => {
+    boundary.record('UI:updateLayerPreview');
+    previewContext.clearRect(0, 0, previewWidth, previewHeight);
+    previewContext.drawImage(layer.canvas, 0, 0, previewWidth, previewHeight);
+    previews.set(layer.id, previewContext.getImageData(0, 0, previewWidth, previewHeight).data);
+  };
   for (const [name, value] of Object.entries(TegakiCursor)) {
     if (typeof value === 'function') TegakiCursor[name] = name === 'init'
       ? () => boundary.record('cursor:init-omitted') : forbid(`cursor.${name}`);
@@ -47,10 +62,6 @@ export function createReplayRuntime(bytes, boundary) {
   if (Tegaki.replayRecorder !== null) throw new Error('Unexpected replay recording');
   const presentation = new OffscreenCanvas(1, 1), context = presentation.getContext('2d');
   if (!context) throw new Error('Native replay presentation unavailable');
-  const [previewWidth, previewHeight] = $T.calcThumbSize(candidate.metadata.width, candidate.metadata.height, 24);
-  const preview = new OffscreenCanvas(previewWidth, previewHeight), previewContext = preview.getContext('2d');
-  if (!previewContext) throw new Error('Native layer preview unavailable');
-  previewContext.imageSmoothingEnabled = false;
   let index = 0;
   return Object.freeze({
     eventCount: prepared.events.length,
@@ -74,17 +85,15 @@ export function createReplayRuntime(bytes, boundary) {
     },
     presentation() {
       const tool = Tegaki.tool;
-      return { color: Tegaki.toolColor, tool: {
+      return { color: $T.id('tegaki-colorpicker').value || null, tool: {
         id: tool.id, size: tool.size, alpha: tool.alpha, flow: tool.flow, tipId: tool.tipId ?? 0,
         sizeDynamicsEnabled: tool.sizeDynamicsEnabled, alphaDynamicsEnabled: tool.alphaDynamicsEnabled,
         flowDynamicsEnabled: tool.flowDynamicsEnabled, preserveAlphaEnabled: tool.preserveAlphaEnabled,
       }, layers: Tegaki.layers.map(layer => {
-        previewContext.clearRect(0, 0, previewWidth, previewHeight);
-        previewContext.drawImage(layer.canvas, 0, 0, previewWidth, previewHeight);
         return { id: layer.id, alpha: layer.alpha, visible: layer.visible,
           active: Tegaki.activeLayer === layer, selected: Tegaki.selectedLayers.has(layer.id),
           width: previewWidth, height: previewHeight,
-          pixels: previewContext.getImageData(0, 0, previewWidth, previewHeight).data };
+          pixels: previews.get(layer.id) };
       }) };
     },
     frame() {

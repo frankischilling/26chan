@@ -30,7 +30,7 @@ test('late bitmap ownership is released after close',async()=>{
   const late=f.frame();f.worker.onmessage({data:late});assert.equal(late.bitmap.closed,1);
 });
 test('invalid sequence, progress, dimensions and response types fail closed',async()=>{
-  for(const extra of [{start:-1},{end:0xffffffff},{end:-1},{start:0.5},{sequence:2},{index:3},{count:16385},{next:null},{type:'error'},{bitmap:{width:1025,height:1,close(){}}}]) {
+  for(const extra of [{presentation:null},{presentation:{}},{start:-1},{end:0xffffffff},{end:-1},{start:0.5},{sequence:2},{index:3},{count:16385},{next:null},{type:'error'},{bitmap:{width:1025,height:1,close(){}}}]) {
     const f=setup();f.worker.onmessage({data:f.frame(extra)});await assert.rejects(f.session.ready,/limits/);
     assert.equal(f.worker.terminated,1);
   }
