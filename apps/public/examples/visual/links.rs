@@ -6,14 +6,18 @@ use board_domain::Token;
 pub fn page() -> String {
     let mut page = super::fixture_page(false, false, false, false);
     page.board.slug = "g".into();
+    page.board.title = "Owned source links".into();
+    page.navigation_boards = vec![page.board.clone()];
     page.parent = 100;
     let thread = &mut page.threads[0];
     thread.thread.id = 100;
+    thread.thread.closed = true;
     thread.thread.board = "g".into();
     for (index, view) in thread.posts.iter_mut().enumerate() {
         let mut post = view.post.clone();
         post.id = if index == 0 { 100 } else { 123 };
         post.thread_id = 100;
+        post.subject = if index == 0 { "Owned source links" } else { "" }.into();
         post.board = "g".into();
         post.comment_format = 104;
         post.comment = if index == 0 { "Owned source link comparison" } else {

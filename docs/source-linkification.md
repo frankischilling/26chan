@@ -164,5 +164,7 @@ node scripts/record-source-linkification.mjs --check --source /path/to/4chan-old
 
 Numeric quote conversion and exact JSON entity spelling have separate source
 and persisted checks in [source quote resolution](source-quote-resolution.md).
-Complete original-page visual comparisons remain pending. The URL-linking
-checks alone do not establish full frontend parity.
+The [original-page comparison](source-link-page-comparison.md) covers links in
+full rendered pages. Its current-head browser run and paired screenshot review
+are required before completion. The URL-linking checks alone do not establish
+full frontend parity.

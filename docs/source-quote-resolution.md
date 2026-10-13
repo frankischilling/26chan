@@ -90,8 +90,10 @@ Resolved missing references use the source theme's quote color and line-through
 decoration. The selector is scoped to comment deadlinks so watcher state styling
 keeps its own rules. The six supplied stylesheet excerpts are pinned in
 fixtures/source-quote-styles.json; the theme tests compare browser-computed
-properties and retain desktop/mobile page screenshots. These component checks
-are not a whole-page source layout comparison.
+properties and retain desktop/mobile page screenshots. A second reference uses
+full pages from the original renderer, with the same owned comments. See
+[source link page comparison](source-link-page-comparison.md) for its inputs,
+asset substitutions and review limits.
 
 ## Conditional responses
 
