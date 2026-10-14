@@ -12,6 +12,7 @@ pub mod paired;
 pub mod pdf;
 pub mod replay;
 pub mod replay_output;
+pub mod still;
 #[cfg(target_os = "linux")]
 pub mod video;
 pub mod video_probe;

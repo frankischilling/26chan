@@ -44,7 +44,10 @@ def resource_groups(unit, membership, mountinfo):
     return {controller: mounts[controller] / expected.lstrip('/') for controller in required}
 
 
-def enforce_limits(groups):
+def enforce_limits(groups, *, profile="default"):
+    if profile not in ("default", "still-v6"):
+        raise ValueError("unknown fixed resource profile")
+    memory_bytes = "2684354560" if profile == "still-v6" else "268435456"
     def read(directory, name):
         return (directory / name).read_text().strip()
 
@@ -54,7 +57,7 @@ def enforce_limits(groups):
 
     if 'memory' in groups:
         memory, cpu, pids = (groups[name] for name in ('memory', 'cpu', 'pids'))
-        require(memory, 'memory.limit_in_bytes', '268435456')
+        require(memory, 'memory.limit_in_bytes', memory_bytes)
         require(memory, 'memory.use_hierarchy', '1')
         # Preflight *all* controls before writing the service's own cgroup.
         int(read(memory, 'memory.memsw.limit_in_bytes'))
@@ -63,7 +66,7 @@ def enforce_limits(groups):
         period = int(read(cpu, 'cpu.cfs_period_us'))
     else:
         memory = cpu = pids = groups['']
-        require(memory, 'memory.max', '268435456')
+        require(memory, 'memory.max', memory_bytes)
         require(memory, 'memory.swap.max', '0')
         quota, period = map(int, read(cpu, 'cpu.max').split())
     require(pids, 'pids.max', '32')
@@ -72,7 +75,7 @@ def enforce_limits(groups):
     if 'memory' in groups:
         # v1 limits combined resident memory + swap; swappiness=0 controls
         # cgroup reclaim. This is NOT v2's absolute memory.swap.max=0 policy.
-        for name, value in (('memory.memsw.limit_in_bytes', '268435456'),
+        for name, value in (('memory.memsw.limit_in_bytes', memory_bytes),
                             ('memory.swappiness', '0')):
             # Never create an ordinary file when controller support is absent.
             descriptor = os.open(memory / name, os.O_WRONLY | os.O_TRUNC | os.O_CLOEXEC | os.O_NOFOLLOW)
@@ -83,11 +86,15 @@ def enforce_limits(groups):
 
 def main():
     unit, *command = sys.argv[1:]
+    profile = "default"
+    if command and command[0] == "--still-v6":
+        profile = "still-v6"
+        command = command[1:]
     if os.geteuid() != 0 or not command or not pathlib.Path(command[0]).is_absolute():
         raise ValueError('root service and absolute jailer command required')
     groups = resource_groups(unit, pathlib.Path('/proc/self/cgroup').read_text(),
                              pathlib.Path('/proc/self/mountinfo').read_text())
-    enforce_limits(groups)
+    enforce_limits(groups, profile=profile)
     # v1 without properties does not migrate. v2 can migrate even without
     # properties, so explicitly target the SAME verified systemd unit instead
     # of jailer's default /firecracker cgroup (which another operator may own).

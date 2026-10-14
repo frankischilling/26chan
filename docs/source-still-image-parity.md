@@ -1,6 +1,6 @@
 # PNG and JPEG parity
 
-Issue [#202](https://github.com/frankischilling/26chan/issues/202) remains open. The image-presentation fixture and geometry helpers cover source sizing decisions. Retained PNG/JPEG publication, JPEG thumbnail encoding, mobile-file publication and the larger isolated decoder profile still need implementation and end-to-end qualification.
+Issue [#202](https://github.com/frankischilling/26chan/issues/202) remains open. The image-presentation fixture and geometry helpers cover source sizing decisions. A separate still-image worker now produces retained PNG/JPEG candidates and JPEG derivatives. Its tests and larger resource profile are awaiting hosted qualification. Authenticated posting-policy binding, host validation and publication, mobile-file lifecycle and end-to-end parity remain unfinished.
 
 ## Source policy
 
@@ -18,7 +18,7 @@ PNG cleanup retains the original framing and bytes of allowed chunks, discards o
 
 The supplied application source does not pin the deployed GD, jpegtran or jpegoptim versions. Geometry and configured cleanup decisions can be compared directly with captured source arithmetic. Exact historical JPEG encoder bytes require additional version evidence; a quality setting alone does not establish byte identity. Tests must distinguish pixel behavior, retained metadata, encoded-file checksums and the input checksum.
 
-The current worker's address-space limit is 96 MiB and its default VM memory is 128 MiB. Supporting 10,000 by 10,000 images with full-frame decoders requires a separate resource review. Larger limits are pending approval. They must not silently change the limits for existing image, replay, GIF, PDF or video jobs. The runner must retain single-job exclusion, process-group termination, fixed output sizes, no network interface, unprivileged decoding and post-termination output validation.
+The current worker's address-space limit is 96 MiB and its default VM memory is 128 MiB. Supporting 10,000 by 10,000 images with full-frame decoders requires a separate resource review. On October 14, 2026, the owner approved a separate still-image profile capped at 2 GiB of VM memory and 2.5 GiB of host memory, one job at a time, with hard time limits. Implementation and runtime qualification are still in progress; this approval is not evidence that the profile has passed VM tests. This profile must not change the limits for existing image, replay, GIF, PDF or video jobs. The runner must retain single-job exclusion, process-group termination, fixed output sizes, no network interface, unprivileged decoding and post-termination output validation.
 
 Run the source checks with:
 

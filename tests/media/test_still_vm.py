@@ -1,0 +1,81 @@
+"""Synthetic PNGs exercise the explicit still profile on an owned VM runner."""
+import os
+import pathlib
+import struct
+import subprocess
+import sys
+import tempfile
+import unittest
+import zlib
+from owned_process import run_owned
+
+REPO = pathlib.Path(__file__).resolve().parents[2]
+OUTPUT_BYTES = 16 * 1024 * 1024
+
+
+def chunk(kind, data):
+    return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
+
+
+def png(width, height):
+    compressor = zlib.compressobj()
+    compressed = bytearray()
+    row = b'\0' + bytes([80, 40, 20]) * width
+    for _ in range(height):
+        compressed.extend(compressor.compress(row))
+    compressed.extend(compressor.flush())
+    return (b'\x89PNG\r\n\x1a\n'
+            + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
+            + chunk(b'tEXt', b'Comment\0SYNTHETIC-METADATA')
+            + chunk(b'IDAT', bytes(compressed)) + chunk(b'IEND', b''))
+
+
+class StillVmTest(unittest.TestCase):
+    def run_job(self, source):
+        with tempfile.TemporaryDirectory(prefix='owned-still-vm-') as directory:
+            root = pathlib.Path(directory)
+            source_path, output = root / 'input', root / 'output'
+            source_path.write_bytes(source)
+            result = run_owned([sys.executable, str(REPO / 'scripts/media/run-job.py'),
+                                '--input-kind', 'still-v6', '--owned-diagnostics',
+                                os.environ['MEDIA_VM_TEST_CONFIG'], str(source_path), str(output)],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=70)
+            self.assertEqual(result.returncode, 0, result.stderr.decode(errors='replace'))
+            self.assertEqual(sorted(path.name for path in pathlib.Path('/run/26chan-media-jobs').iterdir()), ['runner.lock'])
+            data = output.read_bytes()
+            self.assertEqual(len(data), OUTPUT_BYTES)
+            return data
+
+    @staticmethod
+    def policy():
+        return b'IBSTIL06' + bytes([7, 1]) + struct.pack('>HH', 250, 250) + bytes(2)
+
+    def test_large_png_cleanup_geometry_and_recovery(self):
+        for width, height in [(17, 9), (2048, 1024), (10_000, 10_000)]:
+            with self.subTest(width=width, height=height):
+                input_image = png(width, height)
+                output = self.run_job(self.policy() + input_image)
+                self.assertEqual(output[:8], b'IBIMG006')
+                self.assertEqual(output[8:24], self.policy())
+                self.assertEqual(struct.unpack('>II', output[24:32]), (width, height))
+                ratio = min(1, 250 / width, 250 / height)
+                self.assertEqual(struct.unpack('>II', output[32:40]), (int(width * ratio), int(height * ratio)))
+                retained, thumbnail, mobile = struct.unpack('>III', output[48:60])
+                image = output[64:64 + retained]
+                self.assertTrue(image.startswith(b'\x89PNG\r\n\x1a\n'))
+                self.assertNotIn(b'SYNTHETIC-METADATA', image)
+                self.assertEqual(retained, len(input_image) - len(chunk(b'tEXt', b'Comment\0SYNTHETIC-METADATA')))
+                thumb = output[64 + retained:64 + retained + thumbnail]
+                self.assertTrue(thumb.startswith(b'\xff\xd8\xff'))
+                self.assertTrue(thumb.endswith(b'\xff\xd9'))
+                self.assertFalse(any(output[60:64]))
+                self.assertFalse(any(output[64 + retained + thumbnail + mobile:]))
+        for malformed in [b'invalid', png(8, 8)[:-1], png(10_001, 1)]:
+            self.assertEqual(self.run_job(self.policy() + malformed), bytes(OUTPUT_BYTES))
+        self.assertEqual(self.run_job(self.policy() + png(8, 8))[:8], b'IBIMG006')
+
+
+if __name__ == '__main__':
+    if os.geteuid() != 0 or 'MEDIA_VM_TEST_CONFIG' not in os.environ:
+        raise SystemExit('requires an owned root VM qualification environment')
+    unittest.main()

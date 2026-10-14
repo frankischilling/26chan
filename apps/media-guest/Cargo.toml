@@ -12,10 +12,11 @@ gif = { version = "=0.14.2", default-features = false, features = ["std"] }
 weezl = { version = "=0.1.12", default-features = false, features = ["std"] }
 zune-jpeg = { version = "=0.5.15", default-features = false, features = ["std"] }
 
+jpeg-encoder = { version = "=0.7.1", default-features = false, features = ["std"] }
+
 [dev-dependencies]
 board-media = { path = "../../crates/media" }
 tokio.workspace = true
-jpeg-encoder = { version = "=0.7.1", default-features = false, features = ["std"] }
 proptest.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]

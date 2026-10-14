@@ -42,14 +42,15 @@ fn boot() -> io::Result<()> {
     let kind = board_media_guest::paired::kernel_input_kind(&fs::read_to_string("/proc/cmdline")?)?;
     let pdf = kind == board_media_guest::paired::InputKind::PdfV4;
     let video = kind == board_media_guest::paired::InputKind::VideoV5;
-    if pdf || video {
+    let still = kind == board_media_guest::paired::InputKind::StillV6;
+    if pdf || video || still {
         fs::create_dir_all("/tmp")?;
         mount(
             "tmpfs",
             "/tmp",
             "tmpfs",
             MountFlags::NOSUID | MountFlags::NODEV | MountFlags::NOEXEC,
-            Some(if video {
+            Some(if video || still {
                 c"size=24m,mode=0700,uid=1000,gid=1000"
             } else {
                 c"size=16m,mode=0700,uid=1000,gid=1000"
@@ -60,15 +61,24 @@ fn boot() -> io::Result<()> {
     fs::set_permissions("/dev/vdb", fs::Permissions::from_mode(0o666))?;
     for (resource, maximum) in [
         (Resource::Core, 0),
-        (Resource::Cpu, 5),
-        (Resource::As, 96 * 1024 * 1024),
+        (Resource::Cpu, if still { 20 } else { 5 }),
+        (
+            Resource::As,
+            if still {
+                1536 * 1024 * 1024
+            } else {
+                96 * 1024 * 1024
+            },
+        ),
         (Resource::Nproc, 16),
         (Resource::Nofile, 32),
         // Ghostscript may spool its bounded stdin to the private tmpfs. The
         // output disk remains independently fixed by the broker and validator.
         (
             Resource::Fsize,
-            if pdf || video {
+            if still {
+                10 * 1024 * 1024
+            } else if pdf || video {
                 8 * 1024 * 1024
             } else {
                 kind.output_bytes()
