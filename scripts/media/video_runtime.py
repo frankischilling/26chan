@@ -9,7 +9,7 @@ import re
 import stat
 import subprocess
 
-PREFIX = pathlib.Path('/opt/26chan-video')
+PREFIX = pathlib.Path('/usr/lib/26chan-video')
 MAX_TOTAL = 24 * 1024 * 1024
 MAX_FILE = 16 * 1024 * 1024
 
@@ -25,7 +25,7 @@ def checked_bytes(path):
     for parent in resolved.parents:
         metadata = parent.stat()
         if metadata.st_uid != 0 or metadata.st_mode & 0o022:
-            raise ValueError('Video runtime parent is not trusted')
+            raise ValueError(f'Video runtime parent is not trusted: {parent}')
     data = resolved.read_bytes()
     if len(data) != info.st_size or not data.startswith(b'\x7fELF'):
         raise ValueError('Video runtime must be a bounded ELF file')
