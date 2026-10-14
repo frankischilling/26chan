@@ -428,6 +428,12 @@ for (const video of ['red.webm', 'red-opus.webm', 'red-vp9.webm']) {
       Object.values(sourceVideoControls.icons).flat().map(shape => shape.paths.map(path => path.d)));
     await page.getByRole('button', { name: 'Pause', exact: true }).click();
     assert.equal(await player.evaluate(v => v.paused), true);
+    // Tiny accepted clips must not shrink a button underneath the volume range.
+    assert.equal(await page.getByRole('button', { name: 'Unmute', exact: true }).evaluate(button => {
+      const bounds = button.getBoundingClientRect();
+      const target = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      return button === target || button.contains(target);
+    }), true);
     await page.getByRole('button', { name: 'Unmute', exact: true }).click();
     assert.equal(await player.evaluate(v => v.muted), false);
     await page.locator('.nativeVideoControls input[aria-label="Video volume"]').evaluate(node => { node.value = '25'; node.dispatchEvent(new Event('input', { bubbles: true })); });

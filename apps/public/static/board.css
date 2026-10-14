@@ -875,6 +875,7 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 
 .ogv-btn {
   width: 32px;
+  flex-shrink: 0;
   height: 32px;
   line-height: 32px;
   text-align: center;
@@ -909,6 +910,7 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 
 .ogv-vol {
   width: 50px;
+  flex-shrink: 0;
   margin: 0;
 }
 
