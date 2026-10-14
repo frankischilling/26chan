@@ -129,12 +129,12 @@ async fn oversized_complete_archive_metadata_is_rejected_without_a_partial_list(
         .execute(&o)
         .await
         .unwrap();
+        let started = std::time::Instant::now();
+        let result = board_store::archive_snapshot(&p, &b).await;
         assert!(
-            matches!(
-                board_store::archive_snapshot(&p, &b).await,
-                Err(StoreError::ReadLimit)
-            ),
-            "the complete subject projection must fit the existing byte budget"
+            matches!(result, Err(StoreError::ReadLimit)),
+            "the complete subject projection must fit the existing byte budget; after {:?}: {result:?}",
+            started.elapsed()
         );
     })
     .await;
