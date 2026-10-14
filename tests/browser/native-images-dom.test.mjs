@@ -251,16 +251,17 @@ test('spoiler filename reveal preserves the original caption and inert quote rec
   assert.equal(await page.locator('#f1 > a.fileThumb').count(), 0);
 });
 
-test('modern spoiler metadata survives local copying and the owned body popup reveals and cleans up', async t => {
-  const { page } = await fixture(t, { preview: true });
-  await page.evaluate(() => {
+for (const mobileImage of [false, true]) test(`modern spoiler metadata survives local copying and cleanup (mobile=${mobileImage})`, async t => {
+  const { page } = await fixture(t, { preview: true, mobileImage });
+  const filename = mobileImage ? 'a'.repeat(255) + '.png' : 'Owned.png';
+  await page.evaluate(({ filename, mobileImage }) => {
     const file = document.getElementById('f1');
     file.replaceChildren();
-    Object.assign(file.dataset, { imageSpoiler: 'true', imageFilename: 'Owned.png', thumbnailWidth: '10', thumbnailHeight: '10' });
-    const header = document.createElement('div'); header.id = 'fT1'; header.className = 'fileText'; header.title = 'Owned.png';
+    Object.assign(file.dataset, { imageSpoiler: 'true', imageFilename: filename, thumbnailWidth: '10', thumbnailHeight: '10' });
+    const header = document.createElement('div'); header.id = 'fT1'; header.className = 'fileText'; header.title = filename;
     const label = document.createElement('a'); label.href = 'https://media.test/demo/1.png'; label.rel = 'noopener noreferrer'; label.textContent = 'Spoiler Image';
     header.append('File: ', label, ' (1 KB, 10x10)');
-    const thumb = document.createElement('a'); thumb.className = 'fileThumb imgspoiler'; thumb.href = label.href; thumb.rel = label.rel;
+    const thumb = document.createElement('a'); thumb.className = 'fileThumb imgspoiler'; thumb.href = label.href; thumb.rel = label.rel; if (mobileImage) thumb.setAttribute('data-m', '');
     const img = document.createElement('img'); img.setAttribute('src', '/static/catalog/spoiler.png'); img.alt = '1 KB'; img.width = img.height = 100; img.loading = 'lazy';
     const caption = document.createElement('div'); caption.className = 'mFileInfo mobile'; caption.textContent = '1 KB PNG';
     thumb.append(img, caption); file.append(header, thumb);
@@ -269,10 +270,15 @@ test('modern spoiler metadata survives local copying and the owned body popup re
     const popup = quotes.prepareQuotePost(tree, context, '1').build(document); popup.id = 'quote-preview'; popup.classList.add('preview'); document.body.append(popup);
     imageConfig = { revealSpoilers: true }; imageController.refresh();
     window.modernContext = context;
-  });
+  }, { filename, mobileImage });
   await page.waitForSelector('#quote-preview .nativeSpoilerRevealed');
   assert.equal(await page.locator('#quote-preview .fileThumb:not(.imgspoiler) img').getAttribute('src'), 'https://media.test/demo/1s.jpg');
-  assert.equal(await page.locator('#quote-preview .fileText a').nth(1).innerText(), 'Owned.png');
+  assert.equal(await page.locator('#quote-preview .fileThumb:not(.imgspoiler) img').getAttribute('alt'), filename);
+  if (mobileImage) {
+    await page.locator('#quote-preview .fileThumb:not(.imgspoiler)').click();
+    await page.locator('#quote-preview .expanded-thumb:not([hidden])').waitFor();
+    assert.equal(await page.locator('#quote-preview .expanded-thumb').getAttribute('src'), 'https://media.test/demo/1m.jpg');
+  } else assert.equal(await page.locator('#quote-preview .fileText a').nth(1).innerText(), filename);
   assert.equal(await page.evaluate(() => JSON.stringify(quotes.localQuoteTree(document.getElementById('pc1'), modernContext, '1', imageOwnership)).includes('data-image-filename')), true);
   await page.evaluate(() => { document.getElementById('quote-preview').remove(); imageController.refresh(); imageConfig = {}; imageController.refresh(); });
   assert.equal(await page.locator('#f1 .fileThumb:not(.imgspoiler)').count(), 0);

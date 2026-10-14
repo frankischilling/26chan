@@ -309,8 +309,8 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     const caption = file.querySelector(':scope > .fileText > a[href],:scope > p > a[href]');
     if (!source || isRetired(source.url) || caption?.getAttribute('href') !== source.url) return null;
     const filename = file.dataset.imageFilename;
-    if (!filename || filename.length > 255 || /[\u0000-\u001f\u007f-\u009f]/.test(filename)
-      || new TextEncoder().encode(filename).length > 255) return null;
+    if (!filename || filename.length > 259 || /[\u0000-\u001f\u007f-\u009f]/.test(filename)
+      || new TextEncoder().encode(filename).length > 259) return null;
     const width = file.dataset.thumbnailWidth, height = file.dataset.thumbnailHeight;
     if (!/^[1-9][0-9]{0,3}$/.test(width ?? '') || !/^[1-9][0-9]{0,3}$/.test(height ?? '')
       || Number(width) > bounds.dimension || Number(height) > bounds.dimension) return null;
@@ -339,6 +339,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     if (revealed.size >= bounds.reveals) return;
     const anchor = document.createElement('a'), image = document.createElement('img');
     anchor.className = 'fileThumb'; anchor.href = data.source.url; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer';
+    if (data.placeholder?.hasAttribute('data-m')) anchor.setAttribute('data-m', '');
     image.alt = data.filename; image.width = Number(data.width); image.height = Number(data.height);
     image.loading = 'lazy'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer';
     projection?.claim(anchor, owner);
