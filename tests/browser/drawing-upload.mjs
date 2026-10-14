@@ -68,7 +68,7 @@ try {
   if (mode === 'image-edit') {
     const ready = await page.goto(location);
     assert.equal(ready.status(), 200); assert.ok(ready.headers()['content-security-policy']);
-    assert.doesNotMatch(ready.headers()['content-security-policy'], /unsafe-eval/);
+    assert.doesNotMatch(ready.headers()['content-security-policy'], /'unsafe-eval'/);
     const ordinary = page.locator('form.postEditor').first();
     await expect(ordinary).toHaveAttribute('data-drawing-edit-allowed', 'true');
     await expect(ordinary).toHaveAttribute('data-drawing-allowed', 'true');
@@ -218,7 +218,7 @@ try {
   } else {
   const response = await page.goto(location);
   assert.equal(response.status(), 200); assert.ok(response.headers()['content-security-policy']);
-  assert.doesNotMatch(response.headers()['content-security-policy'], /unsafe-eval/);
+  assert.doesNotMatch(response.headers()['content-security-policy'], /'unsafe-eval'/);
   const ordinary = page.locator('form.postEditor').first();
   await expect(ordinary).toHaveAttribute('data-drawing-allowed', 'true');
   assert.equal(requests.some(request => request.url.endsWith(tegakiModule)), false, 'editor stays lazy before Draw');

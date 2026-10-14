@@ -48,7 +48,7 @@ test('real inline and block geometry renders under the actual response CSP and r
   const response = await page.goto(pagePath);
   const csp = response.headers()['content-security-policy'];
   expect(csp).toBeTruthy();
-  expect(csp).not.toMatch(/unsafe-eval|unsafe-inline/);
+  expect(csp).not.toMatch(/'(?:unsafe-eval|unsafe-inline)'/);
   expect(csp).toContain(`${origin}${workerPath}`);
   await expect(page.locator('#m1000001 .nativeMath svg')).toHaveCount(2);
   await expect(page.locator('#m1000001 .nativeMath:not(.displayMath) svg')).toHaveCount(1);

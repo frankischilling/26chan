@@ -151,6 +151,7 @@ CI lane and the complete application checks before merging; deployment retains
 its separate operator qualification requirements.
 
 Hosted browser checks verify standalone WebM and MP4 playback and blocked
-page scripts under the video policy. The complete Quick Reply video flow is
-awaiting qualification of its mobile file menu. Issue #204 remains open until
-that run and all exact-final-head checks pass.
+page scripts under the video policy. The real ordinary and Quick Reply WebM/MP4
+flows also cover publication, playback and deletion, including the mobile file
+menu. These checks must pass alongside the existing drawing, image and document
+regressions at the exact proposed merge head.
