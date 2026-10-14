@@ -21,6 +21,7 @@ const css = await readFile(new URL('apps/public/static/board.css', root), 'utf8'
 // A transparent synthetic 1x1 PNG. All requests are intercepted in this context.
 const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64');
 // Independent 1x1 red/blue GIF89a, 200 ms frames, infinite loop.
+const sourceVideoControls = JSON.parse(await readFile(new URL('fixtures/source-video-controls.json', root), 'utf8'));
 const ownedVideos = JSON.parse(await readFile(new URL('fixtures/owned-video-clips.json', root), 'utf8')).clips;
 const animatedPixel = Buffer.from('47494638396101000100800000ff00000000ff21ff0b4e45545343415045322e30030100000021f90404140000002c000000000100010000020244010021f90404140000002c00000000010001000002024c01003b', 'hex');
 
@@ -44,7 +45,15 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
     if (mode === 'fail') { await route.fulfill({ status: 404, body: 'Owned missing image' }); return; }
     if (video && /\.(webm|mp4)$/.test(url)) {
       const ext = video.endsWith('.mp4') ? 'mp4' : 'webm';
-      await route.fulfill({ contentType: `video/${ext}`, headers: { "access-control-allow-origin": "https://boards.test", "access-control-expose-headers": "Content-Length, Content-Range, Accept-Ranges" }, body: Buffer.from(ownedVideos[video].base64, 'base64') }); return;
+      const body = Buffer.from(ownedVideos[video].base64, 'base64');
+      const headers = { 'access-control-allow-origin': 'https://boards.test', 'access-control-expose-headers': 'Content-Length, Content-Range, Accept-Ranges', 'accept-ranges': 'bytes' };
+      const range = /^bytes=([0-9]+)-([0-9]*)$/.exec(route.request().headers().range ?? '');
+      if (range) {
+        const start = Number(range[1]), end = Math.min(body.length - 1, range[2] ? Number(range[2]) : body.length - 1);
+        if (start > end) { await route.fulfill({ status: 416, headers: { ...headers, 'content-range': `bytes */${body.length}` }, body: '' }); return; }
+        await route.fulfill({ status: 206, contentType: `video/${ext}`, headers: { ...headers, 'content-range': `bytes ${start}-${end}/${body.length}` }, body: body.subarray(start, end + 1) }); return;
+      }
+      await route.fulfill({ contentType: `video/${ext}`, headers, body }); return;
     }
     await route.fulfill(url.endsWith('.gif') ? { contentType: 'image/gif', body: animatedPixel }
       : { contentType: 'image/png', body: pixel });
@@ -400,18 +409,28 @@ test('video failure restores the thumbnail and preserves the filename fallback',
 for (const video of ['red.webm', 'red-opus.webm', 'red-vp9.webm']) {
   test(`pinned fallback decodes ${video}, exposes controls and stops on close`, async t => {
     const { page, requests } = await fixture(t, { video, fallback: true, storageOrigin: true, count: 1 });
-    await page.evaluate(() => clickImage(1));
+    // A real gesture permits the fallback's Web Audio clock to advance.
+    await page.locator('#f1 a.fileThumb').click();
     const player = page.locator('#f1 .expanded-thumb:not([hidden])');
     await player.waitFor();
     assert.deepEqual(await player.evaluate(v => [v.videoWidth, v.videoHeight, v.muted]), [64, 48, true]);
     assert.ok(await player.evaluate(v => v.querySelector('canvas') !== null));
     await player.evaluate(v => { window.fallbackEnds = 0; v.addEventListener('ended', () => { fallbackEnds++; }); });
-    await page.waitForFunction(() => window.fallbackEnds >= 2);
-    await page.locator('.nativeVideoControls button', { hasText: /^Pause$/ }).click();
+    try { await page.waitForFunction(() => window.fallbackEnds >= 2); }
+    catch (error) {
+      console.error('Owned fallback loop state:', await player.evaluate(v => ({ paused: v.paused, time: v.currentTime, duration: v.duration, seekable: v.seekable.length, ends: window.fallbackEnds })));
+      throw error;
+    }
+    assert.equal(await page.locator('.nativeVideoControls').isVisible(), false);
+    await player.click({ position: { x: 4, y: 4 } });
+    assert.equal(await page.locator('.nativeVideoControls').evaluate(node => getComputedStyle(node).height), '32px');
+    assert.deepEqual(await page.locator('.nativeVideoControls svg').evaluateAll(nodes => nodes.map(node => [...node.querySelectorAll('path')].map(path => path.getAttribute('d')))),
+      Object.values(sourceVideoControls.icons).flat().map(shape => shape.paths.map(path => path.d)));
+    await page.getByRole('button', { name: 'Pause', exact: true }).click();
     assert.equal(await player.evaluate(v => v.paused), true);
-    await page.locator('.nativeVideoControls button', { hasText: /^Unmute$/ }).click();
+    await page.getByRole('button', { name: 'Unmute', exact: true }).click();
     assert.equal(await player.evaluate(v => v.muted), false);
-    await page.locator('.nativeVideoControls input[aria-label="Video volume"]').evaluate(node => { node.value = '0.25'; node.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.locator('.nativeVideoControls input[aria-label="Video volume"]').evaluate(node => { node.value = '25'; node.dispatchEvent(new Event('input', { bubbles: true })); });
     await page.waitForTimeout(250);
     assert.equal(await page.evaluate(() => localStorage.getItem('4chan-volume')), '0.25');
     await page.evaluate(() => { window.retainedFallback = document.querySelector('#f1 .expanded-thumb'); });

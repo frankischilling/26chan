@@ -157,7 +157,11 @@ try {
     await expect(player).toBeVisible();
     await expect.poll(() => player.evaluate(element => element.videoWidth)).toBe(64);
     await expect.poll(() => player.evaluate(element => element.currentTime)).toBeGreaterThan(0);
-    if (outputExtension === '.webm') await expect(file.locator('.nativeVideoControls')).toBeVisible();
+    if (outputExtension === '.webm') {
+      await expect(file.locator('.nativeVideoControls')).toBeHidden();
+      await player.click({ position: { x: 4, y: 4 } });
+      await expect(file.locator('.nativeVideoControls')).toBeVisible();
+    }
     await file.locator('.nativeVideoClose').click();
     await expect(file.locator('.expanded-thumb,.nativeVideoControls')).toHaveCount(0);
     await page.evaluate(() => {

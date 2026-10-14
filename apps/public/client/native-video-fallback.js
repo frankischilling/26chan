@@ -1,3 +1,4 @@
+import sourceControls from '../../../fixtures/source-video-controls.json';
 // The fallback uses only pinned same-origin assets and an already-approved
 // WebM URL. Codec workers receive bytes, never arbitrary script locations.
 const loads = new WeakMap();
@@ -41,44 +42,62 @@ export async function createFallback({ document, url, mediaOrigin, active }) {
   const Player = await library(document);
   if (!active()) return null;
   const player = new Player({ wasm: true, threading: false, simd: false, worker: true });
-  const controls = document.createElement('div'); controls.className = 'nativeVideoControls';
+  const container = document.createElement('div'); container.className = 'ogv-cnt';
+  const controls = document.createElement('div'); controls.className = 'nativeVideoControls ogv-ctrl'; controls.hidden = true;
+  container.append(player, controls);
   const listeners = [];
   function on(node, event, callback) { node.addEventListener(event, callback); listeners.push(() => node.removeEventListener(event, callback)); }
-  function button(label, callback) {
-    const node = document.createElement('button'); node.type = 'button'; node.textContent = label;
+  function button(label, icon, callback) {
+    const node = document.createElement('button'); node.type = 'button'; node.className = 'ogv-btn'; node.setAttribute('aria-label', label);
+    for (const shape of sourceControls.icons[icon]) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      for (const [key, value] of Object.entries(shape.attributes)) svg.setAttribute(key, value);
+      svg.setAttribute('aria-hidden', 'true');
+      for (const attributes of shape.paths) {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        for (const [key, value] of Object.entries(attributes)) path.setAttribute(key, value);
+        svg.append(path);
+      }
+      node.append(svg);
+    }
     on(node, 'click', callback); controls.append(node); return node;
   }
-  const play = button('Play', () => { if (player.paused) player.play(); else player.pause(); refresh(); });
-  const mute = button('Mute', () => { player.muted = !player.muted; refresh(); });
-  const seek = document.createElement('input'); seek.type = 'range'; seek.min = '0'; seek.max = '100'; seek.step = '0.1'; seek.value = '0'; seek.setAttribute('aria-label', 'Video position');
+  const play = button('Play', 'play', () => { if (player.paused) player.play(); else player.pause(); refresh(); });
+  const mute = button('Mute', 'mute', () => { player.muted = !player.muted; refresh(); });
+  const seek = document.createElement('input'); seek.className = 'ogv-seek'; seek.type = 'range'; seek.min = '0'; seek.max = '100'; seek.step = '0.1'; seek.value = '0'; seek.setAttribute('aria-label', 'Video position');
   on(seek, 'change', () => {
     if (Number.isFinite(player.duration) && player.duration > 0) player.currentTime = Number(seek.value) * player.duration / 100;
   });
   controls.append(seek);
-  const volume = document.createElement('input'); volume.type = 'range'; volume.min = '0'; volume.max = '1'; volume.step = '0.01'; volume.setAttribute('aria-label', 'Video volume');
-  on(volume, 'input', () => { player.volume = Number(volume.value); refresh(); }); controls.append(volume);
-  const timestamp = document.createElement('span'); timestamp.className = 'nativeVideoTimestamp'; controls.append(timestamp);
-  button('Fullscreen', () => {
-    const request = document.fullscreenElement ? document.exitFullscreen?.() : player.parentElement?.requestFullscreen?.();
+  const volume = document.createElement('input'); volume.className = 'ogv-vol'; volume.type = 'range'; volume.min = '0'; volume.max = '100'; volume.step = '0.1'; volume.setAttribute('aria-label', 'Video volume');
+  on(volume, 'input', () => { player.volume = Number(volume.value) / 100; refresh(); }); controls.append(volume);
+  const timestamp = document.createElement('span'); timestamp.className = 'nativeVideoTimestamp ogv-ts'; controls.append(timestamp);
+  const fullscreen = button('Fullscreen', 'fullscreen', () => {
+    const request = document.fullscreenElement ? document.exitFullscreen?.() : container.requestFullscreen?.();
     if (request && typeof request.catch === 'function') request.catch(() => {});
   });
   const time = value => { const seconds = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0; return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`; };
   function refresh() {
-    play.textContent = player.paused ? 'Play' : 'Pause';
-    mute.textContent = player.muted ? 'Unmute' : 'Mute'; mute.setAttribute('aria-pressed', String(player.muted));
-    volume.value = String(player.volume);
+    play.setAttribute('aria-label', player.paused ? 'Play' : 'Pause'); play.classList.toggle('ogv-toggled', player.paused);
+    mute.setAttribute('aria-label', player.muted ? 'Unmute' : 'Mute'); mute.classList.toggle('ogv-toggled', player.muted); mute.setAttribute('aria-pressed', String(player.muted));
+    volume.value = String(player.volume * 100);
+    fullscreen.classList.toggle('ogv-toggled', document.fullscreenElement === container);
     timestamp.textContent = `${time(player.currentTime)} / ${time(player.duration)}`;
     if (document.activeElement !== seek) seek.value = Number.isFinite(player.duration) && player.duration > 0 ? String(100 * player.currentTime / player.duration) : '0';
   }
+  controls.replaceChildren(play, seek, timestamp, mute, volume, fullscreen);
+  on(player, 'mouseup', () => { controls.hidden = !controls.hidden; refresh(); });
+  on(player, 'loadedmetadata', () => container.classList.add('ogv-loaded'));
+  on(document, 'fullscreenchange', refresh);
   let disposed = false;
-  on(player, 'ended', () => { if (!disposed && active()) { player.currentTime = 0; player.play(); } });
+  on(player, 'ended', () => { if (!disposed && active()) { if (player.seekable.length) player.currentTime = 0; else player.stop(); player.play(); } });
   for (const event of ['loadedmetadata', 'volumechange', 'play', 'pause', 'timeupdate']) on(player, event, refresh);
-  const timer = setInterval(refresh, 500);
-  return { player, controls, dispose() {
+  const timer = setInterval(() => { if (!controls.hidden) refresh(); }, 500);
+  return { player, controls, container, dispose() {
     if (disposed) return; disposed = true; clearInterval(timer);
     for (const remove of listeners) remove();
     // stop() aborts the stream, closes audio, terminates codec workers and clears
     // decode/render timers. Removing only the DOM node would leak that work.
-    player.stop(); controls.remove(); player.remove();
+    player.stop(); controls.remove(); player.remove(); container.remove();
   } };
 }

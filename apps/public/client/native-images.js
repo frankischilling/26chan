@@ -183,9 +183,8 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
       player.className = previous.className; player.id = previous.id; player.hidden = true;
       player.muted = previous.muted; player.volume = previous.volume;
       player.setAttribute('aria-label', 'Video attachment');
-      projection?.claim(player, owner); projection?.claim(fallback.controls, owner);
-      previous.replaceWith(player); entry.image = player; entry.fallback = fallback;
-      if (expanded.get(entry.anchor) === entry) player.after(fallback.controls);
+      projection?.claim(fallback.container, owner); projection?.claim(player, owner); projection?.claim(fallback.controls, owner);
+      previous.replaceWith(expanded.get(entry.anchor) === entry ? fallback.container : player); entry.image = player; entry.fallback = fallback;
       begin();
     }).catch(failed);
   }
@@ -207,7 +206,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
       const saved = window.localStorage.getItem('4chan-volume');
       if (saved !== null && saved.trim() !== '' && Number.isFinite(Number(saved))) volume = Math.max(0, Math.min(1, Number(saved)));
     } catch { /* Storage denial retains the default volume. */ }
-    video.volume = volume;
+    if (configuration().unmuteWebm === true) video.volume = volume;
     projection?.claim(video, owner);
     return video;
   }

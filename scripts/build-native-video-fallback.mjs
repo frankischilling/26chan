@@ -19,18 +19,18 @@ const result = await build({
 });
 assert.equal(result.outputFiles.length, 1);
 assert.deepEqual(Object.keys(result.metafile.inputs).sort(), [
-  'apps/public/client/native-video-fallback.js',
+  'apps/public/client/native-video-fallback.js', 'fixtures/source-video-controls.json',
 ].sort());
 const [output] = Object.values(result.metafile.outputs);
 assert.deepEqual(output.imports, []);
 assert.deepEqual([...output.exports].sort(), ['createFallback']);
 const bytes = result.outputFiles[0].contents;
-assert.ok(bytes.length <= 8192, 'Image controls exceed the 8 KiB release budget');
+assert.ok(bytes.length <= 8192, 'Video fallback exceed the 8 KiB release budget');
 const target = new URL('apps/public/static/native-video-fallback.v1.js', root);
 if (args[0] === '--check') {
-  assert.ok(Buffer.from(bytes).equals(await readFile(target)), 'Image controls are stale; run npm run build:native-video-fallback');
-  console.log(`Native image controls match their pinned sources (${bytes.length} bytes).`);
+  assert.ok(Buffer.from(bytes).equals(await readFile(target)), 'Video fallback are stale; run npm run build:native-video-fallback');
+  console.log(`Video fallback match their pinned sources (${bytes.length} bytes).`);
 } else {
   await writeFile(target, bytes);
-  console.log(`Built native image controls (${bytes.length} bytes).`);
+  console.log(`Built video fallback (${bytes.length} bytes).`);
 }

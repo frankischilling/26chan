@@ -104,7 +104,10 @@ retiring, hiding or disabling a player releases its source. Playback failure
 keeps the filename link available for opening or downloading the attachment.
 These client changes have not yet passed the full browser suite. The WebM fallback uses the pinned OGV 1.9.0 decoder when native WebM support is
 missing or on the original iOS path. It provides play/pause, mute, seek, volume,
-fullscreen and elapsed time. Only one fallback decoder runs at once. Closing
+fullscreen and elapsed time. The source SVG controls keep their 32-pixel overlay,
+0–100 volume scale and tap-to-show behavior; keyboard-accessible buttons replace
+the original clickable divs. `fixtures/source-video-controls.json` records the
+source hash and exact SVG paths. Only one fallback decoder runs at once. Closing
 it calls OGV's stop method to abort reads and terminate codec workers.
 
 The fallback's scripts and WebAssembly files have fixed routes and recorded

@@ -27,7 +27,7 @@ const staff = 'npx playwright test --config playwright.staff.config.js';
 // from both the full sequence and the combined lane coverage unnoticed.
 // Reviewed additions include the numeric-quote and source-style reference checks.
 // Timeout doubles also record the command they execute.
-const originalCommands = `python3 scripts/extract-preview-policy-reference.py
+const expectedCommands = `python3 scripts/extract-preview-policy-reference.py
 python3 scripts/test-preview-policy-reference.py
 python3 scripts/extract-quote-resolution-reference.py
 python3 scripts/extract-quote-numeric-reference.py
@@ -56,6 +56,8 @@ cargo test --workspace --all-features --locked
 cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture
 cargo test -p board-public --example deletion-fixture --features database-tests --locked
 cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked
+npm run test:images-core
+npm run test:files-core
 timeout 300s npm run test:drawing
 npm run test:drawing
 npx playwright test tests/browser/anonymous-session.spec.js
@@ -74,8 +76,6 @@ npx playwright test tests/browser/static-quotes.spec.js tests/browser/quote-reso
 npm run test:quote-preview
 npm run test:backlinks
 npm run test:inline-quotes
-npm run test:images-core
-npm run test:files-core
 npm run test:custom-spoilers
 npm run test:source-flags
 npm run test:display
@@ -203,21 +203,21 @@ test('real verification runner stops on every fixture prerequisite or drawing fa
   }
 });
 
-test('default and explicit all preserve the exact original command sequence', options, t => {
+test('default and explicit all preserve the exact declared command sequence', options, t => {
   for (const args of [[], ['all']]) {
     const result = runRunner(t, { args });
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(result.commands, originalCommands);
+    assert.deepEqual(result.commands, expectedCommands);
   }
 });
 
-test('the original sequence assertion detects a command removed from every mode', options, t => {
+test('the sequence assertion detects a command removed from every mode', options, t => {
   const source = readFileSync(runner, 'utf8').replace('  npm run test:polls\n', '');
   assert.notEqual(source, readFileSync(runner, 'utf8'));
   const result = runRunner(t, { source });
   assert.equal(result.status, 0, result.stderr);
   assert.ok(!result.commands.includes('npm run test:polls'));
-  assert.throws(() => assert.deepEqual(result.commands, originalCommands), { code: 'ERR_ASSERTION' });
+  assert.throws(() => assert.deepEqual(result.commands, expectedCommands), { code: 'ERR_ASSERTION' });
 });
 
 test('CI suites cover the full runner with only repeated dependency and fixture preparation', options, t => {
