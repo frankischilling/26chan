@@ -497,11 +497,14 @@ async fn exercise(f: &Fixture) {
             'content.set_post_image_spoiler(text,bigint,boolean)'::regprocedure,
             'content.lock_staff_attachment_receipt(text,bigint,text,bytea)'::regprocedure,
             'content.consume_staff_attachment_receipt(bigint,text,bigint,text,bytea,boolean,boolean)'::regprocedure,
-            'content.check_image_board_policy(text,bigint,integer,integer,text)'::regprocedure
+            'content.check_image_board_policy(text,bigint,integer,integer,text)'::regprocedure,
+            'content.check_attachment_board_policy(text,bigint,bigint,integer,integer,text,text,bigint,boolean)'::regprocedure
         ] AS functions)
         SELECT count(*)=cardinality(required.functions)
             AND bool_and(p.oid=ANY(required.functions)
-                AND p.prosecdef=(p.oid<>'content.check_image_board_policy(text,bigint,integer,integer,text)'::regprocedure)
+                AND p.prosecdef=(p.oid<>ALL(ARRAY[
+                    'content.check_image_board_policy(text,bigint,integer,integer,text)'::regprocedure,
+                    'content.check_attachment_board_policy(text,bigint,bigint,integer,integer,text,text,bigint,boolean)'::regprocedure]))
                 AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
                 AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee=0))
         FROM required CROSS JOIN pg_proc p JOIN pg_roles r ON r.oid=p.proowner
@@ -512,17 +515,19 @@ async fn exercise(f: &Fixture) {
         "Attachment owner must have exactly the reviewed function set"
     );
     let policy_helper_private: bool = sqlx::query_scalar(
-        "SELECT NOT p.prosecdef
+        "SELECT count(*)=2 AND bool_and(NOT p.prosecdef
             AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee<>p.proowner)
             AND NOT EXISTS (SELECT 1 FROM pg_roles r
                 WHERE r.rolname=ANY(ARRAY['board_public','board_staff','board_auth','board_media',
                     'board_media_read','board_media_intake','board_monitor','board_staff_post_owner'])
-                AND has_function_privilege(r.oid,p.oid,'EXECUTE'))
-        FROM pg_proc p WHERE p.oid='content.check_image_board_policy(text,bigint,integer,integer,text)'::regprocedure",
+                AND has_function_privilege(r.oid,p.oid,'EXECUTE')))
+        FROM pg_proc p WHERE p.oid=ANY(ARRAY[
+            'content.check_image_board_policy(text,bigint,integer,integer,text)'::regprocedure,
+            'content.check_attachment_board_policy(text,bigint,bigint,integer,integer,text,text,bigint,boolean)'::regprocedure])",
     ).fetch_one(&f.admin).await.unwrap();
     assert!(
         policy_helper_private,
-        "Only the attachment owner may call the policy helper"
+        "Only the attachment owner may call either policy helper"
     );
     // These two exact entry points bridge consumed staff proof to media.
     // Only the proof owner may call them; runtimes cannot forge that handoff
