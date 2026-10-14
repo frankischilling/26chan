@@ -41,14 +41,19 @@ fn boot() -> io::Result<()> {
     }
     let kind = board_media_guest::paired::kernel_input_kind(&fs::read_to_string("/proc/cmdline")?)?;
     let pdf = kind == board_media_guest::paired::InputKind::PdfV4;
-    if pdf {
+    let video = kind == board_media_guest::paired::InputKind::VideoV5;
+    if pdf || video {
         fs::create_dir_all("/tmp")?;
         mount(
             "tmpfs",
             "/tmp",
             "tmpfs",
             MountFlags::NOSUID | MountFlags::NODEV | MountFlags::NOEXEC,
-            Some(c"size=16m,mode=0700,uid=1000,gid=1000"),
+            Some(if video {
+                c"size=24m,mode=0700,uid=1000,gid=1000"
+            } else {
+                c"size=16m,mode=0700,uid=1000,gid=1000"
+            }),
         )?;
     }
     fs::set_permissions("/dev/vda", fs::Permissions::from_mode(0o444))?;
@@ -63,7 +68,7 @@ fn boot() -> io::Result<()> {
         // output disk remains independently fixed by the broker and validator.
         (
             Resource::Fsize,
-            if pdf {
+            if pdf || video {
                 8 * 1024 * 1024
             } else {
                 kind.output_bytes()

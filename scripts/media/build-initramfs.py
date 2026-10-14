@@ -52,7 +52,11 @@ def main():
     parser.add_argument("output", type=pathlib.Path)
     parser.add_argument("--pdf-runtime", action="store_true",
                         help="include the fixed installed Ghostscript runtime")
+    parser.add_argument("--video-runtime", action="store_true",
+                        help="include the fixed minimal video runtime")
     args = parser.parse_args()
+    if args.pdf_runtime and args.video_runtime:
+        parser.error("one explicit media runtime per image")
     binary = args.binary.read_bytes()
     worker = args.worker.read_bytes()
     if any(len(data) > 16 * 1024 * 1024 or not data.startswith(b"\x7fELF") for data in (binary, worker)):
@@ -63,6 +67,14 @@ def main():
         runtime, manifest = collect_pdf_runtime()
         files.update(runtime)
         files['pdf-runtime.json'] = (0o444, (json.dumps(manifest, sort_keys=True) + '\n').encode())
+        for name in files:
+            directories.update(str(parent) for parent in pathlib.PurePosixPath(name).parents
+                               if str(parent) != '.')
+    if args.video_runtime:
+        from video_runtime import collect as collect_video_runtime
+        runtime, manifest = collect_video_runtime()
+        files.update(runtime)
+        files['video-runtime.json'] = (0o444, (json.dumps(manifest, sort_keys=True) + '\n').encode())
         for name in files:
             directories.update(str(parent) for parent in pathlib.PurePosixPath(name).parents
                                if str(parent) != '.')

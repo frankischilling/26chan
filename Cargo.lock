@@ -483,6 +483,7 @@ dependencies = [
  "png",
  "proptest",
  "rustix",
+ "serde_json",
  "tokio",
  "weezl",
  "zune-jpeg",

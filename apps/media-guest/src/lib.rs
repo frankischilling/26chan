@@ -11,6 +11,9 @@ pub mod paired;
 pub mod pdf;
 pub mod replay;
 pub mod replay_output;
+#[cfg(target_os = "linux")]
+pub mod video;
+pub mod video_probe;
 
 /// Format selection and every complex parser stay inside the disposable guest.
 /// Extensions and client content types are never used to select a decoder.

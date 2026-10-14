@@ -9,6 +9,7 @@ pub const MAX_PAIRED_INPUT: u64 = 16_777_272;
 pub const PAIRED_OUTPUT_LENGTH: u64 = 4_456_960;
 pub const GIF_OUTPUT_LENGTH: u64 = 17_825_792;
 pub const PDF_OUTPUT_LENGTH: u64 = OUTPUT_LENGTH;
+pub const VIDEO_OUTPUT_LENGTH: u64 = 9 * 1024 * 1024;
 
 /// Transport framing only: the binding and completed pair remain opaque here.
 #[derive(Debug, PartialEq, Eq)]
@@ -16,6 +17,7 @@ pub enum Request {
     ImageV1(Vec<u8>),
     GifV3(Vec<u8>),
     PdfV4(Vec<u8>),
+    VideoV5(Vec<u8>),
     PairedV2 { binding: [u8; 32], input: Vec<u8> },
 }
 
@@ -31,6 +33,13 @@ pub async fn read_versioned_request<R: AsyncRead + Unpin>(input: &mut R) -> Resu
         }
         b"IBJOB004" if (1..=MAX_INPUT).contains(&length) => {
             Ok(Request::PdfV4(read_body(input, length).await?))
+        }
+        b"IBJOB005" if (2..=MAX_INPUT + 1).contains(&length) => {
+            let body = read_body(input, length).await?;
+            if !matches!(body[0], 1 | 2) {
+                return Err(Error::Frame);
+            }
+            Ok(Request::VideoV5(body))
         }
         b"IBJOB002" if (MIN_PAIRED_INPUT..=MAX_PAIRED_INPUT).contains(&length) => {
             let (binding, input) = read_paired_body(input, length).await?;
@@ -87,6 +96,31 @@ pub async fn read_gif_response<R: AsyncRead + Unpin>(input: &mut R) -> Result<Ve
 
 pub async fn read_pdf_response<R: AsyncRead + Unpin>(input: &mut R) -> Result<Vec<u8>> {
     read_frame(input, b"IBOUT004", PDF_OUTPUT_LENGTH, PDF_OUTPUT_LENGTH).await
+}
+
+pub async fn read_video_response<R: AsyncRead + Unpin>(input: &mut R) -> Result<Vec<u8>> {
+    read_frame(input, b"IBOUT005", VIDEO_OUTPUT_LENGTH, VIDEO_OUTPUT_LENGTH).await
+}
+
+/// The bounded frame begins with a fixed container tag, followed by the upload.
+pub async fn write_video_request<W: AsyncWrite + Unpin>(
+    bytes: &[u8],
+    output: &mut W,
+) -> Result<()> {
+    if !(2..=MAX_INPUT as usize + 1).contains(&bytes.len()) || !matches!(bytes[0], 1 | 2) {
+        return Err(Error::Frame);
+    }
+    write_frame(bytes, bytes.len() as u64, output, b"IBJOB005").await
+}
+
+pub async fn write_video_response<W: AsyncWrite + Unpin>(
+    bytes: &[u8],
+    output: &mut W,
+) -> Result<()> {
+    if bytes.len() as u64 != VIDEO_OUTPUT_LENGTH {
+        return Err(Error::Frame);
+    }
+    write_frame(bytes, VIDEO_OUTPUT_LENGTH, output, b"IBOUT005").await
 }
 
 pub async fn write_pdf_request<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
