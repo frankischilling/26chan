@@ -534,6 +534,30 @@ async fn board_filters_validate_strictly_and_deny_precedes_existence() {
     result.unwrap();
 }
 
+fn contains_numeric_token(text: &str, expected: &str) -> bool {
+    text.split(|value: char| !value.is_ascii_digit() && value != '.')
+        .any(|value| value == expected)
+}
+
+#[test]
+fn weight_guard_distinguishes_report_timestamps_from_private_numeric_values() {
+    for visible in [
+        "2026-10-14 13:02:50.579711 UTC",
+        "2026-10-14 13:02:50.505940 UTC",
+        "2026-10-14 13:02:00.500000 UTC",
+    ] {
+        assert!(!contains_numeric_token(visible, "0.5"));
+    }
+    for leaked in [
+        "<p>Weight: 0.5</p>",
+        "<span data-weight=\"0.5\">report</span>",
+        r#"{"effective_weight":0.5}"#,
+        "0.5",
+    ] {
+        assert!(contains_numeric_token(leaked, "0.5"));
+    }
+}
+
 #[tokio::test]
 async fn moderator_summaries_are_distinct_captured_bounded_escaped_and_absent_for_janitors() {
     let _serial = TEST.lock().await;
@@ -605,13 +629,16 @@ async fn moderator_summaries_are_distinct_captured_bounded_escaped_and_absent_fo
                         "category_id",
                         "category_kind",
                         "effective_weight",
-                        "0.5",
                     ] {
                         assert!(
                             !html.contains(forbidden),
-                            "Janitor response leaked {forbidden}: {html}"
+                            "Janitor response leaked {forbidden}"
                         );
                     }
+                    assert!(
+                        !contains_numeric_token(&html, "0.5"),
+                        "Janitor response leaked the private weight token"
+                    );
                 } else {
                     assert!(html.contains("Uncleared retained reports: 6."));
                     assert!(html.contains("CapturedTitleSentinel"));
