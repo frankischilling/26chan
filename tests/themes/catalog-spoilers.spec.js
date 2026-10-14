@@ -71,9 +71,22 @@ test('finite reveal storage, explicit URLs, reset and unavailable storage stay s
   await expect(page.getByLabel('Spoilers:', { exact: true })).toHaveValue('off');
   await page.goto('/img/catalog?q=');
   await expect(page.getByLabel('Spoilers:', { exact: true })).toHaveValue('on');
-  await page.locator('#catalog-reset').click();
-  await expect(page.getByLabel('Spoilers:', { exact: true })).toHaveValue('off');
-  expect(await page.evaluate(() => localStorage.getItem('catalog-theme'))).toBeNull();
+  // Reset updates the control immediately; persistence waits for the shared lock.
+  await page.evaluate(() => new Promise(held => {
+    window.ownedResetLock = navigator.locks.request('paperboard-thread-watcher', async () => {
+      held(); await new Promise(release => { window.releaseOwnedResetLock = release; });
+    });
+  }));
+  try {
+    await page.locator('#catalog-reset').click();
+    await expect(page.getByLabel('Spoilers:', { exact: true })).toHaveValue('off');
+    await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).pending
+      .some(lock => lock.name === 'paperboard-thread-watcher'))).toBe(true);
+    expect(await page.evaluate(() => localStorage.getItem('catalog-theme'))).toBe('{"nospoiler":true}');
+  } finally {
+    await page.evaluate(async () => { window.releaseOwnedResetLock(); await window.ownedResetLock; });
+  }
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('catalog-theme'))).toBeNull();
   await page.addInitScript(() => { for (const name of ['getItem', 'setItem', 'removeItem']) Storage.prototype[name] = () => { throw new Error('unavailable'); }; });
   await page.goto('/img/catalog?spoilers=off&q=');
   await page.getByLabel('Spoilers:', { exact: true }).selectOption('on');
