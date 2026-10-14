@@ -710,8 +710,10 @@ mod stream_tests {
     async fn parser_adapter_rejects_excess_before_emitting_it() {
         let count = Arc::new(AtomicUsize::new(0));
         let bytes = Bytes::from(vec![3u8; 16_384]);
+        assert_eq!(MAX_MULTIPART_BYTES % bytes.len(), 0);
+        let frames = MAX_MULTIPART_BYTES / bytes.len() + 1;
         let source = futures_util::stream::iter(
-            (0..514).map(move |_| Ok::<_, std::io::Error>(bytes.clone())),
+            (0..frames).map(move |_| Ok::<_, std::io::Error>(bytes.clone())),
         );
         let mut stream =
             bounded_multipart_body(Body::from_stream(source), count.clone()).into_data_stream();
