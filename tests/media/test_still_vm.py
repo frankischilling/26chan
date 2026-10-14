@@ -48,6 +48,26 @@ class StillVmTest(unittest.TestCase):
             self.assertEqual(len(data), OUTPUT_BYTES)
             return data
 
+    def test_lossless_jpeg_cleanup_and_explicit_retention(self):
+        metadata = b'Exif\0\0SYNTHETIC-PRIVATE-METADATA'
+        for name in ('baseline', 'progressive', 'grayscale', 'cmyk'):
+            with self.subTest(name=name):
+                original = (REPO / 'tests/media/fixtures/jpeg' / f'{name}.jpg').read_bytes()
+                tagged = original[:2] + b'\xff\xe1' + struct.pack('>H', len(metadata) + 2) + metadata + original[2:]
+                for strip in (False, True):
+                    policy = b'IBSTIL06' + bytes([4 | int(strip), 2]) + struct.pack('>HH', 250, 250) + bytes(2)
+                    output = self.run_job(policy + tagged)
+                    self.assertEqual(output[:8], b'IBIMG006')
+                    self.assertEqual(output[8:24], policy)
+                    length = struct.unpack('>I', output[48:52])[0]
+                    retained = output[64:64 + length]
+                    self.assertTrue(retained.startswith(b'\xff\xd8\xff'))
+                    self.assertTrue(retained.endswith(b'\xff\xd9'))
+                    if strip:
+                        self.assertNotIn(metadata, retained)
+                    else:
+                        self.assertEqual(retained, tagged)
+
     def test_still_profile_preserves_worker_boundaries(self):
         for mode, checks in [('inspect', 9), ('memory', 1), ('process', 1), ('disk', 1)]:
             with self.subTest(mode=mode):

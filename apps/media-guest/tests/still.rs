@@ -166,3 +166,29 @@ fn disk_frame_padding_and_end_are_checked() {
     *disk.last_mut().unwrap() = 1;
     assert!(still::decode_disk(disk.as_slice()).is_err());
 }
+
+#[tokio::test]
+async fn guest_output_matches_independent_host_envelope_checks() {
+    use board_media::still::{StillFormat as HostFormat, StillPolicy, ValidatedStill};
+    let input = png(17, 9, png::ColorType::Rgb, &[80, 40, 20].repeat(17 * 9));
+    let guest_policy = policy(StillFormat::Png);
+    let host_policy = StillPolicy {
+        format: HostFormat::Png,
+        strip_exif: guest_policy.strip_exif,
+        mobile: guest_policy.mobile,
+        thread: guest_policy.thread,
+        blue_background: guest_policy.blue_background,
+        thumbnail: guest_policy.thumbnail,
+    };
+    assert_eq!(
+        guest_policy.header().unwrap(),
+        host_policy.header().unwrap()
+    );
+    let output = still::process(&input, guest_policy).unwrap();
+    let checked = ValidatedStill::read_disk(std::io::Cursor::new(output), host_policy)
+        .await
+        .unwrap();
+    assert_eq!(checked.retained().bytes(), input);
+    assert_eq!(checked.retained().dimensions(), (17, 9));
+    assert_eq!(checked.thumbnail().dimensions(), (17, 9));
+}
