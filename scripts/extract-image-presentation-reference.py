@@ -72,7 +72,19 @@ def extract(source):
     return {'source_sha256': SOURCE_SHA, 'blocks': blocks, 'cases': cases()}
 
 
+def validate(reference):
+    if reference.get('source_sha256') != SOURCE_SHA or reference.get('cases') != cases():
+        raise ValueError('Image reference differs from the reviewed source or expectations.')
+    blocks = reference.get('blocks', {})
+    if set(blocks) != set(BLOCKS):
+        raise ValueError('Image reference has unexpected source blocks.')
+    for name, (_, _, digest) in BLOCKS.items():
+        if hashlib.sha256(blocks[name].encode()).hexdigest() != digest:
+            raise ValueError('Source geometry block changed: ' + name)
+
+
 def check_php(reference, php):
+    validate(reference)
     blocks = reference['blocks']
     # Complete the captured prefix with the captured geometry calculation and a
     # return, without including any decoder, image writer, or application code.
@@ -105,11 +117,18 @@ echo json_encode($result, JSON_THROW_ON_ERROR);
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('source', type=Path)
+    parser.add_argument('source', type=Path, nargs='?')
     parser.add_argument('--output', type=Path, default=ROOT / 'fixtures/source-image-presentation.json')
     parser.add_argument('--check', action='store_true')
     parser.add_argument('--php')
+    parser.add_argument('--php-oracle', action='store_true')
     args = parser.parse_args()
+    if args.source is None:
+        if not args.php_oracle:
+            parser.error('Supply the source checkout or --php-oracle.')
+        reference = json.loads(args.output.read_text())
+        check_php(reference, args.php or 'php')
+        return
     reference = extract(args.source)
     data = json.dumps(reference, indent=2) + '\n'
     if args.check:
@@ -117,8 +136,8 @@ def main():
             raise SystemExit('Image presentation fixture differs from the reviewed source.')
     else:
         args.output.write_text(data)
-    if args.php:
-        check_php(reference, args.php)
+    if args.php or args.php_oracle:
+        check_php(reference, args.php or 'php')
 
 
 if __name__ == '__main__':

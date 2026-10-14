@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Verify the reviewed image geometry fixture independently of image codecs."""
+import copy
 import hashlib
 import importlib.util
 import json
@@ -22,6 +23,17 @@ class ImagePresentationReferenceTests(unittest.TestCase):
         self.assertEqual(set(REFERENCE['blocks']), set(MODULE.BLOCKS))
         for name, (_, _, digest) in MODULE.BLOCKS.items():
             self.assertEqual(hashlib.sha256(REFERENCE['blocks'][name].encode()).hexdigest(), digest)
+
+    def test_changed_oracle_code_is_rejected_before_execution(self):
+        for group in MODULE.BLOCKS:
+            altered = copy.deepcopy(REFERENCE)
+            altered['blocks'][group] += "echo 'changed';"
+            with self.assertRaisesRegex(ValueError, 'block changed'):
+                MODULE.check_php(altered, '/must/not/be/executed')
+        altered = copy.deepcopy(REFERENCE)
+        altered['cases']['thumbnail'][0]['expected'] = [1, 1]
+        with self.assertRaisesRegex(ValueError, 'expectations'):
+            MODULE.check_php(altered, '/must/not/be/executed')
 
     def test_changed_source_is_not_recaptured(self):
         with tempfile.TemporaryDirectory() as folder:
