@@ -23,6 +23,8 @@ POLICY_KEYS.update({"ENABLE_PAINTERJS", "ENABLE_OEKAKI_REPLAYS", "PAINTERJS_DIMS
 POLICY_KEYS.update({"MIN_W", "MIN_H", "MAX_DIMENSION"})
 POLICY_KEYS.add("ENABLE_PDF")
 POLICY_KEYS.add("MAX_WEBM_DIMENSION")
+POLICY_KEYS.update({"MAX_W", "MAX_H", "MAXR_W", "MAXR_H", "MOBILE_IMG_RESIZE",
+                    "STRIP_EXIF", "STRIP_EXIF_ON_CAPCODE", "DEFAULT_BURICHAN"})
 
 
 def policy(path):
@@ -122,6 +124,14 @@ def extract(root, names_encoding="utf-8", historical_titles=False):
             "min_image_height": int(values.get("MIN_H", "1")),
             "max_image_dimension": int(values.get("MAX_DIMENSION", "5000")),
             "gif_only": boolean("GIF_ONLY"),
+            "image_presentation": {
+                "thread_thumbnail": [integer("MAX_W"), integer("MAX_H")],
+                "reply_thumbnail": [integer("MAXR_W"), integer("MAXR_H")],
+                "mobile_resize": boolean("MOBILE_IMG_RESIZE"),
+                "strip_exif": boolean("STRIP_EXIF"),
+                "strip_exif_on_capcode": boolean("STRIP_EXIF_ON_CAPCODE"),
+                "blue_thumbnail_background": boolean("DEFAULT_BURICHAN"),
+            },
             "pdf_enabled": boolean("ENABLE_PDF"),
             "video_enabled": boolean("ENABLE_WEBM"),
             "video_audio": boolean("ENABLE_WEBM_AUDIO"),
@@ -160,6 +170,7 @@ def migration(reference):
         "oekaki", "oekaki_replays", "oekaki_width", "oekaki_height", "show_blotter", "board_subtitle", "replies_shown",
         "max_image_bytes", "min_image_width", "min_image_height", "max_image_dimension", "gif_only",
         "pdf_enabled", "video_enabled", "video_audio", "max_video_bytes", "max_video_duration", "max_video_dimension",
+        "image_presentation",
     }]
     def sql(value):
         if isinstance(value, bool):

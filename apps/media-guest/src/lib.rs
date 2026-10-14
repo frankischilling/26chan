@@ -6,6 +6,7 @@ mod gif;
 mod jpeg;
 
 pub mod animation;
+pub mod image_geometry;
 pub mod paired;
 #[cfg(target_os = "linux")]
 pub mod pdf;
