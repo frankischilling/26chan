@@ -48,38 +48,55 @@ impl Raster {
             return Err(io::Error::other("image derivative geometry rejected"));
         }
         let mut output = Vec::with_capacity(width as usize * height as usize * 3);
-        let scale_x = f64::from(self.width) / f64::from(width);
-        let scale_y = f64::from(self.height) / f64::from(height);
+        // GD loads PNG opacity into seven-bit inverse alpha. Its resampler
+        // rounds the averaged alpha before blending into the opaque backdrop.
         for y in 0..height {
-            let top = f64::from(y) * scale_y;
-            let bottom = f64::from(y + 1) * scale_y;
+            let top = y as f32 * self.height as f32 / height as f32;
+            let bottom = (y + 1) as f32 * self.height as f32 / height as f32;
             for x in 0..width {
-                let left = f64::from(x) * scale_x;
-                let right = f64::from(x + 1) * scale_x;
-                let mut color = [0.0; 3];
-                let mut coverage = 0.0;
+                let left = x as f32 * self.width as f32 / width as f32;
+                let right = (x + 1) as f32 * self.width as f32 / width as f32;
+                let mut color = [0.0f32; 3];
+                let mut alpha = 0.0f32;
+                let mut opacity = 0.0f32;
+                let mut coverage = 0.0f32;
                 for sy in top.floor() as u32..(bottom.ceil() as u32).min(self.height) {
-                    let vertical =
-                        (bottom.min(f64::from(sy + 1)) - top.max(f64::from(sy))).max(0.0);
+                    let vertical = (bottom.min((sy + 1) as f32) - top.max(sy as f32)).max(0.0);
                     for sx in left.floor() as u32..(right.ceil() as u32).min(self.width) {
                         let horizontal =
-                            (right.min(f64::from(sx + 1)) - left.max(f64::from(sx))).max(0.0);
+                            (right.min((sx + 1) as f32) - left.max(sx as f32)).max(0.0);
                         let weight = horizontal * vertical;
                         let pixel = self.rgba(sx, sy);
-                        let alpha = f64::from(pixel[3]) / 255.0;
+                        let inverse_alpha = f32::from(127 - (pixel[3] >> 1));
+                        let opaque_weight = (127.0 - inverse_alpha) * weight;
                         for channel in 0..3 {
-                            color[channel] += weight
-                                * (f64::from(pixel[channel]) * alpha
-                                    + f64::from(background[channel]) * (1.0 - alpha));
+                            color[channel] += f32::from(pixel[channel]) * opaque_weight;
                         }
+                        alpha += inverse_alpha * weight;
+                        opacity += opaque_weight;
                         coverage += weight;
                     }
                 }
                 if !coverage.is_finite() || coverage <= 0.0 {
                     return Err(io::Error::other("image derivative coverage rejected"));
                 }
-                for value in color {
-                    output.push((value / coverage).round().clamp(0.0, 255.0) as u8);
+                for value in &mut color {
+                    *value /= coverage;
+                }
+                alpha /= coverage;
+                if opacity != 0.0 {
+                    opacity /= coverage;
+                    for value in &mut color {
+                        *value /= opacity;
+                    }
+                }
+                let inverse_alpha = (alpha + 0.5).min(127.0) as u32;
+                for (channel, value) in color.into_iter().enumerate() {
+                    let source = (value + 0.5).min(255.0) as u32;
+                    let blended = (source * (127 - inverse_alpha)
+                        + u32::from(background[channel]) * inverse_alpha)
+                        / 127;
+                    output.push(blended as u8);
                 }
             }
         }
@@ -90,6 +107,53 @@ impl Raster {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn captured_gd_pixels_cover_alpha_quantization_and_fractional_resampling() {
+        let reference: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/gd-still-resampling.json"
+        ))
+        .unwrap();
+        assert_eq!(reference["version"], "2.3.3");
+        let cases = reference["cases"].as_array().unwrap();
+        assert_eq!(cases.len(), 65);
+        for (index, case) in cases.iter().enumerate() {
+            let width = case["size"][0].as_u64().unwrap() as u32;
+            let height = case["size"][1].as_u64().unwrap() as u32;
+            let mut pixels = Vec::new();
+            for y in 0..height {
+                for x in 0..width {
+                    let alpha = if case["alpha"] == "mixed" {
+                        (x * 19 + y * 37) % 256
+                    } else {
+                        case["alpha"].as_u64().unwrap() as u32
+                    };
+                    pixels.extend_from_slice(&[
+                        ((x * 17 + y * 23) % 256) as u8,
+                        ((x * 31 + y * 11) % 256) as u8,
+                        ((x * 53 + y * 7) % 256) as u8,
+                        alpha as u8,
+                    ]);
+                }
+            }
+            let background = std::array::from_fn(|i| case["background"][i].as_u64().unwrap() as u8);
+            let raster = Raster::new(width, height, 4, pixels).unwrap();
+            let actual = raster
+                .resize(
+                    case["output"][0].as_u64().unwrap() as u32,
+                    case["output"][1].as_u64().unwrap() as u32,
+                    background,
+                )
+                .unwrap();
+            let expected: Vec<u8> = case["expected"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_u64().unwrap() as u8)
+                .collect();
+            assert_eq!(actual, expected, "GD reference case {index}");
+        }
+    }
 
     #[test]
     fn transparent_rgb_does_not_bleed_into_background() {

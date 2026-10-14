@@ -20,6 +20,8 @@ The supplied application source does not pin the deployed GD, jpegtran or jpegop
 
 The current worker's address-space limit is 96 MiB and its default VM memory is 128 MiB. Supporting 10,000 by 10,000 images with full-frame decoders requires a separate resource review. On October 14, 2026, the owner approved a separate still-image profile capped at 2 GiB of VM memory and 2.5 GiB of host memory, one job at a time, with hard time limits. Implementation and runtime qualification are still in progress; this approval is not evidence that the profile has passed VM tests. This profile must not change the limits for existing image, replay, GIF, PDF or video jobs. The runner must retain single-job exclusion, process-group termination, fixed output sizes, no network interface, unprivileged decoding and post-termination output validation.
 
+The resampler has a separate 65-case pixel reference captured with libgd 2.3.3. It covers seven-bit inverse alpha, opaque-background blending and fractional resizing. The Rust worker matches those captured RGB values before JPEG encoding. This records the tested GD baseline; the original deployment's version remains unknown. Regenerate or check it with `scripts/extract-gd-still-resampling-reference.py` on a host with libgd 2.3.3.
+
 Run the source checks with:
 
 ```sh

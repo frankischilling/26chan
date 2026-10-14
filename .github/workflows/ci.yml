@@ -238,7 +238,8 @@ jobs:
             cargo test -p board-media-guest --lib owned_runtime --locked -- --ignored
       - name: Build the pinned isolated JPEG cleaner
         run: |
-          sudo apt-get install -y cmake
+          sudo apt-get install -y cmake libgd3
+          python3 scripts/extract-gd-still-resampling-reference.py --check
           curl --fail --location --max-time 120 https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.2.0/libjpeg-turbo-3.2.0.tar.gz -o .local/libjpeg-turbo-3.2.0.tar.gz
           bash scripts/media/build-still-runtime.sh .local/libjpeg-turbo-3.2.0.tar.gz .local/still-runtime
           sudo install -d -m 0755 /usr/lib/26chan-still
