@@ -26,6 +26,12 @@ pub struct PostAttachment {
     pub output_format: crate::media_assets::MediaFormat,
 }
 
+impl PostAttachment {
+    pub fn display_filename(&self) -> String {
+        board_domain::file_name::display(&self.filename, self.output_format.extension())
+    }
+}
+
 pub async fn attachment(pool: &PgPool, post_id: i64) -> Result<Option<PostAttachment>, StoreError> {
     Ok(
         sqlx::query_as("SELECT * FROM content.visible_post_media WHERE post_id = $1")

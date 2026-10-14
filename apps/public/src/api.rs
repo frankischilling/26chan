@@ -286,12 +286,7 @@ fn post_json(
         value["filedeleted"] = json!(1);
     } else if let Some(file) = post.post.attachment {
         value["tim"] = json!(file.tim);
-        value["filename"] = json!(
-            file.filename
-                .rsplit_once('.')
-                .filter(|(stem, _)| !stem.is_empty())
-                .map_or(file.filename.as_str(), |(stem, _)| stem)
-        );
+        value["filename"] = json!(board_domain::file_name::basename(&file.filename));
         value["ext"] = json!(format!(".{}", file.output_format.extension()));
         value["fsize"] = json!(file.bytes);
         value["w"] = json!(file.width);

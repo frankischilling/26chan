@@ -73,11 +73,12 @@ impl IntakeStore {
         thread_id: i64,
         capcode: bool,
     ) -> Result<IntakeReservation, StoreError> {
+        let filename = board_domain::file_name::strip_upload_direction_controls(filename);
         if filename.contains('\0') || board.contains('\0') {
             return Err(StoreError::Invalid("Invalid image posting context."));
         }
         sqlx::query_as("SELECT id, capability FROM media_intake.reserve_image($1,$2,$3,$4)")
-            .bind(filename)
+            .bind(&filename)
             .bind(board)
             .bind(thread_id)
             .bind(capcode)
