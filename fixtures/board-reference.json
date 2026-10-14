@@ -122,20 +122,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -262,20 +248,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -402,20 +374,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -542,20 +500,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -682,20 +626,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -822,20 +752,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -962,20 +878,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -1102,20 +1004,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": true,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": true,
@@ -1243,20 +1131,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -1383,20 +1257,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -1523,20 +1383,6 @@
       "min_image_height": 1000,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -1663,20 +1509,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -1803,20 +1635,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -1943,20 +1761,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -2083,20 +1887,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -2223,20 +2013,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": false,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -2363,20 +2139,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": true,
@@ -2503,20 +2265,6 @@
       "min_image_height": 500,
       "max_image_dimension": 8000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -2643,20 +2391,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -2783,20 +2517,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -2923,20 +2643,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -3063,20 +2769,6 @@
       "min_image_height": 600,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -3203,20 +2895,6 @@
       "min_image_height": 600,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -3343,20 +3021,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -3483,20 +3147,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -3623,20 +3273,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -3763,20 +3399,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -3903,20 +3525,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -4043,20 +3651,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -4183,20 +3777,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -4323,20 +3903,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -4463,20 +4029,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -4603,20 +4155,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -4743,20 +4281,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -4883,20 +4407,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -5023,20 +4533,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -5163,20 +4659,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": true,
       "video_enabled": true,
       "video_audio": false,
@@ -5303,20 +4785,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -5443,20 +4911,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": true,
       "video_enabled": true,
       "video_audio": false,
@@ -5583,20 +5037,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -5723,20 +5163,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -5863,20 +5289,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -6003,20 +5415,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -6143,20 +5541,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -6284,20 +5668,6 @@
       "min_image_height": 1,
       "max_image_dimension": 8000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -6424,20 +5794,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -6565,20 +5921,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": true,
@@ -6705,20 +6047,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -6845,20 +6173,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -6985,20 +6299,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -7125,20 +6425,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": true,
       "video_enabled": true,
       "video_audio": false,
@@ -7265,20 +6551,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -7405,20 +6677,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -7545,20 +6803,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -7685,20 +6929,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -7825,20 +7055,6 @@
       "min_image_height": 500,
       "max_image_dimension": 8000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -7965,20 +7181,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          200,
-          200
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -8105,20 +7307,6 @@
       "min_image_height": 1,
       "max_image_dimension": 8000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -8245,20 +7433,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -8385,20 +7559,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": true,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": true,
@@ -8525,20 +7685,6 @@
       "min_image_height": 1,
       "max_image_dimension": 8000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -8665,20 +7811,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -8805,20 +7937,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -8945,20 +8063,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": true,
       "video_enabled": true,
       "video_audio": false,
@@ -9085,20 +8189,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -9225,20 +8315,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -9365,20 +8441,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -9505,20 +8567,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -9646,20 +8694,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -9786,20 +8820,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": true,
@@ -9926,20 +8946,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": true,
       "video_enabled": true,
       "video_audio": false,
@@ -10066,20 +9072,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -10206,20 +9198,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -10346,20 +9324,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -10486,20 +9450,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -10626,20 +9576,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -10766,20 +9702,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": true,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -10906,20 +9828,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -11046,20 +9954,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -11186,20 +10080,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -11326,20 +10206,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": true
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -11466,20 +10332,6 @@
       "min_image_height": 1,
       "max_image_dimension": 10000,
       "gif_only": false,
-      "image_presentation": {
-        "thread_thumbnail": [
-          250,
-          250
-        ],
-        "reply_thumbnail": [
-          125,
-          125
-        ],
-        "mobile_resize": false,
-        "strip_exif": true,
-        "strip_exif_on_capcode": true,
-        "blue_thumbnail_background": false
-      },
       "pdf_enabled": false,
       "video_enabled": true,
       "video_audio": false,
@@ -11575,5 +10427,1155 @@
         "OP_MARKUP": "no"
       }
     }
-  ]
+  ],
+  "source_image_presentation": {
+    "a": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "aco": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "c": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "d": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "e": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "f": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "g": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "gif": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "h": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "his": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "hr": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "k": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "m": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "n": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "o": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "p": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": false,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "r": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "s": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "t": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "u": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "v": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "w": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "wg": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "i": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "ic": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "cm": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "y": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "an": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "cgl": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "ck": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "co": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "fa": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "fit": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "jp": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "mlp": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "mu": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "po": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "sp": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "tg": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "toy": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "trv": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "tv": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "x": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "b": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "soc": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "r9k": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "test": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "adv": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "lit": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "int": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "sci": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "3": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "vp": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "diy": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "pol": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "hc": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "vg": {
+      "thread_thumbnail": [
+        200,
+        200
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "hm": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "j": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "wsg": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "out": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "lgbt": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "vr": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "gd": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "s4s": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "biz": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "qa": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "trash": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "news": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "wsr": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "qst": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "bant": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    },
+    "vip": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "vrpg": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "vmg": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "vst": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "vt": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": true,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "vm": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "pw": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "xs": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "asp": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": true
+    },
+    "qb": {
+      "thread_thumbnail": [
+        250,
+        250
+      ],
+      "reply_thumbnail": [
+        125,
+        125
+      ],
+      "mobile_resize": false,
+      "strip_exif": true,
+      "strip_exif_on_capcode": true,
+      "blue_thumbnail_background": false
+    }
+  }
 }

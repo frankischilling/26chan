@@ -81,6 +81,7 @@ def extract(root, names_encoding="utf-8", historical_titles=False):
     paths = [root / "boardlist.txt", root / "www.4chan/data/boards.php", root / "config/global_config.ini"]
     names = dict(re.findall(r'"dir"=>"([a-z0-9]+)","name"=>"([^"]+)"', paths[1].read_text(encoding=names_encoding)))
     boards = []
+    image_presentation = {}
     for position, slug in enumerate(slugs + sorted({p.name.split(".")[0] for p in (root / "config/boards").glob("*.config.ini")} - set(slugs))):
         path = root / f"config/boards/{slug}.config.ini"
         overrides = policy(path)
@@ -156,9 +157,10 @@ def extract(root, names_encoding="utf-8", historical_titles=False):
             "poster_id_no_heaven": boolean("DISP_ID_NO_HEAVEN"),
             "source_policy": values,
         }
+        image_presentation[slug] = board.pop("image_presentation")
         boards.append(board)
     hashes = {str(path.relative_to(root)).replace("\\", "/"): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(set(paths))}
-    return {"reference": "operator-supplied 4chan-old checkout", "listed_count": len(slugs), "files": hashes, "boards": boards}
+    return {"reference": "operator-supplied 4chan-old checkout", "listed_count": len(slugs), "files": hashes, "boards": boards, "source_image_presentation": image_presentation}
 
 
 def migration(reference):
@@ -170,7 +172,6 @@ def migration(reference):
         "oekaki", "oekaki_replays", "oekaki_width", "oekaki_height", "show_blotter", "board_subtitle", "replies_shown",
         "max_image_bytes", "min_image_width", "min_image_height", "max_image_dimension", "gif_only",
         "pdf_enabled", "video_enabled", "video_audio", "max_video_bytes", "max_video_duration", "max_video_dimension",
-        "image_presentation",
     }]
     def sql(value):
         if isinstance(value, bool):

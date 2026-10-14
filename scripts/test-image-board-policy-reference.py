@@ -17,13 +17,15 @@ class ImageBoardPolicyReferenceTests(unittest.TestCase):
     def test_image_presentation_matches_source_overrides(self):
         rows = REFERENCE["boards"]
         self.assertEqual(len(rows), 82)
+        self.assertEqual(set(REFERENCE["source_image_presentation"]), {row["slug"] for row in rows})
+        self.assertTrue(all("image_presentation" not in row for row in rows))
         mobile = {"aco", "e", "h", "k", "m", "v", "co", "fa", "tg", "tv",
                   "b", "pol", "hc", "vg", "vt"}
         self.assertEqual({row["slug"] for row in rows
-                          if row["image_presentation"]["mobile_resize"]}, mobile)
+                          if REFERENCE["source_image_presentation"][row["slug"]]["mobile_resize"]}, mobile)
         for row in rows:
             with self.subTest(board=row["slug"]):
-                policy = row["image_presentation"]
+                policy = REFERENCE["source_image_presentation"][row["slug"]]
                 self.assertEqual(policy["thread_thumbnail"],
                                  [200, 200] if row["slug"] == "vg" else [250, 250])
                 self.assertEqual(policy["reply_thumbnail"], [125, 125])
@@ -91,13 +93,15 @@ class ImageBoardPolicyReferenceTests(unittest.TestCase):
             (root / "config/categories/ws.config.ini").write_text("MAX_KB = 2048\nMIN_W = 20\nMAX_DIMENSION = 777\nENABLE_PDF = yes\nMAX_W = 180\nMOBILE_IMG_RESIZE = yes\nSTRIP_EXIF = no\n")
             (root / "config/boards/x.config.ini").write_text("CATEGORY = ws\nMAX_KB = 128\nMIN_H = 30\nGIF_ONLY = yes\nENABLE_PDF = no\nMAX_W = 90\nMOBILE_IMG_RESIZE = no\n")
             (root / "config/boards/y.config.ini").write_text("CATEGORY = ws\n")
-            rows = MODULE.extract(root)["boards"]
+            reference = MODULE.extract(root)
+            rows = reference["boards"]
+            presentation = reference["source_image_presentation"]
             self.assertEqual([row["pdf_enabled"] for row in rows], [False, True])
-            self.assertEqual([row["image_presentation"]["thread_thumbnail"] for row in rows],
+            self.assertEqual([presentation[row["slug"]]["thread_thumbnail"] for row in rows],
                              [[90, 250], [180, 250]])
-            self.assertEqual([row["image_presentation"]["mobile_resize"] for row in rows],
+            self.assertEqual([presentation[row["slug"]]["mobile_resize"] for row in rows],
                              [False, True])
-            self.assertTrue(all(not row["image_presentation"]["strip_exif"] for row in rows))
+            self.assertTrue(all(not presentation[row["slug"]]["strip_exif"] for row in rows))
             self.assertEqual([(row["max_image_bytes"], row["min_image_width"], row["min_image_height"],
                                row["max_image_dimension"], row["gif_only"]) for row in rows],
                              [(131072, 20, 30, 777, True), (2097152, 20, 1, 777, False)])
