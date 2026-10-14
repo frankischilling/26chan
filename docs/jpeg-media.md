@@ -1,4 +1,6 @@
-# JPEG input in isolated media jobs
+# Legacy JPEG input in isolated media jobs
+
+This page records the legacy `image-v1` decoder and its qualification history. Source-board PNG/JPEG uploads now use [the separate still-image profile](source-still-image-parity.md), with retained formats, JPEG thumbnails and configured metadata cleanup. Custom development boards keep the legacy path described below.
 
 [Issue #50](https://github.com/frankischilling/26chan/issues/50) adds JPEG input to
 the development attachment workflow. The guest selects PNG or JPEG from bounded
@@ -32,7 +34,7 @@ rebuilt guest; local library tests alone do not.
 
 ## Download and compatibility policy
 
-All published full images and thumbnails remain newly encoded PNGs. Public
+On the legacy path, full images and thumbnails are newly encoded PNGs. Public
 metadata, MD5 and byte counts describe that normalized output. No original-file
 download route exists. Source EXIF, ICC and other metadata are not published;
 EXIF orientation is not applied and ICC profiles are not used for color
@@ -40,8 +42,7 @@ management. Some camera images can therefore appear rotated or have different
 colors. JPEG quality loss already present in the source is not recoverable.
 
 These are explicit normalization/containment exceptions under E-001 and E-008,
-not proof of original-site image processing parity. Animated GIF, WebM, PDF and SWF input
-remain unsupported. The legacy-looking thumbnail URL still serves truthful
+not proof of original-site image processing parity. At that checkpoint, animated GIF, WebM, PDF and SWF input were unsupported; later format-specific work is documented separately. The legacy-looking thumbnail URL still serves truthful
 `image/png`, not JPEG bytes. The strict size/dimension/scan limits can reject
 otherwise viewable files. Production uploads remain disabled under issue #5;
 the pinned public-reference and exact visual gaps remain under issue #6.

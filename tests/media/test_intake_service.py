@@ -215,6 +215,40 @@ class IntakeExercise(MediaHttpExercise):
         self.intake_sql('SELECT media_intake.ready();', True)
         print('PASS actual intake UID, absent unrelated credentials, kernel limits, private storage and database denials with healthy controls', flush=True)
 
+    def exercise_source_stills(self):
+        original = (REPO / 'tests/media/fixtures/jpeg/baseline.jpg').read_bytes()
+        metadata = b'Exif\0\0OWNED-STILL-HTTP-METADATA'
+        tagged = original[:2] + b'\xff\xe1' + (len(metadata) + 2).to_bytes(2, 'big') + metadata + original[2:]
+        for board, extension, payload in [('aco', 'png', red_png()), ('aco', 'jpg', tagged), ('p', 'jpg', tagged)]:
+            request = {'filename': 'owned-still.' + extension,
+                       'image_context': {'board': board, 'thread_id': 0, 'capcode': False}}
+            status, reservation = self.call('/v1/reservations', 'POST', json.dumps(request).encode(),
+                                             {'Content-Type': 'application/json'})
+            assert status == 201 and reservation['state'] == 'receiving'
+            job, capability = reservation['id'], reservation['capability']
+            assert HEX.fullmatch(job) and re.fullmatch('[0-9a-f]{64}', capability)
+            self.ids.append(job)
+            self.capabilities.append(capability)
+            assert self.upload_http(job, capability, iter([payload]), chunked=True)[0] == 202
+            asset = self.finish(self.dispatch()).decode().strip()
+            assert HEX.fullmatch(asset)
+            self.clean_vm()
+            status, headers, retained = self.http(f'/media/{asset}.{extension}')
+            assert status == 200 and headers['content-type'] == ('image/png' if extension == 'png' else 'image/jpeg')
+            assert retained == (self.objects / f'{asset}.{extension}').read_bytes()
+            assert sql(f"SELECT source_profile||':'||md5||':'||bytes FROM media.assets WHERE id='{asset}'") == 'still-v6:' + hashlib.md5(retained).hexdigest() + ':' + str(len(retained))
+            if extension == 'png' or board == 'p':
+                assert retained == payload
+            else:
+                assert metadata not in retained
+            status, headers, thumbnail = self.http(f'/media/{asset}.thumb.jpg')
+            assert status == 200 and headers['content-type'] == 'image/jpeg'
+            assert thumbnail.startswith(b'\xff\xd8\xff') and thumbnail.endswith(b'\xff\xd9')
+            assert self.http(f'/media/{asset}.thumb.png')[0] == 404
+            assert self.http(f'/media/{asset}.mobile.jpg')[0] == 404
+            assert self.call(f'/v1/uploads/{job}', headers={'Upload-Capability': capability})[1]['state'] == 'published'
+        print('PASS contextual PNG/JPEG intake -> real still VM -> retained-byte checksums and JPEG HTTP thumbnails, including /p/ metadata retention', flush=True)
+
     def exercise(self):
         assert self.call('/healthz', authenticated=False)[0] == 401
         assert self.call('/healthz', headers={'Origin': 'null'})[0] == 403
@@ -231,6 +265,7 @@ class IntakeExercise(MediaHttpExercise):
         assert self.http(f'/media/{asset}.png')[2] == (self.objects / f'{asset}.png').read_bytes()
         self.boundaries(job, asset)
         print('PASS HTTP reservation/upload -> authenticated Firecracker dispatch -> fenced approval -> capability status -> separate HTTP reader', flush=True)
+        self.exercise_source_stills()
         self.public_upload.exercise_video()
         self.public_upload.exercise()
 

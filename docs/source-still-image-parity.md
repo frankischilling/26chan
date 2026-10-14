@@ -41,3 +41,17 @@ cargo test -p board-media-guest --test image_geometry --locked
 ```
 
 The geometry PHP check executes only the captured arithmetic and format/size conditions. A separate 17-case check executes the pinned upload-name sanitizer without the application bootstrap. Its 21 expected cases are literal values independent of the Rust implementation. The board extractor also preserves the applied 0045, 0064 and 0132 migration output.
+
+## Runtime build and selection
+
+The still initramfs requires the pinned libjpeg-turbo 3.2.0 cleaner. On the owned Linux worker host, download its official source archive, then run `scripts/media/build-still-runtime.sh ARCHIVE NEW_OUTPUT_DIRECTORY`. The builder verifies the fixed source SHA-256 before compiling. Install the resulting `jpegtran` as root-owned `/usr/lib/26chan-still/jpegtran`, mode 0755, with trusted root-owned parents. Keep the accompanying license with the runtime distribution.
+
+Rebuild the guest and worker binaries and use `scripts/media/build-initramfs.py` with `--still-runtime` to create the separate image. The collector verifies the cleaner version, root ownership, bounded ELF sizes and its limited C runtime dependency set. It records file hashes in `still-runtime.json` inside the initramfs. The disposable `scripts/media/provision-test.py` procedure creates and hashes this image alongside the other profiles and records `still_initramfs` in the private runner configuration. An older configuration without that image cannot process a still job; there is no fallback to in-process decoding.
+
+Apply migrations through 0153 before starting the corresponding services. The original development profile and authorization requirements still apply. This work does not authorize enabling uploads on an unqualified production host.
+
+## Deliberate input restrictions
+
+PNG animation is rejected rather than silently publishing only part of an animated container. JPEG decoding retains the existing 64-scan bound and requires an end marker; this marker check alone is not an exhaustive container validator. Both decoders run under the separate VM, CPU, allocation and deadline limits, and only a complete validated output manifest can be published. Oversized, truncated or malformed inputs do not gain a legacy fallback. Tests keep healthy-image controls after rejected inputs.
+
+The source does not apply EXIF orientation when creating thumbnails. The still worker likewise uses stored pixel dimensions and does not rotate those pixels. Retained `/p/` JPEGs can still carry orientation metadata that a browser applies to the full image. ICC metadata is retained or stripped according to the source cleanup path; retaining a profile is not a claim that the thumbnail decoder performs color management. The captured GD pixel checks and explicit orientation tests describe the verified behavior.
