@@ -158,3 +158,17 @@ async fn still_reservation_retries_compare_every_companion_and_reject_expired_le
     admin.close().await;
     result.unwrap();
 }
+
+#[tokio::test]
+async fn final_post_checks_source_image_context_without_trusting_the_upload_identity() {
+    let pool = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let mut tx = pool.begin().await.unwrap();
+    let result = sqlx::raw_sql(include_str!("fixtures/still_posting_context.sql"))
+        .execute(&mut *tx)
+        .await;
+    tx.rollback().await.unwrap();
+    pool.close().await;
+    result.unwrap();
+}
