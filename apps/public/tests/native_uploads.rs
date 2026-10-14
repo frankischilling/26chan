@@ -31,8 +31,11 @@ fn form(board: &str, action: &str, body: String) -> Request<Body> {
 }
 
 fn upload(board: &str, bytes: &[u8]) -> Request<Body> {
+    upload_named(board, &format!("native-{board}.png"), bytes)
+}
+fn upload_named(board: &str, filename: &str, bytes: &[u8]) -> Request<Body> {
     let mut body = format!(
-        "--owned\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n0\r\n--owned\r\nContent-Disposition: form-data; name=\"upfile\"; filename=\"native-{board}.png\"\r\nContent-Type: image/png\r\n\r\n"
+        "--owned\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n0\r\n--owned\r\nContent-Disposition: form-data; name=\"upfile\"; filename=\"{filename}\"\r\nContent-Type: image/png\r\n\r\n"
     ).into_bytes();
     body.extend_from_slice(bytes);
     body.extend_from_slice(b"\r\n--owned--\r\n");
@@ -157,6 +160,36 @@ impl Fixture {
     async fn status(&self, body: &str, expected: StatusCode) -> Value {
         self.send(form(&self.board, "upload/status", body.into()), expected)
             .await
+    }
+
+    async fn exercise_source_context(&self) {
+        let bytes = b"source transport fixture";
+        let filename = format!("native-{}.png", self.board);
+        let pending = self
+            .send(upload_named("p", &filename, bytes), StatusCode::OK)
+            .await;
+        let id = pending["upload_id"].as_str().unwrap();
+        let context: (String, i64, bool) = sqlx::query_as(
+            "SELECT board,thread_id,capcode FROM media.image_context WHERE job_id=$1",
+        )
+        .bind(id)
+        .fetch_one(&self.owner)
+        .await
+        .unwrap();
+        assert_eq!(context, ("p".into(), 0, false));
+        assert_eq!(
+            std::fs::read(self.root.join(format!("{id}.input"))).unwrap(),
+            bytes
+        );
+        let form_body = receipt(&pending);
+        self.send(form("p", "upload/cancel", form_body), StatusCode::OK)
+            .await;
+        assert!(matches!(
+            self.intake
+                .status(id, pending["upload_capability"].as_str().unwrap())
+                .await,
+            Err(board_store::StoreError::NotFound)
+        ));
     }
 
     async fn exercise_drawings(&self) {
@@ -612,6 +645,7 @@ async fn native_uploads_preserve_isolated_intake_and_one_use_posting_authority()
         root: root.path().to_owned(),
     };
     let outcome = tokio::spawn(async move {
+        fixture.exercise_source_context().await;
         fixture.exercise().await;
         fixture.exercise_drawings().await;
     })

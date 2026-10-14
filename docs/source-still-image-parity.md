@@ -14,6 +14,12 @@ Every imported board strips JPEG EXIF except `/p/`. The capcode-specific strip s
 
 PNG cleanup retains the original framing and bytes of allowed chunks, discards other chunks and stops at the first IEND. Its allowed types are IHDR, PLTE, IDAT, IEND, tRNS, gAMA, sBIT, pHYs, sRGB, bKGD, tIME, cHRM and iCCP, compared without case sensitivity. Decoder validation remains necessary before publication. The existing retained-byte digest scanner does not establish image validity or permission to publish a file.
 
+## Upload names
+
+Source-board intake removes the four directional controls stripped by `imgboard.php`, applies its board-specific whitespace rules and balances retained right-to-left embeddings. Stored metadata stays plain text and HTML rendering escapes it once. The final ASCII-alphanumeric suffix is removed when deriving the source filename; the displayed extension comes from the approved output format. A 255-byte admitted name can therefore produce a 259-byte display name when a canonical `.png` or `.jpg` suffix is appended.
+
+Control characters and over-limit names remain rejected at intake. This bounds metadata independently of decoding and prevents control characters from entering headers or rendered attributes. Filenames never select storage paths or served MIME types.
+
 ## Qualification boundaries
 
 The supplied application source does not pin the deployed GD, jpegtran or jpegoptim versions. Geometry and configured cleanup decisions can be compared directly with captured source arithmetic. Exact historical JPEG encoder bytes require additional version evidence; a quality setting alone does not establish byte identity. Tests must distinguish pixel behavior, retained metadata, encoded-file checksums and the input checksum.

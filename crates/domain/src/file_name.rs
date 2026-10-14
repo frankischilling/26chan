@@ -9,6 +9,42 @@ pub fn strip_upload_direction_controls(filename: &str) -> String {
         .collect()
 }
 
+/// Source sanitize_text rules for admitted upload names. Storage keeps plain
+/// text; each HTML boundary escapes it once. Intake rejects control characters
+/// and names exceeding its independent byte limit before publication.
+pub fn normalize_upload(filename: &str, board: &str) -> String {
+    let sjis = matches!(board, "jp" | "vip");
+    let spaced = sjis || matches!(board, "g" | "test" | "j");
+    let wide = sjis || matches!(board, "jp" | "a" | "b");
+    let mut result = String::with_capacity(filename.len());
+    let mut previous_space = false;
+    for mut ch in strip_upload_direction_controls(filename).chars() {
+        if !wide && matches!(ch, '\u{00a0}' | '\u{3000}') {
+            ch = ' ';
+        }
+        if !spaced && matches!(ch, ' ' | '\t' | '\u{000c}' | '\u{200b}' | '\u{2029}') {
+            if !previous_space {
+                result.push(' ');
+            }
+            previous_space = true;
+        } else {
+            if spaced && ch == '\t' {
+                result.push_str("    ");
+            } else {
+                result.push(ch);
+            }
+            previous_space = false;
+        }
+    }
+    let mut result = result
+        .trim_matches([' ', '\t', '\n', '\r', '\0', '\u{000b}'])
+        .to_owned();
+    // RLO was removed above; the source balances retained RLE characters.
+    let embeddings = result.chars().filter(|ch| *ch == '\u{202b}').count();
+    result.extend(std::iter::repeat_n('\u{202c}', embeddings));
+    result
+}
+
 /// Source preg_replace('/\.[a-z0-9]+$/i', '', name): remove only the final
 /// nonempty ASCII-alphanumeric suffix. A leading dot may leave an empty stem.
 pub fn basename(filename: &str) -> &str {
@@ -39,6 +75,44 @@ mod tests {
         );
         assert_eq!(strip_upload_direction_controls("\u{202e}"), "");
     }
+    #[test]
+    fn source_upload_spacing_and_direction_balance() {
+        assert_eq!(
+            normalize_upload("  a  \u{200b}b\u{3000}c.JPG  ", "co"),
+            "a b c.JPG"
+        );
+        assert_eq!(
+            normalize_upload("a\u{00a0}b\u{3000}c.png", "a"),
+            "a\u{00a0}b\u{3000}c.png"
+        );
+        assert_eq!(normalize_upload("a  b\u{3000}c.png", "g"), "a  b c.png");
+        assert_eq!(
+            normalize_upload("a  b\u{3000}c.png", "jp"),
+            "a  b\u{3000}c.png"
+        );
+        assert_eq!(normalize_upload("a\tb.png", "test"), "a    b.png");
+        assert_eq!(
+            normalize_upload("a\u{202e}b\u{202b}.png", "p"),
+            "ab\u{202b}.png\u{202c}"
+        );
+        assert_eq!(normalize_upload("<cat>&.jpg", "co"), "<cat>&.jpg");
+        assert_eq!(normalize_upload(" \u{200b} ", "co"), "");
+    }
+
+    #[test]
+    fn upload_spacing_board_flags_match_the_source_fixture() {
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../../../fixtures/board-reference.json")).unwrap();
+        for board in fixture["boards"].as_array().unwrap() {
+            let slug = board["slug"].as_str().unwrap();
+            assert_eq!(
+                board["comment_code_spacing"],
+                matches!(slug, "g" | "test" | "j")
+            );
+            assert_eq!(board["comment_sjis_spacing"], matches!(slug, "jp" | "vip"));
+        }
+    }
+
     #[test]
     fn final_extension_is_ascii_alphanumeric_and_independent_of_retained_format() {
         for (name, expected) in [

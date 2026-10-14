@@ -49,11 +49,11 @@ test('updater accepts bounded spoiler dimensions and rejects metadata that can b
   const valid = 'class="file" id="f1" data-image-spoiler="true" data-image-filename="Owned.png" data-thumbnail-width="250" data-thumbnail-height="150"';
   assert.equal(parse(valid).status, 'ok');
   assert.equal(parse(valid + ' data-thumbnail-legacy="true"').status, 'ok');
-  assert.equal(parse(valid.replace('Owned.png', 'é'.repeat(127) + 'x')).status, 'ok');
+  assert.equal(parse(valid.replace('Owned.png', 'é'.repeat(129) + 'x')).status, 'ok');
   for (const attrs of [valid.replace('250', '0'), valid.replace('250', '1025'), valid.replace('250', '01'),
     valid.replace('250', '250px'), valid.replace('class="file"', 'class="postInfo"'),
     valid.replace('data-image-spoiler="true"', 'data-image-spoiler="false"'), valid + ' data-thumbnail-src="https://tracker.invalid/1.png"',
-    valid.replace('Owned.png', ''), valid.replace('Owned.png', 'é'.repeat(128)), valid.replace('Owned.png', 'bad&#13;name.png'),
+    valid.replace('Owned.png', ''), valid.replace('Owned.png', 'é'.repeat(130)), valid.replace('Owned.png', 'bad&#13;name.png'),
     valid.replace('Owned.png', 'bad&#x81;name.png')]) {
     assert.equal(parse(attrs).status, 'invalid-snapshot', attrs);
   }

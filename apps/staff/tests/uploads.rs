@@ -146,7 +146,17 @@ impl Fixture {
             .unwrap()
     }
     fn multipart(&self, board: &str, extra: &str, file_bytes: usize) -> Request<Body> {
-        let mut body = format!("--staff-boundary\r\nContent-Disposition: form-data; name=\"csrf\"\r\n\r\n{}\r\n--staff-boundary\r\nContent-Disposition: form-data; name=\"board\"\r\n\r\n{board}\r\n--staff-boundary\r\nContent-Disposition: form-data; name=\"thread\"\r\n\r\n0\r\n--staff-boundary\r\nContent-Disposition: form-data; name=\"upfile\"; filename=\"{}.png\"\r\nContent-Type: image/png\r\n\r\n", self.csrf, self.board).into_bytes();
+        self.multipart_identity(board, extra, file_bytes, None)
+    }
+    fn multipart_identity(
+        &self,
+        board: &str,
+        extra: &str,
+        file_bytes: usize,
+        capcode: Option<&str>,
+    ) -> Request<Body> {
+        let identity = capcode.map_or(String::new(), |value| format!("Content-Disposition: form-data; name=\"capcode\"\r\n\r\n{value}\r\n--staff-boundary\r\n"));
+        let mut body = format!("--staff-boundary\r\nContent-Disposition: form-data; name=\"csrf\"\r\n\r\n{}\r\n--staff-boundary\r\nContent-Disposition: form-data; name=\"board\"\r\n\r\n{board}\r\n--staff-boundary\r\nContent-Disposition: form-data; name=\"thread\"\r\n\r\n0\r\n--staff-boundary\r\n{identity}Content-Disposition: form-data; name=\"upfile\"; filename=\"{}.png\"\r\nContent-Type: image/png\r\n\r\n", self.csrf, self.board).into_bytes();
         body.extend(vec![42; file_bytes]);
         body.extend(format!("\r\n{extra}--staff-boundary--\r\n").as_bytes());
         let chunks: Vec<Result<axum::body::Bytes, std::io::Error>> = body
@@ -1141,6 +1151,65 @@ async fn real_intake_receives_bytes_before_ready_source_frames_are_exhausted() {
                 .status(),
             StatusCode::SEE_OTHER
         );
+    })
+    .await;
+    Arc::try_unwrap(fixture).ok().unwrap().cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn source_board_upload_binds_the_selected_metadata_policy_before_processing() {
+    let _serial = SERIAL.lock().await;
+    let fixture = Arc::new(Fixture::new().await);
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        for capcode in ["false", "true"] {
+            let response = case
+                .app()
+                .oneshot(case.multipart_identity("p", "", 256, Some(capcode)))
+                .await
+                .unwrap();
+            let page = html(response, StatusCode::OK).await;
+            let id = hidden(&page, "upload_id");
+            let capability = hidden(&page, "upload_capability");
+            assert_eq!(hidden(&page, "capcode"), capcode);
+            let context: (String, i64, bool) = sqlx::query_as(
+                "SELECT board,thread_id,capcode FROM media.image_context WHERE job_id=$1",
+            )
+            .bind(&id)
+            .fetch_one(&case.owner)
+            .await
+            .unwrap();
+            assert_eq!(context, ("p".into(), 0, capcode == "true"));
+            let form = case
+                .form(&id, &capability)
+                .replace(&format!("board={}", case.board), "board=p")
+                + "&capcode="
+                + capcode;
+            let status = html(
+                case.send_form("/post/upload/status", form.clone()).await,
+                StatusCode::OK,
+            )
+            .await;
+            assert_eq!(hidden(&status, "capcode"), capcode);
+            if capcode == "false" {
+                assert!(status.contains("value=\"none\" selected"));
+            }
+            let response = case.send_form("/post/upload/cancel", form).await;
+            assert!(response.status().is_success() || response.status().is_redirection());
+        }
+        let count = case.jobs().await;
+        for invalid in ["yes", "falsex", ""] {
+            assert_eq!(
+                case.app()
+                    .oneshot(case.multipart_identity("p", "", 256, Some(invalid)))
+                    .await
+                    .unwrap()
+                    .status(),
+                StatusCode::BAD_REQUEST
+            );
+        }
+        assert_eq!(case.jobs().await, count);
     })
     .await;
     Arc::try_unwrap(fixture).ok().unwrap().cleanup().await;
