@@ -142,6 +142,31 @@ try {
     throw error;
   }
   await imagePage.close();
+  if (video) {
+    // Exercise playback under the real board CSP and separate media CORS.
+    // The WebM case deliberately selects the source's legacy decoder path.
+    await page.evaluate(webm => {
+      if (webm) HTMLMediaElement.prototype.canPlayType = () => '';
+      const settings = JSON.parse(localStorage.getItem('4chan-settings') || '{}');
+      settings.revealSpoilers = true;
+      localStorage.setItem('4chan-settings', JSON.stringify(settings));
+      window.dispatchEvent(new StorageEvent('storage', { key: '4chan-settings', storageArea: localStorage }));
+    }, outputExtension === '.webm');
+    await file.locator('a.fileThumb:not(.imgspoiler)').click();
+    const player = file.locator(outputExtension === '.webm' ? 'ogvjs.expanded-thumb' : 'video.expanded-thumb');
+    await expect(player).toBeVisible();
+    await expect.poll(() => player.evaluate(element => element.videoWidth)).toBe(64);
+    await expect.poll(() => player.evaluate(element => element.currentTime)).toBeGreaterThan(0);
+    if (outputExtension === '.webm') await expect(file.locator('.nativeVideoControls')).toBeVisible();
+    await file.locator('.nativeVideoClose').click();
+    await expect(file.locator('.expanded-thumb,.nativeVideoControls')).toHaveCount(0);
+    await page.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem('4chan-settings') || '{}');
+      settings.revealSpoilers = false;
+      localStorage.setItem('4chan-settings', JSON.stringify(settings));
+      window.dispatchEvent(new StorageEvent('storage', { key: '4chan-settings', storageArea: localStorage }));
+    });
+  }
   const deletion = page.locator(`#p${post} form[action$="/delete"]`);
   if (inline) {
     await page.setViewportSize({ width: 390, height: 844 });

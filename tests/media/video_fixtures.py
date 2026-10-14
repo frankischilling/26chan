@@ -27,11 +27,6 @@ def generate(root):
                    check=True, capture_output=True, timeout=15)
 
 
-if __name__ == '__main__':
-    import sys
-    if len(sys.argv) != 2:
-        raise SystemExit('usage: video_fixtures.py NEW_CLIP_DIRECTORY')
-    generate(sys.argv[1])
 
 
 def generate_rejected(root):
@@ -47,3 +42,11 @@ def generate_rejected(root):
                         '-i', f'color=c=red:s={size}:r=1', '-t', duration,
                         '-c:v', codec, '-threads', '1', '-pix_fmt', pixels,
                         '-n', str(root / name)], check=True, capture_output=True, timeout=15)
+
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) != 2:
+        raise SystemExit('usage: video_fixtures.py NEW_CLIP_DIRECTORY')
+    generate(sys.argv[1])
+    generate_rejected(sys.argv[1])

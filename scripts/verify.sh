@@ -77,6 +77,9 @@ browser_prerequisites() {
 }
 
 browser_content() {
+  # Owned DOM checks need no server state; run them before slower page suites.
+  npm run test:images-core
+  npm run test:files-core
   # Drawing uses the public browser setup, which requires the built quota fixture.
   timeout 300s npm run test:drawing
   npx playwright test tests/browser/anonymous-session.spec.js
@@ -95,8 +98,6 @@ browser_content() {
   npm run test:quote-preview
   npm run test:backlinks
   npm run test:inline-quotes
-  npm run test:images-core
-  npm run test:files-core
   npm run test:custom-spoilers
   npm run test:source-flags
 }
