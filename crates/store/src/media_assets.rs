@@ -727,8 +727,23 @@ impl MediaReader {
 
     pub async fn get_thumbnail(&self, output_id: &str) -> Result<Asset, StoreError> {
         validate_hex(output_id, 32)?;
-        sqlx::query_as("SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height,'png'::text AS output_format FROM media.approved_assets WHERE id=$1 AND thumbnail_sha256 IS NOT NULL")
+        sqlx::query_as("SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height,thumbnail_format AS output_format FROM media.approved_assets WHERE id=$1 AND thumbnail_sha256 IS NOT NULL")
             .bind(output_id).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
+    }
+
+    pub async fn get_mobile(&self, output_id: &str) -> Result<Asset, StoreError> {
+        validate_hex(output_id, 32)?;
+        sqlx::query_as("SELECT id,mobile_sha256 AS sha256,mobile_bytes AS bytes,mobile_width AS width,mobile_height AS height,'jpeg'::text AS output_format FROM media.approved_assets WHERE id=$1 AND mobile_sha256 IS NOT NULL")
+            .bind(output_id).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
+    }
+
+    pub async fn get_post_mobile(&self, board: &str, tim: i64) -> Result<Asset, StoreError> {
+        board_domain::BoardSlug::parse(board).map_err(|_| StoreError::NotFound)?;
+        if !(1..=9_007_199_254_740_991).contains(&tim) {
+            return Err(StoreError::NotFound);
+        }
+        sqlx::query_as("SELECT id,mobile_sha256 AS sha256,mobile_bytes AS bytes,mobile_width AS width,mobile_height AS height,'jpeg'::text AS output_format FROM media.approved_post_assets WHERE board=$1 AND tim=$2 AND mobile_sha256 IS NOT NULL")
+            .bind(board).bind(tim).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
     }
 
     pub async fn get_post_replay(&self, board: &str, tim: i64) -> Result<ReplayAsset, StoreError> {
@@ -751,7 +766,7 @@ impl MediaReader {
             return Err(StoreError::NotFound);
         }
         let statement = if thumbnail {
-            "SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height,'png'::text AS output_format FROM media.approved_post_assets WHERE board=$1 AND tim=$2 AND thumbnail_sha256 IS NOT NULL"
+            "SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height,thumbnail_format AS output_format FROM media.approved_post_assets WHERE board=$1 AND tim=$2 AND thumbnail_sha256 IS NOT NULL"
         } else {
             "SELECT id,sha256,bytes,width,height,output_format FROM media.approved_post_assets WHERE board=$1 AND tim=$2"
         };
