@@ -128,7 +128,20 @@ try {
   assert.equal(requests.includes(media.replace(/\.(?:png|webm|mp4)$/, 's.jpg')), !spoilers, 'only an unspoiled file fetches its approved thumbnail');
   assert.notEqual(new URL(media).origin, origin.origin); assert.equal((await context.request.get(media)).status(), 200);
   const opening = page.waitForEvent('popup'); await (spoilers ? link : file.locator('.fileText > a')).click(); const imagePage = await opening;
-  await expect.poll(() => imagePage.locator(video ? 'video' : 'img').evaluate(element => element.videoWidth ?? element.naturalWidth)).toBe(video ? 64 : 1); await imagePage.close();
+  try {
+    await expect.poll(() => imagePage.locator(video ? 'video' : 'img').evaluate(element => element.videoWidth ?? element.naturalWidth)).toBe(video ? 64 : 1);
+  } catch (error) {
+    if (video) {
+      const evidence = await imagePage.evaluate(() => {
+        const player = document.querySelector('video');
+        const code = player?.error?.code ?? 0;
+        return { player: Boolean(player), metadata: (player?.videoWidth ?? 0) > 0, error: Number.isInteger(code) && code >= 0 && code <= 4 ? code : 0 };
+      }).catch(() => ({ player: false, metadata: false, error: 0 }));
+      console.error(`OWNED_VIDEO_PLAYBACK player=${evidence.player} metadata=${evidence.metadata} error=${evidence.error}`);
+    }
+    throw error;
+  }
+  await imagePage.close();
   const deletion = page.locator(`#p${post} form[action$="/delete"]`);
   if (inline) {
     await page.setViewportSize({ width: 390, height: 844 });

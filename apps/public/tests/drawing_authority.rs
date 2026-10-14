@@ -75,7 +75,7 @@ fn authority(headers: &HeaderMap, enabled: bool, replay: bool) -> String {
                 || value == ORIGIN
                 || value == format!("{ORIGIN}/"))
     );
-    assert!(!policy.contains("unsafe-inline") && !policy.contains("unsafe-eval"));
+    assert!(!policy.contains("'unsafe-inline'") && !policy.contains("'unsafe-eval'"));
     assert!(!policy.contains("blob:") && !policy.contains("data:"));
     let images = directive(policy, "img-src").unwrap();
     assert!(!images.contains("tegaki"));

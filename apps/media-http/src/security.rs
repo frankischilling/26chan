@@ -74,8 +74,23 @@ async fn admit(state: &AppState, request: Request, next: Next) -> Response {
 }
 
 fn headers(mut response: Response) -> Response {
+    // A browser's standalone media document fetches its own approved URL.
+    // Keep script, frame, form and sandbox restrictions; grant only media reads
+    // on this media origin for successful fixed video representations.
+    let video = matches!(
+        response.status(),
+        StatusCode::OK | StatusCode::PARTIAL_CONTENT | StatusCode::NOT_MODIFIED
+    ) && response
+        .headers()
+        .get("content-type")
+        .is_some_and(|value| value == "video/webm" || value == "video/mp4");
     let h = response.headers_mut();
-    h.insert("content-security-policy", HeaderValue::from_static("default-src 'none'; sandbox; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"));
+    let policy = if video {
+        "default-src 'none'; media-src 'self'; sandbox; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+    } else {
+        "default-src 'none'; sandbox; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+    };
+    h.insert("content-security-policy", HeaderValue::from_static(policy));
     h.insert(
         "x-content-type-options",
         HeaderValue::from_static("nosniff"),
@@ -93,4 +108,44 @@ fn headers(mut response: Response) -> Response {
     h.entry("cache-control")
         .or_insert(HeaderValue::from_static("no-store"));
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn only_successful_video_representations_allow_standalone_media() {
+        for status in [
+            StatusCode::OK,
+            StatusCode::PARTIAL_CONTENT,
+            StatusCode::NOT_MODIFIED,
+            StatusCode::NOT_FOUND,
+            StatusCode::SERVICE_UNAVAILABLE,
+        ] {
+            for mime in [
+                "video/webm",
+                "video/mp4",
+                "image/png",
+                "application/pdf",
+                "text/html",
+                "video/unknown",
+            ] {
+                let response = headers((status, [("content-type", mime)], "owned").into_response());
+                let csp = response.headers()["content-security-policy"]
+                    .to_str()
+                    .unwrap();
+                assert_eq!(
+                    csp.contains("media-src 'self'"),
+                    matches!(
+                        status,
+                        StatusCode::OK | StatusCode::PARTIAL_CONTENT | StatusCode::NOT_MODIFIED
+                    ) && matches!(mime, "video/webm" | "video/mp4")
+                );
+                assert!(csp.contains("default-src 'none';"));
+                assert!(csp.contains("sandbox;"));
+                assert!(!csp.contains("allow-scripts"));
+                assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+            }
+        }
+    }
 }

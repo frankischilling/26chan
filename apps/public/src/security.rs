@@ -808,7 +808,8 @@ mod tests {
                                 && content_type.starts_with("text/html")
                         );
                         assert!(
-                            !policy.contains("unsafe-inline") && !policy.contains("unsafe-eval")
+                            !policy.contains("'unsafe-inline'")
+                                && !policy.contains("'unsafe-eval'")
                         );
                         assert!(!policy.contains("font-src") && !policy.contains("cdn."));
                         if expected {

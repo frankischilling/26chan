@@ -42,6 +42,10 @@ def finish_browser(process, script):
         posting = re.findall(rb'^OWNED_DRAWING_POST category=(timestamp|cooldown|storage|session|other)\r?$', error, re.MULTILINE)
         if posting and script == 'drawing-upload.mjs':
             response += ' (posting ' + posting[-1].decode('ascii') + ')'
+        playback = re.findall(rb'^OWNED_VIDEO_PLAYBACK player=(true|false) metadata=(true|false) error=([0-4])\r?$', error, re.MULTILINE)
+        if playback and script == 'quick-reply-upload.mjs':
+            player, metadata, code = (value.decode('ascii') for value in playback[-1])
+            response += f' (video player={player}, metadata={metadata}, error={code})'
         raise AssertionError('owned upload browser rejected at ' + script + location + response)
     return output
 
