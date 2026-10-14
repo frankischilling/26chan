@@ -302,7 +302,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
         public = public
             .route(
                 "/{board}/upload",
-                post(uploads::upload).layer(DefaultBodyLimit::max(8_388_608 + 16_384)),
+                post(uploads::upload).layer(DefaultBodyLimit::max(10_485_760 + 16_384)),
             )
             .route(
                 "/{board}/drawing",

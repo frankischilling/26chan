@@ -40,7 +40,7 @@ impl MediaFormat {
     pub fn label(self) -> &'static str {
         match self {
             Self::Png => "PNG",
-            Self::Jpeg => "JPEG",
+            Self::Jpeg => "JPG",
             Self::Gif => "GIF",
             Self::Pdf => "PDF",
             Self::Webm => "WEBM",

@@ -811,12 +811,15 @@ pub(crate) async fn posting_view(
     .collect();
     let ordinary_ready = state.config.poster_id_key.is_some()
         && (!state.config.production || state.config.proxy.is_some());
-    let selected_badge = Capcode::parse(&label)
+    let mut selected_badge = Capcode::parse(&label)
         .filter(|badge| eligible.contains(badge))
         .or_else(|| eligible.first().copied())
         .map(|badge| badge.as_str().to_owned())
         .or_else(|| ordinary_ready.then(|| "none".to_owned()))
         .ok_or(AppError::Forbidden)?;
+    if ordinary_ready && receipt.as_ref().is_some_and(|upload| !upload.capcode) {
+        selected_badge = "none".into();
+    }
     let badges = eligible
         .into_iter()
         .map(|badge| {

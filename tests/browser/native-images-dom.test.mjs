@@ -28,10 +28,11 @@ const standaloneVideoPolicy = /"(default-src 'none'; media-src 'self'; sandbox[^
 assert.ok(standaloneVideoPolicy, 'use the media server\'s actual fixed video policy');
 const animatedPixel = Buffer.from('47494638396101000100800000ff00000000ff21ff0b4e45545343415045322e30030100000021f90404140000002c000000000100010000020244010021f90404140000002c00000000010001000002024c01003b', 'hex');
 
-async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, pdf = false, video = null, storageOrigin = false, fallback = false } = {}) {
+async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, jpeg = false, mobileImage = false, pdf = false, video = null, storageOrigin = false, fallback = false } = {}) {
   const context = await browser.newContext();
   t.after(() => context.close());
   const page = await context.newPage();
+  if (mobileImage) await page.setViewportSize({ width: 400, height: 800 });
   const requests = [], modes = new Map(), held = [];
   await context.route('**/*', async route => {
     const url = route.request().url(); requests.push(url);
@@ -64,7 +65,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
   if (fallback) await page.addInitScript(() => { HTMLMediaElement.prototype.canPlayType = () => ''; });
   await page.goto(storageOrigin ? 'https://boards.test/' : 'about:blank');
   await page.addStyleTag({ content: css });
-  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, pdf, video }) => {
+  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, jpeg, mobileImage, pdf, video }) => {
     const module = async text => {
       const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
       try { return await import(url); } finally { URL.revokeObjectURL(url); }
@@ -85,6 +86,8 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
     if (gif) for (const anchor of document.querySelectorAll('.file a[href]')) {
       anchor.href = anchor.href.replace(/\.png$/, '.gif');
     }
+    if (jpeg) for (const anchor of document.querySelectorAll('.file a[href]')) anchor.href = anchor.href.replace(/\.png$/, '.jpg');
+    if (mobileImage) for (const anchor of document.querySelectorAll('a.fileThumb')) anchor.setAttribute('data-m', '');
     window.imageConfig = config; window.imageOwnership = ownership.createCommentProjection();
     window.imageController = images.mountNativeImages({ root: document.querySelector('.board'),
       mediaOrigin: 'https://media.test', settings: () => window.imageConfig, projection: window.imageOwnership, limits, mobile: window.matchMedia('(max-width: 480px)'),
@@ -97,7 +100,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
       anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
       return intercepted;
     };
-  }, { source, projection, quotes, limits, config, count, preview, gif, pdf, video });
+  }, { source, projection, quotes, limits, config, count, preview, gif, jpeg, mobileImage, pdf, video });
   await page.waitForFunction(() => [...document.querySelectorAll('.fileThumb img')].every(img => img.complete && img.naturalWidth > 0));
   return { page, requests, modes, held };
 }
@@ -523,3 +526,33 @@ async function assertEventually(predicate) {
   }
   assert.ok(predicate(), 'owned deferred request was not reached');
 }
+
+test('mobile JPEG expansion loads its companion and preserves the original URL for projections and retirement', async t => {
+  const { page, requests } = await fixture(t, { count: 1, jpeg: true, mobileImage: true });
+  assert.equal(await page.evaluate(() => clickImage(1)), true);
+  await page.locator('#f1 .expanded-thumb:not([hidden])').waitFor();
+  assert.equal(await page.locator('#f1 .expanded-thumb').getAttribute('src'), 'https://media.test/demo/1m.jpg');
+  assert.equal(await page.locator('#f1 .fileThumb').getAttribute('href'), 'https://media.test/demo/1m.jpg');
+  assert.equal(await page.locator('#f1 .fileThumb').getAttribute('data-orig'), 'https://media.test/demo/1.jpg');
+  assert.equal(await page.evaluate(() => imageOwnership.attributes(document.querySelector('#f1 .fileThumb')).find(a => a.name === 'href').value), 'https://media.test/demo/1.jpg');
+  assert.ok(!requests.includes('https://media.test/demo/1.jpg'));
+  await page.evaluate(() => imageController.retire('https://media.test/demo/1.jpg'));
+  await page.waitForFunction(() => !document.querySelector('.expanded-thumb'));
+  const count = requests.length;
+  await page.evaluate(() => clickImage(1));
+  assert.equal(requests.length, count);
+  await page.evaluate(() => imageController.dispose());
+  assert.equal(await page.locator('#f1 .fileThumb').getAttribute('href'), 'https://media.test/demo/1.jpg');
+  assert.equal(await page.locator('#f1 .fileThumb').getAttribute('data-orig'), null);
+});
+
+test('mobile companion links also work with expansion disabled while desktop keeps the retained original', async t => {
+  const mobile = await fixture(t, { count: 1, jpeg: true, mobileImage: true, config: { imageExpansion: false } });
+  assert.equal(await mobile.page.evaluate(() => clickImage(1)), false);
+  assert.equal(await mobile.page.locator('#f1 .fileThumb').getAttribute('href'), 'https://media.test/demo/1m.jpg');
+  const desktop = await fixture(t, { count: 1, jpeg: true, mobileImage: true });
+  await desktop.page.setViewportSize({ width: 1200, height: 800 });
+  await desktop.page.evaluate(() => clickImage(1));
+  await desktop.page.locator('#f1 .expanded-thumb:not([hidden])').waitFor();
+  assert.equal(await desktop.page.locator('#f1 .expanded-thumb').getAttribute('src'), 'https://media.test/demo/1.jpg');
+});

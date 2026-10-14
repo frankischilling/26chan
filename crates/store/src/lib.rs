@@ -241,15 +241,22 @@ impl Board {
             .collect()
     }
     pub fn image_file_limit(&self) -> usize {
-        // The transport's independent 8 MiB resource bound still applies.
-        self.max_image_bytes.min(8_388_608) as usize
+        let maximum = if board_domain::still_image_policy::configured(&self.slug) {
+            10_485_760
+        } else {
+            8_388_608
+        };
+        self.max_image_bytes.max(0).min(maximum) as usize
     }
 
     pub fn attachment_file_limit(&self, filename: &str) -> usize {
         let filename = filename.to_ascii_lowercase();
         if self.video_enabled && (filename.ends_with(".webm") || filename.ends_with(".mp4")) {
             self.image_file_limit()
+                .min(8_388_608)
                 .min(self.max_video_bytes.max(0) as usize)
+        } else if filename.ends_with(".gif") || filename.ends_with(".pdf") {
+            self.image_file_limit().min(8_388_608)
         } else {
             self.image_file_limit()
         }

@@ -76,7 +76,7 @@ fn parsed(form: Result<Form<UploadForm>, FormRejection>) -> Result<UploadForm, A
 fn invalid() -> AppError {
     AppError(
         StatusCode::UNPROCESSABLE_ENTITY,
-        "Choose one file of at most 8 MiB.",
+        "Choose one file within this board's size limit.",
     )
 }
 
@@ -206,7 +206,7 @@ async fn receive_drawing(
             "Drawing uploads are unavailable on this board.",
         ));
     }
-    if declaration.image_bytes > board_settings.image_file_limit() as u64 {
+    if declaration.image_bytes > board_settings.image_file_limit().min(8_388_608) as u64 {
         return Err(AppError(
             StatusCode::PAYLOAD_TOO_LARGE,
             "Error: File too large.",
@@ -299,16 +299,35 @@ async fn receive(
         .filter(|name| !name.is_empty() && name.len() <= 255 && !name.chars().any(char::is_control))
         .ok_or_else(invalid)?
         .to_owned();
-    let reservation = media.reserve(&filename).await?;
+    let source_image = board_domain::still_image_policy::configured(board);
+    let reservation = if source_image {
+        media.reserve_image(&filename, board, resto, false).await?
+    } else {
+        media.reserve(&filename).await?
+    };
     let (sender, receiver) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(1);
     let stream = futures_util::stream::unfold(receiver, |mut receiver| async move {
         receiver.recv().await.map(|item| (item, receiver))
     });
-    let send = media.upload(
-        &reservation.id,
-        &reservation.capability,
-        Body::from_stream(stream),
-    );
+    let send = async {
+        if source_image {
+            media
+                .upload_image(
+                    &reservation.id,
+                    &reservation.capability,
+                    Body::from_stream(stream),
+                )
+                .await
+        } else {
+            media
+                .upload(
+                    &reservation.id,
+                    &reservation.capability,
+                    Body::from_stream(stream),
+                )
+                .await
+        }
+    };
     let pump = async {
         let mut total = 0usize;
         while let Some(chunk) = field.chunk().await.map_err(|_| invalid())? {

@@ -19,6 +19,7 @@ pub struct PostAttachment {
     pub spoiler: bool,
     pub file_deleted: bool,
     pub has_replay: bool,
+    pub has_mobile: bool,
     pub tim: i64,
     pub md5: Option<String>,
     pub thumbnail_width: Option<i32>,

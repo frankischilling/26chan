@@ -74,6 +74,13 @@ async fn jpeg_and_companions_require_approval_exact_suffixes_and_intact_bytes() 
         .await
         .unwrap();
     let id = upload.id.clone();
+    let posted = std::sync::Arc::new(std::sync::atomic::AtomicI64::new(0));
+    let owned_post = posted.clone();
+    let owner = admin.clone();
+    let identity = board_domain::poster_id::PosterIdKey::parse(&"8".repeat(64)).unwrap();
+    let actor = *identity
+        .public_posting_rate_identity("192.0.2.203".parse().unwrap())
+        .as_bytes();
     let result = tokio::spawn(async move {
         let reader = MediaReader::connect(&std::env::var("MEDIA_READ_DATABASE_URL").unwrap())
             .await
@@ -198,8 +205,78 @@ async fn jpeg_and_companions_require_approval_exact_suffixes_and_intact_bytes() 
                 StatusCode::NOT_FOUND
             );
         }
+        let public =
+            board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+                .await
+                .unwrap();
+        let post = board_store::create_post_with_metadata(
+            &public,
+            "aco",
+            0,
+            &board_store::NewPost {
+                name: String::new(),
+                subject: "Owned still image".into(),
+                comment: "Synthetic retained-image receipt".into(),
+                deletion_hash: "fixture-hash".into(),
+                sage: false,
+            },
+            Some(&board_store::post_media::NewAttachment {
+                upload,
+                spoiler: false,
+            }),
+            board_store::PostingContext {
+                request_start: sqlx::query_scalar("SELECT clock_timestamp()")
+                    .fetch_one(&owner)
+                    .await
+                    .unwrap(),
+                peer: Some("192.0.2.203".parse().unwrap()),
+                op_password_proof: None,
+            },
+            board_store::PostMetadata {
+                keys: board_store::PostIdentityKeys {
+                    tripcode: None,
+                    poster_id: Some(&identity),
+                },
+                spoiler: false,
+                country_database: None,
+                flag: "",
+                options: "",
+                drawing: None,
+            },
+        )
+        .await
+        .unwrap();
+        owned_post.store(post, std::sync::atomic::Ordering::SeqCst);
+        let attachment = board_store::post_media::attachment(&public, post)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(attachment.has_mobile);
+        let source_urls = [
+            format!("/aco/{}.jpg", attachment.tim),
+            format!("/aco/{}s.jpg", attachment.tim),
+            format!("/aco/{}m.jpg", attachment.tim),
+        ];
+        for (url, expected) in source_urls.iter().zip([
+            encoded.retained(),
+            encoded.thumbnail(),
+            encoded.mobile().unwrap(),
+        ]) {
+            let response = app
+                .clone()
+                .oneshot(request(url).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(response.headers()["content-type"], "image/jpeg");
+            assert_eq!(
+                to_bytes(response.into_body(), 1024).await.unwrap().as_ref(),
+                expected.bytes()
+            );
+        }
         std::fs::write(root.join(format!("{}.mobile.jpg", asset.id)), b"changed").unwrap();
         let response = app
+            .clone()
             .oneshot(
                 request(&urls[2])
                     .header(
@@ -212,8 +289,61 @@ async fn jpeg_and_companions_require_approval_exact_suffixes_and_intact_bytes() 
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        board_store::post_media::delete_attachment(&public, "aco", post)
+            .await
+            .unwrap();
+        let deleted = board_store::post_media::attachment(&public, post)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(deleted.file_deleted);
+        assert!(!deleted.has_mobile);
+        for url in urls.iter().chain(&source_urls) {
+            assert_eq!(
+                app.clone()
+                    .oneshot(request(url).body(Body::empty()).unwrap())
+                    .await
+                    .unwrap()
+                    .status(),
+                StatusCode::NOT_FOUND
+            );
+        }
+        public.close().await;
     })
     .await;
+    let post = posted.load(std::sync::atomic::Ordering::SeqCst);
+    if post > 0 {
+        let mut tx = admin.begin().await.unwrap();
+        sqlx::query("SELECT slug FROM content.boards WHERE slug='aco' FOR UPDATE")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("SELECT id FROM content.threads WHERE board='aco' AND id=$1 FOR UPDATE")
+            .bind(post)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        for query in [
+            "DELETE FROM content.post_media WHERE post_id=$1",
+            "DELETE FROM post_secrets.deletion WHERE post_id=$1",
+            "DELETE FROM content.posts WHERE board='aco' AND id=$1",
+            "DELETE FROM content.threads WHERE board='aco' AND id=$1",
+        ] {
+            sqlx::query(query)
+                .bind(post)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+        }
+        tx.commit().await.unwrap();
+    }
+    sqlx::query(
+        "DELETE FROM post_secrets.posting_thread_actions WHERE board='aco' AND actor_hash=$1",
+    )
+    .bind(actor.as_slice())
+    .execute(&admin)
+    .await
+    .unwrap();
     sqlx::query("DELETE FROM media.assets WHERE job_id=$1")
         .bind(&id)
         .execute(&admin)

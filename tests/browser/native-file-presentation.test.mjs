@@ -85,3 +85,31 @@ test('video caption formats bind static thumbnails without permitting media as i
     }
   }
 });
+
+test('JPEG and mobile markers survive native projection only on matching file thumbnails', () => {
+  const jpeg = original.replaceAll('/demo/1.png', '/demo/1.jpg').replace('2 KB PNG', '2 KB JPG');
+  const mobile = jpeg.replace('class="fileThumb"', 'class="fileThumb" data-m');
+  assert.equal(parse(jpeg).status, 'ok');
+  assert.equal(parse(mobile).status, 'ok');
+  assert.equal(parse(original.replace('class="fileThumb"', 'class="fileThumb" data-m')).status, 'ok');
+  for (const changed of [
+    mobile.replace(' data-m', ' data-m="true"'),
+    jpeg.replace('File: <a ', 'File: <a data-m '),
+    mobile.replaceAll('/demo/1.jpg', '/demo/1.gif').replace('2 KB JPG', '2 KB GIF'),
+    mobile.replaceAll('/demo/1.jpg', '/demo/1m.jpg'),
+    mobile.replace('src="https://media.test/demo/1s.jpg"', 'src="https://media.test/demo/1m.jpg"'),
+  ]) assert.equal(parse(changed).status, 'invalid-snapshot', changed);
+});
+
+
+test('canonical display filename permits an appended extension without expanding raw intake', () => {
+  function withFilename(name) {
+    return original.replace('>Owned.png</a>', ` title="${name}">${fileLabel(name, true)}</a>`)
+      .replace('alt="Owned.png"', `alt="${name}"`);
+  }
+  for (const name of ['a'.repeat(255) + '.png', 'é'.repeat(127) + 'a.png']) {
+    assert.equal(new TextEncoder().encode(name).length, 259);
+    assert.equal(parse(withFilename(name)).status, 'ok');
+    assert.equal(parse(withFilename('a' + name)).status, 'invalid-snapshot');
+  }
+});

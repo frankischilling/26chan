@@ -18,7 +18,7 @@ const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'side
   'fortune-7', 'fortune-8', 'fortune-9', 'fortune-10', 'fortune-11', 'fortune-12']);
 const attributes = {
   article: ['class', 'id', 'data-custom-spoiler'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
-  strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title', 'data-drawing-replay'], blockquote: ['class', 'id'],
+  strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title', 'data-drawing-replay', 'data-m'], blockquote: ['class', 'id'],
   br: [], wbr: [], b: [], s: [], small: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required', 'form', 'aria-label'],
   label: ['for'], button: [], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
@@ -65,7 +65,7 @@ export function validateSnapshotMetadata(snapshot, context) {
 export function postMediaUrl(raw, context) {
   if (!context.mediaOrigin) return false;
   const prefix = `${context.mediaOrigin}/${context.board}/`;
-  return raw.startsWith(prefix) && /^[1-9][0-9]{0,18}(?:\.png|\.gif|s\.jpg)$/.test(raw.slice(prefix.length));
+  return raw.startsWith(prefix) && /^[1-9][0-9]{0,18}(?:\.png|\.jpg|\.gif|s\.jpg)$/.test(raw.slice(prefix.length));
 }
 // Match the rewrite's post resolver and canonical same-origin thread anchors.
 // Do not resolve arbitrary relative paths, query strings or source-site URLs.
@@ -152,7 +152,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       if (key === 'autocomplete') require(value === 'off');
       if (key === 'required') require(value === '');
       if (key.startsWith('data-')) {
-        if (key === 'data-drawing-replay') continue; // Exact anchor checked above.
+        if (key === 'data-m' || key === 'data-drawing-replay') continue; // Both have exact structural checks.
         if (key === 'data-custom-spoiler') {
           require(depth === 0 && node.tag === 'article' && /^(?:[1-9]|[1-5][0-9]|6[0-4])$/.test(value));
           continue;
@@ -163,8 +163,8 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
         }
         require(node.tag === 'div' && node.attrs.class === 'file' && node.attrs['data-image-spoiler'] === 'true');
         if (key === 'data-image-filename') {
-          require(value.length > 0 && value.length <= 255 && !/[\u0000-\u001f\u007f-\u009f]/.test(value)
-            && new TextEncoder().encode(value).length <= 255);
+          require(value.length > 0 && value.length <= 259 && !/[\u0000-\u001f\u007f-\u009f]/.test(value)
+            && new TextEncoder().encode(value).length <= 259);
         } else if (['data-thumbnail-width', 'data-thumbnail-height'].includes(key)) {
           require(/^[1-9][0-9]{0,3}$/.test(value) && Number(value) <= 1024);
         } else require(value === 'true');
@@ -179,7 +179,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     const mobileLabel = node.tag === 'span' && ['name', 'subject'].includes(node.attrs.class) && Object.hasOwn(node.attrs, 'title');
     const fileTitle = node.tag === 'div' && node.attrs.class === 'fileText' && Object.hasOwn(node.attrs, 'title');
     if (fileTitle) require(Object.keys(node.attrs).sort().join(',') === 'class,id,title'
-      && new TextEncoder().encode(node.attrs.title).length <= 255 && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
+      && new TextEncoder().encode(node.attrs.title).length <= 259 && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
     if (mobileLabel) require(Object.keys(node.attrs).sort().join(',') === 'class,title'
       && new TextEncoder().encode(node.attrs.title).length <= (node.attrs.class === 'name' ? 255 : 1020)
       && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));

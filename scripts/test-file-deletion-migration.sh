@@ -257,7 +257,7 @@ assignments=[]
 for field,default in zip(fields,defaults):
  cases=' '.join("WHEN '"+row['slug']+"' THEN "+literal(row[field]) for row in rows)
  assignments += ["'"+field+"'", "CASE value->>'slug' "+cases+" ELSE "+literal(default)+" END"]
-pathlib.Path(sys.argv[1]).write_text("UPDATE public.upgraded_rows SET value=value||jsonb_build_object("+','.join(assignments)+") WHERE relation='content.boards';\nUPDATE public.upgraded_rows SET value=value||jsonb_build_object('video_duration_micros',NULL,'video_has_audio',NULL) WHERE relation='media.assets';\n")
+pathlib.Path(sys.argv[1]).write_text("UPDATE public.upgraded_rows SET value=value||jsonb_build_object("+','.join(assignments)+") WHERE relation='content.boards';\nUPDATE public.upgraded_rows SET value=value||jsonb_build_object('video_duration_micros',NULL,'video_has_audio',NULL,'still_profile',NULL,'thumbnail_format','png','mobile_sha256',NULL,'mobile_bytes',NULL,'mobile_width',NULL,'mobile_height',NULL) WHERE relation='media.assets';\n")
 PYVIDEO
  "${admin[@]}" -f - < "$cluster/video-expectation.sql"
 fi
