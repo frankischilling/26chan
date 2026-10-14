@@ -128,6 +128,9 @@ try {
   assert.equal(requests.includes(media.replace(/\.(?:png|webm|mp4)$/, 's.jpg')), !spoilers, 'only an unspoiled file fetches its approved thumbnail');
   assert.notEqual(new URL(media).origin, origin.origin); assert.equal((await context.request.get(media)).status(), 200);
   const opening = page.waitForEvent('popup'); await (spoilers ? link : file.locator('.fileText > a')).click(); const imagePage = await opening;
+  // Standalone files remain sandboxed. Start playback through the browser's
+  // native keyboard control rather than granting automatic script execution.
+  if (video) await imagePage.locator('video').press('Space');
   try {
     await expect.poll(() => imagePage.locator(video ? 'video' : 'img').evaluate(element => element.videoWidth ?? element.naturalWidth)).toBe(video ? 64 : 1);
   } catch (error) {
