@@ -370,6 +370,12 @@ pub async fn read_approved(
     let size = approved.bytes.try_into()?;
     Ok(match approved.output_format {
         MediaFormat::Png => files.read(id, &approved.sha256, size)?,
+        MediaFormat::Jpeg => files.read_still(
+            id,
+            &approved.sha256,
+            size,
+            board_media::still::StillFormat::Jpeg,
+        )?,
         MediaFormat::Gif => files.read_gif(id, &approved.sha256, size)?,
         MediaFormat::Pdf => files.read_pdf(id, &approved.sha256, size)?,
         MediaFormat::Webm => files.read_video(id, &approved.sha256, size, VideoFormat::Webm)?,
