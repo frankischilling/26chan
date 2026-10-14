@@ -238,3 +238,75 @@ fn authenticated_board_policy_matches_all_captured_source_defaults() {
         assert!(source_policy(unknown, HostFormat::Jpeg, true, false).is_none());
     }
 }
+
+fn png_chunk(kind: &[u8; 4], data: &[u8]) -> Vec<u8> {
+    let mut crc = !0u32;
+    for byte in kind.iter().chain(data) {
+        crc ^= u32::from(*byte);
+        for _ in 0..8 {
+            crc = (crc >> 1) ^ (0xedb8_8320 & 0u32.wrapping_sub(crc & 1));
+        }
+    }
+    [
+        &u32::try_from(data.len()).unwrap().to_be_bytes(),
+        kind,
+        data,
+        &(!crc).to_be_bytes(),
+    ]
+    .concat()
+}
+
+#[test]
+fn png_cleanup_preserves_allowed_chunks_and_drops_text_and_trailing_bytes() {
+    let original = png(8, 8, png::ColorType::Rgb, &[80, 40, 20].repeat(64));
+    let gamma = png_chunk(b"gAMA", &45_455u32.to_be_bytes());
+    let text = png_chunk(b"tEXt", b"Comment\0SYNTHETIC-PRIVATE-METADATA");
+    let expected = [
+        original[..33].as_ref(),
+        gamma.as_slice(),
+        original[33..].as_ref(),
+    ]
+    .concat();
+    let input = [
+        original[..33].as_ref(),
+        gamma.as_slice(),
+        text.as_slice(),
+        original[33..].as_ref(),
+        b"synthetic trailing bytes",
+    ]
+    .concat();
+    let output = still::process(&input, policy(StillFormat::Png)).unwrap();
+    assert_eq!(retained(&output), expected);
+    let animation = png_chunk(b"acTL", &[0, 0, 0, 1, 0, 0, 0, 0]);
+    let animated = [
+        original[..33].as_ref(),
+        animation.as_slice(),
+        original[33..].as_ref(),
+    ]
+    .concat();
+    assert!(still::process(&animated, policy(StillFormat::Png)).is_err());
+}
+
+#[test]
+fn retained_jpeg_orientation_does_not_rotate_source_pixels_or_dimensions() {
+    let original = jpeg(17, 9, false);
+    // Valid little-endian TIFF orientation 6, entirely synthetic.
+    let metadata = b"Exif\0\0II\x2a\0\x08\0\0\0\x01\0\x12\x01\x03\0\x01\0\0\0\x06\0\0\0\0\0\0\0";
+    let tagged = [
+        original[..2].as_ref(),
+        b"\xff\xe1",
+        &((metadata.len() + 2) as u16).to_be_bytes(),
+        metadata,
+        original[2..].as_ref(),
+    ]
+    .concat();
+    let expected = still::process(&original, policy(StillFormat::Jpeg)).unwrap();
+    let output = still::process(&tagged, policy(StillFormat::Jpeg)).unwrap();
+    assert_eq!(retained(&output), tagged);
+    assert_eq!((number(&output, 24), number(&output, 28)), (17, 9));
+    let thumbnail = |output: &[u8]| {
+        let start = 64 + number(output, 48) as usize;
+        output[start..start + number(output, 52) as usize].to_vec()
+    };
+    assert_eq!(thumbnail(&output), thumbnail(&expected));
+}
