@@ -2,12 +2,14 @@
 import os
 import pathlib
 import struct
+import signal
 import subprocess
 import sys
 import tempfile
 import unittest
 import zlib
 from owned_process import run_owned
+from test_vm import check_probe_report
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 OUTPUT_BYTES = 16 * 1024 * 1024
@@ -31,20 +33,42 @@ def png(width, height):
 
 
 class StillVmTest(unittest.TestCase):
-    def run_job(self, source):
+    def run_job(self, source, *, probe=False):
         with tempfile.TemporaryDirectory(prefix='owned-still-vm-') as directory:
             root = pathlib.Path(directory)
             source_path, output = root / 'input', root / 'output'
             source_path.write_bytes(source)
             result = run_owned([sys.executable, str(REPO / 'scripts/media/run-job.py'),
                                 '--input-kind', 'still-v6', '--owned-diagnostics',
-                                os.environ['MEDIA_VM_TEST_CONFIG'], str(source_path), str(output)],
+                                os.environ['MEDIA_VM_PROBE_CONFIG' if probe else 'MEDIA_VM_TEST_CONFIG'], str(source_path), str(output)],
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=70)
             self.assertEqual(result.returncode, 0, result.stderr.decode(errors='replace'))
             self.assertEqual(sorted(path.name for path in pathlib.Path('/run/26chan-media-jobs').iterdir()), ['runner.lock'])
             data = output.read_bytes()
             self.assertEqual(len(data), OUTPUT_BYTES)
             return data
+
+    def test_still_profile_preserves_worker_boundaries(self):
+        for mode, checks in [('inspect', 9), ('memory', 1), ('process', 1), ('disk', 1)]:
+            with self.subTest(mode=mode):
+                output = self.run_job(mode.encode().ljust(17, b' '), probe=True)
+                check_probe_report(output[:4_194_816], checks)
+                self.assertFalse(any(output[4_194_816:]))
+
+    def test_cancellation_removes_live_vm_and_partial_output(self):
+        from test_vm import VmTest
+        vm = VmTest()
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            with self.subTest(signal=signum), vm.sleeping_vm('still-v6') as (runner, unit, workspace, disk, vmm):
+                runner.send_signal(signum)
+                runner.communicate(timeout=12)
+                self.assertNotEqual(runner.returncode, 0)
+                self.assertFalse(disk.exists())
+                self.assertFalse(workspace.exists())
+                self.assertFalse(vmm.exists())
+                vm.assert_clean()
+        output = self.run_job(b'inspect'.ljust(17, b' '), probe=True)
+        check_probe_report(output[:4_194_816], 9)
 
     @staticmethod
     def policy():
