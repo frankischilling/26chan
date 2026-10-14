@@ -397,7 +397,7 @@ test('video failure restores the thumbnail and preserves the filename fallback',
   assert.equal(await page.locator('#f1 p a').getAttribute('href'),'https://media.test/demo/1.webm');
 });
 
-for (const video of ['red.webm', 'red-opus.webm']) {
+for (const video of ['red.webm', 'red-opus.webm', 'red-vp9.webm']) {
   test(`pinned fallback decodes ${video}, exposes controls and stops on close`, async t => {
     const { page, requests } = await fixture(t, { video, fallback: true, storageOrigin: true, count: 1 });
     await page.evaluate(() => clickImage(1));
@@ -405,6 +405,8 @@ for (const video of ['red.webm', 'red-opus.webm']) {
     await player.waitFor();
     assert.deepEqual(await player.evaluate(v => [v.videoWidth, v.videoHeight, v.muted]), [64, 48, true]);
     assert.ok(await player.evaluate(v => v.querySelector('canvas') !== null));
+    await player.evaluate(v => { window.fallbackEnds = 0; v.addEventListener('ended', () => { fallbackEnds++; }); });
+    await page.waitForFunction(() => window.fallbackEnds >= 2);
     await page.locator('.nativeVideoControls button', { hasText: /^Pause$/ }).click();
     assert.equal(await player.evaluate(v => v.paused), true);
     await page.locator('.nativeVideoControls button', { hasText: /^Unmute$/ }).click();
@@ -417,7 +419,8 @@ for (const video of ['red.webm', 'red-opus.webm']) {
     assert.equal(await page.locator('.expanded-thumb,.nativeVideoControls').count(), 0);
     assert.equal(await page.evaluate(() => retainedFallback.paused), true);
     assert.ok(requests.some(url => url.includes('ogv-demuxer-webm-wasm.wasm')));
-    assert.ok(requests.some(url => url.includes('ogv-decoder-video-vp8-wasm.wasm')));
+    assert.ok(requests.some(url => url.includes(video === 'red-vp9.webm' ? 'ogv-decoder-video-vp9-wasm.wasm' : 'ogv-decoder-video-vp8-wasm.wasm')));
+    if (video !== 'red.webm') assert.ok(requests.some(url => url.includes(video === 'red-vp9.webm' ? 'ogv-decoder-audio-vorbis-wasm.wasm' : 'ogv-decoder-audio-opus-wasm.wasm')));
   });
 }
 

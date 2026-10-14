@@ -37,6 +37,7 @@ export async function createFallback({ document, url, mediaOrigin, active }) {
     || !url.startsWith(prefix) || !/^[a-z0-9]{1,10}\/[1-9][0-9]{0,18}\.webm$/.test(url.slice(prefix.length))) {
     throw new TypeError('invalid-fallback-video');
   }
+  if (BigInt(parsed.pathname.split('/').at(-1).split('.')[0]) > 9223372036854775807n) throw new TypeError('invalid-fallback-video');
   const Player = await library(document);
   if (!active()) return null;
   const player = new Player({ wasm: true, threading: false, simd: false, worker: true });

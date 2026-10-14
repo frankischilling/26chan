@@ -380,6 +380,46 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires explicitly prepared owned rejection clips and the reviewed minimal runtime"]
+    fn owned_runtime_rejects_codec_chroma_duration_and_dimensions() {
+        let tools = PathBuf::from(std::env::var_os("VIDEO_TEST_RUNTIME").expect("owned runtime"));
+        let owned = PathBuf::from(std::env::var_os("VIDEO_TEST_CLIPS").expect("owned clips"));
+        let root = owned.join(format!("reject-scratch-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        for name in [
+            "too-long.mp4",
+            "too-wide.mp4",
+            "unsupported-codec.mp4",
+            "unsupported-chroma.mp4",
+        ] {
+            assert!(
+                process(
+                    &fs::read(owned.join(name)).unwrap(),
+                    Container::Mp4,
+                    &tools.join("ffmpeg"),
+                    &tools.join("ffprobe"),
+                    &root
+                )
+                .is_err(),
+                "{name}"
+            );
+            assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+        }
+        assert!(
+            process(
+                &fs::read(owned.join("blue.mp4")).unwrap(),
+                Container::Mp4,
+                &tools.join("ffmpeg"),
+                &tools.join("ffprobe"),
+                &root
+            )
+            .is_ok()
+        );
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+        fs::remove_dir(root).unwrap();
+    }
+
+    #[test]
     #[ignore = "requires explicitly prepared owned clips and the reviewed minimal runtime"]
     fn owned_runtime_remuxes_and_decodes_both_containers() {
         let tools = PathBuf::from(std::env::var_os("VIDEO_TEST_RUNTIME").expect("owned runtime"));

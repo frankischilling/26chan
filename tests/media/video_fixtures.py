@@ -32,3 +32,18 @@ if __name__ == '__main__':
     if len(sys.argv) != 2:
         raise SystemExit('usage: video_fixtures.py NEW_CLIP_DIRECTORY')
     generate(sys.argv[1])
+
+
+def generate_rejected(root):
+    """Ordinary encoded clips outside the source admission policy."""
+    root = pathlib.Path(root)
+    root.mkdir(exist_ok=True)
+    for name, size, duration, codec, pixels in [
+            ('too-long.mp4', '2x2', '401', 'libx264', 'yuv420p'),
+            ('too-wide.mp4', '2050x2', '1', 'libx264', 'yuv420p'),
+            ('unsupported-codec.mp4', '64x48', '1', 'mpeg4', 'yuv420p'),
+            ('unsupported-chroma.mp4', '64x48', '1', 'libx264', 'yuv444p')]:
+        subprocess.run(['/usr/bin/ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi',
+                        '-i', f'color=c=red:s={size}:r=1', '-t', duration,
+                        '-c:v', codec, '-threads', '1', '-pix_fmt', pixels,
+                        '-n', str(root / name)], check=True, capture_output=True, timeout=15)

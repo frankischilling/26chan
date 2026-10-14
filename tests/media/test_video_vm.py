@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from owned_process import run_owned
 from test_vm import check_probe_report
-from video_fixtures import generate
+from video_fixtures import generate, generate_rejected
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 DISK_BYTES = 9 * 1024 * 1024
@@ -64,6 +64,15 @@ class VideoVmTest(unittest.TestCase):
             for source in [b'\x01invalid', b'\x02invalid', b'\x03invalid']:
                 self.assertEqual(self.run_job(source), bytes(DISK_BYTES))
             self.assertEqual(self.run_job(b'\x01' + pathlib.Path(directory, 'red.webm').read_bytes())[:8], b'IBVID005')
+
+    def test_real_codec_chroma_duration_and_dimension_rejections_recover(self):
+        with tempfile.TemporaryDirectory(prefix='owned-video-rejections-') as directory:
+            generate_rejected(directory)
+            for name in ['too-long.mp4', 'too-wide.mp4', 'unsupported-codec.mp4', 'unsupported-chroma.mp4']:
+                with self.subTest(name=name):
+                    self.assertEqual(self.run_job(b'\x02' + pathlib.Path(directory, name).read_bytes()), bytes(DISK_BYTES))
+            generate(directory)
+            self.assertEqual(self.run_job(b'\x02' + pathlib.Path(directory, 'blue.mp4').read_bytes())[:8], b'IBVID005')
 
     def test_video_cancellation_removes_the_live_vm_and_discarded_output(self):
         from test_vm import VmTest

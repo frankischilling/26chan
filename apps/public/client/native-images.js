@@ -173,7 +173,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     for (const [anchor, other] of expanded) if (other !== entry && other.legacy) contract(anchor);
     if (hover && hover !== entry && hover.legacy) hideHover();
     entry.legacy = true;
-    const active = () => entry.pending && valid(entry)
+    const active = () => valid(entry)
       && (expanded.get(entry.anchor) === entry || hover === entry);
     const moduleUrl = new URL('/static/native-video-fallback.v1.js', window.location.origin).href;
     import(moduleUrl).then(module => module.createFallback({ document, url: entry.url, mediaOrigin, active })).then(fallback => {
