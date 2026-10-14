@@ -371,6 +371,16 @@ test('video hover reports duration and tears down on settings disable', async t 
   assert.equal(await page.locator('.nativeVideoDuration').count(), 0);
 });
 
+test('source legacy selection applies to expansion, while hover stays native', async t => {
+  const { page, requests } = await fixture(t, { video: 'red.webm', fallback: true, storageOrigin: true, count: 1, config: { imageHover: true } });
+  await page.locator('#f1 a.fileThumb').hover();
+  await page.locator('video#image-hover:not([hidden])').waitFor();
+  assert.equal(await page.locator('ogvjs').count(), 0);
+  assert.equal(requests.some(url => url.includes('/static/ogv/') || url.includes('native-video-fallback')), false);
+  await page.mouse.move(0, 0);
+  assert.equal(await page.locator('#image-hover').count(), 0);
+});
+
 
 test('video volume, mobile sizing, offscreen pause and pagehide release use the native player', async t => {
   const { page } = await fixture(t, { video: 'red.webm', count: 1, storageOrigin: true, config: { unmuteWebm: true } });

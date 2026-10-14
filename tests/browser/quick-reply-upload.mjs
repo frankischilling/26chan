@@ -191,6 +191,13 @@ try {
     await expect(menu).toHaveText('...');
     await menu.click();
     await expect(page.getByRole('menuitem', { name: 'Delete file', exact: true })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveAttribute('href', media);
+    if (video) {
+      for (const name of ['Google', 'Yandex', 'SauceNAO']) {
+        const search = new URL(await page.getByRole('menuitem', { name: `Search image on ${name}`, exact: true }).getAttribute('href'));
+        assert.equal(search.searchParams.get(name === 'Yandex' ? 'img_url' : 'url'), media.replace(/\.(?:webm|mp4)$/, 's.jpg'));
+      }
+    }
     const finished = await observeOwnedDeletionResponse(page, endpoint);
     const confirmation = page.waitForEvent('dialog');
     const clicked = page.getByRole('menuitem', { name: 'Delete file', exact: true }).click();

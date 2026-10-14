@@ -10,7 +10,7 @@ import { NativeCatalogTransport, NativeFilterMatcher, NativeWatchLock, readNativ
   localQuoteTree, prepareQuotePost, mobileQuoteDevice, NativeQuotePreviewTransport, checkedQuotePreview } from './native-filter.v1.js';
 import { mountNativeBacklinks, mountNativeInlineQuotes, createCommentProjection } from './native-backlinks.v1.js';
 import { mountNativeQuickReply } from './native-quick-reply.v1.js';
-import { mountNativeImages } from './native-images.v1.js';
+import { attachmentTarget, mountNativeImages } from './native-images.v1.js';
 import { mountNativeDeletion } from './native-post-deletion.v1.js';
 import { mountNativeDisplay, mountNativePosterIds, mountNativePosterIdActions } from './native-display.v1.js';
 import { mountNativePostTooltips } from './native-post-tooltips.v1.js';
@@ -849,16 +849,17 @@ async function start(context) {
     if (menu.post.closest('.deleted') || menu.post.querySelector(':scope > .file.deleted')) return;
     const source = projection.query(menu.post, '.file > .fileText > a[href],.file > p > a[href]');
     if (!source) return;
-    let file;
-    try { file = new URL(source.href); } catch { return; }
-    if (!['http:', 'https:'].includes(file.protocol) || file.username || file.password || file.search || file.hash
-      || !new RegExp(`^/${board}/[1-9][0-9]{0,18}\\.png$`).test(file.pathname)) return;
+    const target = attachmentTarget(source.getAttribute('href'), context.dataset.mediaOrigin);
+    if (!target || new URL(target.url).pathname.split('/')[1] !== board) return;
+    const file = new URL(target.url);
+    // The source searches video and document thumbnails, never their containers.
+    const searchURL = /\.(?:png|gif)$/.test(target.url) ? target.url : target.thumbnail;
     const providers = [
       ['Google', 'https://lens.google.com/uploadbyurl'],
       ['Yandex', 'https://www.yandex.com/images/search'],
       ['SauceNAO', 'https://saucenao.com/search.php'],
     ].map(([name, endpoint]) => {
-      const url = new URL(endpoint); url.searchParams.set(name === 'Yandex' ? 'img_url' : 'url', file.href);
+      const url = new URL(endpoint); url.searchParams.set(name === 'Yandex' ? 'img_url' : 'url', searchURL);
       if (name === 'Yandex') url.searchParams.set('rpt', 'imageview');
       return [name, url.href];
     });

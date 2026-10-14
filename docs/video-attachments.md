@@ -1,8 +1,8 @@
 # Video attachments
 
-Issue #204 covers WebM and MP4 uploads and native playback. The current branch
-connects processing, board admission, publication, serving and native playback.
-Qualification is still in progress; this branch is not ready to merge.
+WebM and MP4 attachments use isolated processing, source board admission,
+approval-bound publication and native playback. This document covers the
+implementation and qualification for issue #204.
 
 ## Source decisions
 
@@ -32,8 +32,9 @@ equal numerator/denominator ignored.
 `fixtures/source-video-reference.json` contains the captured decision tail and
 65 independent expected cases. The extractor checks the whole source file and
 the excerpt hashes. Its optional PHP oracle executes only that tail against
-synthetic probe records, with process-launch functions disabled. The oracle
-passed locally with PHP 8.4.26. It does not establish actual container handling.
+synthetic probe records, with process-launch functions disabled. The local
+reference capture used PHP 8.4.26. Actual container handling is checked separately
+in the guest.
 
 ## Processing boundary
 
@@ -66,18 +67,12 @@ It is therefore used only to generate owned test clips, not packaged in a guest.
 The video image retains the 64 MiB artifact cap and baseline 128 MiB guest RAM.
 Its private 24 MiB tmpfs holds the bounded input and remux output. Host cgroup,
 worker address-space, process, CPU and execution deadlines remain unchanged.
-The processing checkpoint passed the owned VM and containment checks in run
-38493231007. The newer explicit cancellation and browser upload cases still
-need their hosted run.
-
-Local prototype checks passed for remuxing and first-frame preview of owned
-VP8/WebM and H.264/MP4 clips, both silent and with allowed Opus/AAC audio.
-The rotated owned MP4 retains its 64×48 public dimensions and produces a
-48×64 preview. A 3:2 sample-aspect clip produces a 64×32 preview. Host envelope validation, malformed framing and focused Rust
-lint also passed.
-The full guest workspace is blocked locally by an unavailable cached GIF
-dependency; hosted CI remains required. No VM or complete feature result is
-claimed by these prototype checks.
+Owned fixtures cover VP8/WebM and H.264/MP4, both silent and with allowed
+Opus/AAC audio. The rotated MP4 retains its 64×48 public dimensions and produces
+a 48×64 preview. A 3:2 sample-aspect clip produces a 64×32 preview. Rejected
+fixtures cover excessive duration and dimensions, MPEG-4 Part 2 and H.264
+4:4:4 chroma; the next valid job must still succeed. SIGTERM and SIGINT cases
+check that cancellation removes the job's processes and output authority.
 
 ## Publication and playback
 
@@ -85,13 +80,14 @@ Migration 0147 adds the source board policy and immutable duration/audio
 metadata. The posting transaction checks the current locked board again,
 including filename/container agreement and separate input/output caps. Video
 metadata requires a current processing lease and cannot change after insertion.
-The retained-byte HTTP tests passed locally for both containers: publication,
-current-policy rejection, retry, thumbnails, byte ranges, conditional reads,
-disk tampering and deletion. The complete migration and policy decision tests
-also passed against a disposable PostgreSQL 16 database, followed by the
-populated historical upgrade and administrator dump/restore test. Reply video
-metadata is capped at 125 pixels; OP metadata keeps the 250-pixel cap. Both
-containers passed the retained-byte HTTP test as OPs and replies.
+Reply video metadata is capped at 125 pixels; OP metadata keeps the 250-pixel
+cap. Both use the bounded first-frame preview. Source JPEG thumbnail bytes are
+replaced with host-encoded PNGs at the same `s.jpg` routes. The guest returns
+neutral pixels so credentialed services need no JPEG decoder; exact source JPEG
+compression is not preserved. The HTTP integration covers both
+containers as OPs and replies, current-policy rejection, retries, byte ranges,
+conditional reads, tampered files and deletion. The full migration chain and
+populated historical upgrade/restore tests include the new immutable fields.
 
 The media reader verifies approval and the whole file's hash before serving a
 single byte range. Unsatisfiable ranges return 416; unsupported range syntax
@@ -110,8 +106,9 @@ Native players have controls, loop, mute preference, saved volume and a close
 button. Hover previews show duration and browser-detected audio. Closing,
 retiring, hiding or disabling a player releases its source. Playback failure
 keeps the filename link available for opening or downloading the attachment.
-These client changes have not yet passed the full browser suite. The WebM fallback uses the pinned OGV 1.9.0 decoder when native WebM support is
-missing or on the original iOS path. It provides play/pause, mute, seek, volume,
+The WebM expansion fallback uses the pinned OGV 1.9.0 decoder when native WebM
+support is missing or on the original iOS path. Hover stays native, as in the
+source. It provides play/pause, mute, seek, volume,
 fullscreen and elapsed time. The source SVG controls keep their 32-pixel overlay,
 0–100 volume scale and tap-to-show behavior; keyboard-accessible buttons replace
 the original clickable divs. `fixtures/source-video-controls.json` records the
@@ -123,15 +120,37 @@ hashes under `docs/third-party/ogv/`. CSP permits those assets and WebAssembly
 compilation without allowing JavaScript eval, arbitrary workers or blob workers.
 The configured board origin can read approved video bytes for this decoder;
 other origins receive no CORS grant. Thumbnail and PDF behavior is unchanged.
-Local HTTP CORS and security-policy tests passed. Actual fallback decoding and
-teardown still require browser qualification.
+Browser fixtures exercise VP8, VP9, Opus and Vorbis decoding, repeated loops,
+controls, saved volume, cancellation and decoder teardown. Standalone video
+checks use the media server policy and verify that page scripts stay blocked.
 
-## Remaining qualification
+The post menu retains mobile file deletion and opening for video attachments.
+Image-search links use the approved video thumbnail, as in the source, rather
+than submitting the video container to an image-search provider.
 
-- Pass the actual guest, containment and cancellation/recovery tests with the
-  latest runtime and owned rotated clips.
-- Qualify mute/volume, mobile layout, fallback behavior, offscreen pause and
-  player teardown in real browsers.
-- Cover ordinary forms, Quick Reply, catalogs, previews, snapshots and JSON.
-- Pass populated migration/restore tests and all exact-final-head CI before
-  opening the issue-closing PR for #204.
+## Verification
+
+- `scripts/extract-video-reference.py --php-oracle` checks the source admission
+  decisions against independent expected cases.
+- `tests/media/test_video_vm.py` exercises actual isolated decoding, rejected
+  containers and recovery. `tests/media/test_intake_service.py` sends owned
+  files through authenticated intake, persisted publication and browser posting.
+- `apps/media-http/tests/video.rs` checks approved bytes, range and conditional
+  behavior, CORS, current board policy and deletion against PostgreSQL.
+- `tests/browser/native-images-dom.test.mjs` checks native and fallback playback,
+  source controls, mobile behavior and teardown. `quick-reply-upload.mjs` covers
+  real standalone and expanded playback under the application security policy.
+- The ordinary upload browser checks thumbnails, catalogs, JSON/checksums and
+  no-JavaScript viewing. Preview and updater tests keep video URLs out of image
+  source recipes.
+
+The full media qualification needs the reviewed guest image and a Linux host
+that can run the repository's isolated dispatch harness. A browser fixture or
+local unit test does not replace that run. Use the existing `media-and-operations`
+CI lane and the complete application checks before merging; deployment retains
+its separate operator qualification requirements.
+
+Hosted browser checks verify standalone WebM and MP4 playback and blocked
+page scripts under the video policy. The complete Quick Reply video flow is
+awaiting qualification of its mobile file menu. Issue #204 remains open until
+that run and all exact-final-head checks pass.

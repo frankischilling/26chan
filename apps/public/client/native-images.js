@@ -165,7 +165,8 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
       if (entry.fallback) entry.image.load();
     };
     entry.timer = setTimeout(failed, bounds.loadMs);
-    const legacy = entry.video && entry.url.endsWith('.webm') && (!entry.image.canPlayType('video/webm')
+    // The source uses OGV for expansion only; hover always uses native video.
+    const legacy = expanded.get(entry.anchor) === entry && entry.video && entry.url.endsWith('.webm') && (!entry.image.canPlayType('video/webm')
       || /iP(?:hone|ad|od)/.test(window.navigator.userAgent));
     if (!legacy) { begin(); return; }
     // The source fallback owns a single decoder. Dispose the previous instance

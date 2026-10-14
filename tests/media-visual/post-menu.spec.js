@@ -103,7 +103,9 @@ test('noncanonical and credential-bearing file links cannot become menu navigati
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/img/thread/1000201');
   for (const href of ['javascript:void(0)', 'https://synthetic:synthetic@example.invalid/img/1000201.png',
-    'https://example.invalid/wrong/1000201.png', 'https://example.invalid/img/1000201.png?token=synthetic']) {
+    'https://example.invalid/wrong/1000201.png', 'https://example.invalid/img/1000201.png?token=synthetic',
+    'https://example.invalid/img/1000201.mp4', 'http://localhost:3004/img/9223372036854775808.webm',
+    'http://localhost:3004/img/1000201.html']) {
     await page.locator(`#p${id} .file > .fileText > a`).evaluate((link, href) => { link.href = href; }, href);
     await trigger(page).click();
     await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveCount(0);
@@ -111,3 +113,24 @@ test('noncanonical and credential-bearing file links cannot become menu navigati
     await page.keyboard.press('Escape');
   }
 });
+
+for (const extension of ['gif', 'pdf', 'webm', 'mp4']) {
+  test(`mobile ${extension} file menu keeps deletion and searches the source-selected preview`, async ({ page }) => {
+    const external = [];
+    page.on('request', request => { if (providerRequest(request.url())) external.push(request.url()); });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/img/thread/1000201');
+    const file = `http://localhost:3004/img/${id}.${extension}`;
+    await page.locator(`#p${id} .file > .fileText > a, #p${id} .fileThumb`).evaluateAll((links, href) => {
+      for (const link of links) link.href = href;
+    }, file);
+    await trigger(page).click();
+    await expect(page.getByRole('menuitem', { name: 'Delete file', exact: true })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveAttribute('href', file);
+    for (const name of ['Google', 'Yandex', 'SauceNAO']) {
+      await checkProviderLink(page.getByRole('menuitem', { name: `Search image on ${name}`, exact: true }),
+        name, extension === 'gif' ? file : `http://localhost:3004/img/${id}s.jpg`);
+    }
+    expect(external).toEqual([]);
+  });
+}
