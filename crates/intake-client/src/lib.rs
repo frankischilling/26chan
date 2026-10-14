@@ -157,8 +157,27 @@ impl IntakeClient {
     }
 
     pub async fn reserve(&self, filename: &str) -> Result<Reservation, IntakeError> {
-        let body = serde_json::to_vec(&serde_json::json!({"filename":filename}))
-            .map_err(|_| IntakeError::Unavailable)?;
+        self.reserve_metadata(serde_json::json!({"filename":filename}))
+            .await
+    }
+
+    /// Call only after the public/staff entry point validates posting context.
+    pub async fn reserve_image(
+        &self,
+        filename: &str,
+        board: &str,
+        thread_id: i64,
+        capcode: bool,
+    ) -> Result<Reservation, IntakeError> {
+        self.reserve_metadata(serde_json::json!({
+            "filename": filename,
+            "image_context": {"board": board, "thread_id": thread_id, "capcode": capcode},
+        }))
+        .await
+    }
+
+    async fn reserve_metadata(&self, value: serde_json::Value) -> Result<Reservation, IntakeError> {
+        let body = serde_json::to_vec(&value).map_err(|_| IntakeError::Unavailable)?;
         let body = self
             .request(Method::POST, "/v1/reservations", None, Body::from(body))
             .await?;
@@ -334,6 +353,16 @@ mod tests {
         path: String,
         capability: Option<String>,
     ) -> (IntakeClient, tokio::task::JoinHandle<()>) {
+        fixture_body(response, method, path, capability, None).await
+    }
+
+    async fn fixture_body(
+        response: Vec<u8>,
+        method: &'static str,
+        path: String,
+        capability: Option<String>,
+        expected_body: Option<serde_json::Value>,
+    ) -> (IntakeClient, tokio::task::JoinHandle<()>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let client = IntakeClient::new(listener.local_addr().unwrap(), "a".repeat(64)).unwrap();
         let server = tokio::spawn(async move {
@@ -355,7 +384,16 @@ mod tests {
                         .map(|value| value.parse::<usize>().unwrap())
                 }) {
                     assert!(length <= 4096);
-                    socket.read_exact(&mut vec![0; length]).await.unwrap();
+                    let mut body = vec![0; length];
+                    socket.read_exact(&mut body).await.unwrap();
+                    if let Some(expected) = expected_body {
+                        assert_eq!(
+                            serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+                            expected
+                        );
+                    }
+                } else {
+                    assert!(expected_body.is_none());
                 }
                 // The client may close early when it rejects headers or status.
                 let _ = socket.write_all(&response).await;
@@ -475,6 +513,34 @@ mod tests {
             assert_eq!(client.ready().await, Err(error));
             server.await.unwrap();
         }
+    }
+
+    #[tokio::test]
+    async fn image_reservation_transmits_the_exact_posting_context() {
+        let id = "1".repeat(32);
+        let capability = "2".repeat(64);
+        let body = serde_json::json!({"id":id,"capability":capability,"state":"receiving"});
+        let (client, server) = fixture_body(
+            response("201 Created", "application/json", &body.to_string()),
+            "POST",
+            "/v1/reservations".into(),
+            None,
+            Some(
+                serde_json::json!({"filename":"synthetic.jpg", "image_context":{
+                    "board":"p", "thread_id":42, "capcode":true,
+                }}),
+            ),
+        )
+        .await;
+        assert_eq!(
+            client
+                .reserve_image("synthetic.jpg", "p", 42, true)
+                .await
+                .unwrap()
+                .id,
+            id
+        );
+        server.await.unwrap();
     }
 
     #[tokio::test]

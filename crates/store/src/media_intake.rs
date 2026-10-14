@@ -64,6 +64,28 @@ impl IntakeStore {
             .map_err(scoped_error)
     }
 
+    /// Bind a new upload to the posting context checked by its public or staff
+    /// entry point. The image worker never supplies these values.
+    pub async fn reserve_image(
+        &self,
+        filename: &str,
+        board: &str,
+        thread_id: i64,
+        capcode: bool,
+    ) -> Result<IntakeReservation, StoreError> {
+        if filename.contains('\0') || board.contains('\0') {
+            return Err(StoreError::Invalid("Invalid image posting context."));
+        }
+        sqlx::query_as("SELECT id, capability FROM media_intake.reserve_image($1,$2,$3,$4)")
+            .bind(filename)
+            .bind(board)
+            .bind(thread_id)
+            .bind(capcode)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(scoped_error)
+    }
+
     /// Reserve an inactive paired-v2 job; no v1 worker can claim it.
     pub async fn reserve_pair(&self, filename: &str) -> Result<IntakeReservation, StoreError> {
         if filename.contains('\0') {
@@ -233,6 +255,7 @@ fn scoped_error(error: sqlx::Error) -> StoreError {
 const SAFE_ROLE: &str = r#"
 WITH expected_functions(signature, result) AS (VALUES
  ('media_intake.reserve(text)', 'TABLE(id text, capability text)'),
+ ('media_intake.reserve_image(text,text,bigint,boolean)', 'TABLE(id text, capability text)'),
  ('media_intake.reserve_pair(text)', 'TABLE(id text, capability text)'),
  ('media_intake.reserve_drawing(text)', 'TABLE(id text, capability text)'),
  ('media_intake.begin_pair_upload(text,text)', 'void'),
@@ -244,6 +267,8 @@ WITH expected_functions(signature, result) AS (VALUES
  ('media_intake.status(text,text)', 'TABLE(id text, state text, input_bytes bigint, output_id text)'),
  ('media_intake.ready()', 'boolean')
 ), allowed_columns(relation, column_name, privilege) AS (VALUES
+ ('media.image_context','job_id','INSERT'), ('media.image_context','board','INSERT'),
+ ('media.image_context','thread_id','INSERT'), ('media.image_context','capcode','INSERT'),
  ('media.queue_policy','singleton','SELECT'), ('media.queue_policy','capacity','SELECT'),
  ('media.queue_policy','singleton','UPDATE'),
  ('media.jobs','id','SELECT'), ('media.jobs','state','SELECT'),

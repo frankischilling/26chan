@@ -111,6 +111,15 @@ pub(crate) async fn protect(
 #[serde(deny_unknown_fields)]
 struct ReservationRequest {
     filename: String,
+    image_context: Option<ImageContext>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImageContext {
+    board: String,
+    thread_id: i64,
+    capcode: bool,
 }
 
 pub(crate) async fn reserve(State(state): State<AppState>, request: Request) -> Response {
@@ -134,7 +143,20 @@ pub(crate) async fn reserve(State(state): State<AppState>, request: Request) -> 
     let Ok(input) = serde_json::from_slice::<ReservationRequest>(&body) else {
         return error(StatusCode::BAD_REQUEST);
     };
-    match state.store.reserve(&input.filename).await {
+    let reservation = if let Some(context) = input.image_context {
+        state
+            .store
+            .reserve_image(
+                &input.filename,
+                &context.board,
+                context.thread_id,
+                context.capcode,
+            )
+            .await
+    } else {
+        state.store.reserve(&input.filename).await
+    };
+    match reservation {
         Ok(reservation) => (StatusCode::CREATED, Json(json!({"id":reservation.id,"capability":reservation.capability,"state":"receiving"}))).into_response(),
         Err(StoreError::Conflict(_)) => error(StatusCode::SERVICE_UNAVAILABLE),
         Err(value) => store_error(value),
