@@ -154,10 +154,10 @@ test('pending image slots have a deadline, release capacity, and permit a health
   const admission = await page.evaluate(() => [clickImage(1), clickImage(2), clickImage(3)]);
   assert.deepEqual(admission, [true, true, true]);
   assert.equal(await page.locator('.expanded-thumb').count(), 2);
-  assert.equal(await page.locator('.nativeImageFeedback').textContent(), 'Close another expanded image before opening this one.');
+  assert.equal(await page.locator('.nativeImageFeedback').textContent(), 'Close an expanded image first.');
   assert.ok(!requests.some(url => url.endsWith('/3.png')));
   await page.waitForFunction(() => document.querySelectorAll('.expanded-thumb,.nativeImageLoading').length === 0);
-  assert.match(await page.locator('.nativeImageFeedback').textContent(), /could not be loaded/);
+  assert.match(await page.locator('.nativeImageFeedback').textContent(), /failed to load/);
   modes.delete('/demo/1.png'); await page.evaluate(() => clickImage(1));
   await page.waitForSelector('#f1 .expanded-thumb:not([hidden])');
   assert.equal(await page.locator('.nativeImageLoading').count(), 0);
@@ -324,7 +324,7 @@ test('retirement capacity never evicts a deleted URL or permits late media loads
   const { page } = await fixture(t, { limits: { retired: 1 } });
   assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/1.png')), true);
   assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/2.png')), false);
-  assert.match(await page.locator('.nativeImageFeedback').textContent(), /Refresh this page/);
+  assert.match(await page.locator('.nativeImageFeedback').textContent(), /Refresh before opening/);
   for (const id of [1, 2, 3]) assert.equal(await page.evaluate(id => clickImage(id), id), true);
   assert.equal(await page.locator('.expanded-thumb,#image-hover').count(), 0);
 });

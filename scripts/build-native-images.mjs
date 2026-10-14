@@ -26,7 +26,7 @@ const [output] = Object.values(result.metafile.outputs);
 assert.deepEqual(output.imports, []);
 assert.deepEqual([...output.exports].sort(), ['IMAGE_LIMITS', 'attachmentTarget', 'imageSize', 'imageTarget', 'mountNativeImages', 'videoTarget']);
 const bytes = result.outputFiles[0].contents;
-assert.ok(bytes.length <= 18432, 'Image controls exceed the 18 KiB release budget');
+assert.ok(bytes.length <= 16384, 'Image controls exceed the 16 KiB release budget');
 const target = new URL('apps/public/static/native-images.v1.js', root);
 if (args[0] === '--check') {
   assert.ok(Buffer.from(bytes).equals(await readFile(target)), 'Image controls are stale; run npm run build:native-images');

@@ -82,7 +82,7 @@ board-index expansion offset remain outside this controller. Production media
 qualification is tracked in #5.
 
 The controller is a separate fixed module, `/static/native-images.v1.js`, with an
-18 KiB build ceiling. The page CSP names that route explicitly. It has no imports
+16 KiB build ceiling. The page CSP names that route explicitly. It has no imports
 or worker-network authority, cannot be served from the API listener, and has no
 write route. Settings reuse the existing bounded `4chan-settings` storage.
 

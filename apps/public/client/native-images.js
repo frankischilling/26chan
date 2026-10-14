@@ -250,7 +250,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     const file = target(anchor), thumb = file && thumbnail(anchor, file);
     if (!file || !thumb) return false;
     if (expanded.has(anchor)) { contract(anchor, true); return true; }
-    if (expanded.size >= bounds.expansions) { message('Close another expanded image before opening this one.'); return true; }
+    if (expanded.size >= bounds.expansions) { message('Close an expanded image first.'); return true; }
     hideHover(); clearMessage();
     const image = mediaElement(file); image.className = 'expanded-thumb';
     const entry = { anchor, thumb, image, file: anchor.closest('.file'), url: file.url, video: image.localName === 'video' };
@@ -269,7 +269,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
       setClass(anchor, 'nativeVideoOpen', entry.video); playVideo(entry);
     }, () => {
       contract(anchor);
-      if (enabled() && available(anchor)) message(entry.video ? 'Video could not be played. Use the filename link to open or download it.' : 'Image could not be loaded. Click the thumbnail to try again.');
+      if (enabled() && available(anchor)) message(entry.video ? 'Video failed. Use the filename link to open or download it.' : 'Image failed to load. Click its thumbnail to retry.');
     });
     return true;
   }
@@ -413,7 +413,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     if (retired.has(file.url)) return true;
     if (retired.size >= bounds.retired) {
       retirementFull = true; refresh();
-      message('Refresh this page before opening more images.');
+      message('Refresh before opening more images.');
       return false;
     }
     retired.add(file.url); refresh(); return true;
@@ -425,13 +425,12 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     event.preventDefault(); return true;
   }
   function click(event) {
-    if (preventRetired(event)) return;
+    if (preventRetired(event) || event.defaultPrevented || event.button !== 0
+      || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
     const anchor = event.target.closest?.('a.fileThumb');
-    if (anchor && !event.defaultPrevented && event.button === 0 && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
-      && (!enabled() || configuration().imageExpansion === false)) selectMobile(anchor);
-    if (!enabled() || configuration().imageExpansion === false || event.defaultPrevented || event.button !== 0
-      || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || !anchor) return;
-    if (expand(anchor)) event.preventDefault();
+    if (!anchor) return;
+    if (!enabled() || configuration().imageExpansion === false) selectMobile(anchor);
+    else if (expand(anchor)) event.preventDefault();
   }
   function over(event) {
     const anchor = event.target.closest?.('a.fileThumb');
