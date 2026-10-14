@@ -110,6 +110,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     clearTimeout(entry.timer);
     entry.image.onload = entry.image.onloadedmetadata = entry.image.onerror = entry.image.onvolumechange = null;
     clearTimeout(entry.volumeTimer);
+    if (entry.fallback) { entry.fallback.dispose(); entry.close?.remove(); entry.duration?.remove(); return; }
     if (entry.video) entry.image.pause();
     entry.image.removeAttribute('src');
     if (entry.video) entry.image.load();
@@ -126,7 +127,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   }
   function hideHover() { if (hover) { const previous = hover; hover = null; release(previous); } }
   function dimensions(image) {
-    const video = image.localName === 'video';
+    const video = typeof image.videoWidth === 'number';
     const width = video ? image.videoWidth : image.naturalWidth;
     const height = video ? image.videoHeight : image.naturalHeight;
     const limit = video ? 2048 : bounds.dimension;
@@ -142,13 +143,13 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
       Math.max(1, width - (preview ? rect.right + 20 : left + 25)),
       preview || configuration().fitToScreenExpansion === true ? height : Infinity);
     if (!size) return false;
+    if (entry.fallback) { entry.image.style.width = `${size.width}px`; entry.image.style.height = `${size.height}px`; }
     entry.image.style.maxWidth = `${size.width}px`; entry.image.style.maxHeight = `${size.height}px`;
     return true;
   }
   function load(entry, ready, fail) {
     const failed = () => { if (entry.pending) { entry.pending = false; fail(); } };
     entry.pending = true;
-    entry.image.onerror = failed;
     const loaded = () => {
       if (!entry.pending) return;
       if (!dimensions(entry.image)) { failed(); return; }
@@ -157,10 +158,38 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
       ready();
       if (entry.video && entry.image.isConnected) entry.image.onerror = fail;
     };
-    if (entry.video) entry.image.onloadedmetadata = loaded; else entry.image.onload = loaded;
+    const begin = () => {
+      entry.image.onerror = failed;
+      if (entry.video) entry.image.onloadedmetadata = loaded; else entry.image.onload = loaded;
+      entry.image.src = entry.url;
+      if (entry.fallback) entry.image.load();
+    };
     entry.timer = setTimeout(failed, bounds.loadMs);
-    entry.image.src = entry.url;
+    const legacy = entry.video && entry.url.endsWith('.webm') && (!entry.image.canPlayType('video/webm')
+      || /iP(?:hone|ad|od)/.test(window.navigator.userAgent));
+    if (!legacy) { begin(); return; }
+    // The source fallback owns a single decoder. Dispose the previous instance
+    // before starting another, including in-flight module/library loads.
+    for (const [anchor, other] of expanded) if (other !== entry && other.legacy) contract(anchor);
+    if (hover && hover !== entry && hover.legacy) hideHover();
+    entry.legacy = true;
+    const active = () => entry.pending && valid(entry)
+      && (expanded.get(entry.anchor) === entry || hover === entry);
+    const moduleUrl = new URL('/static/native-video-fallback.v1.js', window.location.origin).href;
+    import(moduleUrl).then(module => module.createFallback({ document, url: entry.url, mediaOrigin, active })).then(fallback => {
+      if (!fallback) return;
+      if (!active()) { fallback.dispose(); return; }
+      const previous = entry.image, player = fallback.player;
+      player.className = previous.className; player.id = previous.id; player.hidden = true;
+      player.muted = previous.muted; player.volume = previous.volume;
+      player.setAttribute('aria-label', 'Video attachment');
+      projection?.claim(player, owner); projection?.claim(fallback.controls, owner);
+      previous.replaceWith(player); entry.image = player; entry.fallback = fallback;
+      if (expanded.get(entry.anchor) === entry) player.after(fallback.controls);
+      begin();
+    }).catch(failed);
   }
+
   function fullImage() {
     const image = document.createElement('img');
     image.alt = 'Image'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer'; image.hidden = true;
@@ -212,7 +241,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     load(entry, () => {
       if (!valid(entry) || configuration().imageExpansion === false || !fit(entry)) { contract(anchor); return; }
       setClass(anchor, 'nativeImageLoading', false); setClass(anchor, 'nativeImageOpen', true);
-      setClass(entry.file, 'image-expanded', true); image.hidden = false;
+      setClass(entry.file, 'image-expanded', true); entry.image.hidden = false;
       setClass(anchor, 'nativeVideoOpen', entry.video); playVideo(entry);
     }, () => {
       contract(anchor);
@@ -231,11 +260,11 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     document.body.append(image);
     load(entry, () => {
       if (hover !== entry || !valid(entry) || configuration().imageHover !== true || !fit(entry, true)) { hideHover(); return; }
-      image.hidden = false; playVideo(entry);
+      entry.image.hidden = false; playVideo(entry);
       if (entry.video) {
         entry.duration = document.createElement('span'); entry.duration.className = 'nativeVideoDuration';
-        const seconds = Math.floor(image.duration);
-        const audio = image.mozHasAudio === true || image.webkitAudioDecodedByteCount > 0 || image.audioTracks?.length > 0;
+        const seconds = Math.floor(entry.image.duration);
+        const audio = entry.image.mozHasAudio === true || entry.image.webkitAudioDecodedByteCount > 0 || entry.image.audioTracks?.length > 0 || entry.image.hasAudio === true;
         entry.duration.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}${audio ? ' (audio)' : ''}`;
         entry.duration.setAttribute('role', 'status'); projection?.claim(entry.duration, owner);
         entry.duration.style.left = `${Math.max(0, thumb.getBoundingClientRect().left)}px`;

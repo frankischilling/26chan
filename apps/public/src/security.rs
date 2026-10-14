@@ -87,6 +87,13 @@ pub(crate) fn replay_worker(mut response: Response) -> Response {
     response
 }
 
+#[derive(Clone, Copy)]
+struct OgvWorker;
+pub(crate) fn ogv_worker(mut response: Response) -> Response {
+    response.extensions_mut().insert(OgvWorker);
+    response
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum InteractivePage {
     Board,
@@ -261,6 +268,7 @@ fn headers(
     let replay = interactive
         && page == Some(InteractivePage::Board)
         && response.extensions().get::<ReplayPage>().is_some();
+    let ogv_worker = response.extensions().get::<OgvWorker>().is_some();
     let replay_worker = response.extensions().get::<ReplayWorker>().is_some();
     let math = interactive
         && page == Some(InteractivePage::Board)
@@ -495,6 +503,39 @@ fn headers(
         .get("content-type")
         .and_then(|value| value.to_str().ok())
         .is_some_and(|value| value.starts_with("text/javascript"));
+    let fallback = full_board_page && state.media.is_some();
+    let script = if fallback {
+        format!(
+            "{script} 'wasm-unsafe-eval' {}/static/native-video-fallback.v1.js {}",
+            state.origin,
+            crate::ui_assets::ogv::sources(&state.origin, ".js")
+        )
+    } else {
+        script
+    };
+    let worker = if fallback {
+        format!(
+            "{worker} {}/static/ogv/ogv-worker-audio.js {}/static/ogv/ogv-worker-video.js",
+            state.origin, state.origin
+        )
+    } else {
+        worker
+    };
+    let connect = if fallback {
+        format!(
+            "{connect} {} {}",
+            state
+                .media
+                .as_ref()
+                .expect("fallback media")
+                .settings
+                .origin
+                .as_string(),
+            crate::ui_assets::ogv::sources(&state.origin, ".wasm")
+        )
+    } else {
+        connect
+    };
     let headers = response.headers_mut();
     // Only fixed, release-owned UI images may load from the public origin.
     // Do not broaden this to 'self': uploaded content stays on the media origin.
@@ -507,7 +548,13 @@ fn headers(
     if let Some(media) = &state.media {
         images = format!("{} {images}", media.settings.origin.as_string());
     }
-    let policy = if script_resource && replay_worker {
+    let policy = if script_resource && ogv_worker {
+        format!(
+            "default-src 'none'; script-src 'wasm-unsafe-eval' {}; connect-src {}; worker-src 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'",
+            crate::ui_assets::ogv::sources(&state.origin, ".js"),
+            crate::ui_assets::ogv::sources(&state.origin, ".wasm")
+        )
+    } else if script_resource && replay_worker {
         format!(
             "default-src 'none'; script-src {}{}; connect-src 'none'; worker-src 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'",
             state.origin,
@@ -604,6 +651,89 @@ mod tests {
         atomic::{AtomicBool, Ordering},
     };
     use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn video_fallback_authority_is_finite_and_requires_media() {
+        let mut state = AppState {
+            pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
+                .unwrap(),
+            origin: "https://board.example".into(),
+            production: true,
+            limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+            media: None,
+            proxy_uid: None,
+            poster_id_key: None,
+            tripcode_key: None,
+            country_database: None,
+        };
+        for enabled in [false, true] {
+            state.media = enabled.then(|| crate::intake::IntakeClient {
+                settings: board_config::PublicMediaSettings::development(
+                    "127.0.0.1:4000",
+                    &"a".repeat(64),
+                    "http://127.0.0.1:4001",
+                )
+                .unwrap(),
+            });
+            for page in [
+                None,
+                Some(InteractivePage::Board),
+                Some(InteractivePage::Catalog),
+                Some(InteractivePage::Upload),
+                Some(InteractivePage::Search),
+                Some(InteractivePage::Archive),
+            ] {
+                let response = headers(
+                    axum::response::Html("owned").into_response(),
+                    &state,
+                    page,
+                    None,
+                );
+                let csp = response.headers()["content-security-policy"]
+                    .to_str()
+                    .unwrap();
+                let expected = enabled
+                    && matches!(
+                        page,
+                        Some(
+                            InteractivePage::Board
+                                | InteractivePage::Catalog
+                                | InteractivePage::Upload
+                        )
+                    );
+                assert_eq!(csp.contains("'wasm-unsafe-eval'"), expected);
+                assert_eq!(
+                    csp.contains("/static/native-video-fallback.v1.js"),
+                    expected
+                );
+                assert!(!csp.contains("'unsafe-eval'"));
+                assert!(!csp.contains("blob:"));
+                let bytes: usize = response
+                    .headers()
+                    .iter()
+                    .map(|(name, value)| name.as_str().len() + value.as_bytes().len() + 4)
+                    .sum();
+                assert!(bytes < 65_536, "Candidate proxy response buffer exceeded");
+            }
+        }
+        for marked in [false, true] {
+            let response = ([("content-type", "text/javascript")], "owned").into_response();
+            let response = if marked {
+                ogv_worker(response)
+            } else {
+                response
+            };
+            let response = headers(response, &state, None, None);
+            let csp = response.headers()["content-security-policy"]
+                .to_str()
+                .unwrap();
+            assert_eq!(csp.contains("'wasm-unsafe-eval'"), marked);
+            assert_eq!(csp.contains("ogv-decoder-video-vp8-wasm.wasm"), marked);
+            assert!(!csp.contains("127.0.0.1:4001"));
+            assert!(csp.contains("worker-src 'none'"));
+        }
+    }
 
     #[tokio::test]
     async fn math_authority_requires_enabled_successful_board_html() {

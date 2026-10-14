@@ -44,7 +44,7 @@ under a shared deadline. The response is a fixed 9 MiB disk with bounded
 metadata, at most 8 MiB of remuxed video, neutral RGBA preview pixels and zero
 padding. The host checks this envelope and computes hashes itself. It does
 not parse containers or link video codecs. Remuxed bytes remain untrusted media
-and uses the separate restricted media origin and live approval checks.
+and use the separate restricted media origin and live approval checks.
 
 The minimal runtime uses the signed upstream
 [FFmpeg 7.1.5 release](https://ffmpeg.org/download.html).
@@ -102,8 +102,18 @@ Native players have controls, loop, mute preference, saved volume and a close
 button. Hover previews show duration and browser-detected audio. Closing,
 retiring, hiding or disabling a player releases its source. Playback failure
 keeps the filename link available for opening or downloading the attachment.
-These client changes have not yet passed the full browser suite. Historical
-OGV fallback behavior also remains to be reconciled with the source.
+These client changes have not yet passed the full browser suite. The WebM fallback uses the pinned OGV 1.9.0 decoder when native WebM support is
+missing or on the original iOS path. It provides play/pause, mute, seek, volume,
+fullscreen and elapsed time. Only one fallback decoder runs at once. Closing
+it calls OGV's stop method to abort reads and terminate codec workers.
+
+The fallback's scripts and WebAssembly files have fixed routes and recorded
+hashes under `docs/third-party/ogv/`. CSP permits those assets and WebAssembly
+compilation without allowing JavaScript eval, arbitrary workers or blob workers.
+The configured board origin can read approved video bytes for this decoder;
+other origins receive no CORS grant. Thumbnail and PDF behavior is unchanged.
+Local HTTP CORS and security-policy tests passed. Actual fallback decoding and
+teardown still require browser qualification.
 
 ## Remaining qualification
 

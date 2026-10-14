@@ -837,3 +837,9 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 .board .file > video.expanded-thumb[hidden] { display: none; }
 .nativeVideoClose { cursor: pointer; margin: 0 4px 4px 0; }
 .nativeVideoDuration { position: fixed; z-index: 1001; background: #fff; color: #000; border: 1px solid #888; padding: 2px 5px; pointer-events: none; }
+
+.board .file > ogvjs.expanded-thumb { display: block; position: relative; clear: both; }
+.board .file > ogvjs.expanded-thumb[hidden] { display: none; }
+.nativeVideoControls { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 4px 0; }
+.nativeVideoControls input { max-width: 120px; }
+.nativeVideoTimestamp { font-variant-numeric: tabular-nums; }

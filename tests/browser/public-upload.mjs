@@ -145,7 +145,7 @@ try {
   const img = page.locator(attachmentOnly ? '.catalogThumb img[data-spoiler-src]' : '.fileThumb img');
   await img.scrollIntoViewIfNeeded();
   await expect.poll(() => img.evaluate(image => image.naturalWidth)).toBe(video ? 64 : 1);
-  assert.equal(await img.evaluate(image => image.naturalHeight), 1);
+  assert.equal(await img.evaluate(image => image.naturalHeight), video ? 48 : 1);
   const thumbnailUrl = new URL(await img.getAttribute('src'));
   const mediaUrl = new URL(attachmentOnly ? revealedSource.replace(/s\.jpg$/, outputExtension) : await page.locator('.fileThumb').getAttribute('href'));
   assert.notEqual(mediaUrl.origin, origin.origin);

@@ -609,7 +609,7 @@ async fn exercise(
             expected
         );
     }
-    // WebM and both PNG thumbnails remain outside the drawing CORS path.
+    // Approved video exposes bytes only to the configured board origin; thumbnails do not.
     for path in [&url, &thumbnail_url, &post_url, &post_thumbnail] {
         let response = app
             .clone()
@@ -622,12 +622,37 @@ async fn exercise(
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
-        assert!(
-            !response
+        let video = path == &url || path == &post_url;
+        assert_eq!(
+            response
                 .headers()
-                .contains_key("access-control-allow-origin")
+                .contains_key("access-control-allow-origin"),
+            video
         );
-        assert!(!response.headers().contains_key("vary"));
+        assert_eq!(response.headers().contains_key("vary"), video);
+        if video {
+            assert_eq!(
+                response.headers()["access-control-allow-origin"],
+                "http://127.0.0.1:3000"
+            );
+        }
+        for origin in [
+            "https://unrelated.test",
+            "null",
+            "http://127.0.0.1:3000.evil.test",
+        ] {
+            let other = app
+                .clone()
+                .oneshot(
+                    request("GET", path)
+                        .header("origin", origin)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert!(!other.headers().contains_key("access-control-allow-origin"));
+        }
         let etag = response.headers()["etag"].clone();
         drop(response);
         for method in ["GET", "HEAD"] {
@@ -644,12 +669,13 @@ async fn exercise(
                 .await
                 .unwrap();
             assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
-            assert!(
-                !response
+            assert_eq!(
+                response
                     .headers()
-                    .contains_key("access-control-allow-origin")
+                    .contains_key("access-control-allow-origin"),
+                video
             );
-            assert!(!response.headers().contains_key("vary"));
+            assert_eq!(response.headers().contains_key("vary"), video);
             assert!(to_bytes(response.into_body(), 0).await.unwrap().is_empty());
         }
     }

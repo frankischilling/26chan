@@ -24,25 +24,32 @@ const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQ
 const ownedVideos = JSON.parse(await readFile(new URL('fixtures/owned-video-clips.json', root), 'utf8')).clips;
 const animatedPixel = Buffer.from('47494638396101000100800000ff00000000ff21ff0b4e45545343415045322e30030100000021f90404140000002c000000000100010000020244010021f90404140000002c00000000010001000002024c01003b', 'hex');
 
-async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, pdf = false, video = null, storageOrigin = false } = {}) {
+async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, pdf = false, video = null, storageOrigin = false, fallback = false } = {}) {
   const context = await browser.newContext();
   t.after(() => context.close());
   const page = await context.newPage();
   const requests = [], modes = new Map(), held = [];
-  await page.route('**/*', async route => {
+  await context.route('**/*', async route => {
     const url = route.request().url(); requests.push(url);
     if (storageOrigin && url === 'https://boards.test/') { await route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Owned video fixture</title>' }); return; }
+    if (fallback && url.startsWith('https://boards.test/static/')) {
+      const path = new URL(url).pathname;
+      if (path === '/static/native-video-fallback.v1.js' || /^\/static\/ogv\/[a-z0-9.-]+\.(?:js|wasm)$/.test(path)) {
+        await route.fulfill({ contentType: path.endsWith('.wasm') ? 'application/wasm' : 'text/javascript', body: await readFile(new URL(`apps/public${path}`, root)) }); return;
+      }
+    }
     if (!url.startsWith('https://media.test/')) { await route.abort(); return; }
     const mode = modes.get(new URL(url).pathname);
     if (mode === 'hold') { held.push(route); return; }
     if (mode === 'fail') { await route.fulfill({ status: 404, body: 'Owned missing image' }); return; }
     if (video && /\.(webm|mp4)$/.test(url)) {
       const ext = video.endsWith('.mp4') ? 'mp4' : 'webm';
-      await route.fulfill({ contentType: `video/${ext}`, body: Buffer.from(ownedVideos[video].base64, 'base64') }); return;
+      await route.fulfill({ contentType: `video/${ext}`, headers: { "access-control-allow-origin": "https://boards.test", "access-control-expose-headers": "Content-Length, Content-Range, Accept-Ranges" }, body: Buffer.from(ownedVideos[video].base64, 'base64') }); return;
     }
     await route.fulfill(url.endsWith('.gif') ? { contentType: 'image/gif', body: animatedPixel }
       : { contentType: 'image/png', body: pixel });
   });
+  if (fallback) await page.addInitScript(() => { HTMLMediaElement.prototype.canPlayType = () => ''; });
   await page.goto(storageOrigin ? 'https://boards.test/' : 'about:blank');
   await page.addStyleTag({ content: css });
   await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, pdf, video }) => {
@@ -389,3 +396,48 @@ test('video failure restores the thumbnail and preserves the filename fallback',
   assert.equal(await page.locator('#f1 a.fileThumb').isVisible(),true);
   assert.equal(await page.locator('#f1 p a').getAttribute('href'),'https://media.test/demo/1.webm');
 });
+
+for (const video of ['red.webm', 'red-opus.webm']) {
+  test(`pinned fallback decodes ${video}, exposes controls and stops on close`, async t => {
+    const { page, requests } = await fixture(t, { video, fallback: true, storageOrigin: true, count: 1 });
+    await page.evaluate(() => clickImage(1));
+    const player = page.locator('#f1 .expanded-thumb:not([hidden])');
+    await player.waitFor();
+    assert.deepEqual(await player.evaluate(v => [v.videoWidth, v.videoHeight, v.muted]), [64, 48, true]);
+    assert.ok(await player.evaluate(v => v.querySelector('canvas') !== null));
+    await page.locator('.nativeVideoControls button', { hasText: /^Pause$/ }).click();
+    assert.equal(await player.evaluate(v => v.paused), true);
+    await page.locator('.nativeVideoControls button', { hasText: /^Unmute$/ }).click();
+    assert.equal(await player.evaluate(v => v.muted), false);
+    await page.locator('.nativeVideoControls input[aria-label="Video volume"]').evaluate(node => { node.value = '0.25'; node.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => localStorage.getItem('4chan-volume')), '0.25');
+    await page.evaluate(() => { window.retainedFallback = document.querySelector('#f1 .expanded-thumb'); });
+    await page.locator('.nativeVideoClose').click();
+    assert.equal(await page.locator('.expanded-thumb,.nativeVideoControls').count(), 0);
+    assert.equal(await page.evaluate(() => retainedFallback.paused), true);
+    assert.ok(requests.some(url => url.includes('ogv-demuxer-webm-wasm.wasm')));
+    assert.ok(requests.some(url => url.includes('ogv-decoder-video-vp8-wasm.wasm')));
+  });
+}
+
+test('fallback cancellation does not start a late decoder or leave controls', async t => {
+  const { page, requests } = await fixture(t, { video: 'red.webm', fallback: true, storageOrigin: true, count: 1 });
+  let held;
+  await page.route('**/static/ogv/ogv.js', route => { held = route; });
+  await page.evaluate(() => clickImage(1));
+  await assertEventually(() => held !== undefined);
+  await page.locator('.nativeVideoClose').click();
+  await held.fulfill({ contentType: 'text/javascript', body: await readFile(new URL('apps/public/static/ogv/ogv.js', root)) });
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('.expanded-thumb,.nativeVideoControls').count(), 0);
+  assert.equal(requests.some(url => /\/1\.webm$/.test(url)), false);
+});
+
+async function assertEventually(predicate) {
+  for (let i = 0; i < 100; i++) {
+    if (predicate()) return;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.ok(predicate(), 'owned deferred request was not reached');
+}

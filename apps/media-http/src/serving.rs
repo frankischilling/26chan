@@ -292,11 +292,17 @@ async fn serve(
             HeaderValue::from_str(&format!("bytes {start}-{end}/{total}")).expect("bounded range"),
         );
     }
-    if drawing_png {
+    if drawing_png || format.is_video() {
         // Both representations are verified above, including conditional 304.
         // An eligible response varies even when the request has no Origin or
         // supplies a different or repeated value.
         h.insert(header::VARY, HeaderValue::from_static("Origin"));
+        if format.is_video() {
+            h.insert(
+                header::ACCESS_CONTROL_EXPOSE_HEADERS,
+                HeaderValue::from_static("Content-Length, Content-Range, Accept-Ranges"),
+            );
+        }
         let mut origins = headers.get_all(header::ORIGIN).iter();
         if let Some(origin) = origins.next()
             && origins.next().is_none()
