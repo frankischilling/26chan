@@ -186,6 +186,10 @@ pub(crate) async fn upload(
     let Ok(_permit) = state.uploads.try_acquire() else {
         return error(StatusCode::SERVICE_UNAVAILABLE);
     };
+    let limit = match state.store.input_limit(&id, &capability).await {
+        Ok(limit) => limit,
+        Err(value) => return store_error(value),
+    };
     if let Err(value) = state.store.begin_upload(&id, &capability).await {
         return store_error(value);
     }
@@ -194,10 +198,13 @@ pub(crate) async fn upload(
         .into_data_stream()
         .map_err(io::Error::other);
     let reader = tokio_util::io::StreamReader::new(stream);
-    let received = tokio::time::timeout(
-        Duration::from_secs(15),
-        state.quarantine.receive(object, reader),
-    )
+    let received = tokio::time::timeout(Duration::from_secs(15), async {
+        if limit == 10_485_760 {
+            state.quarantine.receive_still(object, reader).await
+        } else {
+            state.quarantine.receive(object, reader).await
+        }
+    })
     .await;
     let bytes = match received {
         Ok(Ok(bytes)) => bytes,

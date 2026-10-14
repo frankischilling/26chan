@@ -193,6 +193,26 @@ impl IntakeClient {
     }
 
     pub async fn upload(&self, id: &str, capability: &str, body: Body) -> Result<(), IntakeError> {
+        self.upload_bounded(id, capability, body, 8_388_608).await
+    }
+
+    /// The intake service independently derives this limit from the reservation.
+    pub async fn upload_image(
+        &self,
+        id: &str,
+        capability: &str,
+        body: Body,
+    ) -> Result<(), IntakeError> {
+        self.upload_bounded(id, capability, body, 10_485_760).await
+    }
+
+    async fn upload_bounded(
+        &self,
+        id: &str,
+        capability: &str,
+        body: Body,
+        maximum: u64,
+    ) -> Result<(), IntakeError> {
         if !valid_hex(id, 32) || !valid_hex(capability, 64) {
             return Err(IntakeError::NotFound);
         }
@@ -209,7 +229,7 @@ impl IntakeClient {
             || status.state != "queued"
             || status
                 .input_bytes
-                .is_none_or(|b| !(1..=8_388_608).contains(&b))
+                .is_none_or(|b| !(1..=maximum).contains(&b))
             || status.output_id.is_some()
         {
             return Err(IntakeError::Unavailable);
@@ -642,6 +662,35 @@ mod tests {
             } else {
                 assert!(matches!(result, Err(IntakeError::Unavailable)));
             }
+            server.await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn image_upload_acknowledgement_has_a_separate_ten_mib_bound() {
+        let id = "1".repeat(32);
+        let capability = "2".repeat(64);
+        for (bytes, valid) in [
+            (0, false),
+            (8_388_609, true),
+            (10_485_760, true),
+            (10_485_761, false),
+        ] {
+            let body = serde_json::json!({"id":id,"state":"queued","input_bytes":bytes});
+            let (client, server) = fixture(
+                response("202 Accepted", "application/json", &body.to_string()),
+                "PUT",
+                format!("/v1/uploads/{id}"),
+                Some(capability.clone()),
+            )
+            .await;
+            assert_eq!(
+                client
+                    .upload_image(&id, &capability, Body::from("candidate"))
+                    .await
+                    .is_ok(),
+                valid
+            );
             server.await.unwrap();
         }
     }

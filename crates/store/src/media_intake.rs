@@ -182,6 +182,19 @@ impl IntakeStore {
         Ok(())
     }
 
+    pub async fn input_limit(&self, id: &str, capability: &str) -> Result<u64, StoreError> {
+        let limit: i64 = sqlx::query_scalar("SELECT media_intake.input_limit($1,$2)")
+            .bind(id)
+            .bind(capability)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(scoped_error)?;
+        match limit {
+            8_388_608 | 10_485_760 => Ok(limit as u64),
+            _ => Err(StoreError::UnsafeRole),
+        }
+    }
+
     pub async fn finish_upload(
         &self,
         id: &str,
@@ -262,12 +275,13 @@ WITH expected_functions(signature, result) AS (VALUES
  ('media_intake.begin_drawing_upload(text,text)', 'void'),
  ('media_intake.finish_pair_upload(text,text,bigint,text,bigint,text,bigint,text)', 'void'),
  ('media_intake.begin_upload(text,text)', 'void'),
+ ('media_intake.input_limit(text,text)', 'bigint'),
  ('media_intake.finish_upload(text,text,bigint)', 'void'),
  ('media_intake.abort_upload(text,text)', 'void'),
  ('media_intake.status(text,text)', 'TABLE(id text, state text, input_bytes bigint, output_id text)'),
  ('media_intake.ready()', 'boolean')
 ), allowed_columns(relation, column_name, privilege) AS (VALUES
- ('media.image_context','job_id','INSERT'), ('media.image_context','board','INSERT'),
+ ('media.image_context','job_id','SELECT'), ('media.image_context','job_id','INSERT'), ('media.image_context','board','INSERT'),
  ('media.image_context','thread_id','INSERT'), ('media.image_context','capcode','INSERT'),
  ('media.queue_policy','singleton','SELECT'), ('media.queue_policy','capacity','SELECT'),
  ('media.queue_policy','singleton','UPDATE'),

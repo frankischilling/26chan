@@ -183,10 +183,53 @@ impl Fixture {
         .await
         .unwrap();
         assert_eq!(context, ("p".to_owned(), 0, false));
-        self.store
-            .abort_upload(&context_id, body["capability"].as_str().unwrap())
+        let capability = body["capability"].as_str().unwrap();
+        response_json(
+            self.upload(&context_id, capability, Body::from(vec![42; 10_485_760]))
+                .await,
+            StatusCode::ACCEPTED,
+        )
+        .await;
+        assert_eq!(
+            std::fs::metadata(self.root.path().join(format!("{context_id}.input")))
+                .unwrap()
+                .len(),
+            10_485_760
+        );
+        assert_eq!(
+            self.status(&context_id, capability, StatusCode::OK).await["input_bytes"],
+            10_485_760
+        );
+        let response = self
+            .app
+            .clone()
+            .oneshot(
+                request("POST", "/v1/reservations")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({"filename":"too-large.jpg", "image_context":{
+                            "board":"p", "thread_id":0, "capcode":false,
+                        }})
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
             .await
             .unwrap();
+        let rejected = response_json(response, StatusCode::CREATED).await;
+        let rejected_id = rejected["id"].as_str().unwrap();
+        self.ids.lock().unwrap().push(rejected_id.to_owned());
+        response_json(
+            self.upload(
+                rejected_id,
+                rejected["capability"].as_str().unwrap(),
+                Body::from(vec![42; 10_485_761]),
+            )
+            .await,
+            StatusCode::PAYLOAD_TOO_LARGE,
+        )
+        .await;
+        self.no_files(rejected_id);
         let (id, cap) = self.reserve().await;
         self.status(&id, &"0".repeat(64), StatusCode::NOT_FOUND)
             .await;
