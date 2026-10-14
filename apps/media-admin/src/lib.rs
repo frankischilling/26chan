@@ -5,6 +5,7 @@
 pub mod backfill;
 pub mod drawing;
 pub mod paired;
+mod still;
 use board_media::{
     ApprovedFiles, InputSnapshot, MAX_INPUT_BYTES, PublicationStore, Quarantine, ValidatedOutput,
     animation::ValidatedAnimation,
@@ -40,18 +41,59 @@ pub async fn dispatch(
         .map_err(|_| "queue claim unavailable")?
         .ok_or("no queued job available")?;
     let token = job.lease_token.as_deref().ok_or("missing lease")?;
+    let context = match queue.image_context(&job.id).await {
+        Ok(context) => context,
+        Err(_) => {
+            let _ = queue.fail(&job.id, token, Failure::Processing, false).await;
+            return Err("image context unavailable".into());
+        }
+    };
+    let contextual_snapshot = if let Some(context) = context {
+        let read = async {
+            let length = job.input_bytes.ok_or("missing input length")?.try_into()?;
+            let input = quarantine.open_still_input(job.id.parse()?, length)?;
+            Ok::<_, Box<dyn std::error::Error + Send + Sync>>(
+                InputSnapshot::read_still(input, length).await?,
+            )
+        };
+        let snapshot = match tokio::time::timeout(std::time::Duration::from_secs(3), read).await {
+            Ok(Ok(snapshot)) => snapshot,
+            _ => {
+                let _ = queue.fail(&job.id, token, Failure::Processing, false).await;
+                return Err("private input rejected".into());
+            }
+        };
+        if still::format(snapshot.bytes()).is_some() {
+            let result =
+                still::dispatch_context(queue, store, client, &job, &context, snapshot).await;
+            if result.is_err() {
+                let _ = queue.fail(&job.id, token, Failure::Processing, false).await;
+            }
+            return result.map_err(|_| "still processing or approval unavailable".into());
+        }
+        Some(snapshot)
+    } else {
+        None
+    };
     let processed = async {
         let length: u64 = job
             .input_bytes
             .ok_or("missing input length")?
             .try_into()
             .map_err(|_| "invalid input length")?;
-        let input = quarantine
-            .open_input(job.id.parse().map_err(|_| "invalid job ID")?, length)
-            .map_err(|_| "private input rejected")?;
-        let snapshot = InputSnapshot::read(input, length)
-            .await
-            .map_err(|_| "private input rejected")?;
+        let snapshot = if let Some(snapshot) = contextual_snapshot {
+            if length > MAX_INPUT_BYTES {
+                return Err("private input rejected");
+            }
+            snapshot
+        } else {
+            let input = quarantine
+                .open_input(job.id.parse().map_err(|_| "invalid job ID")?, length)
+                .map_err(|_| "private input rejected")?;
+            InputSnapshot::read(input, length)
+                .await
+                .map_err(|_| "private input rejected")?
+        };
         let filename = job.filename.to_ascii_lowercase();
         let video = if filename.ends_with(".webm") {
             Some(VideoFormat::Webm)
