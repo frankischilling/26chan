@@ -7,7 +7,13 @@ use axum::{
     http::{Request, StatusCode},
 };
 use board_staff::{AppState, Config, Limits, auth};
-use board_store::{media::MediaQueue, media_assets::OutputMetadata, media_intake::IntakeStore};
+use board_store::{
+    media::MediaQueue,
+    media_assets::{
+        MediaFormat, OutputMetadata, OutputVariants, SourceProfile, SourceProvenance, StillOutput,
+    },
+    media_intake::IntakeStore,
+};
 use sqlx::PgPool;
 use std::{sync::Arc, time::Duration};
 use tower::ServiceExt;
@@ -1192,8 +1198,57 @@ async fn source_board_upload_binds_the_selected_metadata_policy_before_processin
             )
             .await;
             assert_eq!(hidden(&status, "capcode"), capcode);
+            assert!(!status.contains("action=\"/post\""));
+            // Posting controls are intentionally absent until processing succeeds.
+            // Supply a complete synthetic still receipt before checking its default identity.
+            let queue = MediaQueue::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap())
+                .await
+                .unwrap();
+            let job = queue.claim().await.unwrap().unwrap();
+            assert_eq!(job.id, id, "requires isolated disposable media queue");
+            let lease = job.lease_token.as_deref().unwrap();
+            let output = StillOutput {
+                format: MediaFormat::Png,
+                primary: OutputMetadata {
+                    sha256: "a".repeat(64),
+                    bytes: 123,
+                    width: 10,
+                    height: 20,
+                },
+                variants: OutputVariants {
+                    md5: "07".repeat(16),
+                    thumbnail: OutputMetadata {
+                        sha256: "b".repeat(64),
+                        bytes: 100,
+                        width: 10,
+                        height: 20,
+                    },
+                },
+                mobile: None,
+                source: SourceProvenance {
+                    input_sha256: "c".repeat(64),
+                    input_bytes: 256,
+                    profile: SourceProfile::StillV6,
+                    retained_bytes: 123,
+                    md5: [7; 16],
+                },
+            };
+            let asset = queue
+                .prepare_still_output(&id, lease, &output)
+                .await
+                .unwrap();
+            queue.approve_output(&id, lease, &asset.id).await.unwrap();
+            let status = html(
+                case.send_form("/post/upload/status", form.clone()).await,
+                StatusCode::OK,
+            )
+            .await;
+            assert!(status.contains("action=\"/post\""));
+            assert_eq!(hidden(&status, "capcode"), capcode);
             if capcode == "false" {
                 assert!(status.contains("value=\"none\" selected"));
+            } else {
+                assert!(status.contains("value=\"mod\" selected"));
             }
             let response = case.send_form("/post/upload/cancel", form).await;
             assert!(response.status().is_success() || response.status().is_redirection());
