@@ -1,6 +1,8 @@
 # PNG and JPEG parity
 
-Issue [#202](https://github.com/frankischilling/26chan/issues/202) remains open while posting and frontend integration is being qualified. The separate still-image worker retains cleaned PNG/JPEG files and produces JPEG thumbnails and optional mobile images. Its isolated VM profile has passed hosted qualification. The current branch connects immutable board/thread/capcode policy, publication manifests, approved routes, source filenames and mobile presentation; those later changes still need a complete green CI run.
+The PNG/JPEG implementation for [issue #202](https://github.com/frankischilling/26chan/issues/202) retains cleaned files in their accepted format and produces JPEG thumbnails and optional mobile images. Immutable board/thread/capcode context follows an upload through isolated processing, publication and posting. Public API fields, download routes and native presentation describe the approved retained bytes.
+
+The sections below distinguish captured source decisions, executed checks and compatibility limits. Deployment qualification remains separate from the local behavior and frontend contract.
 
 ## Source policy
 
@@ -27,6 +29,8 @@ The supplied application source does not pin the deployed GD, jpegtran or jpegop
 On October 14, 2026, the owner approved a separate still-image profile with 2 GiB of VM memory and a 2.5 GiB host memory cap. It runs one job at a time with no network interface, unprivileged decoding, fixed output sizes and post-termination output validation. The VM has a 45-second lifetime; the guest has a 20-second CPU budget and 1.5 GiB address-space limit. Existing image, replay, GIF, PDF and video profiles retain their own limits.
 
 [CI run 38636503018](https://github.com/frankischilling/26chan/actions/runs/38636503018), at worker checkpoint `9d17da82`, passed every job. Its real-VM tests cover JPEG cleanup and deliberate metadata retention, a 10,000-by-10,000 PNG, geometry, cancellation, deadline enforcement and isolation. The large-image fixture recorded a host cgroup memory peak of 395,907,072 bytes, about 378 MiB. That observation applies to the tested fixture, not every accepted image. Later database, posting and frontend integration is outside that checkpoint.
+
+The media-operation and browser lanes in [run 38646924577](https://github.com/frankischilling/26chan/actions/runs/38646924577), at `d3f0e883`, also passed. Native intake cases cover contextual PNG/JPEG input through the real worker, retained-byte checksums, JPEG thumbnail reads and `/p/` metadata retention. Browser cases cover mobile expansion, spoiler previews, original-URL projection, deletion retirement and canonical filename bounds. That run's Rust lane stopped at the JavaScript release-size guard; the image controller was subsequently reduced to fit the unchanged 16 KiB bound. Final merge eligibility depends on the complete checks attached to the PR's current head.
 
 The resampler has a separate 65-case pixel reference captured with libgd 2.3.3. It covers seven-bit inverse alpha, opaque-background blending and fractional resizing. The Rust worker matches those captured RGB values before JPEG encoding. This records the tested GD baseline; the original deployment's version remains unknown. Regenerate or check it with `scripts/extract-gd-still-resampling-reference.py` on a host with libgd 2.3.3.
 
