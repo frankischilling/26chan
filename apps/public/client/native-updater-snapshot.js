@@ -163,8 +163,8 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
         }
         require(node.tag === 'div' && node.attrs.class === 'file' && node.attrs['data-image-spoiler'] === 'true');
         if (key === 'data-image-filename') {
-          require(value.length > 0 && value.length <= 259 && !/[\u0000-\u001f\u007f-\u009f]/.test(value)
-            && new TextEncoder().encode(value).length <= 259);
+          require(value.length > 0 && value.length <= 260 && !/[\u0000-\u001f\u007f-\u009f]/.test(value)
+            && new TextEncoder().encode(value).length <= 260);
         } else if (['data-thumbnail-width', 'data-thumbnail-height'].includes(key)) {
           require(/^[1-9][0-9]{0,3}$/.test(value) && Number(value) <= 1024);
         } else require(value === 'true');
@@ -179,7 +179,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     const mobileLabel = node.tag === 'span' && ['name', 'subject'].includes(node.attrs.class) && Object.hasOwn(node.attrs, 'title');
     const fileTitle = node.tag === 'div' && node.attrs.class === 'fileText' && Object.hasOwn(node.attrs, 'title');
     if (fileTitle) require(Object.keys(node.attrs).sort().join(',') === 'class,id,title'
-      && new TextEncoder().encode(node.attrs.title).length <= 259 && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
+      && new TextEncoder().encode(node.attrs.title).length <= 260 && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
     if (mobileLabel) require(Object.keys(node.attrs).sort().join(',') === 'class,title'
       && new TextEncoder().encode(node.attrs.title).length <= (node.attrs.class === 'name' ? 255 : 1020)
       && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));

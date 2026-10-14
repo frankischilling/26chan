@@ -893,7 +893,8 @@ mod tests {
                     }
                 } else {
                     assert_eq!(value["ext"], format!(".{}", format.extension()));
-                    assert_eq!(value["filename"], "owned");
+                    // The source removes only ASCII-alphanumeric suffixes.
+                    assert_eq!(value["filename"], "owned.different-name");
                     assert_eq!(value["w"], 1);
                     assert_eq!(value["h"], 1);
                     assert_eq!(value["tn_w"], 32);

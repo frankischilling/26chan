@@ -16,7 +16,7 @@ PNG cleanup retains the original framing and bytes of allowed chunks, discards o
 
 ## Upload names
 
-Source-board intake removes the four directional controls stripped by `imgboard.php`, applies its board-specific whitespace rules and balances retained right-to-left embeddings. Stored metadata stays plain text and HTML rendering escapes it once. The final ASCII-alphanumeric suffix is removed when deriving the source filename; the displayed extension comes from the approved output format. A 255-byte admitted name can therefore produce a 259-byte display name when a canonical `.png` or `.jpg` suffix is appended.
+Source-board intake removes the four directional controls stripped by `imgboard.php`, applies its board-specific whitespace rules and balances retained right-to-left embeddings. Stored metadata stays plain text and HTML rendering escapes it once. The final ASCII-alphanumeric suffix is removed when deriving the source filename; the displayed extension comes from the approved output format. A 255-byte admitted name can therefore produce a 259-byte display name when a canonical `.png` or `.jpg` suffix is appended. The shared presentation validator permits up to 260 bytes to also accommodate `.webm`.
 
 Control characters and over-limit names remain rejected at intake. This bounds metadata independently of decoding and prevents control characters from entering headers or rendered attributes. Filenames never select storage paths or served MIME types.
 

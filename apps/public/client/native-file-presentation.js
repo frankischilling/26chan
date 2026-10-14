@@ -17,7 +17,7 @@ export function validateFilePresentation(tree, context, no) {
   const hasClass = (node, name) => (node.attrs.class || '').split(' ').includes(name);
   const thumbClass = value => ['fileThumb', 'fileThumb imgspoiler'].includes(value);
   const text = node => node.children.map(child => typeof child === 'string' ? child : text(child)).join('');
-  const bounded = value => typeof value === 'string' && value.length > 0 && new TextEncoder().encode(value).length <= 259
+  const bounded = value => typeof value === 'string' && value.length > 0 && new TextEncoder().encode(value).length <= 260
     && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
   function visit(node, parent, grandparent) {
     if (typeof node === 'string') return;

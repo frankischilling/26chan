@@ -110,6 +110,11 @@ test('canonical display filename permits an appended extension without expanding
   for (const name of ['a'.repeat(255) + '.png', 'é'.repeat(127) + 'a.png']) {
     assert.equal(new TextEncoder().encode(name).length, 259);
     assert.equal(parse(withFilename(name)).status, 'ok');
-    assert.equal(parse(withFilename('a' + name)).status, 'invalid-snapshot');
+    assert.equal(parse(withFilename('aa' + name)).status, 'invalid-snapshot');
   }
+  const videoName = 'a'.repeat(255) + '.webm';
+  const video = withFilename(videoName).replaceAll('/demo/1.png', '/demo/1.webm').replace('2 KB PNG', '2 KB WEBM');
+  assert.equal(new TextEncoder().encode(videoName).length, 260);
+  assert.equal(parse(video).status, 'ok');
+  assert.equal(parse(video.replaceAll(videoName, 'a' + videoName)).status, 'invalid-snapshot');
 });
