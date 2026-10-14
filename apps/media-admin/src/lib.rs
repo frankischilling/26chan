@@ -12,13 +12,14 @@ use board_media::{
     source_digest::{
         PngSourceDigestLimits, SourceDigestError, SourceDigestProfile, png_source_processed_digest,
     },
+    video::{ValidatedVideo, VideoFormat},
 };
 use board_media_dispatch::DispatchClient;
 use board_store::{
     media::{Failure, MediaQueue},
     media_assets::{
         Asset, MediaFormat, MediaReader, OutputMetadata, OutputVariants, SourceProfile,
-        SourceProvenance,
+        SourceProvenance, VideoMetadata,
     },
 };
 
@@ -51,15 +52,30 @@ pub async fn dispatch(
         let snapshot = InputSnapshot::read(input, length)
             .await
             .map_err(|_| "private input rejected")?;
-        let provenance = source_provenance(&snapshot).map_err(|_| "private input rejected")?;
+        let filename = job.filename.to_ascii_lowercase();
+        let video = if filename.ends_with(".webm") {
+            Some(VideoFormat::Webm)
+        } else if filename.ends_with(".mp4") {
+            Some(VideoFormat::Mp4)
+        } else {
+            None
+        };
+        let provenance = if video.is_some() {
+            None
+        } else {
+            source_provenance(&snapshot).map_err(|_| "private input rejected")?
+        };
         // Fixed signature selects an explicit transport. Complex GIF admission
         // and decoding remain in the disposable guest.
-        let gif = matches!(snapshot.bytes().get(..6), Some(b"GIF87a" | b"GIF89a"));
-        let pdf = snapshot.bytes().starts_with(b"%PDF-");
+        let gif =
+            video.is_none() && matches!(snapshot.bytes().get(..6), Some(b"GIF87a" | b"GIF89a"));
+        let pdf = video.is_none() && snapshot.bytes().starts_with(b"%PDF-");
         if pdf && !job.filename.to_ascii_lowercase().ends_with(".pdf") {
             return Err("private input rejected");
         }
-        let disk = if pdf {
+        let disk = if let Some(format) = video {
+            client.process_video(snapshot.bytes(), format.tag()).await
+        } else if pdf {
             client.process_pdf(snapshot.bytes(), length).await
         } else if gif {
             client.process_gif(snapshot.bytes(), length).await
@@ -67,9 +83,9 @@ pub async fn dispatch(
             client.process(snapshot.bytes(), length).await
         }
         .map_err(|_| "dispatch processing failed")?;
-        Ok::<_, &str>((disk, provenance, gif, pdf.then_some(snapshot)))
+        Ok::<_, &str>((disk, provenance, gif, pdf.then_some(snapshot), video))
     };
-    let (disk, provenance, gif, pdf) =
+    let (disk, provenance, gif, pdf, video) =
         match tokio::time::timeout(std::time::Duration::from_secs(29), processed).await {
             Ok(Ok(disk)) => disk,
             _ => {
@@ -79,6 +95,20 @@ pub async fn dispatch(
                 return Err("dispatch processing failed".into());
             }
         };
+    if let Some(format) = video {
+        let video = match ValidatedVideo::read_disk(std::io::Cursor::new(disk), format).await {
+            Ok(video) => video,
+            Err(_) => {
+                let _ = queue
+                    .fail(&job.id, token, Failure::InvalidOutput, false)
+                    .await;
+                return Err("dispatch output rejected".into());
+            }
+        };
+        return publish_video(queue, store, &job.id, token, &video)
+            .await
+            .map_err(|_| "dispatch approval unavailable".into());
+    }
     if gif {
         let animation = match ValidatedAnimation::read_disk(std::io::Cursor::new(disk)).await {
             Ok(animation) => animation,
@@ -157,6 +187,58 @@ pub async fn publish_animation(
         .await?;
     let receipt = guard.install_gif(pending.id.parse()?, &encoded)?;
     if pending.output_format != MediaFormat::Gif
+        || receipt.sha256 != pending.sha256
+        || receipt.bytes != pending.bytes as u64
+    {
+        return Err("output reservation differs from installed bytes".into());
+    }
+    let receipt = guard.install_thumbnail(pending.id.parse()?, &thumbnail)?;
+    if receipt.sha256 != variants.thumbnail.sha256
+        || receipt.bytes != variants.thumbnail.bytes as u64
+    {
+        return Err("thumbnail reservation differs from installed bytes".into());
+    }
+    Ok(queue.approve_output(job_id, token, &pending.id).await?)
+}
+
+/// Publish the checked stopped video envelope under a lease-fenced reservation.
+pub async fn publish_video(
+    queue: &MediaQueue,
+    store: &PublicationStore,
+    job_id: &str,
+    token: &str,
+    video: &ValidatedVideo,
+) -> PublicationResult<Asset> {
+    let thumbnail = video.preview().encode()?;
+    let metadata = OutputMetadata {
+        sha256: video.sha256().to_owned(),
+        bytes: video.len() as i64,
+        width: video.dimensions().0 as i32,
+        height: video.dimensions().1 as i32,
+    };
+    let variants = OutputVariants {
+        md5: video.md5().to_owned(),
+        thumbnail: OutputMetadata {
+            sha256: thumbnail.sha256().to_owned(),
+            bytes: thumbnail.len() as i64,
+            width: thumbnail.dimensions().0 as i32,
+            height: thumbnail.dimensions().1 as i32,
+        },
+    };
+    let format = match video.format() {
+        VideoFormat::Webm => MediaFormat::Webm,
+        VideoFormat::Mp4 => MediaFormat::Mp4,
+    };
+    let video_metadata = VideoMetadata {
+        video_duration_micros: video.duration_micros() as i64,
+        video_has_audio: video.has_audio(),
+    };
+    let guard = store.try_lock()?;
+    let pending = queue
+        .prepare_video_output(job_id, token, &metadata, &variants, format, &video_metadata)
+        .await?;
+    let receipt = guard.install_video(pending.id.parse()?, video)?;
+    if pending.output_format != format
         || receipt.sha256 != pending.sha256
         || receipt.bytes != pending.bytes as u64
     {
@@ -290,6 +372,8 @@ pub async fn read_approved(
         MediaFormat::Png => files.read(id, &approved.sha256, size)?,
         MediaFormat::Gif => files.read_gif(id, &approved.sha256, size)?,
         MediaFormat::Pdf => files.read_pdf(id, &approved.sha256, size)?,
+        MediaFormat::Webm => files.read_video(id, &approved.sha256, size, VideoFormat::Webm)?,
+        MediaFormat::Mp4 => files.read_video(id, &approved.sha256, size, VideoFormat::Mp4)?,
     })
 }
 

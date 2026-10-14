@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check:generated": "npm run check:global-search && npm run check:native-filter && npm run check:native-images && npm run check:native-thread-controls && npm run check:native-backlinks && npm run check:native-quick-reply && npm run check:math && npm run check:native-post-deletion && npm run check:tegaki && npm run check:native-blotter && npm run check:native-replay",
+    "check:generated": "npm run check:global-search && npm run check:native-filter && npm run check:native-images && npm run check:native-thread-controls && npm run check:native-backlinks && npm run check:native-quick-reply && npm run check:math && npm run check:native-post-deletion && npm run check:tegaki && npm run check:native-blotter && npm run check:native-replay && npm run check:native-video-fallback",
     "build:native-replay": "node scripts/build-native-replay.mjs",
     "check:native-replay": "node scripts/build-native-replay.mjs --check",
     "build:global-search": "node scripts/build-global-search.mjs",
@@ -104,7 +104,9 @@
     "test:page-identity-core": "python3 scripts/test-board-title-import.py",
     "test:board-subtitles-core": "python3 scripts/test-board-subtitle-import.py && node --test tests/browser/source-board-subtitles.test.mjs",
     "test:board-subtitles": "npm run test:board-subtitles-core && playwright test --config playwright.source-board-subtitles.config.js",
-    "test:board-subtitles-http": "node tests/browser/source-board-subtitles-http.mjs"
+    "test:board-subtitles-http": "node tests/browser/source-board-subtitles-http.mjs",
+    "build:native-video-fallback": "node scripts/build-native-video-fallback.mjs",
+    "check:native-video-fallback": "python3 scripts/check-ogv-assets.py && node scripts/build-native-video-fallback.mjs --check"
   },
   "devDependencies": {
     "@mathjax/mathjax-tex-font": "4.1.3",

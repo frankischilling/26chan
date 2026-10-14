@@ -126,6 +126,12 @@ impl Gateway {
                     self.authorize(&fingerprint)?;
                     protocol::write_pdf_response(&disk, &mut stream).await
                 }
+                protocol::Request::VideoV5(input) => {
+                    protocol::write_video_request(&input, &mut broker).await?;
+                    let disk = protocol::read_video_response(&mut broker).await?;
+                    self.authorize(&fingerprint)?;
+                    protocol::write_video_response(&disk, &mut stream).await
+                }
             }
         })
         .await

@@ -1,10 +1,13 @@
 // The supervisor supplies isolated processing. This browser has only public
 // HTTP authority and the one-use approval issued to its own upload.
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { chromium, expect } from '@playwright/test';
 import { observeOwnedDeletionResponse, observeOwnedUploadResponse } from './owned-upload-response.mjs';
 
 const origin = new URL(process.argv[2]), board = process.argv[3], source = process.argv[4], flags = process.argv.slice(5);
+const outputExtension = ['.webm','.mp4'].includes(path.extname(source)) ? path.extname(source) : '.png';
+const video = outputExtension !== '.png';
 assert.ok(flags.every(flag => ['--inline', '--no-spoilers'].includes(flag))); assert.equal(new Set(flags).size, flags.length);
 const inline = flags.includes('--inline'), spoilers = !flags.includes('--no-spoilers');
 assert.equal(origin.hostname, '127.0.0.1'); assert.equal(origin.protocol, 'http:');
@@ -105,7 +108,7 @@ try {
   const api = url(`/${board}/thread/${thread}.json`);
   const posts = (await (await context.request.get(api)).json()).posts;
   assert.equal(posts.length, 3); const attached = posts.find(value => String(value.no) === post);
-  assert.equal(attached.spoiler, spoilers ? 1 : undefined); assert.equal(attached.com, undefined); assert.equal(attached.ext, '.png');
+  assert.equal(attached.spoiler, spoilers ? 1 : undefined); assert.equal(attached.com, undefined); assert.equal(attached.ext, outputExtension);
   assert.equal(posts[2].com, 'Text after the consumed image'); assert.equal(posts[2].tim, undefined);
   const replay = await context.request.post(url(`/${board}/imgboard.php`), { headers: { Origin: origin.origin, Accept: 'application/json' },
     multipart: { resto: thread, mode: 'regist', pwd: password, com: '', upload_id: uploadId, upload_capability: capability } });
@@ -122,10 +125,52 @@ try {
   await expect(file.locator('img')).toHaveAttribute('width', spoilers ? '100' : '1');
   await expect(file.locator('img')).toHaveAttribute('height', spoilers ? '100' : '1');
   assert.equal(requests.includes(media), false, 'thumbnail rendering must not fetch the original file');
-  assert.equal(requests.includes(media.replace(/\.png$/, 's.jpg')), !spoilers, 'only an unspoiled file fetches its approved thumbnail');
+  assert.equal(requests.includes(media.replace(/\.(?:png|webm|mp4)$/, 's.jpg')), !spoilers, 'only an unspoiled file fetches its approved thumbnail');
   assert.notEqual(new URL(media).origin, origin.origin); assert.equal((await context.request.get(media)).status(), 200);
   const opening = page.waitForEvent('popup'); await (spoilers ? link : file.locator('.fileText > a')).click(); const imagePage = await opening;
-  await expect.poll(() => imagePage.locator('img').evaluate(image => image.naturalWidth)).toBe(1); await imagePage.close();
+  try {
+    await expect.poll(() => imagePage.locator(video ? 'video' : 'img').evaluate(element => element.videoWidth ?? element.naturalWidth)).toBe(video ? 64 : 1);
+  } catch (error) {
+    if (video) {
+      const evidence = await imagePage.evaluate(() => {
+        const player = document.querySelector('video');
+        const code = player?.error?.code ?? 0;
+        return { player: Boolean(player), metadata: (player?.videoWidth ?? 0) > 0, error: Number.isInteger(code) && code >= 0 && code <= 4 ? code : 0 };
+      }).catch(() => ({ player: false, metadata: false, error: 0 }));
+      console.error(`OWNED_VIDEO_PLAYBACK player=${evidence.player} metadata=${evidence.metadata} error=${evidence.error}`);
+    }
+    throw error;
+  }
+  await imagePage.close();
+  if (video) {
+    // Exercise playback under the real board CSP and separate media CORS.
+    // The WebM case deliberately selects the source's legacy decoder path.
+    await page.evaluate(webm => {
+      if (webm) HTMLMediaElement.prototype.canPlayType = () => '';
+      const settings = JSON.parse(localStorage.getItem('4chan-settings') || '{}');
+      settings.revealSpoilers = true;
+      localStorage.setItem('4chan-settings', JSON.stringify(settings));
+      window.dispatchEvent(new StorageEvent('storage', { key: '4chan-settings', storageArea: localStorage }));
+    }, outputExtension === '.webm');
+    await file.locator('a.fileThumb:not(.imgspoiler)').click();
+    const player = file.locator(outputExtension === '.webm' ? 'ogvjs.expanded-thumb' : 'video.expanded-thumb');
+    await expect(player).toBeVisible();
+    await expect.poll(() => player.evaluate(element => element.videoWidth)).toBe(64);
+    await expect.poll(() => player.evaluate(element => element.currentTime)).toBeGreaterThan(0);
+    if (outputExtension === '.webm') {
+      await expect(file.locator('.nativeVideoControls')).toBeHidden();
+      await player.click({ position: { x: 4, y: 4 } });
+      await expect(file.locator('.nativeVideoControls')).toBeVisible();
+    }
+    await file.locator('.nativeVideoClose').click();
+    await expect(file.locator('.expanded-thumb,.nativeVideoControls')).toHaveCount(0);
+    await page.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem('4chan-settings') || '{}');
+      settings.revealSpoilers = false;
+      localStorage.setItem('4chan-settings', JSON.stringify(settings));
+      window.dispatchEvent(new StorageEvent('storage', { key: '4chan-settings', storageArea: localStorage }));
+    });
+  }
   const deletion = page.locator(`#p${post} form[action$="/delete"]`);
   if (inline) {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -146,6 +191,13 @@ try {
     await expect(menu).toHaveText('...');
     await menu.click();
     await expect(page.getByRole('menuitem', { name: 'Delete file', exact: true })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Open normalized file', exact: true })).toHaveAttribute('href', media);
+    if (video) {
+      for (const name of ['Google', 'Yandex', 'SauceNAO']) {
+        const search = new URL(await page.getByRole('menuitem', { name: `Search image on ${name}`, exact: true }).getAttribute('href'));
+        assert.equal(search.searchParams.get(name === 'Yandex' ? 'img_url' : 'url'), media.replace(/\.(?:webm|mp4)$/, 's.jpg'));
+      }
+    }
     const finished = await observeOwnedDeletionResponse(page, endpoint);
     const confirmation = page.waitForEvent('dialog');
     const clicked = page.getByRole('menuitem', { name: 'Delete file', exact: true }).click();
@@ -194,7 +246,7 @@ try {
       };
       document.addEventListener('click', record); document.addEventListener('auxclick', record);
     }, post);
-    const mediaRequests = requests.filter(value => value === media || value === media.replace(/\.png$/, 's.jpg')).length;
+    const mediaRequests = requests.filter(value => value === media || value === media.replace(/\.(?:png|webm|mp4)$/, 's.jpg')).length;
     const openPages = context.pages().length;
     await link.click(); await link.click({ button: 'middle' });
     // The source hides desktop file labels at mobile widths. Exercise that
@@ -206,7 +258,7 @@ try {
     await expect(file.locator('.expanded-thumb')).toHaveCount(0);
     await expect(page.locator('#image-hover')).toHaveCount(0);
     assert.equal(context.pages().length, openPages);
-    assert.equal(requests.filter(value => value === media || value === media.replace(/\.png$/, 's.jpg')).length, mediaRequests);
+    assert.equal(requests.filter(value => value === media || value === media.replace(/\.(?:png|webm|mp4)$/, 's.jpg')).length, mediaRequests);
     assert.equal(page.url(), currentUrl); assert.equal(deletionRequests.length, 1);
     const after = await context.request.get(api); assert.equal(after.status(), 200);
     const retained = (await after.json()).posts;

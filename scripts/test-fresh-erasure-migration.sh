@@ -484,6 +484,9 @@ WHERE relation='content.moderation_audit';
 -- that publication path; compare every earlier field without alteration.
 UPDATE public.independent_rows SET value=value||jsonb_build_object('drawing_publication',false)
 WHERE relation='media.jobs';
+-- Video adds nullable metadata only; historical non-video assets retain every prior field.
+UPDATE public.independent_rows SET value=value||jsonb_build_object('video_duration_micros',NULL,'video_has_audio',NULL)
+WHERE relation='media.assets';
 -- Every attachment identity remains byte-exact; only erased payload changes.
 UPDATE public.independent_rows SET value=value||jsonb_build_object('metadata_erased',true,
  'filename','[deleted]','bytes',1,'width',1,'height',1,'spoiler',false,'file_deleted',true,'created_at','epoch'::timestamptz)

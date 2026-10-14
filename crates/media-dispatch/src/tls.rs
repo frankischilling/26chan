@@ -121,6 +121,37 @@ impl DispatchClient {
             .map_err(|_| Error::Deadline)?
     }
 
+    /// Explicit video transport. The caller supplies one finite container tag;
+    /// no format guessing, alternate response version, or retry is permitted.
+    pub async fn process_video(&self, input: &[u8], container: u8) -> Result<Vec<u8>> {
+        if input.is_empty()
+            || input.len() as u64 > protocol::MAX_INPUT
+            || !matches!(container, 1 | 2)
+        {
+            return Err(Error::Frame);
+        }
+        let mut frame = Vec::with_capacity(input.len() + 1);
+        frame.push(container);
+        frame.extend_from_slice(input);
+        let mut stream = timeout(INTAKE, async {
+            let socket = TcpStream::connect(self.endpoint)
+                .await
+                .map_err(|_| Error::Transport)?;
+            self.connector
+                .connect(self.name.clone(), socket)
+                .await
+                .map_err(|_| Error::Authentication)
+        })
+        .await
+        .map_err(|_| Error::Deadline)??;
+        timeout(INTAKE, protocol::write_video_request(&frame, &mut stream))
+            .await
+            .map_err(|_| Error::Deadline)??;
+        timeout(PROCESSING, protocol::read_video_response(&mut stream))
+            .await
+            .map_err(|_| Error::Deadline)?
+    }
+
     /// Explicit PDF transport; no image/GIF response or fallback is accepted.
     pub async fn process_pdf<R: AsyncRead + Unpin>(
         &self,

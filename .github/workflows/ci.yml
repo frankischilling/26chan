@@ -57,6 +57,8 @@ jobs:
         run: python3 scripts/test-archive-age-reference.py
       - name: Qualify source poll reference pages
         run: php -n -d allow_url_fopen=0 -d allow_url_include=0 scripts/render-poll-reference.php --check
+      - name: Qualify isolated source video decisions
+        run: python3 scripts/extract-video-reference.py --php-oracle
       - name: Start disposable database and migrate
         run: |
           python3 scripts/test-dev-db-env.py
@@ -73,6 +75,7 @@ jobs:
           source .local/database.env
           cargo run -p board-store --bin board-migrate --locked
           bash scripts/seed.sh
+          psql "$MIGRATION_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f scripts/test-video-board-policy.sql
       - name: Qualify verified client identity through the actual HTTPS proxy
         run: |
           source .local/database.env
@@ -221,6 +224,16 @@ jobs:
           python3 scripts/paired-coordinator-artifact.py .local/paired-vm-artifacts.json "$PWD" "$PWD/target" > .local/paired-vm-path
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
+      - name: Build the reviewed minimal video runtime and owned clips
+        run: |
+          sudo apt-get install -y ffmpeg
+          curl --fail --location --max-time 120 https://ffmpeg.org/releases/ffmpeg-7.1.5.tar.xz -o .local/ffmpeg-7.1.5.tar.xz
+          bash scripts/media/build-video-runtime.sh .local/ffmpeg-7.1.5.tar.xz .local/video-runtime
+          sudo install -d -m 0755 /usr/lib/26chan-video
+          sudo install -m 0755 .local/video-runtime/ffmpeg .local/video-runtime/ffprobe /usr/lib/26chan-video/
+          python3 tests/media/video_fixtures.py .local/video-clips
+          VIDEO_TEST_RUNTIME="$PWD/.local/video-runtime" VIDEO_TEST_CLIPS="$PWD/.local/video-clips" \
+            cargo test -p board-media-guest --lib owned_runtime --locked -- --ignored
       - name: Qualify source drawing board policy upgrade
         run: sudo bash scripts/test-board-drawing-migration.sh
       - name: Qualify drawing edit ownership and exact source board restoration
@@ -238,6 +251,7 @@ jobs:
           cargo build -p board-media-guest --bins --example containment-probe --target x86_64-unknown-linux-musl --locked --release
           python3 -m unittest discover -s tests/media -p test_runner.py
           python3 -m unittest discover -s tests/media -p test_pdf_runtime.py -v
+          python3 -m unittest discover -s tests/media -p test_video_runtime.py -v
           python3 -m unittest discover -s tests/media -p test_identity_environment.py
           python3 -m unittest discover -s tests/media -p test_browser_diagnostics.py -v
           python3 -m unittest discover -s tests/media -p test_public_upload_fixture.py -v
@@ -252,6 +266,10 @@ jobs:
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             python3 tests/media/test_pdf_vm.py -v
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
+            MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
+            python3 tests/media/test_video_vm.py -v
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             python3 tests/media/test_boundaries.py

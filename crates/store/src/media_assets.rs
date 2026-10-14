@@ -17,6 +17,8 @@ pub enum MediaFormat {
     Png,
     Gif,
     Pdf,
+    Webm,
+    Mp4,
 }
 
 impl MediaFormat {
@@ -25,6 +27,8 @@ impl MediaFormat {
             Self::Png => "png",
             Self::Gif => "gif",
             Self::Pdf => "pdf",
+            Self::Webm => "webm",
+            Self::Mp4 => "mp4",
         }
     }
 
@@ -33,6 +37,8 @@ impl MediaFormat {
             Self::Png => "PNG",
             Self::Gif => "GIF",
             Self::Pdf => "PDF",
+            Self::Webm => "WEBM",
+            Self::Mp4 => "MP4",
         }
     }
 
@@ -41,6 +47,8 @@ impl MediaFormat {
             Self::Png => "image/png",
             Self::Gif => "image/gif",
             Self::Pdf => "application/pdf",
+            Self::Webm => "video/webm",
+            Self::Mp4 => "video/mp4",
         }
     }
 
@@ -48,8 +56,12 @@ impl MediaFormat {
         match self {
             Self::Png => 5_242_880,
             Self::Gif => 20_971_520,
-            Self::Pdf => 8_388_608,
+            Self::Pdf | Self::Webm | Self::Mp4 => 8_388_608,
         }
+    }
+
+    pub fn is_video(self) -> bool {
+        matches!(self, Self::Webm | Self::Mp4)
     }
 }
 
@@ -85,6 +97,25 @@ pub struct OutputMetadata {
 pub struct OutputVariants {
     pub md5: String,
     pub thumbnail: OutputMetadata,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, sqlx::FromRow)]
+pub struct VideoMetadata {
+    pub video_duration_micros: i64,
+    pub video_has_audio: bool,
+}
+
+#[derive(sqlx::FromRow)]
+struct VideoRecord {
+    video_duration_micros: Option<i64>,
+    video_has_audio: Option<bool>,
+}
+
+impl VideoRecord {
+    fn matches(&self, video: Option<&VideoMetadata>) -> bool {
+        self.video_duration_micros == video.map(|v| v.video_duration_micros)
+            && self.video_has_audio == video.map(|v| v.video_has_audio)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -167,9 +198,10 @@ impl OutputMetadata {
 
     fn validate_format(&self, format: MediaFormat) -> Result<(), StoreError> {
         validate_hex(&self.sha256, 64)?;
+        let dimension = if format.is_video() { 2048 } else { 1024 };
         if !(1..=format.byte_limit()).contains(&self.bytes)
-            || !(1..=1024).contains(&self.width)
-            || !(1..=1024).contains(&self.height)
+            || !(1..=dimension).contains(&self.width)
+            || !(1..=dimension).contains(&self.height)
             || (format == MediaFormat::Pdf && (self.width != 1 || self.height != 1))
         {
             return Err(StoreError::Invalid(
@@ -318,7 +350,7 @@ impl MediaQueue {
             metadata,
             variants,
             provenance,
-            MediaFormat::Png,
+            (MediaFormat::Png, None),
         )
         .await
     }
@@ -338,7 +370,7 @@ impl MediaQueue {
             metadata,
             Some(variants),
             None,
-            MediaFormat::Gif,
+            (MediaFormat::Gif, None),
         )
         .await
     }
@@ -358,7 +390,31 @@ impl MediaQueue {
             metadata,
             Some(variants),
             None,
-            MediaFormat::Pdf,
+            (MediaFormat::Pdf, None),
+        )
+        .await
+    }
+
+    /// Reserve remuxed video and its isolated metadata as one immutable tuple.
+    pub async fn prepare_video_output(
+        &self,
+        job_id: &str,
+        token: &str,
+        metadata: &OutputMetadata,
+        variants: &OutputVariants,
+        format: MediaFormat,
+        video: &VideoMetadata,
+    ) -> Result<Asset, StoreError> {
+        if !format.is_video() {
+            return Err(StoreError::Invalid("Invalid video format."));
+        }
+        self.prepare_formatted_output(
+            job_id,
+            token,
+            metadata,
+            Some(variants),
+            None,
+            (format, Some(video)),
         )
         .await
     }
@@ -370,11 +426,18 @@ impl MediaQueue {
         metadata: &OutputMetadata,
         variants: Option<&OutputVariants>,
         provenance: Option<&SourceProvenance>,
-        format: MediaFormat,
+        output_kind: (MediaFormat, Option<&VideoMetadata>),
     ) -> Result<Asset, StoreError> {
+        let (format, video) = output_kind;
         validate_hex(job_id, 32)?;
         validate_hex(token, 32)?;
         metadata.validate_format(format)?;
+        if format.is_video() != video.is_some()
+            || (format.is_video() && (variants.is_none() || provenance.is_some()))
+            || video.is_some_and(|v| !(1..=400_000_000).contains(&v.video_duration_micros))
+        {
+            return Err(StoreError::Invalid("Invalid video metadata."));
+        }
         if let Some(provenance) = provenance {
             provenance.validate()?;
         }
@@ -384,6 +447,7 @@ impl MediaQueue {
             if variants.thumbnail.width > 250
                 || variants.thumbnail.height > 250
                 || (format != MediaFormat::Pdf
+                    && !format.is_video()
                     && (variants.thumbnail.width > metadata.width
                         || variants.thumbnail.height > metadata.height))
             {
@@ -406,7 +470,14 @@ impl MediaQueue {
                 .bind(&reserved.asset.id).fetch_one(&mut *tx).await?;
             let source: SourceRecord = sqlx::query_as("SELECT source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5 FROM media.assets WHERE id=$1")
                 .bind(&reserved.asset.id).fetch_one(&mut *tx).await?;
-            if !metadata.matches(&reserved.asset)
+            let stored_video: VideoRecord = sqlx::query_as(
+                "SELECT video_duration_micros,video_has_audio FROM media.assets WHERE id=$1",
+            )
+            .bind(&reserved.asset.id)
+            .fetch_one(&mut *tx)
+            .await?;
+            if !stored_video.matches(video)
+                || !metadata.matches(&reserved.asset)
                 || reserved.asset.output_format != format
                 || !stored.matches(variants)
                 || !source.matches(provenance)
@@ -420,7 +491,7 @@ impl MediaQueue {
             }
         }
         // The statement that inserts or reuses pending metadata rechecks the lease.
-        let asset = sqlx::query_as("INSERT INTO media.assets (id, job_id, lease_token, sha256, bytes, width, height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5,output_format) SELECT replace(gen_random_uuid()::text, '-', ''), id, lease_token, $3, $4, $5, $6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13) AND ($17::text <> 'pdf' OR input_bytes=$4) ON CONFLICT (job_id, lease_token) DO UPDATE SET updated_at = media.assets.updated_at WHERE media.assets.state = 'pending' AND media.assets.output_format = $17 AND media.assets.sha256 = $3 AND media.assets.bytes = $4 AND media.assets.width = $5 AND media.assets.height = $6 AND (media.assets.md5,media.assets.thumbnail_sha256,media.assets.thumbnail_bytes,media.assets.thumbnail_width,media.assets.thumbnail_height) IS NOT DISTINCT FROM ($7,$8,$9,$10,$11) AND (media.assets.source_input_sha256,media.assets.source_input_bytes,media.assets.source_profile,media.assets.source_retained_bytes,media.assets.source_md5) IS NOT DISTINCT FROM ($12,$13,$14,$15,$16) AND EXISTS (SELECT 1 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13) AND ($17::text <> 'pdf' OR input_bytes=$4)) RETURNING id, sha256, bytes, width, height, output_format")
+        let asset = sqlx::query_as("INSERT INTO media.assets (id, job_id, lease_token, sha256, bytes, width, height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5,output_format,video_duration_micros,video_has_audio) SELECT replace(gen_random_uuid()::text, '-', ''), id, lease_token, $3, $4, $5, $6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13) AND ($17::text <> 'pdf' OR input_bytes=$4) ON CONFLICT (job_id, lease_token) DO UPDATE SET updated_at = media.assets.updated_at WHERE media.assets.state = 'pending' AND media.assets.output_format = $17 AND media.assets.sha256 = $3 AND media.assets.bytes = $4 AND media.assets.width = $5 AND media.assets.height = $6 AND (media.assets.md5,media.assets.thumbnail_sha256,media.assets.thumbnail_bytes,media.assets.thumbnail_width,media.assets.thumbnail_height) IS NOT DISTINCT FROM ($7,$8,$9,$10,$11) AND (media.assets.source_input_sha256,media.assets.source_input_bytes,media.assets.source_profile,media.assets.source_retained_bytes,media.assets.source_md5) IS NOT DISTINCT FROM ($12,$13,$14,$15,$16) AND (media.assets.video_duration_micros,media.assets.video_has_audio) IS NOT DISTINCT FROM ($18,$19) AND EXISTS (SELECT 1 FROM media.jobs WHERE id = $1 AND input_kind = 'image-v1' AND state = 'processing' AND lease_token = $2 AND expires_at > clock_timestamp() AND ($13::bigint IS NULL OR input_bytes=$13) AND ($17::text <> 'pdf' OR input_bytes=$4)) RETURNING id, sha256, bytes, width, height, output_format")
             .bind(job_id).bind(token).bind(&metadata.sha256).bind(metadata.bytes).bind(metadata.width).bind(metadata.height)
             .bind(variants.map(|v| &v.md5)).bind(variants.map(|v| &v.thumbnail.sha256))
             .bind(variants.map(|v| v.thumbnail.bytes)).bind(variants.map(|v| v.thumbnail.width)).bind(variants.map(|v| v.thumbnail.height))
@@ -428,6 +499,7 @@ impl MediaQueue {
             .bind(provenance.map(|s| s.profile.as_str())).bind(provenance.map(|s| s.retained_bytes))
             .bind(provenance.map(|s| s.md5.as_slice()))
             .bind(format)
+            .bind(video.map(|v|v.video_duration_micros)).bind(video.map(|v|v.video_has_audio))
             .fetch_optional(&mut *tx).await?.ok_or_else(unavailable)?;
         tx.commit().await?;
         Ok(asset)

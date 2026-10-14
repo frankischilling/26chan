@@ -1,4 +1,5 @@
 //! Release-owned public UI bytes, never upload storage or a filesystem server.
+pub(crate) mod ogv;
 use axum::{Router, http::header, response::IntoResponse, routing::get};
 
 pub(crate) const REPLAY_PLAYER_PATH: &str = "/static/native-replay/player.v1.js";
@@ -41,6 +42,11 @@ pub(crate) const TEGAKI_STYLE_PATH: &str = "/static/tegaki/tegaki-0.9.4.v1.css";
 pub(crate) const TEGAKI_FONT_PATH: &str = "/static/tegaki/tegaki-icons.v1.woff";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
+    (
+        "/static/native-video-fallback.v1.js",
+        "text/javascript; charset=utf-8",
+        include_bytes!("../static/native-video-fallback.v1.js"),
+    ),
     (
         "/static/polls.v1.css",
         "text/css; charset=utf-8",
@@ -900,6 +906,26 @@ pub(crate) fn routes<S: Clone + Send + Sync + 'static>() -> Router<S> {
             )
         }),
     );
+    for &(path, mime, bytes) in ogv::ASSETS {
+        router = router.route(
+            path,
+            get(move || async move {
+                let response = (
+                    [
+                        (header::CONTENT_TYPE, mime),
+                        (header::CACHE_CONTROL, "public, max-age=0, must-revalidate"),
+                    ],
+                    bytes,
+                )
+                    .into_response();
+                if ogv::is_worker(path) {
+                    crate::security::ogv_worker(response)
+                } else {
+                    response
+                }
+            }),
+        );
+    }
     for &(path, mime, bytes) in ASSETS {
         router = router.route(
             path,

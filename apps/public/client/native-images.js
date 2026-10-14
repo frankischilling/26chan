@@ -10,16 +10,21 @@ export function attachmentTarget(raw, mediaOrigin) {
   try {
     const origin = new URL(mediaOrigin);
     if (!['http:', 'https:'].includes(origin.protocol) || origin.origin !== mediaOrigin) return null;
-    const match = /^\/([a-z0-9]{1,10})\/([1-9][0-9]{0,18})\.(?:png|gif|pdf)$/.exec(raw.slice(mediaOrigin.length));
+    const match = /^\/([a-z0-9]{1,10})\/([1-9][0-9]{0,18})\.(?:png|gif|pdf|webm|mp4)$/.exec(raw.slice(mediaOrigin.length));
     if (!raw.startsWith(mediaOrigin) || !match || BigInt(match[2]) > 9223372036854775807n) return null;
-    return { url: raw, thumbnail: raw.slice(0, -4) + 's.jpg' };
+    return { url: raw, thumbnail: raw.slice(0, raw.lastIndexOf('.')) + 's.jpg' };
   } catch { return null; }
 }
 
 // Documents open normally; never send them to an image loader or expansion.
 export function imageTarget(raw, mediaOrigin) {
   const target = attachmentTarget(raw, mediaOrigin);
-  return target && !target.url.endsWith(".pdf") ? target : null;
+  return target && /\.(?:png|gif)$/.test(target.url) ? target : null;
+}
+
+export function videoTarget(raw, mediaOrigin) {
+  const target = attachmentTarget(raw, mediaOrigin);
+  return target && /\.(?:webm|mp4)$/.test(target.url) ? target : null;
 }
 
 export function imageSize(width, height, availableWidth, availableHeight = Infinity) {
@@ -76,8 +81,9 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     && !element.closest('.deleted,.post-hidden,.native-thread-hidden,.mobile-post-hidden,[hidden]')
     && element.getClientRects().length > 0;
   function target(anchor) {
-    return anchor?.matches?.('a.fileThumb:not(.imgspoiler)') && anchor.closest('.file') && available(anchor)
-      && !isRetired(anchor.getAttribute('href')) ? imageTarget(anchor.getAttribute('href'), mediaOrigin) : null;
+    return anchor?.matches?.('a.fileThumb:not(.imgspoiler)') && anchor.closest('.file') && (available(anchor) || (expanded.get(anchor)?.video
+        && !anchor.closest('[hidden]') && available(anchor.closest('.file'))))
+      && !isRetired(anchor.getAttribute('href')) ? (imageTarget(anchor.getAttribute('href'), mediaOrigin) ?? videoTarget(anchor.getAttribute('href'), mediaOrigin)) : null;
   }
   function thumbnail(anchor, file) {
     return Array.from(anchor.children).find(element => element.localName === 'img'
@@ -102,54 +108,119 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   function release(entry) {
     entry.pending = false;
     clearTimeout(entry.timer);
-    entry.image.onload = entry.image.onerror = null;
-    entry.image.removeAttribute('src'); entry.image.remove();
+    entry.image.onload = entry.image.onloadedmetadata = entry.image.onerror = entry.image.onvolumechange = null;
+    clearTimeout(entry.volumeTimer);
+    if (entry.fallback) { entry.fallback.dispose(); entry.close?.remove(); entry.duration?.remove(); return; }
+    if (entry.video) entry.image.pause();
+    entry.image.removeAttribute('src');
+    if (entry.video) entry.image.load();
+    entry.image.remove(); entry.close?.remove(); entry.duration?.remove();
   }
   function contract(anchor, scroll = false) {
     const entry = expanded.get(anchor);
     if (!entry) return;
     expanded.delete(anchor); release(entry);
     setClass(anchor, 'nativeImageOpen', false); setClass(anchor, 'nativeImageLoading', false);
-    setClass(entry.file, 'image-expanded', false);
+    setClass(entry.file, 'image-expanded', false); setClass(anchor, 'nativeVideoOpen', false);
     const post = anchor.closest('.post');
     if (scroll && post && post.getBoundingClientRect().top < 0) post.scrollIntoView({ block: 'start' });
   }
   function hideHover() { if (hover) { const previous = hover; hover = null; release(previous); } }
   function dimensions(image) {
-    return image.naturalWidth > 0 && image.naturalHeight > 0
-      && image.naturalWidth <= bounds.dimension && image.naturalHeight <= bounds.dimension;
+    const video = typeof image.videoWidth === 'number';
+    const width = video ? image.videoWidth : image.naturalWidth;
+    const height = video ? image.videoHeight : image.naturalHeight;
+    const limit = video ? 2048 : bounds.dimension;
+    return width > 0 && height > 0 && width <= limit && height <= limit
+      && (!video || (Number.isFinite(image.duration) && image.duration > 0 && image.duration <= 400));
   }
   function fit(entry, preview = false) {
     const width = preview ? window.innerWidth : document.documentElement.clientWidth;
     const height = document.documentElement.clientHeight;
-    const rect = entry.thumb.getClientRects().length ? entry.thumb.getBoundingClientRect() : entry.anchor.getBoundingClientRect();
+    const rect = entry.thumb.getClientRects().length ? entry.thumb.getBoundingClientRect() : (entry.video && expanded.has(entry.anchor) ? entry.file : entry.anchor).getBoundingClientRect();
     const left = rect.left + (entry.thumb.getClientRects().length ? 0 : parseFloat(window.getComputedStyle(entry.anchor).borderLeftWidth) || 0);
-    const size = imageSize(entry.image.naturalWidth, entry.image.naturalHeight,
+    const size = imageSize(entry.video ? entry.image.videoWidth : entry.image.naturalWidth, entry.video ? entry.image.videoHeight : entry.image.naturalHeight,
       Math.max(1, width - (preview ? rect.right + 20 : left + 25)),
       preview || configuration().fitToScreenExpansion === true ? height : Infinity);
     if (!size) return false;
+    if (entry.fallback) { entry.image.style.width = `${size.width}px`; entry.image.style.height = `${size.height}px`; }
     entry.image.style.maxWidth = `${size.width}px`; entry.image.style.maxHeight = `${size.height}px`;
     return true;
   }
   function load(entry, ready, fail) {
     const failed = () => { if (entry.pending) { entry.pending = false; fail(); } };
     entry.pending = true;
-    entry.image.onerror = failed;
-    entry.image.onload = () => {
+    const loaded = () => {
       if (!entry.pending) return;
       if (!dimensions(entry.image)) { failed(); return; }
       entry.pending = false; clearTimeout(entry.timer);
-      entry.image.onload = entry.image.onerror = null;
+      entry.image.onload = entry.image.onloadedmetadata = entry.image.onerror = null;
       ready();
+      if (entry.video && entry.image.isConnected) entry.image.onerror = fail;
+    };
+    const begin = () => {
+      entry.image.onerror = failed;
+      if (entry.video) entry.image.onloadedmetadata = loaded; else entry.image.onload = loaded;
+      entry.image.src = entry.url;
+      if (entry.fallback) entry.image.load();
     };
     entry.timer = setTimeout(failed, bounds.loadMs);
-    entry.image.src = entry.url;
+    // The source uses OGV for expansion only; hover always uses native video.
+    const legacy = expanded.get(entry.anchor) === entry && entry.video && entry.url.endsWith('.webm') && (!entry.image.canPlayType('video/webm')
+      || /iP(?:hone|ad|od)/.test(window.navigator.userAgent));
+    if (!legacy) { begin(); return; }
+    // The source fallback owns a single decoder. Dispose the previous instance
+    // before starting another, including in-flight module/library loads.
+    for (const [anchor, other] of expanded) if (other !== entry && other.legacy) contract(anchor);
+    if (hover && hover !== entry && hover.legacy) hideHover();
+    entry.legacy = true;
+    const active = () => valid(entry)
+      && (expanded.get(entry.anchor) === entry || hover === entry);
+    const moduleUrl = new URL('/static/native-video-fallback.v1.js', window.location.origin).href;
+    import(moduleUrl).then(module => module.createFallback({ document, url: entry.url, mediaOrigin, active })).then(fallback => {
+      if (!fallback) return;
+      if (!active()) { fallback.dispose(); return; }
+      const previous = entry.image, player = fallback.player;
+      player.className = previous.className; player.id = previous.id; player.hidden = true;
+      player.muted = previous.muted; player.volume = previous.volume;
+      player.setAttribute('aria-label', 'Video attachment');
+      projection?.claim(fallback.container, owner); projection?.claim(player, owner); projection?.claim(fallback.controls, owner);
+      previous.replaceWith(expanded.get(entry.anchor) === entry ? fallback.container : player); entry.image = player; entry.fallback = fallback;
+      begin();
+    }).catch(failed);
   }
+
   function fullImage() {
     const image = document.createElement('img');
     image.alt = 'Image'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer'; image.hidden = true;
     projection?.claim(image, owner);
     return image;
+  }
+  function mediaElement(file, hover = false) {
+    if (!videoTarget(file.url, mediaOrigin)) return fullImage();
+    const video = document.createElement('video');
+    video.controls = !hover; video.loop = true; video.autoplay = true; video.playsInline = true;
+    video.muted = configuration().unmuteWebm !== true; video.preload = 'metadata'; video.hidden = true;
+    video.setAttribute('aria-label', 'Video attachment');
+    let volume = 0.5;
+    try {
+      const saved = window.localStorage.getItem('4chan-volume');
+      if (saved !== null && saved.trim() !== '' && Number.isFinite(Number(saved))) volume = Math.max(0, Math.min(1, Number(saved)));
+    } catch { /* Storage denial retains the default volume. */ }
+    if (configuration().unmuteWebm === true) video.volume = volume;
+    projection?.claim(video, owner);
+    return video;
+  }
+  function playVideo(entry) {
+    if (!entry.video) return;
+    // Autoplay can be denied by browser policy. Native controls stay available.
+    entry.image.play()?.catch(() => {});
+    entry.image.onvolumechange = () => {
+      clearTimeout(entry.volumeTimer);
+      entry.volumeTimer = setTimeout(() => {
+        try { window.localStorage.setItem('4chan-volume', String(entry.image.volume)); } catch { /* Optional preference. */ }
+      }, 200);
+    };
   }
   function expand(anchor) {
     const file = target(anchor), thumb = file && thumbnail(anchor, file);
@@ -157,16 +228,24 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     if (expanded.has(anchor)) { contract(anchor, true); return true; }
     if (expanded.size >= bounds.expansions) { message('Close another expanded image before opening this one.'); return true; }
     hideHover(); clearMessage();
-    const image = fullImage(); image.className = 'expanded-thumb';
-    const entry = { anchor, thumb, image, file: anchor.closest('.file'), url: file.url };
-    expanded.set(anchor, entry); anchor.append(image); setClass(anchor, 'nativeImageLoading', true);
+    const image = mediaElement(file); image.className = 'expanded-thumb';
+    const entry = { anchor, thumb, image, file: anchor.closest('.file'), url: file.url, video: image.localName === 'video' };
+    expanded.set(anchor, entry);
+    if (entry.video) {
+      entry.close = document.createElement('button'); entry.close.type = 'button';
+      entry.close.className = 'nativeVideoClose'; entry.close.textContent = 'Close';
+      entry.close.addEventListener('click', () => contract(anchor, true));
+      projection?.claim(entry.close, owner);
+      anchor.after(entry.close, image);
+    } else anchor.append(image); setClass(anchor, 'nativeImageLoading', true);
     load(entry, () => {
       if (!valid(entry) || configuration().imageExpansion === false || !fit(entry)) { contract(anchor); return; }
       setClass(anchor, 'nativeImageLoading', false); setClass(anchor, 'nativeImageOpen', true);
-      setClass(entry.file, 'image-expanded', true); image.hidden = false;
+      setClass(entry.file, 'image-expanded', true); entry.image.hidden = false;
+      setClass(anchor, 'nativeVideoOpen', entry.video); playVideo(entry);
     }, () => {
       contract(anchor);
-      if (enabled() && available(anchor)) message('Image could not be loaded. Click the thumbnail to try again.');
+      if (enabled() && available(anchor)) message(entry.video ? 'Video could not be played. Use the filename link to open or download it.' : 'Image could not be loaded. Click the thumbnail to try again.');
     });
     return true;
   }
@@ -175,13 +254,23 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     const file = target(anchor), thumb = file && thumbnail(anchor, file);
     if (!file || !thumb || hover?.anchor === anchor) return;
     hideHover();
-    const image = fullImage(); image.id = 'image-hover';
+    const image = mediaElement(file, true); image.id = 'image-hover';
     setClass(image, 'nativeImageBackground', configuration().imageHoverBg === true);
-    const entry = { anchor, thumb, image, url: file.url }; hover = entry;
+    const entry = { anchor, thumb, image, url: file.url, video: image.localName === 'video' }; hover = entry;
     document.body.append(image);
     load(entry, () => {
       if (hover !== entry || !valid(entry) || configuration().imageHover !== true || !fit(entry, true)) { hideHover(); return; }
-      image.hidden = false;
+      entry.image.hidden = false; playVideo(entry);
+      if (entry.video) {
+        entry.duration = document.createElement('span'); entry.duration.className = 'nativeVideoDuration';
+        const seconds = Math.floor(entry.image.duration);
+        const audio = entry.image.mozHasAudio === true || entry.image.webkitAudioDecodedByteCount > 0 || entry.image.audioTracks?.length > 0 || entry.image.hasAudio === true;
+        entry.duration.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}${audio ? ' (audio)' : ''}`;
+        entry.duration.setAttribute('role', 'status'); projection?.claim(entry.duration, owner);
+        entry.duration.style.left = `${Math.max(0, thumb.getBoundingClientRect().left)}px`;
+        entry.duration.style.top = `${Math.max(0, thumb.getBoundingClientRect().bottom)}px`;
+        document.body.append(entry.duration);
+      }
     }, () => {
       if (hover !== entry) return;
       hideHover();
@@ -321,6 +410,16 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     if (anchor && !anchor.contains(event.relatedTarget)) showHover(anchor);
   }
   function out(event) { if (hover?.anchor.contains(event.target) && !hover.anchor.contains(event.relatedTarget)) hideHover(); }
+  let scrollTimer;
+  const scroll = () => {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      for (const entry of expanded.values()) if (entry.video && !entry.pending) {
+        const rect = entry.image.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) entry.image.pause();
+      }
+    }, 500);
+  };
   const storage = event => { if (event.key === null || event.key === '4chan-settings') refresh(); };
   const pagehide = () => { suspended = true; refresh(); };
   const pageshow = event => { if (event.persisted) { suspended = false; refresh(); } };
@@ -333,15 +432,17 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   eventRoot.addEventListener('click', click); eventRoot.addEventListener('mouseover', over); eventRoot.addEventListener('mouseout', out);
   document.addEventListener('4chanSettingsSaved', refresh);
   window.addEventListener('storage', storage); window.addEventListener('resize', refresh);
+  window.addEventListener('scroll', scroll, { passive: true });
   window.addEventListener('pagehide', pagehide); window.addEventListener('pageshow', pageshow);
   mobile?.addEventListener('change', refresh);
   refresh();
   return { refresh, retire, dispose() {
-    disposed = true; observer.disconnect(); refresh();
+    disposed = true; clearTimeout(scrollTimer); observer.disconnect(); refresh();
     eventRoot.removeEventListener('auxclick', preventRetired);
     eventRoot.removeEventListener('click', click); eventRoot.removeEventListener('mouseover', over); eventRoot.removeEventListener('mouseout', out);
     document.removeEventListener('4chanSettingsSaved', refresh);
     window.removeEventListener('storage', storage); window.removeEventListener('resize', refresh);
+    window.removeEventListener('scroll', scroll);
     window.removeEventListener('pagehide', pagehide); window.removeEventListener('pageshow', pageshow);
     mobile?.removeEventListener('change', refresh);
     if (previousFamily === null) root.removeAttribute('data-image-family');

@@ -1,0 +1,1756 @@
+{
+  "schema_version": 1,
+  "source_revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "source_sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+  "decision_tail": "  if ($res['format']['format_name'] === 'matroska,webm') {\r\n    $format = 'webm';\r\n  }\r\n  else if ($res['format']['format_name'] === 'mov,mp4,m4a,3gp,3g2,mj2') {\r\n    $format = 'mp4';\r\n  }\r\n  else {\r\n    error(S_NOREC, $file);\r\n  }\r\n  \r\n  // container duration, can be forged but we remux the file to fix this\r\n  $duration = (float)$res['format']['duration'];\r\n  \r\n  if ($duration <= 0 || $duration > MAX_WEBM_DURATION) {\r\n    error(S_VIDEOTOOLONG, $file); // Duration too long\r\n  }\r\n  \r\n  $has_audio = false;\r\n  $video_dims = false;\r\n  \r\n  foreach ($res['streams'] as $stream) {\r\n    $type = $stream['codec_type'];\r\n    \r\n    if ($type === 'audio') {\r\n      if (!ENABLE_WEBM_AUDIO) {\r\n        error(S_AUDIODISABLED, $file); // Audio streams are not allowed\r\n      }\r\n      \r\n      // Vorbis or Opus for webm audio\r\n      if ($format === 'webm') {\r\n        if ($stream['codec_name'] !== 'vorbis' && $stream['codec_name'] !== 'opus') {\r\n          error(S_BADAUDIO, $file); // Bad audio stream\r\n        }\r\n      }\r\n      // AAC for mp4 audio\r\n      else if ($format === 'mp4') {\r\n        if ($stream['codec_name'] !== 'aac') {\r\n          error(S_BADAUDIO, $file); // Bad audio stream\r\n        }\r\n      }\r\n      else {\r\n        error(S_BADAUDIO, $file); // Bad audio stream\r\n      }\r\n      \r\n      $has_audio = true;\r\n    }\r\n    else if ($type === 'video') {\r\n      if ($video_dims) {\r\n        error(S_BADSTREAM, $file); // Too many video streams\r\n      }\r\n      \r\n      // VP8 or VP9 for webm video\r\n      if ($format === 'webm') {\r\n        if ($stream['codec_name'] !== 'vp8' && $stream['codec_name'] !== 'vp9') {\r\n          error(S_BADVIDEO, $file); // Bad video stream\r\n        }\r\n      }\r\n      // H264 for mp4 video\r\n      else if ($format === 'mp4') {\r\n        if ($stream['codec_name'] !== 'h264') {\r\n          error(S_BADVIDEO, $file); // Bad video stream\r\n        }\r\n        \r\n        // Reject 10 bit streams\r\n        if ($stream['bits_per_raw_sample'] > 8) {\r\n          error(S_NOREC, $file);\r\n        }\r\n        \r\n        // Only accept yuv420p streams\r\n        if ($stream['pix_fmt'] !== 'yuv420p') {\r\n          error(S_NOREC, $file);\r\n        }\r\n      }\r\n      else {\r\n        error(S_BADVIDEO, $file); // Bad video stream\r\n      }\r\n      \r\n      $width = (int)$stream['width'];\r\n      $height = (int)$stream['height'];\r\n      \r\n      if (!$width || !$height || $width > MAX_WEBM_DIMENSION || $height > MAX_WEBM_DIMENSION) {\r\n        error(S_TOOLARGERES, $file); // Dimensions too big\r\n      }\r\n      \r\n      $sar = null;\r\n      \r\n      if (isset($stream['sample_aspect_ratio'])) {\r\n        $tmp_sar = explode(':', $stream['sample_aspect_ratio']);\r\n        \r\n        $tmp_sar[0] = (int)$tmp_sar[0];\r\n        $tmp_sar[1] = (int)$tmp_sar[1];\r\n        \r\n        if ($tmp_sar[1] && $tmp_sar[0] !== $tmp_sar[1]) {\r\n          $tmp_sar = $tmp_sar[0] / $tmp_sar[1];\r\n          \r\n          if ($tmp_sar < 2 && $tmp_sar > 0.5) {\r\n            $sar = $tmp_sar;\r\n          }\r\n        }\r\n      }\r\n      \r\n      $video_dims = array($width, $height, $sar);\r\n    }\r\n    else {\r\n      error(S_BADSTREAM, $file); // Bad stream\r\n    }\r\n  }\r\n  \r\n  if (!$video_dims) {\r\n    error(S_NOVIDEOSTREAM, $file); // No video streams\r\n  }\r\n  \r\n  return $video_dims;",
+  "cases": [
+    {
+      "id": "vp8",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "webm-codec-vp9",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp9",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "webm-codec-av1",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "av1",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADVIDEO"
+      }
+    },
+    {
+      "id": "webm-codec-h264",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "h264",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADVIDEO"
+      }
+    },
+    {
+      "id": "webm-codec-theora",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "theora",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADVIDEO"
+      }
+    },
+    {
+      "id": "webm-codec-empty",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADVIDEO"
+      }
+    },
+    {
+      "id": "duration-0",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "0"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_VIDEOTOOLONG"
+      }
+    },
+    {
+      "id": "duration--1",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "-1"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_VIDEOTOOLONG"
+      }
+    },
+    {
+      "id": "duration-0.001",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "0.001"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "duration-119.999",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "119.999"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "duration-120",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "120"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "duration-120.001",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "120.001"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_VIDEOTOOLONG"
+      }
+    },
+    {
+      "id": "duration-N/A",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "N/A"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_VIDEOTOOLONG"
+      }
+    },
+    {
+      "id": "duration-empty",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": ""
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_VIDEOTOOLONG"
+      }
+    },
+    {
+      "id": "board-duration-300-300",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "300"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 300,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "board-duration-300-300.001",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "300.001"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 300,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_VIDEOTOOLONG"
+      }
+    },
+    {
+      "id": "board-duration-400-400",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "400"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 400,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "board-duration-400-400.001",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "400.001"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 400,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_VIDEOTOOLONG"
+      }
+    },
+    {
+      "id": "width-0",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 0,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_TOOLARGERES"
+      }
+    },
+    {
+      "id": "width-1",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 1,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          1,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "width-2048",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 2048,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          2048,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "width-2049",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 2049,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_TOOLARGERES"
+      }
+    },
+    {
+      "id": "height-0",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 0,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_TOOLARGERES"
+      }
+    },
+    {
+      "id": "height-1",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 1,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          1,
+          null
+        ]
+      }
+    },
+    {
+      "id": "height-2048",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 2048,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          2048,
+          null
+        ]
+      }
+    },
+    {
+      "id": "height-2049",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 2049,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_TOOLARGERES"
+      }
+    },
+    {
+      "id": "sar-0:1",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "0:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "sar-1:0",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:0"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "sar-1:2",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:2"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "sar-2:1",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "2:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "sar-3:2",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "3:2"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          1.5
+        ]
+      }
+    },
+    {
+      "id": "sar-2:3",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "2:3"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          0.6666666666666666
+        ]
+      }
+    },
+    {
+      "id": "sar-1:1",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "sar-absent",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "webm-audio-vorbis-False",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "vorbis"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_AUDIODISABLED"
+      }
+    },
+    {
+      "id": "webm-audio-vorbis-True",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "vorbis"
+          }
+        ]
+      },
+      "audio_enabled": true,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "webm-audio-opus-False",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "opus"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_AUDIODISABLED"
+      }
+    },
+    {
+      "id": "webm-audio-opus-True",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "opus"
+          }
+        ]
+      },
+      "audio_enabled": true,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "webm-audio-aac-False",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "aac"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_AUDIODISABLED"
+      }
+    },
+    {
+      "id": "webm-audio-aac-True",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "aac"
+          }
+        ]
+      },
+      "audio_enabled": true,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADAUDIO"
+      }
+    },
+    {
+      "id": "webm-audio-mp3-False",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "mp3"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_AUDIODISABLED"
+      }
+    },
+    {
+      "id": "webm-audio-mp3-True",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "mp3"
+          }
+        ]
+      },
+      "audio_enabled": true,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADAUDIO"
+      }
+    },
+    {
+      "id": "mp4-h264",
+      "probe": {
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "h264",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1",
+            "bits_per_raw_sample": "8",
+            "pix_fmt": "yuv420p"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "mp4-codec_name-hevc",
+      "probe": {
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "hevc",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1",
+            "bits_per_raw_sample": "8",
+            "pix_fmt": "yuv420p"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADVIDEO"
+      }
+    },
+    {
+      "id": "mp4-codec_name-vp9",
+      "probe": {
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp9",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1",
+            "bits_per_raw_sample": "8",
+            "pix_fmt": "yuv420p"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADVIDEO"
+      }
+    },
+    {
+      "id": "mp4-bits_per_raw_sample-10",
+      "probe": {
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "h264",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1",
+            "bits_per_raw_sample": "10",
+            "pix_fmt": "yuv420p"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_NOREC"
+      }
+    },
+    {
+      "id": "mp4-pix_fmt-yuv444p",
+      "probe": {
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "h264",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1",
+            "bits_per_raw_sample": "8",
+            "pix_fmt": "yuv444p"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_NOREC"
+      }
+    },
+    {
+      "id": "mp4-pix_fmt-yuv420p10le",
+      "probe": {
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "h264",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1",
+            "bits_per_raw_sample": "8",
+            "pix_fmt": "yuv420p10le"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_NOREC"
+      }
+    },
+    {
+      "id": "mp4-audio-aac-False",
+      "probe": {
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "h264",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1",
+            "bits_per_raw_sample": "8",
+            "pix_fmt": "yuv420p"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "aac"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_AUDIODISABLED"
+      }
+    },
+    {
+      "id": "mp4-audio-aac-True",
+      "probe": {
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "h264",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1",
+            "bits_per_raw_sample": "8",
+            "pix_fmt": "yuv420p"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "aac"
+          }
+        ]
+      },
+      "audio_enabled": true,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "mp4-audio-opus-False",
+      "probe": {
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "h264",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1",
+            "bits_per_raw_sample": "8",
+            "pix_fmt": "yuv420p"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "opus"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_AUDIODISABLED"
+      }
+    },
+    {
+      "id": "mp4-audio-opus-True",
+      "probe": {
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "h264",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1",
+            "bits_per_raw_sample": "8",
+            "pix_fmt": "yuv420p"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "opus"
+          }
+        ]
+      },
+      "audio_enabled": true,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADAUDIO"
+      }
+    },
+    {
+      "id": "mp4-audio-vorbis-False",
+      "probe": {
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "h264",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1",
+            "bits_per_raw_sample": "8",
+            "pix_fmt": "yuv420p"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "vorbis"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_AUDIODISABLED"
+      }
+    },
+    {
+      "id": "mp4-audio-vorbis-True",
+      "probe": {
+        "format": {
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "h264",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1",
+            "bits_per_raw_sample": "8",
+            "pix_fmt": "yuv420p"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "vorbis"
+          }
+        ]
+      },
+      "audio_enabled": true,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADAUDIO"
+      }
+    },
+    {
+      "id": "extra-stream-subtitle",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "subtitle"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADSTREAM"
+      }
+    },
+    {
+      "id": "extra-stream-data",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "data"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADSTREAM"
+      }
+    },
+    {
+      "id": "extra-stream-attachment",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "attachment"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADSTREAM"
+      }
+    },
+    {
+      "id": "multiple-video",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADSTREAM"
+      }
+    },
+    {
+      "id": "no-stream",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": []
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_NOVIDEOSTREAM"
+      }
+    },
+    {
+      "id": "audio-only",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "audio",
+            "codec_name": "opus"
+          }
+        ]
+      },
+      "audio_enabled": true,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_NOVIDEOSTREAM"
+      }
+    },
+    {
+      "id": "multiple-valid-audio",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "opus"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "opus"
+          }
+        ]
+      },
+      "audio_enabled": true,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "dimensions": [
+          640,
+          480,
+          null
+        ]
+      }
+    },
+    {
+      "id": "container-before-duration",
+      "probe": {
+        "format": {
+          "format_name": "avi",
+          "duration": "0"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "vp8",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_NOREC"
+      }
+    },
+    {
+      "id": "duration-before-streams",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "0"
+        },
+        "streams": []
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_VIDEOTOOLONG"
+      }
+    },
+    {
+      "id": "stream-order-False",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "video",
+            "codec_name": "av1",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          },
+          {
+            "codec_type": "audio",
+            "codec_name": "aac"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_BADVIDEO"
+      }
+    },
+    {
+      "id": "stream-order-True",
+      "probe": {
+        "format": {
+          "format_name": "matroska,webm",
+          "duration": "1.25"
+        },
+        "streams": [
+          {
+            "codec_type": "audio",
+            "codec_name": "aac"
+          },
+          {
+            "codec_type": "video",
+            "codec_name": "av1",
+            "width": 640,
+            "height": 480,
+            "sample_aspect_ratio": "1:1"
+          }
+        ]
+      },
+      "audio_enabled": false,
+      "max_duration": 120,
+      "max_dimension": 2048,
+      "expected": {
+        "error": "S_AUDIODISABLED"
+      }
+    }
+  ]
+}

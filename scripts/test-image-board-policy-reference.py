@@ -14,6 +14,18 @@ REFERENCE = json.loads((ROOT / "fixtures/board-reference.json").read_text(encodi
 
 
 class ImageBoardPolicyReferenceTests(unittest.TestCase):
+    def test_video_policy_matches_all_imported_boards(self):
+        rows = REFERENCE['boards']
+        self.assertEqual(len(rows), 82)
+        self.assertTrue(all(row['video_enabled'] for row in rows))
+        self.assertEqual({row['slug'] for row in rows if row['video_audio']}, {'gif','r','test','wsg','wsr'})
+        for row in rows:
+            slug = row['slug']
+            self.assertEqual(row['max_video_bytes'], 2097152 if slug in {'b','bant'} else 6291456 if slug == 'wsg' else 4194304)
+            self.assertEqual(row['max_video_duration'], 400 if slug == 'wsg' else 300 if slug == 'gif' else 120)
+            self.assertEqual(row['max_video_dimension'], 2048)
+        self.assertNotIn('video_enabled', MODULE.migration(REFERENCE))
+
     def test_pdf_admission_is_opt_in_and_retains_source_file_limits(self):
         enabled = {row["slug"]: row["max_image_bytes"]
                    for row in REFERENCE["boards"] if row["pdf_enabled"]}

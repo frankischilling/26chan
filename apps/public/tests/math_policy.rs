@@ -30,7 +30,7 @@ fn authority(headers: &HeaderMap, enabled: bool) {
     let policy = headers["content-security-policy"].to_str().unwrap();
     assert_eq!(policy.contains("/static/native-math.v1.js"), enabled);
     assert_eq!(policy.contains("/static/native-math-worker.v1.js"), enabled);
-    assert!(!policy.contains("unsafe-inline") && !policy.contains("unsafe-eval"));
+    assert!(!policy.contains("'unsafe-inline'") && !policy.contains("'unsafe-eval'"));
     assert!(!policy.contains("font-src") && !policy.contains("cdn."));
 }
 // The active PHP posting path leaves math tags literal. These cases exercise

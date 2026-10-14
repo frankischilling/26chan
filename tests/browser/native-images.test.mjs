@@ -74,3 +74,18 @@ test('PDF attachments keep their thumbnail route but are never image expansion t
   }
   assert.equal(attachmentTarget('https://elsewhere.example/sci/1.pdf', origin), null);
 });
+
+
+test('video targets use fixed attachment paths without admitting video into image loaders', async () => {
+  const { videoTarget, attachmentTarget } = await import('../../apps/public/client/native-images.js');
+  const origin = 'https://media.example';
+  for (const ext of ['webm', 'mp4']) {
+    const url = `${origin}/wsg/9223372036854775807.${ext}`;
+    const expected = { url, thumbnail: `${origin}/wsg/9223372036854775807s.jpg` };
+    assert.deepEqual(videoTarget(url, origin), expected);
+    assert.deepEqual(attachmentTarget(url, origin), expected);
+    assert.equal(imageTarget(url, origin), null);
+    for (const suffix of ['?x', '#fragment', '.png', '\n']) assert.equal(videoTarget(url + suffix, origin), null);
+  }
+  for (const ext of ['png', 'gif', 'pdf']) assert.equal(videoTarget(`${origin}/a/1.${ext}`, origin), null);
+});

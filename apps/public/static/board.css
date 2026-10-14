@@ -830,3 +830,95 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 @media (max-width: 480px) {
   #blotter.desktop { display: none; }
 }
+
+/* Native video controls stay outside the thumbnail link. */
+.board .fileThumb.nativeVideoOpen { display: none; }
+.board .file > video.expanded-thumb { display: block; width: auto; height: auto; clear: both; }
+.board .file > video.expanded-thumb[hidden] { display: none; }
+.nativeVideoClose { cursor: pointer; margin: 0 4px 4px 0; }
+.nativeVideoDuration { position: fixed; z-index: 1001; background: #fff; color: #000; border: 1px solid #888; padding: 2px 5px; pointer-events: none; }
+
+/* Source OGV overlay controls; semantic buttons keep the same SVG shapes. */
+.ogv-cnt {
+  position: relative;
+  display: inline-block;
+  text-align: center;
+  min-height: 16px;
+}
+
+.ogv-cnt:not(.ogv-detached)::before {
+  content: 'Loading…';
+  position: absolute;
+  top: 8px;
+  left: 0;
+  font-weight: bold;
+}
+
+.ogv-cnt.ogv-loaded::before {
+  display: none;
+}
+
+.ogv-cnt > ogvjs {
+  position: initial !important;
+}
+
+.ogv-ctrl {
+  position: absolute;
+  bottom: 0;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.65);
+  width: 100%;
+  height: 32px;
+  gap: 0;
+  display: flex;
+}
+
+.ogv-btn {
+  width: 32px;
+  flex-shrink: 0;
+  height: 32px;
+  line-height: 32px;
+  text-align: center;
+  color: white;
+}
+
+.ogv-btn svg {
+  vertical-align: middle;
+}
+
+.ogv-btn svg:last-child   {
+  display: none;
+}
+
+.ogv-btn.ogv-toggled svg:first-child   {
+  display: none;
+}
+
+.ogv-btn.ogv-toggled svg:last-child   {
+  display: inline;
+}
+
+.ogv-ts {
+  font-family: sans-serif;
+  font-size: 10px;
+  text-align: center;
+  line-height: 32px;
+  width: 70px;
+  color: white;
+  overflow: hidden;
+}
+
+.ogv-vol {
+  width: 50px;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.ogv-seek {
+  width: 0;
+  margin: 0;
+  flex-grow: 1;
+}
+.ogv-btn { border: 0; padding: 0; background: transparent; cursor: pointer; }
+.ogv-cnt > ogvjs.expanded-thumb { display: block; }
+.ogv-ctrl[hidden], .ogv-cnt > ogvjs[hidden] { display: none; }

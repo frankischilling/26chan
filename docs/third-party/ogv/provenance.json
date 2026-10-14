@@ -1,0 +1,119 @@
+{
+  "version": "1.9.0",
+  "release": "https://github.com/bvibber/ogv.js/releases/tag/1.9.0",
+  "archive": "https://github.com/bvibber/ogv.js/releases/download/1.9.0/ogvjs-1.9.0.zip",
+  "archive_sha256": "a453c1deb54115d40c7e5107870a450cb12bb3887c81ef3b3c7ed2d9f5637d5a",
+  "files": {
+    "apps/public/static/ogv/ogv.js": {
+      "bytes": 127066,
+      "sha256": "7668241fe39ea22c9b55abf65dab4bf5acb93e32bafec49a038654b8285f5ecf"
+    },
+    "apps/public/static/ogv/ogv-worker-audio.js": {
+      "bytes": 9603,
+      "sha256": "da00c90526f1248f0a5787bcdc44825f55161fe6e1bb32f134b2a5d58a37c439"
+    },
+    "apps/public/static/ogv/ogv-worker-video.js": {
+      "bytes": 9727,
+      "sha256": "87ee52f84043248e9a045be9d326e0aa0be08ccd707593f4466df633b735758b"
+    },
+    "apps/public/static/ogv/ogv-demuxer-webm-wasm.js": {
+      "bytes": 9784,
+      "sha256": "74082f070263eb1b6406678a791334a71fc4fe7c77eb99126662993f275c6177"
+    },
+    "apps/public/static/ogv/ogv-demuxer-webm-wasm.wasm": {
+      "bytes": 42947,
+      "sha256": "d55b525bf960f9bbbdf6570fa455a482da6deed2be4fc32b89fc89fc0ae68b60"
+    },
+    "apps/public/static/ogv/ogv-decoder-video-vp8-wasm.js": {
+      "bytes": 8488,
+      "sha256": "e88760eaed22be03e2efc3a8ada0e9ec2faa274eda6a2e539580f18a1ef02b0a"
+    },
+    "apps/public/static/ogv/ogv-decoder-video-vp8-wasm.wasm": {
+      "bytes": 110097,
+      "sha256": "3175074b9bfd47317a550bbab287ca876ff66f71dfa5aa43ab1ab8897dc5252d"
+    },
+    "apps/public/static/ogv/ogv-decoder-video-vp9-wasm.js": {
+      "bytes": 8738,
+      "sha256": "012e2daaa34fa84d53520ab8bfa79a950aa922a2663405f4ddaa5f83cecaf435"
+    },
+    "apps/public/static/ogv/ogv-decoder-video-vp9-wasm.wasm": {
+      "bytes": 230038,
+      "sha256": "79efca8f980458be2abadfc0531a17036326685102ba281f172e2c9eb683bdcb"
+    },
+    "apps/public/static/ogv/ogv-decoder-audio-opus-wasm.js": {
+      "bytes": 7270,
+      "sha256": "b250fd51637998eb03832f14d07932da3cc978bd80b0199ae26b038154421baa"
+    },
+    "apps/public/static/ogv/ogv-decoder-audio-opus-wasm.wasm": {
+      "bytes": 154322,
+      "sha256": "af1acdfa07f389d261d13b5a6b58d8dc44e6d9dff1265ae760ae8b1470cc5fa0"
+    },
+    "apps/public/static/ogv/ogv-decoder-audio-vorbis-wasm.js": {
+      "bytes": 6714,
+      "sha256": "4f4935a0d3c7a4d4abf6e24c42b71c9cd6919a28595d6a22d8dcea267892b9ac"
+    },
+    "apps/public/static/ogv/ogv-decoder-audio-vorbis-wasm.wasm": {
+      "bytes": 156306,
+      "sha256": "20d79eb52184217d179da225bd18a0c14574e12c04d6b9b990ea9b42167c43d8"
+    },
+    "docs/third-party/ogv/COPYING": {
+      "bytes": 1117,
+      "sha256": "69da652c1dd0bdf480d325af5faa5a2e8add5fb162108887bf5f324c533a7e38"
+    },
+    "docs/third-party/ogv/COPYING-ogg.txt": {
+      "bytes": 1466,
+      "sha256": "d2ab5758336489da61c12cc5bb757da5339c4ae9001f9bb0562b4370249af814"
+    },
+    "docs/third-party/ogv/COPYING-opus.txt": {
+      "bytes": 1928,
+      "sha256": "8338ce8d922bb4416ce3dd1e5680173332435e3f0755007ac7801ccd674fe682"
+    },
+    "docs/third-party/ogv/COPYING-vorbis.txt": {
+      "bytes": 1470,
+      "sha256": "29e9914e6173b7061b7d48c25e6159fc1438326738bc047cc7248abc01b271f6"
+    },
+    "docs/third-party/ogv/LICENSE-nestegg.txt": {
+      "bytes": 732,
+      "sha256": "505ee8e018326f36bb4070f69c6eb3caa6079b8fb796cd53a8d1bb168337e5ae"
+    },
+    "docs/third-party/ogv/LICENSE-vpx.txt": {
+      "bytes": 1537,
+      "sha256": "8267348d5af1262c11d1a08de2f5afc77457755f1ac658627dd9acf71011d615"
+    },
+    "docs/third-party/ogv/PATENTS-vpx.txt": {
+      "bytes": 1436,
+      "sha256": "cc3273e0694ea5896145e0677699b53471b03ea43021ddc50e7923fbb9f5023c"
+    },
+    "docs/third-party/ogv/audio-feeder-COPYING": {
+      "bytes": 1133,
+      "sha256": "5c887aa8e1f926a1620b447e6488fce0bd2c7d9adea04d15f21a01687663f37c",
+      "source": "https://registry.npmjs.org/audio-feeder/-/audio-feeder-0.5.0.tgz",
+      "package_integrity": "sha512-tLh/g/K12McaZ47qAuuuJNuYLMGboi83SHhMkoQg+14Q/Wn1kq1aVIzQESbbWrSviSDhgt7AFi0gyCxr9kvxLQ=="
+    },
+    "docs/third-party/ogv/stream-file-COPYING": {
+      "bytes": 1109,
+      "sha256": "18a471d48cf73547cd3923cc92df4716dc0e35e0b37a27bd5cbc8df719b4b8f3",
+      "source": "https://registry.npmjs.org/stream-file/-/stream-file-0.3.0.tgz",
+      "package_integrity": "sha512-aazTnJfMVZNaL+POeCjUBX1OdNZv84zQkekTtrMPe/nPBTumt3Plg41VFKjJIxQzH2mxeh+AcaZwtmdlvVC8pg=="
+    },
+    "docs/third-party/ogv/babel-runtime-LICENSE": {
+      "bytes": 1106,
+      "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+      "source": "https://registry.npmjs.org/@babel/runtime/-/runtime-7.16.7.tgz",
+      "package_integrity": "sha512-9E9FJowqAsytyOY6LG+1KuueckRL+aQW+mKvXRXnuFGyRAyepJPmEo9vgMfXUA6O9u3IeEdv9MAkppFcaQwogQ=="
+    },
+    "docs/third-party/ogv/regenerator-runtime-LICENSE": {
+      "bytes": 1080,
+      "sha256": "51887a3d47051ac2fce1210562e5b9fe0830a8a8fabeb272c2d586eeb18a05fd",
+      "source": "https://registry.npmjs.org/regenerator-runtime/-/regenerator-runtime-0.13.9.tgz",
+      "package_integrity": "sha512-p3VT+cOEgxFsRRA9X4lkI1E+k2/CtnKtU4gcxyaCUreilL/vqI6CdZ3wxVUx3UOUg+gnUOQQcRI7BmSI656MYA=="
+    },
+    "docs/third-party/ogv/yuv-canvas-LICENSE": {
+      "bytes": 1084,
+      "sha256": "6277040807a57c4dfa975364c67407b2d1cfc98d66a5d343a5370a10db08767c",
+      "source": "https://registry.npmjs.org/yuv-canvas/-/yuv-canvas-1.2.11.tgz",
+      "package_integrity": "sha512-LOxjD+gUO7XeHeExFEozpTEFBlbqEZOnaHLAwx4esJ2tzSWl/S/xDRSDu1N+asxYn7ldV+HtisrYAzJXkT7Rhw==",
+      "member": "package/src/yuv-canvas.js leading license comment"
+    }
+  }
+}

@@ -22,6 +22,7 @@ POLICY_KEYS.add("SUBTITLE")
 POLICY_KEYS.update({"ENABLE_PAINTERJS", "ENABLE_OEKAKI_REPLAYS", "PAINTERJS_DIMS"})
 POLICY_KEYS.update({"MIN_W", "MIN_H", "MAX_DIMENSION"})
 POLICY_KEYS.add("ENABLE_PDF")
+POLICY_KEYS.add("MAX_WEBM_DIMENSION")
 
 
 def policy(path):
@@ -122,6 +123,11 @@ def extract(root, names_encoding="utf-8", historical_titles=False):
             "max_image_dimension": int(values.get("MAX_DIMENSION", "5000")),
             "gif_only": boolean("GIF_ONLY"),
             "pdf_enabled": boolean("ENABLE_PDF"),
+            "video_enabled": boolean("ENABLE_WEBM"),
+            "video_audio": boolean("ENABLE_WEBM_AUDIO"),
+            "max_video_bytes": integer("MAX_WEBM_FILESIZE") * 1024,
+            "max_video_duration": integer("MAX_WEBM_DURATION"),
+            "max_video_dimension": integer("MAX_WEBM_DIMENSION"),
             "bump_limit": integer("MAX_RES"), "image_limit": integer("MAX_IMGRES"),
             "thread_limit": maximum, "threads_per_page": integer("DEF_PAGES"),
             "replies_shown": integer("REPLIES_SHOWN"),
@@ -153,7 +159,7 @@ def migration(reference):
         "user_thread_limit", "user_thread_period_hours", "can_report_posts", "math_tags",
         "oekaki", "oekaki_replays", "oekaki_width", "oekaki_height", "show_blotter", "board_subtitle", "replies_shown",
         "max_image_bytes", "min_image_width", "min_image_height", "max_image_dimension", "gif_only",
-        "pdf_enabled",
+        "pdf_enabled", "video_enabled", "video_audio", "max_video_bytes", "max_video_duration", "max_video_dimension",
     }]
     def sql(value):
         if isinstance(value, bool):

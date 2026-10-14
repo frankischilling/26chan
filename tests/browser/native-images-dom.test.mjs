@@ -21,25 +21,50 @@ const css = await readFile(new URL('apps/public/static/board.css', root), 'utf8'
 // A transparent synthetic 1x1 PNG. All requests are intercepted in this context.
 const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64');
 // Independent 1x1 red/blue GIF89a, 200 ms frames, infinite loop.
+const sourceVideoControls = JSON.parse(await readFile(new URL('fixtures/source-video-controls.json', root), 'utf8'));
+const ownedVideos = JSON.parse(await readFile(new URL('fixtures/owned-video-clips.json', root), 'utf8')).clips;
+const mediaSecurity = await readFile(new URL('apps/media-http/src/security.rs', root), 'utf8');
+const standaloneVideoPolicy = /"(default-src 'none'; media-src 'self'; sandbox[^"\n]+)"/.exec(mediaSecurity)?.[1];
+assert.ok(standaloneVideoPolicy, 'use the media server\'s actual fixed video policy');
 const animatedPixel = Buffer.from('47494638396101000100800000ff00000000ff21ff0b4e45545343415045322e30030100000021f90404140000002c000000000100010000020244010021f90404140000002c00000000010001000002024c01003b', 'hex');
 
-async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, pdf = false } = {}) {
+async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, pdf = false, video = null, storageOrigin = false, fallback = false } = {}) {
   const context = await browser.newContext();
   t.after(() => context.close());
   const page = await context.newPage();
   const requests = [], modes = new Map(), held = [];
-  await page.route('**/*', async route => {
+  await context.route('**/*', async route => {
     const url = route.request().url(); requests.push(url);
+    if (storageOrigin && url === 'https://boards.test/') { await route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Owned video fixture</title>' }); return; }
+    if (fallback && url.startsWith('https://boards.test/static/')) {
+      const path = new URL(url).pathname;
+      if (path === '/static/native-video-fallback.v1.js' || /^\/static\/ogv\/[a-z0-9.-]+\.(?:js|wasm)$/.test(path)) {
+        await route.fulfill({ contentType: path.endsWith('.wasm') ? 'application/wasm' : 'text/javascript', body: await readFile(new URL(`apps/public${path}`, root)) }); return;
+      }
+    }
     if (!url.startsWith('https://media.test/')) { await route.abort(); return; }
     const mode = modes.get(new URL(url).pathname);
     if (mode === 'hold') { held.push(route); return; }
     if (mode === 'fail') { await route.fulfill({ status: 404, body: 'Owned missing image' }); return; }
+    if (video && /\.(webm|mp4)$/.test(url)) {
+      const ext = video.endsWith('.mp4') ? 'mp4' : 'webm';
+      const body = Buffer.from(ownedVideos[video].base64, 'base64');
+      const headers = { 'access-control-allow-origin': 'https://boards.test', 'access-control-expose-headers': 'Content-Length, Content-Range, Accept-Ranges', 'accept-ranges': 'bytes' };
+      const range = /^bytes=([0-9]+)-([0-9]*)$/.exec(route.request().headers().range ?? '');
+      if (range) {
+        const start = Number(range[1]), end = Math.min(body.length - 1, range[2] ? Number(range[2]) : body.length - 1);
+        if (start > end) { await route.fulfill({ status: 416, headers: { ...headers, 'content-range': `bytes */${body.length}` }, body: '' }); return; }
+        await route.fulfill({ status: 206, contentType: `video/${ext}`, headers: { ...headers, 'content-range': `bytes ${start}-${end}/${body.length}` }, body: body.subarray(start, end + 1) }); return;
+      }
+      await route.fulfill({ contentType: `video/${ext}`, headers, body }); return;
+    }
     await route.fulfill(url.endsWith('.gif') ? { contentType: 'image/gif', body: animatedPixel }
       : { contentType: 'image/png', body: pixel });
   });
-  await page.goto('about:blank');
+  if (fallback) await page.addInitScript(() => { HTMLMediaElement.prototype.canPlayType = () => ''; });
+  await page.goto(storageOrigin ? 'https://boards.test/' : 'about:blank');
   await page.addStyleTag({ content: css });
-  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, pdf }) => {
+  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, pdf, video }) => {
     const module = async text => {
       const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
       try { return await import(url); } finally { URL.revokeObjectURL(url); }
@@ -51,6 +76,9 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
       const id = index + 1, type = id === 1 ? 'op' : 'reply';
       return `<article class="postContainer ${type}Container" id="pc${id}"><div class="post ${type}" id="p${id}"><div class="postInfo" id="pi${id}"><span class="name">Owned</span></div><div class="file" id="f${id}"><p>File: <a href="https://media.test/demo/${id}.png" rel="noopener noreferrer">Owned.png</a></p><a class="fileThumb" href="https://media.test/demo/${id}.png" rel="noopener noreferrer"><img src="https://media.test/demo/${id}s.jpg" alt="Owned" width="10" height="10" loading="lazy"></a></div><blockquote class="postMessage" id="m${id}">Owned</blockquote></div></article>`;
     }).join('') + '</main>';
+    if (video) for (const anchor of document.querySelectorAll('.file a[href]')) {
+      anchor.href = anchor.href.replace(/\.png$/, video.endsWith('.mp4') ? '.mp4' : '.webm');
+    }
     if (pdf) for (const anchor of document.querySelectorAll('.file a[href]')) {
       anchor.href = anchor.href.replace(/\.png$/, '.pdf');
     }
@@ -59,7 +87,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
     }
     window.imageConfig = config; window.imageOwnership = ownership.createCommentProjection();
     window.imageController = images.mountNativeImages({ root: document.querySelector('.board'),
-      mediaOrigin: 'https://media.test', settings: () => window.imageConfig, projection: window.imageOwnership, limits,
+      mediaOrigin: 'https://media.test', settings: () => window.imageConfig, projection: window.imageOwnership, limits, mobile: window.matchMedia('(max-width: 480px)'),
       ...(preview ? { previewRoot: () => document.getElementById('quote-preview') } : {}) });
     window.clickImage = id => {
       const anchor = document.querySelector(`#f${id} a.fileThumb`);
@@ -69,7 +97,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
       anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
       return intercepted;
     };
-  }, { source, projection, quotes, limits, config, count, preview, gif, pdf });
+  }, { source, projection, quotes, limits, config, count, preview, gif, pdf, video });
   await page.waitForFunction(() => [...document.querySelectorAll('.fileThumb img')].every(img => img.complete && img.naturalWidth > 0));
   return { page, requests, modes, held };
 }
@@ -304,3 +332,194 @@ test('PDF thumbnail keeps ordinary document navigation without image hover or ex
   assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/1.pdf')), true);
   assert.equal(await page.evaluate(() => clickImage(1)), true);
 });
+
+
+for (const video of ['red.webm', 'red-opus.webm', 'blue.mp4', 'blue-aac.mp4']) {
+  test(`owned ${video} expands with native controls and releases media on close and deletion`, async t => {
+    const { page, requests } = await fixture(t, { video, count: 1 });
+    assert.equal(await page.evaluate(() => clickImage(1)), true);
+    const player = page.locator('#f1 video.expanded-thumb:not([hidden])');
+    await player.waitFor();
+    assert.deepEqual(await player.evaluate(v => [v.controls, v.loop, v.muted, v.playsInline, v.videoWidth, v.videoHeight]),
+      [true, true, true, true, 64, 48]);
+    assert.equal(await page.locator('#f1 a.fileThumb').isVisible(), false);
+    await page.evaluate(() => { window.retainedVideo = document.querySelector('#f1 video'); retainedVideo.volume = 0.25; });
+    await page.locator('#f1 .nativeVideoClose').click();
+    assert.deepEqual(await page.evaluate(() => [retainedVideo.isConnected, retainedVideo.paused, retainedVideo.getAttribute('src')]), [false, true, null]);
+    assert.equal(await page.locator('#f1 a.fileThumb').isVisible(), true);
+    assert.equal(await page.evaluate(() => clickImage(1)), true);
+    await player.waitFor();
+    await page.evaluate(() => imageController.retire(document.querySelector('#f1 a.fileThumb').href));
+    assert.equal(await page.locator('#f1 video').count(), 0);
+    const before = requests.length;
+    await page.evaluate(() => clickImage(1));
+    await page.waitForTimeout(30);
+    assert.equal(requests.length, before);
+  });
+}
+
+test('video hover reports duration and tears down on settings disable', async t => {
+  const { page } = await fixture(t, { video: 'red.webm', count: 1, config: { imageHover: true } });
+  await page.locator('#f1 a.fileThumb').hover();
+  await page.locator('video#image-hover:not([hidden])').waitFor();
+  assert.equal(await page.locator('.nativeVideoDuration').textContent(), '0:00');
+  await page.evaluate(() => {
+    window.retainedVideo = document.querySelector('video#image-hover');
+    imageConfig.disableAll = true; imageController.refresh();
+  });
+  assert.deepEqual(await page.evaluate(() => [retainedVideo.isConnected, retainedVideo.paused, retainedVideo.getAttribute('src')]), [false, true, null]);
+  assert.equal(await page.locator('.nativeVideoDuration').count(), 0);
+});
+
+test('source legacy selection applies to expansion, while hover stays native', async t => {
+  const { page, requests } = await fixture(t, { video: 'red.webm', fallback: true, storageOrigin: true, count: 1, config: { imageHover: true } });
+  await page.locator('#f1 a.fileThumb').hover();
+  await page.locator('video#image-hover:not([hidden])').waitFor();
+  assert.equal(await page.locator('ogvjs').count(), 0);
+  assert.equal(requests.some(url => url.includes('/static/ogv/') || url.includes('native-video-fallback')), false);
+  await page.mouse.move(0, 0);
+  assert.equal(await page.locator('#image-hover').count(), 0);
+});
+
+
+test('video volume, mobile sizing, offscreen pause and pagehide release use the native player', async t => {
+  const { page } = await fixture(t, { video: 'red.webm', count: 1, storageOrigin: true, config: { unmuteWebm: true } });
+  await page.evaluate(() => localStorage.setItem('4chan-volume','0.25'));
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.evaluate(() => clickImage(1));
+  const player = page.locator('#f1 video:not([hidden])');
+  await player.waitFor();
+  assert.deepEqual(await player.evaluate(v => [v.muted,v.volume,v.playsInline]), [false,0.25,true]);
+  assert.ok((await player.boundingBox()).width <= 390);
+  await player.evaluate(v => { v.volume=0.75; });
+  await page.waitForFunction(() => localStorage.getItem('4chan-volume') === '0.75');
+  const projection = await page.evaluate(() => {
+    const tree=quotes.localQuoteTree(document.getElementById('pc1'),
+      {origin:'https://boards.test',mediaOrigin:'https://media.test',board:'demo',thread:'1'},'1',imageOwnership);
+    return JSON.stringify(tree);
+  });
+  assert.ok(!projection.includes('nativeVideoClose') && !projection.includes('expanded-thumb'));
+  await page.evaluate(async () => {
+    const v=document.querySelector('#f1 video'); v.muted=true; await v.play();
+    document.body.style.height='3000px'; window.scrollTo(0,2000);
+  });
+  await page.waitForFunction(() => document.querySelector('#f1 video').paused);
+  await page.evaluate(() => { window.retainedVideo=document.querySelector('#f1 video'); window.dispatchEvent(new PageTransitionEvent('pagehide')); });
+  assert.deepEqual(await page.evaluate(() => [retainedVideo.isConnected,retainedVideo.paused,retainedVideo.getAttribute('src')]), [false,true,null]);
+});
+
+test('video failure restores the thumbnail and preserves the filename fallback', async t => {
+  const { page, modes } = await fixture(t, { video: 'red.webm', count: 1 });
+  modes.set('/demo/1.webm','fail');
+  await page.evaluate(() => clickImage(1));
+  await page.locator('.nativeImageFeedback').waitFor();
+  assert.match(await page.locator('.nativeImageFeedback').textContent(), /filename link/);
+  assert.equal(await page.locator('#f1 video').count(),0);
+  assert.equal(await page.locator('#f1 a.fileThumb').isVisible(),true);
+  assert.equal(await page.locator('#f1 p a').getAttribute('href'),'https://media.test/demo/1.webm');
+});
+
+for (const video of ['red.webm', 'blue.mp4']) {
+  test(`standalone ${video} loads under the media server policy without opaque-origin CORS`, async t => {
+    const context = await browser.newContext();
+    t.after(() => context.close());
+    const page = await context.newPage();
+    const origins = [];
+    const url = `https://media.test/demo/${video}`;
+    await context.route('**/*', async route => {
+      if (route.request().url() !== url) { await route.abort(); return; }
+      origins.push(route.request().headers().origin);
+      // No CORS grant: Chromium's standalone crossorigin=anonymous element
+      // must retain its isolated media origin rather than send Origin: null.
+      await route.fulfill({ contentType: video.endsWith('.mp4') ? 'video/mp4' : 'video/webm',
+        headers: { 'content-security-policy': standaloneVideoPolicy, 'x-content-type-options': 'nosniff' },
+        body: Buffer.from(ownedVideos[video].base64, 'base64') });
+    });
+    await page.goto(url);
+    await page.waitForFunction(() => document.querySelector('video')?.videoWidth === 64);
+    assert.deepEqual(await page.locator('video').evaluate(v => [v.videoWidth, v.videoHeight]), [64, 48]);
+    assert.equal(origins.includes('null'), false);
+    assert.equal(standaloneVideoPolicy.includes('allow-scripts'), false);
+  });
+}
+
+test('standalone video policy still blocks page scripts and external script requests', async t => {
+  const context = await browser.newContext();
+  t.after(() => context.close());
+  const page = await context.newPage(), requests = [];
+  await context.route('**/*', async route => {
+    requests.push(route.request().url());
+    if (route.request().url() !== 'https://media.test/owned-policy-check') { await route.abort(); return; }
+    // Harmless synthetic HTML checks the policy independently of MIME handling.
+    // The actual media server never serves HTML with this video-only allowance.
+    await route.fulfill({ contentType: 'text/html', headers: { 'content-security-policy': standaloneVideoPolicy },
+      body: '<!doctype html><p>Owned policy check</p><script>window.ownedScriptRan=true;</script><script src="/owned-script.js"></script>' });
+  });
+  await page.goto('https://media.test/owned-policy-check');
+  assert.equal(await page.evaluate(() => window.ownedScriptRan === true), false);
+  assert.equal(requests.includes('https://media.test/owned-script.js'), false);
+});
+
+for (const video of ['red.webm', 'red-opus.webm', 'red-vp9.webm']) {
+  test(`pinned fallback decodes ${video}, exposes controls and stops on close`, async t => {
+    const { page, requests } = await fixture(t, { video, fallback: true, storageOrigin: true, count: 1 });
+    // A real gesture permits the fallback's Web Audio clock to advance.
+    await page.locator('#f1 a.fileThumb').click();
+    const player = page.locator('#f1 .expanded-thumb:not([hidden])');
+    await player.waitFor();
+    assert.deepEqual(await player.evaluate(v => [v.videoWidth, v.videoHeight, v.muted]), [64, 48, true]);
+    assert.ok(await player.evaluate(v => v.querySelector('canvas') !== null));
+    await player.evaluate(v => { window.fallbackEnds = 0; v.addEventListener('ended', () => { fallbackEnds++; }); });
+    try { await page.waitForFunction(() => window.fallbackEnds >= 2); }
+    catch (error) {
+      console.error('Owned fallback loop state:', await player.evaluate(v => ({ paused: v.paused, time: v.currentTime, duration: v.duration, seekable: v.seekable.length, ends: window.fallbackEnds })));
+      throw error;
+    }
+    assert.equal(await page.locator('.nativeVideoControls').isVisible(), false);
+    await player.click({ position: { x: 4, y: 4 } });
+    assert.equal(await page.locator('.nativeVideoControls').evaluate(node => getComputedStyle(node).height), '32px');
+    assert.deepEqual(await page.locator('.nativeVideoControls svg').evaluateAll(nodes => nodes.map(node => [...node.querySelectorAll('path')].map(path => path.getAttribute('d')))),
+      Object.values(sourceVideoControls.icons).flat().map(shape => shape.paths.map(path => path.d)));
+    await page.getByRole('button', { name: 'Pause', exact: true }).click();
+    assert.equal(await player.evaluate(v => v.paused), true);
+    // Tiny accepted clips must not shrink a button underneath the volume range.
+    assert.equal(await page.getByRole('button', { name: 'Unmute', exact: true }).evaluate(button => {
+      const bounds = button.getBoundingClientRect();
+      const target = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      return button === target || button.contains(target);
+    }), true);
+    await page.getByRole('button', { name: 'Unmute', exact: true }).click();
+    assert.equal(await player.evaluate(v => v.muted), false);
+    await page.locator('.nativeVideoControls input[aria-label="Video volume"]').evaluate(node => { node.value = '25'; node.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => localStorage.getItem('4chan-volume')), '0.25');
+    await page.evaluate(() => { window.retainedFallback = document.querySelector('#f1 .expanded-thumb'); });
+    await page.locator('.nativeVideoClose').click();
+    assert.equal(await page.locator('.expanded-thumb,.nativeVideoControls').count(), 0);
+    assert.equal(await page.evaluate(() => retainedFallback.paused), true);
+    assert.ok(requests.some(url => url.includes('ogv-demuxer-webm-wasm.wasm')));
+    assert.ok(requests.some(url => url.includes(video === 'red-vp9.webm' ? 'ogv-decoder-video-vp9-wasm.wasm' : 'ogv-decoder-video-vp8-wasm.wasm')));
+    if (video !== 'red.webm') assert.ok(requests.some(url => url.includes(video === 'red-vp9.webm' ? 'ogv-decoder-audio-vorbis-wasm.wasm' : 'ogv-decoder-audio-opus-wasm.wasm')));
+  });
+}
+
+test('fallback cancellation does not start a late decoder or leave controls', async t => {
+  const { page, requests } = await fixture(t, { video: 'red.webm', fallback: true, storageOrigin: true, count: 1 });
+  let held;
+  await page.route('**/static/ogv/ogv.js', route => { held = route; });
+  await page.evaluate(() => clickImage(1));
+  await assertEventually(() => held !== undefined);
+  await page.locator('.nativeVideoClose').click();
+  await held.fulfill({ contentType: 'text/javascript', body: await readFile(new URL('apps/public/static/ogv/ogv.js', root)) });
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('.expanded-thumb,.nativeVideoControls').count(), 0);
+  assert.equal(requests.some(url => /\/1\.webm$/.test(url)), false);
+});
+
+async function assertEventually(predicate) {
+  for (let i = 0; i < 100; i++) {
+    if (predicate()) return;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.ok(predicate(), 'owned deferred request was not reached');
+}

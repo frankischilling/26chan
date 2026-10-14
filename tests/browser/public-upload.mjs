@@ -9,8 +9,9 @@ import { saveWatcherSettings } from './helpers/watcher-settings.js';
 const origin = new URL(process.argv[2]);
 const board = process.argv[3];
 const source = process.argv[4];
-const outputExtension = path.extname(source) === '.gif' ? '.gif' : '.png';
-const outputMime = outputExtension === '.gif' ? 'image/gif' : 'image/png';
+const outputExtension = ['.gif','.webm','.mp4'].includes(path.extname(source)) ? path.extname(source) : '.png';
+const video = ['.webm','.mp4'].includes(outputExtension);
+const outputMime = video ? `video/${outputExtension.slice(1)}` : outputExtension === '.gif' ? 'image/gif' : 'image/png';
 const flags = process.argv.slice(5);
 assert.ok(flags.length <= 2 && new Set(flags).size === flags.length
   && flags.every(flag => ['--attachment-only', '--javascript'].includes(flag)));
@@ -55,7 +56,7 @@ try {
   await page.goto(new URL(`/${board}/`, origin).href);
   if (javascript) await saveWatcherSettings(page, { threadWatcher: true, threadAutoWatcher: true });
   await expect(page.getByLabel('Comment', { exact: true })).not.toHaveAttribute('required');
-  await expect(page.getByLabel('File', { exact: true })).toHaveAttribute('accept', 'image/png,image/jpeg,image/gif');
+  await expect(page.getByLabel('File', { exact: true })).toHaveAttribute('accept', 'image/png,image/jpeg,image/gif' + (video ? ',video/webm,video/mp4,.webm,.mp4' : ''));
   await expect(page.locator('form.postForm p')).toContainText('Maximum file size: 4194304 bytes.');
   await page.getByLabel('File', { exact: true }).setInputFiles(source);
   await page.getByRole('button', { name: 'Upload file', exact: true }).click();
@@ -143,8 +144,8 @@ try {
   }
   const img = page.locator(attachmentOnly ? '.catalogThumb img[data-spoiler-src]' : '.fileThumb img');
   await img.scrollIntoViewIfNeeded();
-  await expect.poll(() => img.evaluate(image => image.naturalWidth)).toBe(1);
-  assert.equal(await img.evaluate(image => image.naturalHeight), 1);
+  await expect.poll(() => img.evaluate(image => image.naturalWidth)).toBe(video ? 64 : 1);
+  assert.equal(await img.evaluate(image => image.naturalHeight), video ? 48 : 1);
   const thumbnailUrl = new URL(await img.getAttribute('src'));
   const mediaUrl = new URL(attachmentOnly ? revealedSource.replace(/s\.jpg$/, outputExtension) : await page.locator('.fileThumb').getAttribute('href'));
   assert.notEqual(mediaUrl.origin, origin.origin);
@@ -173,7 +174,7 @@ try {
   assert.equal(post.tim, Number(mediaUrl.pathname.split('/').at(-1).replace(outputExtension, '')));
   assert.equal(post.md5, createHash('md5').update(await media.body()).digest('base64'));
   assert.equal(post.fsize, (await media.body()).length);
-  assert.deepEqual([post.w, post.h, post.tn_w, post.tn_h, post.images], [1, 1, 1, 1, 0]);
+  assert.deepEqual([post.w, post.h, post.tn_w, post.tn_h, post.images], video ? [64,48,64,48,0] : [1, 1, 1, 1, 0]);
   if (outputExtension === '.gif') {
     await page.goto(mediaUrl.href);
     const animated = page.locator('img');
