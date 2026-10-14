@@ -1,6 +1,7 @@
 use crate::animation::{EncodedGif, MAX_GIF_BYTES};
 use crate::canonical_replay::CanonicalReplay;
 use crate::pdf::{MAX_PDF_BYTES, RetainedPdf};
+use crate::still::{MAX_IMAGE_BYTES, StillFormat, ValidatedStill};
 use crate::video::{MAX_VIDEO_BYTES, ValidatedVideo, VideoFormat};
 use crate::{EncodedOutput, MAX_PNG_BYTES, MediaError, ObjectId, Promotion, Quarantine};
 use sha2::{Digest, Sha256};
@@ -44,6 +45,8 @@ pub struct ApprovedFiles {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Format {
     Png,
+    SourcePng,
+    Jpeg,
     Gif,
     Pdf,
     Webm,
@@ -51,10 +54,18 @@ enum Format {
     Replay,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Variant {
+    Primary,
+    Thumbnail,
+    Mobile,
+}
+
 impl Format {
     fn extension(self) -> &'static str {
         match self {
-            Self::Png => "png",
+            Self::Png | Self::SourcePng => "png",
+            Self::Jpeg => "jpg",
             Self::Gif => "gif",
             Self::Pdf => "pdf",
             Self::Webm => "webm",
@@ -64,17 +75,19 @@ impl Format {
     }
     fn other_primary_formats(self) -> &'static [&'static str] {
         match self {
-            Self::Png => &["gif", "pdf", "webm", "mp4"],
-            Self::Gif => &["png", "pdf", "webm", "mp4"],
-            Self::Pdf => &["png", "gif", "webm", "mp4"],
-            Self::Webm => &["png", "gif", "pdf", "mp4"],
-            Self::Mp4 => &["png", "gif", "pdf", "webm"],
+            Self::Png | Self::SourcePng => &["jpg", "gif", "pdf", "webm", "mp4"],
+            Self::Jpeg => &["png", "gif", "pdf", "webm", "mp4"],
+            Self::Gif => &["png", "jpg", "pdf", "webm", "mp4"],
+            Self::Pdf => &["png", "jpg", "gif", "webm", "mp4"],
+            Self::Webm => &["png", "jpg", "gif", "pdf", "mp4"],
+            Self::Mp4 => &["png", "jpg", "gif", "pdf", "webm"],
             Self::Replay => unreachable!("replays have no opposite image format"),
         }
     }
     fn byte_limit(self) -> u64 {
         match self {
             Self::Png => MAX_PNG_BYTES as u64,
+            Self::SourcePng | Self::Jpeg => u64::from(MAX_IMAGE_BYTES),
             Self::Gif => MAX_GIF_BYTES as u64,
             Self::Pdf => MAX_PDF_BYTES,
             Self::Webm | Self::Mp4 => MAX_VIDEO_BYTES,
@@ -167,13 +180,25 @@ impl PublicationGuard<'_> {
     /// GIF bytes must come from the independent neutral animation validator and
     /// host encoder. The caller must reserve GIF metadata before this operation.
     pub fn install_gif(&self, id: ObjectId, output: &EncodedGif) -> Result<Promotion, MediaError> {
-        self.install_bytes(id, output.bytes(), output.sha256(), Format::Gif, false)
+        self.install_bytes(
+            id,
+            output.bytes(),
+            output.sha256(),
+            Format::Gif,
+            Variant::Primary,
+        )
     }
 
     /// Retain only the coordinator's immutable input snapshot after a fenced
     /// PDF reservation. These bytes are never a host-encoded safe image.
     pub fn install_pdf(&self, id: ObjectId, output: &RetainedPdf) -> Result<Promotion, MediaError> {
-        self.install_bytes(id, output.bytes(), output.sha256(), Format::Pdf, false)
+        self.install_bytes(
+            id,
+            output.bytes(),
+            output.sha256(),
+            Format::Pdf,
+            Variant::Primary,
+        )
     }
 
     /// Install the bounded remuxed object under its immutable reserved format.
@@ -187,7 +212,61 @@ impl PublicationGuard<'_> {
             VideoFormat::Webm => Format::Webm,
             VideoFormat::Mp4 => Format::Mp4,
         };
-        self.install_bytes(id, output.bytes(), output.sha256(), format, false)
+        self.install_bytes(
+            id,
+            output.bytes(),
+            output.sha256(),
+            format,
+            Variant::Primary,
+        )
+    }
+
+    /// Reserve this exact retained-file and companion manifest before installing.
+    pub fn install_still(
+        &self,
+        id: ObjectId,
+        output: &ValidatedStill,
+    ) -> Result<Promotion, MediaError> {
+        let format = match output.policy().format {
+            StillFormat::Png => Format::SourcePng,
+            StillFormat::Jpeg => Format::Jpeg,
+        };
+        let file = output.retained();
+        self.install_bytes(id, file.bytes(), file.sha256(), format, Variant::Primary)
+    }
+
+    pub fn install_still_thumbnail(
+        &self,
+        id: ObjectId,
+        output: &ValidatedStill,
+    ) -> Result<Promotion, MediaError> {
+        let file = output.thumbnail();
+        self.install_bytes(
+            id,
+            file.bytes(),
+            file.sha256(),
+            Format::Jpeg,
+            Variant::Thumbnail,
+        )
+    }
+
+    pub fn install_still_mobile(
+        &self,
+        id: ObjectId,
+        output: &ValidatedStill,
+    ) -> Result<Option<Promotion>, MediaError> {
+        output
+            .mobile()
+            .map(|file| {
+                self.install_bytes(
+                    id,
+                    file.bytes(),
+                    file.sha256(),
+                    Format::Jpeg,
+                    Variant::Mobile,
+                )
+            })
+            .transpose()
     }
 
     /// Caller must reserve replay metadata bound to the same paired image job.
@@ -196,7 +275,13 @@ impl PublicationGuard<'_> {
         id: ObjectId,
         replay: &CanonicalReplay,
     ) -> Result<Promotion, MediaError> {
-        self.install_bytes(id, replay.bytes(), replay.sha256(), Format::Replay, false)
+        self.install_bytes(
+            id,
+            replay.bytes(),
+            replay.sha256(),
+            Format::Replay,
+            Variant::Primary,
+        )
     }
 
     pub fn install_thumbnail(
@@ -216,7 +301,17 @@ impl PublicationGuard<'_> {
         output: &EncodedOutput,
         thumbnail: bool,
     ) -> Result<Promotion, MediaError> {
-        self.install_bytes(id, &output.bytes, output.sha256(), Format::Png, thumbnail)
+        self.install_bytes(
+            id,
+            &output.bytes,
+            output.sha256(),
+            Format::Png,
+            if thumbnail {
+                Variant::Thumbnail
+            } else {
+                Variant::Primary
+            },
+        )
     }
 
     fn install_bytes(
@@ -225,12 +320,12 @@ impl PublicationGuard<'_> {
         bytes: &[u8],
         sha256: &str,
         format: Format,
-        thumbnail: bool,
+        variant: Variant,
     ) -> Result<Promotion, MediaError> {
         if bytes.is_empty() || bytes.len() as u64 > format.byte_limit() {
             return Err(MediaError::InvalidOutput);
         }
-        if !thumbnail && format != Format::Replay {
+        if variant == Variant::Primary && format != Format::Replay {
             for other in format.other_primary_formats() {
                 let opposite = self.store.root.join(format!("{id}.{other}"));
                 match fs::symlink_metadata(opposite) {
@@ -240,12 +335,26 @@ impl PublicationGuard<'_> {
                 }
             }
         }
-        let suffix = if thumbnail {
-            ".thumb"
-        } else if format == Format::Replay {
-            ".replay"
-        } else {
-            ""
+        if variant == Variant::Thumbnail {
+            let opposite = match format {
+                Format::Png => "jpg",
+                Format::Jpeg => "png",
+                _ => return Err(MediaError::InvalidOutput),
+            };
+            match fs::symlink_metadata(self.store.root.join(format!("{id}.thumb.{opposite}"))) {
+                Ok(_) => return Err(MediaError::Conflict),
+                Err(error) if error.kind() == io::ErrorKind::NotFound => (),
+                Err(error) => return Err(error.into()),
+            }
+        }
+        if variant == Variant::Mobile && format != Format::Jpeg {
+            return Err(MediaError::InvalidOutput);
+        }
+        let suffix = match variant {
+            Variant::Thumbnail => ".thumb",
+            Variant::Mobile => ".mobile",
+            Variant::Primary if format == Format::Replay => ".replay",
+            Variant::Primary => "",
         };
         let staging = self.store.root.join(format!("{id}{suffix}.part"));
         remove_regular(&staging)?;
@@ -302,12 +411,16 @@ impl PublicationGuard<'_> {
         for suffix in [
             "part",
             "png",
+            "jpg",
             "gif",
             "pdf",
             "webm",
             "mp4",
             "thumb.part",
             "thumb.png",
+            "thumb.jpg",
+            "mobile.part",
+            "mobile.jpg",
             "replay.part",
             "replay.ibr",
         ] {
@@ -377,6 +490,50 @@ impl ApprovedFiles {
             sha256,
             bytes,
             MAX_VIDEO_BYTES,
+        )
+    }
+
+    /// Approval must name the retained still format, exact hash and byte count.
+    pub fn read_still(
+        &self,
+        id: ObjectId,
+        sha256: &str,
+        bytes: u64,
+        format: StillFormat,
+    ) -> Result<Vec<u8>, MediaError> {
+        read_checked(
+            &self.root.join(format!("{id}.{}", format.extension())),
+            sha256,
+            bytes,
+            u64::from(MAX_IMAGE_BYTES),
+        )
+    }
+
+    pub fn read_still_thumbnail(
+        &self,
+        id: ObjectId,
+        sha256: &str,
+        bytes: u64,
+    ) -> Result<Vec<u8>, MediaError> {
+        read_checked(
+            &self.root.join(format!("{id}.thumb.jpg")),
+            sha256,
+            bytes,
+            1024 * 1024,
+        )
+    }
+
+    pub fn read_still_mobile(
+        &self,
+        id: ObjectId,
+        sha256: &str,
+        bytes: u64,
+    ) -> Result<Vec<u8>, MediaError> {
+        read_checked(
+            &self.root.join(format!("{id}.mobile.jpg")),
+            sha256,
+            bytes,
+            4 * 1024 * 1024,
         )
     }
 

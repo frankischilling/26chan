@@ -151,3 +151,113 @@ async fn mobile_is_required_exactly_when_policy_and_geometry_require_it() {
             .is_err()
     );
 }
+
+#[tokio::test]
+async fn still_files_have_fixed_names_exact_receipts_and_owned_cleanup() {
+    use board_media::{ApprovedFiles, MediaError, ObjectId, PublicationStore, Quarantine};
+    let mut bytes = disk(StillFormat::Jpeg);
+    for (offset, value) in [
+        (24, 2048u32),
+        (28, 1024),
+        (32, 250),
+        (36, 125),
+        (40, 1024),
+        (44, 512),
+        (56, 5),
+    ] {
+        bytes[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
+    }
+    bytes[81..86].copy_from_slice(b"\xff\xd8\xff\xff\xd9");
+    let output = ValidatedStill::read_disk(Cursor::new(&bytes), policy(StillFormat::Jpeg))
+        .await
+        .unwrap();
+    let png = ValidatedStill::read_disk(
+        Cursor::new(disk(StillFormat::Png)),
+        policy(StillFormat::Png),
+    )
+    .await
+    .unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let quarantine = Quarantine::new(directory.path().join("input")).unwrap();
+    let root = directory.path().join("objects");
+    let store = PublicationStore::new(&root, &quarantine).unwrap();
+    let id = ObjectId::generate().unwrap();
+    let other = ObjectId::generate().unwrap();
+    std::fs::write(
+        root.join(format!("{other}.png")),
+        b"unrelated owned fixture",
+    )
+    .unwrap();
+    let guard = store.try_lock().unwrap();
+    assert!(!guard.install_still(id, &output).unwrap().already_published);
+    assert!(guard.install_still(id, &output).unwrap().already_published);
+    guard.install_still_thumbnail(id, &output).unwrap();
+    guard.install_still_mobile(id, &output).unwrap().unwrap();
+    assert!(matches!(
+        guard.install_still(id, &png),
+        Err(MediaError::Conflict)
+    ));
+    let reader = ApprovedFiles::open(&root).unwrap();
+    assert_eq!(
+        reader
+            .read_still(
+                id,
+                output.retained().sha256(),
+                output.retained().bytes().len() as u64,
+                StillFormat::Jpeg
+            )
+            .unwrap(),
+        output.retained().bytes()
+    );
+    assert_eq!(
+        reader
+            .read_still_thumbnail(
+                id,
+                output.thumbnail().sha256(),
+                output.thumbnail().bytes().len() as u64
+            )
+            .unwrap(),
+        output.thumbnail().bytes()
+    );
+    let mobile = output.mobile().unwrap();
+    assert_eq!(
+        reader
+            .read_still_mobile(id, mobile.sha256(), mobile.bytes().len() as u64)
+            .unwrap(),
+        mobile.bytes()
+    );
+    assert!(
+        reader
+            .read_still_mobile(id, &"0".repeat(64), mobile.bytes().len() as u64)
+            .is_err()
+    );
+    assert!(
+        reader
+            .read_still(
+                id,
+                output.retained().sha256(),
+                output.retained().bytes().len() as u64,
+                StillFormat::Png
+            )
+            .is_err()
+    );
+    for suffix in ["jpg", "thumb.jpg", "mobile.jpg"] {
+        assert!(root.join(format!("{id}.{suffix}")).is_file());
+    }
+    std::fs::write(root.join(format!("{id}.mobile.part")), b"partial").unwrap();
+    guard.remove(id).unwrap();
+    for entry in std::fs::read_dir(&root).unwrap() {
+        assert!(
+            !entry
+                .unwrap()
+                .file_name()
+                .to_str()
+                .unwrap()
+                .starts_with(&id.to_string())
+        );
+    }
+    assert_eq!(
+        std::fs::read(root.join(format!("{other}.png"))).unwrap(),
+        b"unrelated owned fixture"
+    );
+}
