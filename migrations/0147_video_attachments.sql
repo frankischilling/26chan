@@ -82,7 +82,7 @@ CREATE TRIGGER media_video_metadata_immutable BEFORE INSERT OR UPDATE ON media.a
     FOR EACH ROW EXECUTE FUNCTION media.guard_video_metadata();
 GRANT SELECT(video_enabled,video_audio,max_video_bytes,max_video_duration,max_video_dimension)
     ON content.boards TO board_attachment_owner;
-GRANT SELECT(video_duration_micros,video_has_audio) ON media.assets TO board_attachment_owner;
+GRANT SELECT(video_duration_micros,video_has_audio,thumbnail_width,thumbnail_height) ON media.assets TO board_attachment_owner;
 GRANT CREATE ON SCHEMA content TO board_attachment_owner;
 SET LOCAL ROLE board_attachment_owner;
 CREATE OR REPLACE FUNCTION content.check_image_board_policy(
@@ -213,12 +213,16 @@ BEGIN
     IF v_state <> 'published' OR EXISTS (SELECT 1 FROM content.post_media m WHERE m.job_id = p_job) THEN
         RAISE EXCEPTION 'Attachment is not ready or was already used.' USING ERRCODE = 'P0001';
     END IF;
-    SELECT a.id, a.bytes, a.width, a.height, a.output_format,a.video_duration_micros,a.video_has_audio INTO v_asset FROM media.assets a
+    SELECT a.id, a.bytes, a.width, a.height, a.output_format,a.video_duration_micros,a.video_has_audio,a.thumbnail_width,a.thumbnail_height INTO v_asset FROM media.assets a
         WHERE a.job_id = p_job AND a.state = 'approved' ORDER BY a.id LIMIT 1;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Attachment is not approved.' USING ERRCODE = 'P0001';
     END IF;
     PERFORM content.check_attachment_board_policy(p_board,v_input_bytes,v_asset.bytes,v_asset.width,v_asset.height,v_asset.output_format,v_filename,v_asset.video_duration_micros,v_asset.video_has_audio);
+    IF v_asset.output_format IN ('webm','mp4') AND p_id<>p_thread
+        AND least(v_asset.thumbnail_width,v_asset.thumbnail_height)*125/greatest(125,v_asset.thumbnail_width,v_asset.thumbnail_height)=0 THEN
+        RAISE EXCEPTION 'Error: Upload failed.' USING ERRCODE='23514';
+    END IF;
     IF (v_asset.output_format='pdf' AND lower(right(v_filename,4))<>'.pdf')
         OR (v_pdf AND lower(right(v_filename,4))='.pdf' AND v_asset.output_format<>'pdf') THEN
         RAISE EXCEPTION 'Error: Upload failed.' USING ERRCODE='23514';
@@ -279,12 +283,16 @@ BEGIN
     IF j.state<>'published' OR EXISTS(SELECT 1 FROM content.post_media WHERE job_id=p_job) THEN
         RAISE EXCEPTION 'Attachment is not ready or was already used.' USING ERRCODE='P0001';
     END IF;
-    SELECT id,bytes,width,height,output_format,video_duration_micros,video_has_audio INTO a FROM media.assets
+    SELECT id,bytes,width,height,output_format,video_duration_micros,video_has_audio,thumbnail_width,thumbnail_height INTO a FROM media.assets
         WHERE job_id=p_job AND state='approved' ORDER BY id LIMIT 1;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Attachment is not approved.' USING ERRCODE='P0001';
     END IF;
     PERFORM content.check_attachment_board_policy(p_board,j.input_bytes,a.bytes,a.width,a.height,a.output_format,j.filename,a.video_duration_micros,a.video_has_audio);
+    IF a.output_format IN ('webm','mp4') AND p_id<>p_thread
+        AND least(a.thumbnail_width,a.thumbnail_height)*125/greatest(125,a.thumbnail_width,a.thumbnail_height)=0 THEN
+        RAISE EXCEPTION 'Error: Upload failed.' USING ERRCODE='23514';
+    END IF;
     IF (a.output_format='pdf' AND lower(right(j.filename,4))<>'.pdf')
         OR (b.pdf_enabled AND lower(right(j.filename,4))='.pdf' AND a.output_format<>'pdf') THEN
         RAISE EXCEPTION 'Error: Upload failed.' USING ERRCODE='23514';
@@ -305,6 +313,26 @@ BEGIN
 END $$;
 RESET ROLE;
 REVOKE CREATE ON SCHEMA content FROM board_attachment_owner;
+-- The decoder retains one 250px preview. Replies expose the source 125px
+-- dimensions consistently in HTML, previews and JSON; byte approval is unchanged.
+CREATE OR REPLACE VIEW content.visible_post_media WITH (security_barrier=true) AS
+    SELECT m.post_id,m.asset_id,m.filename,m.bytes,m.width,m.height,m.spoiler,
+        (p.file_deleted OR m.file_deleted OR a.id IS NULL) AS file_deleted,
+        m.tim,encode(decode(a.md5,'hex'),'base64') AS md5,
+        CASE WHEN a.output_format IN ('webm','mp4') AND p.id<>p.thread_id
+            THEN a.thumbnail_width*125/greatest(125,a.thumbnail_width,a.thumbnail_height)
+            ELSE a.thumbnail_width END AS thumbnail_width,
+        CASE WHEN a.output_format IN ('webm','mp4') AND p.id<>p.thread_id
+            THEN a.thumbnail_height*125/greatest(125,a.thumbnail_width,a.thumbnail_height)
+            ELSE a.thumbnail_height END AS thumbnail_height,coalesce(a.output_format,'png') AS output_format,
+        (NOT p.file_deleted AND NOT m.file_deleted AND a.id IS NOT NULL
+         AND EXISTS(SELECT 1 FROM media.approved_post_replays r
+             WHERE r.id=a.id AND r.board=p.board AND r.tim=m.tim)) AS has_replay
+    FROM content.post_media m JOIN content.posts p ON p.id=m.post_id
+    JOIN content.visible_threads t ON t.id=p.thread_id AND t.board=p.board
+    LEFT JOIN media.assets a ON a.id=m.asset_id AND a.state='approved'
+    WHERE NOT p.deleted;
+
 -- Only the trusted migration identity accepts this reviewed catalog transition.
 -- The earlier preflight must pass; runtime roles retain no resealing authority.
 DO $video_transfer_reseal$

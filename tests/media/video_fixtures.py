@@ -22,6 +22,9 @@ def generate(root):
     subprocess.run(['/usr/bin/ffmpeg', '-nostdin', '-v', 'error', '-display_rotation', '90',
                     '-i', str(root / 'blue.mp4'), '-c', 'copy', '-n', str(root / 'blue-rotation90.mp4')],
                    check=True, capture_output=True, timeout=15)
+    subprocess.run(['/usr/bin/ffmpeg', '-nostdin', '-v', 'error', '-i', str(root / 'blue.mp4'),
+                    '-c', 'copy', '-aspect', '2:1', '-n', str(root / 'blue-sar.mp4')],
+                   check=True, capture_output=True, timeout=15)
 
 
 if __name__ == '__main__':

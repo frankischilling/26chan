@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Owned HTTP intake -> authenticated Firecracker -> approved HTTP reader."""
 import errno
+import base64
+import hashlib
 import http.client
 import json
 import os
@@ -119,8 +121,9 @@ class IntakeExercise(MediaHttpExercise):
         finally:
             connection.close()
 
-    def reserve_http(self):
-        status, result = self.call('/v1/reservations', 'POST', b'{"filename":"synthetic.png"}',
+    def reserve_http(self, filename='synthetic.png'):
+        assert filename in ('synthetic.png','owned.webm','owned.mp4')
+        status, result = self.call('/v1/reservations', 'POST', json.dumps({'filename': filename}).encode(),
                                    {'Content-Type': 'application/json'})
         assert status == 201 and result['state'] == 'receiving'
         job, cap = result['id'], result['capability']
@@ -228,6 +231,7 @@ class IntakeExercise(MediaHttpExercise):
         assert self.http(f'/media/{asset}.png')[2] == (self.objects / f'{asset}.png').read_bytes()
         self.boundaries(job, asset)
         print('PASS HTTP reservation/upload -> authenticated Firecracker dispatch -> fenced approval -> capability status -> separate HTTP reader', flush=True)
+        self.public_upload.exercise_video()
         self.public_upload.exercise()
 
         jpeg_root = REPO / 'tests/media/fixtures/jpeg'
@@ -286,6 +290,34 @@ class IntakeExercise(MediaHttpExercise):
             assert status == 200 and headers['content-type'] == 'image/png'
             assert body == (self.objects / f'{asset}.thumb.png').read_bytes()
         print('PASS excessive, truncated and trailing-data GIFs grant no approval or files; animated, transparent and partial-canvas GIFs retain GIF output with PNG thumbnails', flush=True)
+
+        clips = json.loads((REPO / 'fixtures/owned-video-clips.json').read_text())['clips']
+        for name in ('red.webm','red-opus.webm','blue.mp4','blue-aac.mp4'):
+            extension = pathlib.Path(name).suffix
+            data = base64.b64decode(clips[name]['base64'], validate=True)
+            assert hashlib.sha256(data).hexdigest() == clips[name]['sha256']
+            job, cap = self.reserve_http('owned' + extension)
+            assert self.upload_http(job, cap, data)[0] == 202
+            asset = self.finish(self.dispatch()).decode().strip()
+            assert HEX.fullmatch(asset)
+            self.clean_vm()
+            status, result = self.call(f'/v1/uploads/{job}', headers={'Upload-Capability': cap})
+            assert status == 200 and result['state'] == 'published' and result['output_id'] == asset
+            status, headers, body = self.http(f'/media/{asset}{extension}')
+            assert status == 200 and body == (self.objects / f'{asset}{extension}').read_bytes()
+            assert headers['content-type'] == 'video/' + extension[1:]
+            assert headers['accept-ranges'] == 'bytes'
+            assert self.http(f'/media/{asset}.png')[0] == 404
+            status, headers, preview = self.http(f'/media/{asset}.thumb.png')
+            assert status == 200 and headers['content-type'] == 'image/png' and preview.startswith(b'\x89PNG')
+        for extension in ('.webm','.mp4'):
+            approved_files = set(self.objects.iterdir())
+            job, cap = self.reserve_http('owned' + extension)
+            assert self.upload_http(job, cap, b'owned invalid video')[0] == 202
+            self.finish(self.dispatch(), False)
+            self.no_approval(job); self.clean_vm()
+            assert set(self.objects.iterdir()) == approved_files
+        print('PASS owned silent/audio WebM and MP4 cross real HTTP intake, isolated dispatch, fenced publication and the separate reader; malformed videos grant no files', flush=True)
 
         job, cap = self.reserve_http()
         assert self.upload_http(job, cap, iter([b'x' * 8192] * 1025), chunked=True)[0] == 413

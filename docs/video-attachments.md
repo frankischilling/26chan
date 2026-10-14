@@ -66,12 +66,14 @@ It is therefore used only to generate owned test clips, not packaged in a guest.
 The video image retains the 64 MiB artifact cap and baseline 128 MiB guest RAM.
 Its private 24 MiB tmpfs holds the bounded input and remux output. Host cgroup,
 worker address-space, process, CPU and execution deadlines remain unchanged.
-The latest runtime still requires actual VM qualification.
+The processing checkpoint passed the owned VM and containment checks in run
+38493231007. The newer explicit cancellation and browser upload cases still
+need their hosted run.
 
 Local prototype checks passed for remuxing and first-frame preview of owned
 VP8/WebM and H.264/MP4 clips, both silent and with allowed Opus/AAC audio.
 The rotated owned MP4 retains its 64×48 public dimensions and produces a
-48×64 preview. Host envelope validation, malformed framing and focused Rust
+48×64 preview. A 3:2 sample-aspect clip produces a 64×32 preview. Host envelope validation, malformed framing and focused Rust
 lint also passed.
 The full guest workspace is blocked locally by an unavailable cached GIF
 dependency; hosted CI remains required. No VM or complete feature result is
@@ -86,7 +88,10 @@ metadata requires a current processing lease and cannot change after insertion.
 The retained-byte HTTP tests passed locally for both containers: publication,
 current-policy rejection, retry, thumbnails, byte ranges, conditional reads,
 disk tampering and deletion. The complete migration and policy decision tests
-also passed against a disposable PostgreSQL 16 database.
+also passed against a disposable PostgreSQL 16 database, followed by the
+populated historical upgrade and administrator dump/restore test. Reply video
+metadata is capped at 125 pixels; OP metadata keeps the 250-pixel cap. Both
+containers passed the retained-byte HTTP test as OPs and replies.
 
 The media reader verifies approval and the whole file's hash before serving a
 single byte range. Unsatisfiable ranges return 416; unsupported range syntax
@@ -104,7 +109,6 @@ OGV fallback behavior also remains to be reconciled with the source.
 
 - Pass the actual guest, containment and cancellation/recovery tests with the
   latest runtime and owned rotated clips.
-- Check sample-aspect clips and source reply-thumbnail presentation.
 - Qualify mute/volume, mobile layout, fallback behavior, offscreen pause and
   player teardown in real browsers.
 - Cover ordinary forms, Quick Reply, catalogs, previews, snapshots and JSON.

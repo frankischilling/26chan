@@ -314,6 +314,33 @@ class DrawingQuotaBoundaryTest(unittest.TestCase):
         ready.assert_called_once_with(fixture.ready)
         self.assertIsNone(fixture.browser)
 
+    def test_video_restart_requires_exact_completed_owned_four_case_batch(self):
+        fixture = self.fixture()
+        fixture.video_phase = True
+        fixture.completed_jobs = fixture.completed_jobs[:4]
+        fixture.filenames = [f'public-upload-{fixture.board}.{suffix}' for suffix in
+            ('video.webm','video.mp4','quick-reply.webm','quick-reply-inline.mp4')]
+        states = [dict(ActiveState='active',InvocationID='1'*32),dict(ActiveState='active',InvocationID='2'*32,MainPID='12345')]
+        with mock.patch.object(pathlib.Path,'read_bytes',return_value=b'owned public unit'), \
+                mock.patch.object(pathlib.Path,'read_text',return_value='Uid: 1001 1001 1001 1001\nGid: 1002 1002 1002 1002'), \
+                mock.patch('public_upload_fixture.sql',return_value='t') as sql, \
+                mock.patch('public_upload_fixture.systemctl') as control, \
+                mock.patch('public_upload_fixture.wait_until'), \
+                mock.patch.object(fixture.unit,'state',side_effect=states):
+            fixture.restart_for_drawing()
+        self.assertIn("count(*)=4 AND bool_and(state='published'",sql.call_args.args[0])
+        control.assert_called_once_with('restart',fixture.unit.name,timeout=35)
+        for mutation in ['foreign-name','missing-job','already-archived']:
+            candidate = self.fixture(); candidate.video_phase=True
+            candidate.filenames=list(fixture.filenames); candidate.completed_jobs=list(fixture.completed_jobs)
+            if mutation=='foreign-name': candidate.filenames[0]='public-upload-foreign.video.webm'
+            elif mutation=='missing-job': candidate.completed_jobs.pop()
+            else: candidate.video_jobs=['1'*32]
+            with mock.patch('public_upload_fixture.systemctl') as control, \
+                    mock.patch.object(pathlib.Path,'read_bytes',return_value=b'owned public unit'):
+                with self.assertRaises(AssertionError): candidate.restart_for_drawing()
+                control.assert_not_called()
+
     def test_second_restart_accepts_only_completed_idle_drawing(self):
         fixture = self.fixture()
         drawing = SimpleNamespace(completed_modes={'ordinary', 'quick-reply'},

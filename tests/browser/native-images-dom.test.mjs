@@ -24,13 +24,14 @@ const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQ
 const ownedVideos = JSON.parse(await readFile(new URL('fixtures/owned-video-clips.json', root), 'utf8')).clips;
 const animatedPixel = Buffer.from('47494638396101000100800000ff00000000ff21ff0b4e45545343415045322e30030100000021f90404140000002c000000000100010000020244010021f90404140000002c00000000010001000002024c01003b', 'hex');
 
-async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, pdf = false, video = null } = {}) {
+async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, pdf = false, video = null, storageOrigin = false } = {}) {
   const context = await browser.newContext();
   t.after(() => context.close());
   const page = await context.newPage();
   const requests = [], modes = new Map(), held = [];
   await page.route('**/*', async route => {
     const url = route.request().url(); requests.push(url);
+    if (storageOrigin && url === 'https://boards.test/') { await route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Owned video fixture</title>' }); return; }
     if (!url.startsWith('https://media.test/')) { await route.abort(); return; }
     const mode = modes.get(new URL(url).pathname);
     if (mode === 'hold') { held.push(route); return; }
@@ -42,7 +43,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
     await route.fulfill(url.endsWith('.gif') ? { contentType: 'image/gif', body: animatedPixel }
       : { contentType: 'image/png', body: pixel });
   });
-  await page.goto('about:blank');
+  await page.goto(storageOrigin ? 'https://boards.test/' : 'about:blank');
   await page.addStyleTag({ content: css });
   await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, pdf, video }) => {
     const module = async text => {
@@ -67,7 +68,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
     }
     window.imageConfig = config; window.imageOwnership = ownership.createCommentProjection();
     window.imageController = images.mountNativeImages({ root: document.querySelector('.board'),
-      mediaOrigin: 'https://media.test', settings: () => window.imageConfig, projection: window.imageOwnership, limits,
+      mediaOrigin: 'https://media.test', settings: () => window.imageConfig, projection: window.imageOwnership, limits, mobile: window.matchMedia('(max-width: 480px)'),
       ...(preview ? { previewRoot: () => document.getElementById('quote-preview') } : {}) });
     window.clickImage = id => {
       const anchor = document.querySelector(`#f${id} a.fileThumb`);
@@ -349,4 +350,42 @@ test('video hover reports duration and tears down on settings disable', async t 
   });
   assert.deepEqual(await page.evaluate(() => [retainedVideo.isConnected, retainedVideo.paused, retainedVideo.getAttribute('src')]), [false, true, null]);
   assert.equal(await page.locator('.nativeVideoDuration').count(), 0);
+});
+
+
+test('video volume, mobile sizing, offscreen pause and pagehide release use the native player', async t => {
+  const { page } = await fixture(t, { video: 'red.webm', count: 1, storageOrigin: true, config: { unmuteWebm: true } });
+  await page.evaluate(() => localStorage.setItem('4chan-volume','0.25'));
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.evaluate(() => clickImage(1));
+  const player = page.locator('#f1 video:not([hidden])');
+  await player.waitFor();
+  assert.deepEqual(await player.evaluate(v => [v.muted,v.volume,v.playsInline]), [false,0.25,true]);
+  assert.ok((await player.boundingBox()).width <= 390);
+  await player.evaluate(v => { v.volume=0.75; });
+  await page.waitForFunction(() => localStorage.getItem('4chan-volume') === '0.75');
+  const projection = await page.evaluate(() => {
+    const tree=quotes.localQuoteTree(document.getElementById('pc1'),
+      {origin:'https://boards.test',mediaOrigin:'https://media.test',board:'demo',thread:'1'},'1',imageOwnership);
+    return JSON.stringify(tree);
+  });
+  assert.ok(!projection.includes('nativeVideoClose') && !projection.includes('expanded-thumb'));
+  await page.evaluate(async () => {
+    const v=document.querySelector('#f1 video'); v.muted=true; await v.play();
+    document.body.style.height='3000px'; window.scrollTo(0,2000);
+  });
+  await page.waitForFunction(() => document.querySelector('#f1 video').paused);
+  await page.evaluate(() => { window.retainedVideo=document.querySelector('#f1 video'); window.dispatchEvent(new PageTransitionEvent('pagehide')); });
+  assert.deepEqual(await page.evaluate(() => [retainedVideo.isConnected,retainedVideo.paused,retainedVideo.getAttribute('src')]), [false,true,null]);
+});
+
+test('video failure restores the thumbnail and preserves the filename fallback', async t => {
+  const { page, modes } = await fixture(t, { video: 'red.webm', count: 1 });
+  modes.set('/demo/1.webm','fail');
+  await page.evaluate(() => clickImage(1));
+  await page.locator('.nativeImageFeedback').waitFor();
+  assert.match(await page.locator('.nativeImageFeedback').textContent(), /filename link/);
+  assert.equal(await page.locator('#f1 video').count(),0);
+  assert.equal(await page.locator('#f1 a.fileThumb').isVisible(),true);
+  assert.equal(await page.locator('#f1 p a').getAttribute('href'),'https://media.test/demo/1.webm');
 });

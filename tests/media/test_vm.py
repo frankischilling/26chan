@@ -169,14 +169,15 @@ class VmTest(unittest.TestCase):
                 self.assertEqual(output[len(expected):], bytes(4_194_816 - len(expected)))
 
     @contextlib.contextmanager
-    def sleeping_vm(self):
+    def sleeping_vm(self, input_kind='image-v1'):
+        self.assertIn(input_kind, ('image-v1','video-v5'))
         self.assert_clean()
         with tempfile.TemporaryDirectory(prefix='26chan-cancel-test-') as name:
             source = pathlib.Path(name) / 'input'
             source.write_bytes(b'sleep')
             destination = pathlib.Path(name) / 'result.disk'
             runner = subprocess.Popen(
-                [sys.executable, str(REPO / 'scripts/media/run-job.py'),
+                [sys.executable, str(REPO / 'scripts/media/run-job.py'), '--input-kind', input_kind,
                  os.environ['MEDIA_VM_PROBE_CONFIG'], str(source), str(destination)],
                 stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
             workspace = None

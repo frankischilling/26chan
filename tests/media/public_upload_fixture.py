@@ -1,5 +1,7 @@
 """Development public web unit connected to real intake, dispatch and reader."""
 import hashlib
+import base64
+import json
 import hmac
 import http.client
 import grp
@@ -64,6 +66,9 @@ class PublicUpload:
         self.browser = None
         self.filenames = []
         self.completed_jobs = []
+        self.video_phase = False
+        self.video_filenames = []
+        self.video_jobs = []
         self._public_identity = None
         self.drawing_upload = None
         self.drawing_edit_upload = None
@@ -177,6 +182,27 @@ class PublicUpload:
         finally:
             connection.close()
 
+    def exercise_video(self):
+        assert self.created and self.board == self._owned_board
+        assert not self.filenames and not self.completed_jobs and not self.video_jobs
+        self.video_phase = True
+        sql(f"UPDATE content.boards SET video_enabled=true,video_audio=true WHERE slug='{self.board}' AND title='Upload qualification';")
+        clips = json.loads((REPO / 'fixtures/owned-video-clips.json').read_text())['clips']
+        for suffix, name, quick_reply in [('video.webm','red.webm',False),
+                ('video.mp4','blue.mp4',False),('quick-reply.webm','red-opus.webm',True),
+                ('quick-reply-inline.mp4','blue-aac.mp4','inline')]:
+            data=base64.b64decode(clips[name]['base64'],validate=True)
+            assert hashlib.sha256(data).hexdigest()==clips[name]['sha256']
+            self.upload_one(suffix,data,bool(quick_reply),quick_reply=quick_reply)
+        self.reset_posting_history()
+        self.restart_for_drawing()
+        # The finished phase remains owned for final cleanup. The next batch's
+        # exact completion guard still checks its original nine jobs.
+        self.video_filenames, self.filenames = self.filenames, []
+        self.video_jobs, self.completed_jobs = self.completed_jobs, []
+        self.video_phase = False
+        sql(f"UPDATE content.boards SET video_enabled=false,video_audio=false WHERE slug='{self.board}' AND title='Upload qualification';")
+
     def exercise(self):
         cases = [('png', red_png(), False)]
         cases.extend((name + '.jpg', (REPO / 'tests/media/fixtures/jpeg' / (name + '.jpg')).read_bytes(), False)
@@ -226,13 +252,18 @@ class PublicUpload:
         assert self.unit in self.f.processes
         path = pathlib.Path('/run/systemd/system') / self.unit.name
         assert path in self.f.unit_files and path.read_bytes() == self.f.unit_files[path]
-        assert len(self.filenames) == len(set(self.filenames)) == 9
-        assert len(self.completed_jobs) == len(set(self.completed_jobs)) == 9
+        expected = 4 if self.video_phase else 9
+        if self.video_phase:
+            assert not self.video_jobs and not self.video_filenames
+            assert set(self.filenames) == {f'public-upload-{self.board}.{suffix}' for suffix in
+                ('video.webm','video.mp4','quick-reply.webm','quick-reply-inline.mp4')}
+        assert len(self.filenames) == len(set(self.filenames)) == expected
+        assert len(self.completed_jobs) == len(set(self.completed_jobs)) == expected
         assert all(HEX.fullmatch(job) and job in self.f.ids for job in self.completed_jobs)
-        assert all(re.fullmatch(r'public-upload-' + self.board + r'\.[a-z.-]+', name) for name in self.filenames)
+        assert all(re.fullmatch(r'public-upload-' + self.board + r'\.[a-z0-9.-]+', name) for name in self.filenames)
         names = ','.join("'" + name + "'" for name in self.filenames)
         jobs = ','.join("'" + job + "'" for job in self.completed_jobs)
-        assert sql(f"SELECT count(*)=9 AND bool_and(state='published' AND id IN ({jobs})) FROM media.jobs WHERE filename IN ({names});") == 't', 'previous upload jobs are not complete'
+        assert sql(f"SELECT count(*)={expected} AND bool_and(state='published' AND id IN ({jobs})) FROM media.jobs WHERE filename IN ({names});") == 't', 'previous upload jobs are not complete'
         self.f.clean_vm()
         previous = self.unit.state()
         assert previous['ActiveState'] == 'active' and re.fullmatch('[a-f0-9]{32}', previous['InvocationID'])
@@ -297,7 +328,8 @@ class PublicUpload:
         mode = b'JavaScript' if javascript else b'no-JavaScript'
         assert output.startswith(b'PASS ' + mode + b' upload, isolated approval, persisted posting')
         assert sql(f"SELECT count(*) FROM content.post_media m JOIN content.posts p ON p.id=m.post_id WHERE p.board='{self.board}' AND m.asset_id='{asset}' AND m.file_deleted AND NOT p.deleted;") == '1'
-        extension = 'gif' if suffix.endswith('.gif') else 'png'
+        extension = pathlib.Path(suffix).suffix.removeprefix('.')
+        if extension not in ('gif','webm','mp4'): extension = 'png'
         assert f.http(f'/media/{asset}.{extension}')[0] == 404
         assert (f.objects / f'{asset}.{extension}').is_file()
         assert (f.objects / f'{asset}.thumb.png').is_file()
@@ -326,8 +358,8 @@ class PublicUpload:
     def cleanup_board(self):
         self.reset_deletion_quota()
         self.reset_posting_history()
-        for filename in self.filenames:
-            assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|animated\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png|quick-reply-disabled\.png|quick-reply-inline-disabled\.png)', filename)
+        for filename in [*self.video_filenames, *self.filenames]:
+            assert re.fullmatch(r'public-upload-u[0-9a-f]{8}\.(png|baseline\.jpg|progressive\.jpg|animated\.gif|tracking\.png|quick-reply\.png|quick-reply-inline\.png|quick-reply-disabled\.png|quick-reply-inline-disabled\.png|video\.webm|video\.mp4|quick-reply\.webm|quick-reply-inline\.mp4)', filename)
             for job in sql(f"SELECT id FROM media.jobs WHERE filename='{filename}';").splitlines():
                 assert HEX.fullmatch(job)
                 if job not in self.f.ids:

@@ -795,6 +795,65 @@ mod tests {
         }
     }
     #[test]
+    fn video_metadata_uses_approved_format_and_deleted_files_omit_the_url_fields() {
+        for format in [
+            board_store::media_assets::MediaFormat::Webm,
+            board_store::media_assets::MediaFormat::Mp4,
+        ] {
+            let fixture = crate::native_updater_snapshot::tests::fixture();
+            for (deleted, historical) in [(false, false), (true, false), (false, true)] {
+                let mut post = fixture.posts[0].clone();
+                post.file_deleted = deleted;
+                post.attachment = Some(board_store::post_media::PostAttachment {
+                    post_id: post.id,
+                    asset_id: "0".repeat(32),
+                    filename: "owned.different-name".into(),
+                    bytes: 100,
+                    width: 1,
+                    height: 1,
+                    spoiler: false,
+                    file_deleted: historical,
+                    tim: 42,
+                    md5: None,
+                    thumbnail_width: Some(32),
+                    thumbnail_height: Some(24),
+                    output_format: format,
+                    has_replay: false,
+                });
+                let value = post_json(
+                    post,
+                    &fixture.thread,
+                    &fixture.board,
+                    0,
+                    0,
+                    None,
+                    QuoteContext {
+                        targets: &fixture.quote_targets,
+                        current_thread: Some(fixture.thread.id),
+                    },
+                )
+                .unwrap();
+                if deleted || historical {
+                    assert_eq!(value["filedeleted"], 1);
+                    for key in [
+                        "ext", "tim", "filename", "fsize", "w", "h", "tn_w", "tn_h", "md5",
+                    ] {
+                        assert!(value.get(key).is_none());
+                    }
+                } else {
+                    assert_eq!(value["ext"], format!(".{}", format.extension()));
+                    assert_eq!(value["filename"], "owned");
+                    assert_eq!(value["w"], 1);
+                    assert_eq!(value["h"], 1);
+                    assert_eq!(value["tn_w"], 32);
+                    assert_eq!(value["tn_h"], 24);
+                    assert!(value.get("md5").is_none());
+                }
+            }
+        }
+    }
+
+    #[test]
     fn post_level_file_deletion_serializes_without_inventing_attachment_metadata() {
         let fixture = crate::native_updater_snapshot::tests::fixture();
         for deleted in [false, true] {

@@ -2,6 +2,7 @@
 import os
 import pathlib
 import struct
+import signal
 import subprocess
 import sys
 import tempfile
@@ -56,9 +57,28 @@ class VideoVmTest(unittest.TestCase):
             self.assertEqual(output[:8], b'IBVID005')
             self.assertEqual(struct.unpack('>II', output[16:24]), (64, 48))
             self.assertEqual(struct.unpack('>II', output[40:48]), (48, 64))
+            output = self.run_job(b'\x02' + pathlib.Path(directory, 'blue-sar.mp4').read_bytes())
+            self.assertEqual(output[:8], b'IBVID005')
+            self.assertEqual(struct.unpack('>d', output[32:40]), (1.5,))
+            self.assertEqual(struct.unpack('>II', output[40:48]), (64, 32))
             for source in [b'\x01invalid', b'\x02invalid', b'\x03invalid']:
                 self.assertEqual(self.run_job(source), bytes(DISK_BYTES))
             self.assertEqual(self.run_job(b'\x01' + pathlib.Path(directory, 'red.webm').read_bytes())[:8], b'IBVID005')
+
+    def test_video_cancellation_removes_the_live_vm_and_discarded_output(self):
+        from test_vm import VmTest
+        vm=VmTest()
+        for signum in (signal.SIGTERM,signal.SIGINT):
+            with self.subTest(signal=signum), vm.sleeping_vm('video-v5') as (runner,unit,workspace,disk,vmm):
+                runner.send_signal(signum)
+                runner.communicate(timeout=12)
+                self.assertNotEqual(runner.returncode,0)
+                self.assertFalse(disk.exists())
+                self.assertFalse(workspace.exists())
+                self.assertFalse(vmm.exists())
+                vm.assert_clean()
+        output=self.run_job(b'inspect',probe=True)
+        check_probe_report(output[:4_194_816],9)
 
     def test_video_profile_preserves_worker_boundaries(self):
         for mode, count in [('inspect', 9), ('memory', 1), ('process', 1), ('disk', 1)]:

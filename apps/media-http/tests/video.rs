@@ -20,17 +20,19 @@ async fn document(format: board_media::video::VideoFormat) -> board_media::video
     let mut wire = vec![0; OUTPUT_DISK_BYTES as usize];
     wire[..8].copy_from_slice(b"IBVID005");
     wire[8] = format.tag();
-    wire[16..20].copy_from_slice(&1_u32.to_be_bytes());
-    wire[20..24].copy_from_slice(&1_u32.to_be_bytes());
+    wire[16..20].copy_from_slice(&300_u32.to_be_bytes());
+    wire[20..24].copy_from_slice(&200_u32.to_be_bytes());
     wire[24..32].copy_from_slice(&500_000_u64.to_be_bytes());
-    wire[40..44].copy_from_slice(&1_u32.to_be_bytes());
-    wire[44..48].copy_from_slice(&1_u32.to_be_bytes());
+    wire[40..44].copy_from_slice(&250_u32.to_be_bytes());
+    wire[44..48].copy_from_slice(&166_u32.to_be_bytes());
     wire[48..56].copy_from_slice(&12_u64.to_be_bytes());
     match format {
         VideoFormat::Webm => wire[64..68].copy_from_slice(&[0x1a, 0x45, 0xdf, 0xa3]),
         VideoFormat::Mp4 => wire[68..72].copy_from_slice(b"ftyp"),
     }
-    wire[76..80].copy_from_slice(&[255, 0, 0, 255]);
+    for pixel in wire[76..76 + 250 * 166 * 4].chunks_exact_mut(4) {
+        pixel.copy_from_slice(&[255, 0, 0, 255]);
+    }
     ValidatedVideo::read_disk(std::io::Cursor::new(wire), format)
         .await
         .unwrap()
@@ -49,11 +51,13 @@ async fn video_approval_binds_format_and_checks_actual_bytes_before_conditional_
         board_media::video::VideoFormat::Webm,
         board_media::video::VideoFormat::Mp4,
     ] {
-        video_case(format).await;
+        for reply in [false, true] {
+            video_case(format, reply).await;
+        }
     }
 }
 
-async fn video_case(format: board_media::video::VideoFormat) {
+async fn video_case(format: board_media::video::VideoFormat, reply: bool) {
     let admin = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -69,8 +73,10 @@ async fn video_case(format: board_media::video::VideoFormat) {
         .bind(&board).execute(&admin).await.unwrap();
     let task_board = board.clone();
     let result =
-        tokio::spawn(async move { exercise(task_admin, task_ids, &task_board, format).await })
-            .await;
+        tokio::spawn(
+            async move { exercise(task_admin, task_ids, &task_board, format, reply).await },
+        )
+        .await;
     let mut cleanup = admin.begin().await.unwrap();
     sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(&board)
@@ -116,6 +122,7 @@ async fn exercise(
     ids: Arc<Mutex<Vec<String>>>,
     board: &str,
     format: board_media::video::VideoFormat,
+    reply: bool,
 ) {
     let ext = format.extension();
     let store_format = if format == board_media::video::VideoFormat::Webm {
@@ -162,16 +169,16 @@ async fn exercise(
     let metadata = OutputMetadata {
         sha256: encoded.sha256().into(),
         bytes: encoded.len() as i64,
-        width: 1,
-        height: 1,
+        width: 300,
+        height: 200,
     };
     let variants = OutputVariants {
         md5: encoded.md5().into(),
         thumbnail: OutputMetadata {
             sha256: thumbnail.sha256().into(),
             bytes: thumbnail.len() as i64,
-            width: 1,
-            height: 1,
+            width: 250,
+            height: 166,
         },
     };
     let guard = store.try_lock().unwrap();
@@ -418,12 +425,50 @@ async fn exercise(
     }
     writer.close().await;
     // WebM precedes the source image-only GIF policy. Check current board policy again at consumption.
-    sqlx::query("UPDATE content.boards SET gif_only=true,video_enabled=true,max_image_bytes=8388608,max_image_dimension=1 WHERE slug=$1")
+    sqlx::query("UPDATE content.boards SET gif_only=true,video_enabled=true,max_image_bytes=8388608,max_image_dimension=2048 WHERE slug=$1")
         .bind(board).execute(&admin).await.unwrap();
     let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
         .await
         .unwrap();
     let identity = board_domain::poster_id::PosterIdKey::parse(&"7".repeat(64)).unwrap();
+    let thread_id = if reply {
+        board_store::create_post_with_metadata(
+            &public,
+            board,
+            0,
+            &board_store::NewPost {
+                name: String::new(),
+                subject: "Owned parent".into(),
+                comment: "Parent for video reply".into(),
+                deletion_hash: "fixture-hash".into(),
+                sage: false,
+            },
+            None,
+            board_store::PostingContext {
+                request_start: sqlx::query_scalar("SELECT clock_timestamp()")
+                    .fetch_one(&admin)
+                    .await
+                    .unwrap(),
+                peer: Some("192.0.2.202".parse().unwrap()),
+                op_password_proof: None,
+            },
+            board_store::PostMetadata {
+                keys: board_store::PostIdentityKeys {
+                    tripcode: None,
+                    poster_id: Some(&identity),
+                },
+                spoiler: false,
+                country_database: None,
+                flag: "",
+                options: "",
+                drawing: None,
+            },
+        )
+        .await
+        .unwrap()
+    } else {
+        0
+    };
     // Board policy is authoritative at consumption, even after processing.
     sqlx::query("UPDATE content.boards SET video_enabled=false WHERE slug=$1")
         .bind(board)
@@ -433,7 +478,7 @@ async fn exercise(
     let denied = board_store::create_post_with_metadata(
         &public,
         board,
-        0,
+        thread_id,
         &board_store::NewPost {
             name: String::new(),
             subject: "Document fixture".into(),
@@ -486,7 +531,7 @@ async fn exercise(
     let post = board_store::create_post_with_metadata(
         &public,
         board,
-        0,
+        thread_id,
         &board_store::NewPost {
             name: String::new(),
             subject: "Document fixture".into(),
@@ -525,6 +570,14 @@ async fn exercise(
         .unwrap()
         .unwrap();
     assert_eq!(attachment.output_format, store_format);
+    assert_eq!(
+        (attachment.thumbnail_width, attachment.thumbnail_height),
+        if reply {
+            (Some(125), Some(83))
+        } else {
+            (Some(250), Some(166))
+        }
+    );
     let post_url = format!("/{board}/{}.{ext}", attachment.tim);
     let post_thumbnail = format!("/{board}/{}s.jpg", attachment.tim);
     for (path, mime, expected) in [

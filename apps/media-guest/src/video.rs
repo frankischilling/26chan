@@ -427,6 +427,17 @@ mod tests {
         assert_eq!(u32::from_be_bytes(rotated[20..24].try_into().unwrap()), 48);
         assert_eq!(u32::from_be_bytes(rotated[40..44].try_into().unwrap()), 48);
         assert_eq!(u32::from_be_bytes(rotated[44..48].try_into().unwrap()), 64);
+        let aspect = process(
+            &fs::read(owned.join("blue-sar.mp4")).unwrap(),
+            Container::Mp4,
+            &tools.join("ffmpeg"),
+            &tools.join("ffprobe"),
+            &root,
+        )
+        .unwrap();
+        assert_eq!(f64::from_be_bytes(aspect[32..40].try_into().unwrap()), 1.5);
+        assert_eq!(u32::from_be_bytes(aspect[40..44].try_into().unwrap()), 64);
+        assert_eq!(u32::from_be_bytes(aspect[44..48].try_into().unwrap()), 32);
         assert!(
             process(
                 b"not a video",

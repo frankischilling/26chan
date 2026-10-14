@@ -959,6 +959,38 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn video_previews_use_static_thumbnails_and_approved_format() {
+        for format in [
+            board_store::media_assets::MediaFormat::Webm,
+            board_store::media_assets::MediaFormat::Mp4,
+        ] {
+            for spoiler in [false, true] {
+                let mut snapshot = preview_fixture(false);
+                let mut file = attachment();
+                file.output_format = format;
+                file.spoiler = spoiler;
+                file.width = 2048;
+                file.height = 1024;
+                file.filename = "owned.other".into();
+                snapshot.post.attachment = Some(file);
+                let preview: serde_json::Value = serde_json::from_slice(
+                    &encode_preview(snapshot, "https://media.example", MAX_PREVIEW_BYTES).unwrap(),
+                )
+                .unwrap();
+                let html = preview["post"]["html"].as_str().unwrap();
+                assert!(html.contains(&format!("9223372036854775807.{}\"", format.extension())));
+                assert!(html.contains("2048x1024"));
+                assert!(!html.contains("<video"));
+                assert!(html.contains(if spoiler {
+                    "/static/catalog/spoiler.png"
+                } else {
+                    "9223372036854775807s.jpg"
+                }));
+            }
+        }
+    }
+
+    #[test]
     fn preview_rejects_inconsistent_hidden_or_oversized_posts() {
         for variant in 0..8 {
             let mut snapshot = preview_fixture(false);
