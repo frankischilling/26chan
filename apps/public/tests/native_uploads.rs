@@ -190,6 +190,18 @@ impl Fixture {
                 .await,
             Err(board_store::StoreError::NotFound)
         ));
+        // Cancellation revokes posting authority; the queued job may still be
+        // collected by the worker. Remove this owned fixture before the next
+        // exercise, which deliberately requires an otherwise idle queue.
+        assert_eq!(
+            sqlx::query("DELETE FROM media.jobs WHERE id=$1")
+                .bind(id)
+                .execute(&self.owner)
+                .await
+                .unwrap()
+                .rows_affected(),
+            1
+        );
     }
 
     async fn exercise_drawings(&self) {
