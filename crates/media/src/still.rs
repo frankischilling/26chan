@@ -5,6 +5,9 @@ use md5::{Digest as _, Md5};
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncRead, AsyncReadExt};
 
+mod board_policy;
+pub use board_policy::source_policy;
+
 pub const OUTPUT_DISK_BYTES: u64 = 16 * 1024 * 1024;
 pub const MAX_IMAGE_BYTES: u32 = 10 * 1024 * 1024;
 

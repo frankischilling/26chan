@@ -159,6 +159,25 @@ fn probe() -> std::io::Result<()> {
                 );
             }
         }
+        Some("limits") => {
+            use rustix::process::{Resource, getrlimit};
+            for (resource, expected) in [
+                (Resource::Cpu, if still { 20 } else { 5 }),
+                (
+                    Resource::As,
+                    if still {
+                        1536 * 1024 * 1024
+                    } else {
+                        96 * 1024 * 1024
+                    },
+                ),
+                (Resource::Nproc, 16),
+                (Resource::Nofile, 32),
+            ] {
+                let actual = getrlimit(resource);
+                checks.push(actual.current == Some(expected) && actual.maximum == Some(expected));
+            }
+        }
         Some("memory") => {
             let mut bounded = Vec::<u8>::new();
             let limit = if still { 2048 } else { 128 };

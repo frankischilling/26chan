@@ -6,6 +6,8 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
 import zlib
 from owned_process import run_owned
@@ -33,17 +35,48 @@ def png(width, height):
 
 
 class StillVmTest(unittest.TestCase):
-    def run_job(self, source, *, probe=False):
+    def run_job(self, source, *, probe=False, measure=False, expect_failure=False):
         with tempfile.TemporaryDirectory(prefix='owned-still-vm-') as directory:
             root = pathlib.Path(directory)
             source_path, output = root / 'input', root / 'output'
             source_path.write_bytes(source)
-            result = run_owned([sys.executable, str(REPO / 'scripts/media/run-job.py'),
-                                '--input-kind', 'still-v6', '--owned-diagnostics',
-                                os.environ['MEDIA_VM_PROBE_CONFIG' if probe else 'MEDIA_VM_TEST_CONFIG'], str(source_path), str(output)],
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=70)
-            self.assertEqual(result.returncode, 0, result.stderr.decode(errors='replace'))
+            stop = threading.Event()
+            peaks = []
+            def observe():
+                roots = [pathlib.Path('/sys/fs/cgroup'), pathlib.Path('/sys/fs/cgroup/memory')]
+                while not stop.wait(0.02):
+                    for mount in roots:
+                        for unit in (mount / 'system.slice').glob('26chan-media-*.service'):
+                            for field in ('memory.peak', 'memory.max_usage_in_bytes'):
+                                try:
+                                    peaks.append(int((unit / field).read_text().strip()))
+                                except FileNotFoundError:
+                                    pass
+            observer = threading.Thread(target=observe, daemon=True) if measure else None
+            if observer:
+                observer.start()
+            try:
+                result = run_owned([sys.executable, str(REPO / 'scripts/media/run-job.py'),
+                                    '--input-kind', 'still-v6', '--owned-diagnostics',
+                                    os.environ['MEDIA_VM_PROBE_CONFIG' if probe else 'MEDIA_VM_TEST_CONFIG'], str(source_path), str(output)],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=70)
+            finally:
+                stop.set()
+                if observer:
+                    observer.join(timeout=2)
+            if measure:
+                self.assertTrue(peaks, 'no live VMM memory usage observed')
+                self.assertGreater(max(peaks), 250 * 1024 * 1024)
+                self.assertLessEqual(max(peaks), 2560 * 1024 * 1024)
+                print(f'Still-image VMM observed cgroup peak: {max(peaks)} bytes', flush=True)
+            if expect_failure:
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(output.exists())
+            else:
+                self.assertEqual(result.returncode, 0, result.stderr.decode(errors='replace'))
             self.assertEqual(sorted(path.name for path in pathlib.Path('/run/26chan-media-jobs').iterdir()), ['runner.lock'])
+            if expect_failure:
+                return None
             data = output.read_bytes()
             self.assertEqual(len(data), OUTPUT_BYTES)
             return data
@@ -68,12 +101,25 @@ class StillVmTest(unittest.TestCase):
                     else:
                         self.assertEqual(retained, tagged)
 
+    def test_live_still_vmm_has_only_the_approved_larger_memory_budget(self):
+        from test_vm import VmTest
+        VmTest().check_live_vmm_limits('still-v6', 2560 * 1024 * 1024)
+
     def test_still_profile_preserves_worker_boundaries(self):
-        for mode, checks in [('inspect', 9), ('memory', 1), ('process', 1), ('disk', 1)]:
+        for mode, checks in [('inspect', 9), ('limits', 4), ('memory', 1), ('process', 1), ('disk', 1)]:
             with self.subTest(mode=mode):
                 output = self.run_job(mode.encode().ljust(17, b' '), probe=True)
                 check_probe_report(output[:4_194_816], checks)
                 self.assertFalse(any(output[4_194_816:]))
+
+    def test_wall_deadline_removes_the_sleeping_worker(self):
+        started = time.monotonic()
+        self.run_job(b'sleep'.ljust(17, b' '), probe=True, expect_failure=True)
+        elapsed = time.monotonic() - started
+        self.assertGreaterEqual(elapsed, 40)
+        self.assertLess(elapsed, 70)
+        output = self.run_job(b'inspect'.ljust(17, b' '), probe=True)
+        check_probe_report(output[:4_194_816], 9)
 
     def test_cancellation_removes_live_vm_and_partial_output(self):
         from test_vm import VmTest
@@ -98,7 +144,7 @@ class StillVmTest(unittest.TestCase):
         for width, height in [(17, 9), (2048, 1024), (10_000, 10_000)]:
             with self.subTest(width=width, height=height):
                 input_image = png(width, height)
-                output = self.run_job(self.policy() + input_image)
+                output = self.run_job(self.policy() + input_image, measure=width == 10_000)
                 self.assertEqual(output[:8], b'IBIMG006')
                 self.assertEqual(output[8:24], self.policy())
                 self.assertEqual(struct.unpack('>II', output[24:32]), (width, height))

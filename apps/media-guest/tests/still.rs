@@ -192,3 +192,49 @@ async fn guest_output_matches_independent_host_envelope_checks() {
     assert_eq!(checked.retained().dimensions(), (17, 9));
     assert_eq!(checked.thumbnail().dimensions(), (17, 9));
 }
+
+#[test]
+fn authenticated_board_policy_matches_all_captured_source_defaults() {
+    use board_media::still::{StillFormat as HostFormat, source_policy};
+    let reference: serde_json::Value =
+        serde_json::from_str(include_str!("../../../fixtures/board-reference.json")).unwrap();
+    let boards = reference["source_image_presentation"].as_object().unwrap();
+    assert_eq!(boards.len(), 82);
+    for (board, expected) in boards {
+        for thread in [false, true] {
+            for capcode in [false, true] {
+                for format in [HostFormat::Png, HostFormat::Jpeg] {
+                    let policy = source_policy(board, format, thread, capcode).unwrap();
+                    let bounds = &expected[if thread {
+                        "thread_thumbnail"
+                    } else {
+                        "reply_thumbnail"
+                    }];
+                    assert_eq!(
+                        policy.thumbnail,
+                        (
+                            bounds[0].as_u64().unwrap() as u16,
+                            bounds[1].as_u64().unwrap() as u16
+                        )
+                    );
+                    assert_eq!(policy.mobile, expected["mobile_resize"].as_bool().unwrap());
+                    assert_eq!(
+                        policy.blue_background,
+                        expected["blue_thumbnail_background"].as_bool().unwrap()
+                    );
+                    assert_eq!(
+                        policy.strip_exif,
+                        expected["strip_exif"].as_bool().unwrap()
+                            || (capcode && expected["strip_exif_on_capcode"].as_bool().unwrap())
+                    );
+                    assert_eq!(policy.thread, thread);
+                    assert_eq!(policy.format, format);
+                    assert!(policy.header().is_ok());
+                }
+            }
+        }
+    }
+    for unknown in ["", "/p/", "P", "p\0", "unknown", "../p"] {
+        assert!(source_policy(unknown, HostFormat::Jpeg, true, false).is_none());
+    }
+}
