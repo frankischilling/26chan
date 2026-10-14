@@ -57,8 +57,10 @@ jobs:
         run: python3 scripts/test-archive-age-reference.py
       - name: Qualify source poll reference pages
         run: php -n -d allow_url_fopen=0 -d allow_url_include=0 scripts/render-poll-reference.php --check
-      - name: Qualify isolated source image geometry
-        run: python3 scripts/extract-image-presentation-reference.py --php-oracle
+      - name: Qualify isolated source image geometry and upload names
+        run: |
+          python3 scripts/extract-image-presentation-reference.py --php-oracle
+          python3 scripts/test-upload-filename-reference.py
       - name: Qualify isolated source video decisions
         run: python3 scripts/extract-video-reference.py --php-oracle
       - name: Start disposable database and migrate

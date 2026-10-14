@@ -35,8 +35,9 @@ Run the source checks with:
 ```sh
 python3 scripts/extract-image-presentation-reference.py /path/to/4chan-old --check --php /path/to/php
 python3 scripts/test-image-presentation-reference.py
+python3 scripts/test-upload-filename-reference.py --php /path/to/php
 python3 scripts/test-image-board-policy-reference.py
 cargo test -p board-media-guest --test image_geometry --locked
 ```
 
-The PHP check executes only the captured arithmetic and format/size conditions. Its 21 expected cases are literal values independent of the Rust implementation. The board extractor also preserves the applied 0045, 0064 and 0132 migration output.
+The geometry PHP check executes only the captured arithmetic and format/size conditions. A separate 17-case check executes the pinned upload-name sanitizer without the application bootstrap. Its 21 expected cases are literal values independent of the Rust implementation. The board extractor also preserves the applied 0045, 0064 and 0132 migration output.

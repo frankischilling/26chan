@@ -100,6 +100,23 @@ mod tests {
     }
 
     #[test]
+    fn upload_names_match_executed_source_sanitizer_cases() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../fixtures/source-upload-filenames.json"
+        ))
+        .unwrap();
+        for case in fixture["cases"].as_array().unwrap() {
+            assert_eq!(
+                normalize_upload(
+                    case["input"].as_str().unwrap(),
+                    case["board"].as_str().unwrap()
+                ),
+                case["expected"].as_str().unwrap()
+            );
+        }
+    }
+
+    #[test]
     fn upload_spacing_board_flags_match_the_source_fixture() {
         let fixture: serde_json::Value =
             serde_json::from_str(include_str!("../../../fixtures/board-reference.json")).unwrap();
