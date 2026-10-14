@@ -75,8 +75,9 @@ async fn admit(state: &AppState, request: Request, next: Next) -> Response {
 
 fn headers(mut response: Response) -> Response {
     // A browser's standalone media document fetches its own approved URL.
-    // Keep script, frame, form and sandbox restrictions; grant only media reads
-    // on this media origin for successful fixed video representations.
+    // Chromium creates that element with crossorigin=anonymous. Retain this
+    // isolated media origin so its own read is same-origin, rather than allowing
+    // CORS from every opaque/null origin. Scripts, frames and forms stay blocked.
     let video = matches!(
         response.status(),
         StatusCode::OK | StatusCode::PARTIAL_CONTENT | StatusCode::NOT_MODIFIED
@@ -86,7 +87,7 @@ fn headers(mut response: Response) -> Response {
         .is_some_and(|value| value == "video/webm" || value == "video/mp4");
     let h = response.headers_mut();
     let policy = if video {
-        "default-src 'none'; media-src 'self'; sandbox; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+        "default-src 'none'; media-src 'self'; sandbox allow-same-origin; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
     } else {
         "default-src 'none'; sandbox; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
     };
@@ -142,7 +143,14 @@ mod tests {
                     ) && matches!(mime, "video/webm" | "video/mp4")
                 );
                 assert!(csp.contains("default-src 'none';"));
-                assert!(csp.contains("sandbox;"));
+                assert_eq!(
+                    csp.contains("sandbox allow-same-origin;"),
+                    matches!(
+                        status,
+                        StatusCode::OK | StatusCode::PARTIAL_CONTENT | StatusCode::NOT_MODIFIED
+                    ) && matches!(mime, "video/webm" | "video/mp4")
+                );
+                assert!(csp.contains("sandbox"));
                 assert!(!csp.contains("allow-scripts"));
                 assert_eq!(response.headers()["x-content-type-options"], "nosniff");
             }

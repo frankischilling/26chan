@@ -23,6 +23,9 @@ const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQ
 // Independent 1x1 red/blue GIF89a, 200 ms frames, infinite loop.
 const sourceVideoControls = JSON.parse(await readFile(new URL('fixtures/source-video-controls.json', root), 'utf8'));
 const ownedVideos = JSON.parse(await readFile(new URL('fixtures/owned-video-clips.json', root), 'utf8')).clips;
+const mediaSecurity = await readFile(new URL('apps/media-http/src/security.rs', root), 'utf8');
+const standaloneVideoPolicy = /"(default-src 'none'; media-src 'self'; sandbox[^"\n]+)"/.exec(mediaSecurity)?.[1];
+assert.ok(standaloneVideoPolicy, 'use the media server\'s actual fixed video policy');
 const animatedPixel = Buffer.from('47494638396101000100800000ff00000000ff21ff0b4e45545343415045322e30030100000021f90404140000002c000000000100010000020244010021f90404140000002c00000000010001000002024c01003b', 'hex');
 
 async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, pdf = false, video = null, storageOrigin = false, fallback = false } = {}) {
@@ -404,6 +407,47 @@ test('video failure restores the thumbnail and preserves the filename fallback',
   assert.equal(await page.locator('#f1 video').count(),0);
   assert.equal(await page.locator('#f1 a.fileThumb').isVisible(),true);
   assert.equal(await page.locator('#f1 p a').getAttribute('href'),'https://media.test/demo/1.webm');
+});
+
+for (const video of ['red.webm', 'blue.mp4']) {
+  test(`standalone ${video} loads under the media server policy without opaque-origin CORS`, async t => {
+    const context = await browser.newContext();
+    t.after(() => context.close());
+    const page = await context.newPage();
+    const origins = [];
+    const url = `https://media.test/demo/${video}`;
+    await context.route('**/*', async route => {
+      if (route.request().url() !== url) { await route.abort(); return; }
+      origins.push(route.request().headers().origin);
+      // No CORS grant: Chromium's standalone crossorigin=anonymous element
+      // must retain its isolated media origin rather than send Origin: null.
+      await route.fulfill({ contentType: video.endsWith('.mp4') ? 'video/mp4' : 'video/webm',
+        headers: { 'content-security-policy': standaloneVideoPolicy, 'x-content-type-options': 'nosniff' },
+        body: Buffer.from(ownedVideos[video].base64, 'base64') });
+    });
+    await page.goto(url);
+    await page.waitForFunction(() => document.querySelector('video')?.videoWidth === 64);
+    assert.deepEqual(await page.locator('video').evaluate(v => [v.videoWidth, v.videoHeight]), [64, 48]);
+    assert.equal(origins.includes('null'), false);
+    assert.equal(standaloneVideoPolicy.includes('allow-scripts'), false);
+  });
+}
+
+test('standalone video policy still blocks page scripts and external script requests', async t => {
+  const context = await browser.newContext();
+  t.after(() => context.close());
+  const page = await context.newPage(), requests = [];
+  await context.route('**/*', async route => {
+    requests.push(route.request().url());
+    if (route.request().url() !== 'https://media.test/owned-policy-check') { await route.abort(); return; }
+    // Harmless synthetic HTML checks the policy independently of MIME handling.
+    // The actual media server never serves HTML with this video-only allowance.
+    await route.fulfill({ contentType: 'text/html', headers: { 'content-security-policy': standaloneVideoPolicy },
+      body: '<!doctype html><p>Owned policy check</p><script>window.ownedScriptRan=true;</script><script src="/owned-script.js"></script>' });
+  });
+  await page.goto('https://media.test/owned-policy-check');
+  assert.equal(await page.evaluate(() => window.ownedScriptRan === true), false);
+  assert.equal(requests.includes('https://media.test/owned-script.js'), false);
 });
 
 for (const video of ['red.webm', 'red-opus.webm', 'red-vp9.webm']) {

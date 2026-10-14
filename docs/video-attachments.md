@@ -98,6 +98,14 @@ single byte range. Unsatisfiable ranges return 416; unsupported range syntax
 falls back to the complete object. HEAD and conditional responses keep their
 usual semantics. Video URLs cannot become image sources in updater recipes.
 
+Successful video responses retain the isolated media origin in their CSP
+sandbox. Chromium's standalone video document requests the file through an
+anonymous-CORS media element; an opaque sandbox origin would need a CORS grant
+for `null`. Keeping the media origin lets that read remain same-origin while
+scripts, frames and forms remain blocked. Other media types and errors keep the
+opaque sandbox. The decoder's CORS grant still names only the configured board
+origin.
+
 Native players have controls, loop, mute preference, saved volume and a close
 button. Hover previews show duration and browser-detected audio. Closing,
 retiring, hiding or disabling a player releases its source. Playback failure
