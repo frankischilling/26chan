@@ -109,6 +109,38 @@ fn thumbnail(metadata: &Metadata) -> (u32, u32) {
     )
 }
 
+// PPM is a bounded raw-pixel transport inside the guest, not an uploaded file.
+fn preview_pixels(data: &[u8]) -> io::Result<(u32, u32, Vec<u8>)> {
+    let mut parts = data.splitn(4, |byte| *byte == b'\n');
+    if parts.next() != Some(b"P6".as_slice()) {
+        return Err(rejected());
+    }
+    let size = parts
+        .next()
+        .filter(|s| s.len() <= 16)
+        .ok_or_else(rejected)?;
+    let size = std::str::from_utf8(size).map_err(|_| rejected())?;
+    let (width, height) = size.split_once(' ').ok_or_else(rejected)?;
+    let width: u32 = width.parse().map_err(|_| rejected())?;
+    let height: u32 = height.parse().map_err(|_| rejected())?;
+    if !(1..=THUMBNAIL).contains(&width)
+        || !(1..=THUMBNAIL).contains(&height)
+        || parts.next() != Some(b"255".as_slice())
+    {
+        return Err(rejected());
+    }
+    let pixels = parts.next().ok_or_else(rejected)?;
+    if pixels.len() != width as usize * height as usize * 3 {
+        return Err(rejected());
+    }
+    let mut rgba = Vec::with_capacity(width as usize * height as usize * 4);
+    for pixel in pixels.chunks_exact(3) {
+        rgba.extend_from_slice(pixel);
+        rgba.push(255);
+    }
+    Ok((width, height, rgba))
+}
+
 fn process(
     input: &[u8],
     container: Container,
@@ -201,8 +233,13 @@ fn process(
     if width == 0 || height == 0 {
         return Err(rejected());
     }
-    let filter = format!("scale={width}:{height}:flags=bicubic,format=rgba");
-    let preview_bytes = width as usize * height as usize * 4;
+    // The source sizes the decoded first frame, after autorotation, then applies
+    // its admitted sample aspect ratio. Let the decoder's filter input supply
+    // those dimensions rather than guessing them from a display matrix.
+    let ratio = metadata.sample_aspect_ratio.unwrap_or(1.0);
+    let filter = format!(
+        "scale=w='if(lt({ratio},1),max(1,round(iw*{ratio})),iw)':h='if(gt({ratio},1),max(1,round(ih/{ratio})),ih)',scale=w='trunc(iw*min(1,250/max(iw,ih)))':h='trunc(ih*min(1,250/max(iw,ih)))':flags=bicubic,format=rgb24"
+    );
     let preview = run(
         ffmpeg,
         &[
@@ -227,15 +264,15 @@ fn process(
             "-threads",
             "1",
             "-f",
-            "rawvideo",
+            "image2pipe",
+            "-c:v",
+            "ppm",
             "pipe:1",
         ],
-        preview_bytes,
+        (250 * 250 * 3) + 64,
         deadline,
     )?;
-    if preview.len() != preview_bytes {
-        return Err(rejected());
-    }
+    let (width, height, preview) = preview_pixels(&preview)?;
     let mut output = Vec::with_capacity(64 + remux.len() + preview.len());
     output.extend_from_slice(b"IBVID005");
     output.push(match container {
@@ -319,6 +356,23 @@ mod tests {
     }
 
     #[test]
+    fn ppm_preview_has_exact_bounded_pixels() {
+        assert_eq!(
+            preview_pixels(b"P6\n1 1\n255\n\xff\0\0").unwrap(),
+            (1, 1, vec![255, 0, 0, 255])
+        );
+        for invalid in [
+            b"P6\n0 1\n255\n".as_slice(),
+            b"P6\n251 1\n255\n",
+            b"P6\n1 1\n65535\n",
+            b"P6\n1 1\n255\n\0\0",
+            b"P6\n1 1\n255\n\0\0\0\0",
+        ] {
+            assert!(preview_pixels(invalid).is_err());
+        }
+    }
+
+    #[test]
     fn invalid_framing_never_starts_a_processor() {
         for bytes in [vec![], vec![0; 9], vec![255; 9]] {
             assert!(decode_disk(bytes.as_slice()).is_err());
@@ -361,6 +415,18 @@ mod tests {
             }
             assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
         }
+        let rotated = process(
+            &fs::read(owned.join("blue-rotation90.mp4")).unwrap(),
+            Container::Mp4,
+            &tools.join("ffmpeg"),
+            &tools.join("ffprobe"),
+            &root,
+        )
+        .unwrap();
+        assert_eq!(u32::from_be_bytes(rotated[16..20].try_into().unwrap()), 64);
+        assert_eq!(u32::from_be_bytes(rotated[20..24].try_into().unwrap()), 48);
+        assert_eq!(u32::from_be_bytes(rotated[40..44].try_into().unwrap()), 48);
+        assert_eq!(u32::from_be_bytes(rotated[44..48].try_into().unwrap()), 64);
         assert!(
             process(
                 b"not a video",

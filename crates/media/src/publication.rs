@@ -1,6 +1,7 @@
 use crate::animation::{EncodedGif, MAX_GIF_BYTES};
 use crate::canonical_replay::CanonicalReplay;
 use crate::pdf::{MAX_PDF_BYTES, RetainedPdf};
+use crate::video::{MAX_VIDEO_BYTES, ValidatedVideo, VideoFormat};
 use crate::{EncodedOutput, MAX_PNG_BYTES, MediaError, ObjectId, Promotion, Quarantine};
 use sha2::{Digest, Sha256};
 use std::{
@@ -45,6 +46,8 @@ enum Format {
     Png,
     Gif,
     Pdf,
+    Webm,
+    Mp4,
     Replay,
 }
 
@@ -54,14 +57,18 @@ impl Format {
             Self::Png => "png",
             Self::Gif => "gif",
             Self::Pdf => "pdf",
+            Self::Webm => "webm",
+            Self::Mp4 => "mp4",
             Self::Replay => "ibr",
         }
     }
     fn other_primary_formats(self) -> &'static [&'static str] {
         match self {
-            Self::Png => &["gif", "pdf"],
-            Self::Gif => &["png", "pdf"],
-            Self::Pdf => &["png", "gif"],
+            Self::Png => &["gif", "pdf", "webm", "mp4"],
+            Self::Gif => &["png", "pdf", "webm", "mp4"],
+            Self::Pdf => &["png", "gif", "webm", "mp4"],
+            Self::Webm => &["png", "gif", "pdf", "mp4"],
+            Self::Mp4 => &["png", "gif", "pdf", "webm"],
             Self::Replay => unreachable!("replays have no opposite image format"),
         }
     }
@@ -70,6 +77,7 @@ impl Format {
             Self::Png => MAX_PNG_BYTES as u64,
             Self::Gif => MAX_GIF_BYTES as u64,
             Self::Pdf => MAX_PDF_BYTES,
+            Self::Webm | Self::Mp4 => MAX_VIDEO_BYTES,
             Self::Replay => crate::replay_wire::MAX_WIRE_BYTES as u64,
         }
     }
@@ -166,6 +174,20 @@ impl PublicationGuard<'_> {
     /// PDF reservation. These bytes are never a host-encoded safe image.
     pub fn install_pdf(&self, id: ObjectId, output: &RetainedPdf) -> Result<Promotion, MediaError> {
         self.install_bytes(id, output.bytes(), output.sha256(), Format::Pdf, false)
+    }
+
+    /// Install the bounded remuxed object under its immutable reserved format.
+    /// It remains untrusted compressed media, never a host-encoded safe image.
+    pub fn install_video(
+        &self,
+        id: ObjectId,
+        output: &ValidatedVideo,
+    ) -> Result<Promotion, MediaError> {
+        let format = match output.format() {
+            VideoFormat::Webm => Format::Webm,
+            VideoFormat::Mp4 => Format::Mp4,
+        };
+        self.install_bytes(id, output.bytes(), output.sha256(), format, false)
     }
 
     /// Caller must reserve replay metadata bound to the same paired image job.
@@ -282,6 +304,8 @@ impl PublicationGuard<'_> {
             "png",
             "gif",
             "pdf",
+            "webm",
+            "mp4",
             "thumb.part",
             "thumb.png",
             "replay.part",
@@ -336,6 +360,23 @@ impl ApprovedFiles {
             sha256,
             bytes,
             MAX_PDF_BYTES,
+        )
+    }
+
+    /// Call only after live approval for the exact video format, hash and size.
+    /// Range responses must still authenticate the complete stored object.
+    pub fn read_video(
+        &self,
+        id: ObjectId,
+        sha256: &str,
+        bytes: u64,
+        format: VideoFormat,
+    ) -> Result<Vec<u8>, MediaError> {
+        read_checked(
+            &self.root.join(format!("{id}.{}", format.extension())),
+            sha256,
+            bytes,
+            MAX_VIDEO_BYTES,
         )
     }
 

@@ -313,7 +313,7 @@ async fn receive(
         let mut total = 0usize;
         while let Some(chunk) = field.chunk().await.map_err(|_| invalid())? {
             total = total.checked_add(chunk.len()).ok_or_else(invalid)?;
-            if total > board_settings.image_file_limit() {
+            if total > board_settings.attachment_file_limit(&filename) {
                 return Err(AppError(
                     StatusCode::PAYLOAD_TOO_LARGE,
                     "Error: File too large.",

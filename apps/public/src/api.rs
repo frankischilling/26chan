@@ -152,6 +152,11 @@ pub async fn boards(
             }
             value["max_filesize"] = json!(board.image_file_limit());
             value["image_limit"] = json!(board.image_limit);
+            if board.video_enabled {
+                value["max_webm_filesize"] = json!(board.max_video_bytes);
+                value["max_webm_duration"] = json!(board.max_video_duration);
+                if board.video_audio { value["webm_audio"] = json!(1); }
+            }
             if board.min_image_width > 1 {
                 value["min_image_width"] = json!(board.min_image_width);
             }

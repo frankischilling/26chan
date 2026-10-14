@@ -830,3 +830,10 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 @media (max-width: 480px) {
   #blotter.desktop { display: none; }
 }
+
+/* Native video controls stay outside the thumbnail link. */
+.board .fileThumb.nativeVideoOpen { display: none; }
+.board .file > video.expanded-thumb { display: block; width: auto; height: auto; clear: both; }
+.board .file > video.expanded-thumb[hidden] { display: none; }
+.nativeVideoClose { cursor: pointer; margin: 0 4px 4px 0; }
+.nativeVideoDuration { position: fixed; z-index: 1001; background: #fff; color: #000; border: 1px solid #888; padding: 2px 5px; pointer-events: none; }

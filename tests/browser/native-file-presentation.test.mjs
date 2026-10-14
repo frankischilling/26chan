@@ -73,3 +73,15 @@ test('PDF captions identify a document and only its static preview can load as a
     assert.equal(parse(changed).status, 'invalid-snapshot');
   }
 });
+
+test('video caption formats bind static thumbnails without permitting media as image sources', () => {
+  for (const ext of ['webm', 'mp4']) {
+    const video = original.replaceAll('/demo/1.png', `/demo/1.${ext}`).replace('2 KB PNG', `2 KB ${ext.toUpperCase()}`);
+    assert.equal(parse(video).status, 'ok');
+    for (const changed of [video.replace('/demo/1s.jpg', `/demo/1.${ext}`),
+      video.replace(`2 KB ${ext.toUpperCase()}`, '2 KB PNG'),
+      video.replaceAll(`/demo/1.${ext}`, `/demo/1.${ext.toUpperCase()}`)]) {
+      assert.equal(parse(changed).status, 'invalid-snapshot');
+    }
+  }
+});

@@ -52,6 +52,10 @@ class VideoVmTest(unittest.TestCase):
                         self.assertGreaterEqual(output[offset + channel], 240)
                         self.assertEqual(output[offset + 3], 255)
                     self.assertFalse(any(output[used:]))
+            output = self.run_job(b'\x02' + pathlib.Path(directory, 'blue-rotation90.mp4').read_bytes())
+            self.assertEqual(output[:8], b'IBVID005')
+            self.assertEqual(struct.unpack('>II', output[16:24]), (64, 48))
+            self.assertEqual(struct.unpack('>II', output[40:48]), (48, 64))
             for source in [b'\x01invalid', b'\x02invalid', b'\x03invalid']:
                 self.assertEqual(self.run_job(source), bytes(DISK_BYTES))
             self.assertEqual(self.run_job(b'\x01' + pathlib.Path(directory, 'red.webm').read_bytes())[:8], b'IBVID005')

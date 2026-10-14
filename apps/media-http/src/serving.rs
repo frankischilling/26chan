@@ -5,7 +5,7 @@ use axum::{
     http::{HeaderMap, HeaderValue, Method, StatusCode, Uri, header},
     response::{IntoResponse, Response},
 };
-use board_media::ObjectId;
+use board_media::{ObjectId, video::VideoFormat};
 use board_store::StoreError;
 use board_store::media_assets::MediaFormat;
 
@@ -13,11 +13,16 @@ pub async fn image(
     State(state): State<AppState>,
     Path(name): Path<String>,
     uri: Uri,
+    method: Method,
     headers: HeaderMap,
 ) -> Response {
     let thumbnail = name.ends_with(".thumb.png");
     let (suffix, format) = if thumbnail {
         (".thumb.png", MediaFormat::Png)
+    } else if name.ends_with(".webm") {
+        (".webm", MediaFormat::Webm)
+    } else if name.ends_with(".mp4") {
+        (".mp4", MediaFormat::Mp4)
     } else if name.ends_with(".pdf") {
         (".pdf", MediaFormat::Pdf)
     } else if name.ends_with(".gif") {
@@ -39,7 +44,7 @@ pub async fn image(
     } else {
         state.reader.get(&id.to_string()).await
     };
-    serve(state, asset, thumbnail, format, headers, false).await
+    serve(state, asset, thumbnail, format, headers, false, method).await
 }
 
 pub async fn post_image(
@@ -52,6 +57,10 @@ pub async fn post_image(
     let thumbnail = name.ends_with("s.jpg");
     let (suffix, format) = if thumbnail {
         ("s.jpg", MediaFormat::Png)
+    } else if name.ends_with(".webm") {
+        (".webm", MediaFormat::Webm)
+    } else if name.ends_with(".mp4") {
+        (".mp4", MediaFormat::Mp4)
     } else if name.ends_with(".pdf") {
         (".pdf", MediaFormat::Pdf)
     } else if name.ends_with(".gif") {
@@ -72,7 +81,16 @@ pub async fn post_image(
     let drawing_png = !thumbnail
         && format == MediaFormat::Png
         && (method == Method::GET || method == Method::HEAD);
-    serve(state, asset, thumbnail, format, headers, drawing_png).await
+    serve(
+        state,
+        asset,
+        thumbnail,
+        format,
+        headers,
+        drawing_png,
+        method,
+    )
+    .await
 }
 
 /// Canonical records only. Never expose compressed TGKR or private input files.
@@ -171,6 +189,7 @@ async fn serve(
     format: MediaFormat,
     headers: HeaderMap,
     drawing_png: bool,
+    method: Method,
 ) -> Response {
     let asset = match asset {
         Ok(asset) => asset,
@@ -185,7 +204,7 @@ async fn serve(
     };
     let etag = format!("\"{}\"", asset.sha256);
     let files = state.files.clone();
-    let bytes = match state
+    let mut bytes = match state
         .blocking(move || {
             let size = asset
                 .bytes
@@ -195,6 +214,10 @@ async fn serve(
                 files.read_thumbnail(id, &asset.sha256, size)
             } else if format == MediaFormat::Pdf {
                 files.read_pdf(id, &asset.sha256, size)
+            } else if format == MediaFormat::Webm {
+                files.read_video(id, &asset.sha256, size, VideoFormat::Webm)
+            } else if format == MediaFormat::Mp4 {
+                files.read_video(id, &asset.sha256, size, VideoFormat::Mp4)
             } else if format == MediaFormat::Gif {
                 files.read_gif(id, &asset.sha256, size)
             } else {
@@ -212,9 +235,32 @@ async fn serve(
         .iter()
         .filter_map(|h| h.to_str().ok())
         .any(|value| matches_etag(value, &etag));
+    let total = bytes.len();
+    let range = if format.is_video() && method == Method::GET && !unchanged {
+        video_range(&headers, &etag, total)
+    } else {
+        ByteRange::Full
+    };
+    if range == ByteRange::Unsatisfiable {
+        let mut response = error(StatusCode::RANGE_NOT_SATISFIABLE);
+        response.headers_mut().insert(
+            header::CONTENT_RANGE,
+            HeaderValue::from_str(&format!("bytes */{total}")).expect("bounded length"),
+        );
+        response
+            .headers_mut()
+            .insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+        return response;
+    }
+    if let ByteRange::Partial(start, end) = range {
+        bytes.truncate(end + 1);
+        bytes.drain(..start);
+    }
     let length = bytes.len();
     let mut response = if unchanged {
         StatusCode::NOT_MODIFIED.into_response()
+    } else if matches!(range, ByteRange::Partial(_, _)) {
+        (StatusCode::PARTIAL_CONTENT, Body::from(bytes)).into_response()
     } else {
         Body::from(bytes).into_response()
     };
@@ -236,7 +282,16 @@ async fn serve(
         HeaderValue::from_str(&format!("inline; filename=\"{id}.{}\"", format.extension()))
             .expect("opaque filename"),
     );
-    h.insert("accept-ranges", HeaderValue::from_static("none"));
+    h.insert(
+        "accept-ranges",
+        HeaderValue::from_static(if format.is_video() { "bytes" } else { "none" }),
+    );
+    if let ByteRange::Partial(start, end) = range {
+        h.insert(
+            header::CONTENT_RANGE,
+            HeaderValue::from_str(&format!("bytes {start}-{end}/{total}")).expect("bounded range"),
+        );
+    }
     if drawing_png {
         // Both representations are verified above, including conditional 304.
         // An eligible response varies even when the request has no Origin or
@@ -262,6 +317,69 @@ async fn serve(
     response
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ByteRange {
+    Full,
+    Partial(usize, usize),
+    Unsatisfiable,
+}
+
+/// One bounded byte range. Unsupported/malformed syntax is ignored; a valid
+/// range wholly outside the object gets 416. Dates/weak validators do not match.
+fn video_range(headers: &HeaderMap, etag: &str, length: usize) -> ByteRange {
+    let mut conditions = headers.get_all(header::IF_RANGE).iter();
+    if let Some(condition) = conditions.next()
+        && (conditions.next().is_some() || condition.as_bytes() != etag.as_bytes())
+    {
+        return ByteRange::Full;
+    }
+    let mut ranges = headers.get_all(header::RANGE).iter();
+    let Some(value) = ranges.next().and_then(|v| v.to_str().ok()) else {
+        return ByteRange::Full;
+    };
+    if ranges.next().is_some() || value.len() > 256 {
+        return ByteRange::Full;
+    }
+    let Some(specification) = value.strip_prefix("bytes=") else {
+        return ByteRange::Full;
+    };
+    let Some((start, end)) = specification.trim().split_once('-') else {
+        return ByteRange::Full;
+    };
+    let number = |value: &str| -> Option<usize> {
+        (!value.is_empty() && value.len() <= 20 && value.bytes().all(|b| b.is_ascii_digit()))
+            .then(|| value.parse().ok())
+            .flatten()
+    };
+    if start.is_empty() {
+        let Some(suffix) = number(end) else {
+            return ByteRange::Full;
+        };
+        if suffix == 0 || length == 0 {
+            return ByteRange::Unsatisfiable;
+        }
+        return ByteRange::Partial(length.saturating_sub(suffix), length - 1);
+    }
+    let Some(start) = number(start) else {
+        return ByteRange::Full;
+    };
+    let end = if end.is_empty() {
+        length.saturating_sub(1)
+    } else {
+        let Some(end) = number(end) else {
+            return ByteRange::Full;
+        };
+        if end < start {
+            return ByteRange::Full;
+        }
+        end
+    };
+    if start >= length {
+        return ByteRange::Unsatisfiable;
+    }
+    ByteRange::Partial(start, end.min(length - 1))
+}
+
 fn matches_etag(value: &str, etag: &str) -> bool {
     value.len() <= 4096
         && value.split(',').any(|part| {
@@ -283,8 +401,42 @@ pub async fn ready(State(state): State<AppState>) -> Response {
 
 #[cfg(test)]
 mod tests {
-    use super::matches_etag;
+    use super::{ByteRange, matches_etag, video_range};
+    use axum::http::{HeaderMap, HeaderValue, header};
     use proptest::prelude::*;
+
+    #[test]
+    fn bounded_video_ranges_and_strong_validators() {
+        let etag = "\"owned\"";
+        for (range, expected) in [
+            ("bytes=0-0", ByteRange::Partial(0, 0)),
+            ("bytes=4-", ByteRange::Partial(4, 9)),
+            ("bytes=2-999", ByteRange::Partial(2, 9)),
+            ("bytes=-3", ByteRange::Partial(7, 9)),
+            ("bytes=-99", ByteRange::Partial(0, 9)),
+            ("bytes=10-", ByteRange::Unsatisfiable),
+            ("bytes=-0", ByteRange::Unsatisfiable),
+            ("bytes=9-3", ByteRange::Full),
+            ("bytes=0-1,4-5", ByteRange::Full),
+            ("items=0-1", ByteRange::Full),
+            ("bytes=+1-2", ByteRange::Full),
+            ("bytes=184467440737095516160-", ByteRange::Full),
+        ] {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::RANGE, HeaderValue::from_static(range));
+            assert_eq!(video_range(&headers, etag, 10), expected, "{range}");
+            headers.insert(header::IF_RANGE, HeaderValue::from_static("\"owned\""));
+            assert_eq!(video_range(&headers, etag, 10), expected);
+            for stale in ["W/\"owned\"", "\"other\"", "Wed, 21 Oct 2015 07:28:00 GMT"] {
+                headers.insert(header::IF_RANGE, HeaderValue::from_static(stale));
+                assert_eq!(video_range(&headers, etag, 10), ByteRange::Full);
+            }
+        }
+        let mut headers = HeaderMap::new();
+        headers.append(header::RANGE, HeaderValue::from_static("bytes=0-1"));
+        headers.append(header::RANGE, HeaderValue::from_static("bytes=4-5"));
+        assert_eq!(video_range(&headers, etag, 10), ByteRange::Full);
+    }
 
     #[test]
     fn bounded_conditional_tags_do_not_match_prefixes_or_substrings() {

@@ -115,10 +115,28 @@ pub(crate) fn scoped_error(error: sqlx::Error) -> StoreError {
             Some("Error: Image resolution is too large.") => {
                 StoreError::Invalid("Error: Image resolution is too large.")
             }
+            Some("Error: Audio streams are not allowed.") => {
+                StoreError::Invalid("Error: Audio streams are not allowed.")
+            }
+            Some(message) if video_duration_message(message) => {
+                StoreError::ContentRejected(message.into())
+            }
             _ => StoreError::Database(error),
         },
         _ => crate::restrictions::insertion_error(error),
     }
+}
+
+// Only this finite source message may carry a board-configured number to the UI.
+fn video_duration_message(message: &str) -> bool {
+    message
+        .strip_prefix("Error: Maximum allowed video duration is ")
+        .and_then(|tail| tail.strip_suffix(" seconds."))
+        .filter(|number| {
+            !number.is_empty() && number.len() <= 3 && number.bytes().all(|b| b.is_ascii_digit())
+        })
+        .and_then(|number| number.parse::<u32>().ok())
+        .is_some_and(|number| (1..=400).contains(&number))
 }
 
 /// Catalog-only readiness for the post-level file-only action and the narrow

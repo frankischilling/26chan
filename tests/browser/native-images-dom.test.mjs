@@ -21,9 +21,10 @@ const css = await readFile(new URL('apps/public/static/board.css', root), 'utf8'
 // A transparent synthetic 1x1 PNG. All requests are intercepted in this context.
 const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64');
 // Independent 1x1 red/blue GIF89a, 200 ms frames, infinite loop.
+const ownedVideos = JSON.parse(await readFile(new URL('fixtures/owned-video-clips.json', root), 'utf8')).clips;
 const animatedPixel = Buffer.from('47494638396101000100800000ff00000000ff21ff0b4e45545343415045322e30030100000021f90404140000002c000000000100010000020244010021f90404140000002c00000000010001000002024c01003b', 'hex');
 
-async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, pdf = false } = {}) {
+async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, pdf = false, video = null } = {}) {
   const context = await browser.newContext();
   t.after(() => context.close());
   const page = await context.newPage();
@@ -34,12 +35,16 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
     const mode = modes.get(new URL(url).pathname);
     if (mode === 'hold') { held.push(route); return; }
     if (mode === 'fail') { await route.fulfill({ status: 404, body: 'Owned missing image' }); return; }
+    if (video && /\.(webm|mp4)$/.test(url)) {
+      const ext = video.endsWith('.mp4') ? 'mp4' : 'webm';
+      await route.fulfill({ contentType: `video/${ext}`, body: Buffer.from(ownedVideos[video].base64, 'base64') }); return;
+    }
     await route.fulfill(url.endsWith('.gif') ? { contentType: 'image/gif', body: animatedPixel }
       : { contentType: 'image/png', body: pixel });
   });
   await page.goto('about:blank');
   await page.addStyleTag({ content: css });
-  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, pdf }) => {
+  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, pdf, video }) => {
     const module = async text => {
       const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
       try { return await import(url); } finally { URL.revokeObjectURL(url); }
@@ -51,6 +56,9 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
       const id = index + 1, type = id === 1 ? 'op' : 'reply';
       return `<article class="postContainer ${type}Container" id="pc${id}"><div class="post ${type}" id="p${id}"><div class="postInfo" id="pi${id}"><span class="name">Owned</span></div><div class="file" id="f${id}"><p>File: <a href="https://media.test/demo/${id}.png" rel="noopener noreferrer">Owned.png</a></p><a class="fileThumb" href="https://media.test/demo/${id}.png" rel="noopener noreferrer"><img src="https://media.test/demo/${id}s.jpg" alt="Owned" width="10" height="10" loading="lazy"></a></div><blockquote class="postMessage" id="m${id}">Owned</blockquote></div></article>`;
     }).join('') + '</main>';
+    if (video) for (const anchor of document.querySelectorAll('.file a[href]')) {
+      anchor.href = anchor.href.replace(/\.png$/, video.endsWith('.mp4') ? '.mp4' : '.webm');
+    }
     if (pdf) for (const anchor of document.querySelectorAll('.file a[href]')) {
       anchor.href = anchor.href.replace(/\.png$/, '.pdf');
     }
@@ -69,7 +77,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
       anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
       return intercepted;
     };
-  }, { source, projection, quotes, limits, config, count, preview, gif, pdf });
+  }, { source, projection, quotes, limits, config, count, preview, gif, pdf, video });
   await page.waitForFunction(() => [...document.querySelectorAll('.fileThumb img')].every(img => img.complete && img.naturalWidth > 0));
   return { page, requests, modes, held };
 }
@@ -303,4 +311,42 @@ test('PDF thumbnail keeps ordinary document navigation without image hover or ex
   assert.equal(await page.locator('#f1 .fileThumb').getAttribute('href'), 'https://media.test/demo/1.pdf');
   assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/1.pdf')), true);
   assert.equal(await page.evaluate(() => clickImage(1)), true);
+});
+
+
+for (const video of ['red.webm', 'red-opus.webm', 'blue.mp4', 'blue-aac.mp4']) {
+  test(`owned ${video} expands with native controls and releases media on close and deletion`, async t => {
+    const { page, requests } = await fixture(t, { video, count: 1 });
+    assert.equal(await page.evaluate(() => clickImage(1)), true);
+    const player = page.locator('#f1 video.expanded-thumb:not([hidden])');
+    await player.waitFor();
+    assert.deepEqual(await player.evaluate(v => [v.controls, v.loop, v.muted, v.playsInline, v.videoWidth, v.videoHeight]),
+      [true, true, true, true, 64, 48]);
+    assert.equal(await page.locator('#f1 a.fileThumb').isVisible(), false);
+    await page.evaluate(() => { window.retainedVideo = document.querySelector('#f1 video'); retainedVideo.volume = 0.25; });
+    await page.locator('#f1 .nativeVideoClose').click();
+    assert.deepEqual(await page.evaluate(() => [retainedVideo.isConnected, retainedVideo.paused, retainedVideo.getAttribute('src')]), [false, true, null]);
+    assert.equal(await page.locator('#f1 a.fileThumb').isVisible(), true);
+    assert.equal(await page.evaluate(() => clickImage(1)), true);
+    await player.waitFor();
+    await page.evaluate(() => imageController.retire(document.querySelector('#f1 a.fileThumb').href));
+    assert.equal(await page.locator('#f1 video').count(), 0);
+    const before = requests.length;
+    await page.evaluate(() => clickImage(1));
+    await page.waitForTimeout(30);
+    assert.equal(requests.length, before);
+  });
+}
+
+test('video hover reports duration and tears down on settings disable', async t => {
+  const { page } = await fixture(t, { video: 'red.webm', count: 1, config: { imageHover: true } });
+  await page.locator('#f1 a.fileThumb').hover();
+  await page.locator('video#image-hover:not([hidden])').waitFor();
+  assert.equal(await page.locator('.nativeVideoDuration').textContent(), '0:00');
+  await page.evaluate(() => {
+    window.retainedVideo = document.querySelector('video#image-hover');
+    imageConfig.disableAll = true; imageController.refresh();
+  });
+  assert.deepEqual(await page.evaluate(() => [retainedVideo.isConnected, retainedVideo.paused, retainedVideo.getAttribute('src')]), [false, true, null]);
+  assert.equal(await page.locator('.nativeVideoDuration').count(), 0);
 });

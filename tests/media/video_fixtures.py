@@ -19,6 +19,10 @@ def generate(root):
         command += ['-t', '0.5', '-c:v', video, '-threads', '1', '-pix_fmt', 'yuv420p', '-n', str(root / name)]
         subprocess.run(command, check=True, capture_output=True, timeout=15)
 
+    subprocess.run(['/usr/bin/ffmpeg', '-nostdin', '-v', 'error', '-display_rotation', '90',
+                    '-i', str(root / 'blue.mp4'), '-c', 'copy', '-n', str(root / 'blue-rotation90.mp4')],
+                   check=True, capture_output=True, timeout=15)
+
 
 if __name__ == '__main__':
     import sys

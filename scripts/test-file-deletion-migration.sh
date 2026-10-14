@@ -244,6 +244,23 @@ UPDATE public.upgraded_rows SET value=value||jsonb_build_object(
 WHERE relation='content.boards';
 SQL
 fi
+# Video adds reviewed policy defaults and null metadata to historical assets.
+if [[ -f migrations/0147_video_attachments.sql ]]; then
+ python3 - "$cluster/video-expectation.sql" <<'PYVIDEO'
+import json,pathlib,sys
+fields=['video_enabled','video_audio','max_video_bytes','max_video_duration','max_video_dimension']
+rows=json.loads(pathlib.Path('fixtures/board-reference.json').read_text())['boards']
+def literal(value):
+ return str(value).lower() if type(value) is bool else str(value)
+defaults=[False,False,4194304,120,2048]
+assignments=[]
+for field,default in zip(fields,defaults):
+ cases=' '.join("WHEN '"+row['slug']+"' THEN "+literal(row[field]) for row in rows)
+ assignments += ["'"+field+"'", "CASE value->>'slug' "+cases+" ELSE "+literal(default)+" END"]
+pathlib.Path(sys.argv[1]).write_text("UPDATE public.upgraded_rows SET value=value||jsonb_build_object("+','.join(assignments)+") WHERE relation='content.boards';\nUPDATE public.upgraded_rows SET value=value||jsonb_build_object('video_duration_micros',NULL,'video_has_audio',NULL) WHERE relation='media.assets';\n")
+PYVIDEO
+ "${admin[@]}" -f - < "$cluster/video-expectation.sql"
+fi
 "${admin[@]}" -f - < scripts/report-snapshot-upgrade-expectations.sql
 # Extend the saved baseline only with the reviewed additive retention fields.
 # Neither migration sweeps existing media payloads or moderation snapshots.

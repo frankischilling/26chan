@@ -75,6 +75,7 @@ jobs:
           source .local/database.env
           cargo run -p board-store --bin board-migrate --locked
           bash scripts/seed.sh
+          psql "$MIGRATION_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f scripts/test-video-board-policy.sql
       - name: Qualify verified client identity through the actual HTTPS proxy
         run: |
           source .local/database.env

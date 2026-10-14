@@ -1,9 +1,8 @@
 # Video attachments
 
 Issue #204 covers WebM and MP4 uploads and native playback. The current branch
-contains the processing foundation. Board admission, durable publication,
-serving, client integration and complete qualification are still in progress.
-Video upload capacity must remain disabled until those paths are connected.
+connects processing, board admission, publication, serving and native playback.
+Qualification is still in progress; this branch is not ready to merge.
 
 ## Source decisions
 
@@ -38,14 +37,14 @@ passed locally with PHP 8.4.26. It does not establish actual container handling.
 
 ## Processing boundary
 
-The proposed `video-v5` job carries one finite container tag and the bounded
+The `video-v5` job carries one finite container tag and the bounded
 input. It requires its own `video_initramfs`; an older manifest cannot send it
 to an image or PDF guest. The guest remuxes, probes and renders one preview
 under a shared deadline. The response is a fixed 9 MiB disk with bounded
 metadata, at most 8 MiB of remuxed video, neutral RGBA preview pixels and zero
 padding. The host checks this envelope and computes hashes itself. It does
 not parse containers or link video codecs. Remuxed bytes remain untrusted media
-and will require the separate restricted media origin and live approval checks.
+and uses the separate restricted media origin and live approval checks.
 
 The minimal runtime uses the signed upstream
 [FFmpeg 7.1.5 release](https://ffmpeg.org/download.html).
@@ -55,7 +54,9 @@ Its signature was verified against upstream's published key fingerprint
 `FCF986EA15E6E293A5644F10B4322F04D67658D8` before recording this pin.
 The build disables network protocols, device inputs, external codec libraries
 and unused formats. It enables the source video decoders, stream-copy muxers
-and raw preview output. The recipe retains the LGPL license; distribute the
+and bounded PPM preview output inside the guest. That raw pixel transport is
+converted to RGBA before leaving the guest. Autorotation precedes source
+sample-aspect correction and the 250-pixel preview cap. The recipe retains the LGPL license; distribute the
 matching source and license with deployed binaries.
 
 The locally built FFmpeg and FFprobe executables are about 4 MiB each, with
@@ -65,22 +66,47 @@ It is therefore used only to generate owned test clips, not packaged in a guest.
 The video image retains the 64 MiB artifact cap and baseline 128 MiB guest RAM.
 Its private 24 MiB tmpfs holds the bounded input and remux output. Host cgroup,
 worker address-space, process, CPU and execution deadlines remain unchanged.
-These proposed limits still require actual VM qualification.
+The latest runtime still requires actual VM qualification.
 
 Local prototype checks passed for remuxing and first-frame preview of owned
 VP8/WebM and H.264/MP4 clips, both silent and with allowed Opus/AAC audio.
-Host envelope validation, malformed framing and focused Rust lint also passed.
+The rotated owned MP4 retains its 64×48 public dimensions and produces a
+48×64 preview. Host envelope validation, malformed framing and focused Rust
+lint also passed.
 The full guest workspace is blocked locally by an unavailable cached GIF
 dependency; hosted CI remains required. No VM or complete feature result is
 claimed by these prototype checks.
 
+## Publication and playback
+
+Migration 0147 adds the source board policy and immutable duration/audio
+metadata. The posting transaction checks the current locked board again,
+including filename/container agreement and separate input/output caps. Video
+metadata requires a current processing lease and cannot change after insertion.
+The retained-byte HTTP tests passed locally for both containers: publication,
+current-policy rejection, retry, thumbnails, byte ranges, conditional reads,
+disk tampering and deletion. The complete migration and policy decision tests
+also passed against a disposable PostgreSQL 16 database.
+
+The media reader verifies approval and the whole file's hash before serving a
+single byte range. Unsatisfiable ranges return 416; unsupported range syntax
+falls back to the complete object. HEAD and conditional responses keep their
+usual semantics. Video URLs cannot become image sources in updater recipes.
+
+Native players have controls, loop, mute preference, saved volume and a close
+button. Hover previews show duration and browser-detected audio. Closing,
+retiring, hiding or disabling a player releases its source. Playback failure
+keeps the filename link available for opening or downloading the attachment.
+These client changes have not yet passed the full browser suite. Historical
+OGV fallback behavior also remains to be reconciled with the source.
+
 ## Remaining qualification
 
-- Complete current-policy admission, byte checks, lease fencing and deletion.
-- Check rotation and sample-aspect thumbnail behavior against actual owned clips.
-- Serve bounded byte ranges after live approval and integrity checks.
-- Restore expansion, hover duration/audio labels, mute and saved volume, mobile
-  sizing, fallback playback, pause-on-scroll and complete player teardown.
+- Pass the actual guest, containment and cancellation/recovery tests with the
+  latest runtime and owned rotated clips.
+- Check sample-aspect clips and source reply-thumbnail presentation.
+- Qualify mute/volume, mobile layout, fallback behavior, offscreen pause and
+  player teardown in real browsers.
 - Cover ordinary forms, Quick Reply, catalogs, previews, snapshots and JSON.
-- Pass actual guest containment, cancellation/recovery, persisted HTTP tests,
-  browser regressions and all exact-final-head CI before closing #204.
+- Pass populated migration/restore tests and all exact-final-head CI before
+  opening the issue-closing PR for #204.

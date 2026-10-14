@@ -441,11 +441,14 @@ fn headers(
     } else {
         worker
     };
-    let sound = if full_board_page {
+    let mut sound = if full_board_page {
         format!("{}{}", state.origin, crate::ui_assets::UPDATER_SOUND_PATH)
     } else {
         "'none'".into()
     };
+    if full_board_page && let Some(media) = &state.media {
+        sound = format!("{sound} {}", media.settings.origin.as_string());
+    }
     let worker = if replay {
         format!(
             "{worker} {}{}",

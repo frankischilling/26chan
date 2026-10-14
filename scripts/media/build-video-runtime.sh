@@ -23,9 +23,9 @@ mkdir "$build/work"
     --disable-debug --disable-x86asm --disable-avdevice --disable-postproc \
     --disable-shared --enable-static --enable-ffmpeg --enable-ffprobe \
     --enable-protocol=file,pipe --enable-demuxer=matroska,mov \
-    --enable-muxer=webm,mp4,rawvideo --enable-decoder=vp8,vp9,h264 \
-    --enable-parser=vp8,vp9,h264 --enable-encoder=rawvideo \
-    --enable-filter=scale,format,null --enable-bsf=aac_adtstoasc,h264_mp4toannexb \
+    --enable-muxer=webm,mp4,image2pipe --enable-decoder=vp8,vp9,h264 \
+    --enable-parser=vp8,vp9,h264 --enable-encoder=ppm \
+    --enable-filter=scale,format,null,transpose,hflip,vflip,rotate --enable-bsf=aac_adtstoasc,h264_mp4toannexb \
     --extra-cflags=-Os > configure.log
   make -j2 > build.log 2>&1
 )

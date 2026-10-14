@@ -177,6 +177,11 @@ pub struct Board {
     pub max_image_dimension: i32,
     pub gif_only: bool,
     pub pdf_enabled: bool,
+    pub video_enabled: bool,
+    pub video_audio: bool,
+    pub max_video_bytes: i64,
+    pub max_video_duration: i32,
+    pub max_video_dimension: i32,
     pub dice_roll: bool,
     pub fortune_trip: bool,
     pub robot9000: bool,
@@ -238,6 +243,16 @@ impl Board {
     pub fn image_file_limit(&self) -> usize {
         // The transport's independent 8 MiB resource bound still applies.
         self.max_image_bytes.min(8_388_608) as usize
+    }
+
+    pub fn attachment_file_limit(&self, filename: &str) -> usize {
+        let filename = filename.to_ascii_lowercase();
+        if self.video_enabled && (filename.ends_with(".webm") || filename.ends_with(".mp4")) {
+            self.image_file_limit()
+                .min(self.max_video_bytes.max(0) as usize)
+        } else {
+            self.image_file_limit()
+        }
     }
 
     pub fn check_attachment_allowed(&self, parent: i64, attached: bool) -> Result<(), StoreError> {
