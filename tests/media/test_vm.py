@@ -170,11 +170,11 @@ class VmTest(unittest.TestCase):
 
     @contextlib.contextmanager
     def sleeping_vm(self, input_kind='image-v1'):
-        self.assertIn(input_kind, ('image-v1','video-v5','still-v6'))
+        self.assertIn(input_kind, ('image-v1','video-v5','still-v6','gif-v7'))
         self.assert_clean()
         with tempfile.TemporaryDirectory(prefix='26chan-cancel-test-') as name:
             source = pathlib.Path(name) / 'input'
-            source.write_bytes(b'sleep'.ljust(17, b' ') if input_kind == 'still-v6' else b'sleep')
+            source.write_bytes(b'sleep'.ljust(17, b' ') if input_kind in ('still-v6', 'gif-v7') else b'sleep')
             destination = pathlib.Path(name) / 'result.disk'
             runner = subprocess.Popen(
                 [sys.executable, str(REPO / 'scripts/media/run-job.py'), '--input-kind', input_kind,

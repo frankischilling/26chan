@@ -230,6 +230,7 @@ impl PublicationGuard<'_> {
         let format = match output.policy().format {
             StillFormat::Png => Format::SourcePng,
             StillFormat::Jpeg => Format::Jpeg,
+            StillFormat::Gif => Format::Gif,
         };
         let file = output.retained();
         self.install_bytes(id, file.bytes(), file.sha256(), format, Variant::Primary)
@@ -505,7 +506,11 @@ impl ApprovedFiles {
             &self.root.join(format!("{id}.{}", format.extension())),
             sha256,
             bytes,
-            u64::from(MAX_IMAGE_BYTES),
+            if format == StillFormat::Gif {
+                8 * 1024 * 1024
+            } else {
+                u64::from(MAX_IMAGE_BYTES)
+            },
         )
     }
 

@@ -1,0 +1,120 @@
+{
+  "source": "lib/postfilter.php",
+  "source_sha256": "d0037219f34fdc54b85ca696095415209531d5350652dea5ec86e508f75d5207",
+  "function_sha256": "430e9c02fd975fed0b0686659f9343761fe163b92c3ff42059300a8888401e31",
+  "function": "function strip_gif_extra_data($file, $reported_size) {\n  $binary = '/usr/local/bin/gifsicle';\n  \n  $res = shell_exec(\"$binary --sinfo \\\"$file\\\" 2>&1\");\n  \n  if ($res !== null) {\n    $size = 0;\n    \n    $need_strip = false;\n    \n    if (preg_match('/  extensions [0-9]+|    comment /', $res)) {\n      $need_strip = true;\n    }\n    else if (preg_match_all('/compressed size ([0-9]+)/', $res, $m)) {\n      foreach ($m[1] as $frame_size) {\n        $size += (int)$frame_size;\n      }\n      \n      // Strip if 50+ KB of extra data is found\n      if ($reported_size - $size >= 51200) {\n        $need_strip = true;\n      }\n    }\n    \n    if ($need_strip) {\n      if (system(\"$binary --no-comments --no-extensions \\\"$file\\\" -o \\\"$file\\\" >/dev/null 2>&1\") === false) {\n        // gifsicle error\n        return -1;\n      }\n      else {\n        // file was modified\n        return 1;\n      }\n    }\n  }\n  else {\n    // gifsicle error\n    return -1;\n  }\n  \n  // nothing changed\n  return 0;\n}",
+  "cases": [
+    {
+      "name": "absent_report",
+      "report": null,
+      "reported_size": 100,
+      "system_result": 0,
+      "expected": -1,
+      "stripped": false
+    },
+    {
+      "name": "empty_report",
+      "report": "",
+      "reported_size": 100,
+      "system_result": 0,
+      "expected": 0,
+      "stripped": false
+    },
+    {
+      "name": "unchanged",
+      "report": "* input.gif 1 image\n  + image #0 1x1\n    compressed size 10\n",
+      "reported_size": 51209,
+      "system_result": 0,
+      "expected": 0,
+      "stripped": false
+    },
+    {
+      "name": "exact_overhead",
+      "report": "    compressed size 10\n",
+      "reported_size": 51210,
+      "system_result": 0,
+      "expected": 1,
+      "stripped": true
+    },
+    {
+      "name": "multiple_frames",
+      "report": "    compressed size 10\n    compressed size 20\n",
+      "reported_size": 51229,
+      "system_result": 0,
+      "expected": 0,
+      "stripped": false
+    },
+    {
+      "name": "multiple_exact",
+      "report": "    compressed size 10\n    compressed size 20\n",
+      "reported_size": 51230,
+      "system_result": 0,
+      "expected": 1,
+      "stripped": true
+    },
+    {
+      "name": "comment",
+      "report": "    comment hello\n",
+      "reported_size": 30,
+      "system_result": 0,
+      "expected": 1,
+      "stripped": true
+    },
+    {
+      "name": "extension",
+      "report": "  extensions 1\n",
+      "reported_size": 30,
+      "system_result": 0,
+      "expected": 1,
+      "stripped": true
+    },
+    {
+      "name": "loop_only",
+      "report": "  loop forever\n    compressed size 10\n",
+      "reported_size": 50,
+      "system_result": 0,
+      "expected": 0,
+      "stripped": false
+    },
+    {
+      "name": "strip_failure",
+      "report": "    comment hello\n",
+      "reported_size": 30,
+      "system_result": false,
+      "expected": -1,
+      "stripped": true
+    },
+    {
+      "name": "numeric_nonzero_status",
+      "report": "    comment hello\n",
+      "reported_size": 30,
+      "system_result": 1,
+      "expected": 1,
+      "stripped": true
+    },
+    {
+      "name": "no_size_match",
+      "report": "unrecognized report",
+      "reported_size": 60000,
+      "system_result": 0,
+      "expected": 0,
+      "stripped": false
+    },
+    {
+      "name": "end_comment_only",
+      "report": "  end comment trailing\n    compressed size 10\n",
+      "reported_size": 50,
+      "system_result": 0,
+      "expected": 0,
+      "stripped": false
+    },
+    {
+      "name": "extension_report_zero",
+      "report": "  extensions 0\n",
+      "reported_size": 30,
+      "system_result": 0,
+      "expected": 1,
+      "stripped": true
+    }
+  ]
+}

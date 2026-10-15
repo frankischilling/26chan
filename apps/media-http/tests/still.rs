@@ -18,10 +18,14 @@ use board_store::{
 use tower::ServiceExt;
 
 // Serving receipts only: decoder admission is tested in the isolated guest suite.
-async fn candidate() -> ValidatedStill {
-    let policy = source_policy("aco", StillFormat::Jpeg, true, true).unwrap();
+async fn candidate(format: StillFormat) -> ValidatedStill {
+    let policy = source_policy("aco", format, true, true).unwrap();
     let mut disk = vec![0; OUTPUT_DISK_BYTES as usize];
-    disk[..8].copy_from_slice(b"IBIMG006");
+    disk[..8].copy_from_slice(if format == StillFormat::Gif {
+        b"IBIMG007"
+    } else {
+        b"IBIMG006"
+    });
     disk[8..24].copy_from_slice(&policy.header().unwrap());
     for (offset, value) in [
         (24, 2000u32),
@@ -40,6 +44,14 @@ async fn candidate() -> ValidatedStill {
     disk[94..96].copy_from_slice(b"\xff\xd9");
     disk[96..101].copy_from_slice(b"\xff\xd8\xff\xff\xd9");
     disk[101..106].copy_from_slice(b"\xff\xd8\xff\xff\xd9");
+    if format == StillFormat::Gif {
+        disk[40..48].fill(0);
+        disk[56..60].fill(0);
+        disk[64..96].fill(0);
+        disk[64..70].copy_from_slice(b"GIF89a");
+        disk[95] = b';';
+        disk[101..106].fill(0);
+    }
     ValidatedStill::read_disk(std::io::Cursor::new(disk), policy)
         .await
         .unwrap()
@@ -59,7 +71,13 @@ fn request(path: &str) -> axum::http::request::Builder {
         .header("host", "127.0.0.1:3002")
 }
 #[tokio::test]
-async fn jpeg_and_companions_require_approval_exact_suffixes_and_intact_bytes() {
+async fn jpeg_and_gif_require_approval_exact_suffixes_and_intact_bytes() {
+    exercise(StillFormat::Jpeg).await;
+    exercise(StillFormat::Gif).await;
+}
+async fn exercise(format: StillFormat) {
+    let gif = format == StillFormat::Gif;
+    let extension = format.extension();
     let admin = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -70,7 +88,7 @@ async fn jpeg_and_companions_require_approval_exact_suffixes_and_intact_bytes() 
         .await
         .unwrap();
     let upload = intake
-        .reserve_image("synthetic.jpg", "aco", 0, true)
+        .reserve_image(&format!("synthetic.{extension}"), "aco", 0, true)
         .await
         .unwrap();
     let id = upload.id.clone();
@@ -107,14 +125,18 @@ async fn jpeg_and_companions_require_approval_exact_suffixes_and_intact_bytes() 
         assert_eq!(job.id, upload.id);
         let token = job.lease_token.as_deref().unwrap();
         queue.extend_still_lease(&job.id, token).await.unwrap();
-        let encoded = candidate().await;
+        let encoded = candidate(format).await;
         let md5 = encoded.retained().md5();
         let digest: Vec<u8> = (0..32)
             .step_by(2)
             .map(|i| u8::from_str_radix(&md5[i..i + 2], 16).unwrap())
             .collect();
         let output = StillOutput {
-            format: MediaFormat::Jpeg,
+            format: if gif {
+                MediaFormat::Gif
+            } else {
+                MediaFormat::Jpeg
+            },
             primary: metadata(encoded.retained()),
             variants: OutputVariants {
                 md5: md5.into(),
@@ -124,7 +146,11 @@ async fn jpeg_and_companions_require_approval_exact_suffixes_and_intact_bytes() 
             source: SourceProvenance {
                 input_sha256: "a".repeat(64),
                 input_bytes: 100,
-                profile: SourceProfile::StillV6,
+                profile: if gif {
+                    SourceProfile::GifV7
+                } else {
+                    SourceProfile::StillV6
+                },
                 retained_bytes: 32,
                 md5: digest.try_into().unwrap(),
             },
@@ -134,11 +160,13 @@ async fn jpeg_and_companions_require_approval_exact_suffixes_and_intact_bytes() 
             .prepare_still_output(&job.id, token, &output)
             .await
             .unwrap();
-        let urls = [
-            format!("/media/{}.jpg", asset.id),
+        let mut urls = vec![
+            format!("/media/{}.{extension}", asset.id),
             format!("/media/{}.thumb.jpg", asset.id),
-            format!("/media/{}.mobile.jpg", asset.id),
         ];
+        if !gif {
+            urls.push(format!("/media/{}.mobile.jpg", asset.id));
+        }
         for url in &urls {
             assert_eq!(
                 app.clone()
@@ -162,19 +190,28 @@ async fn jpeg_and_companions_require_approval_exact_suffixes_and_intact_bytes() 
             reader.get_thumbnail(&asset.id).await.unwrap().output_format,
             MediaFormat::Jpeg
         );
-        assert_eq!(reader.get_mobile(&asset.id).await.unwrap().width, 1024);
-        for (url, expected) in urls.iter().zip([
-            encoded.retained(),
-            encoded.thumbnail(),
-            encoded.mobile().unwrap(),
-        ]) {
+        let mut files = vec![encoded.retained(), encoded.thumbnail()];
+        if gif {
+            assert!(reader.get_mobile(&asset.id).await.is_err());
+        } else {
+            assert_eq!(reader.get_mobile(&asset.id).await.unwrap().width, 1024);
+            files.push(encoded.mobile().unwrap());
+        }
+        for (index, (url, expected)) in urls.iter().zip(&files).enumerate() {
             let response = app
                 .clone()
                 .oneshot(request(url).body(Body::empty()).unwrap())
                 .await
                 .unwrap();
             assert_eq!(response.status(), StatusCode::OK);
-            assert_eq!(response.headers()["content-type"], "image/jpeg");
+            assert_eq!(
+                response.headers()["content-type"],
+                if gif && index == 0 {
+                    "image/gif"
+                } else {
+                    "image/jpeg"
+                }
+            );
             assert_eq!(
                 to_bytes(response.into_body(), 1024).await.unwrap().as_ref(),
                 expected.bytes()
@@ -191,7 +228,12 @@ async fn jpeg_and_companions_require_approval_exact_suffixes_and_intact_bytes() 
                 .unwrap();
             assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
         }
-        for suffix in ["png", "thumb.png", "gif", "mobile.png"] {
+        for suffix in [
+            "png",
+            "thumb.png",
+            if gif { "jpg" } else { "gif" },
+            "mobile.png",
+        ] {
             assert_eq!(
                 app.clone()
                     .oneshot(
@@ -251,38 +293,42 @@ async fn jpeg_and_companions_require_approval_exact_suffixes_and_intact_bytes() 
             .await
             .unwrap()
             .unwrap();
-        assert!(attachment.has_mobile);
-        let source_urls = [
-            format!("/aco/{}.jpg", attachment.tim),
+        assert_eq!(attachment.has_mobile, !gif);
+        let mut source_urls = vec![
+            format!("/aco/{}.{extension}", attachment.tim),
             format!("/aco/{}s.jpg", attachment.tim),
-            format!("/aco/{}m.jpg", attachment.tim),
         ];
-        for (url, expected) in source_urls.iter().zip([
-            encoded.retained(),
-            encoded.thumbnail(),
-            encoded.mobile().unwrap(),
-        ]) {
+        if !gif {
+            source_urls.push(format!("/aco/{}m.jpg", attachment.tim));
+        }
+        for (index, (url, expected)) in source_urls.iter().zip(&files).enumerate() {
             let response = app
                 .clone()
                 .oneshot(request(url).body(Body::empty()).unwrap())
                 .await
                 .unwrap();
             assert_eq!(response.status(), StatusCode::OK);
-            assert_eq!(response.headers()["content-type"], "image/jpeg");
+            assert_eq!(
+                response.headers()["content-type"],
+                if gif && index == 0 {
+                    "image/gif"
+                } else {
+                    "image/jpeg"
+                }
+            );
             assert_eq!(
                 to_bytes(response.into_body(), 1024).await.unwrap().as_ref(),
                 expected.bytes()
             );
         }
-        std::fs::write(root.join(format!("{}.mobile.jpg", asset.id)), b"changed").unwrap();
+        let corrupt = if gif { "thumb.jpg" } else { "mobile.jpg" };
+        std::fs::write(root.join(format!("{}.{corrupt}", asset.id)), b"changed").unwrap();
+        let last = files.len() - 1;
         let response = app
             .clone()
             .oneshot(
-                request(&urls[2])
-                    .header(
-                        "if-none-match",
-                        format!("\"{}\"", encoded.mobile().unwrap().sha256()),
-                    )
+                request(&urls[last])
+                    .header("if-none-match", format!("\"{}\"", files[last].sha256()))
                     .body(Body::empty())
                     .unwrap(),
             )

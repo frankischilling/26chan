@@ -21,7 +21,9 @@ jobs:
     runs-on: ubuntu-24.04
     # Rust tests include real browser-backed upload qualification.
     # Public browser suites run on separate disposable databases below.
-    timeout-minutes: 45
+    # The complete database suite takes about 41 minutes on a warm runner.
+    # Leave CI scheduling headroom; individual runtime and lock limits stay fixed.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,6 +63,7 @@ jobs:
         run: |
           python3 scripts/extract-image-presentation-reference.py --php-oracle
           python3 scripts/test-upload-filename-reference.py
+          python3 scripts/test-gif-cleanup-reference.py
       - name: Qualify isolated source video decisions
         run: python3 scripts/extract-video-reference.py --php-oracle
       - name: Start disposable database and migrate
@@ -181,7 +184,7 @@ jobs:
           include-hidden-files: false
   media-and-operations:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     env:
       CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: rust-lld
     steps:
@@ -238,14 +241,20 @@ jobs:
           python3 tests/media/video_fixtures.py .local/video-clips
           VIDEO_TEST_RUNTIME="$PWD/.local/video-runtime" VIDEO_TEST_CLIPS="$PWD/.local/video-clips" \
             cargo test -p board-media-guest --lib owned_runtime --locked -- --ignored
-      - name: Build the pinned isolated JPEG cleaner
+      - name: Build the pinned isolated JPEG and GIF cleaners
         run: |
-          sudo apt-get install -y cmake libgd3
+          sudo apt-get install -y cmake libgd3 python3-pil
           python3 scripts/extract-gd-still-resampling-reference.py --check
           curl --fail --location --max-time 120 https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.2.0/libjpeg-turbo-3.2.0.tar.gz -o .local/libjpeg-turbo-3.2.0.tar.gz
           bash scripts/media/build-still-runtime.sh .local/libjpeg-turbo-3.2.0.tar.gz .local/still-runtime
           sudo install -d -m 0755 /usr/lib/26chan-still
           sudo install -m 0755 .local/still-runtime/jpegtran /usr/lib/26chan-still/jpegtran
+          python3 scripts/extract-gd-gif-thumbnail-reference.py --check
+          curl --fail --location --max-time 120 https://www.lcdf.org/gifsicle/gifsicle-1.97.tar.gz -o .local/gifsicle-1.97.tar.gz
+          bash scripts/media/build-gif-runtime.sh .local/gifsicle-1.97.tar.gz .local/gif-runtime
+          sudo install -d -m 0755 /usr/lib/26chan-gif
+          sudo install -m 0755 .local/gif-runtime/gifsicle /usr/lib/26chan-gif/gifsicle
+          sudo install -m 0644 .local/gif-runtime/COPYING /usr/lib/26chan-gif/COPYING
       - name: Qualify source drawing board policy upgrade
         run: sudo bash scripts/test-board-drawing-migration.sh
       - name: Qualify drawing edit ownership and exact source board restoration
@@ -265,6 +274,7 @@ jobs:
           python3 -m unittest discover -s tests/media -p test_pdf_runtime.py -v
           python3 -m unittest discover -s tests/media -p test_video_runtime.py -v
           python3 -m unittest discover -s tests/media -p test_still_runtime.py -v
+          python3 -m unittest discover -s tests/media -p test_gif_runtime.py -v
           python3 -m unittest discover -s tests/media -p test_identity_environment.py
           python3 -m unittest discover -s tests/media -p test_browser_diagnostics.py -v
           python3 -m unittest discover -s tests/media -p test_public_upload_fixture.py -v
@@ -287,6 +297,10 @@ jobs:
             MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             python3 tests/media/test_still_vm.py -v
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            MEDIA_VM_TEST_CONFIG=/tmp/26chan-media-ci/decode.json \
+            MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
+            python3 tests/media/test_source_gif_vm.py -v
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
             MEDIA_VM_PROBE_CONFIG=/tmp/26chan-media-ci/probe.json \
             python3 tests/media/test_boundaries.py

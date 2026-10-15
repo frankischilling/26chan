@@ -20,6 +20,9 @@ fn decode() -> std::io::Result<()> {
     }
     let mut input = File::open("/dev/vda")?;
     let pixels = match kind {
+        board_media_guest::paired::InputKind::GifV7 => {
+            board_media_guest::gif_source::decode_disk(&mut input)?
+        }
         board_media_guest::paired::InputKind::StillV6 => {
             board_media_guest::still::decode_disk(&mut input)?
         }

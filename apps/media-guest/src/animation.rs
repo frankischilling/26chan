@@ -124,7 +124,7 @@ pub fn decode(input: &[u8]) -> io::Result<Vec<u8>> {
     Ok(output)
 }
 
-fn decode_indices(frame: &gif::Frame<'_>, count: usize) -> io::Result<Vec<u8>> {
+pub(crate) fn decode_indices(frame: &gif::Frame<'_>, count: usize) -> io::Result<Vec<u8>> {
     let (minimum, compressed) = frame.buffer.split_first().ok_or_else(rejected)?;
     if !(2..=8).contains(minimum) {
         return Err(rejected());
@@ -174,6 +174,36 @@ fn decode_indices(frame: &gif::Frame<'_>, count: usize) -> io::Result<Vec<u8>> {
 /// Loop control is a single, bounded numeric field; arbitrary extensions never
 /// enter the neutral output. This scan does not decompress any image data.
 fn scan_blocks(input: &[u8]) -> io::Result<u32> {
+    Ok(scan_with_limits(input, 1024, MAX_PIXELS)?.repeat)
+}
+
+pub(crate) struct SourceScan {
+    pub repeat: u32,
+    pub cleanup: bool,
+    pub frames: usize,
+}
+
+/// Structural policy scan only; the caller must also decompress every frame.
+pub(crate) fn scan_source(input: &[u8]) -> io::Result<SourceScan> {
+    let scan = scan_with_limits(input, 10_000, 256 * 1024 * 1024)?;
+    let width = usize::from(u16::from_le_bytes([input[6], input[7]]));
+    let height = usize::from(u16::from_le_bytes([input[8], input[9]]));
+    if width
+        .checked_mul(height)
+        .and_then(|pixels| pixels.checked_mul(scan.frames))
+        .is_none_or(|pixels| pixels > 256 * 1024 * 1024)
+    {
+        return Err(rejected());
+    }
+    Ok(scan)
+}
+
+fn scan_with_limits(input: &[u8], dimension: u16, pixel_limit: usize) -> io::Result<SourceScan> {
+    if input.len() > 8 * 1024 * 1024
+        || !(input.starts_with(b"GIF87a") || input.starts_with(b"GIF89a"))
+    {
+        return Err(rejected());
+    }
     let mut cursor = Blocks {
         bytes: input,
         offset: 6,
@@ -182,13 +212,24 @@ fn scan_blocks(input: &[u8]) -> io::Result<u32> {
     if logical[4] & 0x80 != 0 {
         cursor.take(3 * (2usize << (logical[4] & 7)))?;
     }
+    let mut compressed_bytes = 0usize;
+    let mut pending_comment = false;
+    let mut cleanup = false;
     let mut repeat = 65536;
     let mut count = 0usize;
     let mut total = 0usize;
     loop {
         match cursor.byte()? {
-            0x3b if cursor.offset == input.len() => return Ok(repeat),
+            0x3b if cursor.offset == input.len() && count > 0 => {
+                return Ok(SourceScan {
+                    repeat,
+                    cleanup: cleanup || input.len().saturating_sub(compressed_bytes) >= 51_200,
+                    frames: count,
+                });
+            }
             0x2c => {
+                cleanup |= pending_comment;
+                pending_comment = false;
                 count += 1;
                 let descriptor = cursor.take(9)?;
                 let width = u16::from_le_bytes(descriptor[4..6].try_into().unwrap());
@@ -196,10 +237,10 @@ fn scan_blocks(input: &[u8]) -> io::Result<u32> {
                 let pixels = usize::from(width) * usize::from(height);
                 total = total.checked_add(pixels).ok_or_else(rejected)?;
                 if count > MAX_FRAMES
-                    || total > MAX_PIXELS
+                    || total > pixel_limit
                     || pixels == 0
-                    || width > 1024
-                    || height > 1024
+                    || width > dimension
+                    || height > dimension
                     || descriptor[8] & 0x18 != 0
                 {
                     return Err(rejected());
@@ -207,10 +248,12 @@ fn scan_blocks(input: &[u8]) -> io::Result<u32> {
                 if descriptor[8] & 0x80 != 0 {
                     cursor.take(3 * (2usize << (descriptor[8] & 7)))?;
                 }
+                let compressed_start = cursor.offset;
                 if !(2..=8).contains(&cursor.byte()?) {
                     return Err(rejected());
                 }
                 cursor.skip_subblocks()?;
+                compressed_bytes += cursor.offset - compressed_start;
             }
             0x21 => match cursor.byte()? {
                 0xf9 => {
@@ -241,10 +284,14 @@ fn scan_blocks(input: &[u8]) -> io::Result<u32> {
                             return Err(rejected());
                         }
                     } else {
+                        cleanup = true;
                         cursor.skip_subblocks()?;
                     }
                 }
-                0xfe => cursor.skip_subblocks()?,
+                0xfe => {
+                    pending_comment = true;
+                    cursor.skip_subblocks()?;
+                }
                 _ => return Err(rejected()),
             },
             _ => return Err(rejected()),

@@ -818,6 +818,8 @@ remains separate.
 
 ### Media
 
+[Source GIF processing](source-gif-parity.md) retains validated originals or conditionally cleaned GIFs, produces source-style JPEG thumbnails, and carries retained-byte checksums through approval, JSON and native display. Its isolated runtime has explicit frame/pixel budgets. The qualification record covers independent animation observations and real upload, no-JavaScript playback and deletion. Unknown historical encoder versions remain a byte-identity limit.
+
 `imgboard.php:4806-4815` constructs `tim` from request epoch seconds,
 four fractional digits from `microtime`, and a two-digit random 00-99 suffix.
 That is not the rewrite's transactional monotonic millisecond counter.

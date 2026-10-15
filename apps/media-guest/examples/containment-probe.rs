@@ -38,7 +38,10 @@ fn probe() -> std::io::Result<()> {
     } else {
         board_media_guest::paired::InputKind::parse(&mode)?
     };
-    let still = kind == board_media_guest::paired::InputKind::StillV6;
+    let still = matches!(
+        kind,
+        board_media_guest::paired::InputKind::StillV6 | board_media_guest::paired::InputKind::GifV7
+    );
     let mut input = File::open("/dev/vda")?;
     if kind == board_media_guest::paired::InputKind::PairedV2 {
         let mut magic = [0; 8];

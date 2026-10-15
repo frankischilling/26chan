@@ -28,14 +28,26 @@ impl StillOutput {
             }
             Ok(())
         }
-        if !matches!(self.format, MediaFormat::Png | MediaFormat::Jpeg)
-            || self.source.profile != SourceProfile::StillV6
-            || self.source.retained_bytes != self.primary.bytes
-        {
+        let valid_profile = match self.format {
+            MediaFormat::Png | MediaFormat::Jpeg => self.source.profile == SourceProfile::StillV6,
+            MediaFormat::Gif => {
+                self.source.profile == SourceProfile::GifV7 && self.mobile.is_none()
+            }
+            _ => false,
+        };
+        if !valid_profile || self.source.retained_bytes != self.primary.bytes {
             return Err(StoreError::Invalid("Invalid retained image provenance."));
         }
         self.source.validate()?;
-        bounded(&self.primary, 10_485_760, 10_000)?;
+        bounded(
+            &self.primary,
+            if self.format == MediaFormat::Gif {
+                8_388_608
+            } else {
+                10_485_760
+            },
+            10_000,
+        )?;
         bounded(&self.variants.thumbnail, 1_048_576, 250)?;
         validate_hex(&self.variants.md5, 32)?;
         let expected_md5: String = self
@@ -77,7 +89,7 @@ struct StillRecord {
 
 impl StillRecord {
     fn matches(&self, output: &StillOutput) -> bool {
-        self.still_profile.as_deref() == Some("still-v6")
+        self.still_profile.as_deref() == Some(output.source.profile.as_str())
             && self.thumbnail_format == "jpeg"
             && self.mobile_sha256.as_deref() == output.mobile.as_ref().map(|m| m.sha256.as_str())
             && self.mobile_bytes == output.mobile.as_ref().map(|m| m.bytes)
@@ -144,11 +156,11 @@ impl MediaQueue {
         let variants = &output.variants;
         let source = &output.source;
         let mobile = output.mobile.as_ref();
-        let asset=sqlx::query_as("INSERT INTO media.assets(id,job_id,lease_token,sha256,bytes,width,height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5,output_format,still_profile,thumbnail_format,mobile_sha256,mobile_bytes,mobile_width,mobile_height) VALUES(replace(gen_random_uuid()::text,'-',''),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'still-v6',$14,$15,$16,'still-v6','jpeg',$17,$18,$19,$20) RETURNING id,sha256,bytes,width,height,output_format")
+        let asset=sqlx::query_as("INSERT INTO media.assets(id,job_id,lease_token,sha256,bytes,width,height,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height,source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5,output_format,still_profile,thumbnail_format,mobile_sha256,mobile_bytes,mobile_width,mobile_height) VALUES(replace(gen_random_uuid()::text,'-',''),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$21,$14,$15,$16,$21,'jpeg',$17,$18,$19,$20) RETURNING id,sha256,bytes,width,height,output_format")
             .bind(job_id).bind(token).bind(&primary.sha256).bind(primary.bytes).bind(primary.width).bind(primary.height)
             .bind(&variants.md5).bind(&variants.thumbnail.sha256).bind(variants.thumbnail.bytes).bind(variants.thumbnail.width).bind(variants.thumbnail.height)
             .bind(&source.input_sha256).bind(source.input_bytes).bind(source.retained_bytes).bind(source.md5.as_slice()).bind(output.format)
-            .bind(mobile.map(|m|&m.sha256)).bind(mobile.map(|m|m.bytes)).bind(mobile.map(|m|m.width)).bind(mobile.map(|m|m.height))
+            .bind(mobile.map(|m|&m.sha256)).bind(mobile.map(|m|m.bytes)).bind(mobile.map(|m|m.width)).bind(mobile.map(|m|m.height)).bind(source.profile.as_str())
             .fetch_one(&mut *tx).await?;
         tx.commit().await?;
         Ok(asset)
@@ -190,6 +202,31 @@ mod tests {
                 retained_bytes: 10_485_760,
                 md5: [7; 16],
             },
+        }
+    }
+
+    #[test]
+    fn source_gif_requires_its_profile_byte_limit_and_no_mobile_image() {
+        let mut gif = output();
+        gif.format = MediaFormat::Gif;
+        gif.source.profile = SourceProfile::GifV7;
+        gif.primary.bytes = 8_388_608;
+        gif.source.retained_bytes = gif.primary.bytes;
+        gif.mobile = None;
+        gif.validate().unwrap();
+        for mutate in [
+            |o: &mut StillOutput| o.source.profile = SourceProfile::StillV6,
+            |o: &mut StillOutput| o.format = MediaFormat::Png,
+            |o: &mut StillOutput| o.source.input_bytes = 8_388_609,
+            |o: &mut StillOutput| {
+                o.primary.bytes = 8_388_609;
+                o.source.retained_bytes = 8_388_609;
+            },
+            |o: &mut StillOutput| o.mobile = output().mobile,
+        ] {
+            let mut changed = gif.clone();
+            mutate(&mut changed);
+            assert!(changed.validate().is_err());
         }
     }
 

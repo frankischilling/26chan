@@ -1,6 +1,20 @@
 #![cfg(feature = "database-tests")]
 
 #[tokio::test]
+async fn source_gif_manifest_keeps_separate_limits_and_private_context() {
+    let pool = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let mut tx = pool.begin().await.unwrap();
+    let result = sqlx::raw_sql(include_str!("fixtures/source_gif_manifest.sql"))
+        .execute(&mut *tx)
+        .await;
+    tx.rollback().await.unwrap();
+    pool.close().await;
+    result.unwrap();
+}
+
+#[tokio::test]
 async fn still_manifest_is_bounded_immutable_and_lease_fenced() {
     let pool = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
