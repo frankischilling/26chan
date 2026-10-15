@@ -16,7 +16,7 @@ class PublicSourceGif:
 
     def exercise(self):
         f = self.f
-        assert sql("SELECT deletion_known_min_seconds FROM content.boards WHERE slug='gif' AND NOT staff_only;") == '60'
+        assert sql("SELECT deletion_known_min_seconds||':'||deletion_unknown_min_seconds FROM content.boards WHERE slug='gif' AND NOT staff_only;") == '60:600'
         user = pwd.getpwuid(REPO.stat().st_uid)
         assert user.pw_uid != 0
         source = f.root / self.filename
@@ -36,6 +36,12 @@ class PublicSourceGif:
         asset = f.finish(f.dispatch()).decode().strip()
         assert HEX.fullmatch(asset)
         f.clean_vm()
+        # This browser owns a fresh session. Seed only that fixture's network
+        # history so the unchanged source policy exercises known-owner deletion.
+        # A real new visitor uses the separate 600-second minimum.
+        owned_session = f"SELECT a.token_hash FROM post_secrets.anonymous_posts a JOIN content.posts p ON p.id=a.post_id JOIN content.post_media m ON m.post_id=p.id WHERE p.board='gif' AND p.thread_id=p.id AND m.job_id='{job}'"
+        wait_until(lambda: sql(f"SELECT count(*) FROM ({owned_session}) owned;") == '1', seconds=25)
+        assert sql(f"WITH changed AS (UPDATE post_secrets.anonymous_sessions s SET created_at=LEAST(s.created_at,extract(epoch FROM now())::bigint-901),network_at=extract(epoch FROM now())::bigint-901 WHERE s.token_hash IN ({owned_session}) RETURNING 1) SELECT count(*) FROM changed;") == '1'
         output, error = self.browser.communicate(timeout=110)
         if self.browser.returncode:
             location = re.search(rb'/source-gif-upload.mjs:([0-9]{1,6}):([0-9]{1,6})', error)

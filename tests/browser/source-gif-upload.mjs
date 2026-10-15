@@ -60,13 +60,16 @@ try {
     changed = !(await animation.screenshot()).equals(first);
   }
   assert.ok(changed, 'retained source GIF visibly advances with JavaScript disabled');
+  // The owner harness seeds this fixture session's 15-minute network history.
   // Keep the actual source board's 60-second known-owner deletion threshold.
   await new Promise(resolve => setTimeout(resolve, 62_000));
   await page.goto(threadUrl);
   await page.locator(`#p${thread}`).getByText('Delete or report', { exact: true }).click();
   const form = page.locator(`#p${thread} form[action="/gif/delete"]`);
   await form.getByLabel('File only', { exact: true }).check();
+  const deletionResponse = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === '/gif/delete');
   await form.getByRole('button', { name: 'Delete post', exact: true }).click();
+  assert.equal((await deletionResponse).status(), 303, 'known-owner file deletion accepted');
   await expect(page.locator(`#p${thread}`).getByRole('img', { name: 'File deleted.', exact: true })).toBeVisible();
   for (const url of [full, thumbnail]) assert.equal((await page.request.get(url.href)).status(), 404);
   const deleted = (await (await page.request.get(api.href)).json()).posts[0];
