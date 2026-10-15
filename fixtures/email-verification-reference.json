@@ -1,0 +1,153 @@
+{
+  "source_sha256": "f646724efd291744fc8b4e46fda4f67c069277842dd7798512f864142f18cda2",
+  "source_commit": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "scope": "Pure validation/lowercase/trim/Gmail-dot rules only; no mail, tokens, CAPTCHA, cookies, routes or database execution. Not feature completion.",
+  "method_sha256": [
+    "964b394d8d579d2462d51985c24a1ff4bc1a338608641a5cf9ac819e5ba27938",
+    "bb42ed3f60707e9f17d0b2f9e414d814bc7e9b8bbf1d04e4bc637bae738788c5",
+    "345959ba0cf251a8b3f7a0bb0a6e650f0ea6ca51067071e695a4514a7d24c4d6"
+  ],
+  "allowed_domains": [
+    "gmail.com",
+    "hotmail.com",
+    "yahoo.com",
+    "proton.me",
+    "protonmail.com",
+    "outlook.com",
+    "live.com",
+    "icloud.com",
+    "yandex.com",
+    "tutanota.com",
+    "tutamail.com",
+    "tuta.io"
+  ],
+  "cases": [
+    {
+      "raw": " Owned.Source.200@GMAIL.COM ",
+      "expected": {
+        "email": "owned.source.200@gmail.com",
+        "identity_email": "ownedsource200@gmail.com"
+      }
+    },
+    {
+      "raw": " Owned.Source.200@HOTMAIL.COM ",
+      "expected": {
+        "email": "owned.source.200@hotmail.com",
+        "identity_email": "owned.source.200@hotmail.com"
+      }
+    },
+    {
+      "raw": " Owned.Source.200@YAHOO.COM ",
+      "expected": {
+        "email": "owned.source.200@yahoo.com",
+        "identity_email": "owned.source.200@yahoo.com"
+      }
+    },
+    {
+      "raw": " Owned.Source.200@PROTON.ME ",
+      "expected": {
+        "email": "owned.source.200@proton.me",
+        "identity_email": "owned.source.200@proton.me"
+      }
+    },
+    {
+      "raw": " Owned.Source.200@PROTONMAIL.COM ",
+      "expected": {
+        "email": "owned.source.200@protonmail.com",
+        "identity_email": "owned.source.200@protonmail.com"
+      }
+    },
+    {
+      "raw": " Owned.Source.200@OUTLOOK.COM ",
+      "expected": {
+        "email": "owned.source.200@outlook.com",
+        "identity_email": "owned.source.200@outlook.com"
+      }
+    },
+    {
+      "raw": " Owned.Source.200@LIVE.COM ",
+      "expected": {
+        "email": "owned.source.200@live.com",
+        "identity_email": "owned.source.200@live.com"
+      }
+    },
+    {
+      "raw": " Owned.Source.200@ICLOUD.COM ",
+      "expected": {
+        "email": "owned.source.200@icloud.com",
+        "identity_email": "owned.source.200@icloud.com"
+      }
+    },
+    {
+      "raw": " Owned.Source.200@YANDEX.COM ",
+      "expected": {
+        "email": "owned.source.200@yandex.com",
+        "identity_email": "owned.source.200@yandex.com"
+      }
+    },
+    {
+      "raw": " Owned.Source.200@TUTANOTA.COM ",
+      "expected": {
+        "email": "owned.source.200@tutanota.com",
+        "identity_email": "owned.source.200@tutanota.com"
+      }
+    },
+    {
+      "raw": " Owned.Source.200@TUTAMAIL.COM ",
+      "expected": {
+        "email": "owned.source.200@tutamail.com",
+        "identity_email": "owned.source.200@tutamail.com"
+      }
+    },
+    {
+      "raw": " Owned.Source.200@TUTA.IO ",
+      "expected": {
+        "email": "owned.source.200@tuta.io",
+        "identity_email": "owned.source.200@tuta.io"
+      }
+    },
+    {
+      "raw": "",
+      "expected": {
+        "error": "Invalid email address."
+      }
+    },
+    {
+      "raw": "owned@",
+      "expected": {
+        "error": "Invalid email address."
+      }
+    },
+    {
+      "raw": "owned@example.invalid",
+      "expected": {
+        "error": "This email provider is not allowed."
+      }
+    },
+    {
+      "raw": "owned+200@gmail.com",
+      "expected": {
+        "error": "Email subaddressing is not allowed"
+      }
+    },
+    {
+      "raw": "owned@@gmail.com",
+      "expected": {
+        "error": "Invalid email address."
+      }
+    },
+    {
+      "raw": "owned@gmail.com.evil",
+      "expected": {
+        "error": "This email provider is not allowed."
+      }
+    }
+  ],
+  "methods": [
+    "  private function validate_email($email) {\n    if (!preg_match('/^[^@]+@[^@]+\\.[a-z]+$/', $email)) {\n      $this->error(self::ERR_BAD_EMAIL);\n    }\n    \n    if (strpos($email, '+') !== false) {\n      $this->error(self::ERR_BAD_EMAIL_PLUS);\n    }\n    \n    if (self::VERIFY_EMAIL_DOMAIN) {\n      $flag = false;\n      \n      $domain = explode('@', $email)[1];\n      \n      if (!$domain) {\n        $this->error(self::ERR_BAD_EMAIL);\n      }\n      \n      foreach (self::$allowed_domains as $allowed_domain) {\n        if ($allowed_domain === $domain) {\n          $flag = true;\n          break;\n        }\n      }\n      \n      if (!$flag) {\n        $this->error(self::ERR_BAD_EMAIL_DOMAIN);\n      }\n    }\n    \n    return true;\n  }\n  \n",
+    "  private function normalize_gmail_address($email) {\n    list($user, $domain) = explode('@', $email);\n    $user = preg_replace('/\\./', '', $user);\n    return \"$user@$domain\";\n  }\n  \n",
+    "  private function get_domain($email) {\n    $parts = explode('@', $email);\n    \n    if (count($parts) !== 2) {\n      return '';\n    }\n    \n    return $parts[1];\n  }\n  \n"
+  ],
+  "domain_block": "  static $allowed_domains = [\n    'gmail.com',\n    'hotmail.com',\n    'yahoo.com',\n    'proton.me',\n    'protonmail.com',\n    'outlook.com',\n    'live.com',\n    'icloud.com',\n    'yandex.com',\n    'tutanota.com',\n    'tutamail.com',\n    'tuta.io'\n  ];",
+  "domain_block_sha256": "14067c37f08cd039edab5a4384f6c2ec9b47a9ea0ecb7fb5a1227abf6ad2c02f"
+}
