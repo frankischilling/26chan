@@ -114,7 +114,8 @@ test('announcement theme colors and mobile geometry retain the source rules', as
   await mkdir('.local/native-client-review', { recursive: true });
   for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon']) {
     const themeCSS = theme === 'yotsuba' ? '' : await readFile(new URL(`../../apps/public/static/themes/${theme}.css`, import.meta.url), 'utf8');
-    const style = await page.addStyleTag({ content: themeCSS });
+    // Yotsuba uses board.css directly; Playwright rejects an empty style input.
+    const style = themeCSS ? await page.addStyleTag({ content: themeCSS }) : null;
     for (const mobile of [false, true]) {
       await setup(page, { mobile });
       if (mobile) await page.locator('#globalToggle').click();
@@ -133,6 +134,6 @@ test('announcement theme colors and mobile geometry retain the source rules', as
       }), 'the actual theme toggle icon must load before its review capture');
       await page.screenshot({ path: `.local/native-client-review/announcement-${theme}-${mobile ? 'mobile' : 'desktop'}.png` });
     }
-    await style.evaluate(node => node.remove());
+    if (style) await style.evaluate(node => node.remove());
   }
 });
