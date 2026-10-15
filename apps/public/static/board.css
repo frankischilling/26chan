@@ -962,3 +962,8 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 .siteHome .homeStats dd { margin: 4px 0; }
 @media (max-width: 700px) { .siteHome .homeCards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 400px) { .siteHome .homeCards { grid-template-columns: 1fr; } }
+
+.postingNotices { margin: 8px 0; padding-left: 20px; max-width: 600px; font-size: 11px; }
+.postingNotices li { margin: 3px 0; }
+.postingNotices .crisisNotice { color: #a00; }
+.siteHome .homeCards, .siteHome .homeStats > p, .siteHome .homeStats dl { margin: 12px; }

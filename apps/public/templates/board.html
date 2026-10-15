@@ -43,6 +43,7 @@
 {% call posting::fields(parent, false, board.comment_spoiler_cleanup, board.text_only, board.forced_anon, board.country_flags, board.flag_options(), quote, drawing_allowed(), board.oekaki_width, board.oekaki_height) %}{% endcall %}
 {% if drawing_edit_allowed() && !drawing_allowed() %}<div class="painter-ctrl" hidden>Size <input type="text" value="{{ board.oekaki_width }}" maxlength="4" inputmode="numeric" aria-label="Drawing width" data-drawing-width> &times; <input type="text" value="{{ board.oekaki_height }}" maxlength="4" inputmode="numeric" aria-label="Drawing height" data-drawing-height> <button type="button" data-drawing-draw>Edit</button> <button disabled type="button" data-drawing-clear>Clear</button><span role="status" aria-live="polite" data-drawing-status></span></div>{% endif %}
 <p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.ordinary_reply_limit() }} per thread. {% if media_origin.is_empty() || board.image_limit == 0 || board.text_only %}Media uploads are unavailable.{% else %}Use the upload form above to post with an image.{% endif %}</p>
+{% include "posting_notices.html" %}
 {% include "blotter_preview.html" %}
 </form>
 {% endif %}

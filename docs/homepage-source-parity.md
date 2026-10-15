@@ -1,6 +1,6 @@
 # Homepage and information-page source comparison
 
-Issue [#194](https://github.com/frankischilling/26chan/issues/194) covers the homepage, directory, local information pages and blotter. The local draft adds grouped board discovery and an introductory homepage layout alongside the existing blotter. Local information pages and operator-maintained news now have a storage and rendering implementation under qualification. Frontpage content/statistics and source posting notices remain unfinished; this draft does not close the issue.
+Issue [#194](https://github.com/frankischilling/26chan/issues/194) covers the homepage, directory, local information pages and blotter. The branch adds grouped board discovery and a homepage layout alongside the existing blotter. Local information pages and operator-maintained news now have a storage and rendering implementation under qualification. Bounded frontpage content/statistics and typed posting notices are implemented on the branch; full HTTP and browser qualification still remain, so this draft does not close the issue.
 
 ## Available evidence
 
@@ -28,6 +28,28 @@ The already merged blotter retains newest-three board previews, explicit board v
 
 The actual Askama homepage template and grouping module compile in an isolated offline harness with a reduced board model. It checks 79 public fixture entries, 25 classifications including a custom board, escaped operator labels and the empty state. This is a focused template check, not a full application or browser pass. The full application test cannot run in the local offline cache because `rustls` 0.23.46 is absent; hosted qualification remains required.
 
-`fixtures/homepage-promotion-reference.json` captures the exact pinned `check_post` helper and fourteen literal cases. `scripts/test-homepage-promotion-reference.py` executes it with a database double and no database access. This preserves case-sensitive filename/marker behavior, substring exclusions, reported-post rejection and healthy ordinary controls. The local PHP oracle passes; the runtime promotion projection is still pending.
+`fixtures/homepage-promotion-reference.json` captures the exact pinned `check_post` helper and fourteen literal cases. `scripts/test-homepage-promotion-reference.py` executes it with a database double and no database access. This preserves case-sensitive filename/marker behavior, substring exclusions, reported-post rejection and healthy ordinary controls. The local PHP oracle passes; the runtime projection now has focused PostgreSQL coverage.
 
 The [local content workflow](local-site-content.md) covers page revisions, news publication/retraction, plain-text rendering and read-only public projections. It is a security-bounded replacement for the source's trusted HTML news fragments; historical images and external identities are not imported. Full application and browser qualification remain pending.
+
+## Posting notices
+
+`fixtures/posting-notices-reference.json` captures the default `S_RULES` and all
+20 board overrides, with source hashes. A fixed template restores local Rules
+and FAQ links, code/SJIS/math/dice hints, PDF and media notices, and configured
+image limits. `/test/` retains its explicit empty notice. Capabilities that are
+disabled do not advertise themselves as available.
+
+The historical `/adv/` telephone number and external font-download instructions
+are not replayed. The advice notice links the current US crisis service verified
+on October 15, 2026; it does not infer a visitor's location. Browser filtering
+advice does not ask visitors to disable protection. SJIS uses the existing local
+font behavior. The source's right-click equation-source menu is not implemented
+by this notice, so that instruction is omitted. The unsupported SWF/archive
+feature is stated as unavailable rather than linked to someone else's service.
+These compatibility limits remain explicit; publishing a notice does not claim
+those separate features have been implemented.
+
+[Homepage snapshots](homepage-snapshots.md) documents refresh, live visibility,
+local metric definitions and bounded history. The missing source consumer means
+the 12-card limit and responsive arrangement are local choices.

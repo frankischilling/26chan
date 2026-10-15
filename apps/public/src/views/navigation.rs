@@ -479,4 +479,62 @@ mod tests {
             100
         );
     }
+    #[test]
+    fn posting_notices_follow_source_families_and_active_capabilities() {
+        let source: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/posting-notices-reference.json"
+        ))
+        .unwrap();
+        assert_eq!(source["entries"].as_array().unwrap().len(), 21);
+        for slug in [
+            "g", "jp", "sci", "tg", "qst", "gd", "po", "gif", "wsg", "hr", "trv", "w", "wg", "hc",
+            "s", "adv", "f", "test", "news", "vt", "custom",
+        ] {
+            let mut current = board(slug);
+            current.comment_code_spacing = true;
+            current.comment_sjis_spacing = true;
+            current.math_tags = true;
+            current.dice_roll = true;
+            current.pdf_enabled = true;
+            current.upload_board = slug == "f";
+            let mut view = page(vec![], current);
+            view.media_origin = "https://media.invalid".into();
+            let html = view.render().unwrap();
+            if slug == "test" {
+                assert!(!html.contains("aria-label=\"Posting notices\""));
+                continue;
+            }
+            assert!(html.contains(&format!("href=\"/rules#{slug}\"")));
+            assert!(html.contains("href=\"/faq\""));
+            let notices = view.posting_notices();
+            assert_eq!(notices.code, slug == "g");
+            assert_eq!(notices.sjis, slug == "jp");
+            assert_eq!(notices.math, slug == "sci");
+            assert_eq!(notices.dice, matches!(slug, "tg" | "qst"));
+            assert_eq!(
+                notices.pdf,
+                matches!(slug, "gd" | "po" | "qst" | "sci" | "tg")
+            );
+            if slug == "adv" {
+                assert!(
+                    html.contains("https://988lifeline.org?oai_link_source=model_response_hotline")
+                );
+                assert!(!html.contains("273-8255"));
+            }
+            if slug == "f" {
+                assert!(html.contains("SWF uploading and the Flash archive are not available"));
+            }
+            view.media_origin.clear();
+            assert!(!view.posting_notices().pdf);
+            assert!(!view.posting_notices().types);
+            assert!(!view.posting_notices().minimum);
+            assert!(!view.posting_notices().size);
+            view.board.comment_code_spacing = false;
+            view.board.comment_sjis_spacing = false;
+            view.board.math_tags = false;
+            view.board.dice_roll = false;
+            let notices = view.posting_notices();
+            assert!(!notices.code && !notices.sjis && !notices.math && !notices.dice);
+        }
+    }
 }

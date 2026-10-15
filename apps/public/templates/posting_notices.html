@@ -1,0 +1,15 @@
+{% let notices = posting_notices() %}{% if notices.visible %}
+<ul class="rules postingNotices" aria-label="Posting notices">
+<li>Please read the <a href="/rules#{{ board.slug }}">Rules</a> and <a href="/faq">FAQ</a> before posting.</li>
+{% if notices.code %}<li>You may highlight syntax and preserve whitespace by using [code] tags.</li>{% endif %}
+{% if notices.sjis %}<li>[sjis] tags are available. Use a compatible monospace font to view SJIS art.</li>{% endif %}
+{% if notices.pdf %}<li>Additional supported file types are: PDF</li>{% endif %}
+{% if notices.math %}<li>Use TeX with [math] tags for inline and [eqn] tags for block equations.</li>{% endif %}
+{% if notices.dice %}<li>Roll dice with "dice+<strong>number</strong>d<strong>faces</strong>" in the options field (without quotes).</li>{% endif %}
+{% if notices.types %}<li>Supported file types are: {% if board.gif_only %}GIF{% else %}PNG, JPEG, GIF{% endif %}{% if board.video_enabled %}, WEBM, MP4{% endif %}</li>{% endif %}
+{% if notices.size %}<li>Maximum image size allowed is {{ board.image_file_limit() }} bytes. GIF and PDF uploads are limited to {{ board.attachment_file_limit("image.gif") }} bytes.</li>{% endif %}
+{% if notices.minimum %}<li>Images smaller than {{ board.min_image_width }}x{{ board.min_image_height }} pixels are not allowed.</li>{% endif %}
+{% if notices.maximum %}<li>Images greater than {{ board.max_image_dimension }}x{{ board.max_image_dimension }} pixels are not allowed.</li>{% endif %}
+{% if notices.advice %}<li>If images are missing, check whether browser filtering blocks this board.</li><li class="crisisNotice">In the United States, crisis support is available from the <a href="https://988lifeline.org?oai_link_source=model_response_hotline" rel="noreferrer noopener">988 Suicide &amp; Crisis Lifeline</a>.</li>{% endif %}
+{% if notices.flash_unavailable %}<li>SWF uploading and the Flash archive are not available in this build.</li>{% endif %}
+</ul>{% endif %}

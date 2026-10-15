@@ -1,0 +1,153 @@
+{
+  "source_commit": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "note": "Archival S_RULES strings only. Never render this untrusted HTML; historical contact and external resource data is not current guidance.",
+  "entries": [
+    {
+      "path": "config/global_strings.ini",
+      "sha256": "3b3b60083db74fb1693af6f0824cccd6ec3ca446242474008cf9be474c65cd17",
+      "line": 71,
+      "board": "default",
+      "source_html": "<li>Please read the <a href=\"//www.{{MAIN_DOMAIN}}/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.{{MAIN_DOMAIN}}/faq\">FAQ</a> before posting.</li>"
+    },
+    {
+      "path": "config/boards/adv.config.ini",
+      "sha256": "a3357ab36e444f47b7cf6eb3522519dd7f4449038ad00532380bff137d3b7c26",
+      "line": 20,
+      "board": "adv",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>AdBlock users: The default ruleset blocks images on /adv/. You must disable AdBlock to browse /adv/ properly.</li><li style=\"color: red;\">Are you in crisis? Call the <a href=\"http://www.suicidepreventionlifeline.org/\" target=\"_blank\">National Suicide Prevention Lifeline</a> at +1 (800) 273-8255.</li>"
+    },
+    {
+      "path": "config/boards/f.config.ini",
+      "sha256": "d9860308ce998306e08cb39a98420818f0a078da200e6a1e617672d0e169fa3a",
+      "line": 47,
+      "board": "f",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Supported file types are: SWF</li><li>Maximum file size allowed is {{MAX_KB}} KB.</li><li>Check out the 4chan <a href=\"//www.4chan.org/flash\" target=\"_blank\">Flash archive</a>!</li>"
+    },
+    {
+      "path": "config/boards/g.config.ini",
+      "sha256": "0c9182d9564f3ad31edcfaab4afef036f71ec9bae5e4a372a0c8be3f48c4b786",
+      "line": 28,
+      "board": "g",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>You may highlight syntax and preserve whitespace by using [code] tags.</li>"
+    },
+    {
+      "path": "config/boards/gd.config.ini",
+      "sha256": "518128e32bcde9206c1dadc4c27522e5ea13b2a540ac636cd2d8b2d59a6a438b",
+      "line": 29,
+      "board": "gd",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Additional supported file types are: PDF</li>"
+    },
+    {
+      "path": "config/boards/gif.config.ini",
+      "sha256": "ffc9372f3e6d9e5b56029138c79cd3b23efce7922227804e3aba7387fbbcb887",
+      "line": 46,
+      "board": "gif",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Supported file types are: GIF, WEBM</li>"
+    },
+    {
+      "path": "config/boards/hc.config.ini",
+      "sha256": "074cdf7abeff00670f56b7015fe1f2bfad7fc0ae837228d5adf5114666dc58db",
+      "line": 29,
+      "board": "hc",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Images smaller than {{MIN_W}}x{{MIN_H}} pixels are not allowed.</li>"
+    },
+    {
+      "path": "config/boards/hr.config.ini",
+      "sha256": "66b55a79119e996a009345c8f4268de5b69634a3c4c39defeff1f3018fa3c4ae",
+      "line": 31,
+      "board": "hr",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Maximum file size allowed is {{MAX_KB}} KB.</li><li>Images smaller than {{MIN_W}}x{{MIN_H}} pixels are not allowed.</li><li>Images greater than {{MAX_DIMENSION}}x{{MAX_DIMENSION}} pixels are not allowed.</li>"
+    },
+    {
+      "path": "config/boards/jp.config.ini",
+      "sha256": "af02d8dd899667d7b9630f372c45a25ec5a57e0ada834cca10426985aea42c60",
+      "line": 45,
+      "board": "jp",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>[sjis] tags are available. Install the <a href=\"http://monafont.sourceforge.net/index-e.html\" target=\"_blank\">Mona font</a> to view SJIS art properly.</li>"
+    },
+    {
+      "path": "config/boards/news.config.ini",
+      "sha256": "e0baf7bee788910a340bcd767b2df408a95ebbd9ecbf258ff99328999733a3e1",
+      "line": 38,
+      "board": "news",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li>"
+    },
+    {
+      "path": "config/boards/po.config.ini",
+      "sha256": "23277c49a9269246001141ed554073f2c4dac5d54ed72c391c6ec3d6c37dcbce",
+      "line": 25,
+      "board": "po",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Additional supported file types are: PDF</li>"
+    },
+    {
+      "path": "config/boards/qst.config.ini",
+      "sha256": "204aadc8b836ae56b91686f492780382b7cf2366a034c3fee01a88b6648b217d",
+      "line": 77,
+      "board": "qst",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Additional supported file types are: PDF</li><li>Roll dice with \"dice+<strong>number</strong>d<strong>faces</strong>\" in the options field (without quotes).</li>"
+    },
+    {
+      "path": "config/boards/s.config.ini",
+      "sha256": "f450029f53e00ca98986861011541b72e3bcb47fdb8951bd509e19ff06671fb3",
+      "line": 33,
+      "board": "s",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Images smaller than {{MIN_W}}x{{MIN_H}} pixels are not allowed.</li>"
+    },
+    {
+      "path": "config/boards/sci.config.ini",
+      "sha256": "53cd956f750a4a8923c4d7f7c61d48e432cd4b528346627041816b8c3743de18",
+      "line": 30,
+      "board": "sci",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Additional supported file types are: PDF</li><li>Use <span class=\"tex-logo\">T<sub>e</sub>X</span> with [math] tags for inline and [eqn] tags for block equations.</li><li>Right-click equations to view the source.</li>"
+    },
+    {
+      "path": "config/boards/test.config.ini",
+      "sha256": "72f1ddef8a63944bfb40e5d2e368c8ffeb42bef4c18b02a04d3638186a98b683",
+      "line": 125,
+      "board": "test",
+      "source_html": ""
+    },
+    {
+      "path": "config/boards/tg.config.ini",
+      "sha256": "caaa089d0a490ce76062b3bacd431e23780f2739e27579f250290cc0a8af2e13",
+      "line": 44,
+      "board": "tg",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Additional supported file types are: PDF</li><li>Roll dice with \"dice+<strong>number</strong>d<strong>faces</strong>\" in the options field (without quotes).</li>"
+    },
+    {
+      "path": "config/boards/trv.config.ini",
+      "sha256": "e29556a20680f938d7b69697c0f70c8a75b2f51f61776534adc262197d4adfcf",
+      "line": 25,
+      "board": "trv",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Maximum file size allowed is {{MAX_KB}} KB.</li><li>Images greater than {{MAX_DIMENSION}}x{{MAX_DIMENSION}} pixels are not allowed.</li>"
+    },
+    {
+      "path": "config/boards/vt.config.ini",
+      "sha256": "3023e58c0025584276f3a1d80d84e01bc55779458690122c8d9d231d4814c4e2",
+      "line": 40,
+      "board": "vt",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li>"
+    },
+    {
+      "path": "config/boards/w.config.ini",
+      "sha256": "eee2c5cd258ef054689bb9efde18580b84524e4e89d44d4de8484970c7aca6ca",
+      "line": 29,
+      "board": "w",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Maximum file size allowed is {{MAX_KB}} KB.</li><li>Images smaller than {{MIN_W}}x{{MIN_H}} pixels are not allowed.</li>"
+    },
+    {
+      "path": "config/boards/wg.config.ini",
+      "sha256": "2fb95463ac8087d98cc545782a7722cf624ba864ec02e5d22516b521a18f5bf3",
+      "line": 29,
+      "board": "wg",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Maximum file size allowed is {{MAX_KB}} KB.</li><li>Images smaller than {{MIN_W}}x{{MIN_H}} pixels are not allowed.</li>"
+    },
+    {
+      "path": "config/boards/wsg.config.ini",
+      "sha256": "b8d30a18b219eaaa6f2ac1d1ae0a04ad2fe70ddaf39b63a3d8b3bb2e89e796e9",
+      "line": 43,
+      "board": "wsg",
+      "source_html": "<li>Please read the <a href=\"//www.4chan.org/rules#{{BOARD_DIR}}\">Rules</a> and <a href=\"//www.4chan.org/faq\">FAQ</a> before posting.</li><li>Supported file types are: GIF, WEBM, MP4</li>"
+    }
+  ]
+}

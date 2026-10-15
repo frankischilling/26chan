@@ -17,6 +17,8 @@ mod navigation;
 mod page_identity;
 #[path = "views/polls.rs"]
 pub mod polls;
+#[path = "views/posting_notices.rs"]
+mod posting_notices;
 #[path = "views/spoilers.rs"]
 pub mod spoilers;
 
@@ -87,6 +89,9 @@ pub struct UploadForm {
 }
 
 impl BoardPage {
+    pub fn posting_notices(&self) -> posting_notices::Notices {
+        posting_notices::for_board(&self.board, !self.media_origin.is_empty())
+    }
     pub fn heading(&self) -> String {
         page_identity::heading(&self.board)
     }

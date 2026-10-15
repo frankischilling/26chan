@@ -12,6 +12,8 @@ mod catalog_limits;
 mod flags;
 #[path = "visual/headers.rs"]
 mod headers;
+#[path = "visual/homepage.rs"]
+mod homepage;
 #[path = "visual/links.rs"]
 mod links;
 #[path = "visual/listeners.rs"]
@@ -587,6 +589,7 @@ async fn main() -> std::io::Result<()> {
             "/",
             get(|| async { Html(views::Home { boards: vec![], news:vec![], snapshot: Default::default(), media_origin: String::new() }.render().unwrap()) }),
         )
+        .route("/homepage/", get(|| async { Html(homepage::page()) }))
         .route("/empty/", get(|| async { Html(empty_page(false)) }))
         .route("/empty/catalog", get(|| async { Html(empty_page(true)) }))
         .route("/demo/", get(|| async { Html(page(false)) }))
