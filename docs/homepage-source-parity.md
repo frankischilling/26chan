@@ -1,6 +1,6 @@
 # Homepage and information-page source comparison
 
-Issue [#194](https://github.com/frankischilling/26chan/issues/194) covers the homepage, directory, local information pages and blotter. The branch adds grouped board discovery and a homepage layout alongside the existing blotter. Local information pages and operator-maintained news now have a storage and rendering implementation under qualification. Bounded frontpage content/statistics and typed posting notices are implemented on the branch; full HTTP and browser qualification still remain, so this draft does not close the issue.
+Issue [#194](https://github.com/frankischilling/26chan/issues/194) covers the homepage, directory, local information pages and blotter. The branch adds grouped board discovery and a homepage layout alongside the existing blotter. Local information pages, operator-maintained news, bounded frontpage content/statistics and typed posting notices are implemented together. [PR #289](https://github.com/frankischilling/26chan/pull/289) records the end-to-end qualification and merge checks.
 
 ## Available evidence
 
@@ -24,13 +24,13 @@ Local homepage data should come from bounded public projections. Private boards,
 
 The already merged blotter retains newest-three board previews, explicit board visibility policy, timestamp-based dismissal and a paginated local listing. Homepage work must preserve those contracts. Missing source templates and generators remain listed above so visual or feed behavior is not presented as verified without evidence.
 
-## Draft checks
+## Verification
 
-The actual Askama homepage template and grouping module compile in an isolated offline harness with a reduced board model. It checks 79 public fixture entries, 25 classifications including a custom board, escaped operator labels and the empty state. This is a focused template check, not a full application or browser pass. The full application test cannot run in the local offline cache because `rustls` 0.23.46 is absent; hosted qualification remains required.
+The actual Askama homepage template and grouping module compile in an isolated offline harness with a reduced board model. It checks 79 public fixture entries, 25 classifications including a custom board, escaped operator labels and the empty state. This is a focused template check, not a full application or browser pass. The development cache lacked a locked TLS dependency, so this harness does not establish a full application pass. Full HTTP and browser results are recorded in [PR #289](https://github.com/frankischilling/26chan/pull/289).
 
 `fixtures/homepage-promotion-reference.json` captures the exact pinned `check_post` helper and fourteen literal cases. `scripts/test-homepage-promotion-reference.py` executes it with a database double and no database access. This preserves case-sensitive filename/marker behavior, substring exclusions, reported-post rejection and healthy ordinary controls. The local PHP oracle passes; the runtime projection now has focused PostgreSQL coverage.
 
-The [local content workflow](local-site-content.md) covers page revisions, news publication/retraction, plain-text rendering and read-only public projections. It is a security-bounded replacement for the source's trusted HTML news fragments; historical images and external identities are not imported. Full application and browser qualification remain pending.
+The [local content workflow](local-site-content.md) covers page revisions, news publication/retraction, plain-text rendering and read-only public projections. It is a security-bounded replacement for the source's trusted HTML news fragments; historical images and external identities are not imported. Full application and browser qualification is tracked in [PR #289](https://github.com/frankischilling/26chan/pull/289).
 
 ## Posting notices
 
@@ -67,4 +67,4 @@ fixtures for this implementation, not screenshots of the original site.
 
 That run also found a Clippy item-order failure in the new content module. The
 constant now precedes the test module, and focused all-target Clippy passes.
-Fresh full application and browser runs are still required at the final head.
+[PR #289](https://github.com/frankischilling/26chan/pull/289) records subsequent full application and browser runs. Every final-head check must pass before merge.

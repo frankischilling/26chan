@@ -15,8 +15,7 @@ The [local blotter](local-blotter.md) provides the source-gated newest-three
 preview, timestamp dismissal and a local dated cursor-paginated page. The
 [homepage continuation](homepage-source-parity.md) adds grouped discovery,
 local information destinations, news, statistics and posting notices. Its
-final-head hosted qualification remains required for
-[#194](https://github.com/frankischilling/26chan/issues/194). The missing original
+implementation and hosted qualification are recorded in [PR #289](https://github.com/frankischilling/26chan/pull/289). The missing original
 homepage/information templates and blotter Atom generator remain explicit
 reference limits.
 

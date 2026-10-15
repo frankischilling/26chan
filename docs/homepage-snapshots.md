@@ -68,7 +68,7 @@ The populated 0154 upgrade preserves boards, threads and posts; a schema-name
 conflict rolls back, and an administrator dump/restore preserves public
 projections and homepage readiness.
 
-Full application HTTP tests and hosted browser qualification remain required
-before the issue can close. The original homepage controller and template are
+Full application HTTP tests and hosted browser qualification are recorded in
+[PR #289](https://github.com/frankischilling/26chan/pull/289); focused tests do not replace those checks. The original homepage controller and template are
 missing from the supplied source, so the layout is a reconstruction rather than
 an assertion of historical pixel identity. See [the source inventory](homepage-source-parity.md).
