@@ -1,10 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Boards - Paperboard{% endblock %}
+{% block title %}26chan{% endblock %}
+{% block body_attributes %} class="siteHome"{% endblock %}
+{% block board_navigation %}{% endblock %}
 {% block content %}
-<header><h1>Paperboard</h1><p>A text imageboard in development.</p></header>
-<nav aria-label="Site navigation"><a href="/polls">Polls</a></nav>
-<section class="boardDirectory" aria-labelledby="boards-title"><h2 id="boards-title">Boards</h2>
-{% for entry in directory() %}<article><h3><a href="/{{ entry.board.slug }}/">/{{ entry.board.slug }}/ - {{ entry.title }}</a></h3><p>{{ entry.board.description }}</p></article>
-{% else %}<p>No boards are available yet.</p>{% endfor %}
-</section>
+<header class="siteHomeHeader"><h1>26chan</h1><p>Imageboards for every interest.</p></header>
+<section class="homePanel homeAbout" aria-labelledby="about-title"><h2 id="about-title">What is 26chan?</h2><p>An image-based discussion board. Choose a topic below to read threads, share images and join the conversation. Public posting does not require an account.</p></section>
+<section class="boardDirectory homePanel" aria-labelledby="boards-title"><h2 id="boards-title">Boards</h2>
+<div class="homeBoardGroups">
+{% for group in groups() %}<article><h3>{{ group.title }}</h3><ul>
+{% for entry in group.entries %}<li{% if entry.nws %} class="nwsb"{% endif %}><a href="/{{ entry.directory.board.slug }}/" title="/{{ entry.directory.board.slug }}/ - {{ entry.directory.title }}">{{ entry.directory.title }}</a>{% if entry.nws %} <span class="homeNws" title="Not work safe">(NSFW)</span>{% endif %}</li>{% endfor %}
+</ul></article>{% else %}<p>No boards are available yet.</p>{% endfor %}
+</div></section>
+<nav class="homeLinks" aria-label="Site navigation"><a href="/">Home</a> · <a href="/blotter">Blotter</a> · <a href="/polls">Polls</a></nav>
 {% endblock %}
+{% block page_footer %}<footer class="homeFooter"><p>26chan development build.</p></footer>{% endblock %}

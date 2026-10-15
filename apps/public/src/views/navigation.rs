@@ -393,4 +393,83 @@ mod tests {
         assert!(!html.contains("/private/"));
         assert!(!html.contains("<script>& title"));
     }
+
+    #[test]
+    fn homepage_groups_preserve_every_public_board_and_source_classification() {
+        let reference: serde_json::Value =
+            serde_json::from_str(include_str!("../../../../fixtures/homepage-reference.json"))
+                .unwrap();
+        let mut boards: Vec<_> = data::DIRECTORY_LABELS
+            .iter()
+            .map(|&(slug, _)| board(slug))
+            .collect();
+        boards.reverse();
+        let mut custom = board("custom");
+        custom.worksafe = false;
+        boards.push(custom);
+        let mut private = board("private");
+        private.staff_only = true;
+        boards.push(private);
+        let groups = super::super::home_directory::groups(&boards);
+        assert_eq!(groups.len(), 8);
+        for (group, expected) in groups.iter().zip(
+            reference["public_directory_observation"]["groups"]
+                .as_array()
+                .unwrap(),
+        ) {
+            assert_eq!(group.title, expected["title"].as_str().unwrap());
+            let actual: Vec<_> = group
+                .entries
+                .iter()
+                .map(|e| e.directory.board.slug.as_str())
+                .collect();
+            let expected: Vec<_> = expected["slugs"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap())
+                .collect();
+            assert_eq!(actual, expected);
+        }
+        assert_eq!(groups.last().unwrap().title, "More boards");
+        assert_eq!(
+            groups
+                .last()
+                .unwrap()
+                .entries
+                .iter()
+                .map(|e| e.directory.board.slug.as_str())
+                .collect::<Vec<_>>(),
+            ["asp", "r", "trash", "custom"]
+        );
+        let entries: Vec<_> = groups.iter().flat_map(|g| &g.entries).collect();
+        assert_eq!(entries.len(), 79);
+        assert_eq!(entries.iter().filter(|e| e.nws).count(), 25);
+        for slug in ["f", "i", "ic", "wg", "custom"] {
+            assert!(
+                entries
+                    .iter()
+                    .find(|e| e.directory.board.slug == slug)
+                    .unwrap()
+                    .nws
+            );
+        }
+        assert!(
+            !entries
+                .iter()
+                .find(|e| e.directory.board.slug == "a")
+                .unwrap()
+                .nws
+        );
+        assert!(!entries.iter().any(|e| e.directory.board.slug == "private"));
+        assert!(super::super::home_directory::groups(&[]).is_empty());
+        let many: Vec<_> = (0..120).map(|i| board(&format!("owned{i}"))).collect();
+        assert_eq!(
+            super::super::home_directory::groups(&many)
+                .iter()
+                .map(|g| g.entries.len())
+                .sum::<usize>(),
+            100
+        );
+    }
 }

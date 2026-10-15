@@ -7,6 +7,8 @@ use board_store::{Board, Post, Thread};
 mod catalog_identity;
 #[path = "views/file_label.rs"]
 mod file_label;
+#[path = "views/home_directory.rs"]
+mod home_directory;
 #[path = "views/mobile_label.rs"]
 mod mobile_label;
 #[path = "views/navigation.rs"]
@@ -25,6 +27,10 @@ pub struct Home {
 }
 
 impl Home {
+    pub fn groups(&self) -> Vec<home_directory::Group<'_>> {
+        home_directory::groups(&self.boards)
+    }
+
     pub fn directory(&self) -> Vec<navigation::DirectoryEntry<'_>> {
         navigation::directory(&self.boards)
     }

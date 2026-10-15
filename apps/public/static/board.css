@@ -922,3 +922,22 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 .ogv-btn { border: 0; padding: 0; background: transparent; cursor: pointer; }
 .ogv-cnt > ogvjs.expanded-thumb { display: block; }
 .ogv-ctrl[hidden], .ogv-cnt > ogvjs[hidden] { display: none; }
+
+/* Homepage layout is independent of thread/post containers. */
+.siteHome { max-width: 960px; margin: 0 auto; padding: 12px; }
+.siteHomeHeader h1 { font-size: 48px; letter-spacing: -2px; margin: 8px 0; }
+.siteHomeHeader p { margin: 0 0 20px; }
+.siteHome .homePanel { max-width: none; padding: 0; margin: 16px 0; border: 1px solid #800000; background: #fff; }
+.homePanel > h2 { margin: 0; padding: 5px 8px; background: #fca; font-size: 16px; }
+.homeAbout p { padding: 0 12px; line-height: 1.5; }
+.homeBoardGroups { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding: 12px; }
+.siteHome .boardDirectory article { border: 0; min-width: 0; }
+.homeBoardGroups h3 { margin: 0 0 6px; font-size: 13px; text-decoration: underline; }
+.homeBoardGroups ul { list-style: none; margin: 0; padding: 0; }
+.homeBoardGroups li { line-height: 1.55; overflow-wrap: anywhere; }
+.homeBoardGroups a { color: inherit; }
+.homeBoardGroups a:hover { text-decoration: underline; }
+.homeNws { font-size: 10px; }
+.homeLinks, .homeFooter { text-align: center; margin: 16px 0; }
+@media (max-width: 640px) { .homeBoardGroups { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 340px) { .homeBoardGroups { grid-template-columns: 1fr; } }
