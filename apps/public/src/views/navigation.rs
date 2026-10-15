@@ -515,6 +515,9 @@ mod tests {
                 notices.pdf,
                 matches!(slug, "gd" | "po" | "qst" | "sci" | "tg")
             );
+            if slug == "jp" {
+                assert!(html.contains("https://monafont.sourceforge.net/index-e.html"));
+            }
             if slug == "adv" {
                 assert!(
                     html.contains("https://988lifeline.org?oai_link_source=model_response_hotline")

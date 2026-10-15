@@ -40,11 +40,12 @@ and FAQ links, code/SJIS/math/dice hints, PDF and media notices, and configured
 image limits. `/test/` retains its explicit empty notice. Capabilities that are
 disabled do not advertise themselves as available.
 
-The historical `/adv/` telephone number and external font-download instructions
-are not replayed. The advice notice links the current US crisis service verified
+The historical `/adv/` telephone number is not replayed. The advice notice links the current US crisis service verified
 on October 15, 2026; it does not infer a visitor's location. Browser filtering
-advice does not ask visitors to disable protection. SJIS uses the existing local
-font behavior. The source's right-click equation-source menu is not implemented
+advice does not ask visitors to disable protection. The original optional [Mona font link](https://monafont.sourceforge.net/index-e.html)
+is retained over HTTPS; the project page was verified on October 15, 2026 and
+identifies the font as no longer actively maintained. No font is downloaded by
+loading the board. The source's right-click equation-source menu is not implemented
 by this notice, so that instruction is omitted. The unsupported SWF/archive
 feature is stated as unavailable rather than linked to someone else's service.
 These compatibility limits remain explicit; publishing a notice does not claim
