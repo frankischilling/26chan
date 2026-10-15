@@ -9,7 +9,7 @@ export function validChallenge(value) {
     && (value.slider ? png(value.background) : value.background === null);
 }
 export function mountVerification(doc = document, win = window) {
-  const form = doc.getElementById('verification-form');
+  const form = doc.getElementById('auth-form');
   if (!form) return;
   const find = (id) => doc.getElementById(id);
   const frame = find('t-frame'), fg = find('t-fg'), bg = find('t-bg'), slider = find('t-slider');

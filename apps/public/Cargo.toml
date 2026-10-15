@@ -67,3 +67,7 @@ required-features = ["browser-tests"]
 
 [dev-dependencies.board-verification]
 path = "../verification"
+
+[[example]]
+name = "verification-browser-fixture"
+required-features = ["browser-tests"]

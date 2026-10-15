@@ -161,7 +161,7 @@ async fn public_form_to_private_queue_and_browser_rotation_round_trip() {
         assert!(verified(&state,&current).await.unwrap());assert!(issuer.session(&previous.posting.fingerprints.token).await.unwrap().is_none());
         let response=page(State(state.clone()),Extension(RequestPeer(Some(peer))),RawQuery(None),new_headers).await.unwrap();let headers=cookies(&response);let nonce=FormSecret::read(&headers,false).unwrap().unwrap().nonce();
         assert!(body(response).await.contains(">Logout</button>"));
-        let response=submit(State(state.clone()),Extension(RequestPeer(Some(peer))),headers,encoded(&[("action","logout"),("csrf",&nonce)])).await.unwrap();
+        let response=submit(State(state.clone()),Extension(RequestPeer(Some(peer))),headers,encoded(&[("action","signout"),("csrf",&nonce)])).await.unwrap();
         assert!(body(response).await.contains("Session cleared."));assert!(issuer.session(&current.posting.fingerprints.token).await.unwrap().is_none());
     }}).await;
     serving.abort();

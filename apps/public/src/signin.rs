@@ -315,7 +315,7 @@ async fn submit(
     if session.posting.minted {
         return Err(invalid());
     }
-    if action == "logout" {
+    if action == "signout" {
         if ["email", "tkn", "t-challenge", "t-response"]
             .iter()
             .any(|k| fields.has(k))
@@ -436,7 +436,7 @@ async fn submit(
 fn result_message(result: &protocol::EmailResult) -> String {
     if matches!(result.state, EmailState::Cooldown) {
         format!(
-            "Please wait {} seconds before requesting another verification email.",
+            "You have to wait {} more seconds before attempting this again.",
             result.cooldown_seconds
         )
     } else {
@@ -446,11 +446,11 @@ fn result_message(result: &protocol::EmailResult) -> String {
 fn state_message(state: &EmailState) -> &'static str {
     match state {
         EmailState::BadEmail => "Invalid email address.",
-        EmailState::DisallowedProvider => "This email provider is not supported.",
-        EmailState::Subaddressing => "Email subaddressing is not supported.",
+        EmailState::DisallowedProvider => "This email provider is not allowed.",
+        EmailState::Subaddressing => "Email subaddressing is not allowed",
         EmailState::Pending => "",
         EmailState::Queued => "An email containing the verification link will be sent out shortly.",
-        EmailState::AlreadyQueued => "A verification email is already queued for this address.",
+        EmailState::AlreadyQueued => "You have to wait a while before attempting this again.",
         EmailState::Verified => "This session is now verified.",
         EmailState::AlreadyUsed => {
             "This verification link has already been used. Request a new link to verify another session."
@@ -537,3 +537,52 @@ mod tests {
 
 #[cfg(all(test, feature = "database-tests"))]
 mod database_tests;
+
+/// Synthetic UI qualification uses the production template and response policy.
+/// This entry point is absent unless the explicit browser-test feature is built.
+#[cfg(feature = "browser-tests")]
+pub(crate) fn fixture_response(mode: &str, origin: &str) -> Result<Response, String> {
+    let parsed = url::Url::parse(origin).map_err(|_| "Invalid fixture origin.")?;
+    if parsed.origin().ascii_serialization() != origin
+        || !matches!(
+            mode,
+            "request" | "verify" | "preview" | "logout" | "message"
+        )
+    {
+        return Err("Invalid verification fixture.".into());
+    }
+    let state = AppState {
+        pool: sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+            .map_err(|_| "Fixture pool unavailable.")?,
+        origin: origin.into(),
+        production: false,
+        limits: std::sync::Arc::new(crate::security::Limits::new(
+            board_config::PublicRequestLimits::default(),
+        )),
+        media: None,
+        verification: None,
+        proxy_uid: None,
+        poster_id_key: None,
+        tripcode_key: None,
+        country_database: None,
+    };
+    let secret = FormSecret::generate().map_err(|_| "Fixture secret unavailable.")?;
+    let token = format!("e1_{}", "ab".repeat(32));
+    let response = render_document(
+        &state,
+        &secret,
+        mode,
+        &token,
+        if mode == "message" {
+            "This session is now verified."
+        } else {
+            ""
+        },
+        "",
+    )
+    .map_err(|_| "Fixture rendering failed.")?;
+    Ok(crate::security::verification_fixture_headers(
+        response, &state,
+    ))
+}

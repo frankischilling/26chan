@@ -2,7 +2,7 @@
 
 Work in progress for #200. The email-verification routes, private issuer, mail
 worker, and local mail fixture are implemented on the development branch. Full
-browser, migration/restore, deployment, and final-head CI qualification remain
+browser, deployment, and final-head CI qualification remain
 pending. Ordinary posting, Quick Reply, report CAPTCHA, tickets, and credits
 remain #199 work. Neither issue is complete.
 
@@ -133,8 +133,7 @@ anonymous-cookie replacement, verification, capability rotation, and logout.
 This is not browser or full-middleware qualification.
 
 Still required for #200: real browser keyboard/mobile/lifecycle checks,
-upgrade/restore checks, deployment
-validation, and all final-head CI checks. The source's sign-in stylesheet and
+deployment validation, and all final-head CI checks. The source's sign-in stylesheet and
 mini-leaf image are absent from the supplied archive. Twister fonts,
 configuration, and private provider inputs are also missing. The bounded PNG
 renderer is a functional replacement with its own glyphs; its images and the
@@ -202,3 +201,17 @@ service credential. The mailer gets only its delivery-role credential and mail
 key. The public process gets only the loopback endpoint and service credential.
 The profiles restrict network access to loopback and writable filesystem access;
 they are not a substitute for qualification on the deployment host.
+
+`test-public-verification-migration.sh` passes a populated pre-0158 upgrade and
+an administrator dump/restore through 0162. It compares the retained anonymous
+activity, linked identity, token counters, opaque queue payload, function owners,
+ACLs, and definitions. Restriction and transfer readiness remain valid, and
+runtime roles still lack private verification table authority. The queue payload
+in this migration fixture is synthetic storage data, not a decryption test.
+
+The dedicated verification browser fixture uses the production template and CSP
+with synthetic challenge responses. Its Linux and Windows suites cover desktop
+and mobile controls, native range-keyboard input, expiry, persisted restoration,
+submission fields and Origin, and native preview/logout/completion views. Review
+images are retained separately from later Playwright runs. These checks are
+implemented but have not yet completed hosted qualification.

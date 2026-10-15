@@ -7,9 +7,9 @@ function fixture(mode = 'request') {
     value = ''; textContent = ''; hidden = false; disabled = false; style = {}; previousElementSibling = {};
     removeAttribute(name) { delete this[name]; } focus() { this.focused = true; }
   }
-  const ids = ['verification-form', 't-frame', 't-fg', 't-bg', 't-slider', 't-load', 't-msg', 't-resp', 't-challenge', 'verification-submit', 't-help'];
+  const ids = ['auth-form', 't-frame', 't-fg', 't-bg', 't-slider', 't-load', 't-msg', 't-resp', 't-challenge', 'verification-submit', 't-help'];
   const nodes = Object.fromEntries(ids.map(id => [id, new Element()]));
-  const form = nodes['verification-form']; form.dataset = { mode };
+  const form = nodes['auth-form']; form.dataset = { mode };
   form.elements = { namedItem: name => name === 'csrf' ? { value: 'a'.repeat(64) } : mode === 'verify' && name === 'tkn' ? { value: `e1_${'cd'.repeat(32)}` } : null };
   const win = new EventTarget(), timers = new Map(); let next = 1; const requests = [];
   win.setTimeout = (fn, delay) => { const id = next++; timers.set(id, { fn, delay }); return id; };

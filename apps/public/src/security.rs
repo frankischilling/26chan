@@ -1509,3 +1509,8 @@ mod verification_policy_tests {
         }
     }
 }
+
+#[cfg(feature = "browser-tests")]
+pub(crate) fn verification_fixture_headers(response: Response, state: &AppState) -> Response {
+    headers(response, state, None, None)
+}

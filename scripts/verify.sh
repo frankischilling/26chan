@@ -96,6 +96,7 @@ browser_content() {
   npm run test:polls
   npm run test:blotter
   npm run test:blotter-persisted
+  npm run test:verification
   npm run test:page-identity-core
   npm run test:board-subtitles
   npm run test:global-search

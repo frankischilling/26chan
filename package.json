@@ -109,7 +109,8 @@
     "check:native-video-fallback": "python3 scripts/check-ogv-assets.py && node scripts/build-native-video-fallback.mjs --check",
     "build:verification": "node scripts/build-verification.mjs",
     "check:verification": "node scripts/build-verification.mjs --check",
-    "test:verification-core": "npm run check:verification && node --test tests/helpers/verification.test.mjs"
+    "test:verification-core": "npm run check:verification && node --test tests/helpers/verification.test.mjs",
+    "test:verification": "npm run test:verification-core && playwright test --config playwright.verification.config.js"
   },
   "devDependencies": {
     "@mathjax/mathjax-tex-font": "4.1.3",

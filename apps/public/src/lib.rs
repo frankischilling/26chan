@@ -370,3 +370,11 @@ pub async fn media_ready(settings: &board_config::PublicMediaSettings) -> Result
 
 mod proxy_peer;
 mod watcher_catalog;
+
+#[cfg(feature = "browser-tests")]
+pub fn verification_fixture_response(
+    mode: &str,
+    origin: &str,
+) -> Result<axum::response::Response, String> {
+    signin::fixture_response(mode, origin)
+}

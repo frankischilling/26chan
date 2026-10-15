@@ -1,18 +1,18 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Email Verification - Paperboard</title><link rel="stylesheet" href="/static/verification.v1.css"><script type="module" src="/static/verification.v1.js"></script></head>
-<body><header><a href="/">Paperboard</a></header><main id="signin"><h1>Email Verification</h1>
+<html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Email Verification - Paperboard</title><link rel="stylesheet" href="/static/verification.v1.css"><script type="module" src="/static/verification.v1.js"></script></head>
+<body><header><a href="/">Paperboard</a></header><main id="signin"><h1 id="title">Email Verification</h1>
 {% if !message.is_empty() %}<p id="message" role="status">{{ message }}</p>{% endif %}
 {% if mode == "request" || mode == "verify" %}
-<form id="verification-form" action="/signin" method="post" data-mode="{{ mode }}">
+<form id="auth-form" action="/signin" method="post" data-mode="{{ mode }}">
 <input type="hidden" name="action" value="{{ mode }}"><input type="hidden" name="csrf" value="{{ csrf }}">
 {% if mode == "request" %}<label for="email">Email address</label><input type="email" id="email" name="email" value="{{ email }}" maxlength="320" autocomplete="email" required>
-<p>Supported providers: gmail.com, hotmail.com, yahoo.com, proton.me, protonmail.com, outlook.com, live.com, icloud.com, yandex.com, tutanota.com, tutamail.com, tuta.io.</p>
-{% else %}<input type="hidden" name="tkn" value="{{ token }}"><p>Complete the CAPTCHA to verify this browser session.</p>{% endif %}
+<p>Allowed domains are: gmail.com, hotmail.com, yahoo.com, proton.me, protonmail.com, outlook.com, live.com, icloud.com, yandex.com, tutanota.com, tutamail.com, tuta.io.</p>
+{% else %}<input type="hidden" name="tkn" value="{{ token }}"><p>Please solve the CAPTCHA to finish the verification. Make sure cookies are not blocked before continuing.</p>{% endif %}
 <div id="t-root"><div id="t-frame" hidden><div id="t-cnt"><img id="t-bg" alt="CAPTCHA background" draggable="false"><img id="t-fg" alt="CAPTCHA foreground" draggable="false"></div><label for="t-slider">Align the image</label><input id="t-slider" type="range" min="0" max="100" value="0"><label for="t-resp">CAPTCHA text</label><input id="t-resp" name="t-response" type="text" maxlength="64" autocomplete="off" autocapitalize="characters" spellcheck="false" required></div>
 <input name="t-challenge" id="t-challenge" type="hidden"><p id="t-msg" role="status" aria-live="polite"></p><button id="t-load" type="button">Get Captcha</button><button id="t-help" type="button" aria-label="CAPTCHA help">?</button></div>
 <noscript><p>JavaScript is required to load the verification CAPTCHA.</p></noscript>
-<button id="verification-submit" type="submit">{% if mode == "request" %}Send verification email{% else %}Verify{% endif %}</button></form>
+<button id="verification-submit" type="submit">{% if mode == "request" %}Send{% else %}Verify{% endif %}</button></form>
 {% else if mode == "preview" %}<p>Continue on this site to verify your browser session.</p><form action="/signin" method="post"><input type="hidden" name="action" value="preview"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="tkn" value="{{ token }}"><button type="submit">Continue verification</button></form>
-{% else if mode == "logout" %}<p>This session is verified.</p><form action="/signin" method="post"><input type="hidden" name="action" value="logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">Logout</button></form>
+{% else if mode == "logout" %}<p>This session is already verified.</p><form id="logout-form" action="/signin" method="post"><input type="hidden" name="action" value="signout"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">Logout</button></form>
 {% else %}<p><a href="/signin">Return to email verification</a></p>{% endif %}
 </main><footer><a href="/">Home</a></footer></body></html>
