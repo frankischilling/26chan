@@ -13,6 +13,7 @@ pub enum InputKind {
     PdfV4,
     VideoV5,
     StillV6,
+    GifV7,
 }
 
 impl InputKind {
@@ -24,6 +25,7 @@ impl InputKind {
             "pdf-v4" => Ok(Self::PdfV4),
             "video-v5" => Ok(Self::VideoV5),
             "still-v6" => Ok(Self::StillV6),
+            "gif-v7" => Ok(Self::GifV7),
             _ => Err(rejected()),
         }
     }
@@ -36,6 +38,7 @@ impl InputKind {
             Self::PdfV4 => "pdf-v4",
             Self::VideoV5 => "video-v5",
             Self::StillV6 => "still-v6",
+            Self::GifV7 => "gif-v7",
         }
     }
 
@@ -47,6 +50,7 @@ impl InputKind {
             Self::PdfV4 => 4_194_816,
             Self::VideoV5 => 9 * 1024 * 1024,
             Self::StillV6 => crate::still::OUTPUT_BYTES as u64,
+            Self::GifV7 => crate::gif_source::OUTPUT_BYTES as u64,
         }
     }
 }

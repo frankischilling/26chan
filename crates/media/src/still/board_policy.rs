@@ -9,6 +9,9 @@ pub fn source_policy(
     thread: bool,
     capcode: bool,
 ) -> Option<StillPolicy> {
+    if board == "f" && format == StillFormat::Gif {
+        return None;
+    }
     let (thread_bound, reply_bound, mobile, strip, capcode_strip, blue) = match board {
         "3" => ((250, 250), (125, 125), false, true, true, true),
         "a" => ((250, 250), (125, 125), false, true, true, true),
@@ -96,8 +99,8 @@ pub fn source_policy(
     };
     Some(StillPolicy {
         format,
-        strip_exif: strip || (capcode && capcode_strip),
-        mobile,
+        strip_exif: format != StillFormat::Gif && (strip || (capcode && capcode_strip)),
+        mobile: format != StillFormat::Gif && mobile,
         thread,
         blue_background: blue,
         thumbnail: if thread { thread_bound } else { reply_bound },

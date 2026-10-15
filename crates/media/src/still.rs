@@ -15,6 +15,7 @@ pub const MAX_IMAGE_BYTES: u32 = 10 * 1024 * 1024;
 pub enum StillFormat {
     Png,
     Jpeg,
+    Gif,
 }
 
 impl StillFormat {
@@ -22,6 +23,7 @@ impl StillFormat {
         match self {
             Self::Png => "png",
             Self::Jpeg => "jpg",
+            Self::Gif => "gif",
         }
     }
 }
@@ -47,11 +49,18 @@ fn word(bytes: &[u8]) -> u32 {
 
 impl StillPolicy {
     pub fn header(self) -> Result<[u8; 16], MediaError> {
-        if !(1..=250).contains(&self.thumbnail.0) || !(1..=250).contains(&self.thumbnail.1) {
+        if !(1..=250).contains(&self.thumbnail.0)
+            || !(1..=250).contains(&self.thumbnail.1)
+            || (self.format == StillFormat::Gif && (self.strip_exif || self.mobile))
+        {
             return Err(invalid());
         }
         let mut output = [0; 16];
-        output[..8].copy_from_slice(b"IBSTIL06");
+        output[..8].copy_from_slice(if self.format == StillFormat::Gif {
+            b"IBGIF007"
+        } else {
+            b"IBSTIL06"
+        });
         output[8] = u8::from(self.strip_exif)
             | (u8::from(self.mobile) << 1)
             | (u8::from(self.thread) << 2)
@@ -59,6 +68,7 @@ impl StillPolicy {
         output[9] = match self.format {
             StillFormat::Png => 1,
             StillFormat::Jpeg => 2,
+            StillFormat::Gif => 3,
         };
         output[10..12].copy_from_slice(&self.thumbnail.0.to_be_bytes());
         output[12..14].copy_from_slice(&self.thumbnail.1.to_be_bytes());
@@ -76,7 +86,8 @@ impl StillPolicy {
     }
 
     fn mobile_dimensions(self, size: (u32, u32), retained_bytes: u32) -> (u32, u32) {
-        if !self.mobile
+        if self.format == StillFormat::Gif
+            || !self.mobile
             || (self.format == StillFormat::Png && retained_bytes <= 524_288)
             || (size.0 <= 1024 && size.1 <= 1024)
             || u64::from(size.0) * u64::from(size.1) <= 524_288
@@ -158,12 +169,22 @@ impl ValidatedStill {
         let retained_length = word(&header[48..52]);
         let thumbnail_length = word(&header[52..56]);
         let mobile_length = word(&header[56..60]);
-        if &header[..8] != b"IBIMG006"
+        if &header[..8]
+            != if expected.format == StillFormat::Gif {
+                b"IBIMG007"
+            } else {
+                b"IBIMG006"
+            }
             || header[8..24] != policy_header
             || header[60..64] != [0; 4]
             || !(1..=10_000).contains(&size.0)
             || !(1..=10_000).contains(&size.1)
-            || !(12..=MAX_IMAGE_BYTES).contains(&retained_length)
+            || !(12..=if expected.format == StillFormat::Gif {
+                8 * 1024 * 1024
+            } else {
+                MAX_IMAGE_BYTES
+            })
+                .contains(&retained_length)
             || !(5..=1024 * 1024).contains(&thumbnail_length)
             || !(1..=250).contains(&thumb_size.0)
             || !(1..=250).contains(&thumb_size.1)
@@ -197,6 +218,10 @@ impl ValidatedStill {
             || match expected.format {
                 StillFormat::Png => !retained.starts_with(b"\x89PNG\r\n\x1a\n"),
                 StillFormat::Jpeg => !jpeg_signature(&retained),
+                StillFormat::Gif => {
+                    !(retained.starts_with(b"GIF87a") || retained.starts_with(b"GIF89a"))
+                        || !retained.ends_with(b";")
+                }
             }
         {
             return Err(invalid());

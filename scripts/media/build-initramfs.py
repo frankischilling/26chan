@@ -56,8 +56,10 @@ def main():
                         help="include the fixed minimal video runtime")
     parser.add_argument("--still-runtime", action="store_true",
                         help="include the fixed lossless JPEG metadata cleaner")
+    parser.add_argument("--gif-runtime", action="store_true",
+                        help="include the fixed GIF metadata cleaner")
     args = parser.parse_args()
-    if sum((args.pdf_runtime, args.video_runtime, args.still_runtime)) > 1:
+    if sum((args.pdf_runtime, args.video_runtime, args.still_runtime, args.gif_runtime)) > 1:
         parser.error("one explicit media runtime per image")
     binary = args.binary.read_bytes()
     worker = args.worker.read_bytes()
@@ -80,6 +82,11 @@ def main():
         for name in files:
             directories.update(str(parent) for parent in pathlib.PurePosixPath(name).parents
                                if str(parent) != '.')
+    if args.gif_runtime:
+        from gif_runtime import collect as collect_gif_runtime
+        runtime, manifest = collect_gif_runtime()
+        files.update(runtime)
+        files["gif-runtime.json"] = (0o444, (json.dumps(manifest, sort_keys=True) + "\n").encode())
     if args.still_runtime:
         from still_runtime import collect as collect_still_runtime
         runtime, manifest = collect_still_runtime()

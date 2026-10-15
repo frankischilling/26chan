@@ -1,5 +1,7 @@
 # GIF animation protocol
 
+This page documents the legacy animation transport. Source-board GIF-v7 work is described in [the source comparison](source-gif-parity.md).
+
 The `gif-v3` transport carries a GIF upload to the disposable guest and returns
 uncompressed `IBGIF001` frame data. It does not replace the `image-v1` or
 `paired-v2` contracts. The coordinator selects it from the sealed upload's fixed

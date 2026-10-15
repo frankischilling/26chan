@@ -6,6 +6,137 @@ use std::{
 };
 
 const MAX_PIXELS: usize = 256 * 1024 * 1024;
+const MAX_INPUT: usize = 8 * 1024 * 1024;
+pub const OUTPUT_BYTES: usize = 16 * 1024 * 1024;
+
+#[cfg(target_os = "linux")]
+mod cleanup;
+
+#[derive(Clone, Copy)]
+pub struct Policy {
+    pub thread: bool,
+    pub blue_background: bool,
+    pub thumbnail: (u16, u16),
+}
+
+impl Policy {
+    pub fn parse(bytes: &[u8]) -> io::Result<Self> {
+        if bytes.len() != 16
+            || &bytes[..8] != b"IBGIF007"
+            || bytes[8] & !12 != 0
+            || bytes[9] != 3
+            || bytes[14..] != [0; 2]
+        {
+            return Err(rejected());
+        }
+        let thumbnail = (
+            u16::from_be_bytes([bytes[10], bytes[11]]),
+            u16::from_be_bytes([bytes[12], bytes[13]]),
+        );
+        if !(1..=250).contains(&thumbnail.0) || !(1..=250).contains(&thumbnail.1) {
+            return Err(rejected());
+        }
+        Ok(Self {
+            thread: bytes[8] & 4 != 0,
+            blue_background: bytes[8] & 8 != 0,
+            thumbnail,
+        })
+    }
+
+    pub fn header(self) -> io::Result<[u8; 16]> {
+        let mut bytes = [0; 16];
+        bytes[..8].copy_from_slice(b"IBGIF007");
+        bytes[8] = (u8::from(self.thread) << 2) | (u8::from(self.blue_background) << 3);
+        bytes[9] = 3;
+        bytes[10..12].copy_from_slice(&self.thumbnail.0.to_be_bytes());
+        bytes[12..14].copy_from_slice(&self.thumbnail.1.to_be_bytes());
+        Self::parse(&bytes)?;
+        Ok(bytes)
+    }
+}
+
+pub fn process(input: &[u8], policy: Policy) -> io::Result<Vec<u8>> {
+    std::panic::catch_unwind(|| process_inner(input, policy)).unwrap_or_else(|_| Err(rejected()))
+}
+
+fn strip(input: &[u8]) -> io::Result<Vec<u8>> {
+    #[cfg(target_os = "linux")]
+    {
+        cleanup::strip(input)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = input;
+        Err(rejected())
+    }
+}
+
+fn process_inner(input: &[u8], policy: Policy) -> io::Result<Vec<u8>> {
+    let header = policy.header()?;
+    let candidate = validate(input)?;
+    let (retained, candidate) = if candidate.needs_cleanup {
+        drop(candidate);
+        let retained = strip(input)?;
+        let candidate = validate(&retained)?;
+        (retained, candidate)
+    } else {
+        (input.to_vec(), candidate)
+    };
+    let size = candidate.dimensions;
+    let thumbnail_size = crate::image_geometry::thumbnail(
+        size,
+        (u32::from(policy.thumbnail.0), u32::from(policy.thumbnail.1)),
+    )?;
+    let pixels = candidate.thumbnail_pixels(
+        thumbnail_size,
+        crate::image_geometry::thumbnail_background(policy.blue_background, policy.thread),
+    )?;
+    let thumbnail = crate::still::encode_jpeg(
+        &pixels,
+        thumbnail_size,
+        if policy.thread { 50 } else { 40 },
+        1024 * 1024,
+    )?;
+    drop(candidate);
+    let mut result = vec![0; 64];
+    result[..8].copy_from_slice(b"IBIMG007");
+    result[8..24].copy_from_slice(&header);
+    for (offset, value) in [
+        (24, size.0),
+        (28, size.1),
+        (32, thumbnail_size.0),
+        (36, thumbnail_size.1),
+        (48, retained.len() as u32),
+        (52, thumbnail.len() as u32),
+    ] {
+        result[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
+    }
+    result.extend_from_slice(&retained);
+    result.extend_from_slice(&thumbnail);
+    if result.len() > OUTPUT_BYTES {
+        return Err(rejected());
+    }
+    result.resize(OUTPUT_BYTES, 0);
+    Ok(result)
+}
+
+pub fn decode_disk(mut input: impl io::Read) -> io::Result<Vec<u8>> {
+    let mut length = [0; 8];
+    input.read_exact(&mut length)?;
+    let length = u64::from_be_bytes(length);
+    if !(17..=MAX_INPUT as u64 + 16).contains(&length) {
+        return Err(rejected());
+    }
+    let mut frame = vec![0; length as usize];
+    input.read_exact(&mut frame)?;
+    let padding_length = (512 - (8 + frame.len()) % 512) % 512;
+    let mut padding = [0; 511];
+    input.read_exact(&mut padding[..padding_length])?;
+    if padding[..padding_length].iter().any(|&value| value != 0) || input.read(&mut [0; 1])? != 0 {
+        return Err(rejected());
+    }
+    process(&frame[16..], Policy::parse(&frame[..16])?)
+}
 
 fn rejected() -> io::Error {
     io::Error::other("source GIF candidate rejected")
@@ -193,6 +324,63 @@ mod tests {
         let mut trailing = original;
         trailing.extend_from_slice(b"extra;");
         assert!(validate(&trailing).is_err());
+    }
+
+    #[test]
+    fn clean_candidate_retains_exact_bytes_and_returns_only_a_jpeg_thumbnail() {
+        let input = sample();
+        let policy = Policy {
+            thread: true,
+            blue_background: true,
+            thumbnail: (250, 250),
+        };
+        let disk = process(&input, policy).unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let expected = board_media::still::StillPolicy {
+            format: board_media::still::StillFormat::Gif,
+            strip_exif: false,
+            mobile: false,
+            thread: true,
+            blue_background: true,
+            thumbnail: (250, 250),
+        };
+        let output = runtime
+            .block_on(board_media::still::ValidatedStill::read_disk(
+                Cursor::new(disk),
+                expected,
+            ))
+            .unwrap();
+        assert_eq!(output.retained().bytes(), input);
+        assert_eq!(output.retained().dimensions(), (4, 3));
+        assert_eq!(output.thumbnail().dimensions(), (4, 3));
+        assert!(output.mobile().is_none());
+    }
+
+    #[test]
+    fn disk_mode_requires_the_exact_gif_policy_padding_and_eof() {
+        let policy = Policy {
+            thread: false,
+            blue_background: false,
+            thumbnail: (125, 125),
+        };
+        let body = [policy.header().unwrap().as_slice(), sample().as_slice()].concat();
+        let mut disk = (body.len() as u64).to_be_bytes().to_vec();
+        disk.extend_from_slice(&body);
+        disk.resize(disk.len().div_ceil(512) * 512, 0);
+        assert!(decode_disk(Cursor::new(&disk)).is_ok());
+        for offset in [0, 8, 16, 17, 22, disk.len() - 1] {
+            let mut changed = disk.clone();
+            changed[offset] ^= 0xff;
+            assert!(
+                decode_disk(Cursor::new(changed)).is_err(),
+                "offset {offset}"
+            );
+        }
+        disk.push(0);
+        assert!(decode_disk(Cursor::new(disk)).is_err());
     }
 
     #[test]

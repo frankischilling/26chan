@@ -11,6 +11,8 @@ pub(crate) fn format(input: &[u8]) -> Option<StillFormat> {
         Some(StillFormat::Png)
     } else if input.starts_with(b"\xff\xd8\xff") {
         Some(StillFormat::Jpeg)
+    } else if input.starts_with(b"GIF87a") || input.starts_with(b"GIF89a") {
+        Some(StillFormat::Gif)
     } else {
         None
     }
@@ -35,9 +37,15 @@ pub(crate) async fn dispatch_context(
     .ok_or("unknown image context")?;
     queue.extend_still_lease(&job.id, token).await?;
     let work = async {
-        let disk = client
-            .process_still(snapshot.bytes(), &policy.header()?)
-            .await?;
+        let disk = if format == StillFormat::Gif {
+            client
+                .process_source_gif(snapshot.bytes(), &policy.header()?)
+                .await?
+        } else {
+            client
+                .process_still(snapshot.bytes(), &policy.header()?)
+                .await?
+        };
         let output = ValidatedStill::read_disk(std::io::Cursor::new(disk), policy).await?;
         publish(queue, store, &job.id, token, &snapshot, &output).await
     };
@@ -73,6 +81,7 @@ async fn publish(
         format: match output.policy().format {
             StillFormat::Png => MediaFormat::Png,
             StillFormat::Jpeg => MediaFormat::Jpeg,
+            StillFormat::Gif => MediaFormat::Gif,
         },
         primary: metadata(output.retained()),
         variants: OutputVariants {
@@ -87,7 +96,11 @@ async fn publish(
                 .map(|byte| format!("{byte:02x}"))
                 .collect(),
             input_bytes: snapshot.bytes().len() as i64,
-            profile: SourceProfile::StillV6,
+            profile: if output.policy().format == StillFormat::Gif {
+                SourceProfile::GifV7
+            } else {
+                SourceProfile::StillV6
+            },
             retained_bytes: output.retained().bytes().len() as i64,
             md5,
         },

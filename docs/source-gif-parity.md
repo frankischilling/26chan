@@ -1,6 +1,6 @@
 # Animated GIF source comparison
 
-Issue [#203](https://github.com/frankischilling/26chan/issues/203) remains open. The existing `gif-v3` pipeline preserves animation through a bounded neutral protocol, but its normalized GIF bytes and PNG thumbnails do not yet match the source cleanup and presentation contract.
+Issue [#203](https://github.com/frankischilling/26chan/issues/203) remains open. The legacy `gif-v3` pipeline preserves animation through a bounded neutral protocol. The new `gif-v7` integration retains validated source GIF bytes, applies conditional metadata cleanup and returns a JPEG thumbnail. End-to-end qualification is still pending.
 
 ## Cleanup decisions
 
@@ -28,4 +28,12 @@ The captured libgd 2.3.3 baseline has an important partial-frame behavior: the d
 - Compare timing, transparency, disposal and loop semantics using independent frame observations, including malformed and resource-limit controls.
 - Qualify the complete isolated intake-to-post path, deletion and JavaScript-disabled playback before closing the issue.
 
-The existing animation resource profile remains unchanged during this reference work. The PNG/JPEG worker's larger profile does not implicitly authorize larger GIF jobs.
+On October 15, 2026, the owner approved a separate GIF profile with a 2 GiB VM and 2.5 GiB host memory cap. It keeps one active job, no network interface, a 45-second VM lifetime, a 20-second decoder CPU budget and a 1.5 GiB address-space limit. GIF-v3 and the other existing profiles keep their own limits.
+
+The new candidate validator admits canvases up to 10,000 by 10,000, at most 512 frames and at most 256 MiB of decoded indexed pixels across all frames. It decompresses every frame, retaining only the first frame's thumbnail raster. The upload and retained GIF each have an 8 MiB limit; JPEG thumbnails have a 1 MiB limit. Plain-text rendering, user-input frames, ambiguous loop extensions, trailing bytes and malformed LZW data remain rejected. These bounded restrictions can reject unusual source-accepted files and must be covered by rejection tests with healthy controls.
+
+The fixed cleanup executable is built from official gifsicle 1.96 source, SHA-256 `fd23d279681a6dfe3c15264e33f344045b3ba473da4d19f49e67a50994b077fb`. Run `scripts/media/build-gif-runtime.sh ARCHIVE NEW_OUTPUT_DIRECTORY`; install its `gifsicle` and `COPYING` under root-owned `/usr/lib/26chan-gif/`. The collector verifies version, ownership, ELF size and the limited C runtime dependency set. `build-initramfs.py --gif-runtime` creates a separate image, selected by the explicit `gif_initramfs` configuration entry. Missing artifacts fail closed.
+
+Cleanup runs with fixed arguments, cleared environment, private filenames and a 15-second deadline. A nonzero exit is rejected, unlike the original PHP helper's weaker return-value test. The resulting GIF is fully validated again before release. A complete manifest binds retained bytes and their MD5/SHA-256 to the JPEG thumbnail and immutable board/thread context. No GIF mobile derivative is created.
+
+Migration 0154 admits only complete `gif-v7` manifests with JPEG thumbnails. Historical GIF-v3 rows retain their old constraints and PNG thumbnails. GIF attachments are rejected on the source SWF upload board; implementing that board's SWF feature remains tracked separately.

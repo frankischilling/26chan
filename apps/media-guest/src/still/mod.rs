@@ -75,7 +75,7 @@ fn rejected() -> io::Error {
     io::Error::other("still image candidate rejected")
 }
 
-fn encode_jpeg(
+pub(crate) fn encode_jpeg(
     pixels: &[u8],
     dimensions: (u32, u32),
     quality: u8,

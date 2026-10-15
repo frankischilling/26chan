@@ -35,6 +35,7 @@ def png(width, height):
 
 
 class StillVmTest(unittest.TestCase):
+    input_kind = "still-v6"
     def run_job(self, source, *, probe=False, measure=False, expect_failure=False):
         with tempfile.TemporaryDirectory(prefix='owned-still-vm-') as directory:
             root = pathlib.Path(directory)
@@ -57,7 +58,7 @@ class StillVmTest(unittest.TestCase):
                 observer.start()
             try:
                 result = run_owned([sys.executable, str(REPO / 'scripts/media/run-job.py'),
-                                    '--input-kind', 'still-v6', '--owned-diagnostics',
+                                    '--input-kind', self.input_kind, '--owned-diagnostics',
                                     os.environ['MEDIA_VM_PROBE_CONFIG' if probe else 'MEDIA_VM_TEST_CONFIG'], str(source_path), str(output)],
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=70)
             finally:
