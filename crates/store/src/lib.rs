@@ -54,6 +54,7 @@ pub mod sticky_retention;
 mod thread_quota;
 mod thread_statistics;
 pub mod thread_transfer;
+pub mod verification;
 mod write;
 pub use board_snapshot::*;
 use chrono::{DateTime, Utc};

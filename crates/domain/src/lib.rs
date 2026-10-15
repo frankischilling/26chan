@@ -56,6 +56,7 @@ pub mod saved_presentation;
 mod subject;
 mod trip_cp932;
 mod trip_cp932_data;
+pub mod verification_mail;
 pub mod wordfilter;
 mod wordfilter_limits;
 pub use wordfilter_limits::WordfilterLimits;

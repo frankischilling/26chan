@@ -1,11 +1,24 @@
 //! Domain-separated private verification material. No type containing a key,
 //! address or bearer token implements Debug or automatic serialization.
 use ring::{
+    digest::{Context, SHA256},
     hmac,
     rand::{SecureRandom, SystemRandom},
 };
 
 pub struct VerificationKey(hmac::Key);
+
+/// Render only inside the verification issuer. Never serialize into its public
+/// response; the browser receives raster images and an opaque challenge ID.
+pub struct GeneratedAnswer {
+    bytes: [u8; 6],
+    len: usize,
+}
+impl GeneratedAnswer {
+    pub fn as_str(&self) -> &str {
+        std::str::from_utf8(&self.bytes[..self.len]).expect("fixed ASCII challenge alphabet")
+    }
+}
 
 impl VerificationKey {
     pub fn parse(value: &str) -> Option<Self> {
@@ -31,6 +44,10 @@ impl VerificationKey {
         self.digest(b"email-identity", &[email.identity().as_bytes()])
     }
 
+    pub fn email_recipient(&self, email: &crate::email_verification::PreparedEmail) -> [u8; 32] {
+        self.digest(b"email-recipient", &[email.recipient().as_bytes()])
+    }
+
     /// The trusted transport address is canonicalized by the caller. This key
     /// is separate from session-local fingerprints so request quotas cannot be
     /// reset by discarding an anonymous cookie.
@@ -46,6 +63,33 @@ impl VerificationKey {
 
     pub fn token_hash(&self, token: &VerificationToken) -> [u8; 32] {
         self.digest(token.kind.purpose(), &[&token.bytes])
+    }
+
+    pub fn challenge_answer(
+        &self,
+        token: &VerificationToken,
+        characters: u8,
+    ) -> Option<GeneratedAnswer> {
+        const ALPHABET: &[u8; 20] = b"ADGHJKMNPRSTVWXY0248";
+        if token.kind != TokenKind::Challenge || !(4..=6).contains(&characters) {
+            return None;
+        }
+        let entropy = self.digest(b"challenge-solution", &[&token.bytes]);
+        let mut bytes = [0; 6];
+        let mut len = 0;
+        for byte in entropy {
+            // Rejection sampling avoids biased glyph probabilities. Extremely
+            // unlikely exhaustion fails closed instead of using a fallback.
+            if byte >= 240 {
+                continue;
+            }
+            bytes[len] = ALPHABET[usize::from(byte % 20)];
+            len += 1;
+            if len == usize::from(characters) {
+                return Some(GeneratedAnswer { bytes, len });
+            }
+        }
+        None
     }
 
     /// Answer digests are private database values, never challenge JSON fields.
@@ -108,6 +152,30 @@ pub struct VerificationToken {
     bytes: [u8; 32],
 }
 
+/// A random receipt candidate is not authority until the isolated issuer has
+/// recorded a successful, context-bound verification. The public writer can
+/// hash and consume a receipt without inheriting the issuer's signing key.
+pub struct ReceiptToken([u8; 32]);
+impl ReceiptToken {
+    pub fn generate() -> Result<Self, ring::error::Unspecified> {
+        let mut bytes = [0; 32];
+        SystemRandom::new().fill(&mut bytes)?;
+        Ok(Self(bytes))
+    }
+    pub fn parse(value: &str) -> Option<Self> {
+        Some(Self(decode(value.strip_prefix("r1_")?)?))
+    }
+    pub fn encode(&self) -> String {
+        encode("r1_", &self.0)
+    }
+    pub fn storage_hash(&self) -> [u8; 32] {
+        let mut context = Context::new(&SHA256);
+        context.update(b"26chan:verification-receipt:v1\0");
+        context.update(&self.0);
+        context.finish().as_ref().try_into().expect("SHA-256 size")
+    }
+}
+
 impl VerificationToken {
     pub fn generate(kind: TokenKind) -> Result<Self, ring::error::Unspecified> {
         let mut bytes = [0; 32];
@@ -122,18 +190,22 @@ impl VerificationToken {
     }
     /// Only the challenge response or private mail queue may expose the bearer.
     pub fn encode(&self) -> String {
-        const HEX: &[u8; 16] = b"0123456789abcdef";
-        let mut output = String::with_capacity(67);
-        output.push_str(self.kind.prefix());
-        for byte in self.bytes {
-            output.push(char::from(HEX[usize::from(byte >> 4)]));
-            output.push(char::from(HEX[usize::from(byte & 15)]));
-        }
-        output
+        encode(self.kind.prefix(), &self.bytes)
     }
 }
 
-fn decode(value: &str) -> Option<[u8; 32]> {
+fn encode(prefix: &str, bytes: &[u8; 32]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(67);
+    output.push_str(prefix);
+    for byte in bytes {
+        output.push(char::from(HEX[usize::from(byte >> 4)]));
+        output.push(char::from(HEX[usize::from(byte & 15)]));
+    }
+    output
+}
+
+pub(crate) fn decode(value: &str) -> Option<[u8; 32]> {
     if value.len() != 64 {
         return None;
     }
@@ -221,5 +293,57 @@ mod tests {
                 token.encode()
             );
         }
+    }
+
+    #[test]
+    fn receipt_hashing_needs_no_issuer_key_but_keeps_its_own_namespace() {
+        let receipt = ReceiptToken::generate().unwrap();
+        assert_eq!(
+            ReceiptToken::parse(&receipt.encode())
+                .unwrap()
+                .storage_hash(),
+            receipt.storage_hash()
+        );
+        let challenge = VerificationToken::parse(
+            TokenKind::Challenge,
+            &receipt.encode().replacen("r1_", "c1_", 1),
+        )
+        .unwrap();
+        assert!(ReceiptToken::parse(&challenge.encode()).is_none());
+        assert!(VerificationToken::parse(TokenKind::Email, &receipt.encode()).is_none());
+        assert!(VerificationToken::parse(TokenKind::Challenge, &receipt.encode()).is_none());
+        let key = VerificationKey::parse(&"01".repeat(32)).unwrap();
+        assert_ne!(receipt.storage_hash(), key.token_hash(&challenge));
+    }
+
+    #[test]
+    fn generated_answers_are_private_canonical_and_bound_to_the_nonce() {
+        let key = VerificationKey::parse(&"01".repeat(32)).unwrap();
+        let first =
+            VerificationToken::parse(TokenKind::Challenge, &format!("c1_{}", "02".repeat(32)))
+                .unwrap();
+        let second =
+            VerificationToken::parse(TokenKind::Challenge, &format!("c1_{}", "03".repeat(32)))
+                .unwrap();
+        for length in 4..=6 {
+            let answer = key.challenge_answer(&first, length).unwrap();
+            assert_eq!(answer.as_str().len(), usize::from(length));
+            assert!(
+                answer
+                    .as_str()
+                    .bytes()
+                    .all(|b| b"ADGHJKMNPRSTVWXY0248".contains(&b))
+            );
+            assert_eq!(
+                answer.as_str(),
+                key.challenge_answer(&first, length).unwrap().as_str()
+            );
+            assert_ne!(
+                key.answer_hash(&first, answer.as_str()),
+                key.answer_hash(&second, answer.as_str())
+            );
+        }
+        assert!(key.challenge_answer(&first, 3).is_none());
+        assert!(key.challenge_answer(&first, 7).is_none());
     }
 }
