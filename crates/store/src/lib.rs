@@ -11,6 +11,7 @@ pub use blotter::BlotterMessage;
 mod content_admission;
 pub mod content_erasure;
 pub mod historical_erasure;
+pub mod homepage;
 pub mod media_erasure;
 pub use archives::{
     ArchiveEntry, ArchivePageEntry, ArchivePageSnapshot, ArchiveSnapshot, MAX_ARCHIVE_JSON_ENTRIES,

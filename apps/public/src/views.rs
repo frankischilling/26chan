@@ -25,9 +25,18 @@ pub mod spoilers;
 pub struct Home {
     pub boards: Vec<Board>,
     pub news: Vec<board_store::site_content::NewsItem>,
+    pub snapshot: board_store::homepage::Snapshot,
+    pub media_origin: String,
 }
 
 impl Home {
+    pub fn cards(&self, kind: &str) -> Vec<&board_store::homepage::Card> {
+        self.snapshot
+            .cards
+            .iter()
+            .filter(|card| card.kind == kind)
+            .collect()
+    }
     pub fn groups(&self) -> Vec<home_directory::Group<'_>> {
         home_directory::groups(&self.boards)
     }

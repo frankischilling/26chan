@@ -390,6 +390,8 @@ mod tests {
         let html = super::super::Home {
             boards,
             news: vec![],
+            snapshot: Default::default(),
+            media_origin: String::new(),
         }
         .render()
         .unwrap();

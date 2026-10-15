@@ -535,6 +535,8 @@ async fn main() -> std::io::Result<()> {
     let _ = views::Home {
         boards: vec![],
         news: vec![],
+        snapshot: Default::default(),
+        media_origin: String::new(),
     }
     .render()
     .unwrap();
@@ -583,7 +585,7 @@ async fn main() -> std::io::Result<()> {
         .route("/link-visual/", get(|| async { Html(links::page(true)) }))
         .route(
             "/",
-            get(|| async { Html(views::Home { boards: vec![], news:vec![] }.render().unwrap()) }),
+            get(|| async { Html(views::Home { boards: vec![], news:vec![], snapshot: Default::default(), media_origin: String::new() }.render().unwrap()) }),
         )
         .route("/empty/", get(|| async { Html(empty_page(false)) }))
         .route("/empty/catalog", get(|| async { Html(empty_page(true)) }))
