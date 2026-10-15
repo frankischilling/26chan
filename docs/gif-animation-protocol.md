@@ -95,10 +95,7 @@ attachment view; staff cannot read the raw media table.
 
 These output bytes do not establish the source's post-cleanup checksum. The
 supplied PHP conditionally invokes an external `gifsicle` binary whose version
-and implementation are absent from the supplied tree. Source cleanup/checksum
-qualification, board admission and thumbnail comparison remain required for
-issue #203. The controlled browser tests verify visible animation and retirement;
-source timing/disposal/loop qualification remains incomplete. The native dispatch
+and implementation are absent from the supplied tree. The separate [GIF-v7 source profile](source-gif-parity.md) now covers retained-file cleanup/checksums, source board admission, JPEG thumbnails and independent timing/disposal/loop observations. The legacy protocol described here retains its normalized-output contract. Its controlled browser tests verify visible animation and retirement. The native dispatch
 check uses actual Firecracker output
 for static, transparent, interlaced, animated and partial-canvas GIFs through the
 nonroot gateway and coordinator, root broker, fenced approval and checked reader.

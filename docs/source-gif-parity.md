@@ -1,6 +1,6 @@
 # Animated GIF source comparison
 
-Issue [#203](https://github.com/frankischilling/26chan/issues/203) remains open. The legacy `gif-v3` pipeline preserves animation through a bounded neutral protocol. The new `gif-v7` integration retains validated source GIF bytes, applies conditional metadata cleanup and returns a JPEG thumbnail. End-to-end qualification is still pending.
+The `gif-v7` integration addresses [#203](https://github.com/frankischilling/26chan/issues/203): it retains validated source GIF bytes, applies conditional metadata cleanup and returns a JPEG thumbnail. The legacy `gif-v3` pipeline remains available for uploads without source-board context. The complete development qualification passed at `025da79e`; the merge still requires green checks on the final PR head.
 
 ## Cleanup decisions
 
@@ -20,17 +20,13 @@ The captured libgd 2.3.3 baseline has an important partial-frame behavior: the d
 
 `fixtures/gd-gif-thumbnails.json` records 12 independently decoded synthetic GIF cases covering full and partial first frames, transparency and downsampling. Run `scripts/extract-gd-gif-thumbnail-reference.py --check` with libgd 2.3.3 to reproduce them. These are pre-JPEG pixels from a named baseline, not a claim about the unknown original deployment's GD version.
 
-## Remaining work
+## Runtime contract
 
-- Preserve validated input bytes when cleanup is unnecessary, and qualify the configured cleanup path when it is required.
-- Produce source-compatible JPEG thumbnails and carry their format through approval, serving, API and native presentation.
-- Bind board/thread context and verify final admission, including GIF-only boards and reply limits.
-- Compare timing, transparency, disposal and loop semantics using independent frame observations, including malformed and resource-limit controls.
-- Qualify the complete isolated intake-to-post path, deletion and JavaScript-disabled playback before closing the issue.
+Validated bytes are retained unchanged when cleanup is unnecessary. Otherwise the fixed cleaner runs inside the isolated guest and its output is validated again. Board/thread context selects thumbnail geometry and final attachment admission, including GIF-only boards and reply limits. The approved retained size and MD5 reach both JSON listeners and native presentation. Original links, spoilers, expansion and hover use the existing typed media routes.
 
 On October 15, 2026, the owner approved a separate GIF profile with a 2 GiB VM and 2.5 GiB host memory cap. It keeps one active job, no network interface, a 45-second VM lifetime, a 20-second decoder CPU budget and a 1.5 GiB address-space limit. GIF-v3 and the other existing profiles keep their own limits.
 
-The new candidate validator admits canvases up to 10,000 by 10,000, at most 512 frames and at most 256 MiB of decoded indexed pixels across all frames. Logical-canvas pixels multiplied by frame count must also stay within 256 MiB; tiny partial frames cannot conceal an unbounded full-canvas rendering workload. It decompresses every frame, retaining only the first frame's thumbnail raster. The upload and retained GIF each have an 8 MiB limit; JPEG thumbnails have a 1 MiB limit. Plain-text rendering, user-input frames, ambiguous loop extensions, reserved control values, trailing bytes and malformed LZW data remain rejected. These bounded restrictions can reject unusual source-accepted files and must be covered by rejection tests with healthy controls.
+The new candidate validator admits canvases up to 10,000 by 10,000, at most 512 frames and at most 256 MiB of decoded indexed pixels across all frames. Logical-canvas pixels multiplied by frame count must also stay within 256 MiB; tiny partial frames cannot conceal an unbounded full-canvas rendering workload. It decompresses every frame, retaining only the first frame's thumbnail raster. The upload and retained GIF each have an 8 MiB limit; JPEG thumbnails have a 1 MiB limit. Plain-text rendering, user-input frames, ambiguous loop extensions, reserved control values, trailing bytes and malformed LZW data remain rejected. These bounded restrictions can reject unusual source-accepted files; rejection tests retain healthy controls.
 
 The fixed cleanup executable is built from official gifsicle 1.97 source, SHA-256 `17d98f305372e8c6c47c3fa7c75a9ebd9a8dea0b47c739d0b3be6c30a1c1da7a`. Run `scripts/media/build-gif-runtime.sh ARCHIVE NEW_OUTPUT_DIRECTORY`; install its `gifsicle` and `COPYING` under root-owned `/usr/lib/26chan-gif/`. The collector verifies version, ownership, ELF size and the limited C runtime dependency set. `build-initramfs.py --gif-runtime` creates a separate image, selected by the explicit `gif_initramfs` configuration entry. Missing artifacts fail closed.
 
@@ -40,6 +36,13 @@ Migration 0154 admits only complete `gif-v7` manifests with JPEG thumbnails. His
 
 The runtime pin uses the October 12, 2026 upstream release, which fixes GIF encoder end-code handling at code-size boundaries. See the [official release notes](https://www.lcdf.org/gifsicle/changes.html). The cleanup-decision source audit above remains independent of encoder output bytes.
 
-`tests/media/source_gif_observation.py` supplies hand-authored four-frame animations and independent Pillow observations. Literal expectations cover unequal delays, transparent pixels, partial rectangles, background restoration, previous-frame restoration, and absent, infinite or finite loop controls. The VM suite checks these observations both for unchanged bytes and after metadata cleanup. The five real-VM GIF tests passed at `2af6b1f9`, including these independent observations, pinned cleanup output, the large-canvas boundary, malformed input, live containment, deadlines and cancellation. The authenticated intake-to-reader path also passed. Full public-browser qualification remains pending; its first run exposed an unchanged-color test fixture, which has been replaced with this four-frame animation.
+`tests/media/source_gif_observation.py` supplies hand-authored four-frame animations and independent Pillow observations. Literal expectations cover unequal delays, transparent pixels, partial rectangles, background restoration, previous-frame restoration, and absent, infinite or finite loop controls. The VM suite checks these observations both for unchanged bytes and after metadata cleanup. The five real-VM GIF tests pass, including independent observations, pinned cleanup output, the large-canvas boundary, malformed input, live containment, deadlines and cancellation. The authenticated intake-to-reader path and real public HTML posting also pass. The browser checks retained bytes, JPEG thumbnails, JSON metadata, visible animation with site JavaScript disabled, owner file deletion and retired reader URLs.
 
 The public-browser fixture seeds network history only for its own freshly created session, located through the exact upload job and post. This selects the existing known-owner deletion rule. The test waits the actual 60-second post age; the imported board retains both its 60-second known and 600-second unknown-session limits. Runtime age gates and other sessions are unchanged.
+
+
+## Qualification record
+
+[Build 38680840235](https://github.com/frankischilling/26chan/actions/runs/38680840235) passed all 15 jobs for `025da79e9c4955b92fcb6bf68b2ca06249535934` on October 15, 2026. Coverage includes Rust/database tests, the native media and operations job, Linux browser suites and Windows visual suites. An existing staff authority-expiry test hit a database lock timeout on the first attempt; its job passed on the same-head retry without an assertion or runtime change.
+
+This verifies the owned development environment. Historical encoder/GD byte identity is not established because the supplied application does not pin those deployed versions. Production hosting and the remaining non-GIF media features are separate work.
