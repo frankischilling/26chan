@@ -5,7 +5,8 @@ use board_verification::{AppState, config::Settings, router};
 fn main() -> std::process::ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
     let check = args.len() == 1 && args[0] == "--check-config";
-    if !args.is_empty() && !check {
+    let recipient_hash = args.len() == 1 && args[0] == "--recipient-hash";
+    if !args.is_empty() && !check && !recipient_hash {
         eprintln!("verification arguments rejected");
         return std::process::ExitCode::FAILURE;
     }
@@ -15,6 +16,18 @@ fn main() -> std::process::ExitCode {
     };
     if check {
         return std::process::ExitCode::SUCCESS;
+    }
+    if recipient_hash {
+        return match hash_recipient(&settings.verification_key) {
+            Ok(value) => {
+                println!("{value}");
+                std::process::ExitCode::SUCCESS
+            }
+            Err(()) => {
+                eprintln!("verification recipient rejected");
+                std::process::ExitCode::FAILURE
+            }
+        };
     }
     let Ok(runtime) = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -31,6 +44,25 @@ fn main() -> std::process::ExitCode {
     } else {
         std::process::ExitCode::SUCCESS
     }
+}
+
+fn hash_recipient(key: &board_domain::challenge_secrets::VerificationKey) -> Result<String, ()> {
+    use std::io::Read;
+    let mut bytes = Vec::new();
+    std::io::stdin()
+        .take(321)
+        .read_to_end(&mut bytes)
+        .map_err(|_| ())?;
+    if bytes.len() > 320 {
+        return Err(());
+    }
+    let value = std::str::from_utf8(&bytes).map_err(|_| ())?;
+    let email = board_domain::email_verification::PreparedEmail::prepare(value).map_err(|_| ())?;
+    Ok(key
+        .email_recipient(&email)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect())
 }
 
 async fn run(settings: Settings) -> Result<(), ()> {

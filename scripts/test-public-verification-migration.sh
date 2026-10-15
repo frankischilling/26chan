@@ -62,12 +62,13 @@ SQL
 "${migrator[@]}" -Atc "SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash" > "$cluster/before.json"
 for migration in migrations/*.sql; do
     [[ $(basename "$migration") < 0158_ ]] && continue
-    [[ $(basename "$migration") < 0163_ ]] || break
+    [[ $(basename "$migration") < 0164_ ]] || break
     "${migrator[@]}" --single-transaction -f - < "$migration"
 done
 "${migrator[@]}" -Atc "SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash" > "$cluster/after.json"
 cmp "$cluster/before.json" "$cluster/after.json"
 "${migrator[@]}" <<'SQL'
+INSERT INTO verification_private.blocked_recipients(recipient_hash) VALUES(decode(repeat('b7',32),'hex'));
 INSERT INTO verification_private.identities(email_hash) VALUES(decode(repeat('e5',32),'hex'));
 INSERT INTO verification_private.browser_identities(session_hash,identity_id)
 SELECT decode(repeat('a1',32),'hex'),id FROM verification_private.identities;
@@ -115,6 +116,7 @@ SELECT 'identity',to_jsonb(i) FROM verification_private.identities i ORDER BY id
 SELECT 'browser',to_jsonb(b) FROM verification_private.browser_identities b ORDER BY session_hash;
 SELECT 'request',to_jsonb(r) FROM verification_private.email_requests r ORDER BY id;
 SELECT 'outbox',to_jsonb(q) FROM verification_private.mail_outbox q ORDER BY request_id;
+SELECT 'blocked_recipient',to_jsonb(b) FROM verification_private.blocked_recipients b ORDER BY recipient_hash;
 SELECT 'function',n.nspname,p.proname,pg_get_function_identity_arguments(p.oid),p.proowner::regrole,p.prosecdef,p.proconfig,p.proacl,md5(pg_get_functiondef(p.oid))
 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
 WHERE n.nspname='verification_private' OR (n.nspname='content' AND p.proname LIKE 'verification_%')

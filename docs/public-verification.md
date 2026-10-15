@@ -203,7 +203,7 @@ The profiles restrict network access to loopback and writable filesystem access;
 they are not a substitute for qualification on the deployment host.
 
 `test-public-verification-migration.sh` passes a populated pre-0158 upgrade and
-an administrator dump/restore through 0162. It compares the retained anonymous
+an administrator dump/restore through 0163. It compares the retained anonymous
 activity, linked identity, token counters, opaque queue payload, function owners,
 ACLs, and definitions. Restriction and transfer readiness remain valid, and
 runtime roles still lack private verification table authority. The queue payload
@@ -226,3 +226,30 @@ Cooldown messages use the source's minute/hour wording. The policy reports the
 remaining delay; the primary controller's base-delay branch displayed elapsed
 minutes while still enforcing the five-minute limit. The rate limit is preserved,
 and the backend's remaining-delay result is used consistently.
+
+## Recipient and existing identity restrictions
+
+Migration 0163 adds an exact-recipient blacklist containing keyed hashes. After
+validating the CAPTCHA and cooldown, a blacklisted recipient or an active ban on
+the requesting browser's identity receives the source's queued-success message
+without creating a token or mail job. Board-specific identity bans also match
+this request guard. Expired bans and warnings do not match it.
+
+Token consumption rechecks the old browser, the target email identity, and the
+recipient list before rotating the session. Operator INSERT, UPDATE, and DELETE operations take the same verification-policy
+lock as enqueue and consumption. The recheck also covers a ban or blacklist
+added after delivery. The restriction catalog is checked and held under the
+existing shared capacity lock while the verification transaction completes.
+Neither verifier nor public database credentials can read the ban rows or edit
+the blacklist. Global range/ASN policy and Pass integration remain tied to their
+separate source workflows; this guard does not claim those workflows complete.
+
+An operator with the issuer's private configuration can run
+`board-verification --recipient-hash`, supplying one address on standard input.
+It emits only the 64-character keyed recipient hash and does not connect to a
+database. Using the migration role, insert that hash into
+`verification_private.blocked_recipients` with `decode(hash, 'hex')`; delete the
+same row to remove the block. Never put the raw address or the verification key
+in public SQL, logs, or command-line arguments. Delivery spelling is preserved,
+so Gmail dot variants have distinct recipient-list entries even though account
+identity normalization joins them.

@@ -146,6 +146,24 @@ impl VerificationStore {
                 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
                 WHERE n.nspname='verification_private' AND p.proname='email_cooldown'
                   AND p.proargtypes='17 17 17 1184'::oidvector),false)
+             AND coalesce((SELECT count(*)=1 AND bool_and(p.prosecdef
+                AND p.proowner='board_restriction_owner'::regrole
+                AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
+                AND has_function_privilege('board_anonymous_owner',p.oid,'EXECUTE')
+                AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
+                    WHERE acl.privilege_type='EXECUTE' AND acl.grantee NOT IN(p.proowner,'board_anonymous_owner'::regrole)))
+                FROM pg_proc p WHERE p.oid=to_regprocedure('content.verification_identity_banned(uuid)')),false)
+             AND coalesce((SELECT count(*)=1 AND bool_and(p.prosecdef
+                AND p.proowner='board_anonymous_owner'::regrole
+                AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
+                AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
+                    WHERE acl.privilege_type='EXECUTE' AND acl.grantee<>p.proowner)
+                AND EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+                    WHERE n.nspname='verification_private' AND c.relname='blocked_recipients'
+                    AND t.tgname='verification_recipient_policy_guard' AND t.tgfoid=p.oid
+                    AND t.tgenabled='O' AND t.tgtype=31 AND t.tgnargs=0 AND t.tgqual IS NULL AND NOT t.tgisinternal))
+                FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                WHERE n.nspname='verification_private' AND p.proname='lock_recipient_policy' AND p.pronargs=0),false)
              FROM pg_roles WHERE rolname=current_user",
         )
         .fetch_one(&self.pool)

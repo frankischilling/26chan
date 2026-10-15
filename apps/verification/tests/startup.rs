@@ -1,9 +1,12 @@
 use std::process::Command;
 fn command() -> Command {
+    command_with_mode("--check-config")
+}
+fn command_with_mode(mode: &str) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_board-verification"));
     command
         .env_clear()
-        .arg("--check-config")
+        .arg(mode)
         .env("VERIFICATION_BIND", "127.0.0.1:9081")
         .env(
             "VERIFICATION_DATABASE_URL",
@@ -60,4 +63,49 @@ fn unrelated_authority_and_extra_arguments_fail_without_echoing_secrets() {
         String::from_utf8_lossy(&output.stderr).trim(),
         "verification arguments rejected"
     );
+}
+
+#[test]
+fn operator_recipient_hash_is_bounded_and_never_connects_or_echoes_the_address() {
+    use std::{io::Write, process::Stdio};
+    for (input, accepted) in [
+        ("owned.operator.fixture@gmail.com\n".to_owned(), true),
+        ("not-an-email".into(), false),
+        ("x".repeat(321), false),
+    ] {
+        let mut child = command_with_mode("--recipient-hash")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(input.as_bytes())
+            .unwrap();
+        let output = child.wait_with_output().unwrap();
+        assert_eq!(output.status.success(), accepted);
+        assert!(!String::from_utf8_lossy(&output.stdout).contains(&input));
+        if accepted {
+            let prepared =
+                board_domain::email_verification::PreparedEmail::prepare(&input).unwrap();
+            let expected: String =
+                board_domain::challenge_secrets::VerificationKey::parse(&"22".repeat(32))
+                    .unwrap()
+                    .email_recipient(&prepared)
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect();
+            assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), expected);
+            assert!(output.stderr.is_empty());
+        } else {
+            assert!(output.stdout.is_empty());
+            assert_eq!(
+                String::from_utf8_lossy(&output.stderr).trim(),
+                "verification recipient rejected"
+            );
+        }
+    }
 }
