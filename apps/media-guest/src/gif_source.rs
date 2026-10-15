@@ -329,15 +329,23 @@ mod tests {
     #[test]
     fn partial_frames_cannot_hide_excess_canvas_or_frame_work() {
         let original = sample();
-        for (canvas, count, accepted) in [(4096u16, 16, true), (4096, 17, false),
-            (4, 512, true), (4, 513, false)] {
+        for (canvas, count, accepted) in [
+            (4096u16, 16, true),
+            (4096, 17, false),
+            (4, 512, true),
+            (4, 513, false),
+        ] {
             let mut input = original[..19].to_vec();
             input[6..8].copy_from_slice(&canvas.to_le_bytes());
             input[8..10].copy_from_slice(&canvas.to_le_bytes());
-            for _ in 0..count { input.extend_from_slice(&original[19..original.len() - 1]); }
+            for _ in 0..count {
+                input.extend_from_slice(&original[19..original.len() - 1]);
+            }
             input.push(b';');
             assert_eq!(animation::scan_source(&input).is_ok(), accepted);
-            if !accepted { assert!(validate(&input).is_err()); }
+            if !accepted {
+                assert!(validate(&input).is_err());
+            }
         }
     }
 

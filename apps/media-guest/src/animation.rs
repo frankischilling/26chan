@@ -188,8 +188,11 @@ pub(crate) fn scan_source(input: &[u8]) -> io::Result<SourceScan> {
     let scan = scan_with_limits(input, 10_000, 256 * 1024 * 1024)?;
     let width = usize::from(u16::from_le_bytes([input[6], input[7]]));
     let height = usize::from(u16::from_le_bytes([input[8], input[9]]));
-    if width.checked_mul(height).and_then(|pixels| pixels.checked_mul(scan.frames))
-        .is_none_or(|pixels| pixels > 256 * 1024 * 1024) {
+    if width
+        .checked_mul(height)
+        .and_then(|pixels| pixels.checked_mul(scan.frames))
+        .is_none_or(|pixels| pixels > 256 * 1024 * 1024)
+    {
         return Err(rejected());
     }
     Ok(scan)
