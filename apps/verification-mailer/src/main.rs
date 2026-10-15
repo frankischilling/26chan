@@ -208,3 +208,108 @@ mod tests {
         }
     }
 }
+
+#[cfg(all(test, feature = "database-tests"))]
+mod delivery_tests {
+    use super::*;
+    use board_domain::{
+        challenge_secrets::{TokenKind, VerificationToken},
+        verification_mail::MailPayload,
+    };
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    #[tokio::test]
+    #[ignore = "Run explicitly with isolated mailer test credentials."]
+    async fn delivery_acknowledges_only_accepted_local_mail() {
+        let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        for accepted in [false, true] {
+            let material = ReceiptToken::generate().unwrap().encode();
+            let bytes = &material[3..35];
+            let id = format!(
+                "{}-{}-{}-{}-{}",
+                &bytes[..8],
+                &bytes[8..12],
+                &bytes[12..16],
+                &bytes[16..20],
+                &bytes[20..]
+            );
+            let token = VerificationToken::generate(TokenKind::Email)
+                .unwrap()
+                .encode();
+            let payload = MailPayload::new("owned.delivery.fixture@gmail.com", &token).unwrap();
+            let key = MailKey::parse(&material[3..]).unwrap();
+            let hash = ReceiptToken::generate().unwrap().storage_hash();
+            let encrypted = key.seal(&hash, &payload).unwrap();
+            let mut tx = owner.begin().await.unwrap();
+            sqlx::query("INSERT INTO verification_private.email_requests(id,token_hash,email_hash,recipient_hash,peer_hash,country,created_at,expires_at,captcha_failure_limit) VALUES($1::text::uuid,$2,$2,$2,$2,'XX',statement_timestamp(),statement_timestamp()+interval '24 hours',6)")
+                .bind(&id).bind(hash.as_slice()).execute(&mut *tx).await.unwrap();
+            sqlx::query("INSERT INTO verification_private.mail_outbox(request_id,recipient_hash,encrypted_payload,created_at,expires_at,retry_after) VALUES($1::text::uuid,$2,$3,statement_timestamp(),statement_timestamp()+interval '1 hour',statement_timestamp())")
+                .bind(&id).bind(hash.as_slice()).bind(encrypted).execute(&mut *tx).await.unwrap();
+            tx.commit().await.unwrap();
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let relay = listener.local_addr().unwrap();
+            let receiver = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut stream = BufReader::new(stream);
+                stream
+                    .get_mut()
+                    .write_all(b"220 owned fixture\r\n")
+                    .await
+                    .unwrap();
+                for response in ["250 OK\r\n", "250 OK\r\n", "250 OK\r\n", "354 DATA\r\n"] {
+                    let mut line = String::new();
+                    stream.read_line(&mut line).await.unwrap();
+                    stream
+                        .get_mut()
+                        .write_all(response.as_bytes())
+                        .await
+                        .unwrap();
+                }
+                let mut data = String::new();
+                loop {
+                    let mut line = String::new();
+                    stream.read_line(&mut line).await.unwrap();
+                    if line == ".\r\n" {
+                        break;
+                    }
+                    assert!(data.len() < 8192);
+                    data.push_str(&line);
+                }
+                stream
+                    .get_mut()
+                    .write_all(if accepted {
+                        b"250 accepted\r\n"
+                    } else {
+                        b"451 rejected\r\n"
+                    })
+                    .await
+                    .unwrap();
+                data
+            });
+            let result = run(Settings {
+                database: std::env::var("TEST_VERIFICATION_MAIL_DATABASE_URL").unwrap(),
+                key,
+                relay,
+                origin: "http://127.0.0.1:3000".into(),
+            })
+            .await;
+            let mail = tokio::time::timeout(std::time::Duration::from_secs(8), receiver)
+                .await
+                .unwrap()
+                .unwrap();
+            let delivered:bool=sqlx::query_scalar("SELECT delivered_at IS NOT NULL FROM verification_private.email_requests WHERE id=$1::text::uuid").bind(&id).fetch_one(&owner).await.unwrap();
+            let queued:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM verification_private.mail_outbox WHERE request_id=$1::text::uuid AND lease_hash IS NULL AND retry_after>clock_timestamp())").bind(&id).fetch_one(&owner).await.unwrap();
+            sqlx::query("DELETE FROM verification_private.email_requests WHERE id=$1::text::uuid")
+                .bind(&id)
+                .execute(&owner)
+                .await
+                .unwrap();
+            assert_eq!(result.is_ok(), accepted);
+            assert_eq!(delivered, accepted);
+            assert_eq!(queued, !accepted);
+            assert!(mail.contains(&format!("/signin?action=verify&tkn={token}")));
+        }
+        owner.close().await;
+    }
+}

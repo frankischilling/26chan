@@ -215,3 +215,9 @@ and mobile controls, native range-keyboard input, expiry, persisted restoration,
 submission fields and Origin, and native preview/logout/completion views. Review
 images are retained separately from later Playwright runs. These checks are
 implemented but have not yet completed hosted qualification.
+
+The mail-worker integration test runs the actual worker loop against owned
+PostgreSQL and a loopback SMTP fixture. A final 250 acknowledgement removes the
+encrypted outbox entry and records delivery. A 451 response leaves the message
+queued with its retry delay and no delivery timestamp. The test never contacts
+an external recipient.

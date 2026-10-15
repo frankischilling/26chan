@@ -59,3 +59,18 @@ test('preview, logout and completion are readable native forms',async({page})=>{
     if(mode==='message')await expect(page.getByRole('status')).toHaveText('This session is now verified.');
   }
 });
+test('external email navigation preserves the strict anonymous cookie until same-origin continuation',async({page,context})=>{
+  const original=`a1_${'cd'.repeat(32)}`;
+  await context.addCookies([{name:'board-anon',value:original,domain:'127.0.0.1',path:'/',httpOnly:true,sameSite:'Strict'}]);
+  await page.route('https://mail.example/open',route=>route.fulfill({contentType:'text/html',body:'<a href="http://127.0.0.1:3000/fixture/preview">Owned verification link</a>'}));
+  let initialHeaders;
+  await page.route('**/fixture/preview',async route=>{initialHeaders=await route.request().allHeaders();await route.continue();});
+  await page.goto('https://mail.example/open');await page.getByRole('link',{name:'Owned verification link'}).click();
+  await expect(page.getByRole('button',{name:'Continue verification'})).toBeVisible();
+  expect(initialHeaders.cookie||'').not.toContain('board-anon=');
+  expect((await context.cookies('http://127.0.0.1:3000')).find(c=>c.name==='board-anon').value).toBe(original);
+  let continuation;
+  await page.route('**/signin',async route=>{continuation=await route.request().allHeaders();await route.fulfill({contentType:'text/html',body:'<p>Owned same-origin continuation.</p>'});});
+  await page.getByRole('button',{name:'Continue verification'}).click();await expect(page.getByText('Owned same-origin continuation.')).toBeVisible();
+  expect(continuation.origin).toBe('http://127.0.0.1:3000');expect(continuation.cookie).toContain(`board-anon=${original}`);
+});

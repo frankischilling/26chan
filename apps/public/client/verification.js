@@ -36,13 +36,13 @@ export function mountVerification(doc = document, win = window) {
   const fetchChallenge = async () => {
     if (busy || Date.now() < deadline) return;
     clearProof(); busy = true; load.disabled = true; msg.textContent = 'Loading CAPTCHA…';
-    const current = ++epoch; abort?.abort(); abort = new AbortController();
-    const timer = win.setTimeout(() => abort?.abort(), 12000);
+    const current = ++epoch; abort?.abort(); const controller = new AbortController(); abort = controller;
+    const timer = win.setTimeout(() => controller.abort(), 12000);
     try {
       const body = new URLSearchParams({ csrf: form.elements.namedItem('csrf').value });
       const emailToken = form.elements.namedItem('tkn');
       if (emailToken) body.set('tkn', emailToken.value);
-      const response = await win.fetch('/signin/challenge', { method: 'POST', credentials: 'same-origin', mode: 'same-origin', redirect: 'error', cache: 'no-store', body, signal: abort.signal });
+      const response = await win.fetch('/signin/challenge', { method: 'POST', credentials: 'same-origin', mode: 'same-origin', redirect: 'error', cache: 'no-store', body, signal: controller.signal });
       if (!response.ok || !response.headers.get('content-type')?.startsWith('application/json')) throw new Error();
       const text = await response.text();
       if (text.length > 262144) throw new Error();

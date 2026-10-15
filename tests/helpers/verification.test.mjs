@@ -59,3 +59,8 @@ test('native submit requires proof and never triggers a mutation fetch',async()=
   assert.equal(f.nodes['verification-submit'].disabled,true); assert.equal(f.nodes['t-resp'].disabled,false); assert.equal(f.nodes['t-challenge'].disabled,false);
   assert.equal(f.requests.length,1);
 });
+test('an abandoned fetch timeout cannot abort the next lifecycle request',()=>{
+  const f=fixture();f.click();const oldTimer=[...f.timers.values()].find(v=>v.delay===12000).fn;
+  f.mounted.reset();f.click();assert.equal(f.requests.length,2);oldTimer();
+  assert.equal(f.requests[0].options.signal.aborted,true);assert.equal(f.requests[1].options.signal.aborted,false);
+});

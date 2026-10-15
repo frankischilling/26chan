@@ -13,3 +13,9 @@ url.workspace = true
 
 [lints]
 workspace = true
+
+[features]
+database-tests = ["board-store/database-tests"]
+
+[dev-dependencies]
+sqlx.workspace = true
