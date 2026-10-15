@@ -45,6 +45,11 @@ pub struct BoardStatistics {
     pub last_post_id: i64,
     pub active_threads: i64,
 }
+impl BoardStatistics {
+    pub fn date(&self) -> String {
+        self.generated_at.format("%Y-%m-%d %H:%M UTC").to_string()
+    }
+}
 #[derive(Default)]
 pub struct Snapshot {
     pub statistics: Option<Statistics>,

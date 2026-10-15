@@ -103,9 +103,15 @@ async fn operator_content_is_revision_fenced_public_only_when_published_and_role
             assert!(matches!(site_content::retract_news(&mut owner,1).await,Err(Error::Role)));
             sqlx::query("RESET ROLE").execute(&mut owner).await.unwrap();
             assert_eq!(site_content::page_revision(&mut owner,"faq").await.unwrap(),4);
+            let mut other=PgConnection::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap()).await.unwrap();
+            let first=page("about",0);let second=page("about",0);
+            let (a,b)=tokio::join!(site_content::publish(&mut owner,&first),site_content::publish(&mut other,&second));
+            assert!(matches!((&a,&b),(Ok(1),Err(Error::Revision))|(Err(Error::Revision),Ok(1))),"concurrent stale editors must not overwrite one another: {a:?} {b:?}");
+            assert_eq!(site_content::page_revision(&mut owner,"about").await.unwrap(),1);
+
         }
     }).await;
-    sqlx::query("DELETE FROM site_private.pages WHERE (key='faq' OR board=$1) AND body LIKE 'owned-source-site-content %'").bind(&board).execute(&mut owner).await.unwrap();
+    sqlx::query("DELETE FROM site_private.pages WHERE (key IN ('faq','about') OR board=$1) AND body LIKE 'owned-source-site-content %'").bind(&board).execute(&mut owner).await.unwrap();
     sqlx::query("DELETE FROM site_private.news WHERE id IN (1,2,3) AND body='owned-source-site-content announcement'").execute(&mut owner).await.unwrap();
     sqlx::query("DELETE FROM content.boards WHERE slug=$1 AND title='Owned site board'")
         .bind(&board)

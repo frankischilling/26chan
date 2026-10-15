@@ -114,6 +114,14 @@ async fn snapshots_keep_source_candidate_order_and_recheck_current_public_state(
         sqlx::query("UPDATE site_private.frontpage_state SET generated_at=clock_timestamp()-interval '16 minutes'").execute(&owner).await.unwrap();
         assert!(homepage::snapshot(&public).await.unwrap().statistics.unwrap().stale());
         let previous:i64=sqlx::query_scalar("SELECT count(*) FROM site_private.frontpage_cards").fetch_one(&owner).await.unwrap();
+        let before=homepage::snapshot(&public).await.unwrap().statistics.unwrap().generation;
+        let mut second=PgConnection::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap()).await.unwrap();
+        let (a,b)=tokio::join!(homepage::refresh(&mut writer),homepage::refresh(&mut second));
+        let successful=i64::from(a.is_ok())+i64::from(b.is_ok());
+        assert!(successful>=1,"at least one concurrent operator refresh commits");
+        assert!(a.is_ok() || matches!(a,Err(RefreshError::Database)));
+        assert!(b.is_ok() || matches!(b,Err(RefreshError::Database)));
+        assert_eq!(homepage::snapshot(&public).await.unwrap().statistics.unwrap().generation,before+successful);
         sqlx::query("UPDATE site_private.frontpage_state SET generation=2147483647").execute(&owner).await.unwrap();
         assert!(matches!(homepage::refresh(&mut writer).await,Err(RefreshError::Generation)));
         assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM site_private.frontpage_cards").fetch_one(&owner).await.unwrap(),previous);

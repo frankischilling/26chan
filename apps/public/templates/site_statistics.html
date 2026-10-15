@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Board statistics - 26chan{% endblock %}
+{% block body_attributes %} class="siteHome"{% endblock %}
+{% block board_navigation %}{% endblock %}
+{% block content %}
+<header class="siteHomeHeader"><h1><a href="/">26chan</a></h1></header>
+<section class="homePanel siteInfo"><h2>Board statistics</h2><p>Local retained post counts, highest recorded post numbers and active thread counts. Samples are collected when the operator refreshes the homepage. Up to 64 samples are retained per board.</p>
+{% if history %}<p><a href="/stats">All boards</a></p>{% endif %}
+<div class="boardStatsRows">{% for row in rows %}<article><h3><a href="/{{ row.board }}/">/{{ row.board }}/</a>{% if !history %} · <a href="/stats?board={{ row.board }}">History</a>{% endif %}</h3><p>{{ row.date() }}</p><dl><dt>Recorded posts</dt><dd>{{ row.recorded_posts }}</dd><dt>Highest post number</dt><dd>{{ row.last_post_id }}</dd><dt>Active threads</dt><dd>{{ row.active_threads }}</dd></dl></article>{% else %}<p>No board samples are available yet.</p>{% endfor %}</div></section>
+{% include "site_navigation.html" %}
+{% endblock %}
+{% block page_footer %}<footer class="homeFooter"><p>26chan development build.</p></footer>{% endblock %}

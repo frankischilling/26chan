@@ -38,7 +38,9 @@ struct News {
 }
 
 pub(crate) fn routes() -> Router<AppState> {
-    let mut router = Router::new().route("/news", get(news));
+    let mut router = Router::new()
+        .route("/news", get(news))
+        .route("/stats", get(statistics));
     for (path, key, title) in [
         ("/about", "about", "About"),
         ("/faq", "faq", "Frequently Asked Questions"),
@@ -94,6 +96,45 @@ async fn info(
             key,
             page,
             rules,
+        },
+    )
+}
+#[derive(Template)]
+#[template(path = "site_statistics.html")]
+struct Statistics {
+    rows: Vec<board_store::homepage::BoardStatistics>,
+    history: bool,
+}
+fn statistics_query(query: Option<&str>) -> Result<Option<&str>, AppError> {
+    match query.filter(|q| !q.is_empty()) {
+        None => Ok(None),
+        Some(value) => value
+            .strip_prefix("board=")
+            .filter(|board| board_domain::BoardSlug::parse(board).is_ok())
+            .map(Some)
+            .ok_or(AppError(
+                StatusCode::BAD_REQUEST,
+                "Invalid statistics page.",
+            )),
+    }
+}
+async fn statistics(
+    State(state): State<AppState>,
+    RawQuery(query): RawQuery,
+) -> Result<Response, AppError> {
+    let board = statistics_query(query.as_deref())?;
+    let rows = board_store::homepage::board_statistics(&state.pool, board).await?;
+    if board.is_some() && rows.is_empty() {
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            "Board statistics not found.",
+        ));
+    }
+    crate::output::html(
+        &state,
+        &Statistics {
+            rows,
+            history: board.is_some(),
         },
     )
 }
@@ -156,6 +197,21 @@ async fn news(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn statistics_queries_are_single_canonical_board_names() {
+        assert_eq!(statistics_query(None).unwrap(), None);
+        assert_eq!(statistics_query(Some("board=g")).unwrap(), Some("g"));
+        for query in [
+            "board=",
+            "board=G",
+            "board=../g",
+            "board=g&board=b",
+            "other=g",
+            "board=%67",
+        ] {
+            assert!(statistics_query(Some(query)).is_err());
+        }
+    }
     #[test]
     fn news_queries_have_one_bounded_meaning() {
         assert_eq!(news_query(None).unwrap(), NewsQuery::Latest);

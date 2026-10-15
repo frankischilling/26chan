@@ -71,6 +71,8 @@ async fn homepage_routes_render_live_safe_cards_and_stale_statistics() {
         let (status,csp,empty)=request(&app,Method::GET,"/").await;
         assert_eq!(status,StatusCode::OK);assert!(csp.contains("script-src 'none'"));
         assert!(empty.contains("Statistics are not available yet."));
+        assert_eq!(request(&app,Method::GET,"/stats").await.0,StatusCode::OK);
+        assert!(request(&app,Method::GET,"/stats").await.2.contains("No board samples are available yet."));
         assert!(empty.contains("No eligible posts are available."));
         assert_eq!(request(&app,Method::HEAD,"/").await.2,"");
         assert_eq!(request(&app,Method::POST,"/").await.0,StatusCode::METHOD_NOT_ALLOWED);
@@ -84,13 +86,17 @@ async fn homepage_routes_render_live_safe_cards_and_stale_statistics() {
         assert!(html.contains("Owned promoted &#60;title&#62;"));
         assert!(!html.contains("<script>literal</script>"));
         assert!(html.contains(&format!("/{slug}/thread/{id}#p{id}")));
+        assert!(request(&app,Method::GET,"/stats").await.2.contains(&format!("/stats?board={slug}")));
+        assert_eq!(request(&app,Method::GET,&format!("/stats?board={slug}")).await.0,StatusCode::OK);
+        for path in ["/stats?board=", "/stats?board=g&board=b", "/stats?other=g"] { assert_eq!(request(&app,Method::GET,path).await.0,StatusCode::BAD_REQUEST); }
         assert!(html.contains("15 replies"));assert!(html.contains("Recent posting sessions"));
         assert!(!html.contains("more than 15 minutes old"));
         sqlx::query("UPDATE site_private.frontpage_state SET generated_at=clock_timestamp()-interval '16 minutes'").execute(&owner).await.unwrap();
         assert!(request(&app,Method::GET,"/").await.2.contains("more than 15 minutes old"));
         sqlx::query("UPDATE content.boards SET staff_only=true WHERE slug=$1").bind(&slug).execute(&owner).await.unwrap();
         let html=request(&app,Method::GET,"/").await.2;
-        assert!(!html.contains("Owned promoted"));assert!(!html.contains(&format!("href=\"/{slug}/\"")));
+        assert!(!html.contains("Owned promoted"));
+        assert_eq!(request(&app,Method::GET,&format!("/stats?board={slug}")).await.0,StatusCode::NOT_FOUND);assert!(!html.contains(&format!("href=\"/{slug}/\"")));
         assert!(html.contains("Statistics are not available yet."));
         sqlx::query("UPDATE content.boards SET staff_only=false WHERE slug=$1").bind(&slug).execute(&owner).await.unwrap();
         sqlx::query("UPDATE content.posts SET deleted=true WHERE id=$1").bind(id).execute(&owner).await.unwrap();

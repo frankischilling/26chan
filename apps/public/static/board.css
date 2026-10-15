@@ -967,3 +967,6 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 .postingNotices li { margin: 3px 0; }
 .postingNotices .crisisNotice { color: #a00; }
 .siteHome .homeCards, .siteHome .homeStats > p, .siteHome .homeStats dl { margin: 12px; }
+.siteHome .boardStatsRows { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 12px; }
+.siteHome .boardStatsRows article { border-top: 1px solid #d9bfb7; }
+.siteHome .boardStatsRows dd { margin: 3px 0 8px; }

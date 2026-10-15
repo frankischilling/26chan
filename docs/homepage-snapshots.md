@@ -47,7 +47,9 @@ hosts. Imported historical totals and raw visitor addresses are not used. This
 privacy change means the session count is not equivalent to the old visitor
 count. If the public board roster changes, the old aggregate is hidden until
 refresh. Per-board history retains 64 samples per board, with the same 100-board
-bound; private boards disappear from its public projection immediately.
+bound; private boards disappear from its public projection immediately. `/stats`
+shows the latest sample per public board; `/stats?board=g` shows that board's
+bounded history. Missing or private board histories return 404.
 
 ## Qualification
 
@@ -56,7 +58,10 @@ operator CLI. They cover source candidate ordering, sticky and ordinary bump
 eligibility, actual reply counts, file deletion, reports, private boards,
 staleness, generation exhaustion, retained snapshots and the 64-sample bound.
 Eight schema drift controls cover visibility, grants and bounds. The actual
-Askama homepage template also compiles in a focused harness.
+Askama homepage and posting-notice templates also compile in a focused harness.
+The populated 0154 upgrade preserves boards, threads and posts; a schema-name
+conflict rolls back, and an administrator dump/restore preserves public
+projections and homepage readiness.
 
 Full application HTTP tests and hosted browser qualification remain required
 before the issue can close. The original homepage controller and template are
