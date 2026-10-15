@@ -353,10 +353,9 @@ fixture group within the existing per-peer write budget without raising limits
 or skipping tests. Actual rate-limit enforcement remains covered by the Rust
 HTTP-limit tests.
 
-Native hiding/filter actions, media actions and the remaining settings are not
-implemented by this menu slice and are not exposed as placeholder controls.
-Full reference screenshots, filter-driven watching/blacklisting and the other
-gaps above remain required before full parity or merge can be claimed.
+At this checkpoint, hiding/filter and media menu actions were still pending.
+The later sections below and [source post-menu events](native-post-menu-events.md)
+record their implementation. Full-page reference qualification remains separate.
 
 ## Filter matching worker under development
 
@@ -586,8 +585,9 @@ native `filter` preference is enabled. Active Auto rows select the boards;
 all active filters explicitly scoped to those boards can match, retaining
 first-match order. Catalog-page refresh and automatic page initialization keep
 their distinct reference behavior. A manual extension refresh can discover
-threads when the watch list is empty. The editor is not implemented yet; the
-integration tests supply native-format stored preferences directly.
+threads when the watch list is empty. These early integration tests supplied
+native-format stored preferences directly; the editor is described at the top
+of this document.
 
 Successful catalog results run through disposable matching workers. New
 watches begin at read position 0, and the subsequent thread refresh counts

@@ -458,6 +458,7 @@ pub(crate) mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                announcement: None,
                 public_origin: String::new(),
                 blotter: Vec::new(),
                 spoiler_thumbnail: "/static/catalog/spoiler.png".into(),
@@ -515,6 +516,7 @@ pub(crate) mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                announcement: None,
                 public_origin: String::new(),
                 blotter: Vec::new(),
                 spoiler_thumbnail: "spoiler.png".into(),

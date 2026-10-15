@@ -111,9 +111,14 @@ export function mountNativeDeletion({ root, board, settings, mobileLayout, proje
     if (!feedback) {
       feedback = document.createElement('p'); feedback.className = 'nativeDeletionFeedback';
       feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
+      feedback.title = 'Dismiss'; feedback.onclick = clearFeedback;
       document.body.append(feedback);
     }
     feedback.textContent = text;
+  }
+  function clearFeedback() {
+    if (feedback) feedback.onclick = null;
+    feedback?.remove(); feedback = null;
   }
   function target(post, fileOnly) {
     const id = typeof post?.id === 'string' && post.id.startsWith('p') ? postId(post.id.slice(1)) : null;
@@ -216,7 +221,7 @@ export function mountNativeDeletion({ root, board, settings, mobileLayout, proje
     if (link && root.contains(link) && link.closest('.deleted')) event.preventDefault();
   }
   const storage = event => { if (event.key === null || event.key === '4chan-settings') refresh(); };
-  const hide = () => { suspended = true; refresh(); feedback?.remove(); feedback = null; };
+  const hide = () => { suspended = true; refresh(); clearFeedback(); };
   const show = event => {
     if (!event.persisted || disposed) return;
     suspended = false; refresh();
@@ -232,7 +237,7 @@ export function mountNativeDeletion({ root, board, settings, mobileLayout, proje
   document.addEventListener('4chanPreferencesRestored', refresh);
   window.addEventListener('storage', storage); window.addEventListener('pagehide', hide); window.addEventListener('pageshow', show);
   return { remove, canDelete, refresh, dispose() {
-    disposed = true; refresh(); observer.disconnect(); feedback?.remove(); feedback = null;
+    disposed = true; refresh(); observer.disconnect(); clearFeedback();
     document.removeEventListener('submit', submit, true);
     root.removeEventListener('click', preventDeletedFile, true); root.removeEventListener('auxclick', preventDeletedFile, true);
     document.removeEventListener('4chanSettingsSaved', refresh);

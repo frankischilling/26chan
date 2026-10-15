@@ -706,6 +706,7 @@ async fn board_page(
     let response = crate::output::html(
         state,
         &BoardPage {
+            announcement: board_store::site_content::site_page(&state.pool, "announcement").await?,
             public_origin: state.origin.clone(),
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
             navigation_boards,
@@ -816,6 +817,7 @@ pub async fn thread(
     let response = crate::output::html(
         &state,
         &BoardPage {
+            announcement: board_store::site_content::site_page(&state.pool, "announcement").await?,
             public_origin: state.origin.clone(),
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
             navigation_boards,

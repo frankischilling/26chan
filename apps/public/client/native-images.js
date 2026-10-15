@@ -118,16 +118,14 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     return enabled() && file?.url === entry.url && entry.thumb.parentNode === entry.anchor
       && [file.url, file.thumbnail].includes(entry.thumb.getAttribute('src'));
   }
-  function message(text) {
-    clearTimeout(feedbackTimer);
-    if (!feedback) {
-      feedback = document.createElement('p'); feedback.className = 'nativeImageFeedback';
-      feedback.setAttribute('role', 'status'); document.body.append(feedback);
-    }
-    feedback.textContent = text;
-    feedbackTimer = setTimeout(clearMessage, 4000);
+  function message(text, timeout = 5000) {
+    clearMessage();
+    feedback = document.createElement('p'); feedback.className = 'nativeImageFeedback';
+    feedback.role = 'status'; feedback.title = 'Dismiss'; feedback.onclick = clearMessage;
+    document.body.append(feedback); feedback.textContent = text;
+    feedbackTimer = setTimeout(clearMessage, timeout);
   }
-  function clearMessage() { clearTimeout(feedbackTimer); feedback?.remove(); feedback = null; }
+  function clearMessage() { clearTimeout(feedbackTimer); if (feedback) feedback.onclick = null; feedback?.remove(); feedback = null; }
   function release(entry) {
     entry.pending = false;
     clearTimeout(entry.timer);
@@ -221,16 +219,16 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   }
   function mediaElement(file, hover = false) {
     if (!videoTarget(file.url, mediaOrigin)) return fullImage();
-    const video = document.createElement('video');
-    video.controls = !hover; video.loop = true; video.autoplay = true; video.playsInline = true;
-    video.muted = configuration().unmuteWebm !== true; video.preload = 'metadata'; video.hidden = true;
+    const video = document.createElement('video'), unmute = configuration().unmuteWebm === true;
+    video.controls = !hover; video.loop = video.autoplay = video.playsInline = true;
+    video.muted = !unmute; video.preload = 'metadata'; video.hidden = true;
     video.setAttribute('aria-label', 'Video attachment');
     let volume = 0.5;
     try {
       const saved = window.localStorage.getItem('4chan-volume');
       if (saved !== null && saved.trim() !== '' && Number.isFinite(Number(saved))) volume = Math.max(0, Math.min(1, Number(saved)));
     } catch { /* Storage denial retains the default volume. */ }
-    if (configuration().unmuteWebm === true) video.volume = volume;
+    if (unmute) video.volume = volume;
     projection?.claim(video, owner);
     return video;
   }
@@ -250,7 +248,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     const file = target(anchor), thumb = file && thumbnail(anchor, file);
     if (!file || !thumb) return false;
     if (expanded.has(anchor)) { contract(anchor, true); return true; }
-    if (expanded.size >= bounds.expansions) { message('Close an expanded image first.'); return true; }
+    if (expanded.size >= bounds.expansions) { message('Close an expanded image.'); return true; }
     hideHover(); clearMessage();
     const image = mediaElement(file); image.className = 'expanded-thumb';
     const entry = { anchor, thumb, image, file: anchor.closest('.file'), url: file.url, video: image.localName === 'video' };
@@ -269,7 +267,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
       setClass(anchor, 'nativeVideoOpen', entry.video); playVideo(entry);
     }, () => {
       contract(anchor);
-      if (enabled() && available(anchor)) message(entry.video ? 'Video failed. Use the filename link to open or download it.' : 'Image failed to load. Click its thumbnail to retry.');
+      if (enabled() && available(anchor)) message(entry.video ? 'Video failed. Use the filename link to open or download it.' : 'Image failed to load. Click its thumbnail to retry.', 2000);
     });
     return true;
   }
@@ -298,7 +296,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     }, () => {
       if (hover !== entry) return;
       hideHover();
-      if (enabled() && available(anchor)) message('Image preview could not be loaded.');
+      if (enabled() && available(anchor)) message('Image preview could not be loaded.', 2000);
     });
   }
   function spoilerData(file) {
@@ -413,7 +411,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     if (retired.has(file.url)) return true;
     if (retired.size >= bounds.retired) {
       retirementFull = true; refresh();
-      message('Refresh before opening more images.');
+      message('Refresh to open more images.');
       return false;
     }
     retired.add(file.url); refresh(); return true;

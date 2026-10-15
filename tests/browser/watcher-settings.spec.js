@@ -401,3 +401,31 @@ for (const failure of ['quota', 'missing-locks', 'denied-locks']) {
     expect(errors).toEqual([]);
   });
 }
+
+for (const mobile of [false, true]) {
+  test(`WebM audio Settings persist, cancel and observe other tabs on ${mobile ? 'mobile' : 'desktop'}`, async ({ page, context }) => {
+    if (mobile) await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/fixture/');
+    await page.evaluate(() => localStorage.setItem('4chan-settings', JSON.stringify({ unmuteWebm: false, imageExpansion: true })));
+    await page.reload();
+    let dialog = await openWatcherSettings(page);
+    let audio = await openSettingControl(dialog, 'unmuteWebm');
+    await expect(audio).not.toBeChecked();
+    await audio.check();
+    await page.keyboard.press('Escape');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')).unmuteWebm)).toBe(false);
+    await saveWatcherSettings(page, { unmuteWebm: true });
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')).unmuteWebm)).toBe(true);
+    dialog = await openWatcherSettings(page);
+    await expect(await openSettingControl(dialog, 'unmuteWebm')).toBeChecked();
+    await page.keyboard.press('Escape');
+    const other = await context.newPage();
+    await other.goto('/fixture/');
+    await saveWatcherSettings(other, { unmuteWebm: false });
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')).unmuteWebm)).toBe(false);
+    dialog = await openWatcherSettings(page);
+    await expect(await openSettingControl(dialog, 'unmuteWebm')).not.toBeChecked();
+    await page.keyboard.press('Escape');
+    await other.close();
+  });
+}

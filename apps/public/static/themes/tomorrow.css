@@ -1,5 +1,6 @@
 .prettyprint { background-color: rgba(255, 255, 255, .1); border: 1px solid rgba(0, 0, 0, .5); }
 :root {
+  --announcement-color: #c5c8c6;
   --catalog-field-focus: #000;
   --catalog-button-color: #707070; --catalog-button-edge: #282a2e; --catalog-button-paper: #1b1c1e; --catalog-button-image: url('/static/catalog/buttonfade-dark.png');
   --post-tooltip-background: #000;

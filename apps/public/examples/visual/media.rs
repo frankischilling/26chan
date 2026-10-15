@@ -250,6 +250,7 @@ impl Fixture {
             }]
         };
         views::BoardPage {
+            announcement: None,
             public_origin: String::new(),
             blotter: Vec::new(),
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),

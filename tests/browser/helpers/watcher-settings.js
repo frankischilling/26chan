@@ -12,7 +12,7 @@ const nativeSettingCategories = new Map([
   ['Monitoring', 'threadUpdater alwaysAutoUpdate threadWatcher threadAutoWatcher autoScroll updaterSound fixedThreadWatcher threadStats'],
   ['Filters & Post Hiding', 'filter threadHiding hideStubs'],
   ['Navigation', 'threadExpansion dropDownNav classicNav autoHideNav customMenu alwaysDepage topPageNav stickyNav keyBinds'],
-  ['Images & Media', 'imageExpansion fitToScreenExpansion imageHover imageHoverBg revealSpoilers noPictures embedYouTube embedSoundCloud'],
+  ['Images & Media', 'imageExpansion fitToScreenExpansion imageHover imageHoverBg revealSpoilers unmuteWebm noPictures embedYouTube embedSoundCloud'],
   ['Miscellaneous', 'linkify darkTheme customCSS IDColor compactThreads centeredThreads localTime forceHTTPS'],
 ].flatMap(([category, keys]) => keys.split(' ').map(key => [key, category])));
 

@@ -1,0 +1,421 @@
+{
+  "source": "js/extension.js",
+  "revision": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "sha256": "05b3b34f68377a44c071e4f74f629d2700fef61e064dcd2e836b161ee9ee0c31",
+  "defaults": {
+    "quotePreview": true,
+    "backlinks": true,
+    "quickReply": true,
+    "threadUpdater": true,
+    "threadHiding": true,
+    "alwaysAutoUpdate": false,
+    "topPageNav": false,
+    "threadWatcher": false,
+    "threadAutoWatcher": false,
+    "imageExpansion": true,
+    "fitToScreenExpansion": false,
+    "threadExpansion": true,
+    "alwaysDepage": false,
+    "localTime": true,
+    "stickyNav": false,
+    "keyBinds": false,
+    "inlineQuotes": false,
+    "filter": false,
+    "revealSpoilers": false,
+    "imageHover": false,
+    "threadStats": true,
+    "IDColor": true,
+    "noPictures": false,
+    "embedYouTube": true,
+    "embedSoundCloud": false,
+    "updaterSound": false,
+    "customCSS": false,
+    "autoScroll": false,
+    "hideStubs": false,
+    "compactThreads": false,
+    "centeredThreads": false,
+    "dropDownNav": false,
+    "autoHideNav": false,
+    "classicNav": false,
+    "fixedThreadWatcher": false,
+    "persistentQR": false,
+    "forceHTTPS": false,
+    "darkTheme": false,
+    "linkify": false,
+    "unmuteWebm": false,
+    "disableAll": false
+  },
+  "mobile": {
+    "embedYouTube": false,
+    "compactThreads": false,
+    "linkify": true
+  },
+  "groups": [
+    {
+      "name": "Quotes & Replying",
+      "options": [
+        {
+          "key": "quotePreview",
+          "label": "Quote preview",
+          "description": "Show post when mousing over post links",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "backlinks",
+          "label": "Backlinks",
+          "description": "Show who has replied to a post",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "inlineQuotes",
+          "label": "Inline quote links",
+          "description": "Clicking quote links will inline expand the quoted post, Shift-click to bypass inlining",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "quickReply",
+          "label": "Quick Reply",
+          "description": "Quickly respond to a post by clicking its post number",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "persistentQR",
+          "label": "Persistent Quick Reply",
+          "description": "Keep Quick Reply window open after posting",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        }
+      ]
+    },
+    {
+      "name": "Monitoring",
+      "options": [
+        {
+          "key": "threadUpdater",
+          "label": "Thread updater",
+          "description": "Append new posts to bottom of thread without refreshing the page",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "alwaysAutoUpdate",
+          "label": "Auto-update by default",
+          "description": "Always auto-update threads",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "threadWatcher",
+          "label": "Thread Watcher",
+          "description": "Keep track of threads you're watching and see when they receive new posts",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "threadAutoWatcher",
+          "label": "Automatically watch threads you create",
+          "description": "",
+          "mobile": true,
+          "suboption": true,
+          "mobileOnly": false
+        },
+        {
+          "key": "autoScroll",
+          "label": "Auto-scroll with auto-updated posts",
+          "description": "Automatically scroll the page as new posts are added",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "updaterSound",
+          "label": "Sound notification",
+          "description": "Play a sound when somebody replies to your post(s)",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "fixedThreadWatcher",
+          "label": "Pin Thread Watcher to the page",
+          "description": "Thread Watcher will scroll with you",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "threadStats",
+          "label": "Thread statistics",
+          "description": "Display post and image counts on the right of the page, <em>italics</em> signify bump/image limit has been met",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        }
+      ]
+    },
+    {
+      "name": "Filters & Post Hiding",
+      "options": [
+        {
+          "key": "filter",
+          "label": "Filter and highlight specific threads/posts [<a href=\"javascript:;\" data-cmd=\"filters-open\">Edit</a>]",
+          "description": "Enable pattern-based filters",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "threadHiding",
+          "label": "Thread hiding [<a href=\"javascript:;\" data-cmd=\"thread-hiding-clear\">Clear History</a>]",
+          "description": "Hide entire threads by clicking the minus button",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "hideStubs",
+          "label": "Hide thread stubs",
+          "description": "Don't display stubs of hidden threads",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        }
+      ]
+    },
+    {
+      "name": "Navigation",
+      "options": [
+        {
+          "key": "threadExpansion",
+          "label": "Thread expansion",
+          "description": "Expand threads inline on board indexes",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "dropDownNav",
+          "label": "Use persistent drop-down navigation bar",
+          "description": "",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "classicNav",
+          "label": "Use traditional board list",
+          "description": "",
+          "mobile": false,
+          "suboption": true,
+          "mobileOnly": false
+        },
+        {
+          "key": "autoHideNav",
+          "label": "Auto-hide on scroll",
+          "description": "",
+          "mobile": false,
+          "suboption": true,
+          "mobileOnly": false
+        },
+        {
+          "key": "customMenu",
+          "label": "Custom board list [<a href=\"javascript:;\" data-cmd=\"custom-menu-edit\">Edit</a>]",
+          "description": "Only show selected boards in top and bottom board lists",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "alwaysDepage",
+          "label": "Always use infinite scroll",
+          "description": "Enable infinite scroll by default, so reaching the bottom of the board index will load subsequent pages",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "topPageNav",
+          "label": "Page navigation at top of page",
+          "description": "Show the page switcher at the top of the page, hold Shift and drag to move",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "stickyNav",
+          "label": "Navigation arrows",
+          "description": "Show top and bottom navigation arrows, hold Shift and drag to move",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "keyBinds",
+          "label": "Use keyboard shortcuts [<a href=\"javascript:;\" data-cmd=\"keybinds-open\">Show</a>]",
+          "description": "Enable handy keyboard shortcuts for common actions",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        }
+      ]
+    },
+    {
+      "name": "Images & Media",
+      "options": [
+        {
+          "key": "imageExpansion",
+          "label": "Image expansion",
+          "description": "Enable inline image expansion, limited to browser width",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "fitToScreenExpansion",
+          "label": "Fit expanded images to screen",
+          "description": "Limit expanded images to both browser width and height",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "imageHover",
+          "label": "Image hover",
+          "description": "Mouse over images to view full size, limited to browser size",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "imageHoverBg",
+          "label": "Set a background color for transparent images",
+          "description": "",
+          "mobile": false,
+          "suboption": true,
+          "mobileOnly": false
+        },
+        {
+          "key": "revealSpoilers",
+          "label": "Don't spoiler images",
+          "description": "Show image thumbnail and original filename instead of spoiler placeholders",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "unmuteWebm",
+          "label": "Un-mute WebM audio",
+          "description": "Un-mute sound automatically for WebM playback",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "noPictures",
+          "label": "Hide thumbnails",
+          "description": "Don't display thumbnails while browsing",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "embedYouTube",
+          "label": "Embed YouTube links",
+          "description": "Embed YouTube player into replies",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "embedSoundCloud",
+          "label": "Embed SoundCloud links",
+          "description": "Embed SoundCloud player into replies",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        }
+      ]
+    },
+    {
+      "name": "Miscellaneous",
+      "options": [
+        {
+          "key": "linkify",
+          "label": "Linkify URLs",
+          "description": "Make user-posted links clickable",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "darkTheme",
+          "label": "Use a dark theme",
+          "description": "Use the Tomorrow theme for nighttime browsing",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": true
+        },
+        {
+          "key": "customCSS",
+          "label": "Custom CSS [<a href=\"javascript:;\" data-cmd=\"css-open\">Edit</a>]",
+          "description": "Include your own CSS rules",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "IDColor",
+          "label": "Color user IDs",
+          "description": "Assign unique colors to user IDs on boards that use them",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "compactThreads",
+          "label": "Force long posts to wrap",
+          "description": "Long posts will wrap at 75% browser width",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "centeredThreads",
+          "label": "Center threads",
+          "description": "Align threads to the center of page",
+          "mobile": false,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "localTime",
+          "label": "Convert dates to local time",
+          "description": "Convert 4chan server time (US Eastern Time) to your local time",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        },
+        {
+          "key": "forceHTTPS",
+          "label": "Always use HTTPS",
+          "description": "Rewrite 4chan URLs to always use HTTPS",
+          "mobile": true,
+          "suboption": false,
+          "mobileOnly": false
+        }
+      ]
+    }
+  ]
+}

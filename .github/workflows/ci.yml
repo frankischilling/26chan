@@ -501,6 +501,8 @@ jobs:
         run: sudo bash scripts/test-board-subtitles-migration.sh
       - name: Qualify homepage upgrade, retained content and administrator restore
         run: sudo bash scripts/test-homepage-migration.sh
+      - name: Qualify announcement upgrade, drift rollback and administrator restore
+        run: sudo bash scripts/test-global-announcement-migration.sh
       - name: Qualify local blotter upgrade and reserved-route rollback
         run: sudo bash scripts/test-blotter-migration.sh
       - name: Qualify public poll projections, publication boundaries and administrator restore
@@ -799,6 +801,16 @@ jobs:
           WINDOWS_CI_DISABLE_TCP_PORT_RANDOMIZATION: '1'
         shell: pwsh
         run: npm run test:states -- --output=test-results/windows-public-states
+      - name: Retain owned native-client component review images
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-client-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .local/native-client-review/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: true
       - name: Retain synthetic Windows visual failure diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

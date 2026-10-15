@@ -76,11 +76,26 @@ test('public v1191 default settings export preserves inactive compatibility bool
   const transfer = buildSettingsTransfer(key => key === '4chan-settings' ? publicDefaultSettingsRaw : null);
   assert.equal(transfer.status, 'ok');
   assert.equal(transfer.payload.settings, publicDefaultSettingsRaw);
-  assert.deepEqual(transfer.inactiveCompatibility.sort(), ['forceHTTPS', 'unmuteWebm']);
+  assert.deepEqual(transfer.inactiveCompatibility.sort(), ['forceHTTPS']);
   const parsed = parseSettingsTransferHash(`#cfg=${transfer.encoded}`);
   assert.equal(parsed.status, 'ok');
   assert.deepEqual(parsed.review.settings.filter(setting => setting.inactiveCompatibility).map(setting => setting.key).sort(),
-    ['forceHTTPS', 'unmuteWebm']);
+    ['forceHTTPS']);
+});
+
+test('WebM audio preference stays active through export and reviewed restore', () => {
+  for (const unmuteWebm of [false, true]) {
+    const raw = JSON.stringify({ unmuteWebm, imageExpansion: true });
+    const transfer = buildSettingsTransfer(key => key === '4chan-settings' ? raw : null);
+    assert.equal(transfer.status, 'ok');
+    assert.equal(transfer.payload.settings, raw);
+    assert.deepEqual(transfer.inactiveCompatibility, []);
+    const parsed = parseSettingsTransferHash(`#cfg=${transfer.encoded}`);
+    assert.equal(parsed.status, 'ok');
+    const setting = parsed.review.settings.find(item => item.key === 'unmuteWebm');
+    assert.equal(setting.inactiveCompatibility, false);
+    assert.equal(JSON.parse(parsed.payload.settings).unmuteWebm, unmuteWebm);
+  }
 });
 
 test('source Quick Reply coordinates restore within the current viewport without interpreting arbitrary CSS', () => {
@@ -316,7 +331,7 @@ test('export dialog is inert, readonly and canonical while hostile filter text r
   const url = await field.inputValue();
   assert.ok(url.startsWith(`${origin}/demo/#cfg=`));
   assert.equal(await dialog.locator('img, script').count(), 0);
-  assert.match(await dialog.locator('.settingsTransferCompatibility').textContent(), /forceHTTPS, unmuteWebm/);
+  assert.match(await dialog.locator('.settingsTransferCompatibility').textContent(), /forceHTTPS/);
   assert.equal(await dialog.getByRole('link', { name: 'Restore Settings', exact: true }).getAttribute('href'), url);
   assert.deepEqual(requests, []);
   const decoded = parseSettingsTransferHash(new URL(url).hash);

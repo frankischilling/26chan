@@ -17,6 +17,7 @@ const PAGE_KEYS: &[&str] = &[
     "support",
     "japanese",
     "blog",
+    "announcement",
 ];
 const INPUT_LIMIT: u64 = 32768;
 
@@ -28,6 +29,11 @@ pub struct SitePage {
     pub body: String,
     pub revision: i64,
     pub updated_at: DateTime<Utc>,
+}
+impl SitePage {
+    pub fn timestamp(&self) -> i64 {
+        self.updated_at.timestamp()
+    }
 }
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct NewsItem {
@@ -426,6 +432,7 @@ AND NOT EXISTS(SELECT 1 FROM (VALUES
  AND pg_get_viewdef(r.oid,true)=expected.definition))
 AND NOT EXISTS(SELECT 1 FROM (VALUES
  ('pages','PRIMARY KEY (key)'),('news','PRIMARY KEY (id)'),
+ ('pages',$constraint$CHECK (board IS NULL AND (key = ANY (ARRAY['about'::text, 'faq'::text, 'rules'::text, 'contact'::text, 'feedback'::text, 'legal'::text, 'press'::text, 'advertise'::text, 'support'::text, 'japanese'::text, 'blog'::text, 'announcement'::text])) OR board IS NOT NULL AND key = ('rules/'::text || board))$constraint$),
  ('pages','FOREIGN KEY (board) REFERENCES content.boards(slug) ON DELETE CASCADE'),
  ('pages','CHECK (octet_length(title) >= 1 AND octet_length(title) <= 256)'),
  ('pages','CHECK (octet_length(body) >= 1 AND octet_length(body) <= 8192)'),

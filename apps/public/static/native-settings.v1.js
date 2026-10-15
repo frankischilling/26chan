@@ -96,7 +96,7 @@ export function httpsPreferenceCookie(enabled) {
 // Hidden preferences remain stored and are still honored by their runtimes.
 const mobileSettings = new Set(`quotePreview backlinks quickReply threadUpdater alwaysAutoUpdate
   threadWatcher threadAutoWatcher threadStats threadHiding threadExpansion alwaysDepage
-  imageExpansion revealSpoilers noPictures linkify darkTheme customCSS IDColor localTime disableAll`.split(/\s+/));
+  imageExpansion revealSpoilers unmuteWebm noPictures linkify darkTheme customCSS IDColor localTime disableAll`.split(/\s+/));
 const desktopOnlySettings = new Set(`inlineQuotes persistentQR autoScroll updaterSound fixedThreadWatcher
   filter hideStubs dropDownNav classicNav autoHideNav customMenu topPageNav stickyNav keyBinds
   fitToScreenExpansion imageHover imageHoverBg embedYouTube embedSoundCloud compactThreads centeredThreads`.split(/\s+/));
@@ -316,6 +316,7 @@ export function installSettings({ catalog, read, save, initializeOnOpen, toggleW
       option(imagesCategory, 'imageHover', 'Image hover', 'Mouse over images to view full size, limited to browser size');
       option(imagesCategory, 'imageHoverBg', 'Set a background color for transparent images', '', 'settings-sub');
       option(imagesCategory, 'revealSpoilers', "Don't spoiler images", 'Show image thumbnail and original filename instead of spoiler placeholders');
+      option(imagesCategory, 'unmuteWebm', 'Un-mute WebM audio', 'Un-mute sound automatically for WebM playback');
       option(imagesCategory, 'noPictures', 'Hide thumbnails', "Don't display thumbnails while browsing");
       option(imagesCategory, 'embedYouTube', 'Embed YouTube links', 'Load a YouTube player only after you select Embed');
       option(imagesCategory, 'embedSoundCloud', 'Embed SoundCloud links', 'Load a SoundCloud player only after you select Embed');

@@ -48,6 +48,11 @@
 </form>
 {% endif %}
 <hr>
+{% if announcement_allowed() %}{% if let Some(message) = announcement %}
+<a href="#globalMessage" class="button redButton mobile hidden" id="globalToggle" aria-controls="globalMessage" aria-expanded="false">View Important Announcement</a>
+<div class="globalMessage hideMobile" id="globalMessage" data-utc="{{ message.timestamp() }}" aria-label="{{ message.title }}">{{ message.body }}</div>
+<hr class="afterGlobalMessage">
+{% endif %}{% endif %}
 {% if catalog %}{% include "catalog_controls.html" %}{% endif %}
 <div{% if catalog %} id="threads"{% endif %} class="{% if catalog %}catalog {% if board.text_only %}textCatalog{% else %}{{ catalog_options.class() }}{% endif %}{% else %}board{% endif %}"{% if catalog %} data-text-only="{{ board.text_only }}" data-threads-per-page="{{ board.threads_per_page }}"{% endif %}>
 {% if catalog && board.text_only %}

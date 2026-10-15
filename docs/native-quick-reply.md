@@ -259,12 +259,9 @@ post and deletion workflows with the response-body capture fix, including the
 subsequent tripcode integration. These checkpoints do not replace CI for the
 final PR head.
 
-Pass/captcha, staff-specific cooldown rules, duplicate flood rules and full
-rendered-source comparison remain unfinished. [Native PNG drawing](native-drawing.md)
-now has a partial integration based on the source. Replay, edit-from-post,
-annotations and browser qualification remain open. Ordinary Quick Reply
-countdown/one-shot posting is implemented but its new browser cases remain
-unqualified. The help lists the source's Global and built-in
-Quick Reply shortcut groups; exact help geometry remains unqualified. These are
-known source features, not evidence of unknown original behavior. Deployment
-boundary qualification and independent launch review remain separate work.
+Pass/CAPTCHA, staff-specific cooldowns and duplicate flood rules depend on their
+separate backend issues. Drawing now includes [blank-canvas and approved-image
+editing](drawing-edit.md), annotations, and the [paired replay workflow](drawing-replays.md).
+The native help layout and source shortcut rows are covered by the
+[Settings/help panel checks](native-settings-panels.md). The earlier checkpoint
+results above do not replace exact-head qualification for later changes.

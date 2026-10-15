@@ -65,7 +65,7 @@ Supported mobile controls follow the source category matrix:
 - Monitoring: updater, automatic updates, watcher, automatic watching and statistics
 - Filters: thread hiding
 - Navigation: thread expansion and infinite scroll
-- Images: image expansion, spoiler reveal and thumbnail hiding
+- Images: image expansion, spoiler reveal, WebM audio and thumbnail hiding
 - Miscellaneous: linkification, dark theme, Custom CSS, ID colors and local time
 
 Disable All remains outside the categories. Dark theme is mobile-only in the
@@ -75,8 +75,8 @@ are saved. The catalog editor retains its separate controls.
 
 Source sub-option styling applies only to automatic watching, traditional board
 navigation, auto-hide navigation and the image-hover background option.
-`unmuteWebm` remains an inactive compatibility value because playback support
-is incomplete. [Always use HTTPS](native-https-preference.md) appears on desktop
+`unmuteWebm` controls automatic audio unmuting for the available WebM/MP4
+player on desktop and mobile. It defaults off. [Always use HTTPS](native-https-preference.md) appears on desktop
 and mobile when the configured public origin is HTTPS on the current hostname.
 HTTP-only development setups omit that control and preserve its stored value.
 Server transport policy remains independent of this preference.

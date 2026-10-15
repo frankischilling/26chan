@@ -57,3 +57,9 @@ Migration 0155 keeps records in `site_private`. Security-barrier views expose on
 The exact storage module and command parser pass focused offline tests. A fresh disposable PostgreSQL schema passes publication, revision fencing, retraction, future-news exclusion, pagination, private-board rules, role isolation and seven readiness-drift controls. The actual Askama information/news templates pass focused escaping and navigation checks with reduced fixture models.
 
 These focused checks do not establish a full application pass; [PR #289](https://github.com/frankischilling/26chan/pull/289) records full HTTP and hosted results. Homepage statistics, promoted content and source posting notices are documented in [homepage snapshots](homepage-snapshots.md). Every final-head check must pass before merge.
+
+## Global announcement
+
+The `announcement` page key publishes the [global board announcement](global-announcement.md)
+after migration 0157. It uses the same revision-fenced editor and withdrawal
+command; it is not a news item or a blotter message.
