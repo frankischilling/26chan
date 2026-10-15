@@ -155,6 +155,7 @@ fn fixture(enabled: bool, empty: bool, catalog: bool, index: bool) -> axum::resp
         }));
     }
     let page = BoardPage {
+        announcement: None,
         public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: "spoiler.png".into(),

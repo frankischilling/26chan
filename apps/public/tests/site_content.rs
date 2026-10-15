@@ -79,6 +79,28 @@ async fn local_information_news_updates_pagination_and_private_rules_use_real_pu
         let html=request(&app,Method::GET,"/faq").await.2;
         assert!(html.contains("Owned route &#60;title&#62;"));assert!(!html.contains("<script>plain"));
         assert!(html.contains("id=\"what4chan\""));
+        site_content::publish(&mut connection,&page("announcement",0)).await.unwrap();
+        for path in [format!("/{slug}/"),format!("/{slug}/catalog")] {
+            let (status,_,html)=request(&app,Method::GET,&path).await;
+            assert_eq!(status,StatusCode::OK);
+            assert!(html.contains("id=\"globalMessage\""));
+            assert!(html.contains("id=\"globalToggle\""));
+            assert!(html.contains("owned-site-route &#60;script&#62;plain text&#60;/script&#62;"));
+            assert!(!html.contains("<script>plain text</script>"));
+        }
+        let id:i64=sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id").bind(&slug).fetch_one(&owner).await.unwrap();
+        sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Anonymous','Owned announcement route','Owned announcement fixture')").bind(id).bind(&slug).execute(&owner).await.unwrap();
+        let thread_path=format!("/{slug}/thread/{id}");
+        assert!(request(&app,Method::GET,&thread_path).await.2.contains("id=\"globalMessage\""));
+        sqlx::query("UPDATE content.threads SET closed=true WHERE board=$1 AND id=$2").bind(&slug).bind(id).execute(&owner).await.unwrap();
+        assert!(!request(&app,Method::GET,&thread_path).await.2.contains("id=\"globalMessage\""));
+        sqlx::query("UPDATE content.boards SET upload_board=true WHERE slug=$1").bind(&slug).execute(&owner).await.unwrap();
+        assert!(request(&app,Method::GET,&thread_path).await.2.contains("id=\"globalMessage\""));
+        sqlx::query("UPDATE content.boards SET upload_board=false WHERE slug=$1").bind(&slug).execute(&owner).await.unwrap();
+        sqlx::query("UPDATE content.threads SET closed=false,archived_at=now(),archive_expires_at=now()+interval '1 hour' WHERE board=$1 AND id=$2").bind(&slug).bind(id).execute(&owner).await.unwrap();
+        assert!(!request(&app,Method::GET,&thread_path).await.2.contains("id=\"globalMessage\""));
+        site_content::retract_page(&mut connection,"announcement",1).await.unwrap();
+        assert!(!request(&app,Method::GET,&format!("/{slug}/")).await.2.contains("id=\"globalMessage\""));
         let key=format!("rules/{slug}");site_content::publish(&mut connection,&page(&key,0)).await.unwrap();
         assert!(request(&app,Method::GET,"/rules").await.2.contains(&format!("id=\"{slug}\"")));
         sqlx::query("UPDATE content.boards SET staff_only=true WHERE slug=$1").bind(&slug).execute(&owner).await.unwrap();
@@ -106,8 +128,18 @@ async fn local_information_news_updates_pagination_and_private_rules_use_real_pu
             assert_eq!(request(&app,Method::GET,path).await.0,StatusCode::BAD_REQUEST,"{path}");
         }
     }}).await;
-    sqlx::query("DELETE FROM site_private.pages WHERE (key='faq' OR board=$1) AND body='owned-site-route <script>plain text</script>'").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("DELETE FROM site_private.pages WHERE (key IN ('faq','announcement') OR board=$1) AND body='owned-site-route <script>plain text</script>'").bind(&slug).execute(&owner).await.unwrap();
     sqlx::query("DELETE FROM site_private.news WHERE id BETWEEN 1 AND 27 AND body='owned-site-route <script>news</script>'").execute(&owner).await.unwrap();
+    sqlx::query("DELETE FROM content.posts WHERE board=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.threads WHERE board=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
     sqlx::query("DELETE FROM content.boards WHERE slug=$1 AND title='Owned site routes'")
         .bind(&slug)
         .execute(&owner)

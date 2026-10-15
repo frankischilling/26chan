@@ -28,6 +28,7 @@ async fn operator_content_is_revision_fenced_public_only_when_published_and_role
         "ALTER VIEW content.published_news SET (security_barrier=false)",
         "CREATE OR REPLACE VIEW content.published_news WITH(security_barrier=true) AS SELECT id,published_at,title,body,author FROM site_private.news WHERE published",
         "ALTER TABLE site_private.news DROP CONSTRAINT news_body_check",
+        "ALTER TABLE site_private.pages DROP CONSTRAINT pages_check",
     ] {
         let mut tx = owner.begin().await.unwrap();
         sqlx::query(drift).execute(&mut *tx).await.unwrap();
@@ -72,6 +73,14 @@ async fn operator_content_is_revision_fenced_public_only_when_published_and_role
             assert!(site_content::site_page(&public,"faq").await.unwrap().is_none());
             assert_eq!(site_content::page_revision(&mut owner,"faq").await.unwrap(),3);
             assert_eq!(site_content::publish(&mut owner,&page("faq",3)).await.unwrap(),4);
+            assert_eq!(site_content::publish(&mut owner,&page("announcement",0)).await.unwrap(),1);
+            let announcement=site_content::site_page(&public,"announcement").await.unwrap().unwrap();
+            assert_eq!(announcement.board,None);
+            assert!(announcement.timestamp()>0);
+            assert_eq!(announcement.revision,1);
+            assert!(matches!(site_content::publish(&mut owner,&page("announcement",0)).await,Err(Error::Revision)));
+            site_content::retract_page(&mut owner,"announcement",1).await.unwrap();
+            assert!(site_content::site_page(&public,"announcement").await.unwrap().is_none());
             let key=format!("rules/{board}");
             site_content::publish(&mut owner,&page(&key,0)).await.unwrap();
             assert_eq!(site_content::site_page(&public,&key).await.unwrap().unwrap().board.as_deref(),Some(board.as_str()));
@@ -111,7 +120,7 @@ async fn operator_content_is_revision_fenced_public_only_when_published_and_role
 
         }
     }).await;
-    sqlx::query("DELETE FROM site_private.pages WHERE (key IN ('faq','about') OR board=$1) AND body LIKE 'owned-source-site-content %'").bind(&board).execute(&mut owner).await.unwrap();
+    sqlx::query("DELETE FROM site_private.pages WHERE (key IN ('faq','about','announcement') OR board=$1) AND body LIKE 'owned-source-site-content %'").bind(&board).execute(&mut owner).await.unwrap();
     sqlx::query("DELETE FROM site_private.news WHERE id IN (1,2,3) AND body='owned-source-site-content announcement'").execute(&mut owner).await.unwrap();
     sqlx::query("DELETE FROM content.boards WHERE slug=$1 AND title='Owned site board'")
         .bind(&board)

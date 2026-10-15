@@ -139,6 +139,7 @@ fn chrome_page(catalog: bool, worksafe: bool) -> String {
     // Existing component-style probes require an explicitly configured subtitle.
     current.board_subtitle = board_store::BoardSubtitle::WorksafeGif;
     BoardPage {
+        announcement: None,
         public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&current),
@@ -297,6 +298,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
         thread.reply_count = 3;
     }
     BoardPage {
+        announcement: None,
         public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
@@ -347,6 +349,7 @@ fn archive_board(slug: &str) -> Board {
 
 fn empty_page(catalog: bool) -> String {
     BoardPage {
+        announcement: None,
         public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&crate::board()),
@@ -494,6 +497,7 @@ fn archived_thread() -> String {
         }),
     ];
     BoardPage {
+        announcement: None,
         public_origin: String::new(),
         blotter: Vec::new(),
         spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),

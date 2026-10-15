@@ -88,7 +88,7 @@ test('desktop and mobile availability and transfer review reflect the configured
     for (const mobile of [false, true]) assert.equal(settingAvailable('forceHTTPS', mobile, available), available);
     const transfer = buildSettingsTransfer(key => key === '4chan-settings' ? raw : null, { httpsAvailable: available });
     assert.equal(transfer.payload.settings, raw);
-    assert.deepEqual(transfer.inactiveCompatibility, available ? ['unmuteWebm'] : ['forceHTTPS', 'unmuteWebm']);
+    assert.deepEqual(transfer.inactiveCompatibility, available ? [] : ['forceHTTPS']);
     const review = parseSettingsTransferHash(`#cfg=${transfer.encoded}`, { httpsAvailable: available });
     assert.equal(review.review.settings.find(row => row.key === 'forceHTTPS').inactiveCompatibility, !available);
   }

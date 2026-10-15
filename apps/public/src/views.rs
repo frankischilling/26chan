@@ -51,6 +51,7 @@ impl Home {
 #[derive(Template)]
 #[template(path = "board.html")]
 pub struct BoardPage {
+    pub announcement: Option<board_store::site_content::SitePage>,
     /// Fixed configured public origin; never derived from a request Host header.
     pub public_origin: String,
     pub blotter: Vec<board_store::BlotterMessage>,
@@ -89,6 +90,10 @@ pub struct UploadForm {
 }
 
 impl BoardPage {
+    pub fn announcement_allowed(&self) -> bool {
+        // The upload-board template appends its message outside the closed gate.
+        self.board.upload_board || self.parent == 0 || self.posting_allowed()
+    }
     pub fn posting_notices(&self) -> posting_notices::Notices {
         posting_notices::for_board(&self.board, !self.media_origin.is_empty())
     }

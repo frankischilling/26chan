@@ -1,10 +1,10 @@
 # Native PNG drawing
 
-This partial implementation of [#207](https://github.com/frankischilling/26chan/issues/207)
-adds Tegaki to ordinary OP/reply forms and Quick Reply through the existing
-[isolated upload and approval workflow](post-attachments.md). The drawing
-workflow and the source-parity target in
-[PR #227](https://github.com/frankischilling/26chan/pull/227) remain incomplete.
+Drawing is available through ordinary forms and Quick Reply on eligible boards.
+The current [Drawing Edit](drawing-edit.md) and [drawing/replay pipeline](drawing-replays.md)
+include blank-canvas `/i/` Draw, approved-image editing, annotations, replay
+recording, isolated approval, delivery and playback. Issue #207 is closed.
+This document retains the ordinary PNG path and its earlier qualification record.
 
 ## Source and board policy
 
@@ -24,10 +24,10 @@ in the source on `/i/`, `/qst/` and `/vip/`; replay is enabled only on `/i/`.
 Every board inherits the 400 x 400 default. The drawing declarations in
 `test.config.ini` are commented out.
 
-Ordinary non-replay Draw remains available on media-enabled `/qst/` and `/vip/`
+Ordinary non-replay Draw is available on media-enabled `/qst/` and `/vip/`
 board and open-thread forms. [Drawing Edit on `/i/`](drawing-edit.md) separately
 imports approved post PNGs into Quick Reply on live threads. Blank-canvas
-`/i/` Draw and replay support remain disabled. Drawing controls require an
+`/i/` Draw and replay use the paired PNG/TGKR pipeline. Drawing controls require an
 eligible public, non-text board with image capacity; closed or archived threads,
 catalog pages and missing threads do not expose Edit. `boards.json` reports the
 imported `oekaki` policy independently of runtime media availability. These
@@ -77,7 +77,7 @@ Only a successfully rendered drawing form receives CSP permissions for the exact
 local Tegaki module and font. No blob image permission, remote asset source
 or replay fetch permission is added. Browser PNGs gain no approval authority.
 
-## Qualification and remaining work
+## Earlier PNG qualification record
 
 Apply migration 0114 before starting binaries that read the drawing columns.
 The additive migration preserves existing content and authority; a binary
@@ -103,8 +103,8 @@ The separate `drawing-upload.mjs` suite is designed to exercise real Tegaki
 pointer strokes, retained canvases, PNG downloads, receipt-bound isolated
 approval, persisted posting, normalized pixels, capability reuse denial and
 owned deletion. Its supervisor supplies isolated processing rather than
-synthetic approvals. Actual browser execution and exact-head hosted CI remain
-pending.
+synthetic approvals. Browser and hosted qualification were pending at this
+checkpoint; subsequent results are recorded in [drawing/replays](drawing-replays.md).
 
 The [Drawing Edit slice](drawing-edit.md) now imports approved post PNGs and
 persists optional `oe_time` and `oe_src` annotations as typed fields. Public
@@ -112,7 +112,7 @@ views, search and staff reports display the generated Oekaki Post text; new
 moderation audit snapshots retain the fields separately from the saved comment.
 The corresponding original rules are in the local reference paths
 `4chan-old/imgboard.php:6063-6097` and `4chan-old/lib/oekaki.php:102-160`.
-Replay recording, validation, storage, delivery and playback, ordinary `/i/`
-Draw, replay links and complete desktop/mobile source comparison remain open.
-Current-head browser and CI qualification for this Edit slice is separate;
-[#207](https://github.com/frankischilling/26chan/issues/207) remains incomplete.
+The later [drawing/replay implementation](drawing-replays.md) completes the
+replay and ordinary `/i/` paths. Its qualification record covers the actual
+isolated guest and owned browser workflow. Full-page visual parity remains
+separate from those drawing results.

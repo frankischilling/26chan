@@ -38,8 +38,8 @@ fetches or runtime URL construction are introduced.
 
 These rules are scoped to Settings and keyboard help. Catalog, filter help,
 export and Custom CSS keep their separate layouts. Config/default persistence,
-MainInit/ParsingDone, report and deletion behavior are unchanged. Playback and
-transport compatibility flags remain inactive. This is a bounded panel
+MainInit/ParsingDone, report and deletion behavior are unchanged. WebM audio is available on both layouts. HTTPS availability follows the
+configured endpoint, as described in [HTTPS preferences](native-https-preference.md). This is a bounded panel
 restoration; it does not establish complete Settings or full-page parity.
 
 ## Checks

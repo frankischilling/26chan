@@ -1,3 +1,4 @@
+import { mountDesktopAnnouncement } from './page-chrome.v1.js';
 import { mountNativeBlotter } from './native-blotter.v1.js';
 import { WATCH_LIMITS, reportURL, createReportRegistry, postId, watchKey, splitWatchKey, watchLabel, readWatches, writeWatches,
   sameEntry, orderedWatches, autoRefreshEligible, acknowledgedEntry,
@@ -373,6 +374,8 @@ async function start(context) {
     decoratePreview: (...args) => nativeBacklinks?.decoratePreview(...args),
     registerMath: (...args) => nativeMath?.registerQuote(...args),
   });
+  mountDesktopAnnouncement(document.body, { settings: configuration, catalog,
+    mobileLayout: sourceMobileLayout(mobile.matches, readNeverMobile()) });
   const nativeImages = catalog ? null : mountNativeImages({ root: document.querySelector('.board'),
     mediaOrigin: context.dataset.mediaOrigin, settings: configuration, projection, mobile, family: themeFamily,
     previewRoot: () => document.getElementById('quote-preview'),

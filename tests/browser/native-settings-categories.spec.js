@@ -2,19 +2,16 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 
-// Category order and layout availability follow 4chan-old/js/extension.js at
-// 545b781, restricted to the rewrite's implemented controls.
-const groups = [
-  ['Quotes & Replying', 'quotePreview backlinks inlineQuotes quickReply persistentQR'],
-  ['Monitoring', 'threadUpdater alwaysAutoUpdate threadWatcher threadAutoWatcher autoScroll updaterSound fixedThreadWatcher threadStats'],
-  ['Filters & Post Hiding', 'filter threadHiding hideStubs'],
-  ['Navigation', 'threadExpansion dropDownNav classicNav autoHideNav customMenu alwaysDepage topPageNav stickyNav keyBinds'],
-  ['Images & Media', 'imageExpansion fitToScreenExpansion imageHover imageHoverBg revealSpoilers noPictures embedYouTube embedSoundCloud'],
-  ['Miscellaneous', 'linkify darkTheme customCSS IDColor compactThreads centeredThreads localTime'],
-].map(([name, keys]) => ({ name, keys: keys.split(' ') }));
-const mobileKeys = new Set('quotePreview backlinks quickReply threadUpdater alwaysAutoUpdate threadWatcher threadAutoWatcher threadStats threadHiding threadExpansion alwaysDepage imageExpansion revealSpoilers noPictures linkify darkTheme customCSS IDColor localTime'.split(' '));
-const expectedGroups = mobile => groups.map(group => ({ ...group,
-  keys: group.keys.filter(key => mobile ? mobileKeys.has(key) : key !== 'darkTheme'),
+// Complete category order/availability is extracted from the pinned source.
+const settingsReference = JSON.parse(await readFile(new URL('../fixtures/native-settings-options-source.json', import.meta.url)));
+const groups = settingsReference.groups.map(group => ({ name: group.name,
+  keys: group.options.filter(option => option.key !== 'forceHTTPS').map(option => option.key),
+}));
+const mobileKeys = new Set(settingsReference.groups.flatMap(group => group.options)
+  .filter(option => option.mobile).map(option => option.key));
+const expectedGroups = mobile => settingsReference.groups.map(group => ({ name: group.name,
+  keys: group.options.filter(option => option.key !== 'forceHTTPS'
+    && (mobile ? option.mobile : !option.mobileOnly)).map(option => option.key),
 }));
 // These are isolated installSettings fallback defaults, not integrated app defaults.
 // The app supplies optionChecked (including embedYouTube's enabled default).
@@ -161,7 +158,7 @@ for (const mobile of [false, true]) {
     }
     assert.equal(await page.locator('.settings-cat #setting-disableAll').count(), 0);
     assert.equal(await page.locator('#setting-darkTheme').count(), mobile ? 1 : 0);
-    assert.equal(await page.locator('#setting-unmuteWebm, #setting-forceHTTPS').count(), 0);
+    assert.equal(await page.locator('#setting-forceHTTPS').count(), 0);
     assert.deepEqual(await page.locator('.settings-sub input').evaluateAll(inputs => inputs.map(input => input.dataset.option)),
       mobile ? ['threadAutoWatcher'] : ['threadAutoWatcher', 'classicNav', 'autoHideNav', 'imageHoverBg']);
     assert.equal(await page.locator('#settings-export').textContent(), 'Export Settings');

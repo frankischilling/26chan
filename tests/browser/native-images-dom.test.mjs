@@ -17,6 +17,9 @@ const wordfilters = await readFile(new URL('apps/public/client/native-wordfilter
 const projection = (await readFile(new URL('apps/public/client/native-comment-projection.js', root), 'utf8'))
   .replace('./native-wordfilter-markup.js', `data:text/javascript;base64,${Buffer.from(wordfilters).toString('base64')}`);
 const quotes = await readFile(new URL('apps/public/static/native-filter.v1.js', root), 'utf8');
+const customCSSSource = await readFile(new URL('apps/public/static/native-custom-css.v1.js', root), 'utf8');
+const settingsSource = (await readFile(new URL('apps/public/static/native-settings.v1.js', root), 'utf8'))
+  .replace('./native-custom-css.v1.js', `data:text/javascript;base64,${Buffer.from(customCSSSource).toString('base64')}`);
 const css = await readFile(new URL('apps/public/static/board.css', root), 'utf8');
 // A transparent synthetic 1x1 PNG. All requests are intercepted in this context.
 const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64');
@@ -28,11 +31,11 @@ const standaloneVideoPolicy = /"(default-src 'none'; media-src 'self'; sandbox[^
 assert.ok(standaloneVideoPolicy, 'use the media server\'s actual fixed video policy');
 const animatedPixel = Buffer.from('47494638396101000100800000ff00000000ff21ff0b4e45545343415045322e30030100000021f90404140000002c000000000100010000020244010021f90404140000002c00000000010001000002024c01003b', 'hex');
 
-async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, jpeg = false, mobileImage = false, pdf = false, video = null, storageOrigin = false, fallback = false } = {}) {
+async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, jpeg = false, mobileImage = false, pdf = false, video = null, storageOrigin = false, fallback = false, settingsControls = false, mobileLayout = false } = {}) {
   const context = await browser.newContext();
   t.after(() => context.close());
   const page = await context.newPage();
-  if (mobileImage) await page.setViewportSize({ width: 400, height: 800 });
+  if (mobileImage || mobileLayout) await page.setViewportSize({ width: 400, height: 800 });
   const requests = [], modes = new Map(), held = [];
   await context.route('**/*', async route => {
     const url = route.request().url(); requests.push(url);
@@ -65,7 +68,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
   if (fallback) await page.addInitScript(() => { HTMLMediaElement.prototype.canPlayType = () => ''; });
   await page.goto(storageOrigin ? 'https://boards.test/' : 'about:blank');
   await page.addStyleTag({ content: css });
-  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, jpeg, mobileImage, pdf, video }) => {
+  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, jpeg, mobileImage, pdf, video, settingsSource, settingsControls }) => {
     const module = async text => {
       const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
       try { return await import(url); } finally { URL.revokeObjectURL(url); }
@@ -92,6 +95,19 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
     window.imageController = images.mountNativeImages({ root: document.querySelector('.board'),
       mediaOrigin: 'https://media.test', settings: () => window.imageConfig, projection: window.imageOwnership, limits, mobile: window.matchMedia('(max-width: 480px)'),
       ...(preview ? { previewRoot: () => document.getElementById('quote-preview') } : {}) });
+    if (settingsControls) {
+      const nav = document.createElement('div'); nav.className = 'boardList'; document.body.prepend(nav);
+      const settings = await module(settingsSource);
+      settings.installSettings({ catalog: false, read: () => ({ ...imageConfig }),
+        hasMobileLayout: () => matchMedia('(max-width: 480px)').matches,
+        save: async changes => {
+          imageConfig = { ...imageConfig, ...changes };
+          localStorage.setItem('4chan-settings', JSON.stringify(imageConfig));
+          // Isolated widget/player fixture. Real navigation/save is covered by
+          // watcher-settings.spec.js against the application server.
+          return { persisted: false };
+        } });
+    }
     window.clickImage = id => {
       const anchor = document.querySelector(`#f${id} a.fileThumb`);
       let intercepted;
@@ -100,7 +116,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
       anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
       return intercepted;
     };
-  }, { source, projection, quotes, limits, config, count, preview, gif, jpeg, mobileImage, pdf, video });
+  }, { source, projection, quotes, limits, config, count, preview, gif, jpeg, mobileImage, pdf, video, settingsSource, settingsControls });
   await page.waitForFunction(() => [...document.querySelectorAll('.fileThumb img')].every(img => img.complete && img.naturalWidth > 0));
   return { page, requests, modes, held };
 }
@@ -562,3 +578,42 @@ test('mobile companion links also work with expansion disabled while desktop kee
   await desktop.page.locator('#f1 .expanded-thumb:not([hidden])').waitFor();
   assert.equal(await desktop.page.locator('#f1 .expanded-thumb').getAttribute('src'), 'https://media.test/demo/1.jpg');
 });
+
+for (const mobile of [false, true]) {
+  test(`source audio setting controls a real owned video player on ${mobile ? 'mobile' : 'desktop'}`, async t => {
+    const { page } = await fixture(t, { video: 'red.webm', count: 1, storageOrigin: true,
+      settingsControls: true, mobileLayout: mobile });
+    const open = async () => {
+      await page.locator('#settingsWindowLink:visible, #settingsWindowLinkMobile:visible').first().click();
+      const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
+      const category = dialog.getByRole('button', { name: 'Images & Media', exact: true });
+      if (await category.getAttribute('aria-expanded') === 'false') await category.click();
+      return dialog;
+    };
+    let dialog = await open();
+    await dialog.getByLabel('Un-mute WebM audio', { exact: true }).check();
+    await page.keyboard.press('Escape');
+    assert.equal(await page.evaluate(() => localStorage.getItem('4chan-settings')), null);
+    await page.evaluate(() => clickImage(1));
+    let player = page.locator('#f1 video:not([hidden])'); await player.waitFor();
+    assert.equal(await player.evaluate(video => video.muted), true);
+    await page.locator('#f1 .nativeVideoClose').click();
+    await page.evaluate(() => localStorage.setItem('4chan-volume', '0.25'));
+    dialog = await open();
+    await dialog.getByLabel('Un-mute WebM audio', { exact: true }).check();
+    await dialog.getByRole('button', { name: 'Save Settings', exact: true }).click();
+    await page.waitForFunction(() => !document.querySelector('dialog.nativeSettings'));
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('4chan-settings')).unmuteWebm), true);
+    await page.evaluate(() => clickImage(1));
+    player = page.locator('#f1 video:not([hidden])'); await player.waitFor();
+    assert.deepEqual(await player.evaluate(video => [video.muted, video.volume]), [false, 0.25]);
+    await page.locator('#f1 .nativeVideoClose').click();
+    dialog = await open();
+    await dialog.getByLabel('Un-mute WebM audio', { exact: true }).uncheck();
+    await dialog.getByRole('button', { name: 'Save Settings', exact: true }).click();
+    await page.waitForFunction(() => !document.querySelector('dialog.nativeSettings'));
+    await page.evaluate(() => clickImage(1));
+    player = page.locator('#f1 video:not([hidden])'); await player.waitFor();
+    assert.equal(await player.evaluate(video => video.muted), true);
+  });
+}

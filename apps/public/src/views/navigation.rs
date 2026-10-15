@@ -192,6 +192,7 @@ mod tests {
 
     fn page(boards: Vec<Board>, current: Board) -> super::super::BoardPage {
         super::super::BoardPage {
+            announcement: None,
             public_origin: String::new(),
             blotter: vec![],
             spoiler_thumbnail: String::new(),

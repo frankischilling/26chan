@@ -44,7 +44,7 @@ omitted; an explicitly transferred empty catalog-rule string is invalid rather
 than being treated as permission to remove stored rules. These boundaries are
 visible in the replay and the rewrite's validation tests.
 
-The v1191 defaults include `forceHTTPS` and `unmuteWebm`. `unmuteWebm` remains an inactive compatibility value. `forceHTTPS` is active where a fixed HTTPS public endpoint exists on the current hostname; otherwise the review marks it inactive. The [HTTPS host cookie](native-https-preference.md) is not exported or restored. A transferred boolean does not enable HTTPS navigation without that receiving browser's cookie, and cannot relax server transport policy. `IDColor` is active for [poster IDs](poster-ids.md).
+The v1191 defaults include `forceHTTPS` and `unmuteWebm`. `unmuteWebm` is active for the WebM/MP4 player and retains its boolean value through export and reviewed restore. `forceHTTPS` is active where a fixed HTTPS public endpoint exists on the current hostname; otherwise the review marks it inactive. The [HTTPS host cookie](native-https-preference.md) is not exported or restored. A transferred boolean does not enable HTTPS navigation without that receiving browser's cookie, and cannot relax server transport policy. `IDColor` is active for [poster IDs](poster-ids.md).
 
 Quick Reply accepts both the rewrite's finite `{left, top}` coordinates and the public client's bounded CSS-coordinate form, such as `right: 20px; top: 10%;`. The latter passes through the same coordinate parser as movable navigation. Only numeric pixel or percentage offsets are used; arbitrary CSS is rejected. Opening the panel converts offsets for the current viewport and keeps the panel within its edges.
 
