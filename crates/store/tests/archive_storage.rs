@@ -129,6 +129,15 @@ async fn oversized_complete_archive_metadata_is_rejected_without_a_partial_list(
         .execute(&o)
         .await
         .unwrap();
+        // Record the real public-role planner choice after the large UPDATE.
+        // EXPLAIN does not execute the query or change its statement timeout.
+        let timeout: String = sqlx::query_scalar("SHOW statement_timeout").fetch_one(&p).await.unwrap();
+        assert_eq!(timeout, "5s", "archive diagnostics must retain the public limit");
+        let plan = sqlx::query_scalar::<_, String>("EXPLAIN (VERBOSE, COSTS, SETTINGS) SELECT count(*),coalesce(sum(subject_bytes),0)::bigint FROM (SELECT octet_length(p.subject)::bigint AS subject_bytes FROM content.visible_threads t JOIN LATERAL (SELECT p.subject,p.deleted FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted LIMIT $2) selected")
+            .bind(&b).bind(board_store::MAX_ARCHIVE_JSON_ENTRIES as i64 + 1).fetch_all(&p).await;
+        eprintln!("Owned archive post-update public plan: {plan:#?}");
+        let statistics = sqlx::query_scalar::<_,String>("SELECT row_to_json(s)::text FROM (SELECT relname,n_live_tup,n_dead_tup,analyze_count,autoanalyze_count,vacuum_count,autovacuum_count FROM pg_stat_all_tables WHERE schemaname='content' AND relname IN('posts','threads','boards') ORDER BY relname) s").fetch_all(&o).await;
+        eprintln!("Owned archive post-update statistics: {statistics:#?}");
         let started = std::time::Instant::now();
         let result = board_store::archive_snapshot(&p, &b).await.err();
         assert!(
