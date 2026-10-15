@@ -126,7 +126,11 @@ async fn read_archive_snapshot(
     // Count one beyond the finite reader budget, then reject the entire response.
     // Use the same per-thread post lookup as HTML even when statistics predict
     // just one row for a newly populated board.
-    let (count, bytes): (i64, i64) = sqlx::query_as("SELECT count(*),coalesce(sum(octet_length(subject)),0)::bigint FROM (SELECT p.subject FROM content.visible_threads t JOIN LATERAL (SELECT p.* FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT $2) selected")
+    // The preflight does not need ordering: at most the budget means every
+    // matching row was counted; one extra row rejects the entire listing.
+    // Aggregate byte lengths rather than sorting/carrying wide subject values.
+    // The successful metadata response below retains its ordered-ID contract.
+    let (count, bytes): (i64, i64) = sqlx::query_as("SELECT count(*),coalesce(sum(subject_bytes),0)::bigint FROM (SELECT octet_length(p.subject)::bigint AS subject_bytes FROM content.visible_threads t JOIN LATERAL (SELECT p.subject,p.deleted FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted LIMIT $2) selected")
         .bind(slug).bind(MAX_ARCHIVE_JSON_ENTRIES as i64 + 1).fetch_one(&mut *tx).await?;
     if count > MAX_ARCHIVE_JSON_ENTRIES as i64 || bytes > MAX_ARCHIVE_PAGE_READ_BYTES as i64 {
         return Err(StoreError::ReadLimit);

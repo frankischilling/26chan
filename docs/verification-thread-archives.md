@@ -103,3 +103,28 @@ after migration. Public attachments, original-site visual/behavioral evidence,
 production deployment/recovery/monitoring and independent deployed security
 review remain open. See [operating notes](thread-archives.md) and
 [readiness](readiness.md).
+
+## JSON preflight ordering
+
+The complete-list preflight now aggregates subject byte lengths without ordering
+or carrying the subject strings through a sort. Ordering is unnecessary for this
+check: if the bounded query sees at most 100,000 rows, it has seen every matching
+row; seeing one more rejects the complete response. The successful metadata
+fetch still orders by thread ID. Visibility, repeatable-read consistency, the
+100,000-entry limit, and the 8 MiB subject budget are unchanged.
+
+An owned PostgreSQL comparison used 100,000 visible archived OPs with 100-byte
+subjects. Both queries returned the same count and 10,000,000-byte total under
+the unchanged five-second public statement timeout. With stale statistics, the
+old/new plans took about 678/536 ms; after ANALYZE, about 1,035/974 ms. The old plan
+used a roughly 12 MiB external merge sort in both cases; the new plan did not
+sort. Autovacuum was disabled only in that disposable comparison to preserve the
+two intended statistics states. These timings describe that fixture, not a
+production performance guarantee.
+
+Hosted runs had timed out in an archived thread snapshot and the oversized
+archive subject preflight. The unchanged predecessor-test sequence passed in a
+separate owned run, and the sequence passed again with this query change,
+including the 1,501-post snapshot. The exact hosted timeout cause remains
+unconfirmed. No statement timeout or test assertion was relaxed. Final-head hosted qualification
+is still required.
