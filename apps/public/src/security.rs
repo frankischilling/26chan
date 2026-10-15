@@ -670,6 +670,11 @@ pub(crate) fn math_fixture_response(
     ))
 }
 
+#[cfg(feature = "browser-tests")]
+pub(crate) fn verification_fixture_headers(response: Response, state: &AppState) -> Response {
+    headers(response, state, None, None)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1508,9 +1513,4 @@ mod verification_policy_tests {
             assert!(policy.contains("script-src-attr 'none'"));
         }
     }
-}
-
-#[cfg(feature = "browser-tests")]
-pub(crate) fn verification_fixture_headers(response: Response, state: &AppState) -> Response {
-    headers(response, state, None, None)
 }

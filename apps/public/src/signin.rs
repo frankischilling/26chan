@@ -435,9 +435,14 @@ async fn submit(
 }
 fn result_message(result: &protocol::EmailResult) -> String {
     if matches!(result.state, EmailState::Cooldown) {
+        let (count, unit) = if result.cooldown_seconds > 3600 {
+            (result.cooldown_seconds.div_ceil(3600), "hour")
+        } else {
+            (result.cooldown_seconds.div_ceil(60).max(1), "minute")
+        };
         format!(
-            "You have to wait {} more seconds before attempting this again.",
-            result.cooldown_seconds
+            "You have to wait {count} more {unit}{} before attempting this again.",
+            if count == 1 { "" } else { "s" }
         )
     } else {
         state_message(&result.state).into()
@@ -465,9 +470,73 @@ fn state_message(state: &EmailState) -> &'static str {
     }
 }
 
+/// Synthetic UI qualification uses the production template and response policy.
+/// This entry point is absent unless the explicit browser-test feature is built.
+#[cfg(feature = "browser-tests")]
+pub(crate) fn fixture_response(mode: &str, origin: &str) -> Result<Response, String> {
+    let parsed = url::Url::parse(origin).map_err(|_| "Invalid fixture origin.")?;
+    if parsed.origin().ascii_serialization() != origin
+        || !matches!(
+            mode,
+            "request" | "verify" | "preview" | "logout" | "message"
+        )
+    {
+        return Err("Invalid verification fixture.".into());
+    }
+    let state = AppState {
+        pool: sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+            .map_err(|_| "Fixture pool unavailable.")?,
+        origin: origin.into(),
+        production: false,
+        limits: std::sync::Arc::new(crate::security::Limits::new(
+            board_config::PublicRequestLimits::default(),
+        )),
+        media: None,
+        verification: None,
+        proxy_uid: None,
+        poster_id_key: None,
+        tripcode_key: None,
+        country_database: None,
+    };
+    let secret = FormSecret::generate().map_err(|_| "Fixture secret unavailable.")?;
+    let token = format!("e1_{}", "ab".repeat(32));
+    let response = render_document(
+        &state,
+        &secret,
+        mode,
+        &token,
+        if mode == "message" {
+            "This session is now verified."
+        } else {
+            ""
+        },
+        "",
+    )
+    .map_err(|_| "Fixture rendering failed.")?;
+    Ok(crate::security::verification_fixture_headers(
+        response, &state,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cooldown_message_uses_source_units_and_actual_remaining_delay() {
+        for (seconds, text) in [
+            (1, "1 more minute"),
+            (300, "5 more minutes"),
+            (3600, "60 more minutes"),
+            (3601, "2 more hours"),
+        ] {
+            let result = protocol::EmailResult {
+                state: EmailState::Cooldown,
+                cooldown_seconds: seconds,
+            };
+            assert!(result_message(&result).contains(text));
+        }
+    }
     #[test]
     fn form_requires_exact_content_type_and_matching_private_cookie() {
         let secret = FormSecret::generate().unwrap();
@@ -537,52 +606,3 @@ mod tests {
 
 #[cfg(all(test, feature = "database-tests"))]
 mod database_tests;
-
-/// Synthetic UI qualification uses the production template and response policy.
-/// This entry point is absent unless the explicit browser-test feature is built.
-#[cfg(feature = "browser-tests")]
-pub(crate) fn fixture_response(mode: &str, origin: &str) -> Result<Response, String> {
-    let parsed = url::Url::parse(origin).map_err(|_| "Invalid fixture origin.")?;
-    if parsed.origin().ascii_serialization() != origin
-        || !matches!(
-            mode,
-            "request" | "verify" | "preview" | "logout" | "message"
-        )
-    {
-        return Err("Invalid verification fixture.".into());
-    }
-    let state = AppState {
-        pool: sqlx::postgres::PgPoolOptions::new()
-            .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
-            .map_err(|_| "Fixture pool unavailable.")?,
-        origin: origin.into(),
-        production: false,
-        limits: std::sync::Arc::new(crate::security::Limits::new(
-            board_config::PublicRequestLimits::default(),
-        )),
-        media: None,
-        verification: None,
-        proxy_uid: None,
-        poster_id_key: None,
-        tripcode_key: None,
-        country_database: None,
-    };
-    let secret = FormSecret::generate().map_err(|_| "Fixture secret unavailable.")?;
-    let token = format!("e1_{}", "ab".repeat(32));
-    let response = render_document(
-        &state,
-        &secret,
-        mode,
-        &token,
-        if mode == "message" {
-            "This session is now verified."
-        } else {
-            ""
-        },
-        "",
-    )
-    .map_err(|_| "Fixture rendering failed.")?;
-    Ok(crate::security::verification_fixture_headers(
-        response, &state,
-    ))
-}

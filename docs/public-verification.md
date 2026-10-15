@@ -221,3 +221,8 @@ PostgreSQL and a loopback SMTP fixture. A final 250 acknowledgement removes the
 encrypted outbox entry and records delivery. A 451 response leaves the message
 queued with its retry delay and no delivery timestamp. The test never contacts
 an external recipient.
+
+Cooldown messages use the source's minute/hour wording. The policy reports the
+remaining delay; the primary controller's base-delay branch displayed elapsed
+minutes while still enforcing the five-minute limit. The rate limit is preserved,
+and the backend's remaining-delay result is used consistently.

@@ -268,3 +268,67 @@ fn metrics_startup_rejects_bad_config_and_occupied_socket_before_database_access
         );
     }
 }
+
+#[test]
+fn verification_rejects_private_authority_and_invalid_budgets_before_binding() {
+    let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    for variable in [
+        "VERIFICATION_DATABASE_URL",
+        "VERIFICATION_MAIL_DATABASE_URL",
+        "TEST_VERIFICATION_DATABASE_URL",
+        "TEST_VERIFICATION_MAIL_DATABASE_URL",
+        "VERIFICATION_KEY",
+        "VERIFICATION_MAIL_KEY",
+        "VERIFICATION_SERVICE_TOKEN",
+    ] {
+        let output = public_command()
+            .env(
+                "DATABASE_URL",
+                "postgres://board_public:unused@127.0.0.1:1/absent",
+            )
+            .env("BIND_ADDR", occupied.local_addr().unwrap().to_string())
+            .env(variable, "owned-private-authority-marker")
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            error.contains("private verification credentials"),
+            "{error}"
+        );
+        assert!(!error.contains("owned-private-authority-marker"));
+        assert!(!error.contains("AddrInUse"));
+    }
+    for metrics_collision in [false, true] {
+        let mut command = public_command();
+        command
+            .env(
+                "DATABASE_URL",
+                "postgres://board_public:unused@127.0.0.1:1/absent",
+            )
+            .env("BIND_ADDR", occupied.local_addr().unwrap().to_string())
+            .env("PUBLIC_VERIFICATION_ADDR", "127.0.0.1:9081")
+            .env("PUBLIC_VERIFICATION_TOKEN", "ab".repeat(32))
+            .env(
+                "PUBLIC_HANDLER_TIMEOUT_MS",
+                if metrics_collision { "30000" } else { "29999" },
+            );
+        if metrics_collision {
+            command
+                .env("METRICS_BIND_ADDR", "127.0.0.1:9081")
+                .env("METRICS_TOKEN", "cd".repeat(32));
+        }
+        let output = command.output().unwrap();
+        assert!(!output.status.success());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            error.contains(if metrics_collision {
+                "separate listeners"
+            } else {
+                "at least 30000"
+            }),
+            "{error}"
+        );
+        assert!(!error.contains("AddrInUse"));
+    }
+}
