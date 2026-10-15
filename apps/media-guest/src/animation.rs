@@ -180,11 +180,19 @@ fn scan_blocks(input: &[u8]) -> io::Result<u32> {
 pub(crate) struct SourceScan {
     pub repeat: u32,
     pub cleanup: bool,
+    pub frames: usize,
 }
 
 /// Structural policy scan only; the caller must also decompress every frame.
 pub(crate) fn scan_source(input: &[u8]) -> io::Result<SourceScan> {
-    scan_with_limits(input, 10_000, 256 * 1024 * 1024)
+    let scan = scan_with_limits(input, 10_000, 256 * 1024 * 1024)?;
+    let width = usize::from(u16::from_le_bytes([input[6], input[7]]));
+    let height = usize::from(u16::from_le_bytes([input[8], input[9]]));
+    if width.checked_mul(height).and_then(|pixels| pixels.checked_mul(scan.frames))
+        .is_none_or(|pixels| pixels > 256 * 1024 * 1024) {
+        return Err(rejected());
+    }
+    Ok(scan)
 }
 
 fn scan_with_limits(input: &[u8], dimension: u16, pixel_limit: usize) -> io::Result<SourceScan> {
@@ -213,6 +221,7 @@ fn scan_with_limits(input: &[u8], dimension: u16, pixel_limit: usize) -> io::Res
                 return Ok(SourceScan {
                     repeat,
                     cleanup: cleanup || input.len().saturating_sub(compressed_bytes) >= 51_200,
+                    frames: count,
                 });
             }
             0x2c => {
