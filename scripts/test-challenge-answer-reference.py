@@ -48,7 +48,7 @@ echo json_encode($output,JSON_THROW_ON_ERROR);
         )
     assert json.loads(result.stdout) == [case['normalized'] for case in cases]
     for case in cases:
-        assert case['within_rust_bounds'] == (len(case['raw'].encode()) <= 64 and 4 <= len(case['normalized']) <= 6)
+        assert case['within_rust_bounds'] == (len(case['raw'].encode()) <= 64 and 4 <= len(case['normalized']) <= 8)
     print('20 pinned Twister answer cases passed. No challenge service or renderer was invoked.')
 
 

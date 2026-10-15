@@ -7,6 +7,20 @@ use board_domain::anonymous_session::Fingerprints;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Duration;
 
+#[derive(sqlx::FromRow)]
+pub struct VerificationRisk {
+    pub current_score: i16,
+    pub token_score: i16,
+}
+impl VerificationRisk {
+    pub fn suspicious(&self) -> bool {
+        self.current_score < 80 || self.token_score < 80
+    }
+    pub fn escalated(&self) -> bool {
+        self.token_score < 90
+    }
+}
+
 #[derive(Clone)]
 pub struct VerificationStore {
     pool: PgPool,
@@ -122,7 +136,7 @@ impl VerificationStore {
              AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                WHERE n.nspname='verification_private' AND c.relkind='r'
                  AND has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))
-             AND coalesce((SELECT count(*)=8 AND bool_and(p.prosecdef AND p.proowner='board_anonymous_owner'::regrole
+             AND coalesce((SELECT count(*)=9 AND bool_and(p.prosecdef AND p.proowner='board_anonymous_owner'::regrole
                AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
                AND has_function_privilege(current_user,p.oid,'EXECUTE')
                AND NOT has_function_privilege('board_public',p.oid,'EXECUTE')
@@ -137,7 +151,8 @@ impl VerificationStore {
                  to_regprocedure('content.verification_email_state(bytea)'),
                  to_regprocedure('content.verification_accept_email(bytea,bytea,text,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea)'),
                  to_regprocedure('content.verification_signout(bytea)'),
-                 to_regprocedure('content.verification_email_advice(bytea,bytea,bytea)'))),false)
+                 to_regprocedure('content.verification_email_advice(bytea,bytea,bytea)'),
+                 to_regprocedure('content.verification_risk(bytea,bytea)'))),false)
              AND coalesce((SELECT count(*)=1 AND bool_and(p.prosecdef
                 AND p.proowner='board_anonymous_owner'::regrole
                 AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
@@ -161,9 +176,23 @@ impl VerificationStore {
                 AND EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
                     WHERE n.nspname='verification_private' AND c.relname='blocked_recipients'
                     AND t.tgname='verification_recipient_policy_guard' AND t.tgfoid=p.oid
-                    AND t.tgenabled='O' AND t.tgtype=31 AND t.tgnargs=0 AND t.tgqual IS NULL AND NOT t.tgisinternal))
+                    AND t.tgenabled='O' AND t.tgtype=31 AND t.tgnargs=0 AND t.tgqual IS NULL AND NOT t.tgisinternal)
+                AND EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+                    WHERE n.nspname='verification_private' AND c.relname='peer_risk'
+                    AND t.tgname='verification_peer_risk_guard' AND t.tgfoid=p.oid AND t.tgenabled='O'
+                    AND t.tgtype=31 AND t.tgnargs=0 AND t.tgqual IS NULL AND NOT t.tgisinternal))
                 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
                 WHERE n.nspname='verification_private' AND p.proname='lock_recipient_policy' AND p.pronargs=0),false)
+             AND coalesce((SELECT count(*)=1 AND bool_and(p.prosecdef
+                AND p.proowner='board_anonymous_owner'::regrole AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
+                AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
+                    WHERE acl.privilege_type='EXECUTE' AND acl.grantee<>p.proowner)
+                AND EXISTS(SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+                    WHERE n.nspname='verification_private' AND c.relname='email_requests'
+                    AND t.tgname='verification_email_risk_snapshot' AND t.tgfoid=p.oid AND t.tgenabled='O'
+                    AND t.tgtype=7 AND t.tgnargs=0 AND t.tgqual IS NULL AND NOT t.tgisinternal))
+                FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                WHERE n.nspname='verification_private' AND p.proname='snapshot_email_risk' AND p.pronargs=0),false)
              FROM pg_roles WHERE rolname=current_user",
         )
         .fetch_one(&self.pool)
@@ -234,6 +263,20 @@ impl VerificationStore {
         .fetch_one(&self.pool)
         .await
         .map_err(StoreError::from)
+    }
+
+    /// Trusted risk for rendering; enqueue snapshots and acceptance rechecks it.
+    pub async fn risk(
+        &self,
+        peer: &[u8; 32],
+        token: Option<&[u8; 32]>,
+    ) -> Result<VerificationRisk, StoreError> {
+        sqlx::query_as("SELECT * FROM content.verification_risk($1,$2)")
+            .bind(peer.as_slice())
+            .bind(token.map(|v| v.as_slice()))
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StoreError::from)
     }
 
     /// Advisory only. Enqueue repeats these checks under its capacity lock.
@@ -310,5 +353,29 @@ impl VerificationStore {
 
     pub async fn close(&self) {
         self.pool.close().await;
+    }
+}
+
+#[cfg(test)]
+mod risk_tests {
+    use super::VerificationRisk;
+    #[test]
+    fn source_risk_boundaries_are_distinct() {
+        for (current, token, suspicious, escalated) in [
+            (100, 100, false, false),
+            (79, 100, true, false),
+            (80, 100, false, false),
+            (100, 79, true, true),
+            (100, 80, false, true),
+            (100, 89, false, true),
+            (100, 90, false, false),
+        ] {
+            let risk = VerificationRisk {
+                current_score: current,
+                token_score: token,
+            };
+            assert_eq!(risk.suspicious(), suspicious);
+            assert_eq!(risk.escalated(), escalated);
+        }
     }
 }

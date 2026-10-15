@@ -172,3 +172,100 @@ async fn authenticated_email_routes_preserve_validation_order_and_rotate_only_af
     owner.close().await;
     outcome.unwrap();
 }
+
+#[tokio::test]
+async fn trusted_risk_is_snapshotted_and_escalates_local_verification() {
+    let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let store =
+        VerificationStore::connect(&std::env::var("TEST_VERIFICATION_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+    let material = ReceiptToken::generate().unwrap().encode();
+    let key = VerificationKey::parse(&material[3..]).unwrap();
+    let mail_material = ReceiptToken::generate().unwrap().encode();
+    let app = router(
+        AppState::new(
+            store.clone(),
+            VerificationKey::parse(&material[3..]).unwrap(),
+            MailKey::parse(&mail_material[3..]).unwrap(),
+            &"11".repeat(32),
+        )
+        .unwrap(),
+    );
+    let peer = "192.0.2.43".parse().unwrap();
+    let browser = Capability::generate()
+        .unwrap()
+        .fingerprints(Some(peer), *b"US");
+    let peer_hash = key.network_identity(peer);
+    let token = VerificationToken::generate(TokenKind::Email).unwrap();
+    let token_hash = key.token_hash(&token);
+    let other = VerificationToken::generate(TokenKind::Email).unwrap();
+    let other_hash = key.token_hash(&other);
+    let outcome = tokio::spawn({let owner=owner.clone();let store=store.clone();async move {
+        store.ensure_session(&browser, true).await.unwrap();
+        let normal=store.risk(&peer_hash,None).await.unwrap();
+        assert_eq!((normal.current_score,normal.token_score),(100,100));
+        sqlx::query("INSERT INTO verification_private.peer_risk(peer_hash,score,created_at,expires_at) VALUES($1,85,clock_timestamp()-interval '2 hours',clock_timestamp()+interval '1 hour')").bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
+        sqlx::query("INSERT INTO verification_private.email_requests(token_hash,email_hash,recipient_hash,peer_hash,country,created_at,expires_at,captcha_failure_limit) VALUES($1,$1,$1,$2,'US',clock_timestamp(),clock_timestamp()+interval '1 hour',6)").bind(token_hash.as_slice()).bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
+        sqlx::query("UPDATE verification_private.peer_risk SET score=79 WHERE peer_hash=$1").bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
+        sqlx::query("INSERT INTO verification_private.email_requests(token_hash,email_hash,recipient_hash,peer_hash,country,created_at,expires_at,captcha_failure_limit) VALUES($1,$1,$1,$2,'US',clock_timestamp(),clock_timestamp()+interval '1 hour',6)").bind(other_hash.as_slice()).bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
+        let risk=store.risk(&peer_hash,Some(&token_hash)).await.unwrap();
+        assert_eq!((risk.current_score,risk.token_score),(79,85));assert!(risk.suspicious());assert!(risk.escalated());
+        let limit:i16=sqlx::query_scalar("SELECT captcha_failure_limit FROM verification_private.email_requests WHERE token_hash=$1").bind(other_hash.as_slice()).fetch_one(&owner).await.unwrap();assert_eq!(limit,3);
+        let context=protocol::ChallengeContext {session:protocol::Session {fingerprints:transported(browser),minted:false,peer,country:"US".into()},purpose:protocol::Purpose::EmailVerify,board:None,target:0,form_nonce:"ab".repeat(32),email_token:Some(token.encode())};
+        let (status,value)=request(&app,"/v1/challenge",&context).await;assert_eq!(status,StatusCode::OK);assert_eq!(value["state"],"ready");
+        let challenge=VerificationToken::parse(TokenKind::Challenge,value["token"].as_str().unwrap()).unwrap();
+        let expected=key.answer_hash(&challenge,key.challenge_answer(&challenge,8).unwrap().as_str()).unwrap();
+        let (actual,suspicious):(Vec<u8>,bool)=sqlx::query_as("SELECT answer_hash,suspicious FROM verification_private.challenges WHERE token_hash=$1").bind(key.token_hash(&challenge).as_slice()).fetch_one(&owner).await.unwrap();
+        assert_eq!(actual,expected);assert!(suspicious);
+        sqlx::query("UPDATE verification_private.peer_risk SET expires_at=clock_timestamp()-interval '1 minute' WHERE peer_hash=$1").bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
+        let risk=store.risk(&peer_hash,Some(&token_hash)).await.unwrap();assert_eq!((risk.current_score,risk.token_score),(100,85));assert!(!risk.suspicious());assert!(risk.escalated(),"stored token risk survives current policy expiry");
+        // A changed live score must tighten answer consumption, not just final rotation.
+        sqlx::query("UPDATE verification_private.peers SET refresh_after=clock_timestamp()-interval '1 second' WHERE peer_hash=$1").bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
+        let (status,value)=request(&app,"/v1/challenge",&context).await;assert_eq!(status,StatusCode::OK);
+        let stale=VerificationToken::parse(TokenKind::Challenge,value["token"].as_str().unwrap()).unwrap();
+        let was_suspicious:bool=sqlx::query_scalar("SELECT suspicious FROM verification_private.challenges WHERE token_hash=$1").bind(key.token_hash(&stale).as_slice()).fetch_one(&owner).await.unwrap();assert!(!was_suspicious);
+        sqlx::query("UPDATE verification_private.peer_risk SET score=79,expires_at=clock_timestamp()+interval '1 hour' WHERE peer_hash=$1").bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
+        sqlx::query("UPDATE verification_private.email_requests SET captcha_failures=3 WHERE token_hash=$1").bind(token_hash.as_slice()).execute(&owner).await.unwrap();
+        let replacement=Capability::generate().unwrap().fingerprints(Some(peer),*b"US");
+        let input=protocol::EmailVerification {context:context.clone(),replacement:transported(replacement),challenge:stale.encode(),answer:key.challenge_answer(&stale,8).unwrap().as_str().into()};
+        let (status,value)=request(&app,"/v1/email/verify",&input).await;assert_eq!(status,StatusCode::OK);assert_eq!(value["state"],"challenge_required");
+        assert!(store.session(&replacement.token).await.unwrap().is_none());
+        let receipt_exists:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM verification_private.receipts WHERE context_hash=$1)").bind(token_hash.as_slice()).fetch_one(&owner).await.unwrap();assert!(!receipt_exists);
+        let risk=store.risk(&peer_hash,Some(&other_hash)).await.unwrap();assert!(risk.suspicious());
+        sqlx::query("UPDATE verification_private.email_requests SET captcha_failures=3 WHERE token_hash=$1").bind(other_hash.as_slice()).execute(&owner).await.unwrap();
+        assert_eq!(store.email_state(&other_hash).await.unwrap(),"invalid");
+        for name in ["TEST_PUBLIC_DATABASE_URL","TEST_VERIFICATION_MAIL_DATABASE_URL"] {
+            let runtime=PgPool::connect(&std::env::var(name).unwrap()).await.unwrap();
+            let error=sqlx::query("SELECT * FROM content.verification_risk($1,NULL)").bind(peer_hash.as_slice()).execute(&runtime).await.unwrap_err();
+            assert_eq!(error.as_database_error().and_then(|e|e.code()).as_deref(),Some("42501"));runtime.close().await;
+        }
+    }}).await;
+    sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+        .bind(browser.token.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
+    for hash in [token_hash, other_hash] {
+        sqlx::query("DELETE FROM verification_private.email_requests WHERE token_hash=$1")
+            .bind(hash.as_slice())
+            .execute(&owner)
+            .await
+            .unwrap();
+    }
+    sqlx::query("DELETE FROM verification_private.peer_risk WHERE peer_hash=$1")
+        .bind(peer_hash.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM verification_private.peers WHERE peer_hash=$1")
+        .bind(peer_hash.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
+    store.close().await;
+    owner.close().await;
+    outcome.unwrap();
+}

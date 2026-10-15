@@ -387,8 +387,30 @@ pub(crate) async fn challenge(
         return error(StatusCode::SERVICE_UNAVAILABLE);
     };
     let resumed = snapshot.for_request(now, &fingerprints);
-    let style =
-        challenge_policy::image_style(&resumed, now, challenge_policy::Purpose::SignIn, false);
+    let peer = state.key.network_identity(input.session.peer);
+    let risk = match state
+        .store
+        .risk(
+            &peer,
+            (input.purpose == protocol::Purpose::EmailVerify).then_some(&context_hash),
+        )
+        .await
+    {
+        Ok(risk) => risk,
+        Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE),
+    };
+    let mut style = challenge_policy::image_style(
+        &resumed,
+        now,
+        challenge_policy::Purpose::SignIn,
+        risk.suspicious(),
+    );
+    // Replace the external-provider escalation with an eight-character local challenge.
+    // The trusted stored score retains the source's below-90 decision boundary.
+    if risk.escalated() {
+        style.characters = 8;
+        style.slider = true;
+    }
     let Ok(token) = VerificationToken::generate(TokenKind::Challenge) else {
         return error(StatusCode::SERVICE_UNAVAILABLE);
     };
@@ -409,7 +431,7 @@ pub(crate) async fn challenge(
             board: None,
             target: 0,
             context_hash: &context_hash,
-            suspicious: false,
+            suspicious: risk.suspicious(),
         })
         .await
     {

@@ -62,13 +62,14 @@ SQL
 "${migrator[@]}" -Atc "SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash" > "$cluster/before.json"
 for migration in migrations/*.sql; do
     [[ $(basename "$migration") < 0158_ ]] && continue
-    [[ $(basename "$migration") < 0164_ ]] || break
+    [[ $(basename "$migration") < 0165_ ]] || break
     "${migrator[@]}" --single-transaction -f - < "$migration"
 done
 "${migrator[@]}" -Atc "SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash" > "$cluster/after.json"
 cmp "$cluster/before.json" "$cluster/after.json"
 "${migrator[@]}" <<'SQL'
 INSERT INTO verification_private.blocked_recipients(recipient_hash) VALUES(decode(repeat('b7',32),'hex'));
+INSERT INTO verification_private.peer_risk(peer_hash,score,expires_at) VALUES(decode(repeat('b8',32),'hex'),79,clock_timestamp()+interval '1 hour');
 INSERT INTO verification_private.identities(email_hash) VALUES(decode(repeat('e5',32),'hex'));
 INSERT INTO verification_private.browser_identities(session_hash,identity_id)
 SELECT decode(repeat('a1',32),'hex'),id FROM verification_private.identities;
@@ -116,11 +117,15 @@ SELECT 'identity',to_jsonb(i) FROM verification_private.identities i ORDER BY id
 SELECT 'browser',to_jsonb(b) FROM verification_private.browser_identities b ORDER BY session_hash;
 SELECT 'request',to_jsonb(r) FROM verification_private.email_requests r ORDER BY id;
 SELECT 'outbox',to_jsonb(q) FROM verification_private.mail_outbox q ORDER BY request_id;
+SELECT 'risk',to_jsonb(r) FROM verification_private.peer_risk r ORDER BY peer_hash;
 SELECT 'blocked_recipient',to_jsonb(b) FROM verification_private.blocked_recipients b ORDER BY recipient_hash;
 SELECT 'function',n.nspname,p.proname,pg_get_function_identity_arguments(p.oid),p.proowner::regrole,p.prosecdef,p.proconfig,p.proacl,md5(pg_get_functiondef(p.oid))
 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
 WHERE n.nspname='verification_private' OR (n.nspname='content' AND p.proname LIKE 'verification_%')
 ORDER BY n.nspname,p.proname,pg_get_function_identity_arguments(p.oid);
+SELECT 'trigger',c.relname,t.tgname,t.tgenabled,pg_get_triggerdef(t.oid)
+FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='verification_private' AND NOT t.tgisinternal ORDER BY c.relname,t.tgname;
 SQL
  done
 cmp "$cluster/verification_upgrade.fingerprint" "$cluster/verification_restored.fingerprint"

@@ -53,7 +53,7 @@
     {
       "raw": "ADGHJKM",
       "normalized": "ADGHJKM",
-      "within_rust_bounds": false
+      "within_rust_bounds": true
     },
     {
       "raw": "ADG",

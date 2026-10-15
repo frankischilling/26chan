@@ -78,7 +78,7 @@ fn encode(width: usize, pixels: &[u8]) -> Option<Vec<u8>> {
 /// from answer generation; it is not used as cryptographic authentication.
 pub(crate) fn render(answer: &GeneratedAnswer, seed: [u8; 32], slider: bool) -> Option<Image> {
     let characters = answer.as_str().as_bytes();
-    if !(4..=6).contains(&characters.len()) {
+    if !(4..=8).contains(&characters.len()) {
         return None;
     }
     let mut noise = Noise(u64::from_be_bytes(seed[..8].try_into().ok()?) | 1);
@@ -90,12 +90,18 @@ pub(crate) fn render(answer: &GeneratedAnswer, seed: [u8; 32], slider: bool) -> 
     let background_width = WIDTH + OFFSET;
     let mut background = slider.then(|| canvas(background_width, &mut noise));
     let alignment = 8 + noise.range((OFFSET - 16) as u32) as usize;
-    let start = (WIDTH - characters.len() * 32) / 2;
+    let advance = 32.min(WIDTH / characters.len());
+    let start = (WIDTH - characters.len() * advance) / 2;
+    let center = if characters.len() > 6 {
+        advance / 2
+    } else {
+        10
+    };
     for (index, ch) in characters.iter().enumerate() {
         let pattern = glyph(*ch)?;
         let angle = (noise.range(25) as f32 - 12.0).to_radians();
         let (sin, cos) = angle.sin_cos();
-        let origin_x = (start + index * 32 + 10) as f32;
+        let origin_x = (start + index * advance + center) as f32;
         let origin_y = 36.0 + noise.range(15) as f32 - 7.0;
         let color = [
             25 + noise.range(45) as u8,
@@ -190,7 +196,7 @@ mod tests {
     #[test]
     fn fixed_rasters_have_no_text_payload_or_unbounded_dimensions() {
         let key = VerificationKey::parse(&"01".repeat(32)).unwrap();
-        for length in 4..=6 {
+        for length in 4..=8 {
             let token = VerificationToken::generate(TokenKind::Challenge).unwrap();
             let answer = key.challenge_answer(&token, length).unwrap();
             for slider in [false, true] {

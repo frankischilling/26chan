@@ -137,8 +137,8 @@ deployment validation, and all final-head CI checks. The source's sign-in styles
 mini-leaf image are absent from the supplied archive. Twister fonts,
 configuration, and private provider inputs are also missing. The bounded PNG
 renderer is a functional replacement with its own glyphs; its images and the
-sign-in page are not pixel-parity evidence. Provider/risk escalation remains an
-explicit compatibility gap. No production test bypass is permitted.
+sign-in page are not pixel-parity evidence. The external-provider branch uses the local risk-based replacement described
+below. No production test bypass is permitted.
 
 ## Public forms and browser state
 
@@ -203,7 +203,7 @@ The profiles restrict network access to loopback and writable filesystem access;
 they are not a substitute for qualification on the deployment host.
 
 `test-public-verification-migration.sh` passes a populated pre-0158 upgrade and
-an administrator dump/restore through 0163. It compares the retained anonymous
+an administrator dump/restore through 0164. It compares the retained anonymous
 activity, linked identity, token counters, opaque queue payload, function owners,
 ACLs, and definitions. Restriction and transfer readiness remain valid, and
 runtime roles still lack private verification table authority. The queue payload
@@ -253,3 +253,35 @@ same row to remove the block. Never put the raw address or the verification key
 in public SQL, logs, or command-line arguments. Delivery spelling is preserved,
 so Gmail dot variants have distinct recipient-list entries even though account
 identity normalization joins them.
+
+
+## Trusted sign-in risk input
+
+Migration 0164 accepts expiring operator risk scores keyed by the issuer's peer
+hash. Missing or expired input means 100, matching the source default. Browser
+`X-Bot-Score` and geo headers are never trusted. This is a local policy input,
+not an implementation of a third-party bot-scoring service.
+
+Each queued email stores the score at request time. Either a current or stored
+score below 80 selects the three-failure budget; 80 itself retains six. A stored
+score below 90 selects an eight-character local slider challenge. This replaces
+the source's external CAPTCHA-provider switch as a backend/security difference;
+it does not claim equivalent bot detection. A later score change cannot erase
+the request's original score. Acceptance rechecks the current score under the
+same policy lock, including when policy changes after a CAPTCHA was answered.
+
+With the issuer's private configuration, `board-verification --peer-hash` reads
+one numeric IP address on standard input and prints its keyed hash without
+connecting to a database. A migration-role operator can insert that hash, a
+score from 0 to 100, and an expiry into `verification_private.peer_risk`.
+Entries may last at most 24 hours; DELETE removes a policy entry. Runtime roles
+cannot read or edit this table directly. Expired entries are ignored, and the
+operator should remove them as part of policy maintenance. Do not supply raw IP
+addresses or private keys in SQL or logs. The source's device-model-specific
+mail suppression heuristic is not copied; local cooldowns and risk policy apply
+to all devices.
+
+The request page includes the source's anti-spam purpose and delivery instructions,
+with a retention explanation matching the encrypted queue. Pass exemption text
+is deferred with the Pass feature, so the page does not promise an exemption
+that the current build cannot apply.

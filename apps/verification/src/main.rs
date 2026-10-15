@@ -6,7 +6,8 @@ fn main() -> std::process::ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
     let check = args.len() == 1 && args[0] == "--check-config";
     let recipient_hash = args.len() == 1 && args[0] == "--recipient-hash";
-    if !args.is_empty() && !check && !recipient_hash {
+    let peer_hash = args.len() == 1 && args[0] == "--peer-hash";
+    if !args.is_empty() && !check && !recipient_hash && !peer_hash {
         eprintln!("verification arguments rejected");
         return std::process::ExitCode::FAILURE;
     }
@@ -17,8 +18,8 @@ fn main() -> std::process::ExitCode {
     if check {
         return std::process::ExitCode::SUCCESS;
     }
-    if recipient_hash {
-        return match hash_recipient(&settings.verification_key) {
+    if recipient_hash || peer_hash {
+        return match hash_input(&settings.verification_key, peer_hash) {
             Ok(value) => {
                 println!("{value}");
                 std::process::ExitCode::SUCCESS
@@ -46,7 +47,10 @@ fn main() -> std::process::ExitCode {
     }
 }
 
-fn hash_recipient(key: &board_domain::challenge_secrets::VerificationKey) -> Result<String, ()> {
+fn hash_input(
+    key: &board_domain::challenge_secrets::VerificationKey,
+    peer: bool,
+) -> Result<String, ()> {
     use std::io::Read;
     let mut bytes = Vec::new();
     std::io::stdin()
@@ -57,12 +61,18 @@ fn hash_recipient(key: &board_domain::challenge_secrets::VerificationKey) -> Res
         return Err(());
     }
     let value = std::str::from_utf8(&bytes).map_err(|_| ())?;
-    let email = board_domain::email_verification::PreparedEmail::prepare(value).map_err(|_| ())?;
-    Ok(key
-        .email_recipient(&email)
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect())
+    let hash = if peer {
+        let address: std::net::IpAddr = value.trim().parse().map_err(|_| ())?;
+        if address.is_unspecified() || address.is_multicast() {
+            return Err(());
+        }
+        key.network_identity(address)
+    } else {
+        let email =
+            board_domain::email_verification::PreparedEmail::prepare(value).map_err(|_| ())?;
+        key.email_recipient(&email)
+    };
+    Ok(hash.iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
 async fn run(settings: Settings) -> Result<(), ()> {

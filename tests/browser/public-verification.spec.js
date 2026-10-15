@@ -20,6 +20,9 @@ for(const mobile of [false,true]) {
     expect(response.headers()['referrer-policy']).toBe('strict-origin');
     expect(response.headers()['content-security-policy']).toContain('connect-src http://127.0.0.1:3000/signin/challenge;');
     await expect(page.locator('#verification-submit')).toBeDisabled();expect(calls.length).toBe(0);
+    await expect(page.locator('.protip')).toContainText('bypass anti-spam filters on some boards');
+    await expect(page.locator('.protip')).toContainText('Queue entries expire after one hour');
+    await expect(page.locator('.protip')).toContainText('successful delivery removes the queued address');
     await screenshot(page,`request-${mobile?'mobile':'desktop'}`);
     await page.getByRole('button',{name:'Get Captcha',exact:true}).click();
     await expect(page.locator('#t-resp')).toBeVisible();await expect(page.locator('#t-fg')).toHaveJSProperty('naturalWidth',240);

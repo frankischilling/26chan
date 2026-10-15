@@ -109,3 +109,43 @@ fn operator_recipient_hash_is_bounded_and_never_connects_or_echoes_the_address()
         }
     }
 }
+
+#[test]
+fn operator_peer_hash_uses_only_bounded_numeric_addresses() {
+    use std::{io::Write, process::Stdio};
+    for (input, accepted) in [
+        ("192.0.2.43\n", true),
+        ("2001:db8::43", true),
+        ("example.org", false),
+        ("0.0.0.0", false),
+        ("224.0.0.1", false),
+    ] {
+        let mut child = command_with_mode("--peer-hash")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(input.as_bytes())
+            .unwrap();
+        let output = child.wait_with_output().unwrap();
+        assert_eq!(output.status.success(), accepted);
+        if accepted {
+            let expected: String =
+                board_domain::challenge_secrets::VerificationKey::parse(&"22".repeat(32))
+                    .unwrap()
+                    .network_identity(input.trim().parse().unwrap())
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect();
+            assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), expected);
+            assert!(output.stderr.is_empty());
+        } else {
+            assert!(output.stdout.is_empty());
+        }
+    }
+}

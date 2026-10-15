@@ -2,6 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Email Verification - Paperboard</title><link rel="stylesheet" href="/static/verification.v1.css"><script type="module" src="/static/verification.v1.js"></script></head>
 <body><header><a href="/">Paperboard</a></header><main id="signin"><h1 id="title">Email Verification</h1>
 {% if !message.is_empty() %}<p id="message" role="status">{{ message }}</p>{% endif %}
+{% if mode == "request" %}<div class="protip"><p>A verified email address may be used to bypass anti-spam filters on some boards. If you are having trouble posting, try verifying your email.</p><p>Enter your email below and click <i>Send</i> to receive a verification link.</p><p>Your email address is encrypted while delivery is pending. Queue entries expire after one hour and are removed during queue cleanup; successful delivery removes the queued address.</p></div>{% endif %}
 {% if mode == "request" || mode == "verify" %}
 <form id="auth-form" action="/signin" method="post" data-mode="{{ mode }}">
 <input type="hidden" name="action" value="{{ mode }}"><input type="hidden" name="csrf" value="{{ csrf }}">

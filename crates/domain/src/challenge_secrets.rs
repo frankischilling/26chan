@@ -11,7 +11,7 @@ pub struct VerificationKey(hmac::Key);
 /// Render only inside the verification issuer. Never serialize into its public
 /// response; the browser receives raster images and an opaque challenge ID.
 pub struct GeneratedAnswer {
-    bytes: [u8; 6],
+    bytes: [u8; 8],
     len: usize,
 }
 impl GeneratedAnswer {
@@ -115,11 +115,11 @@ impl VerificationKey {
         characters: u8,
     ) -> Option<GeneratedAnswer> {
         const ALPHABET: &[u8; 20] = b"ADGHJKMNPRSTVWXY0248";
-        if token.kind != TokenKind::Challenge || !(4..=6).contains(&characters) {
+        if token.kind != TokenKind::Challenge || !(4..=8).contains(&characters) {
             return None;
         }
         let entropy = self.digest(b"challenge-solution", &[&token.bytes]);
-        let mut bytes = [0; 6];
+        let mut bytes = [0; 8];
         let mut len = 0;
         for byte in entropy {
             // Rejection sampling avoids biased glyph probabilities. Extremely
@@ -145,7 +145,7 @@ impl VerificationKey {
         // Primary Twister normalizeReponseStr: retain ASCII alphanumerics,
         // uppercase, then fold its eight confusable glyphs. Bound raw work and
         // normalized storage before hashing either issued or submitted text.
-        let mut normalized = [0; 6];
+        let mut normalized = [0; 8];
         let mut len = 0;
         for byte in answer.bytes().filter(u8::is_ascii_alphanumeric) {
             if len == normalized.len() {
@@ -302,7 +302,7 @@ mod tests {
             key.answer_hash(&challenge, "ADGH"),
             key.answer_hash(&challenge, "ADGJ")
         );
-        for invalid in ["abc", "ABCDEFG", "A GJ", "éé"] {
+        for invalid in ["abc", "ABCDEFGHI", "A GJ", "éé"] {
             assert!(key.answer_hash(&challenge, invalid).is_none());
         }
     }
@@ -404,7 +404,7 @@ mod tests {
         let second =
             VerificationToken::parse(TokenKind::Challenge, &format!("c1_{}", "03".repeat(32)))
                 .unwrap();
-        for length in 4..=6 {
+        for length in 4..=8 {
             let answer = key.challenge_answer(&first, length).unwrap();
             assert_eq!(answer.as_str().len(), usize::from(length));
             assert!(
@@ -423,6 +423,6 @@ mod tests {
             );
         }
         assert!(key.challenge_answer(&first, 3).is_none());
-        assert!(key.challenge_answer(&first, 7).is_none());
+        assert!(key.challenge_answer(&first, 9).is_none());
     }
 }
