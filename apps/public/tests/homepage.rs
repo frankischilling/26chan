@@ -103,6 +103,16 @@ async fn homepage_routes_render_live_safe_cards_and_stale_statistics() {
         assert!(!request(&app,Method::GET,"/").await.2.contains("Owned promoted"));
     }}).await;
     sqlx::raw_sql("DELETE FROM site_private.frontpage_cards; DELETE FROM site_private.frontpage_state; DELETE FROM site_private.board_statistics;").execute(&owner).await.unwrap();
+    sqlx::query("DELETE FROM content.posts WHERE board=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.threads WHERE board=$1")
+        .bind(&slug)
+        .execute(&owner)
+        .await
+        .unwrap();
     sqlx::query("DELETE FROM content.boards WHERE slug=$1 AND title='Owned homepage routes'")
         .bind(&slug)
         .execute(&owner)
