@@ -177,8 +177,16 @@ Run the existing disposable harness with `--systemd` to load uniquely named temp
 
 ## Source-board still-image dispatch
 
-An intake reservation can bind an immutable source board, reply target and staff-badge choice. The coordinator loads that context from private storage, reads a bounded 10 MiB input snapshot and sends PNG/JPEG bytes through `still-v6`. It does not infer context from a worker response. GIF, PDF and video continue through their existing profiles and limits.
+An intake reservation can bind an immutable source board, reply target and staff-badge choice. The coordinator loads that context from private storage, reads a bounded 10 MiB input snapshot and sends PNG/JPEG bytes through `still-v6`. It does not infer context from a worker response. Context-bound GIFs use the separate `gif-v7` profile below. GIFs without source context, PDF and video keep their existing profiles and limits.
 
 The still attempt extends its current lease to 90 seconds, bounds processing and publication by an 80-second outer deadline, and validates the complete fixed 16 MiB response disk after termination. Primary PNG/JPEG bytes, the JPEG thumbnail and any mobile JPEG each have an independently checked size and digest. Approval follows installation of the complete immutable manifest under the publication lock. Exact retries compare every companion and reject expired leases. The remaining behavior of uncertain approval commits is unchanged.
 
 The native intake suite includes context-bound PNG and JPEG jobs through real authenticated dispatch, retained-byte checksum verification and separate-origin JPEG thumbnail reads. `/p/` retention and ordinary-board cleanup have separate cases. These tests run in the owned development environment; they do not establish a production deployment. See [current still-image qualification](source-still-image-parity.md).
+
+## Source-board GIF dispatch
+
+The same immutable image context selects `gif-v7` for GIF87a/GIF89a input. Its policy uses `IBGIF007`; transport uses `IBJOB007` and `IBOUT007`. The input is at most 8 MiB plus its 16-byte policy. The fixed 16 MiB `IBIMG007` response echoes that policy and carries retained GIF bytes and a JPEG thumbnail, with no mobile derivative. The host validates the complete envelope, sizes, dimensions, signatures, padding and digests; GIF decompression and cleanup stay inside the guest.
+
+The runner requires a separate `gif_initramfs` artifact. There is no fallback to the legacy decoder when that artifact is missing. The approved profile uses a 2 GiB VM, 2.5 GiB host memory limit and a 45-second VM deadline. One job runs at a time without networking. Runtime construction, finite animation budgets and current qualification status are in [the source GIF comparison](source-gif-parity.md).
+
+Publication uses the same 90-second lease and 80-second outer deadline as context-bound still images. Migration 0154 requires `gif-v7` provenance, an 8 MiB retained-file ceiling, matching retained MD5 and a JPEG thumbnail. Legacy GIF manifests remain valid under their existing rules. Final posting applies board admission and reply-image limits again; processing a file does not authorize its attachment.

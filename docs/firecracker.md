@@ -1,5 +1,7 @@
 # Local isolated media execution
 
+This page describes the base `image-v1` profile. The separate [source still-image](source-still-image-parity.md) and [source GIF](source-gif-parity.md) profiles have their own approved memory limits, artifacts and bounded protocols.
+
 The baseline limits below describe the legacy pixel worker. Source-board PNG/JPEG processing uses a separate [still-image profile](source-still-image-parity.md#runtime-build-and-selection); its larger resource limits do not change the other profiles.
 
 This profile runs one job in Firecracker 1.16.1 with its matching jailer. A small Rust init program starts the PNG/JPEG/single-frame GIF decoder as guest UID/GID 1000, without capabilities, environment variables or inherited application descriptors. The guest has one read-only input disk and one fixed writable output disk. It has no network interface, vsock, Firecracker API socket or host directory share. [JPEG policy](jpeg-media.md) and [GIF policy](gif-media.md) distinguish local decoder checks from native qualification.

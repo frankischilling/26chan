@@ -27,14 +27,14 @@ try {
     await new Promise(resolve => setTimeout(resolve, 2000));
   }
   await page.getByLabel('Subject', { exact: true }).fill('Owned source GIF qualification');
-  await page.getByLabel('Comment', { exact: true }).fill('Synthetic animated red and blue pixels.');
+  await page.getByLabel('Comment', { exact: true }).fill('Synthetic animation with red, blue and green pixels.');
   const posted = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === '/gif/imgboard.php');
   await page.getByRole('button', { name: 'Post with image', exact: true }).click();
   assert.equal((await posted).status(), 303);
   await expect(page).toHaveURL(/\/gif\/thread\/[1-9][0-9]*/);
   const threadUrl = page.url(), thread = new URL(threadUrl).pathname.split('/').at(-1);
   const image = page.locator(`#p${thread} .fileThumb img`);
-  await expect.poll(() => image.evaluate(img => img.naturalWidth)).toBe(1);
+  await expect.poll(() => image.evaluate(img => img.naturalWidth)).toBe(2);
   const thumbnail = new URL(await image.getAttribute('src'));
   const full = new URL(await page.locator(`#p${thread} .fileThumb`).getAttribute('href'));
   assert.notEqual(full.origin, origin.origin);
@@ -49,10 +49,10 @@ try {
   assert.equal(post.md5, createHash('md5').update(original).digest('base64'));
   assert.equal(post.fsize, original.length);
   assert.equal(post.m_img, undefined);
-  assert.deepEqual([post.w, post.h, post.tn_w, post.tn_h], [1, 1, 1, 1]);
+  assert.deepEqual([post.w, post.h, post.tn_w, post.tn_h], [2, 2, 2, 2]);
   await page.goto(full.href);
   const animation = page.locator('img');
-  await expect.poll(() => animation.evaluate(img => img.naturalWidth)).toBe(1);
+  await expect.poll(() => animation.evaluate(img => img.naturalWidth)).toBe(2);
   const first = await animation.screenshot();
   let changed = false;
   for (let attempt = 0; attempt < 20 && !changed; attempt++) {

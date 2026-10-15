@@ -1,4 +1,6 @@
-# Single-frame GIF input
+# Legacy single-frame GIF input
+
+This page records the original `image-v1` GIF decoder. It remains available for legacy callers. Context-bound source-board uploads use [GIF-v7](source-gif-parity.md); other animated uploads use [GIF-v3](gif-animation-protocol.md).
 
 The disposable guest accepts GIF87a and GIF89a with one full-canvas frame.
 Decoded pixels pass through the existing stopped-disk validator and PNG

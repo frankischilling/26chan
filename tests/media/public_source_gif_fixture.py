@@ -4,6 +4,7 @@ import pwd
 import re
 import secrets
 from test_dispatch import HEX, REPO, SAFE, sql, wait_until
+from source_gif_observation import animation
 
 
 class PublicSourceGif:
@@ -19,7 +20,7 @@ class PublicSourceGif:
         user = pwd.getpwuid(REPO.stat().st_uid)
         assert user.pw_uid != 0
         source = f.root / self.filename
-        f.write(source, (REPO / 'tests/media/fixtures/gif/animated.gif').read_bytes(), user)
+        f.write(source, animation(0), user)
         node = os.environ['PUBLIC_UPLOAD_NODE']
         assert os.path.isabs(node) and os.path.isfile(node)
         self.browser = f.launch([node, REPO / 'tests/browser/source-gif-upload.mjs', self.host.origin, source],
