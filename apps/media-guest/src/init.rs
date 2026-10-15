@@ -42,7 +42,10 @@ fn boot() -> io::Result<()> {
     let kind = board_media_guest::paired::kernel_input_kind(&fs::read_to_string("/proc/cmdline")?)?;
     let pdf = kind == board_media_guest::paired::InputKind::PdfV4;
     let video = kind == board_media_guest::paired::InputKind::VideoV5;
-    let still = kind == board_media_guest::paired::InputKind::StillV6;
+    let still = matches!(
+        kind,
+        board_media_guest::paired::InputKind::StillV6 | board_media_guest::paired::InputKind::GifV7
+    );
     if pdf || video || still {
         fs::create_dir_all("/tmp")?;
         mount(

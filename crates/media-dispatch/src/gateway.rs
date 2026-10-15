@@ -85,7 +85,10 @@ impl Gateway {
             .await
             .map_err(|_| Error::Deadline)??;
         self.authorize(&fingerprint)?;
-        let processing = if matches!(&input, protocol::Request::StillV6(_)) {
+        let processing = if matches!(
+            &input,
+            protocol::Request::StillV6(_) | protocol::Request::GifV7(_)
+        ) {
             STILL_PROCESSING
         } else {
             PROCESSING
@@ -136,6 +139,12 @@ impl Gateway {
                     let disk = protocol::read_still_response(&mut broker).await?;
                     self.authorize(&fingerprint)?;
                     protocol::write_still_response(&disk, &mut stream).await
+                }
+                protocol::Request::GifV7(input) => {
+                    protocol::write_source_gif_request(&input, &mut broker).await?;
+                    let disk = protocol::read_source_gif_response(&mut broker).await?;
+                    self.authorize(&fingerprint)?;
+                    protocol::write_source_gif_response(&disk, &mut stream).await
                 }
                 protocol::Request::VideoV5(input) => {
                     protocol::write_video_request(&input, &mut broker).await?;

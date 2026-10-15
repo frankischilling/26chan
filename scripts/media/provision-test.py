@@ -72,11 +72,15 @@ def main():
         subprocess.run(['/usr/bin/python3', str(REPO / 'scripts/media/build-initramfs.py'),
                         str(binaries / 'board-media-guest'), str(worker), str(still_initramfs),
                         '--still-runtime'], check=True)
+        gif_initramfs = target / f'{name}-gif.initramfs'
+        subprocess.run(['/usr/bin/python3', str(REPO / 'scripts/media/build-initramfs.py'),
+                        str(binaries / 'board-media-guest'), str(worker), str(gif_initramfs),
+                        '--gif-runtime'], check=True)
         config = {}
         for key, path in [('firecracker', target / 'firecracker'), ('jailer', target / 'jailer'),
                           ('kernel', target / 'vmlinux'), ('initramfs', initramfs),
                           ('pdf_initramfs', pdf_initramfs), ('video_initramfs', video_initramfs),
-                          ('still_initramfs', still_initramfs)]:
+                          ('still_initramfs', still_initramfs), ('gif_initramfs', gif_initramfs)]:
             config[key] = {'path': str(path), 'sha256': digest(path)}
         destination = target / f'{name}.json'
         destination.write_text(json.dumps(config, indent=2) + '\n')

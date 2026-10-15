@@ -130,6 +130,7 @@ impl VideoRecord {
 pub enum SourceProfile {
     PngV1,
     StillV6,
+    GifV7,
 }
 
 impl SourceProfile {
@@ -137,6 +138,7 @@ impl SourceProfile {
         match self {
             Self::PngV1 => "png-v1",
             Self::StillV6 => "still-v6",
+            Self::GifV7 => "gif-v7",
         }
     }
 }
@@ -155,12 +157,12 @@ impl SourceProvenance {
     fn validate(&self) -> Result<(), StoreError> {
         validate_hex(&self.input_sha256, 64)?;
         let maximum = match self.profile {
-            SourceProfile::PngV1 => 8_388_608,
+            SourceProfile::PngV1 | SourceProfile::GifV7 => 8_388_608,
             SourceProfile::StillV6 => 10_485_760,
         };
         let retained_maximum = match self.profile {
             SourceProfile::PngV1 => self.input_bytes,
-            SourceProfile::StillV6 => maximum,
+            SourceProfile::StillV6 | SourceProfile::GifV7 => maximum,
         };
         if !(20..=maximum).contains(&self.input_bytes)
             || !(20..=retained_maximum).contains(&self.retained_bytes)
@@ -453,7 +455,12 @@ impl MediaQueue {
     ) -> Result<Asset, StoreError> {
         let (format, video) = output_kind;
         if format == MediaFormat::Jpeg
-            || provenance.is_some_and(|source| source.profile == SourceProfile::StillV6)
+            || provenance.is_some_and(|source| {
+                matches!(
+                    source.profile,
+                    SourceProfile::StillV6 | SourceProfile::GifV7
+                )
+            })
         {
             return Err(StoreError::Invalid(
                 "Still output requires its complete manifest.",

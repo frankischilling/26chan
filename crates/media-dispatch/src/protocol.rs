@@ -12,6 +12,7 @@ pub const PDF_OUTPUT_LENGTH: u64 = OUTPUT_LENGTH;
 pub const VIDEO_OUTPUT_LENGTH: u64 = 9 * 1024 * 1024;
 pub const MAX_STILL_INPUT: u64 = 10 * 1024 * 1024 + 16;
 pub const STILL_OUTPUT_LENGTH: u64 = 16 * 1024 * 1024;
+pub const MAX_GIF_SOURCE_INPUT: u64 = MAX_INPUT + 16;
 
 /// Transport framing only: the binding and completed pair remain opaque here.
 #[derive(Debug, PartialEq, Eq)]
@@ -21,6 +22,7 @@ pub enum Request {
     PdfV4(Vec<u8>),
     VideoV5(Vec<u8>),
     StillV6(Vec<u8>),
+    GifV7(Vec<u8>),
     PairedV2 { binding: [u8; 32], input: Vec<u8> },
 }
 
@@ -48,6 +50,11 @@ pub async fn read_versioned_request<R: AsyncRead + Unpin>(input: &mut R) -> Resu
             let body = read_body(input, length).await?;
             validate_still_request(&body)?;
             Ok(Request::StillV6(body))
+        }
+        b"IBJOB007" if (17..=MAX_GIF_SOURCE_INPUT).contains(&length) => {
+            let body = read_body(input, length).await?;
+            validate_source_gif_request(&body)?;
+            Ok(Request::GifV7(body))
         }
         b"IBJOB002" if (MIN_PAIRED_INPUT..=MAX_PAIRED_INPUT).contains(&length) => {
             let (binding, input) = read_paired_body(input, length).await?;
@@ -145,6 +152,43 @@ pub async fn write_still_response<W: AsyncWrite + Unpin>(
         return Err(Error::Frame);
     }
     write_frame(bytes, STILL_OUTPUT_LENGTH, output, b"IBOUT006").await
+}
+
+/// Validate only the fixed policy header. Image parsing belongs to the guest.
+pub fn validate_source_gif_request(bytes: &[u8]) -> Result<()> {
+    if !(17..=MAX_GIF_SOURCE_INPUT as usize).contains(&bytes.len())
+        || &bytes[..8] != b"IBGIF007"
+        || bytes[8] & !12 != 0
+        || bytes[9] != 3
+        || bytes[14..16] != [0; 2]
+        || !(1..=250).contains(&u16::from_be_bytes([bytes[10], bytes[11]]))
+        || !(1..=250).contains(&u16::from_be_bytes([bytes[12], bytes[13]]))
+    {
+        return Err(Error::Frame);
+    }
+    Ok(())
+}
+
+pub async fn write_source_gif_request<W: AsyncWrite + Unpin>(
+    bytes: &[u8],
+    output: &mut W,
+) -> Result<()> {
+    validate_source_gif_request(bytes)?;
+    write_frame(bytes, bytes.len() as u64, output, b"IBJOB007").await
+}
+
+pub async fn read_source_gif_response<R: AsyncRead + Unpin>(input: &mut R) -> Result<Vec<u8>> {
+    read_frame(input, b"IBOUT007", STILL_OUTPUT_LENGTH, STILL_OUTPUT_LENGTH).await
+}
+
+pub async fn write_source_gif_response<W: AsyncWrite + Unpin>(
+    bytes: &[u8],
+    output: &mut W,
+) -> Result<()> {
+    if bytes.len() as u64 != STILL_OUTPUT_LENGTH {
+        return Err(Error::Frame);
+    }
+    write_frame(bytes, STILL_OUTPUT_LENGTH, output, b"IBOUT007").await
 }
 
 /// The bounded frame begins with a fixed container tag, followed by the upload.

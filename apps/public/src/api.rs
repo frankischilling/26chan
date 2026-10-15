@@ -742,7 +742,14 @@ mod tests {
     #[test]
     fn gif_metadata_uses_approved_format_and_deleted_files_omit_the_url_fields() {
         let fixture = crate::native_updater_snapshot::tests::fixture();
-        for (deleted, historical) in [(false, false), (true, false), (false, true)] {
+        for (deleted, historical, source) in [
+            (false, false, false),
+            (true, false, false),
+            (false, true, false),
+            (false, false, true),
+            (true, false, true),
+            (false, true, true),
+        ] {
             let mut post = fixture.posts[0].clone();
             post.file_deleted = deleted;
             post.attachment = Some(board_store::post_media::PostAttachment {
@@ -750,14 +757,14 @@ mod tests {
                 asset_id: "0".repeat(32),
                 filename: "owned.png".into(),
                 bytes: 100,
-                width: 32,
-                height: 24,
+                width: if source { 10_000 } else { 32 },
+                height: if source { 10_000 } else { 24 },
                 spoiler: false,
                 file_deleted: historical,
                 tim: 42,
-                md5: None,
-                thumbnail_width: Some(32),
-                thumbnail_height: Some(24),
+                md5: source.then(|| "BwcHBwcHBwcHBwcHBwcHBw==".into()),
+                thumbnail_width: Some(if source { 250 } else { 32 }),
+                thumbnail_height: Some(if source { 250 } else { 24 }),
                 output_format: board_store::media_assets::MediaFormat::Gif,
                 has_replay: false,
                 has_mobile: false,
@@ -785,8 +792,13 @@ mod tests {
             } else {
                 assert_eq!(value["ext"], ".gif");
                 assert_eq!(value["filename"], "owned");
-                assert_eq!(value["tn_w"], 32);
-                assert!(value.get("md5").is_none());
+                assert_eq!(value["tn_w"], if source { 250 } else { 32 });
+                assert_eq!(value["w"], if source { 10_000 } else { 32 });
+                assert_eq!(
+                    value.get("md5"),
+                    source.then_some(&json!("BwcHBwcHBwcHBwcHBwcHBw=="))
+                );
+                assert!(value.get("m_img").is_none());
             }
         }
     }

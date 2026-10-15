@@ -19,6 +19,7 @@ import urllib.parse
 from dispatch_service_fixture import UnitProcess, systemctl
 from owned_process import cancel_test, protected_cleanup
 from public_upload_fixture import PublicUpload
+from public_source_gif_fixture import PublicSourceGif
 from test_dispatch import HEX, PG, REPO, SAFE, account, sql, wait_until
 from test_http_service import MediaHttpExercise
 from test_vm import red_png
@@ -43,6 +44,7 @@ class IntakeExercise(MediaHttpExercise):
         self.capabilities = []
         self.connections = []
         self.public_upload = PublicUpload(self)
+        self.public_source_gif = PublicSourceGif(self.public_upload)
 
     def setup(self):
         super().setup()
@@ -249,6 +251,41 @@ class IntakeExercise(MediaHttpExercise):
             assert self.call(f'/v1/uploads/{job}', headers={'Upload-Capability': capability})[1]['state'] == 'published'
         print('PASS contextual PNG/JPEG intake -> real still VM -> retained-byte checksums and JPEG HTTP thumbnails, including /p/ metadata retention', flush=True)
 
+    def exercise_source_gifs(self):
+        original = (REPO / 'tests/media/fixtures/gif/animated.gif').read_bytes()
+        table = 3 * (2 << (original[10] & 7)) if original[10] & 128 else 0
+        at = 13 + table
+        tagged = original[:at] + b'!\xfe\x0ePRIVATE-MARKER\x00' + original[at:]
+        for payload, stripped in [(original, False), (tagged, True)]:
+            request = {'filename': 'owned-source.gif',
+                       'image_context': {'board': 'gif', 'thread_id': 0, 'capcode': False}}
+            status, reservation = self.call('/v1/reservations', 'POST', json.dumps(request).encode(),
+                                             {'Content-Type': 'application/json'})
+            assert status == 201 and reservation['state'] == 'receiving'
+            job, capability = reservation['id'], reservation['capability']
+            assert HEX.fullmatch(job) and re.fullmatch('[0-9a-f]{64}', capability)
+            self.ids.append(job)
+            self.capabilities.append(capability)
+            assert self.upload_http(job, capability, iter([payload]), chunked=True)[0] == 202
+            asset = self.finish(self.dispatch()).decode().strip()
+            assert HEX.fullmatch(asset)
+            self.clean_vm()
+            status, headers, retained = self.http(f'/media/{asset}.gif')
+            assert status == 200 and headers['content-type'] == 'image/gif'
+            assert retained == (self.objects / f'{asset}.gif').read_bytes()
+            assert sql(f"SELECT source_profile||':'||md5||':'||bytes FROM media.assets WHERE id='{asset}'") == 'gif-v7:' + hashlib.md5(retained).hexdigest() + ':' + str(len(retained))
+            if stripped:
+                assert b'PRIVATE-MARKER' not in retained and retained != payload
+            else:
+                assert retained == original
+            status, headers, thumbnail = self.http(f'/media/{asset}.thumb.jpg')
+            assert status == 200 and headers['content-type'] == 'image/jpeg'
+            assert thumbnail.startswith(b'\xff\xd8\xff') and thumbnail.endswith(b'\xff\xd9')
+            assert self.http(f'/media/{asset}.thumb.png')[0] == 404
+            assert self.http(f'/media/{asset}.mobile.jpg')[0] == 404
+            assert self.call(f'/v1/uploads/{job}', headers={'Upload-Capability': capability})[1]['state'] == 'published'
+        print('PASS contextual GIF intake -> real GIF-v7 VM -> retained-byte MD5 and JPEG HTTP thumbnail', flush=True)
+
     def exercise(self):
         assert self.call('/healthz', authenticated=False)[0] == 401
         assert self.call('/healthz', headers={'Origin': 'null'})[0] == 403
@@ -266,6 +303,11 @@ class IntakeExercise(MediaHttpExercise):
         self.boundaries(job, asset)
         print('PASS HTTP reservation/upload -> authenticated Firecracker dispatch -> fenced approval -> capability status -> separate HTTP reader', flush=True)
         self.exercise_source_stills()
+        self.exercise_source_gifs()
+        try:
+            self.public_source_gif.exercise()
+        finally:
+            self.public_source_gif.cleanup()
         self.public_upload.exercise_video()
         self.public_upload.exercise()
 
@@ -397,6 +439,7 @@ class IntakeExercise(MediaHttpExercise):
                 assert sock.connect_ex(('127.0.0.1', port)) != 0
 
     def cleanup(self):
+        self.public_source_gif.cleanup()
         self.public_upload.cleanup()
         for connection in self.connections:
             connection.close()

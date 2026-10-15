@@ -5,7 +5,7 @@ use std::io::{self, Read};
 
 mod jpeg;
 mod png;
-mod raster;
+pub(crate) mod raster;
 #[cfg(target_os = "linux")]
 mod strip_jpeg;
 
@@ -75,7 +75,7 @@ fn rejected() -> io::Error {
     io::Error::other("still image candidate rejected")
 }
 
-fn encode_jpeg(
+pub(crate) fn encode_jpeg(
     pixels: &[u8],
     dimensions: (u32, u32),
     quality: u8,

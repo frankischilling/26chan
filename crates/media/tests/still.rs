@@ -4,8 +4,8 @@ use std::io::Cursor;
 fn policy(format: StillFormat) -> StillPolicy {
     StillPolicy {
         format,
-        strip_exif: true,
-        mobile: true,
+        strip_exif: format != StillFormat::Gif,
+        mobile: format != StillFormat::Gif,
         thread: true,
         blue_background: false,
         thumbnail: (250, 250),
@@ -15,7 +15,11 @@ fn policy(format: StillFormat) -> StillPolicy {
 // Only framing is under test here. These are intentionally not decodable media.
 fn disk(format: StillFormat) -> Vec<u8> {
     let mut output = vec![0; OUTPUT_DISK_BYTES as usize];
-    output[..8].copy_from_slice(b"IBIMG006");
+    output[..8].copy_from_slice(if format == StillFormat::Gif {
+        b"IBIMG007"
+    } else {
+        b"IBIMG006"
+    });
     output[8..24].copy_from_slice(&policy(format).header().unwrap());
     for (offset, value) in [
         (24, 640u32),
@@ -33,6 +37,10 @@ fn disk(format: StillFormat) -> Vec<u8> {
             output[64..67].copy_from_slice(b"\xff\xd8\xff");
             output[74..76].copy_from_slice(b"\xff\xd9");
         }
+        StillFormat::Gif => {
+            output[64..70].copy_from_slice(b"GIF89a");
+            output[75] = b';';
+        }
     }
     output[76..81].copy_from_slice(b"\xff\xd8\xff\xff\xd9");
     output
@@ -40,7 +48,7 @@ fn disk(format: StillFormat) -> Vec<u8> {
 
 #[tokio::test]
 async fn exact_envelope_preserves_bytes_and_hashes_only_served_content() {
-    for format in [StillFormat::Png, StillFormat::Jpeg] {
+    for format in [StillFormat::Png, StillFormat::Jpeg, StillFormat::Gif] {
         let bytes = disk(format);
         let result = ValidatedStill::read_disk(Cursor::new(&bytes), policy(format))
             .await
@@ -62,6 +70,43 @@ async fn exact_envelope_preserves_bytes_and_hashes_only_served_content() {
         assert_ne!(result.retained().sha256(), other.retained().sha256());
         assert_eq!(result.thumbnail().sha256(), other.thumbnail().sha256());
     }
+}
+
+#[tokio::test]
+async fn source_gif_has_its_own_version_byte_cap_and_no_mobile_branch() {
+    let expected = policy(StillFormat::Gif);
+    let bytes = disk(StillFormat::Gif);
+    for flag in [1, 2] {
+        let mut invalid = expected;
+        invalid.strip_exif = flag == 1;
+        invalid.mobile = flag == 2;
+        assert!(invalid.header().is_err());
+    }
+    for magic in [b"IBIMG006", b"IBGIF001"] {
+        let mut invalid = bytes.clone();
+        invalid[..8].copy_from_slice(magic);
+        assert!(
+            ValidatedStill::read_disk(Cursor::new(invalid), expected)
+                .await
+                .is_err()
+        );
+    }
+    for (offset, value) in [(48, 8 * 1024 * 1024 + 1), (40, 1024), (56, 5)] {
+        let mut invalid = bytes.clone();
+        invalid[offset..offset + 4].copy_from_slice(&(value as u32).to_be_bytes());
+        assert!(
+            ValidatedStill::read_disk(Cursor::new(invalid), expected)
+                .await
+                .is_err()
+        );
+    }
+    let mut truncated = bytes;
+    truncated[75] = 0;
+    assert!(
+        ValidatedStill::read_disk(Cursor::new(truncated), expected)
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]
