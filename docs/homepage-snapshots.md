@@ -10,10 +10,12 @@ cargo run -p board-store --bin board-homepage -- refresh
 The command reads `MIGRATION_DATABASE_URL` and requires both the session and
 current role to be `board_migrator`. It does not install a scheduler. An operator
 can run it every five minutes; the page marks a snapshot older than 15 minutes
-as stale. A failed refresh leaves the previous generation intact. Concurrent
-refreshes can fail with a serialization error and should be retried on the next
-scheduled run. Lock waits are limited to five seconds and each statement to 30
-seconds.
+as stale. A refresh publishes a complete generation or none; partial generations
+are never visible. A rolled-back transaction retains the previous generation.
+If the connection drops while committing, the outcome may be unknown: inspect
+`site_private.frontpage_state` before retrying. Concurrent refreshes can fail
+with a serialization error and should be retried on the next scheduled run.
+Lock waits are limited to five seconds and each statement to 30 seconds.
 
 ## Posts shown on the homepage
 

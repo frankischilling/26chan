@@ -2,7 +2,7 @@
 use sqlx::{Connection, PgConnection, postgres::PgConnectOptions};
 use std::{ffi::OsString, process::ExitCode, str::FromStr};
 
-const HELP: &str = "Usage: board-homepage refresh\n       board-homepage --help\n\nRefresh the bounded public homepage snapshot using MIGRATION_DATABASE_URL and\nthe actual board_migrator login. The previous snapshot remains on failure.\nRun every five minutes if fresh homepage content is wanted; this command does\nnot install a scheduler. Deleted, private, reported and spoiler posts are\nrechecked when read. No post bodies or raw visitor addresses are cached.";
+const HELP: &str = "Usage: board-homepage refresh\n       board-homepage --help\n\nRefresh the bounded public homepage snapshot using MIGRATION_DATABASE_URL and\nthe actual board_migrator login. Generations publish atomically; if a commit\ncannot be confirmed, inspect the stored generation before retrying.\nRun every five minutes if fresh homepage content is wanted; this command does\nnot install a scheduler. Deleted, private, reported and spoiler posts are\nrechecked when read. No post bodies or raw visitor addresses are cached.";
 #[derive(Debug, PartialEq, Eq)]
 enum Command {
     Help,

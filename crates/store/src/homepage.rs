@@ -115,7 +115,9 @@ pub enum RefreshError {
     Role,
     #[error("Homepage generation budget exhausted.")]
     Generation,
-    #[error("Homepage refresh failed; the previous snapshot is retained.")]
+    #[error(
+        "Homepage refresh failed or its commit could not be confirmed. Check the stored generation before retrying."
+    )]
     Database,
 }
 
