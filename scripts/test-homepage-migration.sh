@@ -77,7 +77,11 @@ END $$;
 SQL
 "${migrator[@]}" -f - < "$cluster/assertions.sql"
 "$pg_bin/pg_dump" -h 127.0.0.1 -p 55446 -U postgres -d homepage_upgrade --format=custom -f "$cluster/owned.dump"
-"${psql[@]}" -d postgres -c 'CREATE DATABASE homepage_restored OWNER board_migrator'
+"${psql[@]}" -d postgres <<'SQL'
+CREATE DATABASE homepage_restored OWNER board_migrator;
+REVOKE ALL ON DATABASE homepage_restored FROM PUBLIC;
+GRANT CONNECT ON DATABASE homepage_restored TO board_migrator,board_public;
+SQL
 "$pg_bin/pg_restore" -h 127.0.0.1 -p 55446 -U postgres -d homepage_restored --exit-on-error "$cluster/owned.dump"
 "${psql[@]}" -d homepage_restored -f - < "$cluster/assertions.sql"
 for database in homepage_upgrade homepage_restored; do
