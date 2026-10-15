@@ -1,10 +1,29 @@
 {% extends "base.html" %}
-{% block title %}Boards - Paperboard{% endblock %}
+{% block title %}26chan{% endblock %}
+{% block body_attributes %} class="siteHome"{% endblock %}
+{% block board_navigation %}{% endblock %}
 {% block content %}
-<header><h1>Paperboard</h1><p>A text imageboard in development.</p></header>
-<nav aria-label="Site navigation"><a href="/polls">Polls</a></nav>
-<section class="boardDirectory" aria-labelledby="boards-title"><h2 id="boards-title">Boards</h2>
-{% for entry in directory() %}<article><h3><a href="/{{ entry.board.slug }}/">/{{ entry.board.slug }}/ - {{ entry.title }}</a></h3><p>{{ entry.board.description }}</p></article>
-{% else %}<p>No boards are available yet.</p>{% endfor %}
-</section>
+<header class="siteHomeHeader"><h1>26chan</h1><p>Imageboards for every interest.</p></header>
+<section class="homePanel homeAbout" aria-labelledby="about-title"><h2 id="about-title">What is 26chan?</h2><p>An image-based discussion board. Choose a topic below to read threads, share images and join the conversation. Public posting does not require an account.</p></section>
+<section class="boardDirectory homePanel" aria-labelledby="boards-title"><h2 id="boards-title">Boards</h2>
+<div class="homeBoardGroups">
+{% for group in groups() %}<article><h3>{{ group.title }}</h3><ul>
+{% for entry in group.entries %}<li{% if entry.nws %} class="nwsb"{% endif %}><a href="/{{ entry.directory.board.slug }}/" title="/{{ entry.directory.board.slug }}/ - {{ entry.directory.title }}">{{ entry.directory.title }}</a>{% if entry.nws %} <span class="homeNws" title="Not work safe">(NSFW)</span>{% endif %}</li>{% endfor %}
+</ul></article>{% else %}<p>No boards are available yet.</p>{% endfor %}
+</div></section>
+{% for (kind, heading) in [("popular", "Popular Threads"), ("latest", "Latest Posts"), ("images", "Latest Images")] %}
+<section class="homePanel homePromoted" aria-labelledby="home-{{ kind }}-title"><h2 id="home-{{ kind }}-title">{{ heading }}</h2><div class="homeCards">
+{% for card in cards(kind) %}<article><p class="homeCardBoard"><a href="/{{ card.board }}/">/{{ card.board }}/ - {{ card.board_title }}</a></p>
+<a class="homeCardLink" href="/{{ card.board }}/thread/{{ card.thread_id }}#p{{ card.id }}">
+{% if !media_origin.is_empty() %}{% if let (Some(tim), Some(width), Some(height)) = (card.tim, card.thumbnail_width, card.thumbnail_height) %}<img src="{{ media_origin }}/{{ card.board }}/{{ tim }}s.jpg" width="{{ width }}" height="{{ height }}" alt="Thread image" loading="lazy">{% endif %}{% endif %}
+{% if !card.subject.is_empty() %}<strong>{{ card.subject }}</strong>{% else %}<strong>No.{{ card.id }}</strong>{% endif %}</a>
+<p class="homeExcerpt">{{ card.excerpt }}</p>{% if *kind == "popular" %}<p>{{ card.reply_count }} replies · {{ card.image_count }} reply images</p>{% endif %}</article>
+{% else %}<p>No eligible posts are available.</p>{% endfor %}</div></section>
+{% endfor %}
+<section class="homePanel homeStats" aria-labelledby="home-stats-title"><h2 id="home-stats-title"><a href="/stats">Stats</a></h2>
+{% if let Some(stats) = snapshot.statistics %}<dl><div><dt>Recorded posts</dt><dd>{{ stats.recorded_posts }}</dd></div><div><dt>Active content</dt><dd>{{ stats.active_content_bytes }} bytes</dd></div><div><dt>Recent posting sessions</dt><dd>{{ stats.active_sessions }}</dd></div></dl><p>Updated {{ stats.date() }}.{% if stats.stale() %} This snapshot is more than 15 minutes old.{% endif %}</p><p>Local public-board totals. Sessions are not a count of people or visitors.</p>
+{% else %}<p>Statistics are not available yet.</p>{% endif %}</section>
+{% if !news.is_empty() %}<section class="homePanel siteNews" aria-labelledby="home-news-title"><h2 id="home-news-title"><a href="/news">News</a></h2>{% for item in news %}<article><h3><a href="/news?item={{ item.id }}#{{ item.id }}">{{ item.title }}</a></h3><p>{{ item.date() }}{% if !item.author.is_empty() %} · {{ item.author }}{% endif %}</p><div class="siteBody">{{ item.body }}</div></article>{% endfor %}</section>{% endif %}
+{% include "site_navigation.html" %}
 {% endblock %}
+{% block page_footer %}<footer class="homeFooter"><p>26chan development build.</p></footer>{% endblock %}

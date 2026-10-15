@@ -7,6 +7,8 @@ use board_store::{Board, Post, Thread};
 mod catalog_identity;
 #[path = "views/file_label.rs"]
 mod file_label;
+#[path = "views/home_directory.rs"]
+mod home_directory;
 #[path = "views/mobile_label.rs"]
 mod mobile_label;
 #[path = "views/navigation.rs"]
@@ -15,6 +17,8 @@ mod navigation;
 mod page_identity;
 #[path = "views/polls.rs"]
 pub mod polls;
+#[path = "views/posting_notices.rs"]
+mod posting_notices;
 #[path = "views/spoilers.rs"]
 pub mod spoilers;
 
@@ -22,9 +26,23 @@ pub mod spoilers;
 #[template(path = "home.html")]
 pub struct Home {
     pub boards: Vec<Board>,
+    pub news: Vec<board_store::site_content::NewsItem>,
+    pub snapshot: board_store::homepage::Snapshot,
+    pub media_origin: String,
 }
 
 impl Home {
+    pub fn cards(&self, kind: &str) -> Vec<&board_store::homepage::Card> {
+        self.snapshot
+            .cards
+            .iter()
+            .filter(|card| card.kind == kind)
+            .collect()
+    }
+    pub fn groups(&self) -> Vec<home_directory::Group<'_>> {
+        home_directory::groups(&self.boards)
+    }
+
     pub fn directory(&self) -> Vec<navigation::DirectoryEntry<'_>> {
         navigation::directory(&self.boards)
     }
@@ -71,6 +89,9 @@ pub struct UploadForm {
 }
 
 impl BoardPage {
+    pub fn posting_notices(&self) -> posting_notices::Notices {
+        posting_notices::for_board(&self.board, !self.media_origin.is_empty())
+    }
     pub fn heading(&self) -> String {
         page_identity::heading(&self.board)
     }

@@ -26,12 +26,15 @@ other combined actions, post notices, recent bans and original presentation
 remain open under [#220](https://github.com/frankischilling/26chan/issues/220).
 Runtime and current-head hosted checks are separate requirements.
 
-[Local blotter](local-blotter.md) implements operator-published messages, the
-source-gated newest-three preview and timestamp dismissal, and a local dated
-cursor-paginated page. Content is escaped plain text. Database and focused Node
-checks pass; hosted browser qualification is pending. The missing Atom/controller
-semantics, original footer destinations, homepage and remaining information-page
-work stay open under [#194](https://github.com/frankischilling/26chan/issues/194).
+[Local blotter](local-blotter.md) provides operator-published messages, the
+source-gated newest-three preview, timestamp dismissal and a local dated
+cursor-paginated page. The [homepage and information-page work](homepage-source-parity.md)
+adds grouped discovery, local information destinations, news publication,
+promoted content, board statistics and configured posting notices. End-to-end
+qualification for [#194](https://github.com/frankischilling/26chan/issues/194) is recorded in [PR #289](https://github.com/frankischilling/26chan/pull/289).
+The missing original homepage/information controllers and blotter Atom generator
+are reference limits; historical content and external site identities are not
+imported.
 
 [Board subtitles](source-board-subtitles.md) use the three audited source profiles,
 including the two-line fiction notice and local Worksafe GIF link. Ordinary
@@ -374,7 +377,9 @@ fields remain open.
 | V-015 | Backlinks, quote annotations and local reverse-quote preview cues; observed public extension v1191 | Default-on board/thread graph and layout-mobile navigation implemented in #168 | [Reference, ownership and limits](native-backlinks.md); filter input excludes only owned after-filter suffixes, preserves literal poster text and existing tracked labels, and retains exact quote navigation. Strict board/thread binding, bounded graph work and a fixed page-only module are explicit replacements. Current-commit tests and review are recorded in the implementing PR |
 | V-016 | Optional inline quotes, nested placement and collapse, backlink target hiding and mobile activation; observed public extension v1191 | Implemented with existing release URLs and bounded one-post transport; final qualification recorded in the implementing PR | [Reference, ownership, budgets and verification](native-inline-quotes.md); one shared registry preserves original filter/notification/watch inputs, exact IDs and navigation. Core tests distinguish trusted input from synthetic lifecycle controls; persisted tests cover real settings, held responses, updater/filter settlement and finite admission. Inert copies, finite budgets and touch-request arbitration are explicit replacements. Full extension and page parity remain #6 |
 | V-017 | Image expansion, screen fitting, hover/background, spoiler reveal and thumbnail hiding; public extension v1191 | Implemented for approved normalized media on board and thread pages; tracked in #180 | [Reference, controls, limits and tests](native-image-controls.md). Fixed media URLs, finite full-image loads, settings and source invalidation, and projection ownership preserve the existing media and quote boundaries. Original media delivery and full-page parity remain #5/#6 |
-| V-018 | Board directory, mobile view selection, title and footer; public Core v1128, extension v1191 and pinned v716/v705 CSS | Server navigation on board/catalog/thread/archive pages, bounded mobile controller and shared Settings links implemented and locally qualified; hosted checks required before merge | [Reference and checks](public-page-chrome.md): 192 component/hover cases, 48 mobile dark component cases, 336 root/below-body viewport cases, six destination cases, twelve stylesheet selections and twelve original menu cases. HTML navigation shares the content snapshot. Archive script authority admits only the navigation module. Full original startup, page pixels, menu styling, banners, information pages and Global Search remain #6. The [local blotter continuation](local-blotter.md) implements its preview and local read page; hosted browser qualification and Atom/controller/footer gaps remain #194 |
+| V-018 | Board directory, mobile view selection, title and footer; public Core v1128, extension v1191 and pinned v716/v705 CSS | Server navigation on board/catalog/thread/archive pages, bounded mobile controller and shared Settings links implemented and locally qualified; hosted checks required before merge | [Reference and checks](public-page-chrome.md): 192 component/hover cases, 48 mobile dark component cases, 336 root/below-body viewport cases, six destination cases, twelve stylesheet selections and twelve original menu cases. HTML navigation shares the content snapshot. Archive script authority admits only the navigation module. Full original startup, page pixels, menu styling and banners remain #6. The [local blotter](local-blotter.md) provides previews and a local read page. Homepage and information destinations are tracked in V-019 |
+
+| V-019 | Source board directory, frontpage/statistics producers, news fragments and configured posting notices; secondary public grouping observation | Grouped homepage, bounded promotions/statistics/history, local information/news publication and typed notices implemented; final-head qualification recorded in [PR #289](https://github.com/frankischilling/26chan/pull/289) | [Source comparison and missing references](homepage-source-parity.md), [refresh and local metrics](homepage-snapshots.md), [content publication](local-site-content.md). Owned PostgreSQL, upgrade/restore and focused template checks pass. Reviewed desktop/mobile fixtures establish local regression behavior, not historical pixel identity. Existing blotter visibility and update behavior are preserved |
 
 ## Security-driven and project-defined exceptions
 

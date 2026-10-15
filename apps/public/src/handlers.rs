@@ -393,6 +393,26 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
             "Public blotter is unavailable.",
         ));
     }
+    let site_content: bool = sqlx::query_scalar(board_store::site_content::READINESS_SQL)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(StoreError::from)?;
+    if !site_content {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public site content is unavailable.",
+        ));
+    }
+    let homepage: bool = sqlx::query_scalar(board_store::homepage::READINESS_SQL)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(StoreError::from)?;
+    if !homepage {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public homepage content is unavailable.",
+        ));
+    }
     let poll_projection: bool = sqlx::query_scalar(board_store::POLL_READINESS_SQL)
         .fetch_one(&state.pool)
         .await
@@ -514,6 +534,13 @@ pub async fn home(State(state): State<AppState>) -> Result<Response, AppError> {
         &state,
         &Home {
             boards: board_store::boards(&state.pool).await?,
+            news: board_store::site_content::news_page(&state.pool, None, 3).await?,
+            snapshot: board_store::homepage::snapshot(&state.pool).await?,
+            media_origin: state
+                .media
+                .as_ref()
+                .map(|m| m.settings.origin.as_string())
+                .unwrap_or_default(),
         },
     )
 }

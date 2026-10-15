@@ -6,10 +6,12 @@ mod archives;
 pub mod automatic_admission;
 pub mod blotter;
 mod board_snapshot;
+pub mod site_content;
 pub use blotter::BlotterMessage;
 mod content_admission;
 pub mod content_erasure;
 pub mod historical_erasure;
+pub mod homepage;
 pub mod media_erasure;
 pub use archives::{
     ArchiveEntry, ArchivePageEntry, ArchivePageSnapshot, ArchiveSnapshot, MAX_ARCHIVE_JSON_ENTRIES,

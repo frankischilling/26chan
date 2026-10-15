@@ -387,10 +387,157 @@ mod tests {
         );
         let many: Vec<_> = (0..120).map(|i| board(&format!("owned{i}"))).collect();
         assert_eq!(directory(&many).len(), 100);
-        let html = super::super::Home { boards }.render().unwrap();
+        let html = super::super::Home {
+            boards,
+            news: vec![],
+            snapshot: Default::default(),
+            media_origin: String::new(),
+        }
+        .render()
+        .unwrap();
         assert!(html.contains("/diy/ - Do-It-Yourself"));
         assert!(html.contains("/custom19/ - Operator custom19 &#60;script&#62;&#38; title"));
         assert!(!html.contains("/private/"));
         assert!(!html.contains("<script>& title"));
+    }
+
+    #[test]
+    fn homepage_groups_preserve_every_public_board_and_source_classification() {
+        let reference: serde_json::Value =
+            serde_json::from_str(include_str!("../../../../fixtures/homepage-reference.json"))
+                .unwrap();
+        let mut boards: Vec<_> = data::DIRECTORY_LABELS
+            .iter()
+            .map(|&(slug, _)| board(slug))
+            .collect();
+        boards.reverse();
+        let mut custom = board("custom");
+        custom.worksafe = false;
+        boards.push(custom);
+        let mut private = board("private");
+        private.staff_only = true;
+        boards.push(private);
+        let groups = super::super::home_directory::groups(&boards);
+        assert_eq!(groups.len(), 8);
+        for (group, expected) in groups.iter().zip(
+            reference["public_directory_observation"]["groups"]
+                .as_array()
+                .unwrap(),
+        ) {
+            assert_eq!(group.title, expected["title"].as_str().unwrap());
+            let actual: Vec<_> = group
+                .entries
+                .iter()
+                .map(|e| e.directory.board.slug.as_str())
+                .collect();
+            let expected: Vec<_> = expected["slugs"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap())
+                .collect();
+            assert_eq!(actual, expected);
+        }
+        assert_eq!(groups.last().unwrap().title, "More boards");
+        assert_eq!(
+            groups
+                .last()
+                .unwrap()
+                .entries
+                .iter()
+                .map(|e| e.directory.board.slug.as_str())
+                .collect::<Vec<_>>(),
+            ["asp", "r", "trash", "custom"]
+        );
+        let entries: Vec<_> = groups.iter().flat_map(|g| &g.entries).collect();
+        assert_eq!(entries.len(), 79);
+        assert_eq!(entries.iter().filter(|e| e.nws).count(), 25);
+        for slug in ["f", "i", "ic", "wg", "custom"] {
+            assert!(
+                entries
+                    .iter()
+                    .find(|e| e.directory.board.slug == slug)
+                    .unwrap()
+                    .nws
+            );
+        }
+        assert!(
+            !entries
+                .iter()
+                .find(|e| e.directory.board.slug == "a")
+                .unwrap()
+                .nws
+        );
+        assert!(!entries.iter().any(|e| e.directory.board.slug == "private"));
+        assert!(super::super::home_directory::groups(&[]).is_empty());
+        let many: Vec<_> = (0..120).map(|i| board(&format!("owned{i}"))).collect();
+        assert_eq!(
+            super::super::home_directory::groups(&many)
+                .iter()
+                .map(|g| g.entries.len())
+                .sum::<usize>(),
+            100
+        );
+    }
+    #[test]
+    fn posting_notices_follow_source_families_and_active_capabilities() {
+        let source: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/posting-notices-reference.json"
+        ))
+        .unwrap();
+        assert_eq!(source["entries"].as_array().unwrap().len(), 21);
+        for slug in [
+            "g", "jp", "sci", "tg", "qst", "gd", "po", "gif", "wsg", "hr", "trv", "w", "wg", "hc",
+            "s", "adv", "f", "test", "news", "vt", "custom",
+        ] {
+            let mut current = board(slug);
+            current.comment_code_spacing = true;
+            current.comment_sjis_spacing = true;
+            current.math_tags = true;
+            current.dice_roll = true;
+            current.pdf_enabled = true;
+            current.upload_board = slug == "f";
+            let mut view = page(vec![], current);
+            view.media_origin = "https://media.invalid".into();
+            let html = view.render().unwrap();
+            if slug == "test" {
+                assert!(!html.contains("aria-label=\"Posting notices\""));
+                continue;
+            }
+            assert!(html.contains(&format!("href=\"/rules#{slug}\"")));
+            assert!(html.contains("href=\"/faq\""));
+            let notices = view.posting_notices();
+            assert_eq!(notices.code, slug == "g");
+            assert_eq!(notices.sjis, slug == "jp");
+            assert_eq!(notices.math, slug == "sci");
+            assert_eq!(notices.dice, matches!(slug, "tg" | "qst"));
+            assert_eq!(
+                notices.pdf,
+                matches!(slug, "gd" | "po" | "qst" | "sci" | "tg")
+            );
+            if slug == "jp" {
+                assert!(html.contains("https://monafont.sourceforge.net/index-e.html"));
+            }
+            if slug == "adv" {
+                assert!(
+                    html.contains("https://988lifeline.org?oai_link_source=model_response_hotline")
+                );
+                assert!(!html.contains("273-8255"));
+            }
+            if slug == "f" {
+                assert!(html.contains("SWF uploading and the Flash archive are not available"));
+            }
+            view.media_origin.clear();
+            assert!(!view.posting_notices().pdf);
+            assert!(!view.posting_notices().types);
+            assert!(!view.posting_notices().minimum);
+            assert!(!view.posting_notices().size);
+            view.board.comment_code_spacing = false;
+            view.board.comment_sjis_spacing = false;
+            view.board.math_tags = false;
+            view.board.dice_roll = false;
+            let notices = view.posting_notices();
+            assert!(!notices.code && !notices.sjis && !notices.math && !notices.dice);
+        }
     }
 }

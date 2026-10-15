@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ heading() }} - 26chan{% endblock %}
+{% block body_attributes %} class="siteHome"{% endblock %}
+{% block board_navigation %}{% endblock %}
+{% block content %}
+<header class="siteHomeHeader"><h1><a href="/">26chan</a></h1></header>
+<section class="homePanel siteInfo" aria-labelledby="site-title"><h2 id="site-title">{{ heading() }}</h2>
+{% if let Some(content) = page %}{% if key == "faq" %}<span id="what4chan"></span>{% endif %}<div class="siteBody">{{ content.body }}</div><p class="siteRevision">Revision {{ content.revision }}</p>
+{% else %}
+{% if key == "faq" %}{% include "site_faq.html" %}
+{% else if key == "about" %}<p>26chan is an imageboard with topic-based boards and anonymous public posting. Choose a board from the <a href="/">directory</a> to read or start a discussion.</p>
+{% else if key == "rules" %}<p>Site-wide rules have not been published. Check the posting notices on each board.</p>
+{% else %}<p>The operator has not published this information.</p>{% endif %}
+{% endif %}
+</section>
+{% for rule in rules %}<section class="homePanel siteInfo" id="{{ rule.slug }}"><h2><a href="/{{ rule.slug }}/">/{{ rule.slug }}/ - {{ rule.title }}</a></h2><div class="siteBody">{{ rule.body }}</div></section>{% endfor %}
+{% include "site_navigation.html" %}
+{% endblock %}
+{% block page_footer %}<footer class="homeFooter"><p>26chan development build.</p></footer>{% endblock %}

@@ -1,0 +1,70 @@
+# Homepage and information-page source comparison
+
+Issue [#194](https://github.com/frankischilling/26chan/issues/194) covers the homepage, directory, local information pages and blotter. The branch adds grouped board discovery and a homepage layout alongside the existing blotter. Local information pages, operator-maintained news, bounded frontpage content/statistics and typed posting notices are implemented together. [PR #289](https://github.com/frankischilling/26chan/pull/289) records the end-to-end qualification and merge checks.
+
+## Available evidence
+
+`fixtures/homepage-reference.json` records hashes of the supplied board directory, frontpage/statistics producers, blotter view and news archives. They belong to original commit `545b7812d1849f7958d914950c91fdbbe38f6b22`. The supplied tree does not contain the homepage controller/template, rules or FAQ content, news controller, blotter controller, Atom generator or source database contents.
+
+The [public homepage](https://www.4chan.org/) observed on October 15, 2026 supplies a secondary directory-grouping reference. Its rendered text lists seven topic groups, popular threads, statistics and information-page navigation. This observation is newer than the supplied source and is not a historical HTML or pixel baseline. The fixture records only group membership facts; source-board names and classifications remain tied to the supplied directory. The current observation omits original directory members `/asp/`, `/r/` and `/trash/`; those boards must not disappear from the rewrite. Source entries absent from the secondary grouping and additional local boards need a separate fallback group, while private boards remain excluded.
+
+The current [FAQ](https://www.4chan.org/faq) and [rules](https://www.4chan.org/rules) are navigation references, not proof of the missing historical pages. Local help must explain the implemented runtime accurately, and operator-maintained rules must not silently import another site's legal identity, contacts or payment arrangements.
+
+## Original frontpage producer
+
+`update_fpcontent.php` produces recent images, latest posts, popular threads and aggregate statistics. It excludes `/b/`, `/f/` and `/qa/` from promoted content after collecting statistics. Latest-post and image candidates are older than ten minutes, with five candidates per board in each query. A reported post, a subject starting with the source spoiler marker, a comment containing `[spoiler]`, or a filename containing `.pdf` or `.webm` is excluded. Popular threads additionally need at least fifteen replies and a root/bump value newer than ten minutes ago. The source encodes sticky roots in January 2027 (`admin.php:3560-3580`), so sticky threads can pass that condition without a recent ordinary bump. These are literal producer conditions; the missing consumer may apply further ordering or limits.
+
+Source totals sum adjusted maximum post numbers, file sizes and distinct hosts for each board. The old skipped-ID corrections are historical counter repairs, not counts of this installation's posts. The rewrite must not publish another site's totals or expose private poster identifiers. Any replacement activity metric needs an explicit definition and privacy boundary.
+
+`update_board_stats.php` periodically appends each board's maximum post number and the collection time. Failed board reads stop that update. Empty boards are skipped. A local equivalent needs empty/stale behavior and bounded retention rather than an unbounded history table.
+
+## Implementation boundaries
+
+Local homepage data should come from bounded public projections. Private boards, unpublished or deleted attachments and unsafe promotion candidates must not enter that projection. Rendering must escape operator-controlled content and use local board, news, rules and FAQ destinations. News needs publication and retraction behavior; a hard-coded historical archive does not provide an update workflow.
+
+The already merged blotter retains newest-three board previews, explicit board visibility policy, timestamp-based dismissal and a paginated local listing. Homepage work must preserve those contracts. Missing source templates and generators remain listed above so visual or feed behavior is not presented as verified without evidence.
+
+## Verification
+
+The actual Askama homepage template and grouping module compile in an isolated offline harness with a reduced board model. It checks 79 public fixture entries, 25 classifications including a custom board, escaped operator labels and the empty state. This is a focused template check, not a full application or browser pass. The development cache lacked a locked TLS dependency, so this harness does not establish a full application pass. Full HTTP and browser results are recorded in [PR #289](https://github.com/frankischilling/26chan/pull/289).
+
+`fixtures/homepage-promotion-reference.json` captures the exact pinned `check_post` helper and fourteen literal cases. `scripts/test-homepage-promotion-reference.py` executes it with a database double and no database access. This preserves case-sensitive filename/marker behavior, substring exclusions, reported-post rejection and healthy ordinary controls. The local PHP oracle passes; the runtime projection now has focused PostgreSQL coverage.
+
+The [local content workflow](local-site-content.md) covers page revisions, news publication/retraction, plain-text rendering and read-only public projections. It is a security-bounded replacement for the source's trusted HTML news fragments; historical images and external identities are not imported. Full application and browser qualification is tracked in [PR #289](https://github.com/frankischilling/26chan/pull/289).
+
+## Posting notices
+
+`fixtures/posting-notices-reference.json` captures the default `S_RULES` and all
+20 board overrides, with source hashes. A fixed template restores local Rules
+and FAQ links, code/SJIS/math/dice hints, PDF and media notices, and configured
+image limits. `/test/` retains its explicit empty notice. Capabilities that are
+disabled do not advertise themselves as available.
+
+The historical `/adv/` telephone number is not replayed. The advice notice links the current US crisis service verified
+on October 15, 2026; it does not infer a visitor's location. Browser filtering
+advice does not ask visitors to disable protection. The original optional [Mona font link](https://monafont.sourceforge.net/index-e.html)
+is retained over HTTPS; the project page was verified on October 15, 2026 and
+identifies the font as no longer actively maintained. No font is downloaded by
+loading the board. The source's right-click equation-source menu is not implemented
+by this notice, so that instruction is omitted. The unsupported SWF/archive
+feature is stated as unavailable rather than linked to someone else's service.
+These compatibility limits remain explicit; publishing a notice does not claim
+those separate features have been implemented.
+
+[Homepage snapshots](homepage-snapshots.md) documents refresh, live visibility,
+local metric definitions and bounded history. The missing source consumer means
+the 12-card limit and responsive arrangement are local choices.
+
+## Visual regression review
+
+The first hosted branch run compiled the production views and produced owned
+Windows fixtures for the populated and empty homepage, ordinary boards, media
+boards/threads and six theme variants. The changed pictures were reviewed for
+layout and overflow. The 24 scoped baseline changes comprise two new populated
+homepage views, two replacement empty-homepage views and twenty posting-notice
+layout updates. They came from run `38705687166` at `b1ea25f0`; they are regression
+fixtures for this implementation, not screenshots of the original site.
+
+That run also found a Clippy item-order failure in the new content module. The
+constant now precedes the test module, and focused all-target Clippy passes.
+[PR #289](https://github.com/frankischilling/26chan/pull/289) records subsequent full application and browser runs. Every final-head check must pass before merge.

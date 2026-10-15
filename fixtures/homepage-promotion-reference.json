@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "source_path": "www.4chan/tasks/update_fpcontent.php",
+  "source_sha256": "c14a91164bb100765fd0468b3e181e79a216ba8db840dc28a503b9f308cf82df",
+  "function_sha256": "e28923c02be00d90a28b3131adf7ccf2fd5ebe7383730f8ff03a64f95e3cf81e",
+  "function": "function check_post($post) {\r\n\t$q = mysql_global_call(\"SELECT COUNT(*) from reports where board='{$post['board']}' and no='{$post['no']}'\");\r\n\tlist($reports) = mysql_fetch_array($q);\r\n\tif($reports) return false;\r\n\tif(strpos($post['sub'],\"SPOILER<>\")===0) return false;\r\n\tif(strpos($post['com'],\"[spoiler]\")!==false) return false;\r\n\tif(strpos($post['filename'], \".pdf\") !== false || strpos($post['filename'], \".webm\") !== false) return false;\r\n\treturn true;\r\n}",
+  "cases": [
+    {
+      "name": "ordinary",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "Owned title",
+        "com": "Owned comment",
+        "filename": "owned.png"
+      },
+      "reports": 0,
+      "expected": true
+    },
+    {
+      "name": "reported",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "Owned title",
+        "com": "Owned comment",
+        "filename": "owned.png"
+      },
+      "reports": 1,
+      "expected": false
+    },
+    {
+      "name": "many-reports",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "Owned title",
+        "com": "Owned comment",
+        "filename": "owned.png"
+      },
+      "reports": 4,
+      "expected": false
+    },
+    {
+      "name": "subject-spoiler",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "SPOILER<>hidden",
+        "com": "Owned comment",
+        "filename": "owned.png"
+      },
+      "reports": 0,
+      "expected": false
+    },
+    {
+      "name": "subject-marker-later",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "title SPOILER<>",
+        "com": "Owned comment",
+        "filename": "owned.png"
+      },
+      "reports": 0,
+      "expected": true
+    },
+    {
+      "name": "comment-spoiler",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "Owned title",
+        "com": "before [spoiler]hidden[/spoiler]",
+        "filename": "owned.png"
+      },
+      "reports": 0,
+      "expected": false
+    },
+    {
+      "name": "comment-uppercase",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "Owned title",
+        "com": "[SPOILER]hidden",
+        "filename": "owned.png"
+      },
+      "reports": 0,
+      "expected": true
+    },
+    {
+      "name": "pdf-name",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "Owned title",
+        "com": "Owned comment",
+        "filename": "owned.pdf"
+      },
+      "reports": 0,
+      "expected": false
+    },
+    {
+      "name": "webm-name",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "Owned title",
+        "com": "Owned comment",
+        "filename": "owned.webm"
+      },
+      "reports": 0,
+      "expected": false
+    },
+    {
+      "name": "embedded-pdf-name",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "Owned title",
+        "com": "Owned comment",
+        "filename": "owned.pdf.gif"
+      },
+      "reports": 0,
+      "expected": false
+    },
+    {
+      "name": "uppercase-pdf-name",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "Owned title",
+        "com": "Owned comment",
+        "filename": "owned.PDF"
+      },
+      "reports": 0,
+      "expected": true
+    },
+    {
+      "name": "gif-name",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "Owned title",
+        "com": "Owned comment",
+        "filename": "owned.gif"
+      },
+      "reports": 0,
+      "expected": true
+    },
+    {
+      "name": "jpeg-name",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "Owned title",
+        "com": "Owned comment",
+        "filename": "owned.jpg"
+      },
+      "reports": 0,
+      "expected": true
+    },
+    {
+      "name": "empty-fields",
+      "post": {
+        "board": "g",
+        "no": 123,
+        "sub": "",
+        "com": "",
+        "filename": ""
+      },
+      "reports": 0,
+      "expected": true
+    }
+  ]
+}

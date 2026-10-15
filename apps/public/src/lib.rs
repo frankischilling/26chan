@@ -27,6 +27,7 @@ mod rss;
 mod search;
 mod security;
 mod semantic_thread;
+mod site;
 pub mod themes;
 pub mod transport;
 mod ui_assets;
@@ -254,6 +255,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
         ))
         .merge(ui_assets::routes())
         .merge(search::routes())
+        .merge(site::routes())
         .merge(polls::routes())
         .merge(restrictions::routes())
         .merge(blotter::routes())

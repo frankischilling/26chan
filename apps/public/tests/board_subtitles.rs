@@ -311,8 +311,9 @@ async fn exercise(owner: PgPool, public: PgPool, fixtures: Vec<Fixture>) {
         }
     }
 
-    // Descriptions retain their existing directory/API role without supplying
-    // the subtitle. The public JSON contract does not expose template profiles.
+    // Descriptions retain their API/feed role without supplying the subtitle.
+    // The grouped homepage uses source labels rather than SEO paragraphs.
+    // The public JSON contract does not expose template profiles.
     for app in [&web, &api] {
         let directory: Value = serde_json::from_str(&get(app, "/boards.json").await).unwrap();
         for fixture in &fixtures {
@@ -329,7 +330,8 @@ async fn exercise(owner: PgPool, public: PgPool, fixtures: Vec<Fixture>) {
     }
     let home = get(&web, "/").await;
     for fixture in &fixtures {
-        assert!(home.contains(&format!("<p>Owned SEO {} &#60;script&#62;ownedSubtitleDescription()&#60;/script&#62; &#38; description</p>", fixture.slug)));
+        assert!(home.contains(&format!("href=\"/{}/\"", fixture.slug)));
+        assert!(!home.contains("Owned SEO"));
         let feed = get(&web, &format!("/{}/index.rss", fixture.slug)).await;
         let document = roxmltree::Document::parse(&feed).unwrap();
         let channel = document

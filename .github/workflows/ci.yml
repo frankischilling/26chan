@@ -64,6 +64,8 @@ jobs:
           python3 scripts/extract-image-presentation-reference.py --php-oracle
           python3 scripts/test-upload-filename-reference.py
           python3 scripts/test-gif-cleanup-reference.py
+      - name: Qualify pinned homepage promotion decisions
+        run: python3 scripts/test-homepage-promotion-reference.py
       - name: Qualify isolated source video decisions
         run: python3 scripts/extract-video-reference.py --php-oracle
       - name: Start disposable database and migrate
@@ -497,6 +499,8 @@ jobs:
         run: sudo bash scripts/test-board-titles-migration.sh
       - name: Qualify source subtitle upgrade and preserved board state
         run: sudo bash scripts/test-board-subtitles-migration.sh
+      - name: Qualify homepage upgrade, retained content and administrator restore
+        run: sudo bash scripts/test-homepage-migration.sh
       - name: Qualify local blotter upgrade and reserved-route rollback
         run: sudo bash scripts/test-blotter-migration.sh
       - name: Qualify public poll projections, publication boundaries and administrator restore

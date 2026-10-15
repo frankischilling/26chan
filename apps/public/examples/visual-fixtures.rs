@@ -12,6 +12,8 @@ mod catalog_limits;
 mod flags;
 #[path = "visual/headers.rs"]
 mod headers;
+#[path = "visual/homepage.rs"]
+mod homepage;
 #[path = "visual/links.rs"]
 mod links;
 #[path = "visual/listeners.rs"]
@@ -532,7 +534,14 @@ async fn main() -> std::io::Result<()> {
         listeners::MediaProfile::parse(std::env::var_os(listeners::PROFILE_ENV).as_deref())?;
     // Construct the other shared templates too; this keeps this include honest
     // when production views change and avoids unused-item warning suppression.
-    let _ = views::Home { boards: vec![] }.render().unwrap();
+    let _ = views::Home {
+        boards: vec![],
+        news: vec![],
+        snapshot: Default::default(),
+        media_origin: String::new(),
+    }
+    .render()
+    .unwrap();
     let _ = views::Message {
         title: "Fixture",
         message: "Synthetic data",
@@ -578,8 +587,9 @@ async fn main() -> std::io::Result<()> {
         .route("/link-visual/", get(|| async { Html(links::page(true)) }))
         .route(
             "/",
-            get(|| async { Html(views::Home { boards: vec![] }.render().unwrap()) }),
+            get(|| async { Html(views::Home { boards: vec![], news:vec![], snapshot: Default::default(), media_origin: String::new() }.render().unwrap()) }),
         )
+        .route("/homepage/", get(|| async { Html(homepage::page()) }))
         .route("/empty/", get(|| async { Html(empty_page(false)) }))
         .route("/empty/catalog", get(|| async { Html(empty_page(true)) }))
         .route("/demo/", get(|| async { Html(page(false)) }))

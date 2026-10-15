@@ -5,6 +5,21 @@ for (const [name, viewport] of [
   ['desktop', { width: 1280, height: 900 }],
   ['mobile', { width: 390, height: 844 }],
 ]) {
+  test(`populated source directory and homepage ${name}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const response = await page.goto('/homepage/');
+    expect(response.status()).toBe(200);
+    await expect(page.locator('.homeBoardGroups li')).toHaveCount(79);
+    await expect(page.locator('.homeCards article')).toHaveCount(3);
+    await expect(page.locator('.homeStats')).toContainText('1234');
+    await expect(page.locator('.homeStats')).toContainText('more than 15 minutes old');
+    await expect(page.locator('.siteNews')).toContainText('Owned local news');
+    await expect(page.locator('.homeCards script')).toHaveCount(0);
+    await expect(page.locator('.homeCards').first()).toContainText('<script> stays plain text.');
+    await expect(page.getByRole('link', { name: 'Owned custom <board>', exact: true })).toHaveAttribute('href', '/ownedcustom/');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+    await expect(page).toHaveScreenshot(`populated-homepage-${name}.png`, { fullPage: true });
+  });
   for (const catalog of [false, true]) {
     test(`empty ${catalog ? 'catalog' : 'board'} ${name}`, async ({ page }) => {
       await page.setViewportSize(viewport);
