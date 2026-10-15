@@ -45,9 +45,9 @@ def resource_groups(unit, membership, mountinfo):
 
 
 def enforce_limits(groups, *, profile="default"):
-    if profile not in ("default", "still-v6"):
+    if profile not in ("default", "still-v6", "gif-v7"):
         raise ValueError("unknown fixed resource profile")
-    memory_bytes = "2684354560" if profile == "still-v6" else "268435456"
+    memory_bytes = "2684354560" if profile in ("still-v6", "gif-v7") else "268435456"
     def read(directory, name):
         return (directory / name).read_text().strip()
 
@@ -87,8 +87,8 @@ def enforce_limits(groups, *, profile="default"):
 def main():
     unit, *command = sys.argv[1:]
     profile = "default"
-    if command and command[0] == "--still-v6":
-        profile = "still-v6"
+    if command and command[0] in ("--still-v6", "--gif-v7"):
+        profile = command[0][2:]
         command = command[1:]
     if os.geteuid() != 0 or not command or not pathlib.Path(command[0]).is_absolute():
         raise ValueError('root service and absolute jailer command required')

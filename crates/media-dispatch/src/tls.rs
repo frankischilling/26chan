@@ -150,6 +150,40 @@ impl DispatchClient {
             .map_err(|_| Error::Deadline)?
     }
 
+    /// The larger deadline applies only to an explicit, bounded source GIF request.
+    pub async fn process_source_gif(&self, input: &[u8], policy: &[u8; 16]) -> Result<Vec<u8>> {
+        if input.is_empty() || input.len() as u64 > protocol::MAX_GIF_SOURCE_INPUT - 16 {
+            return Err(Error::Frame);
+        }
+        let mut frame = Vec::with_capacity(input.len() + 16);
+        frame.extend_from_slice(policy);
+        frame.extend_from_slice(input);
+        protocol::validate_source_gif_request(&frame)?;
+        let mut stream = timeout(INTAKE, async {
+            let socket = TcpStream::connect(self.endpoint)
+                .await
+                .map_err(|_| Error::Transport)?;
+            self.connector
+                .connect(self.name.clone(), socket)
+                .await
+                .map_err(|_| Error::Authentication)
+        })
+        .await
+        .map_err(|_| Error::Deadline)??;
+        timeout(
+            INTAKE,
+            protocol::write_source_gif_request(&frame, &mut stream),
+        )
+        .await
+        .map_err(|_| Error::Deadline)??;
+        timeout(
+            STILL_PROCESSING,
+            protocol::read_source_gif_response(&mut stream),
+        )
+        .await
+        .map_err(|_| Error::Deadline)?
+    }
+
     /// Explicit video transport. The caller supplies one finite container tag;
     /// no format guessing, alternate response version, or retry is permitted.
     pub async fn process_video(&self, input: &[u8], container: u8) -> Result<Vec<u8>> {
