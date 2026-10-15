@@ -11,12 +11,14 @@ dialog. Archive pages load only the fixed page-chrome module for mobile
 navigation and mode controls; they do not mount the native persistent-navigation
 controller.
 
-The [local blotter](local-blotter.md) adds the source-gated newest-three preview,
-timestamp dismissal and a local dated cursor-paginated page. Its database and
-focused Node checks pass; hosted browser qualification is pending. Remaining
-information pages, homepage, original footer destinations and blotter
-Atom/controller semantics stay open under
-[#194](https://github.com/frankischilling/26chan/issues/194).
+The [local blotter](local-blotter.md) provides the source-gated newest-three
+preview, timestamp dismissal and a local dated cursor-paginated page. The
+[homepage continuation](homepage-source-parity.md) adds grouped discovery,
+local information destinations, news, statistics and posting notices. Its
+final-head hosted qualification remains required for
+[#194](https://github.com/frankischilling/26chan/issues/194). The missing original
+homepage/information templates and blotter Atom generator remain explicit
+reference limits.
 
 ## Public reference and limits
 
