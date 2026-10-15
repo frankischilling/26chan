@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "pinned_original_commit": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "source_files": {
+    "www.4chan/data/boards.php": "8673f6030e3027e41417fe0b2cee917a07af1726512f7f5bca5582b9778f725f",
+    "www.4chan/tasks/update_fpcontent.php": "c14a91164bb100765fd0468b3e181e79a216ba8db840dc28a503b9f308cf82df",
+    "www.4chan/tasks/update_board_stats.php": "dea66c0eec29a99888399626c35a1c98453b36aad7460aecd36998e0a1ce5356",
+    "www.4chan/views/blotter.tpl.php": "a6b0c39d6e2486bafbd9ec43d5f99c4af211a8acbb6106e5a643a55bb7fe05e8",
+    "www.4chan/data/newscontent.html": "b4d6347939874151057aa37b91283350aee2e1cc9c97f4c934455f50bf0cbbce",
+    "www.4chan/data/newscontent_all.html": "d909a804e388ae34432e923ecffc96bc870cab05f48c1c6a91be03c258635e7f"
+  },
+  "public_directory_observation": {
+    "url": "https://www.4chan.org/",
+    "observed_utc": "2026-10-15",
+    "kind": "rendered text and link targets; not a historical HTML or pixel baseline",
+    "groups": [
+      {
+        "title": "Japanese Culture",
+        "slugs": [
+          "a",
+          "c",
+          "w",
+          "m",
+          "cgl",
+          "cm",
+          "f",
+          "n",
+          "jp",
+          "vt"
+        ]
+      },
+      {
+        "title": "Video Games",
+        "slugs": [
+          "v",
+          "vg",
+          "vm",
+          "vmg",
+          "vp",
+          "vr",
+          "vrpg",
+          "vst"
+        ]
+      },
+      {
+        "title": "Interests",
+        "slugs": [
+          "co",
+          "g",
+          "tv",
+          "k",
+          "o",
+          "an",
+          "tg",
+          "sp",
+          "xs",
+          "pw",
+          "sci",
+          "his",
+          "int",
+          "out",
+          "toy"
+        ]
+      },
+      {
+        "title": "Creative",
+        "slugs": [
+          "i",
+          "po",
+          "p",
+          "ck",
+          "ic",
+          "wg",
+          "lit",
+          "mu",
+          "fa",
+          "3",
+          "gd",
+          "diy",
+          "wsg",
+          "qst"
+        ]
+      },
+      {
+        "title": "Other",
+        "slugs": [
+          "biz",
+          "trv",
+          "fit",
+          "x",
+          "adv",
+          "lgbt",
+          "mlp",
+          "news",
+          "wsr",
+          "vip"
+        ]
+      },
+      {
+        "title": "Misc.",
+        "slugs": [
+          "b",
+          "r9k",
+          "pol",
+          "bant",
+          "soc",
+          "s4s"
+        ]
+      },
+      {
+        "title": "Adult",
+        "slugs": [
+          "s",
+          "hc",
+          "hm",
+          "h",
+          "e",
+          "u",
+          "d",
+          "y",
+          "t",
+          "hr",
+          "gif",
+          "aco"
+        ]
+      }
+    ],
+    "original_directory_members_missing_from_observation": [
+      "asp",
+      "r",
+      "trash"
+    ]
+  },
+  "frontpage_producer": {
+    "excluded_boards": [
+      "b",
+      "f",
+      "qa"
+    ],
+    "minimum_post_age_seconds": 600,
+    "latest_candidates_per_board": 5,
+    "image_candidates_per_board": 5,
+    "minimum_popular_replies": 15,
+    "popular_root_window_seconds": 600,
+    "excluded_filename_fragments": [
+      ".pdf",
+      ".webm"
+    ],
+    "excluded_subject_prefix": "SPOILER<>",
+    "excluded_comment_fragment": "[spoiler]",
+    "exclude_reported_posts": true,
+    "source_stats": [
+      "sum adjusted maximum post numbers",
+      "sum retained file sizes",
+      "sum distinct hosts per board"
+    ]
+  },
+  "missing_reference_components": [
+    "homepage template/controller",
+    "rules template/data",
+    "FAQ template/data",
+    "news controller",
+    "blotter controller and Atom generator",
+    "source database contents"
+  ]
+}
