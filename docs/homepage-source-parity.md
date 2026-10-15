@@ -27,3 +27,5 @@ The already merged blotter retains newest-three board previews, explicit board v
 ## Draft checks
 
 The actual Askama homepage template and grouping module compile in an isolated offline harness with a reduced board model. It checks 79 public fixture entries, 25 classifications including a custom board, escaped operator labels and the empty state. This is a focused template check, not a full application or browser pass. The full application test cannot run in the local offline cache because `rustls` 0.23.46 is absent; hosted qualification remains required.
+
+`fixtures/homepage-promotion-reference.json` captures the exact pinned `check_post` helper and fourteen literal cases. `scripts/test-homepage-promotion-reference.py` executes it with a database double and no database access. This preserves case-sensitive filename/marker behavior, substring exclusions, reported-post rejection and healthy ordinary controls. The local PHP oracle passes; the runtime promotion projection is still pending.

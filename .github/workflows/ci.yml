@@ -61,6 +61,8 @@ jobs:
         run: |
           python3 scripts/extract-image-presentation-reference.py --php-oracle
           python3 scripts/test-upload-filename-reference.py
+      - name: Qualify pinned homepage promotion decisions
+        run: python3 scripts/test-homepage-promotion-reference.py
       - name: Qualify isolated source video decisions
         run: python3 scripts/extract-video-reference.py --php-oracle
       - name: Start disposable database and migrate
