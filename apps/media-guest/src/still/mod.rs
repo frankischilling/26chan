@@ -5,7 +5,7 @@ use std::io::{self, Read};
 
 mod jpeg;
 mod png;
-mod raster;
+pub(crate) mod raster;
 #[cfg(target_os = "linux")]
 mod strip_jpeg;
 

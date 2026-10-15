@@ -1,7 +1,7 @@
 use std::io;
 
 /// Fully decoded, unrotated pixels kept inside the isolated worker.
-pub(super) struct Raster {
+pub(crate) struct Raster {
     pub width: u32,
     pub height: u32,
     channels: usize,
