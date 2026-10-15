@@ -207,34 +207,56 @@ pub fn read_input(reader: impl Read) -> Result<Input, Error> {
 }
 async fn transaction(connection: &mut PgConnection) -> Result<Transaction<'_, Postgres>, Error> {
     let mut tx = connection.begin().await.map_err(|_| Error::Database)?;
-    let allowed: bool = sqlx::query_scalar(
-        "SELECT session_user='board_migrator' AND current_user='board_migrator'",
-    )
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(|_| Error::Database)?;
-    if !allowed {
-        return Err(Error::Role);
+    let result = async {
+        let allowed: bool = sqlx::query_scalar(
+            "SELECT session_user='board_migrator' AND current_user='board_migrator'",
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|_| Error::Database)?;
+        if !allowed {
+            return Err(Error::Role);
+        }
+        sqlx::query("SET LOCAL lock_timeout='5s'")
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| Error::Database)?;
+        sqlx::query("SET LOCAL statement_timeout='30s'")
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| Error::Database)?;
+        sqlx::query("LOCK TABLE site_private.pages,site_private.news IN SHARE ROW EXCLUSIVE MODE")
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| Error::Database)?;
+        Ok(())
     }
-    sqlx::query("SET LOCAL lock_timeout='5s'")
-        .execute(&mut *tx)
-        .await
-        .map_err(|_| Error::Database)?;
-    sqlx::query("SET LOCAL statement_timeout='30s'")
-        .execute(&mut *tx)
-        .await
-        .map_err(|_| Error::Database)?;
-    sqlx::query("LOCK TABLE site_private.pages,site_private.news IN SHARE ROW EXCLUSIVE MODE")
-        .execute(&mut *tx)
-        .await
-        .map_err(|_| Error::Database)?;
+    .await;
+    if let Err(error) = result {
+        tx.rollback().await.map_err(|_| Error::Database)?;
+        return Err(error);
+    }
     Ok(tx)
+}
+
+async fn finish<T>(tx: Transaction<'_, Postgres>, result: Result<T, Error>) -> Result<T, Error> {
+    match result {
+        Ok(value) => {
+            tx.commit().await.map_err(|_| Error::Database)?;
+            Ok(value)
+        }
+        Err(error) => {
+            tx.rollback().await.map_err(|_| Error::Database)?;
+            Err(error)
+        }
+    }
 }
 
 /// Returns the new page revision or news ID. All writes remain in one transaction.
 pub async fn publish(connection: &mut PgConnection, input: &Input) -> Result<i64, Error> {
     input.validate()?;
     let mut tx = transaction(connection).await?;
+    let result = async {
     let number = match input {
         Input::Page {
             key,
@@ -289,8 +311,9 @@ pub async fn publish(connection: &mut PgConnection, input: &Input) -> Result<i64
             last + 1
         }
     };
-    tx.commit().await.map_err(|_| Error::Database)?;
     Ok(number)
+    }.await;
+    finish(tx, result).await
 }
 
 pub async fn retract_news(connection: &mut PgConnection, id: i64) -> Result<(), Error> {
@@ -298,15 +321,19 @@ pub async fn retract_news(connection: &mut PgConnection, id: i64) -> Result<(), 
         return Err(Error::NotFound);
     }
     let mut tx = transaction(connection).await?;
-    let result = sqlx::query("UPDATE site_private.news SET published=false WHERE id=$1")
-        .bind(id)
-        .execute(&mut *tx)
-        .await
-        .map_err(|_| Error::Database)?;
-    if result.rows_affected() != 1 {
-        return Err(Error::NotFound);
+    let result = async {
+        let result = sqlx::query("UPDATE site_private.news SET published=false WHERE id=$1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| Error::Database)?;
+        if result.rows_affected() != 1 {
+            return Err(Error::NotFound);
+        }
+        Ok(())
     }
-    tx.commit().await.map_err(|_| Error::Database)
+    .await;
+    finish(tx, result).await
 }
 
 pub async fn page_revision(connection: &mut PgConnection, key: &str) -> Result<i64, Error> {
@@ -314,14 +341,17 @@ pub async fn page_revision(connection: &mut PgConnection, key: &str) -> Result<i
         return Err(Error::Input);
     }
     let mut tx = transaction(connection).await?;
-    let revision: Option<i64> =
-        sqlx::query_scalar("SELECT revision FROM site_private.pages WHERE key=$1")
-            .bind(key)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|_| Error::Database)?;
-    tx.commit().await.map_err(|_| Error::Database)?;
-    Ok(revision.unwrap_or(0))
+    let result = async {
+        let revision: Option<i64> =
+            sqlx::query_scalar("SELECT revision FROM site_private.pages WHERE key=$1")
+                .bind(key)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|_| Error::Database)?;
+        Ok(revision.unwrap_or(0))
+    }
+    .await;
+    finish(tx, result).await
 }
 
 pub async fn retract_page(
@@ -333,12 +363,15 @@ pub async fn retract_page(
         return Err(Error::Input);
     }
     let mut tx = transaction(connection).await?;
+    let result = async {
     let changed = sqlx::query("UPDATE site_private.pages SET published=false,revision=revision+1,updated_at=clock_timestamp() WHERE key=$1 AND revision=$2")
         .bind(key).bind(expected).execute(&mut *tx).await.map_err(|_| Error::Database)?;
     if changed.rows_affected() != 1 {
         return Err(Error::Revision);
     }
-    tx.commit().await.map_err(|_| Error::Database)
+    Ok(())
+    }.await;
+    finish(tx, result).await
 }
 
 #[cfg(test)]

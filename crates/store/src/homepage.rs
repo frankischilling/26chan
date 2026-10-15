@@ -124,6 +124,7 @@ pub async fn refresh(connection: &mut PgConnection) -> Result<i64, RefreshError>
         .begin()
         .await
         .map_err(|_| RefreshError::Database)?;
+    let result = async {
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
         .execute(&mut *tx)
         .await
@@ -190,8 +191,18 @@ pub async fn refresh(connection: &mut PgConnection) -> Result<i64, RefreshError>
         .map_err(|_| RefreshError::Database)?;
     sqlx::query("INSERT INTO site_private.board_statistics(board,slot,generated_at,recorded_posts,last_post_id,active_threads) SELECT board.slug,$2,CURRENT_TIMESTAMP,(SELECT count(*) FROM content.posts p WHERE p.board=board.slug),(SELECT coalesce(max(id),0) FROM content.posts p WHERE p.board=board.slug),(SELECT count(*) FROM content.threads t WHERE t.board=board.slug AND NOT t.deleted AND t.archived_at IS NULL) FROM unnest($1::text[]) board(slug) ON CONFLICT(board,slot) DO UPDATE SET generated_at=excluded.generated_at,recorded_posts=excluded.recorded_posts,last_post_id=excluded.last_post_id,active_threads=excluded.active_threads")
         .bind(&boards).bind(((generation-1)%64+1) as i16).execute(&mut *tx).await.map_err(|_|RefreshError::Database)?;
-    tx.commit().await.map_err(|_| RefreshError::Database)?;
     Ok(generation)
+    }.await;
+    match result {
+        Ok(generation) => {
+            tx.commit().await.map_err(|_| RefreshError::Database)?;
+            Ok(generation)
+        }
+        Err(error) => {
+            tx.rollback().await.map_err(|_| RefreshError::Database)?;
+            Err(error)
+        }
+    }
 }
 
 /// Fail readiness on changed visibility predicates, bounds, ownership or grants.
