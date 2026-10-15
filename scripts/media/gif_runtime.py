@@ -35,7 +35,7 @@ def collect():
     env = {'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'}
     version = subprocess.run([str(binary), '--version'], capture_output=True,
                              check=True, timeout=5, env=env)
-    if not (version.stdout + version.stderr).startswith(b'LCDF Gifsicle 1.96\n'):
+    if not (version.stdout + version.stderr).startswith(b'LCDF Gifsicle 1.97\n'):
         raise ValueError('Unexpected GIF runtime version')
     result = subprocess.run(['/usr/bin/ldd', str(binary)], capture_output=True,
                             check=True, timeout=5, env=env).stdout.decode()

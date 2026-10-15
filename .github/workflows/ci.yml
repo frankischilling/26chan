@@ -248,8 +248,8 @@ jobs:
           sudo install -d -m 0755 /usr/lib/26chan-still
           sudo install -m 0755 .local/still-runtime/jpegtran /usr/lib/26chan-still/jpegtran
           python3 scripts/extract-gd-gif-thumbnail-reference.py --check
-          curl --fail --location --max-time 120 https://www.lcdf.org/gifsicle/gifsicle-1.96.tar.gz -o .local/gifsicle-1.96.tar.gz
-          bash scripts/media/build-gif-runtime.sh .local/gifsicle-1.96.tar.gz .local/gif-runtime
+          curl --fail --location --max-time 120 https://www.lcdf.org/gifsicle/gifsicle-1.97.tar.gz -o .local/gifsicle-1.97.tar.gz
+          bash scripts/media/build-gif-runtime.sh .local/gifsicle-1.97.tar.gz .local/gif-runtime
           sudo install -d -m 0755 /usr/lib/26chan-gif
           sudo install -m 0755 .local/gif-runtime/gifsicle /usr/lib/26chan-gif/gifsicle
           sudo install -m 0644 .local/gif-runtime/COPYING /usr/lib/26chan-gif/COPYING

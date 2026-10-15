@@ -40,7 +40,7 @@ class GifRuntimeTest(unittest.TestCase):
                         runtime.checked_bytes(path)
                     read.assert_not_called()
 
-    def collect(self, version=b'LCDF Gifsicle 1.96\n',
+    def collect(self, version=b'LCDF Gifsicle 1.97\n',
                 dependencies=b'libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x123)\n/lib64/ld-linux-x86-64.so.2 (0x456)\n'):
         responses = [subprocess.CompletedProcess([], 0, b'', version),
                      subprocess.CompletedProcess([], 0, dependencies, b'')]
