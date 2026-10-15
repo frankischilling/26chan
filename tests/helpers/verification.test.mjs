@@ -23,7 +23,7 @@ function fixture(mode = 'request') {
 }
 test('accept only bounded canonical self-contained PNG challenge responses', () => {
   assert.equal(validChallenge(ready()),true);
-  for (const patch of [{token:'e1_'+'ab'.repeat(32)},{image:'https://elsewhere.test/image.png'},{background:'data:image/svg+xml;base64,YQ=='},{image:'data:image/png;base64,'+'A'.repeat(65536)},{ttl_seconds:3},{ttl_seconds:121},{offset_max:81},{slider:'true'},{cooldown_seconds:301}]) {
+  for (const patch of [{token:'e1_'+'ab'.repeat(32)},{image:'https://elsewhere.test/image.png'},{background:'data:image/svg+xml;base64,YQ=='},{image:'data:image/png;base64,'+Buffer.alloc(65537).toString('base64')},{ttl_seconds:3},{ttl_seconds:121},{offset_max:81},{slider:'true'},{cooldown_seconds:301}]) {
     assert.equal(Boolean(validChallenge({...ready(),...patch})),false,JSON.stringify(patch).slice(0,100));
   }
   assert.equal(validChallenge({...ready(),slider:false,background:null}),true);
@@ -63,4 +63,14 @@ test('an abandoned fetch timeout cannot abort the next lifecycle request',()=>{
   const f=fixture();f.click();const oldTimer=[...f.timers.values()].find(v=>v.delay===12000).fn;
   f.mounted.reset();f.click();assert.equal(f.requests.length,2);oldTimer();
   assert.equal(f.requests[0].options.signal.aborted,true);assert.equal(f.requests[1].options.signal.aborted,false);
+});
+test('the real renderer PNGs fit the decoded byte budget after base64 expansion',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const images=await Promise.all(['foreground','background'].map(async name=>'data:image/png;base64,'+(await readFile(new URL(`../fixtures/verification-render/${name}.png`,import.meta.url))).toString('base64')));
+  assert.equal(validChallenge({...ready(),image:images[0],background:images[1]}),true);
+});
+
+test('PNG size checks count decoded bytes and reject malformed padding lengths',()=>{
+  assert.equal(validChallenge({...ready(),image:'data:image/png;base64,'+Buffer.alloc(65536).toString('base64')}),true);
+  for(const image of ['data:image/png;base64,'+Buffer.alloc(65537).toString('base64'),'data:image/png;base64,YQ=','data:image/png;base64,YQ==='])assert.equal(Boolean(validChallenge({...ready(),image})),false);
 });

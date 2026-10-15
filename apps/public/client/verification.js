@@ -1,6 +1,13 @@
-const MAX_IMAGE = 65536;
+const MAX_PNG_BYTES = 65536;
+const PNG_PREFIX = 'data:image/png;base64,';
+const MAX_IMAGE = PNG_PREFIX.length + 4 * Math.ceil(MAX_PNG_BYTES / 3);
 export function validChallenge(value) {
-  const png = (image) => typeof image === 'string' && image.length <= MAX_IMAGE && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(image);
+  const png = (image) => {
+    if (typeof image !== 'string' || image.length > MAX_IMAGE || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(image)) return false;
+    const encoded = image.slice(PNG_PREFIX.length);
+    const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
+    return encoded.length % 4 === 0 && encoded.length / 4 * 3 - padding <= MAX_PNG_BYTES;
+  };
   return value && value.state === 'ready' && /^c1_[a-f0-9]{64}$/.test(value.token)
     && Number.isInteger(value.ttl_seconds) && value.ttl_seconds >= 4 && value.ttl_seconds <= 120
     && Number.isInteger(value.cooldown_seconds) && value.cooldown_seconds >= 0 && value.cooldown_seconds <= 300
