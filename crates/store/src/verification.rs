@@ -75,6 +75,7 @@ pub struct EmailRequest<'a> {
     pub country: &'a str,
     pub encrypted_payload: &'a [u8],
     pub receipt_hash: &'a [u8; 32],
+    pub context_hash: &'a [u8; 32],
 }
 
 #[derive(sqlx::FromRow)]
@@ -132,7 +133,7 @@ impl VerificationStore {
                  to_regprocedure('content.verification_ensure_session(bytea,bytea,bytea,bytea,boolean)'),
                  to_regprocedure('content.verification_issue_challenge(bytea,bytea,bytea,bytea,text,text,bigint,bytea,boolean)'),
                  to_regprocedure('content.verification_check_challenge(bytea,bytea,bytea,bytea,text,text,bigint,bytea,bytea)'),
-                 to_regprocedure('content.verification_queue_email(bytea,bytea,bytea,bytea,bytea,text,bytea,bytea)'),
+                 to_regprocedure('content.verification_queue_email(bytea,bytea,bytea,bytea,bytea,text,bytea,bytea,bytea)'),
                  to_regprocedure('content.verification_email_state(bytea)'),
                  to_regprocedure('content.verification_accept_email(bytea,bytea,text,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea)'),
                  to_regprocedure('content.verification_signout(bytea)'))),false)
@@ -212,7 +213,7 @@ impl VerificationStore {
         &self,
         input: &EmailRequest<'_>,
     ) -> Result<EmailQueueResult, StoreError> {
-        sqlx::query_as("SELECT * FROM content.verification_queue_email($1,$2,$3,$4,$5,$6,$7,$8)")
+        sqlx::query_as("SELECT * FROM content.verification_queue_email($1,$2,$3,$4,$5,$6,$7,$8,$9)")
             .bind(input.token_hash.as_slice())
             .bind(input.email_hash.as_slice())
             .bind(input.recipient_hash.as_slice())
@@ -221,6 +222,7 @@ impl VerificationStore {
             .bind(input.country)
             .bind(input.encrypted_payload)
             .bind(input.receipt_hash.as_slice())
+            .bind(input.context_hash.as_slice())
             .fetch_one(&self.pool)
             .await
             .map_err(StoreError::from)

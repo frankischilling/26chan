@@ -4,7 +4,7 @@ GRANT CREATE ON SCHEMA content TO board_anonymous_owner;
 SET ROLE board_anonymous_owner;
 CREATE FUNCTION content.verification_queue_email(
     p_token bytea,p_email bytea,p_recipient bytea,p_peer bytea,p_session bytea,
-    p_country text,p_payload bytea,p_receipt bytea
+    p_country text,p_payload bytea,p_receipt bytea,p_context bytea
 ) RETURNS TABLE(status text,cooldown_seconds integer)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE v_now timestamptz; v_expiry bigint; v_policy verification_private.policy%ROWTYPE;
@@ -14,6 +14,7 @@ BEGIN
     IF p_token IS NULL OR octet_length(p_token)<>32 OR p_email IS NULL OR octet_length(p_email)<>32
         OR p_recipient IS NULL OR octet_length(p_recipient)<>32 OR p_peer IS NULL OR octet_length(p_peer)<>32
         OR p_session IS NULL OR octet_length(p_session)<>32 OR p_receipt IS NULL OR octet_length(p_receipt)<>32
+        OR p_context IS NULL OR octet_length(p_context)<>32
         OR p_country IS NULL OR p_country !~ '^[A-Z]{2}$'
         OR p_payload IS NULL OR octet_length(p_payload) NOT BETWEEN 98 AND 352 THEN
         RAISE EXCEPTION 'Invalid email request.' USING ERRCODE='23514';
@@ -27,7 +28,7 @@ BEGIN
     IF NOT FOUND OR v_receipt.expires_at<=v_now OR v_expiry<=extract(epoch FROM v_now)::bigint
         OR v_receipt.peer_hash<>p_peer OR v_receipt.session_hash<>p_session
         OR v_receipt.purpose<>'email_request' OR v_receipt.board IS NOT NULL OR v_receipt.target<>0
-        OR v_receipt.context_hash<>p_recipient OR v_receipt.from_credit THEN
+        OR v_receipt.context_hash<>p_context OR v_receipt.from_credit THEN
         RETURN QUERY SELECT 'challenge_required'::text,0; RETURN;
     END IF;
     DELETE FROM verification_private.mail_outbox q WHERE q.request_id IN (
@@ -70,8 +71,8 @@ BEGIN
     DELETE FROM verification_private.receipts WHERE token_hash=p_receipt;
     RETURN QUERY SELECT 'queued'::text,0;
 END $$;
-REVOKE ALL ON FUNCTION content.verification_queue_email(bytea,bytea,bytea,bytea,bytea,text,bytea,bytea) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION content.verification_queue_email(bytea,bytea,bytea,bytea,bytea,text,bytea,bytea) TO board_verifier;
+REVOKE ALL ON FUNCTION content.verification_queue_email(bytea,bytea,bytea,bytea,bytea,text,bytea,bytea,bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION content.verification_queue_email(bytea,bytea,bytea,bytea,bytea,text,bytea,bytea,bytea) TO board_verifier;
 
 CREATE FUNCTION content.verification_claim_mail(p_lease bytea,p_limit integer)
 RETURNS TABLE(request_id text,token_hash bytea,encrypted_payload bytea)

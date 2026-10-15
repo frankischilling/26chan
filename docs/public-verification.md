@@ -16,6 +16,9 @@ also bounds address length and accepts ASCII dot-atom local parts; quoted and
 control-bearing addresses are rejected. The source fixture runs only the pinned
 pure validation methods, with no application bootstrap, database, or mail call.
 
+A second pinned fixture checks twenty Twister normalization cases, including
+confusable glyphs, punctuation, Unicode stripping, and explicit Rust input bounds.
+
 The CAPTCHA policy includes the 120-second lifetime, five-second refresh base,
 unsolved-attempt escalation, posting waits, image style, and credit tiers.
 A successful answer subtracts two unsolved attempts; credit qualification uses
@@ -77,6 +80,14 @@ The source's CAPTCHA failure budget is six normally and three for suspicious
 verification. The queued request retains its limit; a suspicious verification
 challenge can tighten it. These counters are separate from the five failed
 country-check allowance and the single-use token state.
+
+The internal verification client uses a fixed numeric loopback endpoint,
+a separate service credential, bounded JSON bodies, and a twelve-second exchange
+limit. It does not resolve hostnames, follow redirects, or retry writes. Its
+protocol carries server-resolved session fingerprints rather than the browser's
+raw deletion capability. Email-request challenges bind a form context so they
+can load before the recipient is entered. The issuer process and public routes
+still need implementation.
 
 ## Disposable development setup
 

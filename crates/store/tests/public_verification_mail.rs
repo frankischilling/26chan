@@ -58,7 +58,7 @@ async fn encrypted_delivery_requires_receipt_and_exclusive_current_lease() {
             let encrypted=mail_key.seal(&token_hash,&payload).unwrap();
             let receipt=ReceiptToken::generate().unwrap();let receipt_hash=receipt.storage_hash();
             let request=EmailRequest {token_hash:&token_hash,email_hash:&identity,recipient_hash:&recipient,
-                peer_hash:&peer,session_hash:&fingerprints.token,country:"US",encrypted_payload:&encrypted,receipt_hash:&receipt_hash};
+                peer_hash:&peer,session_hash:&fingerprints.token,country:"US",encrypted_payload:&encrypted,receipt_hash:&receipt_hash,context_hash:&recipient};
             assert_eq!(verifier.queue_email(&request).await.unwrap().status,"challenge_required");
             let challenge=VerificationToken::generate(TokenKind::Challenge).unwrap();
             let challenge_hash=key.token_hash(&challenge);
