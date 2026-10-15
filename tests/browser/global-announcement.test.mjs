@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdir } from 'node:fs/promises';
 import test from 'node:test';
 import { chromium } from '@playwright/test';
 const source = await readFile(new URL('../../apps/public/static/page-chrome.v1.js', import.meta.url), 'utf8');
@@ -101,4 +101,27 @@ test('announcement controllers retain ownership through settings, BFCache and di
   await page.evaluate(() => { announcement.destroy(); announcement.destroy(); chrome.destroy(); });
   assert.equal(await page.locator('#toggleMsgBtn').count(), 0);
   assert.equal(await page.locator('#globalMessage').isVisible(), true);
+});
+
+test('announcement theme colors and mobile geometry retain the source rules', async t => {
+  const page = await fixture(t);
+  await mkdir('.local/native-client-review', { recursive: true });
+  for (const theme of ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'tomorrow', 'photon']) {
+    const themeCSS = theme === 'yotsuba' ? '' : await readFile(new URL(`../../apps/public/static/themes/${theme}.css`, import.meta.url), 'utf8');
+    const style = await page.addStyleTag({ content: themeCSS });
+    for (const mobile of [false, true]) {
+      await setup(page, { mobile });
+      if (mobile) await page.locator('#globalToggle').click();
+      const expected = mobile || !['tomorrow', 'photon'].includes(theme) ? 'rgb(255, 0, 0)'
+        : theme === 'tomorrow' ? 'rgb(197, 200, 198)' : 'rgb(51, 51, 51)';
+      assert.equal(await page.locator('#globalMessage').evaluate(node => getComputedStyle(node).color), expected);
+      if (mobile) {
+        assert.deepEqual(await page.locator('#globalToggle').evaluate(node => {
+          const css = getComputedStyle(node); return [css.width, css.paddingTop, css.paddingBottom, css.borderTopColor, css.backgroundColor];
+        }), ['200px', '6px', '5px', 'rgb(196, 88, 88)', 'rgb(255, 173, 173)']);
+      }
+      await page.screenshot({ path: `.local/native-client-review/announcement-${theme}-${mobile ? 'mobile' : 'desktop'}.png` });
+    }
+    await style.evaluate(node => node.remove());
+  }
 });

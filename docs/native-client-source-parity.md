@@ -19,6 +19,12 @@ publication path, escaped page content, source timestamp dismissal and separate
 mobile behavior. The catalog control does not depend on the extension's
 `disableAll` preference. This is separate from the existing blotter feed.
 
+Media failure notices now retain the source's two-second display and click-to-dismiss
+control. Other bounded image notices use the five-second error default. Deletion
+feedback can also be dismissed explicitly; its uncertain-operation fence remains
+in force, so dismissing a notice never enables a duplicate request. Unconfirmed
+deletions still require a refresh and do not silently time out as confirmed errors.
+
 The complete `Config`, `ConfigMobile` and `SettingsMenu.options` data is retained
 as pinned source snippets. The extractor accepts only a limited object/array,
 string and boolean grammar; it does not execute the old application. Tests

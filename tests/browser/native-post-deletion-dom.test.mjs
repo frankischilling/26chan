@@ -118,6 +118,9 @@ test('pending and unknown requests block duplicate post/file menu and ordinary-f
   assert.deepEqual(await page.evaluate(() => ({ count: calls.length, prompts })), { count: 1, prompts: ['Delete file?'] });
   assert.equal(await page.evaluate(() => completeDelete(false)), false);
   assert.match(await page.locator('.nativeDeletionFeedback').textContent(), /could not be confirmed.*Refresh the page/);
+  assert.equal(await page.locator('.nativeDeletionFeedback').getAttribute('title'), 'Dismiss');
+  await page.locator('.nativeDeletionFeedback').click();
+  assert.equal(await page.locator('.nativeDeletionFeedback').count(), 0);
   assert.equal(await page.evaluate(() => deletionController.remove(savedPost, true)), false);
   assert.equal(await page.evaluate(() => deletionController.remove(savedPost)), false);
   assert.equal(await page.evaluate(() => formSubmit()), true);

@@ -170,7 +170,7 @@ test('pending image slots have a deadline, release capacity, and permit a health
   const admission = await page.evaluate(() => [clickImage(1), clickImage(2), clickImage(3)]);
   assert.deepEqual(admission, [true, true, true]);
   assert.equal(await page.locator('.expanded-thumb').count(), 2);
-  assert.equal(await page.locator('.nativeImageFeedback').textContent(), 'Close an expanded image first.');
+  assert.equal(await page.locator('.nativeImageFeedback').textContent(), 'Close an expanded image.');
   assert.ok(!requests.some(url => url.endsWith('/3.png')));
   await page.waitForFunction(() => document.querySelectorAll('.expanded-thumb,.nativeImageLoading').length === 0);
   assert.match(await page.locator('.nativeImageFeedback').textContent(), /failed to load/);
@@ -340,7 +340,7 @@ test('retirement capacity never evicts a deleted URL or permits late media loads
   const { page } = await fixture(t, { limits: { retired: 1 } });
   assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/1.png')), true);
   assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/2.png')), false);
-  assert.match(await page.locator('.nativeImageFeedback').textContent(), /Refresh before opening/);
+  assert.equal(await page.locator('.nativeImageFeedback').textContent(), 'Refresh to open more images.');
   for (const id of [1, 2, 3]) assert.equal(await page.evaluate(id => clickImage(id), id), true);
   assert.equal(await page.locator('.expanded-thumb,#image-hover').count(), 0);
 });
@@ -617,3 +617,22 @@ for (const mobile of [false, true]) {
     assert.equal(await player.evaluate(video => video.muted), true);
   });
 }
+
+test('failed-media feedback retains the source two-second timeout and click dismissal', async t => {
+  const { page, modes } = await fixture(t, { video: 'red.webm', count: 1 });
+  modes.set('/demo/1.webm', 'fail');
+  await page.evaluate(() => {
+    window.feedbackTimeouts = [];
+    const schedule = window.setTimeout;
+    window.setTimeout = (callback, delay, ...args) => {
+      feedbackTimeouts.push(delay); return schedule(callback, delay, ...args);
+    };
+    clickImage(1);
+  });
+  await page.locator('.nativeImageFeedback').waitFor();
+  assert.equal(await page.locator('.nativeImageFeedback').getAttribute('title'), 'Dismiss');
+  assert.equal(await page.locator('.nativeImageFeedback').getAttribute('role'), 'status');
+  assert.equal(await page.evaluate(() => feedbackTimeouts.includes(2000)), true);
+  await page.locator('.nativeImageFeedback').click();
+  assert.equal(await page.locator('.nativeImageFeedback').count(), 0);
+});
