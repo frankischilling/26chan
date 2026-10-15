@@ -3,27 +3,33 @@ import { readFile, mkdir } from 'node:fs/promises';
 import test from 'node:test';
 import { chromium } from '@playwright/test';
 const source = await readFile(new URL('../../apps/public/static/page-chrome.v1.js', import.meta.url), 'utf8');
+const commonCSS = await readFile(new URL('../../apps/public/static/themes/common.css', import.meta.url), 'utf8');
 const css = await readFile(new URL('../../apps/public/static/board.css', import.meta.url), 'utf8');
 const reference = JSON.parse(await readFile(new URL('../fixtures/global-announcement-source.json', import.meta.url)));
 const origin = 'https://announcement.example';
 async function fixture(t) {
   const browser = await chromium.launch(); t.after(() => browser.close());
-  const page = await browser.newPage(); const errors = [];
+  const page = await browser.newPage(); const errors = [], unmatched = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/*', route => {
     const url = new URL(route.request().url());
     if (url.origin !== origin) return route.abort();
     if (url.pathname === '/static/page-chrome.v1.js') return route.fulfill({ contentType: 'text/javascript', body: source });
     if (url.pathname === '/static/board.css') return route.fulfill({ contentType: 'text/css', body: css });
-    if (/^\/static\/watcher\/futaba\/post_expand_(plus|minus)(@2x)?\.png$/.test(url.pathname)) {
+    if (/^\/static\/watcher\/(futaba|burichan|tomorrow|photon)\/post_expand_(plus|minus)(@2x)?\.png$/.test(url.pathname)) {
       return readFile(new URL(`../../apps/public${url.pathname}`, import.meta.url)).then(body => route.fulfill({ contentType: 'image/png', body }));
     }
     if (url.pathname === '/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><link rel="stylesheet" href="/static/board.css"><body class="publicPageChrome" data-page-catalog="false"></body>' });
-    return route.fulfill({ status: 404 });
+    if (/^\/static\/themes\/fade(-blue)?\.png$/.test(url.pathname)) {
+      return readFile(new URL(`../../apps/public${url.pathname}`, import.meta.url)).then(body => route.fulfill({ contentType: 'image/png', body }));
+    }
+    if (url.pathname === '/favicon.ico') return route.fulfill({ status: 204 });
+    unmatched.push(url.pathname); return route.fulfill({ status: 404 });
   });
   await page.goto(origin);
+  await page.addStyleTag({ content: commonCSS });
   await page.evaluate(async () => { window.announcementModule = await import('/static/page-chrome.v1.js'); });
-  t.after(() => assert.deepEqual(errors, []));
+  t.after(() => { assert.deepEqual(errors, []); assert.deepEqual(unmatched, []); });
   return page;
 }
 async function setup(page, { current = '1700000000', previous = null, mode = 'board', mobile = false, disabled = false, denied = false, empty = false } = {}) {
@@ -120,6 +126,11 @@ test('announcement theme colors and mobile geometry retain the source rules', as
           const css = getComputedStyle(node); return [css.width, css.paddingTop, css.paddingBottom, css.borderTopColor, css.backgroundColor];
         }), ['200px', '6px', '5px', 'rgb(196, 88, 88)', 'rgb(255, 173, 173)']);
       }
+      if (!mobile) assert.ok(await page.locator('#toggleMsgBtn').evaluate(async node => {
+        const match = /url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(node).backgroundImage);
+        if (!match) return false;
+        const image = new Image(); image.src = match[1]; await image.decode(); return image.naturalWidth > 0;
+      }), 'the actual theme toggle icon must load before its review capture');
       await page.screenshot({ path: `.local/native-client-review/announcement-${theme}-${mobile ? 'mobile' : 'desktop'}.png` });
     }
     await style.evaluate(node => node.remove());
