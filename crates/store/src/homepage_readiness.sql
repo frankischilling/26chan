@@ -28,13 +28,74 @@ AND NOT EXISTS(SELECT 1 FROM relations r WHERE r.relowner<>(SELECT oid FROM pg_r
  OR (r.nspname='site_private' AND has_table_privilege('board_public',r.oid,'SELECT'))
  OR has_table_privilege('board_public',r.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))))
 AND NOT EXISTS(SELECT 1 FROM (VALUES
- ('site_private','frontpage_eligible',$definition$SELECTp.id,p.board,p.thread_id,"left"(b.title,120)ASboard_title,"left"(p.subject,120)ASsubject,"left"(p.comment,300)ASexcerpt,p.created_at,t.bumped_at,t.sticky,(SELECTcount(*)::integerAScountFROMcontent.postsrWHEREr.board=p.boardANDr.thread_id=p.thread_idANDr.id<>p.thread_idANDNOTr.deleted)ASreply_count,(SELECTcount(*)::integerAScountFROMcontent.postsrJOINcontent.visible_post_mediarmONrm.post_id=r.idANDNOTrm.file_deletedWHEREr.board=p.boardANDr.thread_id=p.thread_idANDr.id<>p.thread_idANDNOTr.deleted)ASimage_count,m.tim,m.bytes,m.thumbnail_width,m.thumbnail_heightFROMcontent.postspJOINcontent.threadstONt.id=p.thread_idANDt.board=p.boardJOINcontent.boardsbONb.slug=p.boardLEFTJOINcontent.visible_post_mediamONm.post_id=p.idANDNOTm.file_deletedWHERENOTp.deletedANDNOTt.deletedANDt.archived_atISNULLANDNOTb.staff_onlyAND(p.board<>ALL(ARRAY['b'::text,'f'::text,'qa'::text]))ANDp.created_at<(CURRENT_TIMESTAMP-'00:10:00'::interval)ANDNOTp.image_spoilerANDNOTCOALESCE(m.spoiler,false)ANDstrpos(p.subject,'SPOILER<>'::text)<>1ANDstrpos(p.comment,'[spoiler]'::text)=0ANDstrpos(COALESCE(m.filename,''::text),'.pdf'::text)=0ANDstrpos(COALESCE(m.filename,''::text),'.webm'::text)=0ANDNOT(EXISTS(SELECT1FROMcontent.reportsrWHEREr.board=p.boardANDr.post_id=p.id));$definition$),
- ('content','homepage_cards',$definition$SELECTc.kind,c.slot,e.id,e.board,e.thread_id,e.board_title,e.subject,e.excerpt,e.created_at,e.reply_count,e.image_count,e.tim,e.bytes,e.thumbnail_width,e.thumbnail_heightFROMsite_private.frontpage_cardscJOINsite_private.frontpage_eligibleeONe.id=c.post_idWHERE(c.kind<>'images'::textORe.timISNOTNULL)AND(c.kind<>'popular'::textORe.id=e.thread_idANDe.reply_count>=15);$definition$),
- ('content','homepage_statistics',$definition$SELECTgeneration,generated_at,recorded_posts,active_content_bytes,active_sessionsFROMsite_private.frontpage_stateWHEREboard_slugs=(ARRAY(SELECTboards.slugFROMcontent.boardsWHERENOTboards.staff_onlyORDERBYboards.source_order,boards.slugLIMIT100));$definition$),
- ('content','homepage_board_statistics',$definition$SELECTs.board,s.generated_at,s.recorded_posts,s.last_post_id,s.active_threadsFROMsite_private.board_statisticssJOINcontent.boardsbONb.slug=s.boardWHERENOTb.staff_onlyAND(s.board=ANY(((SELECTfrontpage_state.board_slugsFROMsite_private.frontpage_state))::text[]));$definition$)
+ ('site_private','frontpage_eligible',$definition$ SELECT p.id,
+    p.board,
+    p.thread_id,
+    "left"(b.title, 120) AS board_title,
+    "left"(p.subject, 120) AS subject,
+    "left"(p.comment, 300) AS excerpt,
+    p.created_at,
+    t.bumped_at,
+    t.sticky,
+    ( SELECT count(*)::integer AS count
+           FROM content.posts r
+          WHERE r.board = p.board AND r.thread_id = p.thread_id AND r.id <> p.thread_id AND NOT r.deleted) AS reply_count,
+    ( SELECT count(*)::integer AS count
+           FROM content.posts r
+             JOIN content.visible_post_media rm ON rm.post_id = r.id AND NOT rm.file_deleted
+          WHERE r.board = p.board AND r.thread_id = p.thread_id AND r.id <> p.thread_id AND NOT r.deleted) AS image_count,
+    m.tim,
+    m.bytes,
+    m.thumbnail_width,
+    m.thumbnail_height
+   FROM content.posts p
+     JOIN content.threads t ON t.id = p.thread_id AND t.board = p.board
+     JOIN content.boards b ON b.slug = p.board
+     LEFT JOIN content.visible_post_media m ON m.post_id = p.id AND NOT m.file_deleted
+  WHERE NOT p.deleted AND NOT t.deleted AND t.archived_at IS NULL AND NOT b.staff_only AND (p.board <> ALL (ARRAY['b'::text, 'f'::text, 'qa'::text])) AND p.created_at < (CURRENT_TIMESTAMP - '00:10:00'::interval) AND NOT p.image_spoiler AND NOT COALESCE(m.spoiler, false) AND strpos(p.subject, 'SPOILER<>'::text) <> 1 AND strpos(p.comment, '[spoiler]'::text) = 0 AND strpos(COALESCE(m.filename, ''::text), '.pdf'::text) = 0 AND strpos(COALESCE(m.filename, ''::text), '.webm'::text) = 0 AND NOT (EXISTS ( SELECT 1
+           FROM content.reports r
+          WHERE r.board = p.board AND r.post_id = p.id));$definition$),
+ ('content','homepage_cards',$definition$ SELECT c.kind,
+    c.slot,
+    e.id,
+    e.board,
+    e.thread_id,
+    e.board_title,
+    e.subject,
+    e.excerpt,
+    e.created_at,
+    e.reply_count,
+    e.image_count,
+    e.tim,
+    e.bytes,
+    e.thumbnail_width,
+    e.thumbnail_height
+   FROM site_private.frontpage_cards c
+     JOIN site_private.frontpage_eligible e ON e.id = c.post_id
+  WHERE (c.kind <> 'images'::text OR e.tim IS NOT NULL) AND (c.kind <> 'popular'::text OR e.id = e.thread_id AND e.reply_count >= 15);$definition$),
+ ('content','homepage_statistics',$definition$ SELECT generation,
+    generated_at,
+    recorded_posts,
+    active_content_bytes,
+    active_sessions
+   FROM site_private.frontpage_state
+  WHERE board_slugs = (ARRAY( SELECT boards.slug
+           FROM content.boards
+          WHERE NOT boards.staff_only
+          ORDER BY boards.source_order, boards.slug
+         LIMIT 100));$definition$),
+ ('content','homepage_board_statistics',$definition$ SELECT s.board,
+    s.generated_at,
+    s.recorded_posts,
+    s.last_post_id,
+    s.active_threads
+   FROM site_private.board_statistics s
+     JOIN content.boards b ON b.slug = s.board
+  WHERE NOT b.staff_only AND (s.board = ANY ((( SELECT frontpage_state.board_slugs
+           FROM site_private.frontpage_state))::text[]));$definition$)
  ) expected(schema,name,definition)
  WHERE NOT EXISTS(SELECT 1 FROM relations r WHERE r.nspname=expected.schema AND r.relname=expected.name
- AND regexp_replace(pg_get_viewdef(r.oid,true),'[[:space:]]','','g')=expected.definition))
+ AND pg_get_viewdef(r.oid,true)=expected.definition))
 AND NOT EXISTS(SELECT 1 FROM (VALUES
  ('frontpage_state',$definition$CHECK (singleton)$definition$),
  ('frontpage_state',$definition$CHECK (generation >= 1 AND generation <= 2147483647)$definition$),
@@ -57,4 +118,4 @@ AND NOT EXISTS(SELECT 1 FROM (VALUES
  ) expected(name,definition)
  WHERE NOT EXISTS(SELECT 1 FROM pg_constraint c JOIN relations r ON r.oid=c.conrelid
  WHERE r.nspname='site_private' AND r.relname=expected.name AND c.convalidated AND NOT c.condeferrable
- AND regexp_replace(pg_get_constraintdef(c.oid,true),'[[:space:]]','','g')=regexp_replace(expected.definition,'[[:space:]]','','g')))
+ AND pg_get_constraintdef(c.oid,true)=expected.definition))

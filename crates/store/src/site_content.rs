@@ -404,11 +404,26 @@ AND NOT EXISTS(SELECT 1 FROM relations r WHERE r.relowner<>(SELECT oid FROM pg_r
  OR NOT has_table_privilege('board_public',r.oid,'SELECT')
  OR has_table_privilege('board_public',r.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))))
 AND NOT EXISTS(SELECT 1 FROM (VALUES
- ('published_site_pages','SELECT key,board,title,body,revision,updated_at FROM site_private.pages p WHERE published AND (board IS NULL OR EXISTS(SELECT 1 FROM content.boards b WHERE b.slug=p.board AND NOT b.staff_only));'),
- ('published_news','SELECT id,published_at,title,body,author FROM site_private.news WHERE published AND published_at<=CURRENT_TIMESTAMP;')
+ ('published_site_pages',$definition$ SELECT key,
+    board,
+    title,
+    body,
+    revision,
+    updated_at
+   FROM site_private.pages p
+  WHERE published AND (board IS NULL OR (EXISTS ( SELECT 1
+           FROM content.boards b
+          WHERE b.slug = p.board AND NOT b.staff_only)));$definition$),
+ ('published_news',$definition$ SELECT id,
+    published_at,
+    title,
+    body,
+    author
+   FROM site_private.news
+  WHERE published AND published_at <= CURRENT_TIMESTAMP;$definition$)
  ) expected(name,definition)
  WHERE NOT EXISTS(SELECT 1 FROM relations r WHERE r.nspname='content' AND r.relname=expected.name
- AND regexp_replace(pg_get_viewdef(r.oid,true),'[[:space:]()]','','g')=regexp_replace(expected.definition,'[[:space:]()]','','g')))
+ AND pg_get_viewdef(r.oid,true)=expected.definition))
 AND NOT EXISTS(SELECT 1 FROM (VALUES
  ('pages','PRIMARY KEY (key)'),('news','PRIMARY KEY (id)'),
  ('pages','FOREIGN KEY (board) REFERENCES content.boards(slug) ON DELETE CASCADE'),
@@ -421,7 +436,7 @@ AND NOT EXISTS(SELECT 1 FROM (VALUES
  ) expected(name,definition)
  WHERE NOT EXISTS(SELECT 1 FROM pg_constraint c JOIN relations r ON r.oid=c.conrelid
  WHERE r.nspname='site_private' AND r.relname=expected.name AND c.convalidated AND NOT c.condeferrable
- AND regexp_replace(pg_get_constraintdef(c.oid,true),'[[:space:]()]','','g')=regexp_replace(expected.definition,'[[:space:]()]','','g')))
+ AND pg_get_constraintdef(c.oid,true)=expected.definition))
 "#;
 
 #[cfg(test)]

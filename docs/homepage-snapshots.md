@@ -60,7 +60,9 @@ staleness, generation exhaustion, retained snapshots and the 64-sample bound.
 Concurrent refreshes retain complete generations. Concurrent editors using the
 same page revision admit one update and reject the other; errors finish rollback
 before returning the connection, so a rejected editor does not retain locks.
-Eight schema drift controls cover visibility, grants and bounds. The actual
+Nine schema drift controls cover visibility, grants, bounds and literal marker
+whitespace. Readiness compares complete canonical view definitions without
+stripping characters from quoted filter values. The actual
 Askama homepage and posting-notice templates also compile in a focused harness.
 The populated 0154 upgrade preserves boards, threads and posts; a schema-name
 conflict rolls back, and an administrator dump/restore preserves public

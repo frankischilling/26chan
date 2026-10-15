@@ -69,6 +69,21 @@ async fn snapshots_keep_source_candidate_order_and_recheck_current_public_state(
         );
         tx.rollback().await.unwrap();
     }
+    // Literal whitespace is part of the source marker, not SQL formatting.
+    let mut tx = owner.begin().await.unwrap();
+    sqlx::query(r#"DO $$ DECLARE original text; changed text; BEGIN
+        original := pg_get_viewdef('site_private.frontpage_eligible'::regclass,true);
+        changed := replace(original,'''SPOILER<>''::text','''SPOILER <>''::text');
+        IF original=changed THEN RAISE EXCEPTION 'owned marker fixture is missing'; END IF;
+        EXECUTE 'CREATE OR REPLACE VIEW site_private.frontpage_eligible WITH(security_barrier=true) AS ' || changed;
+    END $$;"#).execute(&mut *tx).await.unwrap();
+    assert!(
+        !sqlx::query_scalar::<_, bool>(homepage::READINESS_SQL)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap()
+    );
+    tx.rollback().await.unwrap();
     let main = op(&owner, &board, "Owned popular thread").await;
     let picture = op(&owner, &board, "Owned image").await;
     let blocked = op(&owner, &board, "Owned excluded filename").await;
