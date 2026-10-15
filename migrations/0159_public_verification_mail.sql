@@ -63,8 +63,8 @@ BEGIN
         OR (SELECT count(*) FROM (SELECT 1 FROM verification_private.mail_outbox LIMIT v_policy.outbox_limit) bounded)>=v_policy.outbox_limit THEN
         RAISE EXCEPTION 'Verification capacity is unavailable.' USING ERRCODE='54000';
     END IF;
-    INSERT INTO verification_private.email_requests(token_hash,email_hash,recipient_hash,peer_hash,country,created_at,expires_at)
-        VALUES(p_token,p_email,p_recipient,p_peer,p_country,v_now,v_now+interval '24 hours') RETURNING id INTO v_id;
+    INSERT INTO verification_private.email_requests(token_hash,email_hash,recipient_hash,peer_hash,country,captcha_failure_limit,created_at,expires_at)
+        VALUES(p_token,p_email,p_recipient,p_peer,p_country,CASE WHEN v_receipt.suspicious THEN 3 ELSE 6 END,v_now,v_now+interval '24 hours') RETURNING id INTO v_id;
     INSERT INTO verification_private.mail_outbox(request_id,recipient_hash,encrypted_payload,created_at,expires_at,retry_after)
         VALUES(v_id,p_recipient,p_payload,v_now,v_now+interval '1 hour',v_now);
     DELETE FROM verification_private.receipts WHERE token_hash=p_receipt;

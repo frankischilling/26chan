@@ -8,8 +8,8 @@ use board_domain::{
 use board_store::{
     StoreError,
     verification::{
-        ChallengeCheck, ChallengePurpose, EmailRequest, NewChallenge, VerificationStore,
-        mail::MailStore,
+        ChallengeCheck, ChallengePurpose, EmailAcceptance, EmailRequest, NewChallenge,
+        VerificationStore, mail::MailStore,
     },
 };
 use sqlx::PgPool;
@@ -41,6 +41,9 @@ async fn encrypted_delivery_requires_receipt_and_exclusive_current_lease() {
     let mail_key = MailKey::parse(&ReceiptToken::generate().unwrap().encode()[3..]).unwrap();
     let session = Capability::generate().unwrap();
     let fingerprints = session.fingerprints(Some("192.0.2.20".parse().unwrap()), *b"US");
+    let replacement = Capability::generate()
+        .unwrap()
+        .fingerprints(Some("192.0.2.20".parse().unwrap()), *b"US");
     let peer = key.network_identity("192.0.2.20".parse().unwrap());
     let email = PreparedEmail::prepare("owned.fixture@gmail.com").unwrap();
     let identity = key.email_identity(&email);
@@ -93,6 +96,34 @@ async fn encrypted_delivery_requires_receipt_and_exclusive_current_lease() {
             assert!(mailer.claim(&other,100).await.unwrap().is_empty());
             assert!(sqlx::query_scalar::<_,bool>("SELECT delivered_at IS NOT NULL FROM verification_private.email_requests WHERE token_hash=$1")
                 .bind(token_hash.as_slice()).fetch_one(&owner).await.unwrap());
+            assert_eq!(verifier.email_state(&token_hash).await.unwrap(),"pending");
+            sqlx::query("UPDATE verification_private.peers SET refresh_after=clock_timestamp()-interval '1 second' WHERE peer_hash=$1")
+                .bind(peer.as_slice()).execute(&owner).await.unwrap();
+            sqlx::query("UPDATE post_secrets.anonymous_sessions SET posts=7,images=2,reports=4,pending=1,created_at=extract(epoch FROM clock_timestamp())::bigint-86400,activity_at=extract(epoch FROM clock_timestamp())::bigint-60 WHERE token_hash=$1")
+                .bind(fingerprints.token.as_slice()).execute(&owner).await.unwrap();
+            let verify_challenge=VerificationToken::generate(TokenKind::Challenge).unwrap();
+            let verify_hash=key.token_hash(&verify_challenge);
+            let answer=key.challenge_answer(&verify_challenge,6).unwrap();
+            let answer_hash=key.answer_hash(&verify_challenge,answer.as_str()).unwrap();
+            let verify_receipt=ReceiptToken::generate().unwrap().storage_hash();
+            assert!(verifier.issue_challenge(&NewChallenge {token_hash:&verify_hash,answer_hash:&answer_hash,peer_hash:&peer,
+                session_hash:&fingerprints.token,purpose:ChallengePurpose::EmailVerify,board:None,target:0,context_hash:&token_hash,suspicious:false}).await.unwrap().issued);
+            assert!(verifier.check_challenge(&ChallengeCheck {token_hash:&verify_hash,answer_hash:Some(&answer_hash),peer_hash:&peer,
+                session_hash:&fingerprints.token,purpose:ChallengePurpose::EmailVerify,board:None,target:0,context_hash:&token_hash,receipt_hash:&verify_receipt}).await.unwrap());
+            let acceptance=EmailAcceptance {token_hash:&token_hash,peer_hash:&peer,country:"US",receipt_hash:&verify_receipt,previous:&fingerprints,replacement:&replacement};
+            let (first,second)=tokio::join!(verifier.accept_email(&acceptance),verifier.accept_email(&acceptance));
+            let statuses=[first.unwrap(),second.unwrap()];
+            assert_eq!(statuses.iter().filter(|s|s.as_str()=="verified").count(),1);
+            assert_eq!(statuses.iter().filter(|s|s.as_str()=="authorization_changed").count(),1);
+            assert_eq!(verifier.email_state(&token_hash).await.unwrap(),"already_used");
+            assert!(verifier.session(&fingerprints.token).await.unwrap().is_none());
+            assert!(verifier.ensure_session(&fingerprints,false).await.is_err());
+            let now=chrono::Utc::now().timestamp().try_into().unwrap();
+            let state=verifier.session(&replacement.token).await.unwrap().unwrap().for_request(now,&replacement);
+            assert_eq!((state.verified_level,state.posts,state.images,state.reports,state.pending),(1,7,2,4,1));
+            assert!(verifier.signout(&replacement.token).await.unwrap());
+            assert!(!verifier.signout(&replacement.token).await.unwrap());
+            assert!(verifier.session(&replacement.token).await.unwrap().is_none());
         }
     }).await;
     sqlx::query("DELETE FROM verification_private.email_requests WHERE email_hash=$1")
@@ -107,6 +138,16 @@ async fn encrypted_delivery_requires_receipt_and_exclusive_current_lease() {
         .unwrap();
     sqlx::query("DELETE FROM verification_private.peers WHERE peer_hash=$1")
         .bind(peer.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+        .bind(replacement.token.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM verification_private.identities WHERE email_hash=$1")
+        .bind(identity.as_slice())
         .execute(&owner)
         .await
         .unwrap();

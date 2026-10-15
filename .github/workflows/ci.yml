@@ -72,6 +72,7 @@ jobs:
         run: |
           python3 scripts/test-dev-db-env.py
           python3 scripts/test-dev-staff-db-env.py
+          python3 scripts/test-dev-verification-db-env.py
           sudo bash scripts/test-role-bootstrap.sh
           sudo bash scripts/test-source-restrictions-migration.sh
           sudo bash scripts/dev-db.sh
@@ -80,6 +81,7 @@ jobs:
           sudo bash scripts/dev-intake-db.sh
           sudo bash scripts/dev-monitor-db.sh
           sudo bash scripts/dev-staff-db.sh
+          sudo bash scripts/dev-verification-db.sh
           sudo chown -R "$(id -u):$(id -g)" .local
           source .local/database.env
           cargo run -p board-store --bin board-migrate --locked

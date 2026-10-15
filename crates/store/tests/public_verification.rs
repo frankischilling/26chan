@@ -143,7 +143,7 @@ async fn only_verifier_mints_zero_activity_sessions_and_readiness_rejects_drift(
                 assert!(!verifier.check_challenge(&ChallengeCheck {context_hash:&mismatch,..check}).await.unwrap());
                 let wrong=[55;32];
                 if mode==3 {
-                    sqlx::query("UPDATE verification_private.challenges SET created_at=clock_timestamp()-interval '121 seconds',expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=$1")
+                    sqlx::query("UPDATE verification_private.challenges SET created_at=statement_timestamp()-interval '121 seconds',expires_at=statement_timestamp()-interval '1 second' WHERE token_hash=$1")
                         .bind(next_hash.as_slice()).execute(&owner).await.unwrap();
                 }
                 if mode==0 {

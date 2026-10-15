@@ -12,12 +12,13 @@ const boundedDrawing = `timeout 300s ${drawing}`;
 const prerequisites = [
   'cargo build --workspace --examples --bins --locked',
   'cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked',
-  'cargo test --workspace --all-features --locked',
+  'cargo test -p board-store --all-features --locked',
+  'cargo test --workspace --exclude board-store --all-features --locked',
   'cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture',
   'cargo test -p board-public --example deletion-fixture --features database-tests --locked',
   'cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked',
 ];
-const browserPrerequisites = [prerequisites[0], prerequisites[1], prerequisites[4], prerequisites[5]];
+const browserPrerequisites = [prerequisites[0], prerequisites[1], prerequisites[5], prerequisites[6]];
 const dependencyCommands = ['npm ci --ignore-scripts', 'npx playwright install --with-deps chromium'];
 const suites = ['rust', 'browser-content', 'browser-interactions'];
 const roles = ['TEST_PUBLIC', 'MEDIA', 'MEDIA_READ', 'INTAKE', 'MONITOR', 'AUTH', 'STAFF'];
@@ -53,7 +54,8 @@ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
 cargo build --workspace --examples --bins --locked
 cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked
-cargo test --workspace --all-features --locked
+cargo test -p board-store --all-features --locked
+cargo test --workspace --exclude board-store --all-features --locked
 cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture
 cargo test -p board-public --example deletion-fixture --features database-tests --locked
 cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked
@@ -114,9 +116,14 @@ function runRunner(t, { fail = '', source, args = [], env: overrides = {} } = {}
   const bin = path.join(directory, 'bin');
   const log = path.join(directory, 'commands');
   const environmentLog = path.join(directory, 'environment');
+  const verificationLog = path.join(directory, 'verification-environment');
   mkdirSync(bin);
+  mkdirSync(path.join(directory, '.local'));
+  writeFileSync(path.join(directory, '.local/verification-tests.env'),
+    'export TEST_VERIFICATION_DATABASE_URL=owned-issuer-trace\nexport TEST_VERIFICATION_MAIL_DATABASE_URL=owned-mail-trace\n', { mode: 0o600 });
   writeFileSync(log, '');
   writeFileSync(environmentLog, '');
+  writeFileSync(verificationLog, '');
   // Command-trace doubles only: no builds, databases, fixtures, or browsers run.
   // PATH contains only these owned stubs, and no caller credentials are inherited.
   const stub = `#!/bin/bash
@@ -125,6 +132,7 @@ name=\${0##*/}
 command="$name $*"
 printf '%s\\n' "$command" >> "$VERIFY_TEST_LOG"
 printf '%s\\t%s\\t%s\\t%s\\n' "$command" "\${AZURE_CONFIG_DIR-}" "\${SSH_AUTH_SOCK-}" "\${EXTRA_DATABASE_URL-}" >> "$VERIFY_TEST_ENV_LOG"
+printf '%s\\t%s\\t%s\\n' "$command" "\${TEST_VERIFICATION_DATABASE_URL-}" "\${TEST_VERIFICATION_MAIL_DATABASE_URL-}" >> "$VERIFY_TEST_VERIFICATION_LOG"
 if [[ "$command" == "$VERIFY_TEST_FAIL" ]]; then exit 73; fi
 if [[ "$name" == timeout ]]; then
   shift
@@ -140,7 +148,7 @@ exit 0
     script = path.join(directory, 'old-order.sh');
     writeFileSync(script, source);
   }
-  const env = { PATH: bin, APP_ENV: 'development', CI: 'true', VERIFY_TEST_LOG: log, VERIFY_TEST_ENV_LOG: environmentLog, VERIFY_TEST_FAIL: fail };
+  const env = { PATH: bin, APP_ENV: 'development', CI: 'true', VERIFY_TEST_LOG: log, VERIFY_TEST_ENV_LOG: environmentLog, VERIFY_TEST_VERIFICATION_LOG: verificationLog, VERIFY_TEST_FAIL: fail };
   for (const role of roles) {
     env[`${role}_DATABASE_URL`] = 'owned-command-trace-only';
   }
@@ -155,6 +163,7 @@ exit 0
   assert.equal(result.signal, null);
   return {
     ...result,
+    verificationEnvironments: readFileSync(verificationLog, 'utf8').split('\n').filter(Boolean).map(line => line.split('\t')),
     commands: readFileSync(log, 'utf8').trim().split('\n').filter(Boolean),
     environments: readFileSync(environmentLog, 'utf8').split('\n').filter(Boolean).map(line => line.split('\t')),
   };
@@ -338,6 +347,18 @@ test('the staff browser alone receives all three synthetic inherited-environment
       assert.deepEqual(environment, command === staff ? [
         '/tmp/owned-synthetic-cloud-config', '/tmp/owned-synthetic-agent', 'owned-synthetic-shadow-url',
       ] : ['', '', ''], `${suite}: ${command}`);
+    }
+  }
+});
+
+test('only store tests receive isolated verification database credentials', options, t => {
+  for (const suite of ['all', ...suites]) {
+    const result = runRunner(t, { args: [suite] });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.verificationEnvironments.length, result.commands.length);
+    for (const [command, issuer, mailer] of result.verificationEnvironments) {
+      assert.deepEqual([issuer, mailer], command === 'cargo test -p board-store --all-features --locked'
+        ? ['owned-issuer-trace', 'owned-mail-trace'] : ['', ''], command);
     }
   }
 });

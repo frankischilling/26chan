@@ -62,7 +62,14 @@ rust_checks() {
   python3 scripts/check-media-parser-dependencies.py
   cargo build --workspace --examples --bins --locked
   cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked
-  cargo test --workspace --all-features --locked
+  # Only store tests receive the isolated issuer and delivery database roles.
+  (
+    source .local/verification-tests.env
+    : "${TEST_VERIFICATION_DATABASE_URL:?Set the disposable verifier database URL}"
+    : "${TEST_VERIFICATION_MAIL_DATABASE_URL:?Set the disposable mail database URL}"
+    cargo test -p board-store --all-features --locked
+  )
+  cargo test --workspace --exclude board-store --all-features --locked
   cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture
   cargo test -p board-public --example deletion-fixture --features database-tests --locked
   cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked

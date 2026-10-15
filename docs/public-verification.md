@@ -24,9 +24,9 @@ confusable glyphs before hashing.
 
 Browser activity stays per browser, as it does in the signed UserPwd cookie.
 Email identity and deletion ownership can be shared across verified browsers.
-The planned verification transition preserves an unverified browser's resumed
-activity, resets an already-verified browser's activity, and rotates the browser
-capability. It must retain the seven-day idle verification reset.
+The verification transition preserves an unverified browser's resumed activity,
+resets an already-verified browser's activity, and rotates the browser capability.
+The seven-day idle verification reset remains in effect.
 
 ## Authority and storage
 
@@ -59,17 +59,55 @@ a separate key and authenticates the request's token hash as context. Plaintext
 recipients, bearer tokens, and keys have no automatic debug or serialization
 implementations. Tests use synthetic addresses and never send email.
 
+Migrations 0160–0162 add receipt-backed browser verification and current-browser
+signout. Concurrent verification can rotate a browser only once. Signout leaves
+ordinary anonymous sessions alone. For a linked browser, it revokes the capability
+even after an idle reset; this is a security distinction from the source, which
+only clears a cookie whose resumed verification level is positive.
+
+Newly registered verified posts retain private deletion ownership independently
+of the originating browser's lifetime. Linked browsers share automatic admission
+equality while keeping separate activity counters and anonymous UUIDs. Earlier
+anonymous posts are not assigned to the email identity. Staff text transfer
+copies and verifies durable ownership with the other private evidence; whole-post
+erasure removes the proof. The existing restriction and transfer catalogs are
+checked before their reviewed dependencies change and resealed afterward.
+
+The source's CAPTCHA failure budget is six normally and three for suspicious
+verification. The queued request retains its limit; a suspicious verification
+challenge can tighten it. These counters are separate from the five failed
+country-check allowance and the single-use token state.
+
+## Disposable development setup
+
+After `scripts/dev-db.sh`, run `sudo bash scripts/dev-verification-db.sh` against
+the owned development cluster. It refuses to overwrite existing credential files
+or operate on a different cluster. The issuer and mail worker receive separate
+`.local/verification-issuer.env` and `.local/verification-mail.env` files; matching
+PowerShell files are generated too. Runtime keys and service startup still need
+integration.
+
+Only the store-test subprocess sources `.local/verification-tests.env`, which
+contains both synthetic database roles. The regular public/staff workspace tests
+and browser commands do not inherit those exports. Command-trace tests check
+that separation and retain every prior verification prerequisite.
+
 ## Current evidence and remaining work
 
 Focused tests cover source email preparation, secret separation, answer
 normalization, authenticated mail payloads, fresh-session state, issuer role
 drift, refresh delays, wrong/expired/replayed answers, concurrent receipt
-creation, receipt-backed enqueue, exclusive delivery leases, and failed delivery
-retry. Fresh PostgreSQL migrations and actual restricted-role calls pass in an
+creation, receipt-backed enqueue, exclusive delivery leases, failed delivery
+retry, browser rotation, independent activity, durable ownership, and transfer
+and erasure of that ownership. Fresh PostgreSQL migrations and actual restricted-role calls pass in an
 owned synthetic database. These tests use focused builds of the changed modules;
-they do not replace the full workspace or hosted test suites.
+they do not replace the full workspace or hosted test suites. A separate local
+harness also compiles a byte-identical copy of the complete store source against
+the actual domain crate and runs the existing anonymous-session and transfer
+suites. That harness uses local no-TLS dependencies, so it does not qualify the
+normal locked application build.
 
-Still required: browser verification and signout, durable ownership integration,
+Still required: public route/form integration for verification and signout,
 transactional post/report receipts and credits, ticket handling, the isolated
 service and local mail fixture, challenge rendering, ordinary/Quick Reply/report
 and sign-in forms, source-oracle coverage for remaining policies, upgrade/restore

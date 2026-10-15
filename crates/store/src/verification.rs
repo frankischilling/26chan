@@ -83,6 +83,15 @@ pub struct EmailQueueResult {
     pub cooldown_seconds: i32,
 }
 
+pub struct EmailAcceptance<'a> {
+    pub token_hash: &'a [u8; 32],
+    pub peer_hash: &'a [u8; 32],
+    pub country: &'a str,
+    pub receipt_hash: &'a [u8; 32],
+    pub previous: &'a Fingerprints,
+    pub replacement: &'a Fingerprints,
+}
+
 impl VerificationStore {
     pub async fn connect(url: &str) -> Result<Self, StoreError> {
         let pool = PgPoolOptions::new()
@@ -112,7 +121,7 @@ impl VerificationStore {
              AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                WHERE n.nspname='verification_private' AND c.relkind='r'
                  AND has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))
-             AND coalesce((SELECT count(*)=4 AND bool_and(p.prosecdef AND p.proowner='board_anonymous_owner'::regrole
+             AND coalesce((SELECT count(*)=7 AND bool_and(p.prosecdef AND p.proowner='board_anonymous_owner'::regrole
                AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
                AND has_function_privilege(current_user,p.oid,'EXECUTE')
                AND NOT has_function_privilege('board_public',p.oid,'EXECUTE')
@@ -123,7 +132,10 @@ impl VerificationStore {
                  to_regprocedure('content.verification_ensure_session(bytea,bytea,bytea,bytea,boolean)'),
                  to_regprocedure('content.verification_issue_challenge(bytea,bytea,bytea,bytea,text,text,bigint,bytea,boolean)'),
                  to_regprocedure('content.verification_check_challenge(bytea,bytea,bytea,bytea,text,text,bigint,bytea,bytea)'),
-                 to_regprocedure('content.verification_queue_email(bytea,bytea,bytea,bytea,bytea,text,bytea,bytea)'))),false)
+                 to_regprocedure('content.verification_queue_email(bytea,bytea,bytea,bytea,bytea,text,bytea,bytea)'),
+                 to_regprocedure('content.verification_email_state(bytea)'),
+                 to_regprocedure('content.verification_accept_email(bytea,bytea,text,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea)'),
+                 to_regprocedure('content.verification_signout(bytea)'))),false)
              FROM pg_roles WHERE rolname=current_user",
         )
         .fetch_one(&self.pool)
@@ -209,6 +221,43 @@ impl VerificationStore {
             .bind(input.country)
             .bind(input.encrypted_payload)
             .bind(input.receipt_hash.as_slice())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
+
+    pub async fn email_state(&self, token_hash: &[u8; 32]) -> Result<String, StoreError> {
+        sqlx::query_scalar("SELECT content.verification_email_state($1)")
+            .bind(token_hash.as_slice())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
+
+    pub async fn accept_email(&self, input: &EmailAcceptance<'_>) -> Result<String, StoreError> {
+        sqlx::query_scalar(
+            "SELECT content.verification_accept_email($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+        )
+        .bind(input.token_hash.as_slice())
+        .bind(input.peer_hash.as_slice())
+        .bind(input.country)
+        .bind(input.receipt_hash.as_slice())
+        .bind(input.previous.token.as_slice())
+        .bind(input.previous.network.as_slice())
+        .bind(input.previous.address.as_slice())
+        .bind(input.previous.environment.as_slice())
+        .bind(input.replacement.token.as_slice())
+        .bind(input.replacement.network.as_slice())
+        .bind(input.replacement.address.as_slice())
+        .bind(input.replacement.environment.as_slice())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(StoreError::from)
+    }
+
+    pub async fn signout(&self, token_hash: &[u8; 32]) -> Result<bool, StoreError> {
+        sqlx::query_scalar("SELECT content.verification_signout($1)")
+            .bind(token_hash.as_slice())
             .fetch_one(&self.pool)
             .await
             .map_err(StoreError::from)

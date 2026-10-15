@@ -62,6 +62,7 @@ CREATE TABLE verification_private.receipts (
     target bigint NOT NULL CHECK(target>=0),
     context_hash bytea NOT NULL CHECK(octet_length(context_hash)=32),
     from_credit boolean NOT NULL DEFAULT false,
+    suspicious boolean NOT NULL,
     unsolved_before smallint NOT NULL CHECK(unsolved_before BETWEEN 0 AND 20),
     may_grant_credit boolean NOT NULL,
     CHECK(NOT may_grant_credit OR (purpose IN ('thread','reply') AND NOT from_credit AND unsolved_before<2)),
@@ -115,6 +116,8 @@ CREATE TABLE verification_private.email_requests (
     delivered_at timestamptz,
     used_at timestamptz,
     failed_attempts smallint NOT NULL DEFAULT 0 CHECK(failed_attempts BETWEEN 0 AND 5),
+    captcha_failures smallint NOT NULL DEFAULT 0 CHECK(captcha_failures BETWEEN 0 AND 6),
+    captcha_failure_limit smallint NOT NULL CHECK(captcha_failure_limit IN (3,6)),
     CHECK(expires_at>created_at AND expires_at<=created_at+interval '24 hours')
 );
 CREATE INDEX verification_email_peer_time ON verification_private.email_requests(peer_hash,created_at);
@@ -270,7 +273,7 @@ CREATE FUNCTION content.verification_check_challenge(
 ) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE v_now timestamptz; v_session_expiry bigint; v_limit integer;
     v_challenge verification_private.challenges%ROWTYPE;
-    v_peer verification_private.peers%ROWTYPE; v_unsolved smallint;
+    v_peer verification_private.peers%ROWTYPE; v_unsolved smallint; v_email verification_private.email_requests%ROWTYPE;
 BEGIN
     IF p_token IS NULL OR octet_length(p_token)<>32
         OR (p_answer IS NOT NULL AND octet_length(p_answer)<>32)
@@ -302,8 +305,18 @@ BEGIN
     END IF;
     v_now:=clock_timestamp();
     DELETE FROM verification_private.challenges WHERE token_hash=p_token;
-    IF v_session_expiry<=extract(epoch FROM v_now)::bigint OR v_challenge.expires_at<=v_now
-        OR p_answer IS NULL OR v_challenge.answer_hash<>p_answer THEN RETURN false; END IF;
+    IF v_session_expiry<=extract(epoch FROM v_now)::bigint OR v_challenge.expires_at<=v_now THEN RETURN false; END IF;
+    IF p_purpose='email_verify' THEN
+        SELECT r.* INTO v_email FROM verification_private.email_requests r WHERE r.token_hash=p_context FOR UPDATE;
+        IF NOT FOUND OR v_email.expires_at<=v_now OR v_email.used_at IS NOT NULL OR v_email.failed_attempts>=5
+            OR v_email.captcha_failures>=least(v_email.captcha_failure_limit,CASE WHEN v_challenge.suspicious THEN 3 ELSE 6 END) THEN
+            RETURN false;
+        END IF;
+        IF p_answer IS NULL OR v_challenge.answer_hash<>p_answer THEN
+            UPDATE verification_private.email_requests SET captcha_failures=least(captcha_failures+1,6) WHERE id=v_email.id;
+            RETURN false;
+        END IF;
+    ELSIF p_answer IS NULL OR v_challenge.answer_hash<>p_answer THEN RETURN false; END IF;
     DELETE FROM verification_private.receipts r WHERE r.token_hash IN (
         SELECT old.token_hash FROM verification_private.receipts old WHERE old.expires_at<=v_now
         ORDER BY old.expires_at LIMIT 64 FOR UPDATE SKIP LOCKED);
@@ -312,9 +325,9 @@ BEGIN
     END IF;
     v_unsolved:=CASE WHEN v_peer.unsolved_until>v_now THEN v_peer.unsolved ELSE 0 END;
     INSERT INTO verification_private.receipts(
-        token_hash,peer_hash,session_hash,purpose,board,target,context_hash,from_credit,
+        token_hash,peer_hash,session_hash,purpose,board,target,context_hash,from_credit,suspicious,
         unsolved_before,may_grant_credit,created_at,expires_at
-    ) VALUES(p_receipt,p_peer,p_session,p_purpose,p_board,p_target,p_context,false,
+    ) VALUES(p_receipt,p_peer,p_session,p_purpose,p_board,p_target,p_context,false,v_challenge.suspicious,
         v_unsolved,p_purpose IN ('thread','reply') AND NOT v_challenge.suspicious AND v_unsolved<2,
         v_now,v_now+interval '30 seconds');
     -- Primary CAPTCHA success removes two unsolved attempts, but qualification
