@@ -1,6 +1,6 @@
 # Homepage and information-page source comparison
 
-Issue [#194](https://github.com/frankischilling/26chan/issues/194) covers the homepage, directory, local information pages and blotter. The local draft adds grouped board discovery and an introductory homepage layout alongside the existing blotter. News publication, frontpage content/statistics and local information destinations remain unfinished; this draft does not close the issue.
+Issue [#194](https://github.com/frankischilling/26chan/issues/194) covers the homepage, directory, local information pages and blotter. The local draft adds grouped board discovery and an introductory homepage layout alongside the existing blotter. Local information pages and operator-maintained news now have a storage and rendering implementation under qualification. Frontpage content/statistics and source posting notices remain unfinished; this draft does not close the issue.
 
 ## Available evidence
 
@@ -29,3 +29,5 @@ The already merged blotter retains newest-three board previews, explicit board v
 The actual Askama homepage template and grouping module compile in an isolated offline harness with a reduced board model. It checks 79 public fixture entries, 25 classifications including a custom board, escaped operator labels and the empty state. This is a focused template check, not a full application or browser pass. The full application test cannot run in the local offline cache because `rustls` 0.23.46 is absent; hosted qualification remains required.
 
 `fixtures/homepage-promotion-reference.json` captures the exact pinned `check_post` helper and fourteen literal cases. `scripts/test-homepage-promotion-reference.py` executes it with a database double and no database access. This preserves case-sensitive filename/marker behavior, substring exclusions, reported-post rejection and healthy ordinary controls. The local PHP oracle passes; the runtime promotion projection is still pending.
+
+The [local content workflow](local-site-content.md) covers page revisions, news publication/retraction, plain-text rendering and read-only public projections. It is a security-bounded replacement for the source's trusted HTML news fragments; historical images and external identities are not imported. Full application and browser qualification remain pending.

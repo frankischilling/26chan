@@ -11,6 +11,7 @@
 {% for entry in group.entries %}<li{% if entry.nws %} class="nwsb"{% endif %}><a href="/{{ entry.directory.board.slug }}/" title="/{{ entry.directory.board.slug }}/ - {{ entry.directory.title }}">{{ entry.directory.title }}</a>{% if entry.nws %} <span class="homeNws" title="Not work safe">(NSFW)</span>{% endif %}</li>{% endfor %}
 </ul></article>{% else %}<p>No boards are available yet.</p>{% endfor %}
 </div></section>
-<nav class="homeLinks" aria-label="Site navigation"><a href="/">Home</a> · <a href="/blotter">Blotter</a> · <a href="/polls">Polls</a></nav>
+{% if !news.is_empty() %}<section class="homePanel siteNews" aria-labelledby="home-news-title"><h2 id="home-news-title"><a href="/news">News</a></h2>{% for item in news %}<article><h3><a href="/news?item={{ item.id }}#{{ item.id }}">{{ item.title }}</a></h3><p>{{ item.date() }}{% if !item.author.is_empty() %} · {{ item.author }}{% endif %}</p><div class="siteBody">{{ item.body }}</div></article>{% endfor %}</section>{% endif %}
+{% include "site_navigation.html" %}
 {% endblock %}
 {% block page_footer %}<footer class="homeFooter"><p>26chan development build.</p></footer>{% endblock %}

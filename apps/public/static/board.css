@@ -941,3 +941,11 @@ body.publicPageChrome[data-native-never-mobile="true"] .mobile { display: none !
 .homeLinks, .homeFooter { text-align: center; margin: 16px 0; }
 @media (max-width: 640px) { .homeBoardGroups { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 340px) { .homeBoardGroups { grid-template-columns: 1fr; } }
+
+.siteInfo > p, .siteFaq, .siteNews > p, .siteNews article { margin: 12px; }
+.siteBody { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; padding: 12px; }
+.siteRevision { font-size: 11px; }
+.siteNews article + article { border-top: 1px solid #d9bfb7; padding-top: 8px; }
+.siteNews h3 { font-size: 14px; }
+.siteFaq h3 { margin-top: 22px; }
+.siteHomeHeader a { color: inherit; }

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}News - 26chan{% endblock %}
+{% block body_attributes %} class="siteHome"{% endblock %}
+{% block board_navigation %}{% endblock %}
+{% block content %}
+<header class="siteHomeHeader"><h1><a href="/">26chan</a></h1></header>
+<section class="homePanel siteNews" aria-labelledby="news-title"><h2 id="news-title">News</h2>
+{% for item in items %}<article class="content" id="{{ item.id }}"><h3><span class="newssub">{{ item.title }}{% if !item.author.is_empty() %} by {{ item.author }}{% endif %} - {{ item.date() }}</span> <span class="permalink"><a href="/news?item={{ item.id }}#{{ item.id }}" title="Permalink to news entry {{ item.id }}">#</a></span></h3><div class="siteBody">{{ item.body }}</div></article>{% else %}<p>No news has been published.</p>{% endfor %}
+{% if let Some(before) = next %}<p><a href="/news?before={{ before }}" rel="next">Older news</a></p>{% endif %}
+</section>
+{% include "site_navigation.html" %}
+{% endblock %}
+{% block page_footer %}<footer class="homeFooter"><p>26chan development build.</p></footer>{% endblock %}

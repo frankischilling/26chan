@@ -387,7 +387,12 @@ mod tests {
         );
         let many: Vec<_> = (0..120).map(|i| board(&format!("owned{i}"))).collect();
         assert_eq!(directory(&many).len(), 100);
-        let html = super::super::Home { boards }.render().unwrap();
+        let html = super::super::Home {
+            boards,
+            news: vec![],
+        }
+        .render()
+        .unwrap();
         assert!(html.contains("/diy/ - Do-It-Yourself"));
         assert!(html.contains("/custom19/ - Operator custom19 &#60;script&#62;&#38; title"));
         assert!(!html.contains("/private/"));

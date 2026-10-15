@@ -24,6 +24,7 @@ pub mod spoilers;
 #[template(path = "home.html")]
 pub struct Home {
     pub boards: Vec<Board>,
+    pub news: Vec<board_store::site_content::NewsItem>,
 }
 
 impl Home {
