@@ -23,6 +23,8 @@ POLICY_KEYS.update({"ENABLE_PAINTERJS", "ENABLE_OEKAKI_REPLAYS", "PAINTERJS_DIMS
 POLICY_KEYS.update({"MIN_W", "MIN_H", "MAX_DIMENSION"})
 POLICY_KEYS.add("ENABLE_PDF")
 POLICY_KEYS.add("MAX_WEBM_DIMENSION")
+POLICY_KEYS.update({"MAX_W", "MAX_H", "MAXR_W", "MAXR_H", "MOBILE_IMG_RESIZE",
+                    "STRIP_EXIF", "STRIP_EXIF_ON_CAPCODE", "DEFAULT_BURICHAN"})
 
 
 def policy(path):
@@ -79,6 +81,7 @@ def extract(root, names_encoding="utf-8", historical_titles=False):
     paths = [root / "boardlist.txt", root / "www.4chan/data/boards.php", root / "config/global_config.ini"]
     names = dict(re.findall(r'"dir"=>"([a-z0-9]+)","name"=>"([^"]+)"', paths[1].read_text(encoding=names_encoding)))
     boards = []
+    image_presentation = {}
     for position, slug in enumerate(slugs + sorted({p.name.split(".")[0] for p in (root / "config/boards").glob("*.config.ini")} - set(slugs))):
         path = root / f"config/boards/{slug}.config.ini"
         overrides = policy(path)
@@ -122,6 +125,14 @@ def extract(root, names_encoding="utf-8", historical_titles=False):
             "min_image_height": int(values.get("MIN_H", "1")),
             "max_image_dimension": int(values.get("MAX_DIMENSION", "5000")),
             "gif_only": boolean("GIF_ONLY"),
+            "image_presentation": {
+                "thread_thumbnail": [integer("MAX_W"), integer("MAX_H")],
+                "reply_thumbnail": [integer("MAXR_W"), integer("MAXR_H")],
+                "mobile_resize": boolean("MOBILE_IMG_RESIZE"),
+                "strip_exif": boolean("STRIP_EXIF"),
+                "strip_exif_on_capcode": boolean("STRIP_EXIF_ON_CAPCODE"),
+                "blue_thumbnail_background": boolean("DEFAULT_BURICHAN"),
+            },
             "pdf_enabled": boolean("ENABLE_PDF"),
             "video_enabled": boolean("ENABLE_WEBM"),
             "video_audio": boolean("ENABLE_WEBM_AUDIO"),
@@ -146,9 +157,10 @@ def extract(root, names_encoding="utf-8", historical_titles=False):
             "poster_id_no_heaven": boolean("DISP_ID_NO_HEAVEN"),
             "source_policy": values,
         }
+        image_presentation[slug] = board.pop("image_presentation")
         boards.append(board)
     hashes = {str(path.relative_to(root)).replace("\\", "/"): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(set(paths))}
-    return {"reference": "operator-supplied 4chan-old checkout", "listed_count": len(slugs), "files": hashes, "boards": boards}
+    return {"reference": "operator-supplied 4chan-old checkout", "listed_count": len(slugs), "files": hashes, "boards": boards, "source_image_presentation": image_presentation}
 
 
 def migration(reference):

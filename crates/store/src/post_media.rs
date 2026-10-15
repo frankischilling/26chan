@@ -19,11 +19,18 @@ pub struct PostAttachment {
     pub spoiler: bool,
     pub file_deleted: bool,
     pub has_replay: bool,
+    pub has_mobile: bool,
     pub tim: i64,
     pub md5: Option<String>,
     pub thumbnail_width: Option<i32>,
     pub thumbnail_height: Option<i32>,
     pub output_format: crate::media_assets::MediaFormat,
+}
+
+impl PostAttachment {
+    pub fn display_filename(&self) -> String {
+        board_domain::file_name::display(&self.filename, self.output_format.extension())
+    }
 }
 
 pub async fn attachment(pool: &PgPool, post_id: i64) -> Result<Option<PostAttachment>, StoreError> {

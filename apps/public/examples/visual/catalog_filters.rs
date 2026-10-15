@@ -107,6 +107,7 @@ fn page(slug: &str, sorted: bool) -> String {
                     thumbnail_height: None,
                     output_format: board_store::media_assets::MediaFormat::Png,
                     has_replay: false,
+                    has_mobile: false,
                 }),
             })],
             omitted: replies as usize,

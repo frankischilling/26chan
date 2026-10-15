@@ -7,7 +7,13 @@ use axum::{
     http::{Request, StatusCode},
 };
 use board_staff::{AppState, Config, Limits, auth};
-use board_store::{media::MediaQueue, media_assets::OutputMetadata, media_intake::IntakeStore};
+use board_store::{
+    media::MediaQueue,
+    media_assets::{
+        MediaFormat, OutputMetadata, OutputVariants, SourceProfile, SourceProvenance, StillOutput,
+    },
+    media_intake::IntakeStore,
+};
 use sqlx::PgPool;
 use std::{sync::Arc, time::Duration};
 use tower::ServiceExt;
@@ -146,7 +152,17 @@ impl Fixture {
             .unwrap()
     }
     fn multipart(&self, board: &str, extra: &str, file_bytes: usize) -> Request<Body> {
-        let mut body = format!("--staff-boundary\r\nContent-Disposition: form-data; name=\"csrf\"\r\n\r\n{}\r\n--staff-boundary\r\nContent-Disposition: form-data; name=\"board\"\r\n\r\n{board}\r\n--staff-boundary\r\nContent-Disposition: form-data; name=\"thread\"\r\n\r\n0\r\n--staff-boundary\r\nContent-Disposition: form-data; name=\"upfile\"; filename=\"{}.png\"\r\nContent-Type: image/png\r\n\r\n", self.csrf, self.board).into_bytes();
+        self.multipart_identity(board, extra, file_bytes, None)
+    }
+    fn multipart_identity(
+        &self,
+        board: &str,
+        extra: &str,
+        file_bytes: usize,
+        capcode: Option<&str>,
+    ) -> Request<Body> {
+        let identity = capcode.map_or(String::new(), |value| format!("Content-Disposition: form-data; name=\"capcode\"\r\n\r\n{value}\r\n--staff-boundary\r\n"));
+        let mut body = format!("--staff-boundary\r\nContent-Disposition: form-data; name=\"csrf\"\r\n\r\n{}\r\n--staff-boundary\r\nContent-Disposition: form-data; name=\"board\"\r\n\r\n{board}\r\n--staff-boundary\r\nContent-Disposition: form-data; name=\"thread\"\r\n\r\n0\r\n--staff-boundary\r\n{identity}Content-Disposition: form-data; name=\"upfile\"; filename=\"{}.png\"\r\nContent-Type: image/png\r\n\r\n", self.csrf, self.board).into_bytes();
         body.extend(vec![42; file_bytes]);
         body.extend(format!("\r\n{extra}--staff-boundary--\r\n").as_bytes());
         let chunks: Vec<Result<axum::body::Bytes, std::io::Error>> = body
@@ -1141,6 +1157,114 @@ async fn real_intake_receives_bytes_before_ready_source_frames_are_exhausted() {
                 .status(),
             StatusCode::SEE_OTHER
         );
+    })
+    .await;
+    Arc::try_unwrap(fixture).ok().unwrap().cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn source_board_upload_binds_the_selected_metadata_policy_before_processing() {
+    let _serial = SERIAL.lock().await;
+    let fixture = Arc::new(Fixture::new().await);
+    let case = fixture.clone();
+    let result = tokio::spawn(async move {
+        for capcode in ["false", "true"] {
+            let response = case
+                .app()
+                .oneshot(case.multipart_identity("p", "", 256, Some(capcode)))
+                .await
+                .unwrap();
+            let page = html(response, StatusCode::OK).await;
+            let id = hidden(&page, "upload_id");
+            let capability = hidden(&page, "upload_capability");
+            assert_eq!(hidden(&page, "capcode"), capcode);
+            let context: (String, i64, bool) = sqlx::query_as(
+                "SELECT board,thread_id,capcode FROM media.image_context WHERE job_id=$1",
+            )
+            .bind(&id)
+            .fetch_one(&case.owner)
+            .await
+            .unwrap();
+            assert_eq!(context, ("p".into(), 0, capcode == "true"));
+            let form = case
+                .form(&id, &capability)
+                .replace(&format!("board={}", case.board), "board=p")
+                + "&capcode="
+                + capcode;
+            let status = html(
+                case.send_form("/post/upload/status", form.clone()).await,
+                StatusCode::OK,
+            )
+            .await;
+            assert_eq!(hidden(&status, "capcode"), capcode);
+            assert!(!status.contains("action=\"/post\""));
+            // Posting controls are intentionally absent until processing succeeds.
+            // Supply a complete synthetic still receipt before checking its default identity.
+            let queue = MediaQueue::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap())
+                .await
+                .unwrap();
+            let job = queue.claim().await.unwrap().unwrap();
+            assert_eq!(job.id, id, "requires isolated disposable media queue");
+            let lease = job.lease_token.as_deref().unwrap();
+            let output = StillOutput {
+                format: MediaFormat::Png,
+                primary: OutputMetadata {
+                    sha256: "a".repeat(64),
+                    bytes: 123,
+                    width: 10,
+                    height: 20,
+                },
+                variants: OutputVariants {
+                    md5: "07".repeat(16),
+                    thumbnail: OutputMetadata {
+                        sha256: "b".repeat(64),
+                        bytes: 100,
+                        width: 10,
+                        height: 20,
+                    },
+                },
+                mobile: None,
+                source: SourceProvenance {
+                    input_sha256: "c".repeat(64),
+                    input_bytes: 256,
+                    profile: SourceProfile::StillV6,
+                    retained_bytes: 123,
+                    md5: [7; 16],
+                },
+            };
+            let asset = queue
+                .prepare_still_output(&id, lease, &output)
+                .await
+                .unwrap();
+            queue.approve_output(&id, lease, &asset.id).await.unwrap();
+            let status = html(
+                case.send_form("/post/upload/status", form.clone()).await,
+                StatusCode::OK,
+            )
+            .await;
+            assert!(status.contains("action=\"/post\""));
+            assert_eq!(hidden(&status, "capcode"), capcode);
+            if capcode == "false" {
+                assert!(status.contains("value=\"none\" selected"));
+            } else {
+                assert!(status.contains("value=\"mod\" selected"));
+            }
+            let response = case.send_form("/post/upload/cancel", form).await;
+            assert!(response.status().is_success() || response.status().is_redirection());
+        }
+        let count = case.jobs().await;
+        for invalid in ["yes", "falsex", ""] {
+            assert_eq!(
+                case.app()
+                    .oneshot(case.multipart_identity("p", "", 256, Some(invalid)))
+                    .await
+                    .unwrap()
+                    .status(),
+                StatusCode::BAD_REQUEST
+            );
+        }
+        assert_eq!(case.jobs().await, count);
     })
     .await;
     Arc::try_unwrap(fixture).ok().unwrap().cleanup().await;

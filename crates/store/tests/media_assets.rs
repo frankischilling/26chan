@@ -36,7 +36,12 @@ async fn durable_approval_schema_exists() {
             "thumbnail_bytes",
             "thumbnail_width",
             "thumbnail_height",
-            "output_format"
+            "output_format",
+            "thumbnail_format",
+            "mobile_sha256",
+            "mobile_bytes",
+            "mobile_width",
+            "mobile_height"
         ]
     );
     let post_barrier: bool = sqlx::query_scalar("SELECT 'security_barrier=true' = ANY(reloptions) FROM pg_class WHERE oid='media.approved_post_assets'::regclass").fetch_one(&admin).await.unwrap();
@@ -56,7 +61,12 @@ async fn durable_approval_schema_exists() {
             "thumbnail_bytes",
             "thumbnail_width",
             "thumbnail_height",
-            "output_format"
+            "output_format",
+            "thumbnail_format",
+            "mobile_sha256",
+            "mobile_bytes",
+            "mobile_width",
+            "mobile_height"
         ]
     );
     let installed_migration: bool =

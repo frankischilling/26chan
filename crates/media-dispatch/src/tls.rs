@@ -14,6 +14,7 @@ use tokio_rustls::TlsConnector;
 
 pub(crate) const INTAKE: Duration = Duration::from_secs(3);
 pub(crate) const PROCESSING: Duration = Duration::from_secs(25);
+pub(crate) const STILL_PROCESSING: Duration = Duration::from_secs(65);
 
 fn certificates(path: &Path) -> Result<Vec<CertificateDer<'static>>> {
     let bytes = read_file(path, false, false, 65_536)?;
@@ -117,6 +118,34 @@ impl DispatchClient {
         .await
         .map_err(|_| Error::Deadline)??;
         timeout(PROCESSING, protocol::read_paired_response(&mut stream))
+            .await
+            .map_err(|_| Error::Deadline)?
+    }
+
+    /// The larger deadline applies only to an explicit, bounded still request.
+    pub async fn process_still(&self, input: &[u8], policy: &[u8; 16]) -> Result<Vec<u8>> {
+        if input.is_empty() || input.len() as u64 > protocol::MAX_STILL_INPUT - 16 {
+            return Err(Error::Frame);
+        }
+        let mut frame = Vec::with_capacity(input.len() + 16);
+        frame.extend_from_slice(policy);
+        frame.extend_from_slice(input);
+        protocol::validate_still_request(&frame)?;
+        let mut stream = timeout(INTAKE, async {
+            let socket = TcpStream::connect(self.endpoint)
+                .await
+                .map_err(|_| Error::Transport)?;
+            self.connector
+                .connect(self.name.clone(), socket)
+                .await
+                .map_err(|_| Error::Authentication)
+        })
+        .await
+        .map_err(|_| Error::Deadline)??;
+        timeout(INTAKE, protocol::write_still_request(&frame, &mut stream))
+            .await
+            .map_err(|_| Error::Deadline)??;
+        timeout(STILL_PROCESSING, protocol::read_still_response(&mut stream))
             .await
             .map_err(|_| Error::Deadline)?
     }

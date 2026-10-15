@@ -647,6 +647,7 @@ mod comment_tests {
                 thumbnail_height: None,
                 output_format: board_store::media_assets::MediaFormat::Png,
                 has_replay: stored,
+                has_mobile: false,
             });
             let search = crate::catalog::search_post_text(&post, &fixture.board);
             assert_eq!(search.contains("Replay: View"), expected);

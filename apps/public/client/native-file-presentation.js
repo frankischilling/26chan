@@ -14,12 +14,19 @@ export function fileLabel(filename, op) {
 export function validateFilePresentation(tree, context, no) {
   const require = value => { if (!value) throw new TypeError('invalid-file-presentation'); };
   const elements = node => node.children.filter(child => typeof child !== 'string');
+  const hasClass = (node, name) => (node.attrs.class || '').split(' ').includes(name);
+  const thumbClass = value => ['fileThumb', 'fileThumb imgspoiler'].includes(value);
   const text = node => node.children.map(child => typeof child === 'string' ? child : text(child)).join('');
-  const bounded = value => typeof value === 'string' && value.length > 0 && new TextEncoder().encode(value).length <= 255
+  const bounded = value => typeof value === 'string' && value.length > 0 && new TextEncoder().encode(value).length <= 260
     && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
   function visit(node, parent, grandparent) {
     if (typeof node === 'string') return;
-    if ((node.attrs.class || '').split(' ').includes('fileText')) {
+    if (node.attrs['data-m'] !== undefined) {
+      require(node.tag === 'a' && thumbClass(node.attrs.class)
+        && parent?.attrs.class === 'file' && node.attrs['data-m'] === ''
+        && /\.(?:png|jpg)$/.test(node.attrs.href));
+    }
+    if (hasClass(node, 'fileText')) {
       require(node.attrs.class === 'fileText' && node.tag === 'div' && node.attrs.id === `fT${no}` && parent?.attrs.class === 'file'
         && parent.attrs.id === `f${no}` && node.children.length === 3 && node.children[0] === 'File: ');
       const link = node.children[1], tail = node.children[2];
@@ -28,10 +35,10 @@ export function validateFilePresentation(tree, context, no) {
         && link.children.every(child => typeof child === 'string'));
       const prefix = `${context.mediaOrigin}/${context.board}/`;
       require(context.mediaOrigin && link.attrs.href?.startsWith(prefix)
-        && /^[1-9][0-9]{0,18}\.(?:png|gif|pdf|webm|mp4)$/.test(link.attrs.href.slice(prefix.length)));
+        && /^[1-9][0-9]{0,18}\.(?:png|jpg|gif|pdf|webm|mp4)$/.test(link.attrs.href.slice(prefix.length)));
       const pdf = link.attrs.href.endsWith('.pdf');
       require(pdf === tail.endsWith(', PDF)'));
-      const thumb = elements(parent).find(child => ['fileThumb', 'fileThumb imgspoiler'].includes(child.attrs.class));
+      const thumb = elements(parent).find(child => thumbClass(child.attrs.class));
       if (thumb) {
         require(elements(thumb).length === 2 && elements(thumb).filter(child => child.attrs.class === 'mFileInfo mobile').length === 1);
         const image = elements(thumb).find(child => child.tag === 'img');
@@ -53,22 +60,22 @@ export function validateFilePresentation(tree, context, no) {
         }
       } else require(text(link) === 'Spoiler Image' && bounded(link.attrs.title));
     }
-    if ((node.attrs.class || '').split(' ').includes('mFileInfo')) {
+    if (hasClass(node, 'mFileInfo')) {
       require(node.tag === 'div' && node.attrs.class === 'mFileInfo mobile' && node.children.length === 1
-        && typeof node.children[0] === 'string' && parent?.tag === 'a' && ['fileThumb', 'fileThumb imgspoiler'].includes(parent.attrs.class)
+        && typeof node.children[0] === 'string' && parent?.tag === 'a' && thumbClass(parent.attrs.class)
         && grandparent?.attrs.class === 'file' && grandparent.attrs.id === `f${no}`);
       const header = elements(grandparent).find(child => child.attrs.class === 'fileText');
       require(header && parent.attrs.href === header.children[1]?.attrs.href);
       const size = /^ \(([^,]+),/.exec(header.children[2]);
-      const extension = /\.(png|gif|pdf|webm|mp4)$/.exec(parent.attrs.href);
+      const extension = /\.(png|jpg|gif|pdf|webm|mp4)$/.exec(parent.attrs.href);
       require(size && extension && node.children[0] === `${size[1]} ${extension[1].toUpperCase()}`);
     }
-    if ((node.attrs.class || '').split(' ').includes('imgspoiler')) {
+    if (hasClass(node, 'imgspoiler')) {
       require(node.tag === 'a' && node.attrs.class === 'fileThumb imgspoiler'
         && parent?.attrs.class === 'file' && parent.attrs.id === `f${no}`
         && elements(parent).some(child => child.attrs.class === 'fileText'));
     }
-    if (postFileAssetUrl(node.attrs.src) || (node.attrs.class || '').split(' ').includes('fileDeletedRes')) {
+    if (postFileAssetUrl(node.attrs.src) || hasClass(node, 'fileDeletedRes')) {
       if (isSpoilerAssetPath(node.attrs.src)) {
         require(node.tag === 'img' && parent?.attrs.class === 'fileThumb imgspoiler');
       } else {

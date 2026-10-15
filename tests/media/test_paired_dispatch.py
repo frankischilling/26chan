@@ -62,13 +62,15 @@ class PairedTransportTest(unittest.TestCase):
         for magic, low, high, kind in ((b'IBJOB001', 1, 8_388_608, protocol.IMAGE_V1),
                                        (b'IBJOB002', 57, 16_777_272, protocol.PAIRED_V2),
                                        (b'IBJOB003', 1, 8_388_608, protocol.GIF_V3),
-                                       (b'IBJOB004', 1, 8_388_608, protocol.PDF_V4)):
+                                       (b'IBJOB004', 1, 8_388_608, protocol.PDF_V4),
+                                       (b'IBJOB005', 2, 8_388_609, protocol.VIDEO_V5),
+                                       (b'IBJOB006', 17, 10 * 1024 * 1024 + 16, protocol.STILL_V6)):
             for size in (low, high):
                 self.assertEqual(protocol.request_kind(magic + size.to_bytes(8, 'big')), (kind, size))
             for size in (0, low - 1, high + 1, 2**64 - 1):
                 with self.assertRaises(ValueError):
                     protocol.request_kind(magic + size.to_bytes(8, 'big'))
-        for magic in (b'IBJOB005', b'IBPAIR02', b'IBOUT002'):
+        for magic in (b'IBJOB007', b'IBPAIR02', b'IBOUT002'):
             with self.assertRaises(ValueError):
                 protocol.request_kind(magic + (57).to_bytes(8, 'big'))
         with self.assertRaises(ValueError):
@@ -201,27 +203,32 @@ class PairedTransportTest(unittest.TestCase):
     def test_mocked_runner_preserves_limits_and_retains_output_inode(self):
         cases = ((kind, size, mutation)
                  for kind, size in ((protocol.IMAGE_V1, 4_194_816), (protocol.PAIRED_V2, 4_456_960),
-                                    (protocol.GIF_V3, 17_825_792), (protocol.PDF_V4, 4_194_816))
+                                    (protocol.GIF_V3, 17_825_792), (protocol.PDF_V4, 4_194_816),
+                                    (protocol.VIDEO_V5, 9 * 1024 * 1024), (protocol.STILL_V6, 16 * 1024 * 1024))
                  for mutation in ('rename', 'truncate', 'grow'))
         for kind, size, mutation in cases:
             with self.subTest(kind=kind, mutation=mutation), tempfile.TemporaryDirectory() as directory:
                 root = pathlib.Path(directory)
                 source = root / 'source'
-                source.write_bytes(request() if kind == protocol.PAIRED_V2 else b'x')
-                config = {name: root / name for name in ('kernel', 'initramfs', 'pdf_initramfs', 'firecracker', 'jailer')}
+                source.write_bytes(request() if kind == protocol.PAIRED_V2 else b'x' * (17 if kind == protocol.STILL_V6 else 2))
+                config = {name: root / name for name in ('kernel', 'initramfs', 'pdf_initramfs', 'video_initramfs', 'still_initramfs', 'firecracker', 'jailer')}
                 for value in config.values():
                     value.write_bytes(value.name.encode())
-                def run_service(args, lock):
+                def run_service(args, lock, *, deadline=None):
                     self.assertIn('fsize=' + str(size), args)
-                    for prop in ('MemoryMax=256M', 'MemorySwapMax=0', 'TasksMax=32',
-                                 'CPUQuota=100%', 'RuntimeMaxSec=15s', 'KillMode=control-group'):
+                    self.assertEqual(deadline, 60 if kind == protocol.STILL_V6 else None)
+                    self.assertEqual('--still-v6' in args, kind == protocol.STILL_V6)
+                    for prop in ('MemoryMax=2560M' if kind == protocol.STILL_V6 else 'MemoryMax=256M',
+                                 'MemorySwapMax=0', 'TasksMax=32', 'CPUQuota=100%',
+                                 'RuntimeMaxSec=45s' if kind == protocol.STILL_V6 else 'RuntimeMaxSec=15s', 'KillMode=control-group'):
                         self.assertIn('--property=' + prop, args)
                     vm = next(root.glob('*/firecracker/*/root/vm.json'))
                     machine = json.loads(vm.read_text())
                     self.assertEqual(vm.with_name('initramfs').read_bytes(),
-                                     b'pdf_initramfs' if kind == protocol.PDF_V4 else b'initramfs')
+                                     {protocol.PDF_V4: b'pdf_initramfs', protocol.VIDEO_V5: b'video_initramfs',
+                                      protocol.STILL_V6: b'still_initramfs'}.get(kind, b'initramfs'))
                     self.assertEqual(machine['machine-config']['mem_size_mib'],
-                                     192 if kind == protocol.PDF_V4 else 128)
+                                     2048 if kind == protocol.STILL_V6 else 192 if kind == protocol.PDF_V4 else 128)
                     self.assertIn('board_media_input_kind=' + kind, machine['boot-source']['boot_args'])
                     self.assertNotIn('rootfstype=ramfs', machine['boot-source']['boot_args'])
                     output = vm.with_name('output.disk')

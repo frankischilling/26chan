@@ -64,6 +64,29 @@ impl IntakeStore {
             .map_err(scoped_error)
     }
 
+    /// Bind a new upload to the posting context checked by its public or staff
+    /// entry point. The image worker never supplies these values.
+    pub async fn reserve_image(
+        &self,
+        filename: &str,
+        board: &str,
+        thread_id: i64,
+        capcode: bool,
+    ) -> Result<IntakeReservation, StoreError> {
+        if filename.contains('\0') || board.contains('\0') {
+            return Err(StoreError::Invalid("Invalid image posting context."));
+        }
+        let filename = board_domain::file_name::normalize_upload(filename, board);
+        sqlx::query_as("SELECT id, capability FROM media_intake.reserve_image($1,$2,$3,$4)")
+            .bind(&filename)
+            .bind(board)
+            .bind(thread_id)
+            .bind(capcode)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(scoped_error)
+    }
+
     /// Reserve an inactive paired-v2 job; no v1 worker can claim it.
     pub async fn reserve_pair(&self, filename: &str) -> Result<IntakeReservation, StoreError> {
         if filename.contains('\0') {
@@ -160,6 +183,19 @@ impl IntakeStore {
         Ok(())
     }
 
+    pub async fn input_limit(&self, id: &str, capability: &str) -> Result<u64, StoreError> {
+        let limit: i64 = sqlx::query_scalar("SELECT media_intake.input_limit($1,$2)")
+            .bind(id)
+            .bind(capability)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(scoped_error)?;
+        match limit {
+            8_388_608 | 10_485_760 => Ok(limit as u64),
+            _ => Err(StoreError::UnsafeRole),
+        }
+    }
+
     pub async fn finish_upload(
         &self,
         id: &str,
@@ -233,17 +269,21 @@ fn scoped_error(error: sqlx::Error) -> StoreError {
 const SAFE_ROLE: &str = r#"
 WITH expected_functions(signature, result) AS (VALUES
  ('media_intake.reserve(text)', 'TABLE(id text, capability text)'),
+ ('media_intake.reserve_image(text,text,bigint,boolean)', 'TABLE(id text, capability text)'),
  ('media_intake.reserve_pair(text)', 'TABLE(id text, capability text)'),
  ('media_intake.reserve_drawing(text)', 'TABLE(id text, capability text)'),
  ('media_intake.begin_pair_upload(text,text)', 'void'),
  ('media_intake.begin_drawing_upload(text,text)', 'void'),
  ('media_intake.finish_pair_upload(text,text,bigint,text,bigint,text,bigint,text)', 'void'),
  ('media_intake.begin_upload(text,text)', 'void'),
+ ('media_intake.input_limit(text,text)', 'bigint'),
  ('media_intake.finish_upload(text,text,bigint)', 'void'),
  ('media_intake.abort_upload(text,text)', 'void'),
  ('media_intake.status(text,text)', 'TABLE(id text, state text, input_bytes bigint, output_id text)'),
  ('media_intake.ready()', 'boolean')
 ), allowed_columns(relation, column_name, privilege) AS (VALUES
+ ('media.image_context','job_id','SELECT'), ('media.image_context','job_id','INSERT'), ('media.image_context','board','INSERT'),
+ ('media.image_context','thread_id','INSERT'), ('media.image_context','capcode','INSERT'),
  ('media.queue_policy','singleton','SELECT'), ('media.queue_policy','capacity','SELECT'),
  ('media.queue_policy','singleton','UPDATE'),
  ('media.jobs','id','SELECT'), ('media.jobs','state','SELECT'),

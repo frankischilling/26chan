@@ -157,8 +157,27 @@ impl IntakeClient {
     }
 
     pub async fn reserve(&self, filename: &str) -> Result<Reservation, IntakeError> {
-        let body = serde_json::to_vec(&serde_json::json!({"filename":filename}))
-            .map_err(|_| IntakeError::Unavailable)?;
+        self.reserve_metadata(serde_json::json!({"filename":filename}))
+            .await
+    }
+
+    /// Call only after the public/staff entry point validates posting context.
+    pub async fn reserve_image(
+        &self,
+        filename: &str,
+        board: &str,
+        thread_id: i64,
+        capcode: bool,
+    ) -> Result<Reservation, IntakeError> {
+        self.reserve_metadata(serde_json::json!({
+            "filename": filename,
+            "image_context": {"board": board, "thread_id": thread_id, "capcode": capcode},
+        }))
+        .await
+    }
+
+    async fn reserve_metadata(&self, value: serde_json::Value) -> Result<Reservation, IntakeError> {
+        let body = serde_json::to_vec(&value).map_err(|_| IntakeError::Unavailable)?;
         let body = self
             .request(Method::POST, "/v1/reservations", None, Body::from(body))
             .await?;
@@ -174,6 +193,26 @@ impl IntakeClient {
     }
 
     pub async fn upload(&self, id: &str, capability: &str, body: Body) -> Result<(), IntakeError> {
+        self.upload_bounded(id, capability, body, 8_388_608).await
+    }
+
+    /// The intake service independently derives this limit from the reservation.
+    pub async fn upload_image(
+        &self,
+        id: &str,
+        capability: &str,
+        body: Body,
+    ) -> Result<(), IntakeError> {
+        self.upload_bounded(id, capability, body, 10_485_760).await
+    }
+
+    async fn upload_bounded(
+        &self,
+        id: &str,
+        capability: &str,
+        body: Body,
+        maximum: u64,
+    ) -> Result<(), IntakeError> {
         if !valid_hex(id, 32) || !valid_hex(capability, 64) {
             return Err(IntakeError::NotFound);
         }
@@ -190,7 +229,7 @@ impl IntakeClient {
             || status.state != "queued"
             || status
                 .input_bytes
-                .is_none_or(|b| !(1..=8_388_608).contains(&b))
+                .is_none_or(|b| !(1..=maximum).contains(&b))
             || status.output_id.is_some()
         {
             return Err(IntakeError::Unavailable);
@@ -334,6 +373,16 @@ mod tests {
         path: String,
         capability: Option<String>,
     ) -> (IntakeClient, tokio::task::JoinHandle<()>) {
+        fixture_body(response, method, path, capability, None).await
+    }
+
+    async fn fixture_body(
+        response: Vec<u8>,
+        method: &'static str,
+        path: String,
+        capability: Option<String>,
+        expected_body: Option<serde_json::Value>,
+    ) -> (IntakeClient, tokio::task::JoinHandle<()>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let client = IntakeClient::new(listener.local_addr().unwrap(), "a".repeat(64)).unwrap();
         let server = tokio::spawn(async move {
@@ -355,7 +404,16 @@ mod tests {
                         .map(|value| value.parse::<usize>().unwrap())
                 }) {
                     assert!(length <= 4096);
-                    socket.read_exact(&mut vec![0; length]).await.unwrap();
+                    let mut body = vec![0; length];
+                    socket.read_exact(&mut body).await.unwrap();
+                    if let Some(expected) = expected_body {
+                        assert_eq!(
+                            serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+                            expected
+                        );
+                    }
+                } else {
+                    assert!(expected_body.is_none());
                 }
                 // The client may close early when it rejects headers or status.
                 let _ = socket.write_all(&response).await;
@@ -478,6 +536,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn image_reservation_transmits_the_exact_posting_context() {
+        let id = "1".repeat(32);
+        let capability = "2".repeat(64);
+        let body = serde_json::json!({"id":id,"capability":capability,"state":"receiving"});
+        let (client, server) = fixture_body(
+            response("201 Created", "application/json", &body.to_string()),
+            "POST",
+            "/v1/reservations".into(),
+            None,
+            Some(
+                serde_json::json!({"filename":"synthetic.jpg", "image_context":{
+                    "board":"p", "thread_id":42, "capcode":true,
+                }}),
+            ),
+        )
+        .await;
+        assert_eq!(
+            client
+                .reserve_image("synthetic.jpg", "p", 42, true)
+                .await
+                .unwrap()
+                .id,
+            id
+        );
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
     async fn reservations_require_exact_schema_and_capability_shape() {
         let id = "b".repeat(32);
         let capability = "c".repeat(64);
@@ -576,6 +662,35 @@ mod tests {
             } else {
                 assert!(matches!(result, Err(IntakeError::Unavailable)));
             }
+            server.await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn image_upload_acknowledgement_has_a_separate_ten_mib_bound() {
+        let id = "1".repeat(32);
+        let capability = "2".repeat(64);
+        for (bytes, valid) in [
+            (0, false),
+            (8_388_609, true),
+            (10_485_760, true),
+            (10_485_761, false),
+        ] {
+            let body = serde_json::json!({"id":id,"state":"queued","input_bytes":bytes});
+            let (client, server) = fixture(
+                response("202 Accepted", "application/json", &body.to_string()),
+                "PUT",
+                format!("/v1/uploads/{id}"),
+                Some(capability.clone()),
+            )
+            .await;
+            assert_eq!(
+                client
+                    .upload_image(&id, &capability, Body::from("candidate"))
+                    .await
+                    .is_ok(),
+                valid
+            );
             server.await.unwrap();
         }
     }

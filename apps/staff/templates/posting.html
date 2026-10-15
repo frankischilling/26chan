@@ -6,14 +6,16 @@
 {% if recent %}
 {% if let Some(upload) = receipt %}
 <section aria-label="Upload status"><h2>Upload status</h2><p>{{ upload.message }}</p>
-<form method="post" action="/post/upload/status"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ query.board }}"><input type="hidden" name="thread" value="{{ query.thread }}"><input type="hidden" name="upload_id" value="{{ upload.upload_id }}"><input type="hidden" name="upload_capability" value="{{ upload.upload_capability }}"><button>Check status</button></form>
-<form method="post" action="/post/upload/cancel"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ query.board }}"><input type="hidden" name="thread" value="{{ query.thread }}"><input type="hidden" name="upload_id" value="{{ upload.upload_id }}"><input type="hidden" name="upload_capability" value="{{ upload.upload_capability }}"><button>Cancel upload</button></form>
+<form method="post" action="/post/upload/status"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ query.board }}"><input type="hidden" name="thread" value="{{ query.thread }}"><input type="hidden" name="upload_id" value="{{ upload.upload_id }}"><input type="hidden" name="upload_capability" value="{{ upload.upload_capability }}"><input type="hidden" name="capcode" value="{{ upload.capcode }}"><button>Check status</button></form>
+<form method="post" action="/post/upload/cancel"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ query.board }}"><input type="hidden" name="thread" value="{{ query.thread }}"><input type="hidden" name="upload_id" value="{{ upload.upload_id }}"><input type="hidden" name="upload_capability" value="{{ upload.upload_capability }}"><input type="hidden" name="capcode" value="{{ upload.capcode }}"><button>Cancel upload</button></form>
 </section>
 {% else if upload_enabled %}
-<section aria-label="File upload"><h2>Upload a file</h2><p>Choose one file of at most 8 MiB. Check its status, then complete your post. This development upload receipt is a bearer capability and expires if unused.</p>
+<section aria-label="File upload"><h2>Upload a file</h2><p>Choose one file within the board’s size limit. Check its status, then complete your post. This development upload receipt is a bearer capability and expires if unused.</p>
 <form method="post" action="/post/upload" enctype="multipart/form-data"><input type="hidden" name="csrf" value="{{ csrf }}">
 <p><label>Board <select name="board" required>{% for board in boards %}<option value="{{ board.0 }}"{% if board.0 == query.board %} selected{% endif %}>/{{ board.0 }}/: {{ board.1 }}</option>{% endfor %}</select></label></p>
 <p><label>Thread ID (0 starts a new thread) <input name="thread" type="number" min="0" value="{{ query.thread }}" required></label></p>
+<p><label>Posting identity <select name="capcode">{% if ordinary_ready %}<option value="false"{% if selected_badge == "none" %} selected{% endif %}>Ordinary post</option>{% endif %}{% if !badges.is_empty() %}<option value="true"{% if selected_badge != "none" %} selected{% endif %}>Post with a staff badge</option>{% endif %}</select></label></p>
+<p>On /p/, this choice controls JPEG metadata removal. Upload again if you change it.</p>
 <p><label>File <input type="file" name="upfile" required></label></p><button>Upload file</button></form></section>
 {% endif %}
 {% if self.can_submit() %}

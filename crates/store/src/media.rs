@@ -26,6 +26,13 @@ pub struct Job {
     pub failure: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, sqlx::FromRow)]
+pub struct ImageContext {
+    pub board: String,
+    pub thread_id: i64,
+    pub capcode: bool,
+}
+
 #[derive(Clone, Copy)]
 pub enum Failure {
     Processing,
@@ -58,6 +65,25 @@ impl MediaQueue {
             return Err(StoreError::UnsafeRole);
         }
         Ok(Self { pool })
+    }
+
+    pub async fn image_context(&self, id: &str) -> Result<Option<ImageContext>, StoreError> {
+        validate_hex(id, 32)?;
+        sqlx::query_as("SELECT board,thread_id,capcode FROM media.image_context WHERE job_id=$1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
+
+    /// Only a coordinator that selected the explicit still profile may call
+    /// this after checking its bounded source signature. Other jobs retain the
+    /// ordinary claim deadline; stale leases cannot be extended.
+    pub async fn extend_still_lease(&self, id: &str, token: &str) -> Result<(), StoreError> {
+        validate_hex(id, 32)?;
+        validate_hex(token, 32)?;
+        changed(sqlx::query("UPDATE media.jobs SET expires_at=clock_timestamp()+interval '90 seconds', updated_at=clock_timestamp() WHERE id=$1 AND lease_token=$2 AND input_kind='image-v1' AND state='processing' AND expires_at>clock_timestamp() AND EXISTS(SELECT 1 FROM media.image_context WHERE job_id=$1)")
+            .bind(id).bind(token).execute(&self.pool).await?.rows_affected())
     }
 
     pub async fn reserve(&self, filename: &str) -> Result<Job, StoreError> {

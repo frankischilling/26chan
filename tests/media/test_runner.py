@@ -97,6 +97,37 @@ class ResourceGateTest(unittest.TestCase):
                 with self.assertRaises((ValueError, OSError)):
                     self.enforce(fixture)
 
+    def test_still_profile_requires_its_exact_cap_and_preserves_other_controls(self):
+        for version in (1, 2):
+            with self.subTest(version=version):
+                self.root = pathlib.Path(self.temp.name) / f'still-{version}'
+                fixture = self.fixture(version)
+                groups = self.gate.resource_groups(self.unit, *fixture)
+                memory = groups['memory' if version == 1 else '']
+                cap = memory / ('memory.limit_in_bytes' if version == 1 else 'memory.max')
+                # The default cap cannot silently launch the larger profile.
+                with self.assertRaises(ValueError):
+                    self.gate.enforce_limits(groups, profile='still-v6')
+                cap.write_text('2684354560')
+                # Conversely, the larger cap is forbidden for an ordinary job.
+                with self.assertRaises(ValueError):
+                    self.gate.enforce_limits(groups)
+                self.gate.enforce_limits(groups, profile='still-v6')
+                if version == 1:
+                    self.assertEqual((memory / 'memory.memsw.limit_in_bytes').read_text().strip(), '2684354560')
+                    self.assertEqual((memory / 'memory.swappiness').read_text().strip(), '0')
+                else:
+                    self.assertEqual((memory / 'memory.swap.max').read_text().strip(), '0')
+                cap.write_text('2684354561')
+                with self.assertRaises(ValueError):
+                    self.gate.enforce_limits(groups, profile='still-v6')
+
+    def test_resource_profile_is_a_fixed_enum(self):
+        groups = self.gate.resource_groups(self.unit, *self.fixture(2))
+        for profile in ('', 'large', '2684354560', 'still-v7', None):
+            with self.subTest(profile=profile), self.assertRaises(ValueError):
+                self.gate.enforce_limits(groups, profile=profile)
+
     def test_wrong_unit_or_missing_controller_never_changes_other_cgroups(self):
         fixture = self.fixture(1)
         for membership in (fixture[0].replace(self.group, '/'),

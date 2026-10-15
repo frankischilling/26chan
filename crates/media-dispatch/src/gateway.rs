@@ -3,7 +3,7 @@ use crate::{
     Error, Result,
     config::{GatewaySettings, authorizations},
     protocol,
-    tls::{INTAKE, PROCESSING, server_config},
+    tls::{INTAKE, PROCESSING, STILL_PROCESSING, server_config},
 };
 use sha2::{Digest, Sha256};
 use std::{path::PathBuf, sync::Arc};
@@ -85,7 +85,12 @@ impl Gateway {
             .await
             .map_err(|_| Error::Deadline)??;
         self.authorize(&fingerprint)?;
-        timeout(PROCESSING, async {
+        let processing = if matches!(&input, protocol::Request::StillV6(_)) {
+            STILL_PROCESSING
+        } else {
+            PROCESSING
+        };
+        timeout(processing, async {
             let mut broker = UnixStream::connect(&self.broker_socket)
                 .await
                 .map_err(|_| Error::Transport)?;
@@ -125,6 +130,12 @@ impl Gateway {
                     let disk = protocol::read_pdf_response(&mut broker).await?;
                     self.authorize(&fingerprint)?;
                     protocol::write_pdf_response(&disk, &mut stream).await
+                }
+                protocol::Request::StillV6(input) => {
+                    protocol::write_still_request(&input, &mut broker).await?;
+                    let disk = protocol::read_still_response(&mut broker).await?;
+                    self.authorize(&fingerprint)?;
+                    protocol::write_still_response(&disk, &mut stream).await
                 }
                 protocol::Request::VideoV5(input) => {
                     protocol::write_video_request(&input, &mut broker).await?;

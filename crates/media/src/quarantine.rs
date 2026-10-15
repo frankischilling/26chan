@@ -17,7 +17,21 @@ pub struct InputSnapshot {
 
 impl InputSnapshot {
     pub async fn read(file: File, recorded_bytes: u64) -> Result<Self, MediaError> {
-        if !(1..=MAX_INPUT_BYTES).contains(&recorded_bytes) {
+        Self::read_file(file, recorded_bytes, MAX_INPUT_BYTES).await
+    }
+
+    /// A caller must hold a context-bound still-image processing lease.
+    pub async fn read_still(file: File, recorded_bytes: u64) -> Result<Self, MediaError> {
+        Self::read_file(
+            file,
+            recorded_bytes,
+            u64::from(crate::still::MAX_IMAGE_BYTES),
+        )
+        .await
+    }
+
+    async fn read_file(file: File, recorded_bytes: u64, maximum: u64) -> Result<Self, MediaError> {
+        if !(1..=maximum).contains(&recorded_bytes) {
             return Err(MediaError::InputLengthMismatch);
         }
         let mut file = tokio::fs::File::from_std(file);
@@ -91,6 +105,14 @@ impl Quarantine {
         self.open_recorded_input(id, bytes)
     }
 
+    /// This bound does not establish a posting context or a processing lease.
+    pub fn open_still_input(&self, id: ObjectId, bytes: u64) -> Result<File, MediaError> {
+        if !(1..=u64::from(crate::still::MAX_IMAGE_BYTES)).contains(&bytes) {
+            return Err(MediaError::InputLengthMismatch);
+        }
+        self.open_recorded_input(id, bytes)
+    }
+
     /// Paired-v2 only. This opens a file, not a verified descriptor or lease.
     pub fn open_paired_input(&self, id: ObjectId, bytes: u64) -> Result<File, MediaError> {
         if !(57..=crate::paired::MAX_PAIR_INPUT_BYTES).contains(&bytes) {
@@ -127,19 +149,39 @@ impl Quarantine {
     pub async fn receive<R: AsyncRead + Unpin>(
         &self,
         id: ObjectId,
+        reader: R,
+    ) -> Result<u64, MediaError> {
+        self.receive_bounded(id, reader, MAX_INPUT_BYTES).await
+    }
+
+    /// Use only after the scoped intake authority confirms an image context.
+    /// Ordinary uploads retain the eight-MiB method above.
+    pub async fn receive_still<R: AsyncRead + Unpin>(
+        &self,
+        id: ObjectId,
+        reader: R,
+    ) -> Result<u64, MediaError> {
+        self.receive_bounded(id, reader, u64::from(crate::still::MAX_IMAGE_BYTES))
+            .await
+    }
+
+    async fn receive_bounded<R: AsyncRead + Unpin>(
+        &self,
+        id: ObjectId,
         mut reader: R,
+        maximum: u64,
     ) -> Result<u64, MediaError> {
         let mut partial = PartialFile::create(self.root.join(format!("{id}.part")))?;
         let mut bytes = 0;
         let mut buffer = [0; 8192];
         loop {
-            let remaining = (MAX_INPUT_BYTES - bytes + 1).min(buffer.len() as u64) as usize;
+            let remaining = (maximum - bytes + 1).min(buffer.len() as u64) as usize;
             let count = reader.read(&mut buffer[..remaining]).await?;
             if count == 0 {
                 break;
             }
             bytes += count as u64;
-            if bytes > MAX_INPUT_BYTES {
+            if bytes > maximum {
                 return Err(MediaError::InputTooLarge);
             }
             partial

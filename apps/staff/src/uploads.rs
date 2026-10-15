@@ -22,10 +22,11 @@ use std::{
     time::Duration,
 };
 
-pub(crate) const MAX_MULTIPART_BYTES: usize = 8_388_608 + 16_384;
+pub(crate) const MAX_MULTIPART_BYTES: usize = 10_485_760 + 16_384;
 
 // Deliberately no Debug: these are bearer secrets and never belong in logs or URLs.
 pub(crate) struct Receipt {
+    pub capcode: bool,
     pub upload_id: String,
     pub upload_capability: String,
     pub ready: bool,
@@ -34,12 +35,18 @@ pub(crate) struct Receipt {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ReceiptForm {
+    #[serde(default = "default_capcode")]
+    capcode: bool,
     csrf: String,
     board: String,
     thread: i64,
     upload_id: String,
     upload_capability: String,
 }
+fn default_capcode() -> bool {
+    true
+}
+
 fn valid_receipt(id: &str, capability: &str) -> bool {
     fn hex(value: &str, length: usize) -> bool {
         value.len() == length
@@ -438,6 +445,7 @@ async fn receive(
         return Err(AppError::Invalid);
     }
     let client = media(state)?;
+    let source_image = board_domain::still_image_policy::configured(&board);
     let (sender, receiver) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(1);
     let (reservation_sender, reservation_receiver) =
         tokio::sync::oneshot::channel::<(String, String)>();
@@ -446,10 +454,16 @@ async fn receive(
     });
     let send = async {
         let (id, capability) = reservation_receiver.await.map_err(|_| AppError::Internal)?;
-        client
-            .upload(&id, &capability, Body::from_stream(stream))
-            .await
-            .map_err(|_| AppError::Internal)
+        let result = if source_image {
+            client
+                .upload_image(&id, &capability, Body::from_stream(stream))
+                .await
+        } else {
+            client
+                .upload(&id, &capability, Body::from_stream(stream))
+                .await
+        };
+        result.map_err(|_| AppError::Internal)
     };
     let pump = async {
         // Own the multipart field inside this future so its borrow ends before
@@ -460,6 +474,30 @@ async fn receive(
             .await
             .map_err(|_| AppError::Invalid)?
             .ok_or(AppError::Invalid)?;
+        let mut capcode = true;
+        if field.name() == Some("capcode") {
+            if field.file_name().is_some() {
+                return Err(AppError::Invalid);
+            }
+            let mut value = Vec::new();
+            while let Some(chunk) = field.chunk().await.map_err(|_| AppError::Invalid)? {
+                if value.len() + chunk.len() > 5 {
+                    return Err(AppError::Invalid);
+                }
+                value.extend_from_slice(&chunk);
+            }
+            capcode = match value.as_slice() {
+                b"true" => true,
+                b"false" => false,
+                _ => return Err(AppError::Invalid),
+            };
+            drop(field);
+            field = multipart
+                .next_field()
+                .await
+                .map_err(|_| AppError::Invalid)?
+                .ok_or(AppError::Invalid)?;
+        }
         if field.name() != Some("upfile") {
             return Err(AppError::Invalid);
         }
@@ -470,11 +508,21 @@ async fn receive(
             })
             .ok_or(AppError::Invalid)?
             .to_owned();
-        let reservation = tokio::time::timeout(Duration::from_secs(4), client.reserve(&filename))
+        let reserve = async {
+            if source_image {
+                client
+                    .reserve_image(&filename, &board, thread, capcode)
+                    .await
+            } else {
+                client.reserve(&filename).await
+            }
+        };
+        let reservation = tokio::time::timeout(Duration::from_secs(4), reserve)
             .await
             .map_err(|_| AppError::Internal)?
             .map_err(|_| AppError::Internal)?;
         *reserved = Some(Receipt {
+            capcode,
             upload_id: reservation.id.clone(),
             upload_capability: reservation.capability.clone(),
             ready: false,
@@ -528,6 +576,7 @@ async fn receive(
         thread,
         csrf,
         Receipt {
+            capcode: receipt.capcode,
             upload_id: receipt.upload_id.clone(),
             upload_capability: receipt.upload_capability.clone(),
             ready: false,
@@ -576,6 +625,7 @@ pub(crate) async fn status(
         form.thread,
         form.csrf,
         Receipt {
+            capcode: form.capcode,
             upload_id: form.upload_id,
             upload_capability: form.upload_capability,
             ready,
@@ -660,8 +710,10 @@ mod stream_tests {
     async fn parser_adapter_rejects_excess_before_emitting_it() {
         let count = Arc::new(AtomicUsize::new(0));
         let bytes = Bytes::from(vec![3u8; 16_384]);
+        assert_eq!(MAX_MULTIPART_BYTES % bytes.len(), 0);
+        let frames = MAX_MULTIPART_BYTES / bytes.len() + 1;
         let source = futures_util::stream::iter(
-            (0..514).map(move |_| Ok::<_, std::io::Error>(bytes.clone())),
+            (0..frames).map(move |_| Ok::<_, std::io::Error>(bytes.clone())),
         );
         let mut stream =
             bounded_multipart_body(Body::from_stream(source), count.clone()).into_data_stream();

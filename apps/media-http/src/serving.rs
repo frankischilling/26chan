@@ -5,9 +5,16 @@ use axum::{
     http::{HeaderMap, HeaderValue, Method, StatusCode, Uri, header},
     response::{IntoResponse, Response},
 };
-use board_media::{ObjectId, video::VideoFormat};
+use board_media::{ObjectId, still::StillFormat, video::VideoFormat};
 use board_store::StoreError;
 use board_store::media_assets::MediaFormat;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Variant {
+    Primary,
+    Thumbnail,
+    Mobile,
+}
 
 pub async fn image(
     State(state): State<AppState>,
@@ -16,19 +23,24 @@ pub async fn image(
     method: Method,
     headers: HeaderMap,
 ) -> Response {
-    let thumbnail = name.ends_with(".thumb.png");
-    let (suffix, format) = if thumbnail {
-        (".thumb.png", MediaFormat::Png)
+    let (suffix, format, variant) = if name.ends_with(".thumb.png") {
+        (".thumb.png", MediaFormat::Png, Variant::Thumbnail)
+    } else if name.ends_with(".thumb.jpg") {
+        (".thumb.jpg", MediaFormat::Jpeg, Variant::Thumbnail)
+    } else if name.ends_with(".mobile.jpg") {
+        (".mobile.jpg", MediaFormat::Jpeg, Variant::Mobile)
+    } else if name.ends_with(".jpg") {
+        (".jpg", MediaFormat::Jpeg, Variant::Primary)
     } else if name.ends_with(".webm") {
-        (".webm", MediaFormat::Webm)
+        (".webm", MediaFormat::Webm, Variant::Primary)
     } else if name.ends_with(".mp4") {
-        (".mp4", MediaFormat::Mp4)
+        (".mp4", MediaFormat::Mp4, Variant::Primary)
     } else if name.ends_with(".pdf") {
-        (".pdf", MediaFormat::Pdf)
+        (".pdf", MediaFormat::Pdf, Variant::Primary)
     } else if name.ends_with(".gif") {
-        (".gif", MediaFormat::Gif)
+        (".gif", MediaFormat::Gif, Variant::Primary)
     } else {
-        (".png", MediaFormat::Png)
+        (".png", MediaFormat::Png, Variant::Primary)
     };
     let Some(id) = name
         .strip_suffix(suffix)
@@ -39,12 +51,12 @@ pub async fn image(
     if uri.path() != format!("/media/{id}{suffix}") {
         return error(StatusCode::NOT_FOUND);
     }
-    let asset = if thumbnail {
-        state.reader.get_thumbnail(&id.to_string()).await
-    } else {
-        state.reader.get(&id.to_string()).await
+    let asset = match variant {
+        Variant::Thumbnail => state.reader.get_thumbnail(&id.to_string()).await,
+        Variant::Mobile => state.reader.get_mobile(&id.to_string()).await,
+        Variant::Primary => state.reader.get(&id.to_string()).await,
     };
-    serve(state, asset, thumbnail, format, headers, false, method).await
+    serve(state, asset, variant, format, headers, false, method).await
 }
 
 pub async fn post_image(
@@ -54,19 +66,22 @@ pub async fn post_image(
     method: Method,
     headers: HeaderMap,
 ) -> Response {
-    let thumbnail = name.ends_with("s.jpg");
-    let (suffix, format) = if thumbnail {
-        ("s.jpg", MediaFormat::Png)
+    let (suffix, format, variant) = if name.ends_with("s.jpg") {
+        ("s.jpg", MediaFormat::Png, Variant::Thumbnail)
+    } else if name.ends_with("m.jpg") {
+        ("m.jpg", MediaFormat::Jpeg, Variant::Mobile)
+    } else if name.ends_with(".jpg") {
+        (".jpg", MediaFormat::Jpeg, Variant::Primary)
     } else if name.ends_with(".webm") {
-        (".webm", MediaFormat::Webm)
+        (".webm", MediaFormat::Webm, Variant::Primary)
     } else if name.ends_with(".mp4") {
-        (".mp4", MediaFormat::Mp4)
+        (".mp4", MediaFormat::Mp4, Variant::Primary)
     } else if name.ends_with(".pdf") {
-        (".pdf", MediaFormat::Pdf)
+        (".pdf", MediaFormat::Pdf, Variant::Primary)
     } else if name.ends_with(".gif") {
-        (".gif", MediaFormat::Gif)
+        (".gif", MediaFormat::Gif, Variant::Primary)
     } else {
-        (".png", MediaFormat::Png)
+        (".png", MediaFormat::Png, Variant::Primary)
     };
     let Some(tim) = name
         .strip_suffix(suffix)
@@ -77,20 +92,26 @@ pub async fn post_image(
     if uri.path() != format!("/{board}/{tim}{suffix}") {
         return error(StatusCode::NOT_FOUND);
     }
-    let asset = state.reader.get_post(&board, tim, thumbnail).await;
-    let drawing_png = !thumbnail
+    let asset = match variant {
+        Variant::Mobile => state.reader.get_post_mobile(&board, tim).await,
+        _ => {
+            state
+                .reader
+                .get_post(&board, tim, variant == Variant::Thumbnail)
+                .await
+        }
+    };
+    // The source thumbnail URL predates format retention. Historical PNG bytes
+    // keep their MIME; new JPEG thumbnails use the same public URL.
+    let format = if variant == Variant::Thumbnail {
+        asset.as_ref().map_or(format, |asset| asset.output_format)
+    } else {
+        format
+    };
+    let drawing_png = variant == Variant::Primary
         && format == MediaFormat::Png
         && (method == Method::GET || method == Method::HEAD);
-    serve(
-        state,
-        asset,
-        thumbnail,
-        format,
-        headers,
-        drawing_png,
-        method,
-    )
-    .await
+    serve(state, asset, variant, format, headers, drawing_png, method).await
 }
 
 /// Canonical records only. Never expose compressed TGKR or private input files.
@@ -185,7 +206,7 @@ pub async fn post_replay(
 async fn serve(
     state: AppState,
     asset: Result<board_store::media_assets::Asset, StoreError>,
-    thumbnail: bool,
+    variant: Variant,
     format: MediaFormat,
     headers: HeaderMap,
     drawing_png: bool,
@@ -210,8 +231,16 @@ async fn serve(
                 .bytes
                 .try_into()
                 .map_err(|_| board_media::MediaError::Conflict)?;
-            if thumbnail {
-                files.read_thumbnail(id, &asset.sha256, size)
+            if variant == Variant::Mobile {
+                files.read_still_mobile(id, &asset.sha256, size)
+            } else if variant == Variant::Thumbnail {
+                if format == MediaFormat::Jpeg {
+                    files.read_still_thumbnail(id, &asset.sha256, size)
+                } else {
+                    files.read_thumbnail(id, &asset.sha256, size)
+                }
+            } else if format == MediaFormat::Jpeg {
+                files.read_still(id, &asset.sha256, size, StillFormat::Jpeg)
             } else if format == MediaFormat::Pdf {
                 files.read_pdf(id, &asset.sha256, size)
             } else if format == MediaFormat::Webm {
@@ -221,7 +250,7 @@ async fn serve(
             } else if format == MediaFormat::Gif {
                 files.read_gif(id, &asset.sha256, size)
             } else {
-                files.read(id, &asset.sha256, size)
+                files.read_still(id, &asset.sha256, size, StillFormat::Png)
             }
         })
         .await

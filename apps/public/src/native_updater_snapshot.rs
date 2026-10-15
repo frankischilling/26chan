@@ -705,6 +705,7 @@ pub(crate) mod tests {
             thumbnail_height: Some(24),
             output_format: board_store::media_assets::MediaFormat::Png,
             has_replay: false,
+            has_mobile: false,
         }
     }
 
@@ -740,6 +741,41 @@ pub(crate) mod tests {
             );
             assert!(encode_preview(preview_fixture(op), "", bytes.len()).is_ok());
             assert!(encode_preview(preview_fixture(op), "", bytes.len() - 1).is_err());
+        }
+    }
+
+    #[test]
+    fn jpeg_mobile_preview_keeps_original_links_and_hides_deleted_metadata() {
+        for (mobile, deleted, spoiler) in [
+            (true, false, false),
+            (false, false, false),
+            (true, true, false),
+            (true, false, true),
+        ] {
+            let mut snapshot = preview_fixture(false);
+            let mut file = attachment();
+            file.output_format = board_store::media_assets::MediaFormat::Jpeg;
+            file.filename = "cat.PNG".into();
+            file.width = 2000;
+            file.height = 1000;
+            file.thumbnail_width = Some(125);
+            file.thumbnail_height = Some(62);
+            file.has_mobile = mobile;
+            file.file_deleted = deleted;
+            file.spoiler = spoiler;
+            snapshot.post.attachment = Some(file);
+            let encoded =
+                encode_preview(snapshot, "https://media.example", MAX_PREVIEW_BYTES).unwrap();
+            let value: serde_json::Value = serde_json::from_slice(&encoded).unwrap();
+            let html = value["post"]["html"].as_str().unwrap();
+            assert_eq!(html.contains(" data-m"), mobile && !deleted);
+            assert_eq!(html.contains(&format!("/test/{}.jpg", i64::MAX)), !deleted);
+            assert_eq!(html.contains("cat.jpg"), !deleted);
+            assert_eq!(html.contains("2000x1000"), !deleted);
+            assert_eq!(html.contains("100 B JPG"), !deleted);
+            assert!(!html.contains("cat.PNG"));
+            assert!(!html.contains(&format!("/test/{}m.jpg", i64::MAX)));
+            assert!(!html.contains("private-asset-id"));
         }
     }
 

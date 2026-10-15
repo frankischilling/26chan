@@ -38,6 +38,7 @@ fn probe() -> std::io::Result<()> {
     } else {
         board_media_guest::paired::InputKind::parse(&mode)?
     };
+    let still = kind == board_media_guest::paired::InputKind::StillV6;
     let mut input = File::open("/dev/vda")?;
     if kind == board_media_guest::paired::InputKind::PairedV2 {
         let mut magic = [0; 8];
@@ -59,7 +60,7 @@ fn probe() -> std::io::Result<()> {
     let mut bytes = vec![0; length as usize];
     input.read_exact(&mut bytes)?;
     let text = probe_text(&bytes).map_err(std::io::Error::other)?;
-    let text = if kind == board_media_guest::paired::InputKind::PairedV2 {
+    let text = if kind == board_media_guest::paired::InputKind::PairedV2 || still {
         text.trim_end()
     } else {
         text
@@ -158,9 +159,29 @@ fn probe() -> std::io::Result<()> {
                 );
             }
         }
+        Some("limits") => {
+            use rustix::process::{Resource, getrlimit};
+            for (resource, expected) in [
+                (Resource::Cpu, if still { 20 } else { 5 }),
+                (
+                    Resource::As,
+                    if still {
+                        1536 * 1024 * 1024
+                    } else {
+                        96 * 1024 * 1024
+                    },
+                ),
+                (Resource::Nproc, 16),
+                (Resource::Nofile, 32),
+            ] {
+                let actual = getrlimit(resource);
+                checks.push(actual.current == Some(expected) && actual.maximum == Some(expected));
+            }
+        }
         Some("memory") => {
             let mut bounded = Vec::<u8>::new();
-            checks.push(bounded.try_reserve_exact(128 * 1024 * 1024).is_err());
+            let limit = if still { 2048 } else { 128 };
+            checks.push(bounded.try_reserve_exact(limit * 1024 * 1024).is_err());
         }
         Some("process") => {
             let mut children = Vec::new();
@@ -193,14 +214,13 @@ fn probe() -> std::io::Result<()> {
             checks.push(output.write(&[1]).is_err());
         }
         Some("sleep") => {
-            std::thread::sleep(Duration::from_secs(25));
+            std::thread::sleep(Duration::from_secs(if still { 90 } else { 25 }));
             return Ok(());
         }
         Some("cpu") => {
-            // Bounded even if the CPU limit regresses: the host enforces 15s and
-            // the probe independently stops after 8s of wall-clock time.
+            // Independently bounded even if the profile CPU limit regresses.
             let start = std::time::Instant::now();
-            while start.elapsed() < Duration::from_secs(8) {
+            while start.elapsed() < Duration::from_secs(if still { 25 } else { 8 }) {
                 std::hint::black_box(42u64.wrapping_mul(17));
             }
             return Ok(());

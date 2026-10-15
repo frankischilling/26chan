@@ -170,11 +170,11 @@ class VmTest(unittest.TestCase):
 
     @contextlib.contextmanager
     def sleeping_vm(self, input_kind='image-v1'):
-        self.assertIn(input_kind, ('image-v1','video-v5'))
+        self.assertIn(input_kind, ('image-v1','video-v5','still-v6'))
         self.assert_clean()
         with tempfile.TemporaryDirectory(prefix='26chan-cancel-test-') as name:
             source = pathlib.Path(name) / 'input'
-            source.write_bytes(b'sleep')
+            source.write_bytes(b'sleep'.ljust(17, b' ') if input_kind == 'still-v6' else b'sleep')
             destination = pathlib.Path(name) / 'result.disk'
             runner = subprocess.Popen(
                 [sys.executable, str(REPO / 'scripts/media/run-job.py'), '--input-kind', input_kind,
@@ -240,7 +240,10 @@ class VmTest(unittest.TestCase):
         self.run_probe(b'disk')
 
     def test_live_vmm_has_effective_host_resource_limits(self):
-        with self.sleeping_vm() as (_, unit, _, _, vmm):
+        self.check_live_vmm_limits('image-v1', 268435456)
+
+    def check_live_vmm_limits(self, input_kind, memory_limit):
+        with self.sleeping_vm(input_kind) as (_, unit, _, _, vmm):
             groups = {}
             for line in (vmm / 'cgroup').read_text().splitlines():
                 _, controllers, path = line.split(':', 2)
@@ -258,14 +261,14 @@ class VmTest(unittest.TestCase):
                 memory = mounts['memory'] / groups['memory'].lstrip('/')
                 cpu = mounts['cpu'] / groups['cpu'].lstrip('/')
                 pids = mounts['pids'] / groups['pids'].lstrip('/')
-                self.assertEqual((memory / 'memory.limit_in_bytes').read_text().strip(), '268435456')
-                self.assertEqual((memory / 'memory.memsw.limit_in_bytes').read_text().strip(), '268435456')
+                self.assertEqual((memory / 'memory.limit_in_bytes').read_text().strip(), str(memory_limit))
+                self.assertEqual((memory / 'memory.memsw.limit_in_bytes').read_text().strip(), str(memory_limit))
                 self.assertEqual((memory / 'memory.swappiness').read_text().strip(), '0')
                 self.assertEqual((cpu / 'cpu.cfs_quota_us').read_text(), (cpu / 'cpu.cfs_period_us').read_text())
             else:
                 self.assertEqual(groups[''], '/system.slice/' + unit)
                 memory = cpu = pids = pathlib.Path('/sys/fs/cgroup') / groups[''].lstrip('/')
-                self.assertEqual((memory / 'memory.max').read_text().strip(), '268435456')
+                self.assertEqual((memory / 'memory.max').read_text().strip(), str(memory_limit))
                 self.assertEqual((memory / 'memory.swap.max').read_text().strip(), '0')
                 quota, period = (cpu / 'cpu.max').read_text().split()
                 self.assertEqual(quota, period)

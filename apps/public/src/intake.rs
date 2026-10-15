@@ -29,7 +29,7 @@ fn map_error(error: IntakeError) -> AppError {
         ),
         IntakeError::PayloadTooLarge => AppError(
             StatusCode::PAYLOAD_TOO_LARGE,
-            "The file exceeds the 8 MiB upload limit.",
+            "The file exceeds the upload limit.",
         ),
         IntakeError::Rejected => {
             AppError(StatusCode::UNPROCESSABLE_ENTITY, "The upload was rejected.")
@@ -49,6 +49,31 @@ impl IntakeClient {
 
     pub async fn reserve(&self, filename: &str) -> Result<Reservation, AppError> {
         self.transport()?.reserve(filename).await.map_err(map_error)
+    }
+
+    pub async fn reserve_image(
+        &self,
+        filename: &str,
+        board: &str,
+        thread: i64,
+        capcode: bool,
+    ) -> Result<Reservation, AppError> {
+        self.transport()?
+            .reserve_image(filename, board, thread, capcode)
+            .await
+            .map_err(map_error)
+    }
+
+    pub async fn upload_image(
+        &self,
+        id: &str,
+        capability: &str,
+        body: Body,
+    ) -> Result<(), AppError> {
+        self.transport()?
+            .upload_image(id, capability, body)
+            .await
+            .map_err(map_error)
     }
 
     pub async fn reserve_drawing(&self, filename: &str) -> Result<Reservation, AppError> {

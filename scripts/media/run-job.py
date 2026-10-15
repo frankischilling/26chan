@@ -21,7 +21,7 @@ import uuid
 
 from job_lifecycle import ENV, JOBS, locked_jobs, reconcile_jobs, remove_workspace, run_service, stop_job
 
-from dispatch_protocol import (IMAGE_V1, PAIRED_V2, GIF_V3, PDF_V4, VIDEO_V5, INPUT_BYTES, OUTPUT_BYTES,
+from dispatch_protocol import (IMAGE_V1, PAIRED_V2, GIF_V3, PDF_V4, VIDEO_V5, STILL_V6, STILL_INPUT_BYTES, INPUT_BYTES, OUTPUT_BYTES,
                                PAIRED_INPUT_BYTES, output_bytes, request_kind)
 
 
@@ -78,7 +78,7 @@ def configuration(path):
     path = trusted_file(path, 4096)
     config = json.loads(path.read_bytes())
     required = {'firecracker', 'jailer', 'kernel', 'initramfs'}
-    if not required <= set(config) or set(config) - required - {'pdf_initramfs', 'video_initramfs'}:
+    if not required <= set(config) or set(config) - required - {'pdf_initramfs', 'video_initramfs', 'still_initramfs'}:
         raise ValueError('invalid artifact configuration')
     for name, artifact in config.items():
         if set(artifact) != {'path', 'sha256'}:
@@ -104,9 +104,12 @@ def input_disk(source, destination, *, input_kind=IMAGE_V1):
         maximum = INPUT_BYTES if input_kind in (IMAGE_V1, GIF_V3, PDF_V4) else 48 + PAIRED_INPUT_BYTES
         if input_kind == VIDEO_V5:
             maximum = INPUT_BYTES + 1
-        if not stat.S_ISREG(info.st_mode) or not 1 <= info.st_size <= maximum:
+        if input_kind == STILL_V6:
+            maximum = STILL_INPUT_BYTES
+        minimum = 17 if input_kind == STILL_V6 else 2 if input_kind == VIDEO_V5 else 1
+        if not stat.S_ISREG(info.st_mode) or not minimum <= info.st_size <= maximum:
             raise ValueError('input size or file type rejected')
-        if input_kind in (IMAGE_V1, GIF_V3, PDF_V4, VIDEO_V5):
+        if input_kind in (IMAGE_V1, GIF_V3, PDF_V4, VIDEO_V5, STILL_V6):
             writer.write(info.st_size.to_bytes(8, 'big'))
             disk_size = info.st_size + 8
             remaining = info.st_size
@@ -136,6 +139,8 @@ def run(config, source, destination, *, input_kind=IMAGE_V1, diagnostics=False):
     initramfs = config['pdf_initramfs'] if input_kind == PDF_V4 else config['initramfs']
     if input_kind == VIDEO_V5:
         initramfs = config['video_initramfs']
+    if input_kind == STILL_V6:
+        initramfs = config['still_initramfs']
     user = pwd.getpwnam('board-media-vmm')
     if user.pw_uid == 0 or user.pw_gid == 0 or user.pw_shell != '/usr/sbin/nologin':
         raise ValueError('VMM identity rejected')
@@ -183,10 +188,10 @@ def run(config, source, destination, *, input_kind=IMAGE_V1, diagnostics=False):
                     {'drive_id': 'output', 'path_on_host': '/output.disk', 'is_root_device': False,
                      'is_read_only': False},
                 ],
-                # PDF adds a bounded 64 MiB runtime image to the baseline VM.
-                # Keep the default quota-backed rootfs and the same host cgroup.
+                # Each explicit kind keeps its reviewed memory budget. Still
+                # images use the separate capped large-image profile.
                 'machine-config': {'vcpu_count': 1,
-                                   'mem_size_mib': 192 if input_kind == PDF_V4 else 128,
+                                   'mem_size_mib': 2048 if input_kind == STILL_V6 else 192 if input_kind == PDF_V4 else 128,
                                    'smt': False},
             }
             (jail / 'vm.json').write_text(json.dumps(machine))
@@ -199,23 +204,29 @@ def run(config, source, destination, *, input_kind=IMAGE_V1, diagnostics=False):
             # It also pins jailer's parent selection to the verified membership.
             args = ['/usr/bin/systemd-run', '--quiet', '--wait', '--collect', '--no-ask-password',
                     '--unit=' + unit, '--service-type=exec']
-            for prop in ('MemoryMax=256M', 'MemorySwapMax=0', 'TasksMax=32', 'CPUQuota=100%',
-                         'RuntimeMaxSec=15s', 'TimeoutStopSec=2s', 'KillMode=control-group',
+            for prop in ('MemoryMax=2560M' if input_kind == STILL_V6 else 'MemoryMax=256M',
+                         'MemorySwapMax=0', 'TasksMax=32', 'CPUQuota=100%',
+                         'RuntimeMaxSec=45s' if input_kind == STILL_V6 else 'RuntimeMaxSec=15s', 'TimeoutStopSec=2s', 'KillMode=control-group',
                          'SendSIGKILL=yes', 'ExitType=cgroup', 'PrivateNetwork=yes',
                          'LimitCORE=0', 'LimitFSIZE=67108864', 'LimitNOFILE=64',
                          'StandardInput=null', 'StandardOutput=null', 'StandardError=null'):
                 args.append('--property=' + prop)
             if diagnostics:
                 args.append('--property=StandardOutput=append:' + str(root / 'console.log'))
-            args += ['/usr/bin/python3', '-I', str(root / 'verify-cgroups.py'), unit,
-                     str(config['jailer']), '--id', job_id, '--exec-file', str(config['firecracker']),
+            args += ['/usr/bin/python3', '-I', str(root / 'verify-cgroups.py'), unit]
+            if input_kind == STILL_V6:
+                args.append('--still-v6')
+            args += [str(config['jailer']), '--id', job_id, '--exec-file', str(config['firecracker']),
                      '--uid', str(user.pw_uid), '--gid', str(user.pw_gid),
                      '--chroot-base-dir', str(root), '--new-pid-ns',
                      '--resource-limit', 'fsize=' + str(result_size), '--resource-limit', 'no-file=64',
                      '--', '--no-api', '--config-file', '/vm.json']
             # A surviving launch client must retain exclusion until its request
             # has completed. PID 1 creates the guest service without this FD.
-            run_service(args, lock)
+            if input_kind == STILL_V6:
+                run_service(args, lock, deadline=60)
+            else:
+                run_service(args, lock)
             # A successful systemd exit is only a transport result. Do not parse
             # the guest's filesystem or trust its success, paths, or dimensions.
             try:
@@ -258,7 +269,7 @@ def run(config, source, destination, *, input_kind=IMAGE_V1, diagnostics=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--input-kind', choices=(IMAGE_V1, PAIRED_V2, GIF_V3, PDF_V4, VIDEO_V5), default=IMAGE_V1,
+    parser.add_argument('--input-kind', choices=(IMAGE_V1, PAIRED_V2, GIF_V3, PDF_V4, VIDEO_V5, STILL_V6), default=IMAGE_V1,
                         help='explicit input contract; paired-v2 takes a complete IBJOB002 request')
     parser.add_argument('--owned-diagnostics', action='store_true',
                         help='bounded boot console for operator-owned PDF/video fixtures only')
@@ -267,7 +278,7 @@ def main():
     parser.add_argument('input', nargs='?')
     parser.add_argument('output', nargs='?')
     args = parser.parse_args()
-    if args.owned_diagnostics and (args.input_kind not in (PDF_V4, VIDEO_V5) or args.reconcile):
+    if args.owned_diagnostics and (args.input_kind not in (PDF_V4, VIDEO_V5, STILL_V6) or args.reconcile):
         parser.error('--owned-diagnostics requires a PDF/video fixture job')
     if args.reconcile:
         if any(value is not None for value in (args.config, args.input, args.output)):
@@ -294,6 +305,8 @@ def main():
                 run(config, args.input, args.output, input_kind=PAIRED_V2)
             elif args.input_kind == GIF_V3:
                 run(config, args.input, args.output, input_kind=GIF_V3)
+            elif args.input_kind == STILL_V6:
+                run(config, args.input, args.output, input_kind=STILL_V6, diagnostics=args.owned_diagnostics)
             elif args.input_kind == VIDEO_V5:
                 run(config, args.input, args.output, input_kind=VIDEO_V5, diagnostics=args.owned_diagnostics)
             elif args.input_kind == PDF_V4:

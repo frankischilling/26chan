@@ -2,6 +2,9 @@
 //!
 //! Callers must hold their publication storage lock throughout every reservation,
 //! approval, and output-cleanup operation, including the associated file changes.
+mod still;
+pub use still::StillOutput;
+
 use crate::{
     StoreError,
     media::{Job, MediaQueue, changed, validate_hex},
@@ -15,6 +18,7 @@ use std::time::Duration;
 pub enum MediaFormat {
     #[default]
     Png,
+    Jpeg,
     Gif,
     Pdf,
     Webm,
@@ -25,6 +29,7 @@ impl MediaFormat {
     pub fn extension(self) -> &'static str {
         match self {
             Self::Png => "png",
+            Self::Jpeg => "jpg",
             Self::Gif => "gif",
             Self::Pdf => "pdf",
             Self::Webm => "webm",
@@ -35,6 +40,7 @@ impl MediaFormat {
     pub fn label(self) -> &'static str {
         match self {
             Self::Png => "PNG",
+            Self::Jpeg => "JPG",
             Self::Gif => "GIF",
             Self::Pdf => "PDF",
             Self::Webm => "WEBM",
@@ -45,6 +51,7 @@ impl MediaFormat {
     pub fn content_type(self) -> &'static str {
         match self {
             Self::Png => "image/png",
+            Self::Jpeg => "image/jpeg",
             Self::Gif => "image/gif",
             Self::Pdf => "application/pdf",
             Self::Webm => "video/webm",
@@ -55,6 +62,7 @@ impl MediaFormat {
     fn byte_limit(self) -> i64 {
         match self {
             Self::Png => 5_242_880,
+            Self::Jpeg => 10_485_760,
             Self::Gif => 20_971_520,
             Self::Pdf | Self::Webm | Self::Mp4 => 8_388_608,
         }
@@ -121,12 +129,14 @@ impl VideoRecord {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SourceProfile {
     PngV1,
+    StillV6,
 }
 
 impl SourceProfile {
     fn as_str(self) -> &'static str {
         match self {
             Self::PngV1 => "png-v1",
+            Self::StillV6 => "still-v6",
         }
     }
 }
@@ -144,8 +154,16 @@ pub struct SourceProvenance {
 impl SourceProvenance {
     fn validate(&self) -> Result<(), StoreError> {
         validate_hex(&self.input_sha256, 64)?;
-        if !(20..=8_388_608).contains(&self.input_bytes)
-            || !(20..=self.input_bytes).contains(&self.retained_bytes)
+        let maximum = match self.profile {
+            SourceProfile::PngV1 => 8_388_608,
+            SourceProfile::StillV6 => 10_485_760,
+        };
+        let retained_maximum = match self.profile {
+            SourceProfile::PngV1 => self.input_bytes,
+            SourceProfile::StillV6 => maximum,
+        };
+        if !(20..=maximum).contains(&self.input_bytes)
+            || !(20..=retained_maximum).contains(&self.retained_bytes)
         {
             return Err(StoreError::Invalid("Invalid source provenance bounds."));
         }
@@ -258,6 +276,11 @@ impl MediaQueue {
         source: &SourceProvenance,
         replay: Option<&OutputMetadata>,
     ) -> Result<Asset, StoreError> {
+        if source.profile != SourceProfile::PngV1 {
+            return Err(StoreError::Invalid(
+                "Drawing output requires PNG source provenance.",
+            ));
+        }
         image.validate()?;
         variants.thumbnail.validate()?;
         source.validate()?;
@@ -429,6 +452,13 @@ impl MediaQueue {
         output_kind: (MediaFormat, Option<&VideoMetadata>),
     ) -> Result<Asset, StoreError> {
         let (format, video) = output_kind;
+        if format == MediaFormat::Jpeg
+            || provenance.is_some_and(|source| source.profile == SourceProfile::StillV6)
+        {
+            return Err(StoreError::Invalid(
+                "Still output requires its complete manifest.",
+            ));
+        }
         validate_hex(job_id, 32)?;
         validate_hex(token, 32)?;
         metadata.validate_format(format)?;
@@ -697,8 +727,23 @@ impl MediaReader {
 
     pub async fn get_thumbnail(&self, output_id: &str) -> Result<Asset, StoreError> {
         validate_hex(output_id, 32)?;
-        sqlx::query_as("SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height,'png'::text AS output_format FROM media.approved_assets WHERE id=$1 AND thumbnail_sha256 IS NOT NULL")
+        sqlx::query_as("SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height,thumbnail_format AS output_format FROM media.approved_assets WHERE id=$1 AND thumbnail_sha256 IS NOT NULL")
             .bind(output_id).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
+    }
+
+    pub async fn get_mobile(&self, output_id: &str) -> Result<Asset, StoreError> {
+        validate_hex(output_id, 32)?;
+        sqlx::query_as("SELECT id,mobile_sha256 AS sha256,mobile_bytes AS bytes,mobile_width AS width,mobile_height AS height,'jpeg'::text AS output_format FROM media.approved_assets WHERE id=$1 AND mobile_sha256 IS NOT NULL")
+            .bind(output_id).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
+    }
+
+    pub async fn get_post_mobile(&self, board: &str, tim: i64) -> Result<Asset, StoreError> {
+        board_domain::BoardSlug::parse(board).map_err(|_| StoreError::NotFound)?;
+        if !(1..=9_007_199_254_740_991).contains(&tim) {
+            return Err(StoreError::NotFound);
+        }
+        sqlx::query_as("SELECT id,mobile_sha256 AS sha256,mobile_bytes AS bytes,mobile_width AS width,mobile_height AS height,'jpeg'::text AS output_format FROM media.approved_post_assets WHERE board=$1 AND tim=$2 AND mobile_sha256 IS NOT NULL")
+            .bind(board).bind(tim).fetch_optional(&self.pool).await?.ok_or(StoreError::NotFound)
     }
 
     pub async fn get_post_replay(&self, board: &str, tim: i64) -> Result<ReplayAsset, StoreError> {
@@ -721,7 +766,7 @@ impl MediaReader {
             return Err(StoreError::NotFound);
         }
         let statement = if thumbnail {
-            "SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height,'png'::text AS output_format FROM media.approved_post_assets WHERE board=$1 AND tim=$2 AND thumbnail_sha256 IS NOT NULL"
+            "SELECT id,thumbnail_sha256 AS sha256,thumbnail_bytes AS bytes,thumbnail_width AS width,thumbnail_height AS height,thumbnail_format AS output_format FROM media.approved_post_assets WHERE board=$1 AND tim=$2 AND thumbnail_sha256 IS NOT NULL"
         } else {
             "SELECT id,sha256,bytes,width,height,output_format FROM media.approved_post_assets WHERE board=$1 AND tim=$2"
         };

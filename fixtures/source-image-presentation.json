@@ -1,0 +1,289 @@
+{
+  "source_sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+  "blocks": {
+    "thumbnail": "\t// Resizing\n\tif( $size[0] > $width || $size[1] > $height ) {\n\t\t$key_w = $width / $size[0];\n\t\t$key_h = $height / $size[1];\n\t\t( $key_w < $key_h ) ? $keys = $key_w : $keys = $key_h;\n\t\t$out_w = floor( $size[0] * $keys );\n\t\t$out_h = floor( $size[1] * $keys );\n\t} else {\n\t\t$out_w = $size[0];\n\t\t$out_h = $size[1];\n\t}\n\t\n",
+    "mobile_condition": "function resize_mobile_image($path, $w, $h, $fsize, $tim, $ext) {\n  if ($ext !== '.jpg' && $ext !== '.png') {\n    return false;\n  }\n  \n  $MAX_W = 1024;\n  $MAX_H = 1024;\n  $MAX_PXL = 524288;\n  $MAX_PNG_BYTES = 524288;\n  \n  if ($ext === '.png' && $fsize <= $MAX_PNG_BYTES) {\n    return;\n  }\n  \n  if (($w > $MAX_W || $h > $MAX_H) && $w * $h > $MAX_PXL) {\n",
+    "mobile_dimensions": "    $ratio = $w / $h;\n    \n    if ($ratio > 1) {\n      $out_w = $MAX_W;\n      $out_h = round($MAX_W / $ratio);\n    }\n    else {\n      $out_w = round($MAX_H * $ratio);\n      $out_h = $MAX_H;\n    }\n    \n"
+  },
+  "cases": {
+    "thumbnail": [
+      {
+        "id": "no-upscale",
+        "dimensions": [
+          32,
+          20
+        ],
+        "bounds": [
+          250,
+          250
+        ],
+        "expected": [
+          32,
+          20
+        ]
+      },
+      {
+        "id": "exact-op",
+        "dimensions": [
+          250,
+          250
+        ],
+        "bounds": [
+          250,
+          250
+        ],
+        "expected": [
+          250,
+          250
+        ]
+      },
+      {
+        "id": "op-landscape",
+        "dimensions": [
+          640,
+          480
+        ],
+        "bounds": [
+          250,
+          250
+        ],
+        "expected": [
+          250,
+          187
+        ]
+      },
+      {
+        "id": "reply-landscape",
+        "dimensions": [
+          640,
+          480
+        ],
+        "bounds": [
+          125,
+          125
+        ],
+        "expected": [
+          125,
+          93
+        ]
+      },
+      {
+        "id": "vg-op",
+        "dimensions": [
+          640,
+          480
+        ],
+        "bounds": [
+          200,
+          200
+        ],
+        "expected": [
+          200,
+          150
+        ]
+      },
+      {
+        "id": "portrait",
+        "dimensions": [
+          480,
+          640
+        ],
+        "bounds": [
+          250,
+          250
+        ],
+        "expected": [
+          187,
+          250
+        ]
+      },
+      {
+        "id": "max-square",
+        "dimensions": [
+          10000,
+          10000
+        ],
+        "bounds": [
+          250,
+          250
+        ],
+        "expected": [
+          250,
+          250
+        ]
+      },
+      {
+        "id": "different-bounds",
+        "dimensions": [
+          800,
+          600
+        ],
+        "bounds": [
+          200,
+          100
+        ],
+        "expected": [
+          133,
+          100
+        ]
+      },
+      {
+        "id": "skinny-zero",
+        "dimensions": [
+          1,
+          10000
+        ],
+        "bounds": [
+          250,
+          250
+        ],
+        "expected": [
+          0,
+          250
+        ]
+      },
+      {
+        "id": "wide-zero",
+        "dimensions": [
+          10000,
+          1
+        ],
+        "bounds": [
+          125,
+          125
+        ],
+        "expected": [
+          125,
+          0
+        ]
+      }
+    ],
+    "mobile": [
+      {
+        "id": "jpeg-at-side",
+        "extension": ".jpg",
+        "dimensions": [
+          1024,
+          512
+        ],
+        "bytes": 200,
+        "expected": null
+      },
+      {
+        "id": "jpeg-at-area",
+        "extension": ".jpg",
+        "dimensions": [
+          2048,
+          256
+        ],
+        "bytes": 200,
+        "expected": null
+      },
+      {
+        "id": "jpeg-over-area",
+        "extension": ".jpg",
+        "dimensions": [
+          2048,
+          257
+        ],
+        "bytes": 200,
+        "expected": [
+          1024,
+          129
+        ]
+      },
+      {
+        "id": "png-at-bytes",
+        "extension": ".png",
+        "dimensions": [
+          2048,
+          1024
+        ],
+        "bytes": 524288,
+        "expected": null
+      },
+      {
+        "id": "png-over-bytes",
+        "extension": ".png",
+        "dimensions": [
+          2048,
+          1024
+        ],
+        "bytes": 524289,
+        "expected": [
+          1024,
+          512
+        ]
+      },
+      {
+        "id": "portrait-round-half",
+        "extension": ".jpg",
+        "dimensions": [
+          257,
+          2048
+        ],
+        "bytes": 200,
+        "expected": [
+          129,
+          1024
+        ]
+      },
+      {
+        "id": "mobile-square",
+        "extension": ".jpg",
+        "dimensions": [
+          1025,
+          1025
+        ],
+        "bytes": 200,
+        "expected": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "id": "unsupported-gif",
+        "extension": ".gif",
+        "dimensions": [
+          2048,
+          1024
+        ],
+        "bytes": 524289,
+        "expected": null
+      },
+      {
+        "id": "unsupported-extension",
+        "extension": ".jpeg",
+        "dimensions": [
+          2048,
+          1024
+        ],
+        "bytes": 524289,
+        "expected": null
+      },
+      {
+        "id": "thin-no-area",
+        "extension": ".jpg",
+        "dimensions": [
+          10000,
+          1
+        ],
+        "bytes": 200,
+        "expected": null
+      },
+      {
+        "id": "max-square",
+        "extension": ".jpg",
+        "dimensions": [
+          10000,
+          10000
+        ],
+        "bytes": 200,
+        "expected": [
+          1024,
+          1024
+        ]
+      }
+    ]
+  }
+}

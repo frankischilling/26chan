@@ -28,10 +28,11 @@ const standaloneVideoPolicy = /"(default-src 'none'; media-src 'self'; sandbox[^
 assert.ok(standaloneVideoPolicy, 'use the media server\'s actual fixed video policy');
 const animatedPixel = Buffer.from('47494638396101000100800000ff00000000ff21ff0b4e45545343415045322e30030100000021f90404140000002c000000000100010000020244010021f90404140000002c00000000010001000002024c01003b', 'hex');
 
-async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, pdf = false, video = null, storageOrigin = false, fallback = false } = {}) {
+async function fixture(t, { limits = {}, config = {}, count = 3, preview = false, gif = false, jpeg = false, mobileImage = false, pdf = false, video = null, storageOrigin = false, fallback = false } = {}) {
   const context = await browser.newContext();
   t.after(() => context.close());
   const page = await context.newPage();
+  if (mobileImage) await page.setViewportSize({ width: 400, height: 800 });
   const requests = [], modes = new Map(), held = [];
   await context.route('**/*', async route => {
     const url = route.request().url(); requests.push(url);
@@ -64,7 +65,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
   if (fallback) await page.addInitScript(() => { HTMLMediaElement.prototype.canPlayType = () => ''; });
   await page.goto(storageOrigin ? 'https://boards.test/' : 'about:blank');
   await page.addStyleTag({ content: css });
-  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, pdf, video }) => {
+  await page.evaluate(async ({ source, projection, quotes, limits, config, count, preview, gif, jpeg, mobileImage, pdf, video }) => {
     const module = async text => {
       const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
       try { return await import(url); } finally { URL.revokeObjectURL(url); }
@@ -85,6 +86,8 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
     if (gif) for (const anchor of document.querySelectorAll('.file a[href]')) {
       anchor.href = anchor.href.replace(/\.png$/, '.gif');
     }
+    if (jpeg) for (const anchor of document.querySelectorAll('.file a[href]')) anchor.href = anchor.href.replace(/\.png$/, '.jpg');
+    if (mobileImage) for (const anchor of document.querySelectorAll('a.fileThumb')) anchor.setAttribute('data-m', '');
     window.imageConfig = config; window.imageOwnership = ownership.createCommentProjection();
     window.imageController = images.mountNativeImages({ root: document.querySelector('.board'),
       mediaOrigin: 'https://media.test', settings: () => window.imageConfig, projection: window.imageOwnership, limits, mobile: window.matchMedia('(max-width: 480px)'),
@@ -97,7 +100,7 @@ async function fixture(t, { limits = {}, config = {}, count = 3, preview = false
       anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
       return intercepted;
     };
-  }, { source, projection, quotes, limits, config, count, preview, gif, pdf, video });
+  }, { source, projection, quotes, limits, config, count, preview, gif, jpeg, mobileImage, pdf, video });
   await page.waitForFunction(() => [...document.querySelectorAll('.fileThumb img')].every(img => img.complete && img.naturalWidth > 0));
   return { page, requests, modes, held };
 }
@@ -151,10 +154,10 @@ test('pending image slots have a deadline, release capacity, and permit a health
   const admission = await page.evaluate(() => [clickImage(1), clickImage(2), clickImage(3)]);
   assert.deepEqual(admission, [true, true, true]);
   assert.equal(await page.locator('.expanded-thumb').count(), 2);
-  assert.equal(await page.locator('.nativeImageFeedback').textContent(), 'Close another expanded image before opening this one.');
+  assert.equal(await page.locator('.nativeImageFeedback').textContent(), 'Close an expanded image first.');
   assert.ok(!requests.some(url => url.endsWith('/3.png')));
   await page.waitForFunction(() => document.querySelectorAll('.expanded-thumb,.nativeImageLoading').length === 0);
-  assert.match(await page.locator('.nativeImageFeedback').textContent(), /could not be loaded/);
+  assert.match(await page.locator('.nativeImageFeedback').textContent(), /failed to load/);
   modes.delete('/demo/1.png'); await page.evaluate(() => clickImage(1));
   await page.waitForSelector('#f1 .expanded-thumb:not([hidden])');
   assert.equal(await page.locator('.nativeImageLoading').count(), 0);
@@ -248,16 +251,17 @@ test('spoiler filename reveal preserves the original caption and inert quote rec
   assert.equal(await page.locator('#f1 > a.fileThumb').count(), 0);
 });
 
-test('modern spoiler metadata survives local copying and the owned body popup reveals and cleans up', async t => {
-  const { page } = await fixture(t, { preview: true });
-  await page.evaluate(() => {
+for (const mobileImage of [false, true]) test(`modern spoiler metadata survives local copying and cleanup (mobile=${mobileImage})`, async t => {
+  const { page } = await fixture(t, { preview: true, mobileImage });
+  const filename = mobileImage ? 'a'.repeat(255) + '.png' : 'Owned.png';
+  await page.evaluate(({ filename, mobileImage }) => {
     const file = document.getElementById('f1');
     file.replaceChildren();
-    Object.assign(file.dataset, { imageSpoiler: 'true', imageFilename: 'Owned.png', thumbnailWidth: '10', thumbnailHeight: '10' });
-    const header = document.createElement('div'); header.id = 'fT1'; header.className = 'fileText'; header.title = 'Owned.png';
+    Object.assign(file.dataset, { imageSpoiler: 'true', imageFilename: filename, thumbnailWidth: '10', thumbnailHeight: '10' });
+    const header = document.createElement('div'); header.id = 'fT1'; header.className = 'fileText'; header.title = filename;
     const label = document.createElement('a'); label.href = 'https://media.test/demo/1.png'; label.rel = 'noopener noreferrer'; label.textContent = 'Spoiler Image';
     header.append('File: ', label, ' (1 KB, 10x10)');
-    const thumb = document.createElement('a'); thumb.className = 'fileThumb imgspoiler'; thumb.href = label.href; thumb.rel = label.rel;
+    const thumb = document.createElement('a'); thumb.className = 'fileThumb imgspoiler'; thumb.href = label.href; thumb.rel = label.rel; if (mobileImage) thumb.setAttribute('data-m', '');
     const img = document.createElement('img'); img.setAttribute('src', '/static/catalog/spoiler.png'); img.alt = '1 KB'; img.width = img.height = 100; img.loading = 'lazy';
     const caption = document.createElement('div'); caption.className = 'mFileInfo mobile'; caption.textContent = '1 KB PNG';
     thumb.append(img, caption); file.append(header, thumb);
@@ -266,10 +270,15 @@ test('modern spoiler metadata survives local copying and the owned body popup re
     const popup = quotes.prepareQuotePost(tree, context, '1').build(document); popup.id = 'quote-preview'; popup.classList.add('preview'); document.body.append(popup);
     imageConfig = { revealSpoilers: true }; imageController.refresh();
     window.modernContext = context;
-  });
+  }, { filename, mobileImage });
   await page.waitForSelector('#quote-preview .nativeSpoilerRevealed');
   assert.equal(await page.locator('#quote-preview .fileThumb:not(.imgspoiler) img').getAttribute('src'), 'https://media.test/demo/1s.jpg');
-  assert.equal(await page.locator('#quote-preview .fileText a').nth(1).innerText(), 'Owned.png');
+  assert.equal(await page.locator('#quote-preview .fileThumb:not(.imgspoiler) img').getAttribute('alt'), filename);
+  if (mobileImage) {
+    await page.locator('#quote-preview .fileThumb:not(.imgspoiler)').click();
+    await page.locator('#quote-preview .expanded-thumb:not([hidden])').waitFor();
+    assert.equal(await page.locator('#quote-preview .expanded-thumb').getAttribute('src'), 'https://media.test/demo/1m.jpg');
+  } else assert.equal(await page.locator('#quote-preview .fileText a').nth(1).innerText(), filename);
   assert.equal(await page.evaluate(() => JSON.stringify(quotes.localQuoteTree(document.getElementById('pc1'), modernContext, '1', imageOwnership)).includes('data-image-filename')), true);
   await page.evaluate(() => { document.getElementById('quote-preview').remove(); imageController.refresh(); imageConfig = {}; imageController.refresh(); });
   assert.equal(await page.locator('#f1 .fileThumb:not(.imgspoiler)').count(), 0);
@@ -315,7 +324,7 @@ test('retirement capacity never evicts a deleted URL or permits late media loads
   const { page } = await fixture(t, { limits: { retired: 1 } });
   assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/1.png')), true);
   assert.equal(await page.evaluate(() => imageController.retire('https://media.test/demo/2.png')), false);
-  assert.match(await page.locator('.nativeImageFeedback').textContent(), /Refresh this page/);
+  assert.match(await page.locator('.nativeImageFeedback').textContent(), /Refresh before opening/);
   for (const id of [1, 2, 3]) assert.equal(await page.evaluate(id => clickImage(id), id), true);
   assert.equal(await page.locator('.expanded-thumb,#image-hover').count(), 0);
 });
@@ -523,3 +532,33 @@ async function assertEventually(predicate) {
   }
   assert.ok(predicate(), 'owned deferred request was not reached');
 }
+
+test('mobile JPEG expansion loads its companion and preserves the original URL for projections and retirement', async t => {
+  const { page, requests } = await fixture(t, { count: 1, jpeg: true, mobileImage: true });
+  assert.equal(await page.evaluate(() => clickImage(1)), true);
+  await page.locator('#f1 .expanded-thumb:not([hidden])').waitFor();
+  assert.equal(await page.locator('#f1 .expanded-thumb').getAttribute('src'), 'https://media.test/demo/1m.jpg');
+  assert.equal(await page.locator('#f1 .fileThumb').getAttribute('href'), 'https://media.test/demo/1m.jpg');
+  assert.equal(await page.locator('#f1 .fileThumb').getAttribute('data-orig'), 'https://media.test/demo/1.jpg');
+  assert.equal(await page.evaluate(() => imageOwnership.attributes(document.querySelector('#f1 .fileThumb')).find(a => a.name === 'href').value), 'https://media.test/demo/1.jpg');
+  assert.ok(!requests.includes('https://media.test/demo/1.jpg'));
+  await page.evaluate(() => imageController.retire('https://media.test/demo/1.jpg'));
+  await page.waitForFunction(() => !document.querySelector('.expanded-thumb'));
+  const count = requests.length;
+  await page.evaluate(() => clickImage(1));
+  assert.equal(requests.length, count);
+  await page.evaluate(() => imageController.dispose());
+  assert.equal(await page.locator('#f1 .fileThumb').getAttribute('href'), 'https://media.test/demo/1.jpg');
+  assert.equal(await page.locator('#f1 .fileThumb').getAttribute('data-orig'), null);
+});
+
+test('mobile companion links also work with expansion disabled while desktop keeps the retained original', async t => {
+  const mobile = await fixture(t, { count: 1, jpeg: true, mobileImage: true, config: { imageExpansion: false } });
+  assert.equal(await mobile.page.evaluate(() => clickImage(1)), false);
+  assert.equal(await mobile.page.locator('#f1 .fileThumb').getAttribute('href'), 'https://media.test/demo/1m.jpg');
+  const desktop = await fixture(t, { count: 1, jpeg: true, mobileImage: true });
+  await desktop.page.setViewportSize({ width: 1200, height: 800 });
+  await desktop.page.evaluate(() => clickImage(1));
+  await desktop.page.locator('#f1 .expanded-thumb:not([hidden])').waitFor();
+  assert.equal(await desktop.page.locator('#f1 .expanded-thumb').getAttribute('src'), 'https://media.test/demo/1.jpg');
+});

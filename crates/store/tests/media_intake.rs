@@ -672,3 +672,75 @@ async fn exercise(f: &Fixture, runtime: &mut PgConnection) {
     assert!(matches!(startup, Err(StoreError::UnsafeRole)));
     store.ready().await.unwrap();
 }
+
+#[tokio::test]
+async fn image_context_is_immutable_and_only_extends_its_current_lease() {
+    let _serial = DATABASE_TEST_LOCK.lock().await;
+    let store = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let admin = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let queue = MediaQueue::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let ids = Arc::new(Mutex::new(Vec::new()));
+    let f = Fixture {
+        store,
+        admin: admin.clone(),
+        queue,
+        ids: ids.clone(),
+    };
+    let result = tokio::spawn(async move {
+        f.store.ready().await.unwrap();
+        for (board, thread) in [("unknown", 0), ("p", -1), ("p\0", 0)] {
+            assert!(matches!(f.store.reserve_image("synthetic.jpg", board, thread, false).await,
+                Err(StoreError::Invalid(_))));
+        }
+        let upload = f.store.reserve_image("synthetic.jpg", "p", 0, true).await.unwrap();
+        f.ids.lock().unwrap().push(upload.id.clone());
+        assert_eq!(f.store.input_limit(&upload.id, &upload.capability).await.unwrap(), 10_485_760);
+        assert!(matches!(f.store.input_limit(&upload.id, &"0".repeat(64)).await, Err(StoreError::NotFound)));
+        let context = f.queue.image_context(&upload.id).await.unwrap().unwrap();
+        assert_eq!((context.board.as_str(), context.thread_id, context.capcode), ("p", 0, true));
+        let error = sqlx::query("UPDATE media.image_context SET capcode=false WHERE job_id=$1")
+            .bind(&upload.id).execute(&f.admin).await.unwrap_err();
+        assert_eq!(error.as_database_error().unwrap().code().as_deref(), Some("42501"));
+        let mut intake = PgConnection::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap()).await.unwrap();
+        denied(&mut intake, "SELECT * FROM media.image_context").await;
+        denied(&mut intake, "UPDATE media.image_context SET capcode=false WHERE false").await;
+        f.store.begin_upload(&upload.id, &upload.capability).await.unwrap();
+        assert!(matches!(f.store.finish_upload(&upload.id, &upload.capability, 10_485_761).await, Err(StoreError::Invalid(_))));
+        f.store.finish_upload(&upload.id, &upload.capability, 10_485_760).await.unwrap();
+        let job = f.queue.claim().await.unwrap().unwrap();
+        assert_eq!(job.id, upload.id);
+        let token = job.lease_token.unwrap();
+        assert!(f.queue.extend_still_lease(&upload.id, &"0".repeat(32)).await.is_err());
+        f.queue.extend_still_lease(&upload.id, &token).await.unwrap();
+        let seconds: f64 = sqlx::query_scalar("SELECT extract(epoch FROM expires_at-clock_timestamp())::float8 FROM media.jobs WHERE id=$1")
+            .bind(&upload.id).fetch_one(&f.admin).await.unwrap();
+        assert!((80.0..=90.0).contains(&seconds));
+        f.expire(&upload.id).await;
+        assert!(f.queue.extend_still_lease(&upload.id, &token).await.is_err());
+        sqlx::query("UPDATE media.jobs SET state='failed',failure='processing_failed',lease_token=NULL,expires_at=NULL WHERE id=$1")
+            .bind(&upload.id).execute(&f.admin).await.unwrap();
+        let legacy = f.reserve().await;
+        assert_eq!(f.store.input_limit(&legacy.id, &legacy.capability).await.unwrap(), 8_388_608);
+        assert!(f.queue.image_context(&legacy.id).await.unwrap().is_none());
+        f.store.begin_upload(&legacy.id, &legacy.capability).await.unwrap();
+        assert!(matches!(f.store.finish_upload(&legacy.id, &legacy.capability, 8_388_609).await, Err(StoreError::Invalid(_))));
+        f.store.finish_upload(&legacy.id, &legacy.capability, 32).await.unwrap();
+        let job = f.queue.claim().await.unwrap().unwrap();
+        assert_eq!(job.id, legacy.id);
+        assert!(f.queue.extend_still_lease(&legacy.id, job.lease_token.as_deref().unwrap()).await.is_err());
+    }).await;
+    let owned = ids.lock().unwrap().clone();
+    sqlx::query("DELETE FROM media.jobs WHERE id=ANY($1)")
+        .bind(&owned)
+        .execute(&admin)
+        .await
+        .unwrap();
+    admin.close().await;
+    result.unwrap();
+}

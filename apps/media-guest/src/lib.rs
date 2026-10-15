@@ -6,11 +6,13 @@ mod gif;
 mod jpeg;
 
 pub mod animation;
+pub mod image_geometry;
 pub mod paired;
 #[cfg(target_os = "linux")]
 pub mod pdf;
 pub mod replay;
 pub mod replay_output;
+pub mod still;
 #[cfg(target_os = "linux")]
 pub mod video;
 pub mod video_probe;

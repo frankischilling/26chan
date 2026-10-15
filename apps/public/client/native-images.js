@@ -1,8 +1,8 @@
 import { isSpoilerAssetPath } from './native-spoiler-assets.js';
 import { configureSpoilerPreference } from './native-spoilers.js';
 
-// Only approved, normalized images from the configured media origin may load.
-export const IMAGE_LIMITS = Object.freeze({ expansions: 8, reveals: 1501, retired: 20001, loadMs: 10000, dimension: 1024 });
+// Only approved images from the configured media origin may load.
+export const IMAGE_LIMITS = Object.freeze({ expansions: 8, reveals: 1501, retired: 20001, loadMs: 10000, dimension: 10000 });
 
 export function attachmentTarget(raw, mediaOrigin) {
   if (typeof raw !== 'string' || typeof mediaOrigin !== 'string' || raw.length > 512
@@ -10,7 +10,7 @@ export function attachmentTarget(raw, mediaOrigin) {
   try {
     const origin = new URL(mediaOrigin);
     if (!['http:', 'https:'].includes(origin.protocol) || origin.origin !== mediaOrigin) return null;
-    const match = /^\/([a-z0-9]{1,10})\/([1-9][0-9]{0,18})\.(?:png|gif|pdf|webm|mp4)$/.exec(raw.slice(mediaOrigin.length));
+    const match = /^\/([a-z0-9]{1,10})\/([1-9][0-9]{0,18})\.(?:png|jpg|gif|pdf|webm|mp4)$/.exec(raw.slice(mediaOrigin.length));
     if (!raw.startsWith(mediaOrigin) || !match || BigInt(match[2]) > 9223372036854775807n) return null;
     return { url: raw, thumbnail: raw.slice(0, raw.lastIndexOf('.')) + 's.jpg' };
   } catch { return null; }
@@ -19,7 +19,7 @@ export function attachmentTarget(raw, mediaOrigin) {
 // Documents open normally; never send them to an image loader or expansion.
 export function imageTarget(raw, mediaOrigin) {
   const target = attachmentTarget(raw, mediaOrigin);
-  return target && /\.(?:png|gif)$/.test(target.url) ? target : null;
+  return target && /\.(?:png|jpg|gif)$/.test(target.url) ? target : null;
 }
 
 export function videoTarget(raw, mediaOrigin) {
@@ -53,6 +53,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   }
   root.dataset.imageFamily = currentFamily();
   const expanded = new Map(), revealed = new Map(), retired = new Set();
+  const mobileSources = new Map();
   let retirementFull = false;
   const isRetired = url => retirementFull || retired.has(url);
   const owner = { kind: 'native-images' };
@@ -80,10 +81,32 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   const available = element => (root.contains(element) || preview()?.contains(element)) && element.isConnected
     && !element.closest('.deleted,.post-hidden,.native-thread-hidden,.mobile-post-hidden,[hidden]')
     && element.getClientRects().length > 0;
+  function sourceTarget(anchor) {
+    const raw = anchor?.getAttribute?.('href'), mobileSource = mobileSources.get(anchor);
+    if (mobileSource && raw === mobileSource.mobile) {
+      return isRetired(mobileSource.url) ? null : { url: raw, thumbnail: mobileSource.thumbnail };
+    }
+    return isRetired(raw) ? null : (imageTarget(raw, mediaOrigin) ?? videoTarget(raw, mediaOrigin));
+  }
+  function selectMobile(anchor) {
+    if (!mobile?.matches || !anchor?.hasAttribute?.('data-m') || !available(anchor) || mobileSources.has(anchor)
+      || mobileSources.size >= bounds.reveals) return;
+    const source = imageTarget(anchor.getAttribute('href'), mediaOrigin);
+    if (!source || !/\.(?:png|jpg)$/.test(source.url) || isRetired(source.url)) return;
+    const resized = source.url.slice(0, source.url.lastIndexOf('.')) + 'm.jpg';
+    const release = projection?.trackAttributes?.(anchor, (name, value) => name === 'href' ? source.url : name === 'data-orig' ? null : value);
+    mobileSources.set(anchor, { ...source, mobile: resized, release });
+    anchor.setAttribute('data-orig', source.url);
+    anchor.setAttribute('href', resized);
+  }
+  function restoreMobile(anchor) {
+    const source = mobileSources.get(anchor);
+    if (anchor.getAttribute('href') === source.mobile) anchor.setAttribute('href', source.url);
+    anchor.removeAttribute('data-orig'); source.release?.(); mobileSources.delete(anchor);
+  }
   function target(anchor) {
     return anchor?.matches?.('a.fileThumb:not(.imgspoiler)') && anchor.closest('.file') && (available(anchor) || (expanded.get(anchor)?.video
-        && !anchor.closest('[hidden]') && available(anchor.closest('.file'))))
-      && !isRetired(anchor.getAttribute('href')) ? (imageTarget(anchor.getAttribute('href'), mediaOrigin) ?? videoTarget(anchor.getAttribute('href'), mediaOrigin)) : null;
+        && !anchor.closest('[hidden]') && available(anchor.closest('.file')))) ? sourceTarget(anchor) : null;
   }
   function thumbnail(anchor, file) {
     return Array.from(anchor.children).find(element => element.localName === 'img'
@@ -223,10 +246,11 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     };
   }
   function expand(anchor) {
+    selectMobile(anchor);
     const file = target(anchor), thumb = file && thumbnail(anchor, file);
     if (!file || !thumb) return false;
     if (expanded.has(anchor)) { contract(anchor, true); return true; }
-    if (expanded.size >= bounds.expansions) { message('Close another expanded image before opening this one.'); return true; }
+    if (expanded.size >= bounds.expansions) { message('Close an expanded image first.'); return true; }
     hideHover(); clearMessage();
     const image = mediaElement(file); image.className = 'expanded-thumb';
     const entry = { anchor, thumb, image, file: anchor.closest('.file'), url: file.url, video: image.localName === 'video' };
@@ -245,7 +269,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
       setClass(anchor, 'nativeVideoOpen', entry.video); playVideo(entry);
     }, () => {
       contract(anchor);
-      if (enabled() && available(anchor)) message(entry.video ? 'Video could not be played. Use the filename link to open or download it.' : 'Image could not be loaded. Click the thumbnail to try again.');
+      if (enabled() && available(anchor)) message(entry.video ? 'Video failed. Use the filename link to open or download it.' : 'Image failed to load. Click its thumbnail to retry.');
     });
     return true;
   }
@@ -285,8 +309,8 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     const caption = file.querySelector(':scope > .fileText > a[href],:scope > p > a[href]');
     if (!source || isRetired(source.url) || caption?.getAttribute('href') !== source.url) return null;
     const filename = file.dataset.imageFilename;
-    if (!filename || filename.length > 255 || /[\u0000-\u001f\u007f-\u009f]/.test(filename)
-      || new TextEncoder().encode(filename).length > 255) return null;
+    if (!filename || filename.length > 260 || /[\u0000-\u001f\u007f-\u009f]/.test(filename)
+      || new TextEncoder().encode(filename).length > 260) return null;
     const width = file.dataset.thumbnailWidth, height = file.dataset.thumbnailHeight;
     if (!/^[1-9][0-9]{0,3}$/.test(width ?? '') || !/^[1-9][0-9]{0,3}$/.test(height ?? '')
       || Number(width) > bounds.dimension || Number(height) > bounds.dimension) return null;
@@ -315,6 +339,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     if (revealed.size >= bounds.reveals) return;
     const anchor = document.createElement('a'), image = document.createElement('img');
     anchor.className = 'fileThumb'; anchor.href = data.source.url; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer';
+    if (data.placeholder?.hasAttribute('data-m')) anchor.setAttribute('data-m', '');
     image.alt = data.filename; image.width = Number(data.width); image.height = Number(data.height);
     image.loading = 'lazy'; image.decoding = 'async'; image.referrerPolicy = 'no-referrer';
     projection?.claim(anchor, owner);
@@ -349,6 +374,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     image.src = data.legacy ? data.source.url : data.source.thumbnail;
   }
   function refresh() {
+    for (const anchor of mobileSources.keys()) if (!anchor.isConnected) restoreMobile(anchor);
     queued = false;
     const config = configuration(), active = enabled();
     root.dataset.imageFamily = currentFamily();
@@ -387,7 +413,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
     if (retired.has(file.url)) return true;
     if (retired.size >= bounds.retired) {
       retirementFull = true; refresh();
-      message('Refresh this page before opening more images.');
+      message('Refresh before opening more images.');
       return false;
     }
     retired.add(file.url); refresh(); return true;
@@ -395,15 +421,16 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   function schedule() { if (!queued && !disposed) { queued = true; queueMicrotask(refresh); } }
   function preventRetired(event) {
     const link = event.target.closest?.('.file a[href]');
-    if (!link || !(root.contains(link) || preview()?.contains(link)) || !isRetired(link.getAttribute('href'))) return false;
+    if (!link || !(root.contains(link) || preview()?.contains(link)) || !(isRetired(link.getAttribute('href')) || isRetired(mobileSources.get(link)?.url))) return false;
     event.preventDefault(); return true;
   }
   function click(event) {
-    if (preventRetired(event)) return;
+    if (preventRetired(event) || event.defaultPrevented || event.button !== 0
+      || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
     const anchor = event.target.closest?.('a.fileThumb');
-    if (!enabled() || configuration().imageExpansion === false || event.defaultPrevented || event.button !== 0
-      || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || !anchor) return;
-    if (expand(anchor)) event.preventDefault();
+    if (!anchor) return;
+    if (!enabled() || configuration().imageExpansion === false) selectMobile(anchor);
+    else if (expand(anchor)) event.preventDefault();
   }
   function over(event) {
     const anchor = event.target.closest?.('a.fileThumb');
@@ -425,7 +452,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   const pageshow = event => { if (event.persisted) { suspended = false; refresh(); } };
   const observer = new window.MutationObserver(schedule);
   observer.observe(root, { childList: true, subtree: true, attributes: true, characterData: true,
-    attributeFilter: ['href', 'src', 'class', 'hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'] });
+    attributeFilter: ['href', 'src', 'class', 'hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy', 'data-m'] });
   if (typeof previewRoot === 'function') observer.observe(document.body, { childList: true });
   const eventRoot = typeof previewRoot === 'function' ? document.body : root;
   eventRoot.addEventListener('auxclick', preventRetired);
@@ -438,6 +465,7 @@ export function mountNativeImages({ root, mediaOrigin = '', settings, projection
   refresh();
   return { refresh, retire, dispose() {
     disposed = true; clearTimeout(scrollTimer); observer.disconnect(); refresh();
+    for (const anchor of mobileSources.keys()) restoreMobile(anchor);
     eventRoot.removeEventListener('auxclick', preventRetired);
     eventRoot.removeEventListener('click', click); eventRoot.removeEventListener('mouseover', over); eventRoot.removeEventListener('mouseout', out);
     document.removeEventListener('4chanSettingsSaved', refresh);

@@ -1,0 +1,126 @@
+{
+  "source_sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+  "function_sha256": "b53f07ac6ff9b0e8007705caa1406976367342efad6c3b299d608f2936369730",
+  "function": "function sanitize_text( $str, $skip_bidi = 0, $allow_html = false )\n{\n\tglobal $admin, $html;\n\t// stupid unicode-hack removal\n\tif( BOARD_DIR != 'jp' && BOARD_DIR != 'a' && BOARD_DIR != 'b' && !SJIS_TAGS ) {\n\t\t$str = preg_replace( '#[\\x{00A0}\\x{3000}]#u', ' ', $str );\n\n\t}\n\n\tif( !CODE_TAGS && !SJIS_TAGS) {\n\t\t$str = preg_replace( \"/([ \\t\\f]|\\xE2\\x80\\x8B|\\xE2\\x80\\xA9)+/\", \" \", $str ); //collapse multiple spaces like HTML does\n\t} else {\n\t\t// fix tabs for html compression\n\t\t$str = str_replace( \"\\t\", \"    \", $str );\n\t}\n\n\t$str = trim( $str ); //blankspace removal\n\tif( get_magic_quotes_gpc() ) { //magic quotes is deleted (?)\n\t\t$str = stripslashes( $str );\n\t}\n\n\tif ($allow_html && $html == 1 && (has_level('manager') || has_flag('html') || has_flag('developer'))) {\n\t  $str = purify_html($str);\n\t} else {\n\t\t$str = htmlspecialchars( $str, ENT_QUOTES );\n\t}\n\n\tif( $skip_bidi == 0 ) {\n\t\t// fix malformed bidirectional overrides - insert as many PDFs as RLOs\n\t\t//RLO\n\t\t$str .= str_repeat( \"\\xE2\\x80\\xAC\", substr_count( $str, \"\\xE2\\x80\\xAE\" /* U+202E */ ) );\n\t\t$str .= str_repeat( \"&#8236;\", substr_count( $str, \"&#8238;\" ) );\n\t\t$str .= str_repeat( \"&#x202c;\", substr_count( $str, \"&#x202e;\" ) );\n\t\t//RLE\n\t\t$str .= str_repeat( \"\\xE2\\x80\\xAC\", substr_count( $str, \"\\xE2\\x80\\xAB\" /* U+202B */ ) );\n\t\t$str .= str_repeat( \"&#8236;\", substr_count( $str, \"&#8235;\" ) );\n\t\t$str .= str_repeat( \"&#x202c;\", substr_count( $str, \"&#x202b;\" ) );\n\t}\n\n\treturn $str;\n}\n",
+  "cases": [
+    {
+      "board": "co",
+      "code": false,
+      "sjis": false,
+      "input": "  a  ​b　c.JPG  ",
+      "expected": "a b c.JPG"
+    },
+    {
+      "board": "a",
+      "code": false,
+      "sjis": false,
+      "input": "a b　c.png",
+      "expected": "a b　c.png"
+    },
+    {
+      "board": "b",
+      "code": false,
+      "sjis": false,
+      "input": "a b　c.png",
+      "expected": "a b　c.png"
+    },
+    {
+      "board": "g",
+      "code": true,
+      "sjis": false,
+      "input": "a  b　c.png",
+      "expected": "a  b c.png"
+    },
+    {
+      "board": "j",
+      "code": true,
+      "sjis": false,
+      "input": "a\tb.png",
+      "expected": "a    b.png"
+    },
+    {
+      "board": "test",
+      "code": true,
+      "sjis": false,
+      "input": "a\tb.png",
+      "expected": "a    b.png"
+    },
+    {
+      "board": "jp",
+      "code": false,
+      "sjis": true,
+      "input": "a  b　c.png",
+      "expected": "a  b　c.png"
+    },
+    {
+      "board": "vip",
+      "code": false,
+      "sjis": true,
+      "input": "a b　c.png",
+      "expected": "a b　c.png"
+    },
+    {
+      "board": "p",
+      "code": false,
+      "sjis": false,
+      "input": "a‮b‫.png",
+      "expected": "ab‫.png‬"
+    },
+    {
+      "board": "p",
+      "code": false,
+      "sjis": false,
+      "input": "a‭‎‏b.jpg",
+      "expected": "ab.jpg"
+    },
+    {
+      "board": "p",
+      "code": false,
+      "sjis": false,
+      "input": "a‫‫b.jpg",
+      "expected": "a‫‫b.jpg‬‬"
+    },
+    {
+      "board": "co",
+      "code": false,
+      "sjis": false,
+      "input": "<cat>&\"'.jpg",
+      "expected": "<cat>&\"'.jpg"
+    },
+    {
+      "board": "co",
+      "code": false,
+      "sjis": false,
+      "input": "&#8238;.png",
+      "expected": "&#8238;.png"
+    },
+    {
+      "board": "co",
+      "code": false,
+      "sjis": false,
+      "input": " ​ ",
+      "expected": ""
+    },
+    {
+      "board": "co",
+      "code": false,
+      "sjis": false,
+      "input": "   \fb.png  ",
+      "expected": "b.png"
+    },
+    {
+      "board": "g",
+      "code": true,
+      "sjis": false,
+      "input": "a​b.png",
+      "expected": "a​b.png"
+    },
+    {
+      "board": "co",
+      "code": false,
+      "sjis": false,
+      "input": "x⁦y.png",
+      "expected": "x⁦y.png"
+    }
+  ]
+}

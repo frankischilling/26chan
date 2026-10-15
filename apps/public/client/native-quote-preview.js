@@ -29,7 +29,7 @@ const localTags = {
   article: ['class', 'id', 'data-custom-spoiler'],
   div: ['class', 'id', 'title', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'],
   span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
-  strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title'], blockquote: ['class', 'id'],
+  strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title', 'data-m'], blockquote: ['class', 'id'],
   br: [], wbr: [], b: [], s: [], small: [], pre: ['class'], p: ['class'], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
 };
 const localClasses = new Set(['postContainer', 'opContainer', 'replyContainer', 'post', 'op', 'reply',
@@ -78,7 +78,7 @@ export function localQuoteTree(article, context, no, projection) {
       if (key === 'title' && tag === 'a' && !node.parentElement?.matches('.postInfo > span.postNum,.postInfoM > span.dateTime.postNum,.file > .fileText')) continue;
       if (key === 'title' && tag === 'div' && node.className !== 'fileText') continue;
       if (tag === 'img' && ['class', 'srcset', 'title'].includes(key) && !node.classList.contains('identityIcon') && !node.classList.contains('fileDeletedRes')) continue;
-      const value = node.getAttribute(key);
+      const value = originalAttrs[key] ?? null;
       if (value !== null) { charge(key); charge(value); attrs[key] = value; }
     }
     if (attrs.class !== undefined) attrs.class = attrs.class.split(/\s+/).filter(value => localClasses.has(value) || isPostFlagToken(value) || isCapcodeToken(value)

@@ -46,35 +46,42 @@ thumbnail and cannot copy an expanded image into another post.
 
 ## Media and resource limits
 
-Only an exact normalized PNG route on the configured media origin can be opened
-by an image control. Credentials, query strings, fragments, path rewriting,
-foreign origins, alternate formats and out-of-range identifiers are rejected.
-The source thumbnail must belong to the same approved file. Spoiler metadata
-contains bounded dimensions and the original filename, not another URL to trust.
-Filenames retain the store's 255-byte UTF-8 limit and exclusion of control
-characters. Temporary filename labels are projection-owned, so quote copies
+Image controls accept exact approved PNG, JPEG and GIF routes on the configured
+media origin. Credentials, query strings, fragments, path rewriting, foreign
+origins and out-of-range identifiers are rejected. The thumbnail must belong to
+the same approved file. Spoiler metadata contains bounded dimensions and a
+filename rather than another URL to trust. Raw uploaded names retain the
+255-byte UTF-8 limit; a canonical display name may use 259 bytes when the actual
+four-byte extension is appended to an extensionless name. Control characters
+remain excluded. Temporary filename labels are projection-owned, so quote copies
 keep the original spoiler label and fixed thumbnail. The
-[file-state comparison](file-presentation.md) covers their generic public
-presentation on OPs and replies, including both deleted-icon densities.
+[file-state comparison](file-presentation.md) covers OP and reply presentation,
+including both deleted-icon densities.
+
+On mobile layouts, an approved PNG/JPEG thumbnail carrying `data-m` selects its
+matching `<tim>m.jpg` companion. This also applies when image expansion is
+disabled, so the ordinary link opens the mobile file. `data-orig` retains the
+original target, and quote projection reads that original target. Registration
+is bounded and released on detachment or disposal. File retirement checks the
+original identity, preventing a mobile companion from outliving a deleted file.
 
 The released client polls image completion without a deadline and can keep
 multiple images open. This implementation admits at most eight expanded images
 and one hover preview. Each full-image load has a ten-second deadline. Errors,
 timeouts and cancellation remove the pending element and release its slot; a
 failed expansion leaves the thumbnail available for an explicit retry. A page
-can reveal at most 1,001 spoiler thumbnails, matching the existing finite post
+can reveal at most 1,501 spoiler thumbnails, matching the existing finite post
 snapshot bound, and those thumbnails retain native lazy loading.
 
-These limits bound optional browser work. They do not substitute for the media
-publication boundary: the browser still decodes the approved PNG. The current
-publisher limits both dimensions to 1,024 pixels and never exposes raw uploads.
-Original GIF, JPEG and WebM delivery, original-site full-page parity, arbitrary
-comment-link media previews and complete quote-spoiler presentation remain
-outside this slice. Exact adaptation of the public client's small board-index
-expansion offset also needs comparison with our different thread-hiding layout.
-Production media qualification remains tracked in #5.
+These limits bound optional browser work. The browser still decodes approved
+media; it does not validate worker output. Still-image publication admits source
+PNG/JPEG dimensions up to 10,000 pixels per side, subject to board policy and
+isolated decoding. GIF and video controls use their existing format-specific
+limits. Arbitrary comment-link previews and exact adaptation of the small
+board-index expansion offset remain outside this controller. Production media
+qualification is tracked in #5.
 
-The controller is a separate fixed module, `/static/native-images.v1.js`, with a
+The controller is a separate fixed module, `/static/native-images.v1.js`, with an
 16 KiB build ceiling. The page CSP names that route explicitly. It has no imports
 or worker-network authority, cannot be served from the API listener, and has no
 write route. Settings reuse the existing bounded `4chan-settings` storage.

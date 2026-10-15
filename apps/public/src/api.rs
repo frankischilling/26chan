@@ -286,12 +286,10 @@ fn post_json(
         value["filedeleted"] = json!(1);
     } else if let Some(file) = post.post.attachment {
         value["tim"] = json!(file.tim);
-        value["filename"] = json!(
-            file.filename
-                .rsplit_once('.')
-                .filter(|(stem, _)| !stem.is_empty())
-                .map_or(file.filename.as_str(), |(stem, _)| stem)
-        );
+        if file.has_mobile {
+            value["m_img"] = json!(1);
+        }
+        value["filename"] = json!(board_domain::file_name::basename(&file.filename));
         value["ext"] = json!(format!(".{}", file.output_format.extension()));
         value["fsize"] = json!(file.bytes);
         value["w"] = json!(file.width);
@@ -692,6 +690,56 @@ mod poster_id_projection_tests {
 mod tests {
     use super::*;
     #[test]
+    fn retained_jpeg_metadata_exposes_mobile_presence_and_source_basename_only_when_visible() {
+        let fixture = crate::native_updater_snapshot::tests::fixture();
+        for (deleted, mobile) in [(false, true), (false, false), (true, true)] {
+            let mut post = fixture.posts[0].clone();
+            post.file_deleted = deleted;
+            post.attachment = Some(board_store::post_media::PostAttachment {
+                post_id: post.id,
+                asset_id: "a".repeat(32),
+                filename: "owned.foo-bar".into(),
+                bytes: 100,
+                width: 2000,
+                height: 1000,
+                spoiler: false,
+                file_deleted: false,
+                tim: 42,
+                md5: None,
+                thumbnail_width: Some(250),
+                thumbnail_height: Some(125),
+                output_format: board_store::media_assets::MediaFormat::Jpeg,
+                has_replay: false,
+                has_mobile: mobile,
+            });
+            let value = post_json(
+                post,
+                &fixture.thread,
+                &fixture.board,
+                0,
+                0,
+                None,
+                QuoteContext {
+                    targets: &fixture.quote_targets,
+                    current_thread: Some(fixture.thread.id),
+                },
+            )
+            .unwrap();
+            if deleted {
+                for key in ["m_img", "ext", "filename", "w", "h"] {
+                    assert!(value.get(key).is_none());
+                }
+            } else {
+                assert_eq!(value["ext"], ".jpg");
+                assert_eq!(value["filename"], "owned.foo-bar");
+                assert_eq!(value["w"], 2000);
+                assert_eq!(value["tn_w"], 250);
+                assert_eq!(value.get("m_img"), mobile.then_some(&json!(1)));
+            }
+        }
+    }
+
+    #[test]
     fn gif_metadata_uses_approved_format_and_deleted_files_omit_the_url_fields() {
         let fixture = crate::native_updater_snapshot::tests::fixture();
         for (deleted, historical) in [(false, false), (true, false), (false, true)] {
@@ -712,6 +760,7 @@ mod tests {
                 thumbnail_height: Some(24),
                 output_format: board_store::media_assets::MediaFormat::Gif,
                 has_replay: false,
+                has_mobile: false,
             });
             let value = post_json(
                 post,
@@ -762,6 +811,7 @@ mod tests {
                 thumbnail_height: Some(24),
                 output_format: board_store::media_assets::MediaFormat::Pdf,
                 has_replay: false,
+                has_mobile: false,
             });
             let value = post_json(
                 post,
@@ -819,6 +869,7 @@ mod tests {
                     thumbnail_height: Some(24),
                     output_format: format,
                     has_replay: false,
+                    has_mobile: false,
                 });
                 let value = post_json(
                     post,
@@ -842,7 +893,8 @@ mod tests {
                     }
                 } else {
                     assert_eq!(value["ext"], format!(".{}", format.extension()));
-                    assert_eq!(value["filename"], "owned");
+                    // The source removes only ASCII-alphanumeric suffixes.
+                    assert_eq!(value["filename"], "owned.different-name");
                     assert_eq!(value["w"], 1);
                     assert_eq!(value["h"], 1);
                     assert_eq!(value["tn_w"], 32);
@@ -943,6 +995,7 @@ mod preview_reference_tests {
             thumbnail_height: Some(10),
             output_format: board_store::media_assets::MediaFormat::Png,
             has_replay: false,
+            has_mobile: false,
         });
         post
     }
