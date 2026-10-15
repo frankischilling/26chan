@@ -122,7 +122,7 @@ impl VerificationStore {
              AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                WHERE n.nspname='verification_private' AND c.relkind='r'
                  AND has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))
-             AND coalesce((SELECT count(*)=7 AND bool_and(p.prosecdef AND p.proowner='board_anonymous_owner'::regrole
+             AND coalesce((SELECT count(*)=8 AND bool_and(p.prosecdef AND p.proowner='board_anonymous_owner'::regrole
                AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
                AND has_function_privilege(current_user,p.oid,'EXECUTE')
                AND NOT has_function_privilege('board_public',p.oid,'EXECUTE')
@@ -136,7 +136,16 @@ impl VerificationStore {
                  to_regprocedure('content.verification_queue_email(bytea,bytea,bytea,bytea,bytea,text,bytea,bytea,bytea)'),
                  to_regprocedure('content.verification_email_state(bytea)'),
                  to_regprocedure('content.verification_accept_email(bytea,bytea,text,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea)'),
-                 to_regprocedure('content.verification_signout(bytea)'))),false)
+                 to_regprocedure('content.verification_signout(bytea)'),
+                 to_regprocedure('content.verification_email_advice(bytea,bytea,bytea)'))),false)
+             AND coalesce((SELECT count(*)=1 AND bool_and(p.prosecdef
+                AND p.proowner='board_anonymous_owner'::regrole
+                AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
+                AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
+                  WHERE acl.privilege_type='EXECUTE' AND acl.grantee<>p.proowner))
+                FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                WHERE n.nspname='verification_private' AND p.proname='email_cooldown'
+                  AND p.proargtypes='17 17 17 1184'::oidvector),false)
              FROM pg_roles WHERE rolname=current_user",
         )
         .fetch_one(&self.pool)
@@ -207,6 +216,22 @@ impl VerificationStore {
         .fetch_one(&self.pool)
         .await
         .map_err(StoreError::from)
+    }
+
+    /// Advisory only. Enqueue repeats these checks under its capacity lock.
+    pub async fn email_advice(
+        &self,
+        peer: &[u8; 32],
+        email: &[u8; 32],
+        recipient: &[u8; 32],
+    ) -> Result<EmailQueueResult, StoreError> {
+        sqlx::query_as("SELECT * FROM content.verification_email_advice($1,$2,$3)")
+            .bind(peer.as_slice())
+            .bind(email.as_slice())
+            .bind(recipient.as_slice())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StoreError::from)
     }
 
     pub async fn queue_email(

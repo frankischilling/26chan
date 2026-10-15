@@ -16,6 +16,8 @@ mod public_media;
 pub use public_media::PublicMediaSettings;
 mod public_limits;
 pub use public_limits::PublicRequestLimits;
+mod public_verification;
+pub use public_verification::PublicVerificationSettings;
 mod public_proxy;
 pub use public_proxy::PublicProxy;
 
@@ -119,6 +121,7 @@ pub struct Settings {
     pub production: bool,
     pub api: Option<ApiListener>,
     pub media: Option<PublicMediaSettings>,
+    pub verification: Option<PublicVerificationSettings>,
     pub request_limits: PublicRequestLimits,
     pub public_proxy: Option<PublicProxy>,
     pub poster_id_key: Option<std::sync::Arc<board_domain::poster_id::PosterIdKey>>,
@@ -247,6 +250,7 @@ impl Settings {
         let media = env::var("MEDIA_ORIGIN").unwrap_or_else(|_| "http://127.0.0.1:3002".into());
         let origins = validate_origins(&public, &staff, &media, production)?;
         let media = PublicMediaSettings::from_env(media_enabled == "true", &origins)?;
+        let verification = PublicVerificationSettings::from_env()?;
         let request_limits = PublicRequestLimits::from_env()?;
         let public_proxy = PublicProxy::from_env(production)?;
         let poster_id_key = match env::var("POSTER_ID_KEY") {
@@ -305,6 +309,34 @@ impl Settings {
                 "Intake must use a separate listener from public and API serving.",
             ));
         }
+        if verification.as_ref().is_some_and(|v| {
+            (v.endpoint().port() == bind.port()
+                && (bind.ip().is_unspecified() || bind.ip() == v.endpoint().ip()))
+                || api.as_ref().is_some_and(|a| {
+                    a.bind.port() == v.endpoint().port()
+                        && (a.bind.ip().is_unspecified() || a.bind.ip() == v.endpoint().ip())
+                })
+                || media.as_ref().is_some_and(|m| m.intake == v.endpoint())
+        }) {
+            return Err(ConfigError("Verification must use a separate listener."));
+        }
+        if verification.is_some()
+            && request_limits.handler_timeout() < std::time::Duration::from_secs(30)
+        {
+            return Err(ConfigError(
+                "Email verification requires PUBLIC_HANDLER_TIMEOUT_MS of at least 30000.",
+            ));
+        }
+        if verification.as_ref().is_some_and(|v| {
+            env::var("METRICS_BIND_ADDR")
+                .ok()
+                .and_then(|value| value.parse::<SocketAddr>().ok())
+                .is_some_and(|addr| addr == v.endpoint())
+        }) {
+            return Err(ConfigError(
+                "Verification and metrics require separate listeners.",
+            ));
+        }
         let [public_origin, _, _] = origins;
         Ok(Self {
             database_url,
@@ -313,6 +345,7 @@ impl Settings {
             production,
             api,
             media,
+            verification,
             request_limits,
             public_proxy,
             tripcode_key,

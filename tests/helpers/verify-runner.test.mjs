@@ -12,13 +12,14 @@ const boundedDrawing = `timeout 300s ${drawing}`;
 const prerequisites = [
   'cargo build --workspace --examples --bins --locked',
   'cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked',
-  'cargo test -p board-store --all-features --locked',
-  'cargo test --workspace --exclude board-store --all-features --locked',
+  'cargo test -p board-store -p board-verification --all-features --locked',
+  'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact',
+  'cargo test --workspace --exclude board-store --exclude board-verification --all-features --locked',
   'cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture',
   'cargo test -p board-public --example deletion-fixture --features database-tests --locked',
   'cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked',
 ];
-const browserPrerequisites = [prerequisites[0], prerequisites[1], prerequisites[5], prerequisites[6]];
+const browserPrerequisites = [prerequisites[0], prerequisites[1], prerequisites[6], prerequisites[7]];
 const dependencyCommands = ['npm ci --ignore-scripts', 'npx playwright install --with-deps chromium'];
 const suites = ['rust', 'browser-content', 'browser-interactions'];
 const roles = ['TEST_PUBLIC', 'MEDIA', 'MEDIA_READ', 'INTAKE', 'MONITOR', 'AUTH', 'STAFF'];
@@ -44,6 +45,8 @@ python3 scripts/test-image-presentation-reference.py
 npm ci --ignore-scripts
 npx playwright install --with-deps chromium
 npm run check:generated
+npm run test:verification-core
+python3 tests/helpers/test_verification_mail_fixture.py
 timeout 300s npm run test:math
 npm run test:math
 python3 scripts/check-windows-test-exits.py
@@ -54,8 +57,9 @@ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
 cargo build --workspace --examples --bins --locked
 cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked
-cargo test -p board-store --all-features --locked
-cargo test --workspace --exclude board-store --all-features --locked
+cargo test -p board-store -p board-verification --all-features --locked
+cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact
+cargo test --workspace --exclude board-store --exclude board-verification --all-features --locked
 cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture
 cargo test -p board-public --example deletion-fixture --features database-tests --locked
 cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked
@@ -315,6 +319,8 @@ test('CI suites preserve failures and never execute a command after a failed pre
       'python3 scripts/extract-source-link-page.py',
       'node scripts/record-source-quote-styles.mjs',
       'npm run check:generated',
+      'npm run test:verification-core',
+      'python3 tests/helpers/test_verification_mail_fixture.py',
       'cargo clippy --workspace --all-targets --all-features --locked -- -D warnings',
     ]],
     ['browser-content', [
@@ -351,13 +357,13 @@ test('the staff browser alone receives all three synthetic inherited-environment
   }
 });
 
-test('only store tests receive isolated verification database credentials', options, t => {
+test('only explicit verification tests receive isolated verification database credentials', options, t => {
   for (const suite of ['all', ...suites]) {
     const result = runRunner(t, { args: [suite] });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.verificationEnvironments.length, result.commands.length);
     for (const [command, issuer, mailer] of result.verificationEnvironments) {
-      assert.deepEqual([issuer, mailer], command === 'cargo test -p board-store --all-features --locked'
+      assert.deepEqual([issuer, mailer], ['cargo test -p board-store -p board-verification --all-features --locked', 'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact'].includes(command)
         ? ['owned-issuer-trace', 'owned-mail-trace'] : ['', ''], command);
     }
   }

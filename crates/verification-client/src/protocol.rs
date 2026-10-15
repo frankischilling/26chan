@@ -53,6 +53,7 @@ pub enum Challenge {
         image: String,
         background: Option<String>,
         ttl_seconds: u16,
+        cooldown_seconds: u16,
         slider: bool,
         offset_max: u16,
     },
@@ -112,6 +113,9 @@ pub struct EmailToken {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EmailState {
+    BadEmail,
+    DisallowedProvider,
+    Subaddressing,
     Pending,
     Queued,
     AlreadyQueued,
@@ -135,4 +139,10 @@ pub struct EmailResult {
 #[serde(deny_unknown_fields)]
 pub struct SessionResult {
     pub changed: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Readiness {
+    pub ready: bool,
 }

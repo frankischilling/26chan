@@ -1,7 +1,10 @@
 # Public CAPTCHA and email verification
 
-Work in progress for issues #199 and #200. The public routes and forms are not
-connected yet. These primitives do not establish completion of either issue.
+Work in progress for #200. The email-verification routes, private issuer, mail
+worker, and local mail fixture are implemented on the development branch. Full
+browser, migration/restore, deployment, and final-head CI qualification remain
+pending. Ordinary posting, Quick Reply, report CAPTCHA, tickets, and credits
+remain #199 work. Neither issue is complete.
 
 ## Source behavior
 
@@ -60,9 +63,10 @@ A lease lasts at most 60 seconds, failed delivery waits 60 seconds before retry,
 and the encrypted outbox entry expires after one hour. Delivery decryption uses
 a separate key and authenticates the request's token hash as context. Plaintext
 recipients, bearer tokens, and keys have no automatic debug or serialization
-implementations. Tests use synthetic addresses and never send email.
+implementations. Tests use synthetic addresses and loopback fixtures; they never deliver
+external email.
 
-Migrations 0160–0162 add receipt-backed browser verification and current-browser
+Migrations 0160 through 0162 add receipt-backed browser verification and current-browser
 signout. Concurrent verification can rotate a browser only once. Signout leaves
 ordinary anonymous sessions alone. For a linked browser, it revokes the capability
 even after an idle reset; this is a security distinction from the source, which
@@ -82,12 +86,17 @@ challenge can tighten it. These counters are separate from the five failed
 country-check allowance and the single-use token state.
 
 The internal verification client uses a fixed numeric loopback endpoint,
-a separate service credential, bounded JSON bodies, and a twelve-second exchange
-limit. It does not resolve hostnames, follow redirects, or retry writes. Its
+a separate service credential, bounded JSON bodies, and an eight-second exchange
+limit. The private handler has a six-second budget. Enabling verification requires
+a public handler budget of at least thirty seconds for its sequential calls. It
+does not resolve hostnames, follow redirects, or retry writes. Its
 protocol carries server-resolved session fingerprints rather than the browser's
 raw deletion capability. Email-request challenges bind a form context so they
-can load before the recipient is entered. The issuer process and public routes
-still need implementation.
+can load before the recipient is entered. The public process never receives either private verification key. A lost
+verification reply can be reconciled only against the exact replacement browser
+capability generated for that request. Writes are never retried automatically.
+A disconnected client can still lose a successful response; a used link then
+requires a new email request.
 
 ## Disposable development setup
 
@@ -95,12 +104,12 @@ After `scripts/dev-db.sh`, run `sudo bash scripts/dev-verification-db.sh` agains
 the owned development cluster. It refuses to overwrite existing credential files
 or operate on a different cluster. The issuer and mail worker receive separate
 `.local/verification-issuer.env` and `.local/verification-mail.env` files; matching
-PowerShell files are generated too. Runtime keys and service startup still need
-integration.
+PowerShell files are generated too. Runtime keys must be provisioned separately; this script does not create them.
 
-Only the store-test subprocess sources `.local/verification-tests.env`, which
-contains both synthetic database roles. The regular public/staff workspace tests
-and browser commands do not inherit those exports. Command-trace tests check
+Only the explicit store, private issuer, and public verification round-trip test
+commands source `.local/verification-tests.env`, which contains both synthetic
+database roles. The regular public/staff workspace tests and browser commands do
+not inherit those exports. Command-trace tests check
 that separation and retain every prior verification prerequisite.
 
 ## Current evidence and remaining work
@@ -118,10 +127,78 @@ the actual domain crate and runs the existing anonymous-session and transfer
 suites. That harness uses local no-TLS dependencies, so it does not qualify the
 normal locked application build.
 
-Still required: public route/form integration for verification and signout,
-transactional post/report receipts and credits, ticket handling, the isolated
-service and local mail fixture, challenge rendering, ordinary/Quick Reply/report
-and sign-in forms, source-oracle coverage for remaining policies, upgrade/restore
-checks, and full desktop/mobile CI qualification. Missing Twister fonts,
-configuration, and private provider inputs need an explicit functional
-replacement and documented fidelity limits. No production bypass is permitted.
+The focused public-handler round trip also passes against the real private HTTP
+issuer and owned PostgreSQL: request, encrypted queue, link preview without
+anonymous-cookie replacement, verification, capability rotation, and logout.
+This is not browser or full-middleware qualification.
+
+Still required for #200: real browser keyboard/mobile/lifecycle checks,
+upgrade/restore checks, deployment
+validation, and all final-head CI checks. The source's sign-in stylesheet and
+mini-leaf image are absent from the supplied archive. Twister fonts,
+configuration, and private provider inputs are also missing. The bounded PNG
+renderer is a functional replacement with its own glyphs; its images and the
+sign-in page are not pixel-parity evidence. Provider/risk escalation remains an
+explicit compatibility gap. No production test bypass is permitted.
+
+## Public forms and browser state
+
+`/signin` serves the email request or current-session logout form. A verification
+link uses `/signin?action=verify&tkn=...`; GET checks the link without consuming
+it. The link page does not set an anonymous cookie. A native "Continue
+verification" POST returns to the same origin before resuming that cookie, which
+keeps an external email link from replacing a SameSite=Strict browser session.
+This extra step is a security-driven navigation difference. POST requires an independent HttpOnly form
+secret, its matching nonce, and the public middleware's exact Origin check.
+The form parser rejects duplicate decoded fields, malformed encodings, unknown
+fields, and oversized requests. The issuer receives server-derived transport and
+session information, never browser-supplied identity fields.
+
+The CAPTCHA fetch goes through `/signin/challenge`. Only a successful sign-in
+HTML response permits the verification script, that fetch endpoint, and inline
+PNG image data in CSP. Other pages retain their previous image policy. Sign-in
+pages use an origin-only referrer policy to keep link tokens out of asset
+referrers while preserving native same-origin form submission.
+
+The widget has keyboard-accessible native range and text controls, explicit
+refresh, a bounded cooldown, and expiration three seconds before the issuer's
+TTL. It clears proofs on page departure and persisted-page restoration. It does
+not automatically refresh expired challenges or resubmit email mutations.
+Successful verification rotates the anonymous browser cookie and sets the
+non-authoritative `_ev1` hint for sixty seconds. Signout expires that hint.
+
+## Local mail fixture and delivery
+
+`board-verification-mailer --once` processes up to 100 messages using the
+`board_mailer` role and the mail-encryption key. It claims one job at a time so
+each delivery has a fresh lease. SMTP is restricted to an explicitly configured
+numeric loopback endpoint, bounded replies, and a five-second exchange. Only a
+final SMTP 250 response acknowledges delivery. An uncertain acknowledgement can
+produce another delivery; its Message-ID stays the same. External authenticated
+or TLS delivery belongs to the separately configured local relay.
+
+For synthetic development mail, run:
+
+```sh
+python3 scripts/dev-verification-mail.py --output /tmp/owned-verification-mail --port 1025
+```
+
+The output directory must be new. The fixture binds only `127.0.0.1`, permits
+four connections, and writes at most 100 private `.eml` files. Each message is
+bounded to 8 KiB. During subsequent deliveries it removes its own messages older
+than one hour. It does not serve files over HTTP. Stop it and remove its owned
+output directory after testing; do not use real addresses or production tokens.
+
+Configure the mailer with its separate database URL and key,
+`VERIFICATION_SMTP_ADDR=127.0.0.1:1025`, and the local public origin. Run it with
+`--once`, then open the synthetic message's verification link in the browser
+being tested. No external email account is required.
+
+Candidate service profiles are `deploy/verification.service` and
+`deploy/verification-mailer.service`, with separate environment examples and a
+mailer timer. Provision distinct OS users and root-owned 0600 environment files.
+The verifier has the issuer database credential, identity key, mail key, and
+service credential. The mailer gets only its delivery-role credential and mail
+key. The public process gets only the loopback endpoint and service credential.
+The profiles restrict network access to loopback and writable filesystem access;
+they are not a substitute for qualification on the deployment host.

@@ -72,26 +72,7 @@ impl Session {
                 )
             })?,
         };
-        let country = match (state.country_database.as_ref(), peer) {
-            (Some(database), Some(peer)) => database
-                .lookup(peer)
-                .map_err(|_| {
-                    AppError(
-                        StatusCode::SERVICE_UNAVAILABLE,
-                        "Country lookup is unavailable.",
-                    )
-                })?
-                .code
-                .into_bytes()
-                .try_into()
-                .map_err(|_| {
-                    AppError(
-                        StatusCode::SERVICE_UNAVAILABLE,
-                        "Country lookup is unavailable.",
-                    )
-                })?,
-            _ => *b"XX",
-        };
+        let country = country(state, peer)?;
         let fingerprints = capability.fingerprints(peer, country);
         let now = Utc::now().with_nanosecond(0).ok_or(AppError(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -105,6 +86,37 @@ impl Session {
                 now,
             },
         })
+    }
+
+    pub(crate) fn fresh(state: &AppState, peer: Option<IpAddr>) -> Result<Self, AppError> {
+        let capability = Capability::generate().map_err(|_| {
+            AppError(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Anonymous session is unavailable. Try again.",
+            )
+        })?;
+        let fingerprints = capability.fingerprints(peer, country(state, peer)?);
+        Ok(Self {
+            capability,
+            posting: PostingSession {
+                fingerprints,
+                minted: true,
+                now: Utc::now(),
+            },
+        })
+    }
+
+    pub(crate) fn clear(headers: &mut HeaderMap, production: bool) {
+        let secure = if production { "; Secure" } else { "" };
+        let value = format!(
+            "{}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict{secure}",
+            cookie_name(production)
+        );
+        headers.append(
+            header::SET_COOKIE,
+            HeaderValue::from_str(&value).expect("canonical expired cookie"),
+        );
+        headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     }
 
     pub(crate) async fn existing(
@@ -145,6 +157,30 @@ impl Session {
             HeaderValue::from_str(&cookie).expect("canonical anonymous cookie"),
         );
     }
+}
+
+pub(crate) fn country(state: &AppState, peer: Option<IpAddr>) -> Result<[u8; 2], AppError> {
+    let country = match (state.country_database.as_ref(), peer) {
+        (Some(database), Some(peer)) => database
+            .lookup(peer)
+            .map_err(|_| {
+                AppError(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Country lookup is unavailable.",
+                )
+            })?
+            .code
+            .into_bytes()
+            .try_into()
+            .map_err(|_| {
+                AppError(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Country lookup is unavailable.",
+                )
+            })?,
+        _ => *b"XX",
+    };
+    Ok(country)
 }
 
 #[cfg(test)]

@@ -1,15 +1,57 @@
 -- Bounded encrypted delivery queue. Only the issuer can enqueue and only the
 -- separate mail worker can claim or acknowledge delivery.
-GRANT CREATE ON SCHEMA content TO board_anonymous_owner;
+GRANT CREATE ON SCHEMA content,verification_private TO board_anonymous_owner;
 SET ROLE board_anonymous_owner;
+CREATE FUNCTION verification_private.email_cooldown(p_peer bytea,p_email bytea,p_recipient bytea,p_now timestamptz)
+RETURNS TABLE(status text,cooldown_seconds integer)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE v_latest timestamptz; v_first timestamptz; v_count integer; v_now timestamptz:=p_now;
+BEGIN
+    SELECT max(created_at) INTO v_latest FROM verification_private.email_requests WHERE peer_hash=p_peer;
+    IF v_latest>v_now-interval '5 minutes' THEN
+        RETURN QUERY SELECT 'cooldown'::text,ceil(extract(epoch FROM v_latest+interval '5 minutes'-v_now))::integer; RETURN;
+    END IF;
+    IF EXISTS(SELECT 1 FROM verification_private.mail_outbox WHERE recipient_hash=p_recipient AND expires_at>v_now) THEN
+        RETURN QUERY SELECT 'already_queued'::text,0; RETURN;
+    END IF;
+    SELECT count(*),min(created_at) INTO v_count,v_first FROM (
+        SELECT created_at FROM verification_private.email_requests WHERE peer_hash=p_peer
+        AND created_at>v_now-interval '1 hour' ORDER BY created_at LIMIT 2
+    ) requests;
+    IF v_count>=2 THEN
+        RETURN QUERY SELECT 'cooldown'::text,ceil(extract(epoch FROM v_first+interval '1 hour'-v_now))::integer; RETURN;
+    END IF;
+    SELECT count(*),min(created_at) INTO v_count,v_first FROM (
+        SELECT created_at FROM verification_private.email_requests WHERE email_hash=p_email
+        AND created_at>v_now-interval '24 hours' ORDER BY created_at LIMIT 3
+    ) requests;
+    IF v_count>=3 THEN
+        RETURN QUERY SELECT 'cooldown'::text,ceil(extract(epoch FROM v_first+interval '24 hours'-v_now))::integer; RETURN;
+    END IF;
+    RETURN QUERY SELECT 'ready'::text,0;
+END $$;
+REVOKE ALL ON FUNCTION verification_private.email_cooldown(bytea,bytea,bytea,timestamptz) FROM PUBLIC;
+
+CREATE FUNCTION content.verification_email_advice(p_peer bytea,p_email bytea,p_recipient bytea)
+RETURNS TABLE(status text,cooldown_seconds integer)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+    IF p_peer IS NULL OR octet_length(p_peer)<>32 OR p_email IS NULL OR octet_length(p_email)<>32
+        OR p_recipient IS NULL OR octet_length(p_recipient)<>32 THEN
+        RAISE EXCEPTION 'Invalid email request.' USING ERRCODE='23514';
+    END IF;
+    RETURN QUERY SELECT * FROM verification_private.email_cooldown(p_peer,p_email,p_recipient,clock_timestamp());
+END $$;
+REVOKE ALL ON FUNCTION content.verification_email_advice(bytea,bytea,bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION content.verification_email_advice(bytea,bytea,bytea) TO board_verifier;
+
 CREATE FUNCTION content.verification_queue_email(
     p_token bytea,p_email bytea,p_recipient bytea,p_peer bytea,p_session bytea,
     p_country text,p_payload bytea,p_receipt bytea,p_context bytea
 ) RETURNS TABLE(status text,cooldown_seconds integer)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE v_now timestamptz; v_expiry bigint; v_policy verification_private.policy%ROWTYPE;
-    v_receipt verification_private.receipts%ROWTYPE; v_latest timestamptz;
-    v_first timestamptz; v_count integer; v_id uuid;
+    v_receipt verification_private.receipts%ROWTYPE; v_advice text; v_cooldown integer; v_id uuid;
 BEGIN
     IF p_token IS NULL OR octet_length(p_token)<>32 OR p_email IS NULL OR octet_length(p_email)<>32
         OR p_recipient IS NULL OR octet_length(p_recipient)<>32 OR p_peer IS NULL OR octet_length(p_peer)<>32
@@ -39,27 +81,9 @@ BEGIN
         ORDER BY old.expires_at LIMIT 100 FOR UPDATE SKIP LOCKED);
     -- Also prune this exact recipient when a larger expired backlog remains.
     DELETE FROM verification_private.mail_outbox WHERE recipient_hash=p_recipient AND expires_at<=v_now;
-    SELECT max(created_at) INTO v_latest FROM verification_private.email_requests WHERE peer_hash=p_peer;
-    IF v_latest>v_now-interval '5 minutes' THEN
-        RETURN QUERY SELECT 'cooldown'::text,ceil(extract(epoch FROM v_latest+interval '5 minutes'-v_now))::integer; RETURN;
-    END IF;
-    IF EXISTS(SELECT 1 FROM verification_private.mail_outbox WHERE recipient_hash=p_recipient) THEN
-        RETURN QUERY SELECT 'already_queued'::text,0; RETURN;
-    END IF;
-    SELECT count(*),min(created_at) INTO v_count,v_first FROM (
-        SELECT created_at FROM verification_private.email_requests WHERE peer_hash=p_peer
-        AND created_at>v_now-interval '1 hour' ORDER BY created_at LIMIT 2
-    ) requests;
-    IF v_count>=2 THEN
-        RETURN QUERY SELECT 'cooldown'::text,ceil(extract(epoch FROM v_first+interval '1 hour'-v_now))::integer; RETURN;
-    END IF;
-    SELECT count(*),min(created_at) INTO v_count,v_first FROM (
-        SELECT created_at FROM verification_private.email_requests WHERE email_hash=p_email
-        AND created_at>v_now-interval '24 hours' ORDER BY created_at LIMIT 3
-    ) requests;
-    IF v_count>=3 THEN
-        RETURN QUERY SELECT 'cooldown'::text,ceil(extract(epoch FROM v_first+interval '24 hours'-v_now))::integer; RETURN;
-    END IF;
+    SELECT c.status,c.cooldown_seconds INTO v_advice,v_cooldown
+        FROM verification_private.email_cooldown(p_peer,p_email,p_recipient,v_now) c;
+    IF v_advice<>'ready' THEN RETURN QUERY SELECT v_advice,v_cooldown; RETURN; END IF;
     IF (SELECT count(*) FROM (SELECT 1 FROM verification_private.email_requests LIMIT v_policy.request_limit) bounded)>=v_policy.request_limit
         OR (SELECT count(*) FROM (SELECT 1 FROM verification_private.mail_outbox LIMIT v_policy.outbox_limit) bounded)>=v_policy.outbox_limit THEN
         RAISE EXCEPTION 'Verification capacity is unavailable.' USING ERRCODE='54000';
@@ -129,4 +153,4 @@ END $$;
 REVOKE ALL ON FUNCTION content.verification_finish_mail(text,bytea,boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION content.verification_finish_mail(text,bytea,boolean) TO board_mailer;
 RESET ROLE;
-REVOKE CREATE ON SCHEMA content FROM board_anonymous_owner;
+REVOKE CREATE ON SCHEMA content,verification_private FROM board_anonymous_owner;

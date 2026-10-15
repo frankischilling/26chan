@@ -95,9 +95,19 @@ impl VerificationClient {
             tokio::pin!(response);
             tokio::select! {biased; result=&mut response=>result, _=&mut connection=>response.await}
         };
-        tokio::time::timeout(Duration::from_secs(12), exchange)
+        tokio::time::timeout(Duration::from_secs(8), exchange)
             .await
             .map_err(|_| Error::Unavailable)?
+    }
+
+    pub async fn ready(&self) -> Result<(), Error> {
+        let response: protocol::Readiness =
+            self.exchange("/readyz", &serde_json::json!({})).await?;
+        if response.ready {
+            Ok(())
+        } else {
+            Err(Error::Unavailable)
+        }
     }
 
     pub async fn ensure_session(

@@ -68,7 +68,8 @@ async fn captured_batch_session_clock_survives_a_delayed_first_deletion() {
         let state = AppState {
             pool: run_public.clone(),origin:"http://127.0.0.1:3000".into(),production:false,
             limits: Arc::new(crate::security::Limits::new(board_config::PublicRequestLimits::default())),
-            media:None,proxy_uid:None,poster_id_key:Some(key.clone()),tripcode_key:None,country_database:None,
+            media:None,verification: None,
+proxy_uid:None,poster_id_key:Some(key.clone()),tripcode_key:None,country_database:None,
         };
         let public_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
             .fetch_one(&run_public).await.unwrap();

@@ -89,6 +89,17 @@ async fn only_verifier_mints_zero_activity_sessions_and_readiness_rejects_drift(
                 .await
                 .unwrap();
             verifier.ready().await.unwrap();
+            let mut tx=owner.begin().await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *tx).await.unwrap();
+            sqlx::query("GRANT EXECUTE ON FUNCTION verification_private.email_cooldown(bytea,bytea,bytea,timestamptz) TO board_public").execute(&mut *tx).await.unwrap();
+            tx.commit().await.unwrap();
+            let drift=verifier.ready().await;
+            let mut tx=owner.begin().await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *tx).await.unwrap();
+            sqlx::query("REVOKE EXECUTE ON FUNCTION verification_private.email_cooldown(bytea,bytea,bytea,timestamptz) FROM board_public").execute(&mut *tx).await.unwrap();
+            tx.commit().await.unwrap();
+            assert!(matches!(drift,Err(StoreError::UnsafeRole)));
+            verifier.ready().await.unwrap();
             let challenge=VerificationToken::generate(TokenKind::Challenge).unwrap();
             let challenge_hash=key.token_hash(&challenge);
             let answer=key.challenge_answer(&challenge,6).unwrap();

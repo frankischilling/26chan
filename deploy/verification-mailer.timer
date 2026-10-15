@@ -1,0 +1,11 @@
+[Unit]
+Description=Deliver queued verification emails each minute
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+AccuracySec=5s
+Unit=verification-mailer.service
+
+[Install]
+WantedBy=timers.target

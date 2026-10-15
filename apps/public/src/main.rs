@@ -20,10 +20,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let metrics_endpoint = board_observe::Endpoint::bind(metrics_config).await?;
     let pool = board_store::connect_public(&settings.database_url).await?;
+    if let Some(verification) = &settings.verification {
+        board_verification_client::VerificationClient::new(
+            verification.endpoint(),
+            verification.token().to_owned(),
+        )?
+        .ready()
+        .await?;
+    }
     if let Some(media) = &settings.media {
         board_public::media_ready(media).await?;
     }
-    let (metrics, app, api_app) = board_public::observed_routers_with_options(
+    let (metrics, app, api_app) = board_public::observed_routers_with_verification(
         pool.clone(),
         settings.api.is_some(),
         board_public::PublicRouterOptions {
@@ -36,6 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             country_database: settings.country_database.clone(),
             poster_id_key: settings.poster_id_key.clone(),
         },
+        settings.verification.clone(),
     );
     if let Some(proxy) = &settings.public_proxy {
         tracing::info!(socket = %proxy.socket().display(), proxy_uid = proxy.uid(), "verified public proxy listener started");

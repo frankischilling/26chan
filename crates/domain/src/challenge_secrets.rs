@@ -48,6 +48,45 @@ impl VerificationKey {
         self.digest(b"email-recipient", &[email.recipient().as_bytes()])
     }
 
+    pub fn form_context(
+        &self,
+        purpose: &str,
+        board: Option<&str>,
+        target: i64,
+        nonce: &str,
+    ) -> Option<[u8; 32]> {
+        let nonce = decode(nonce)?;
+        if target < 0
+            || board.is_some_and(|board| {
+                board.is_empty()
+                    || board.len() > 10
+                    || !board
+                        .bytes()
+                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+            })
+        {
+            return None;
+        }
+        let valid = match purpose {
+            "email_request" => board.is_none() && target == 0,
+            "thread" => board.is_some() && target == 0,
+            "reply" | "report" => board.is_some() && target > 0,
+            "ticket" => board.is_some(),
+            _ => false,
+        };
+        valid.then(|| {
+            self.digest(
+                b"form-context",
+                &[
+                    purpose.as_bytes(),
+                    board.unwrap_or("").as_bytes(),
+                    &target.to_be_bytes(),
+                    &nonce,
+                ],
+            )
+        })
+    }
+
     /// The trusted transport address is canonicalized by the caller. This key
     /// is separate from session-local fingerprints so request quotas cannot be
     /// reset by discarding an anonymous cookie.
@@ -63,6 +102,11 @@ impl VerificationKey {
 
     pub fn token_hash(&self, token: &VerificationToken) -> [u8; 32] {
         self.digest(token.kind.purpose(), &[&token.bytes])
+    }
+
+    pub fn render_seed(&self, token: &VerificationToken) -> Option<[u8; 32]> {
+        (token.kind == TokenKind::Challenge)
+            .then(|| self.digest(b"challenge-render", &[&token.bytes]))
     }
 
     pub fn challenge_answer(
@@ -269,6 +313,8 @@ mod tests {
         let a = crate::email_verification::PreparedEmail::prepare("a.b@gmail.com").unwrap();
         let b = crate::email_verification::PreparedEmail::prepare("ab@gmail.com").unwrap();
         assert_eq!(key.email_identity(&a), key.email_identity(&b));
+        assert_ne!(key.email_recipient(&a), key.email_recipient(&b));
+        assert_ne!(key.email_recipient(&a), key.email_identity(&a));
         assert_ne!(key.email_identity(&a), other.email_identity(&a));
         assert_eq!(
             key.network_identity("192.0.2.1".parse().unwrap()),
@@ -281,6 +327,39 @@ mod tests {
         for invalid in ["", "00", &"GG".repeat(32), &"AA".repeat(32)] {
             assert!(VerificationKey::parse(invalid).is_none());
         }
+    }
+    #[test]
+    fn form_contexts_bind_action_board_target_and_nonce_without_an_email_address() {
+        let key = VerificationKey::parse(&"01".repeat(32)).unwrap();
+        let nonce = "ab".repeat(32);
+        let expected = key.form_context("reply", Some("g"), 42, &nonce).unwrap();
+        assert_ne!(
+            Some(expected),
+            key.form_context("report", Some("g"), 42, &nonce)
+        );
+        assert_ne!(
+            Some(expected),
+            key.form_context("reply", Some("a"), 42, &nonce)
+        );
+        assert_ne!(
+            Some(expected),
+            key.form_context("reply", Some("g"), 43, &nonce)
+        );
+        assert_ne!(
+            Some(expected),
+            key.form_context("reply", Some("g"), 42, &"cd".repeat(32))
+        );
+        assert!(key.form_context("email_request", None, 0, &nonce).is_some());
+        assert!(
+            key.form_context("email_request", Some("g"), 0, &nonce)
+                .is_none()
+        );
+        assert!(key.form_context("reply", Some("g"), 0, &nonce).is_none());
+        assert!(
+            key.form_context("thread", Some("../g"), 0, &nonce)
+                .is_none()
+        );
+        assert!(key.form_context("email_verify", None, 0, &nonce).is_none());
     }
     #[test]
     fn generated_tokens_roundtrip_without_using_display_or_debug() {

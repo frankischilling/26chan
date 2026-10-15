@@ -27,6 +27,7 @@ mod rss;
 mod search;
 mod security;
 mod semantic_thread;
+mod signin;
 mod site;
 pub mod themes;
 pub mod transport;
@@ -60,6 +61,7 @@ pub struct AppState {
     production: bool,
     limits: Arc<security::Limits>,
     media: Option<intake::IntakeClient>,
+    verification: Option<board_verification_client::VerificationClient>,
     proxy_uid: Option<u32>,
     poster_id_key: Option<Arc<board_domain::poster_id::PosterIdKey>>,
     tripcode_key: Option<Arc<board_domain::identity::SecureKey>>,
@@ -149,6 +151,15 @@ pub fn observed_routers_with_options(
     api_enabled: bool,
     options: PublicRouterOptions,
 ) -> (board_observe::Metrics, Router, Router) {
+    observed_routers_with_verification(pool, api_enabled, options, None)
+}
+
+pub fn observed_routers_with_verification(
+    pool: PgPool,
+    api_enabled: bool,
+    options: PublicRouterOptions,
+    verification: Option<board_config::PublicVerificationSettings>,
+) -> (board_observe::Metrics, Router, Router) {
     use board_observe::{Listener, Metrics, Pool, PoolSample};
     let mut metrics = Metrics::new();
     let observed_pool = pool.clone();
@@ -159,7 +170,7 @@ pub fn observed_routers_with_options(
             max: observed_pool.options().get_max_connections(),
         })
         .expect("one pool registered before sharing metrics");
-    let (public, api) = routers_with_options(pool, options);
+    let (public, api) = routers_with_verification(pool, options, verification);
     let public = metrics.layer(public, Listener::Public);
     let api = if api_enabled {
         metrics.layer(api, Listener::Api)
@@ -222,6 +233,14 @@ fn routers_with_proxy(
 }
 
 pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Router, Router) {
+    routers_with_verification(pool, options, None)
+}
+
+pub fn routers_with_verification(
+    pool: PgPool,
+    options: PublicRouterOptions,
+    verification: Option<board_config::PublicVerificationSettings>,
+) -> (Router, Router) {
     let PublicRouterOptions {
         origin,
         production,
@@ -245,6 +264,13 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
         production,
         limits: Arc::new(security::Limits::new(limits)),
         media: media.map(|settings| intake::IntakeClient { settings }),
+        verification: verification.map(|settings| {
+            board_verification_client::VerificationClient::new(
+                settings.endpoint(),
+                settings.token().to_owned(),
+            )
+            .expect("validated verification configuration")
+        }),
         proxy_uid,
     };
     let mut public = Router::new()
@@ -259,6 +285,7 @@ pub fn routers_with_options(pool: PgPool, options: PublicRouterOptions) -> (Rout
         .merge(polls::routes())
         .merge(restrictions::routes())
         .merge(blotter::routes())
+        .merge(signin::routes())
         .route("/", get(handlers::home))
         .route("/derefer", get(derefer::get))
         .route("/healthz", get(|| async { "ok" }))

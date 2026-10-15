@@ -11,6 +11,7 @@ browser-tests = ["database-tests"]
 [dependencies]
 board-media = { path = "../../crates/media" }
 board-domain = { path = "../../crates/domain" }
+board-verification-client = { path = "../../crates/verification-client" }
 board-config = { path = "../../crates/config" }
 board-store = { path = "../../crates/store" }
 board-http = { path = "../../crates/http" }
@@ -63,3 +64,6 @@ required-features = ["browser-tests"]
 [[example]]
 name = "math-browser-fixture"
 required-features = ["browser-tests"]
+
+[dev-dependencies.board-verification]
+path = "../verification"
