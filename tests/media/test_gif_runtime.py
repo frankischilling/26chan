@@ -1,8 +1,12 @@
-"""The JPEG cleaner is pinned and packaged only from trusted system files."""
+"""The GIF cleaner is pinned and packaged only from trusted system files."""
 import importlib.util
 import os
 import pathlib
 import subprocess
+import sys
+import stat
+import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -68,6 +72,40 @@ class GifRuntimeTest(unittest.TestCase):
                              b'/usr/lib/libjpeg.so.62 (0x123)']:
             with self.subTest(dependencies=dependencies), self.assertRaises(ValueError):
                 self.collect(dependencies=dependencies)
+
+    def test_guest_archive_has_parent_directories_before_cleaner_and_loader(self):
+        spec = importlib.util.spec_from_file_location('gif_initramfs', REPO / 'scripts/media/build-initramfs.py')
+        builder = importlib.util.module_from_spec(spec)
+        with mock.patch.dict(sys.modules, {'pdf_runtime': SimpleNamespace(collect=None)}):
+            spec.loader.exec_module(builder)
+        files, manifest = self.collect()
+        with tempfile.TemporaryDirectory(prefix='owned-gif-image-') as directory:
+            root = pathlib.Path(directory)
+            binary, output = root / 'synthetic-elf', root / 'image.cpio'
+            binary.write_bytes(b'\x7fELFsynthetic')
+            argv = ['build-initramfs.py', str(binary), str(binary), str(output), '--gif-runtime']
+            with mock.patch.object(sys, 'argv', argv), \
+                    mock.patch.dict(sys.modules, {'gif_runtime': runtime}), \
+                    mock.patch.object(runtime, 'collect', return_value=(files, manifest)):
+                builder.main()
+            image = output.read_bytes()
+        offset, directories, packaged = 0, set(), set()
+        while offset < len(image):
+            self.assertEqual(image[offset:offset + 6], b'070701')
+            fields = [int(image[offset + 6 + n * 8:offset + 14 + n * 8], 16) for n in range(13)]
+            size, name_size = fields[6], fields[11]
+            name = image[offset + 110:offset + 110 + name_size - 1].decode()
+            data_offset = (offset + 110 + name_size + 3) // 4 * 4
+            for parent in pathlib.PurePosixPath(name).parents:
+                if str(parent) != '.':
+                    self.assertIn(str(parent), directories, name)
+            if stat.S_ISDIR(fields[1]):
+                directories.add(name)
+            else:
+                packaged.add(name)
+            offset = (data_offset + size + 3) // 4 * 4
+        self.assertTrue(set(files).issubset(packaged))
+        self.assertTrue({'usr', 'usr/bin', 'lib', 'lib/x86_64-linux-gnu', 'lib64'}.issubset(directories))
 
     def test_total_budget(self):
         with mock.patch.object(runtime, 'MAX_TOTAL', 1):

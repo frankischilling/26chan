@@ -95,6 +95,10 @@ def main():
         for name in files:
             directories.update(str(parent) for parent in pathlib.PurePosixPath(name).parents
                                if str(parent) != ".")
+    # Every runtime needs its executable and loader parents before file entries.
+    for name in files:
+        directories.update(str(parent) for parent in pathlib.PurePosixPath(name).parents
+                           if str(parent) != ".")
     image = bytearray()
     ino = 1
     for name in sorted(directories, key=lambda value: (value.count('/'), value)):

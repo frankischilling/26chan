@@ -39,3 +39,5 @@ Cleanup runs with fixed arguments, cleared environment, private filenames and a 
 Migration 0154 admits only complete `gif-v7` manifests with JPEG thumbnails. Historical GIF-v3 rows retain their old constraints and PNG thumbnails. GIF attachments are rejected on the source SWF upload board; implementing that board's SWF feature remains tracked separately.
 
 The runtime pin uses the October 12, 2026 upstream release, which fixes GIF encoder end-code handling at code-size boundaries. See the [official release notes](https://www.lcdf.org/gifsicle/changes.html). The cleanup-decision source audit above remains independent of encoder output bytes.
+
+`tests/media/source_gif_observation.py` supplies hand-authored four-frame animations and independent Pillow observations. Literal expectations cover unequal delays, transparent pixels, partial rectangles, background restoration, previous-frame restoration, and absent, infinite or finite loop controls. The VM suite checks these observations both for unchanged bytes and after metadata cleanup. Local reference checks pass; the complete VM qualification remains pending.

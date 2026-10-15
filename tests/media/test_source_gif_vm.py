@@ -7,13 +7,16 @@ import subprocess
 import tempfile
 import time
 import unittest
-from test_still_vm import StillVmTest, OUTPUT_BYTES
-from test_vm import REPO, VmTest, check_probe_report
+import test_still_vm
+from test_still_vm import OUTPUT_BYTES
+import test_vm
+from test_vm import REPO, check_probe_report
+from source_gif_observation import animation, observe, EXPECTED, DELAYS
 
 
 class SourceGifVmTest(unittest.TestCase):
     input_kind = 'gif-v7'
-    run_job = StillVmTest.run_job
+    run_job = test_still_vm.StillVmTest.run_job
 
     def policy(self, thread=True):
         bound = 250 if thread else 125
@@ -52,6 +55,23 @@ class SourceGifVmTest(unittest.TestCase):
                     self.assertEqual(cleaned, target.read_bytes())
                     self.assertNotIn(b'PRIVATE-MARKER', cleaned)
 
+    def test_independent_animation_observations_survive_cleanup(self):
+        for repeat in (None, 0, 5):
+            original = animation(repeat)
+            expected = (repeat, EXPECTED, DELAYS)
+            self.assertEqual(observe(original), expected)
+            # Four-color global palette ends at byte 25.
+            tagged = original[:25] + b'!\xfe\x0ePRIVATE-MARKER\x00' + original[25:]
+            for source in (original, tagged):
+                with self.subTest(loop=repeat, cleanup=source == tagged):
+                    policy = self.policy()
+                    retained = self.retained(self.run_job(policy + source), policy)
+                    self.assertEqual(observe(retained), expected)
+                    if source == original:
+                        self.assertEqual(retained, original)
+                    else:
+                        self.assertNotIn(b'PRIVATE-MARKER', retained)
+
     def test_large_canvas_and_malformed_inputs_remain_bounded(self):
         original = (REPO / 'tests/media/fixtures/gif/static.gif').read_bytes()
         large = original[:6] + struct.pack('<HH', 10000, 10000) + original[10:]
@@ -67,7 +87,7 @@ class SourceGifVmTest(unittest.TestCase):
         self.assertEqual(self.retained(self.run_job(policy + original), policy), original)
 
     def test_live_profile_and_containment(self):
-        VmTest().check_live_vmm_limits('gif-v7', 2560 * 1024 * 1024)
+        test_vm.VmTest().check_live_vmm_limits('gif-v7', 2560 * 1024 * 1024)
         for mode, checks in [('inspect', 9), ('limits', 4), ('memory', 1), ('process', 1), ('disk', 1)]:
             output = self.run_job(mode.encode().ljust(17, b' '), probe=True)
             check_probe_report(output[:4_194_816], checks)
@@ -78,7 +98,7 @@ class SourceGifVmTest(unittest.TestCase):
         self.run_job(b'sleep'.ljust(17, b' '), probe=True, expect_failure=True)
         self.assertGreaterEqual(time.monotonic() - start, 40)
         self.assertLess(time.monotonic() - start, 70)
-        vm = VmTest()
+        vm = test_vm.VmTest()
         for signum in (signal.SIGTERM, signal.SIGINT):
             with vm.sleeping_vm('gif-v7') as (runner, unit, workspace, disk, vmm):
                 runner.send_signal(signum)
