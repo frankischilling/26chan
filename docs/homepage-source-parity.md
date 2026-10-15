@@ -53,3 +53,17 @@ those separate features have been implemented.
 [Homepage snapshots](homepage-snapshots.md) documents refresh, live visibility,
 local metric definitions and bounded history. The missing source consumer means
 the 12-card limit and responsive arrangement are local choices.
+
+## Visual regression review
+
+The first hosted branch run compiled the production views and produced owned
+Windows fixtures for the populated and empty homepage, ordinary boards, media
+boards/threads and six theme variants. The changed pictures were reviewed for
+layout and overflow. The 24 scoped baseline changes comprise two new populated
+homepage views, two replacement empty-homepage views and twenty posting-notice
+layout updates. They came from run `38705687166` at `b1ea25f0`; they are regression
+fixtures for this implementation, not screenshots of the original site.
+
+That run also found a Clippy item-order failure in the new content module. The
+constant now precedes the test module, and focused all-target Clippy passes.
+Fresh full application and browser runs are still required at the final head.

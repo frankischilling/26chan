@@ -69,6 +69,7 @@ async fn local_information_news_updates_pagination_and_private_rules_use_real_pu
             assert_eq!(request(&app,Method::HEAD,path).await.2,"");
             assert_eq!(request(&app,Method::POST,path).await.0,StatusCode::METHOD_NOT_ALLOWED);
         }
+        assert_eq!(request(&app,Method::GET,"/news/").await.0,StatusCode::OK);
         assert!(!request(&app,Method::GET,"/news/").await.2.contains("class=\"siteHome\""),"the original news board keeps its trailing-slash route");
         assert_ne!(request(&api,Method::GET,"/faq").await.0,StatusCode::OK);
         assert!(request(&app,Method::GET,"/news").await.2.contains("No news has been published."));

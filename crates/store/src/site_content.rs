@@ -374,35 +374,6 @@ pub async fn retract_page(
     finish(tx, result).await
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn input_boundaries_and_plain_text_are_explicit() {
-        for key in ["faq", "rules/g", "contact"] {
-            assert!(valid_page_key(key));
-        }
-        for key in ["", "news", "rules/../g", "rules/g?x", "FAQ"] {
-            assert!(!valid_page_key(key));
-        }
-        let valid = r#"{"kind":"page","version":1,"key":"faq","expected_revision":0,"title":"Local FAQ","body":"<script>text stays escaped</script>"}"#;
-        assert!(read_input(valid.as_bytes()).is_ok());
-        for invalid in [
-            valid.replace("\"version\":1", "\"version\":2"),
-            valid.replace("\"expected_revision\":0", "\"expected_revision\":-1"),
-            valid.replace("Local FAQ", " "),
-            valid.replace("Local FAQ", "Line\\nBreak"),
-            valid.replace("\"kind\":\"page\"", "\"unknown\":true,\"kind\":\"page\""),
-        ] {
-            assert!(read_input(invalid.as_bytes()).is_err());
-        }
-        assert!(read_input(vec![b' '; INPUT_LIMIT as usize + 1].as_slice()).is_err());
-        assert!(plain("owned\ntext\tline", 32, true));
-        assert!(!plain("owned\rtext", 32, true));
-        assert!(!plain("owned\0text", 32, true));
-    }
-}
-
 /// Exact publication filters and read-only runtime grants are part of readiness.
 pub const READINESS_SQL: &str = r#"
 WITH relations AS (
@@ -452,3 +423,32 @@ AND NOT EXISTS(SELECT 1 FROM (VALUES
  WHERE r.nspname='site_private' AND r.relname=expected.name AND c.convalidated AND NOT c.condeferrable
  AND regexp_replace(pg_get_constraintdef(c.oid,true),'[[:space:]()]','','g')=regexp_replace(expected.definition,'[[:space:]()]','','g')))
 "#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn input_boundaries_and_plain_text_are_explicit() {
+        for key in ["faq", "rules/g", "contact"] {
+            assert!(valid_page_key(key));
+        }
+        for key in ["", "news", "rules/../g", "rules/g?x", "FAQ"] {
+            assert!(!valid_page_key(key));
+        }
+        let valid = r#"{"kind":"page","version":1,"key":"faq","expected_revision":0,"title":"Local FAQ","body":"<script>text stays escaped</script>"}"#;
+        assert!(read_input(valid.as_bytes()).is_ok());
+        for invalid in [
+            valid.replace("\"version\":1", "\"version\":2"),
+            valid.replace("\"expected_revision\":0", "\"expected_revision\":-1"),
+            valid.replace("Local FAQ", " "),
+            valid.replace("Local FAQ", "Line\\nBreak"),
+            valid.replace("\"kind\":\"page\"", "\"unknown\":true,\"kind\":\"page\""),
+        ] {
+            assert!(read_input(invalid.as_bytes()).is_err());
+        }
+        assert!(read_input(vec![b' '; INPUT_LIMIT as usize + 1].as_slice()).is_err());
+        assert!(plain("owned\ntext\tline", 32, true));
+        assert!(!plain("owned\rtext", 32, true));
+        assert!(!plain("owned\0text", 32, true));
+    }
+}

@@ -57,6 +57,9 @@ Focused tests use an owned PostgreSQL database and the actual store module and
 operator CLI. They cover source candidate ordering, sticky and ordinary bump
 eligibility, actual reply counts, file deletion, reports, private boards,
 staleness, generation exhaustion, retained snapshots and the 64-sample bound.
+Concurrent refreshes retain complete generations. Concurrent editors using the
+same page revision admit one update and reject the other; errors finish rollback
+before returning the connection, so a rejected editor does not retain locks.
 Eight schema drift controls cover visibility, grants and bounds. The actual
 Askama homepage and posting-notice templates also compile in a focused harness.
 The populated 0154 upgrade preserves boards, threads and posts; a schema-name
