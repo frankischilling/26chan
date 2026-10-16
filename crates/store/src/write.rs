@@ -1792,11 +1792,40 @@ pub async fn report_with_anonymous_session(
     identity: &board_domain::poster_id::PublicReportRateIdentity,
     session: anonymous_session::PostingSession,
 ) -> Result<(), StoreError> {
+    report_with_challenge(
+        pool,
+        slug,
+        id,
+        reason,
+        identity,
+        ProtectedReportingContext {
+            session,
+            challenge: None,
+        },
+    )
+    .await
+}
+
+pub struct ProtectedReportingContext {
+    pub session: anonymous_session::PostingSession,
+    pub challenge: Option<WriteChallengeProof>,
+}
+
+pub async fn report_with_challenge(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    reason: &str,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+    context: ProtectedReportingContext,
+) -> Result<(), StoreError> {
+    let session = context.session;
     validate_report_reason(reason)?;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::write_challenge::install(&mut tx, context.challenge.as_ref(), Some(&session)).await?;
     crate::restrictions::prepare_report(
         &mut tx,
         identity,
@@ -1824,10 +1853,36 @@ pub async fn report_categorical_with_anonymous_session(
     identity: &board_domain::poster_id::PublicReportRateIdentity,
     session: anonymous_session::PostingSession,
 ) -> Result<(), StoreError> {
+    report_categorical_with_challenge(
+        pool,
+        slug,
+        id,
+        category_id,
+        expected_revision,
+        identity,
+        ProtectedReportingContext {
+            session,
+            challenge: None,
+        },
+    )
+    .await
+}
+
+pub async fn report_categorical_with_challenge(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    category_id: i64,
+    expected_revision: i64,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+    context: ProtectedReportingContext,
+) -> Result<(), StoreError> {
+    let session = context.session;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::write_challenge::install(&mut tx, context.challenge.as_ref(), Some(&session)).await?;
     crate::restrictions::prepare_report(
         &mut tx,
         identity,

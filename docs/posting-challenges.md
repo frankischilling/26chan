@@ -3,7 +3,7 @@
 Issue [#199](https://github.com/frankischilling/26chan/issues/199) is in progress.
 Board policy, ticket storage, and normal post receipt enforcement are implemented
 in the database. Public posting and Quick Reply still need to request and supply
-those proofs; report enforcement and browser credit controls are unfinished. Email verification is covered in
+those proofs; the report exemption and browser credit controls are unfinished. Email verification is covered in
 [public verification](public-verification.md).
 
 ## Board policy
@@ -150,7 +150,28 @@ without spending, and revoked board bypass. Readiness checks the lifetime-aware
 SQL result shape; upgrade tests exercise actual verifier startup against both
 the old and new contracts.
 
-Report integration and browser credit controls still need implementation or
+## Report transactions
+
+Migration 0171 checks report proofs inside both free-text and categorical
+admission. The existing target and session checks precede CAPTCHA; quotas,
+restrictions, category checks, report insertion, and activity registration then
+run in the same transaction. A later failure restores the receipt and any
+spent credit. Report submissions never grant new credits.
+
+Actual public-role tests cover normal and credit proofs in both modes, missing
+proof, stale category revision, late registration failure, success, and replay.
+They also verify that the separate staff-only report path remains usable and
+that an explicitly CAPTCHA-disabled test board accepts a report without proof.
+The public handlers still need to supply proofs through the new Store APIs.
+
+The source's optional no-CAPTCHA report exemption remains unfinished. Existing
+report memberships can disappear during retirement, so they cannot establish
+complete hourly report or recent-clear history. Source clear history comes from
+target/group clearing and new reports against an already-cleared group; the
+reporter-wide clear logger is commented out. The replacement needs retained,
+bounded history and tests for those exact events before enabling the exemption.
+
+Report exemption and browser credit controls still need implementation or
 qualification. Existing posting fixtures must explicitly
 account for the new gate. The branch has not passed full-workspace CI and must
 not be treated as ready to merge.

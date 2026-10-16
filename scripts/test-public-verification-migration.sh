@@ -62,7 +62,7 @@ SQL
 "${migrator[@]}" -Atc "SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash" > "$cluster/before.json"
 for migration in migrations/*.sql; do
     [[ $(basename "$migration") < 0158_ ]] && continue
-    [[ $(basename "$migration") < 0171_ ]] || break
+    [[ $(basename "$migration") < 0172_ ]] || break
     "${migrator[@]}" --single-transaction -f - < "$migration"
     # The verifier's readiness predicate must distinguish the old two-column
     # credit result from the upgraded lifetime-aware wire contract.
