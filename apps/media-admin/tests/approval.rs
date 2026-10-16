@@ -125,6 +125,15 @@ async fn exercise(admin: sqlx::PgPool, ids: Arc<Mutex<Vec<String>>>) {
             .await
             .is_err()
     );
+    // The preceding refused publication drops a transaction holding this job.
+    // Wait for its rollback before exercising a nonblocking SKIP LOCKED sweep.
+    let mut settled = admin.begin().await.unwrap();
+    sqlx::query("SELECT id FROM media.jobs WHERE id=$1 FOR UPDATE")
+        .bind(&job.id)
+        .fetch_one(&mut *settled)
+        .await
+        .unwrap();
+    settled.commit().await.unwrap();
     queue.expire().await.unwrap();
     let retry = queue.claim().await.unwrap().unwrap();
     assert_eq!(retry.id, job.id);

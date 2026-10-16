@@ -9,7 +9,10 @@ use board_media::{
 use board_media_dispatch::DispatchClient;
 use board_store::{
     media::{Failure, MediaQueue},
-    media_assets::{Asset, DrawingLease, OutputMetadata, OutputVariants, SourceProvenance},
+    media_assets::{
+        Asset, DrawingLease, InputComponent, InputReceipt, OutputMetadata, OutputVariants,
+        SourceProvenance,
+    },
 };
 use tokio::io::AsyncReadExt;
 
@@ -17,6 +20,7 @@ struct ProcessedDrawing {
     image: ValidatedOutput,
     replay: Option<CanonicalReplay>,
     source: SourceProvenance,
+    input: InputReceipt,
 }
 
 pub async fn dispatch(
@@ -34,6 +38,17 @@ pub async fn dispatch(
         let file = quarantine.open_paired_input(descriptor.job_id, descriptor.bytes)?;
         let snapshot = PairedInputSnapshot::read(file, descriptor).await?;
         let source = crate::paired::png_provenance(&snapshot)?;
+        let input = InputReceipt {
+            component: InputComponent::PairedImage,
+            sha256: snapshot
+                .descriptor()
+                .image_sha256
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect(),
+            bytes: snapshot.descriptor().image_bytes as i64,
+            md5: *snapshot.raw_image_md5(),
+        };
         let binding = snapshot.new_attempt_binding()?;
         let disk = client
             .process_paired(snapshot.bytes(), snapshot.bytes().len() as u64, &binding)
@@ -63,6 +78,7 @@ pub async fn dispatch(
             image,
             replay,
             source,
+            input,
         })
     })
     .await;
@@ -119,6 +135,14 @@ async fn publish(
             replay_metadata.as_ref(),
         )
         .await?;
+    let token = lease
+        .job()
+        .lease_token
+        .as_deref()
+        .ok_or("missing drawing lease")?;
+    queue
+        .record_input_receipt(&lease.job().id, token, &pending.id, &drawing.input)
+        .await?;
     let id = pending.id.parse()?;
     let receipt = guard.install(id, &image)?;
     if receipt.sha256 != pending.sha256 || receipt.bytes != pending.bytes as u64 {
@@ -136,7 +160,9 @@ async fn publish(
             return Err("drawing replay reservation differs".into());
         }
     }
-    Ok(queue.approve_drawing_output(lease, &pending.id).await?)
+    Ok(queue
+        .approve_drawing_output_with_input(lease, &pending.id, &drawing.input)
+        .await?)
 }
 
 fn descriptor(lease: &DrawingLease) -> PublicationResult<PairedInputDescriptor> {

@@ -1,8 +1,8 @@
 # File-blocking parity
 
-File blocking is unfinished. The snapshot layer records the original upload's
-MD5, but the publication database and posting rules do not yet use it. Existing
-SHA-256 integrity checks remain unchanged. MD5 is only a compatibility key for
+File blocking is unfinished. Trusted publication records the original upload's
+MD5 in a private receipt. Posting rules do not yet read or enforce that receipt.
+Existing SHA-256 integrity checks remain unchanged. MD5 is only a compatibility key for
 matching operator-owned rules; it is not an approval or integrity proof.
 
 ## Original and processed bytes
@@ -14,9 +14,34 @@ and framing. Neither accessor reopens a path or hashes worker output.
 
 The existing `SourceProvenance.md5` describes processed bytes according to its
 source profile. It cannot be repurposed as the untouched input digest. Durable
-raw-input metadata needs its own private, lease-bound fields and exact retry
-checks. Old uploads must remain unknown rather than acquire an inferred digest.
-Approved media views must not expose the private metadata.
+raw-input metadata has its own private, lease-bound receipt and exact retry
+checks. Old uploads remain unknown rather than acquiring an inferred digest.
+Approved media views do not expose the private metadata.
+
+## Durable receipt
+
+`media.input_receipts` belongs to the reserved asset, not its temporary queue job.
+It stores the original SHA-256, byte length, MD5, and component kind. Queue cleanup
+does not remove it; deleting the asset cascades to the receipt.
+
+The trusted host records it under the publication filesystem lock after reserving
+the asset and before installing files. The writer locks the job before the asset
+and requires the current processing lease, matching byte length, and a pending
+asset. Drawing receipts additionally match the stored image-component SHA-256.
+Existing processed-source provenance, when present, must agree on input identity.
+
+The production approval paths require an existing exact receipt within their
+approval transaction. They cannot fill a missing receipt. A failed or uncertain
+write leaves the reservation recoverable and prevents file installation; an
+uncertain approval preserves files for reconciliation. Exact approved-receipt
+verification is allowed after queue cleanup, but historical approvals cannot
+acquire a new receipt. Manual publication APIs without an original snapshot
+continue to leave original identity unknown.
+
+Both private functions have fixed search paths and the migration owner. Runtime
+publication receives only function execution, with no direct receipt-table grant.
+Public posting, staff, intake, and media-reader roles cannot read the tuple.
+Admission still needs its own capability-scoped reader and enforcement tests.
 
 ## Required posting behavior
 
@@ -47,4 +72,8 @@ established source behavior.
 The media suite checks a fixed `abc` MD5 vector, unchanged snapshots after a path
 or inode is overwritten, and identical image digests across absent or changed
 replays. It also checks that a frame digest differs from the image digest. These
-tests qualify capture only, not publication persistence or blacklist enforcement.
+tests qualify snapshot capture. Database tests separately exercise receipt
+privacy, lease expiry, exact retries, approval refusal without a receipt,
+historical backfill refusal, paired-component checks, and cleanup. Controlled
+TLS dispatch tests compare frozen raw-input digests independently of the
+processed-source digest. They do not qualify blacklist enforcement.

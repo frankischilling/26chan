@@ -270,6 +270,59 @@ async fn drawing_publication_binds_one_current_lease_and_immutable_replay_compan
         early.as_database_error().unwrap().code().as_deref(),
         Some("42501")
     );
+    use board_store::media_assets::{InputComponent, InputReceipt};
+    let input = InputReceipt {
+        component: InputComponent::PairedImage,
+        sha256: "b".repeat(64),
+        bytes: 33,
+        md5: [7; 16],
+    };
+    assert!(
+        sqlx::query("SELECT media.require_input_receipt($1,$2,$3,$4,$5,$6,$7)")
+            .bind(&job)
+            .bind(&token)
+            .bind(&asset)
+            .bind(&input.sha256)
+            .bind(input.bytes)
+            .bind(input.md5.as_slice())
+            .bind("paired-image")
+            .execute(&media)
+            .await
+            .is_err()
+    );
+    for wrong in [
+        InputReceipt {
+            component: InputComponent::Upload,
+            ..input.clone()
+        },
+        InputReceipt {
+            sha256: "a".repeat(64),
+            ..input.clone()
+        },
+        InputReceipt {
+            bytes: 90,
+            ..input.clone()
+        },
+    ] {
+        assert!(
+            queue
+                .record_input_receipt(&job, &token, &asset, &wrong)
+                .await
+                .is_err()
+        );
+    }
+    queue
+        .record_input_receipt(&job, &token, &asset, &input)
+        .await
+        .unwrap();
+    assert_eq!(
+        queue
+            .approve_drawing_output_with_input(lease, &asset, &input)
+            .await
+            .unwrap()
+            .id,
+        asset
+    );
     for _ in 0..2 {
         let approved: String =
             sqlx::query_scalar("SELECT id FROM media.approve_drawing_output($1,$2,$3)")
@@ -281,14 +334,7 @@ async fn drawing_publication_binds_one_current_lease_and_immutable_replay_compan
                 .unwrap();
         assert_eq!(approved, asset);
     }
-    assert_eq!(
-        queue
-            .approve_drawing_output(lease, &asset)
-            .await
-            .unwrap()
-            .id,
-        asset
-    );
+
     let row:(String,String,i64)=sqlx::query_as("SELECT j.state,a.state,r.bytes FROM media.jobs j JOIN media.assets a ON a.job_id=j.id JOIN media.replay_assets r ON r.asset_id=a.id WHERE j.id=$1")
         .bind(&job).fetch_one(&admin).await.unwrap();
     assert_eq!(row, ("published".into(), "approved".into(), 288));

@@ -19,8 +19,8 @@ use board_media_dispatch::DispatchClient;
 use board_store::{
     media::{Failure, MediaQueue},
     media_assets::{
-        Asset, MediaFormat, MediaReader, OutputMetadata, OutputVariants, SourceProfile,
-        SourceProvenance, VideoMetadata,
+        Asset, InputComponent, InputReceipt, MediaFormat, MediaReader, OutputMetadata,
+        OutputVariants, SourceProfile, SourceProvenance, VideoMetadata,
     },
 };
 
@@ -125,9 +125,10 @@ pub async fn dispatch(
             client.process(snapshot.bytes(), length).await
         }
         .map_err(|_| "dispatch processing failed")?;
-        Ok::<_, &str>((disk, provenance, gif, pdf.then_some(snapshot), video))
+        let input = input_receipt(&snapshot);
+        Ok::<_, &str>((disk, provenance, gif, pdf.then_some(snapshot), video, input))
     };
-    let (disk, provenance, gif, pdf, video) =
+    let (disk, provenance, gif, pdf, video, input) =
         match tokio::time::timeout(std::time::Duration::from_secs(29), processed).await {
             Ok(Ok(disk)) => disk,
             _ => {
@@ -147,7 +148,7 @@ pub async fn dispatch(
                 return Err("dispatch output rejected".into());
             }
         };
-        return publish_video(queue, store, &job.id, token, &video)
+        return publish_video_with_input(queue, store, &job.id, token, &video, Some(&input))
             .await
             .map_err(|_| "dispatch approval unavailable".into());
     }
@@ -161,9 +162,16 @@ pub async fn dispatch(
                 return Err("dispatch output rejected".into());
             }
         };
-        return publish_animation(queue, store, &job.id, token, &animation)
-            .await
-            .map_err(|_| "dispatch approval unavailable".into());
+        return publish_animation_with_input(
+            queue,
+            store,
+            &job.id,
+            token,
+            &animation,
+            Some(&input),
+        )
+        .await
+        .map_err(|_| "dispatch approval unavailable".into());
     }
     let output = match ValidatedOutput::read_disk(std::io::Cursor::new(disk)).await {
         Ok(output) => output,
@@ -176,15 +184,23 @@ pub async fn dispatch(
     };
     if let Some(snapshot) = pdf {
         let document = RetainedPdf::from_processed_snapshot(snapshot, output)?;
-        return publish_pdf(queue, store, &job.id, token, &document)
+        return publish_pdf(queue, store, &job.id, token, &document, &input)
             .await
             .map_err(|_| "dispatch approval unavailable".into());
     }
     // Preserve publication's reservation/lock and uncertain-commit recovery.
     // Never remove or fail a possibly approved object after an approval error.
-    publish_with_provenance(queue, store, &job.id, token, &output, provenance.as_ref())
-        .await
-        .map_err(|_| "dispatch approval unavailable".into())
+    publish_with_provenance(
+        queue,
+        store,
+        &job.id,
+        token,
+        &output,
+        provenance.as_ref(),
+        Some(&input),
+    )
+    .await
+    .map_err(|_| "dispatch approval unavailable".into())
 }
 
 pub async fn publish(
@@ -194,7 +210,7 @@ pub async fn publish(
     token: &str,
     output: &ValidatedOutput,
 ) -> PublicationResult<Asset> {
-    publish_with_provenance(queue, store, job_id, token, output, None).await
+    publish_with_provenance(queue, store, job_id, token, output, None, None).await
 }
 
 /// Publish only independently validated frames, with the same lease and
@@ -205,6 +221,17 @@ pub async fn publish_animation(
     job_id: &str,
     token: &str,
     animation: &ValidatedAnimation,
+) -> PublicationResult<Asset> {
+    publish_animation_with_input(queue, store, job_id, token, animation, None).await
+}
+
+async fn publish_animation_with_input(
+    queue: &MediaQueue,
+    store: &PublicationStore,
+    job_id: &str,
+    token: &str,
+    animation: &ValidatedAnimation,
+    input: Option<&InputReceipt>,
 ) -> PublicationResult<Asset> {
     let encoded = animation.encode()?;
     let thumbnail = animation.first_frame()?.thumbnail()?;
@@ -227,6 +254,11 @@ pub async fn publish_animation(
     let pending = queue
         .prepare_gif_output(job_id, token, &metadata, &variants)
         .await?;
+    if let Some(input) = input {
+        queue
+            .record_input_receipt(job_id, token, &pending.id, input)
+            .await?;
+    }
     let receipt = guard.install_gif(pending.id.parse()?, &encoded)?;
     if pending.output_format != MediaFormat::Gif
         || receipt.sha256 != pending.sha256
@@ -240,7 +272,14 @@ pub async fn publish_animation(
     {
         return Err("thumbnail reservation differs from installed bytes".into());
     }
-    Ok(queue.approve_output(job_id, token, &pending.id).await?)
+    Ok(match input {
+        Some(input) => {
+            queue
+                .approve_output_with_input(job_id, token, &pending.id, input)
+                .await?
+        }
+        None => queue.approve_output(job_id, token, &pending.id).await?,
+    })
 }
 
 /// Publish the checked stopped video envelope under a lease-fenced reservation.
@@ -250,6 +289,17 @@ pub async fn publish_video(
     job_id: &str,
     token: &str,
     video: &ValidatedVideo,
+) -> PublicationResult<Asset> {
+    publish_video_with_input(queue, store, job_id, token, video, None).await
+}
+
+async fn publish_video_with_input(
+    queue: &MediaQueue,
+    store: &PublicationStore,
+    job_id: &str,
+    token: &str,
+    video: &ValidatedVideo,
+    input: Option<&InputReceipt>,
 ) -> PublicationResult<Asset> {
     let thumbnail = video.preview().encode()?;
     let metadata = OutputMetadata {
@@ -279,6 +329,11 @@ pub async fn publish_video(
     let pending = queue
         .prepare_video_output(job_id, token, &metadata, &variants, format, &video_metadata)
         .await?;
+    if let Some(input) = input {
+        queue
+            .record_input_receipt(job_id, token, &pending.id, input)
+            .await?;
+    }
     let receipt = guard.install_video(pending.id.parse()?, video)?;
     if pending.output_format != format
         || receipt.sha256 != pending.sha256
@@ -292,7 +347,14 @@ pub async fn publish_video(
     {
         return Err("thumbnail reservation differs from installed bytes".into());
     }
-    Ok(queue.approve_output(job_id, token, &pending.id).await?)
+    Ok(match input {
+        Some(input) => {
+            queue
+                .approve_output_with_input(job_id, token, &pending.id, input)
+                .await?
+        }
+        None => queue.approve_output(job_id, token, &pending.id).await?,
+    })
 }
 
 /// Retain the exact dispatched PDF and publish its separately validated preview.
@@ -302,6 +364,7 @@ async fn publish_pdf(
     job_id: &str,
     token: &str,
     encoded: &RetainedPdf,
+    input: &InputReceipt,
 ) -> PublicationResult<Asset> {
     let thumbnail = encoded.preview().thumbnail()?;
     let metadata = OutputMetadata {
@@ -323,6 +386,9 @@ async fn publish_pdf(
     let pending = queue
         .prepare_pdf_output(job_id, token, &metadata, &variants)
         .await?;
+    queue
+        .record_input_receipt(job_id, token, &pending.id, input)
+        .await?;
     let receipt = guard.install_pdf(pending.id.parse()?, encoded)?;
     if pending.output_format != MediaFormat::Pdf
         || receipt.sha256 != pending.sha256
@@ -336,7 +402,9 @@ async fn publish_pdf(
     {
         return Err("thumbnail reservation differs from installed bytes".into());
     }
-    Ok(queue.approve_output(job_id, token, &pending.id).await?)
+    Ok(queue
+        .approve_output_with_input(job_id, token, &pending.id, input)
+        .await?)
 }
 
 // Only the coordinator may attach source provenance, after guest output passed
@@ -348,6 +416,7 @@ async fn publish_with_provenance(
     token: &str,
     output: &ValidatedOutput,
     provenance: Option<&SourceProvenance>,
+    input: Option<&InputReceipt>,
 ) -> PublicationResult<Asset> {
     let encoded = output.encode()?;
     let thumbnail = output.thumbnail()?;
@@ -370,6 +439,11 @@ async fn publish_with_provenance(
     let pending = queue
         .prepare_output_with_provenance(job_id, token, &metadata, Some(&variants), provenance)
         .await?;
+    if let Some(input) = input {
+        queue
+            .record_input_receipt(job_id, token, &pending.id, input)
+            .await?;
+    }
     let receipt = guard.install(pending.id.parse()?, &encoded)?;
     if receipt.sha256 != pending.sha256 || receipt.bytes != pending.bytes as u64 {
         return Err("output reservation differs from installed bytes".into());
@@ -382,7 +456,14 @@ async fn publish_with_provenance(
     }
     // Failure/uncertain commit leaves a reserved object for retry or cleanup;
     // no error path removes a possibly approved file.
-    Ok(queue.approve_output(job_id, token, &pending.id).await?)
+    Ok(match input {
+        Some(input) => {
+            queue
+                .approve_output_with_input(job_id, token, &pending.id, input)
+                .await?
+        }
+        None => queue.approve_output(job_id, token, &pending.id).await?,
+    })
 }
 
 pub async fn reconcile(queue: &MediaQueue, store: &PublicationStore) -> PublicationResult<u64> {
@@ -459,6 +540,19 @@ fn source_provenance(
         })),
         Err(SourceDigestError::JpegUnavailable | SourceDigestError::GifUnavailable) => Ok(None),
         Err(error) => Err(error),
+    }
+}
+
+fn input_receipt(snapshot: &InputSnapshot) -> InputReceipt {
+    InputReceipt {
+        component: InputComponent::Upload,
+        sha256: snapshot
+            .raw_sha256()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect(),
+        bytes: snapshot.bytes().len() as i64,
+        md5: *snapshot.raw_md5(),
     }
 }
 
