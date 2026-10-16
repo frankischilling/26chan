@@ -32,6 +32,13 @@ pub struct ProtectedPostingContext {
     pub challenge: Option<WriteChallengeProof>,
 }
 
+/// Server-owned providers are resolved against this posting context's trusted
+/// peer. A caller cannot substitute a pre-resolved ASN or a public header.
+pub struct NetworkPostingContext<'a, C> {
+    pub posting: C,
+    pub asn_database: Option<&'a board_domain::content_admission::network::asn::Database>,
+}
+
 pub async fn create_post(
     pool: &PgPool,
     slug: &str,
@@ -193,6 +200,7 @@ pub async fn create_post_with_metadata(
         attachment,
         context,
         PostWriteOptions {
+            asn_database: None,
             metadata,
             staff: None,
             anonymous: None,
@@ -219,6 +227,7 @@ pub async fn create_post_with_anonymous_session(
         attachment,
         context.posting,
         PostWriteOptions {
+            asn_database: None,
             metadata,
             staff: None,
             anonymous: Some(context.session),
@@ -237,6 +246,34 @@ pub async fn create_post_with_challenge(
     context: ProtectedPostingContext,
     metadata: PostMetadata<'_>,
 ) -> Result<i64, StoreError> {
+    create_protected_post_with_network(
+        pool,
+        slug,
+        parent,
+        post,
+        attachment,
+        NetworkPostingContext {
+            posting: context,
+            asn_database: None,
+        },
+        metadata,
+    )
+    .await
+}
+
+pub async fn create_protected_post_with_network(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: NetworkPostingContext<'_, ProtectedPostingContext>,
+    metadata: PostMetadata<'_>,
+) -> Result<i64, StoreError> {
+    let NetworkPostingContext {
+        posting: context,
+        asn_database,
+    } = context;
     create_post_in_context(
         pool,
         slug,
@@ -245,6 +282,7 @@ pub async fn create_post_with_challenge(
         attachment,
         context.anonymous.posting,
         PostWriteOptions {
+            asn_database,
             metadata,
             staff: None,
             anonymous: Some(context.anonymous.session),
@@ -351,6 +389,34 @@ pub async fn create_staff_post_with_attachment_and_context_and_keys(
     keys: PostIdentityKeys<'_>,
     authority: StaffPostAuthority<'_>,
 ) -> Result<i64, StoreError> {
+    create_staff_post_with_network(
+        pool,
+        slug,
+        parent,
+        content,
+        NetworkPostingContext {
+            posting: context,
+            asn_database: None,
+        },
+        keys,
+        authority,
+    )
+    .await
+}
+
+pub async fn create_staff_post_with_network(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    content: StaffPostContent<'_>,
+    context: NetworkPostingContext<'_, PostingContext>,
+    keys: PostIdentityKeys<'_>,
+    authority: StaffPostAuthority<'_>,
+) -> Result<i64, StoreError> {
+    let NetworkPostingContext {
+        posting: context,
+        asn_database,
+    } = context;
     let StaffPostContent { post, attachment } = content;
     if attachment.is_some() && authority.identity.is_none() {
         return Err(StoreError::Invalid("Source staff identity is required."));
@@ -374,6 +440,7 @@ pub async fn create_staff_post_with_attachment_and_context_and_keys(
         attachment,
         context,
         PostWriteOptions {
+            asn_database,
             metadata: PostMetadata {
                 spoiler: false,
                 keys,
@@ -438,6 +505,34 @@ pub async fn create_ordinary_staff_post_with_attachment(
     metadata: PostMetadata<'_>,
     authority: StaffPostAuthority<'_>,
 ) -> Result<i64, StoreError> {
+    create_ordinary_staff_post_with_network(
+        pool,
+        slug,
+        parent,
+        content,
+        NetworkPostingContext {
+            posting: context,
+            asn_database: None,
+        },
+        metadata,
+        authority,
+    )
+    .await
+}
+
+pub async fn create_ordinary_staff_post_with_network(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    content: StaffPostContent<'_>,
+    context: NetworkPostingContext<'_, PostingContext>,
+    metadata: PostMetadata<'_>,
+    authority: StaffPostAuthority<'_>,
+) -> Result<i64, StoreError> {
+    let NetworkPostingContext {
+        posting: context,
+        asn_database,
+    } = context;
     let StaffPostContent { post, attachment } = content;
     if authority
         .identity
@@ -463,6 +558,7 @@ pub async fn create_ordinary_staff_post_with_attachment(
         attachment,
         context,
         PostWriteOptions {
+            asn_database,
             metadata,
             staff: Some(authority),
             anonymous: None,
@@ -497,6 +593,7 @@ pub async fn staff_op_deletion_hash(
 }
 
 struct PostWriteOptions<'a> {
+    asn_database: Option<&'a board_domain::content_admission::network::asn::Database>,
     metadata: PostMetadata<'a>,
     staff: Option<StaffPostAuthority<'a>>,
     anonymous: Option<anonymous_session::PostingSession>,
@@ -513,6 +610,7 @@ async fn create_post_in_context(
     options: PostWriteOptions<'_>,
 ) -> Result<i64, StoreError> {
     let PostWriteOptions {
+        asn_database,
         metadata,
         staff,
         anonymous,
@@ -566,6 +664,15 @@ async fn create_post_in_context(
             ))
         })?;
         key.public_posting_rate_identity(peer)
+    };
+    // Preserve unavailable versus successful no-record results. Policy decides
+    // whether this provider is needed, after earlier admission stages run.
+    let asn = match (asn_database, context.peer) {
+        (Some(database), Some(peer)) => match database.lookup(peer.to_canonical()) {
+            Ok(value) => board_domain::content_admission::network::ProviderValue::Available(value),
+            Err(_) => board_domain::content_admission::network::ProviderValue::Unavailable,
+        },
+        _ => board_domain::content_admission::network::ProviderValue::Unavailable,
     };
     let mut tx = pool.begin().await?;
     // The decision must see the preceding actor's commit after waiting on its
@@ -632,6 +739,7 @@ async fn create_post_in_context(
                 context.peer,
                 anonymous,
                 context.request_start.timestamp(),
+                asn,
             )
             .await?,
         )

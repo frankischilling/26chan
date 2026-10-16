@@ -24,6 +24,8 @@ static TEST: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[derive(Clone)]
 struct Fixture {
+    asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
+    peer_override: Option<IpAddr>,
     owner: PgPool,
     staff: PgPool,
     auth: PgPool,
@@ -101,6 +103,8 @@ impl Fixture {
                 .unwrap(),
             jobs: Arc::new(Mutex::new(Vec::new())),
             extra_boards: Arc::new(Mutex::new(Vec::new())),
+            asn_database: None,
+            peer_override: None,
         }
     }
 
@@ -215,11 +219,11 @@ impl Fixture {
         };
         let context = PostingContext {
             request_start: at,
-            peer: Some(peer(ip)),
+            peer: Some(self.peer_override.unwrap_or_else(|| peer(ip))),
             op_password_proof: None,
         };
         if ordinary {
-            board_store::create_ordinary_staff_post_with_attachment(
+            board_store::create_ordinary_staff_post_with_network(
                 &self.staff,
                 &self.board,
                 parent,
@@ -227,7 +231,10 @@ impl Fixture {
                     post: input,
                     attachment: a,
                 },
-                context,
+                board_store::NetworkPostingContext {
+                    posting: context,
+                    asn_database: self.asn_database.as_deref(),
+                },
                 PostMetadata {
                     drawing: None,
                     keys,
@@ -240,7 +247,7 @@ impl Fixture {
             )
             .await
         } else {
-            board_store::create_staff_post_with_attachment_and_context_and_keys(
+            board_store::create_staff_post_with_network(
                 &self.staff,
                 &self.board,
                 parent,
@@ -248,7 +255,10 @@ impl Fixture {
                     post: input,
                     attachment: a,
                 },
-                context,
+                board_store::NetworkPostingContext {
+                    posting: context,
+                    asn_database: self.asn_database.as_deref(),
+                },
                 keys,
                 authority,
             )
@@ -1622,4 +1632,47 @@ async fn ordinary_staff_network(f: &Fixture) {
             .is_some()
     );
     assert_eq!(f.counts().await.3, 0);
+    sqlx::query("UPDATE admission.network_rules SET range_start=NULL,range_end=NULL,asn=15169 WHERE boards=$1")
+        .bind(&f.board).execute(&f.owner).await.unwrap();
+    let mut with_asn = f.clone();
+    with_asn.asn_database = Some(Arc::new(
+        board_domain::content_admission::network::asn::Database::from_bytes(
+            include_bytes!("../../domain/tests/fixtures/GeoLite2-ASN-Test.mmdb").to_vec(),
+        )
+        .unwrap(),
+    ));
+    with_asn.peer_override = Some("1.0.0.1".parse().unwrap());
+    let before = f.counts().await;
+    assert!(
+        matches!(with_asn.write(0,None,true,&post(),211,Utc::now()).await,
+        Err(StoreError::ContentRejected(message)) if message.starts_with("Posting from your IP range"))
+    );
+    assert_eq!(f.counts().await, before);
+    with_asn
+        .write(0, None, false, &post(), 212, Utc::now())
+        .await
+        .unwrap();
+    // Only this owned rule is added to the existing synthetic /test/ board.
+    // A badged /test/ post must hit the same provider; no content may be saved.
+    let rule: i64 = sqlx::query_scalar(
+        "INSERT INTO admission.network_rules(boards,asn) VALUES('test',15169) RETURNING id",
+    )
+    .fetch_one(&f.owner)
+    .await
+    .unwrap();
+    with_asn.board = "test".into();
+    let before = with_asn.counts().await;
+    let result = with_asn
+        .write(0, None, false, &post(), 213, Utc::now())
+        .await;
+    let after = with_asn.counts().await;
+    sqlx::query("DELETE FROM admission.network_rules WHERE id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert!(
+        matches!(result,Err(StoreError::ContentRejected(message)) if message.starts_with("Posting from your IP range"))
+    );
+    assert_eq!(after, before);
 }

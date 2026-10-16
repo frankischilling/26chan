@@ -85,6 +85,7 @@ async fn staff_issue_and_unban_use_live_session_scope_recent_auth_csrf_and_priva
     sqlx::query("INSERT INTO staff_identity.sessions(token_hash,csrf_hash,account_id,credential_id) VALUES($1,$2,$3,$1)").bind(&credential).bind(auth::hash(&csrf)).bind(account).execute(&owner).await.unwrap();
     let app = router(Arc::new(AppState {
         config: Config {
+            asn_database: None,
             media: None,
             proxy: None,
             poster_id_key: None,

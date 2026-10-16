@@ -81,6 +81,7 @@ impl Fixture {
             .bind(auth::hash(&token)).bind(auth::hash(&csrf)).bind(account).bind(&credential).execute(&owner).await.unwrap();
         let state = Arc::new(AppState {
             config: Config {
+                asn_database: None,
                 media: None,
                 proxy: None,
                 poster_id_key: None,

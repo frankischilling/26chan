@@ -1172,18 +1172,21 @@ async fn submit_post(
         deletion_hash: hash,
         sage: options.sage,
     };
-    let id = board_store::create_post_with_challenge(
+    let id = board_store::create_protected_post_with_network(
         &state.pool,
         &board,
         form.resto,
         &post,
         attachment.as_ref(),
-        board_store::ProtectedPostingContext {
-            anonymous: board_store::AnonymousPostingContext {
-                posting: context,
-                session: session.posting,
+        board_store::NetworkPostingContext {
+            asn_database: state.asn_database.as_deref(),
+            posting: board_store::ProtectedPostingContext {
+                anonymous: board_store::AnonymousPostingContext {
+                    posting: context,
+                    session: session.posting,
+                },
+                challenge,
             },
-            challenge,
         },
         board_store::PostMetadata {
             spoiler: form.spoiler,

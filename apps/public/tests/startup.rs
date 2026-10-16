@@ -51,6 +51,32 @@ fn invalid_public_identity_keys_fail_before_binding_without_echoing_secrets() {
 }
 
 #[test]
+fn invalid_asn_database_fails_before_listener_or_database_access() {
+    let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    for path in [
+        std::path::PathBuf::from("owned-private-asn.mmdb"),
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")),
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("owned-private-asn.mmdb"),
+    ] {
+        let output = public_command()
+            .env("ASN_DATABASE", &path)
+            .env(
+                "DATABASE_URL",
+                "postgres://board_public:unused-secret@127.0.0.1:1/absent",
+            )
+            .env("BIND_ADDR", occupied.local_addr().unwrap().to_string())
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(error.contains("ASN"), "{error}");
+        assert!(!error.contains("owned-private-asn"));
+        assert!(!error.contains("unused-secret"));
+        assert!(!error.contains("AddrInUse"));
+    }
+}
+
+#[test]
 fn invalid_request_budgets_fail_before_binding_or_database_access() {
     let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let command = || {
@@ -141,6 +167,7 @@ fn public_runtime_rejects_inherited_operator_credentials() {
         "MIGRATION_DATABASE_URL",
         "STAFF_POSTER_ID_KEY",
         "STAFF_COUNTRY_DATABASE",
+        "STAFF_ASN_DATABASE",
         "STAFF_PROXY_SOCKET",
         "STAFF_PROXY_UID",
     ] {

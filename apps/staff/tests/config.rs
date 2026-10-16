@@ -23,6 +23,7 @@ fn staff_rejects_inherited_unrelated_credentials_and_identity_sources() {
         "TRIPCODE_KEY",
         "POSTER_ID_KEY",
         "COUNTRY_DATABASE",
+        "ASN_DATABASE",
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_board-staff"))
             .env_clear()

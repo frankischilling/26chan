@@ -195,6 +195,7 @@ mod tests {
             format!("url={}", "x".repeat(MAX_QUERY_BYTES)),
         ] {
             let state = AppState {
+                asn_database: None,
                 pool: sqlx::postgres::PgPoolOptions::new()
                     .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
                     .unwrap(),
@@ -222,6 +223,7 @@ mod tests {
     #[tokio::test]
     async fn linkifier_utf16_bound_accepts_valid_multibyte_url_and_rejects_one_unit_over() {
         let state = || AppState {
+            asn_database: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
                 .unwrap(),

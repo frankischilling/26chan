@@ -47,6 +47,7 @@ impl Fixture {
         };
         let state = Arc::new(AppState {
             config: Config {
+                asn_database: None,
                 media: None,
                 proxy: None,
                 poster_id_key: None,

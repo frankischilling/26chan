@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(media) = &settings.media {
         board_public::media_ready(media).await?;
     }
-    let (metrics, app, api_app) = board_public::observed_routers_with_verification(
+    let (metrics, app, api_app) = board_public::observed_routers_with_network(
         pool.clone(),
         settings.api.is_some(),
         board_public::PublicRouterOptions {
@@ -45,6 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             poster_id_key: settings.poster_id_key.clone(),
         },
         settings.verification.clone(),
+        settings.asn_database.clone(),
     );
     if let Some(proxy) = &settings.public_proxy {
         tracing::info!(socket = %proxy.socket().display(), proxy_uid = proxy.uid(), "verified public proxy listener started");

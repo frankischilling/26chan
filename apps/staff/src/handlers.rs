@@ -1038,7 +1038,7 @@ pub async fn post_message(
         };
         let (hash, proof) = crate::posting_password::prepare(input.password, op_hash).await?;
         post.deletion_hash = hash;
-        board_store::create_ordinary_staff_post_with_attachment(
+        board_store::create_ordinary_staff_post_with_network(
             &state.staff,
             &input.board,
             input.thread,
@@ -1046,10 +1046,13 @@ pub async fn post_message(
                 post: &post,
                 attachment: attachment.as_ref(),
             },
-            board_store::PostingContext {
-                request_start,
-                peer: peer.ip(),
-                op_password_proof: proof,
+            board_store::NetworkPostingContext {
+                asn_database: state.config.asn_database.as_deref(),
+                posting: board_store::PostingContext {
+                    request_start,
+                    peer: peer.ip(),
+                    op_password_proof: proof,
+                },
             },
             board_store::PostMetadata {
                 spoiler: input.spoiler,
@@ -1066,7 +1069,7 @@ pub async fn post_message(
         )
         .await
     } else {
-        board_store::create_staff_post_with_attachment_and_context_and_keys(
+        board_store::create_staff_post_with_network(
             &state.staff,
             &input.board,
             input.thread,
@@ -1074,10 +1077,13 @@ pub async fn post_message(
                 post: &post,
                 attachment: attachment.as_ref(),
             },
-            board_store::PostingContext {
-                request_start,
-                peer: peer.ip(),
-                op_password_proof: None,
+            board_store::NetworkPostingContext {
+                asn_database: state.config.asn_database.as_deref(),
+                posting: board_store::PostingContext {
+                    request_start,
+                    peer: peer.ip(),
+                    op_password_proof: None,
+                },
             },
             board_store::PostIdentityKeys {
                 tripcode: state.config.tripcode_key.as_deref(),

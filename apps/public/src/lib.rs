@@ -58,6 +58,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct AppState {
+    asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
     pool: PgPool,
     origin: String,
     production: bool,
@@ -162,6 +163,16 @@ pub fn observed_routers_with_verification(
     options: PublicRouterOptions,
     verification: Option<board_config::PublicVerificationSettings>,
 ) -> (board_observe::Metrics, Router, Router) {
+    observed_routers_with_network(pool, api_enabled, options, verification, None)
+}
+
+pub fn observed_routers_with_network(
+    pool: PgPool,
+    api_enabled: bool,
+    options: PublicRouterOptions,
+    verification: Option<board_config::PublicVerificationSettings>,
+    asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
+) -> (board_observe::Metrics, Router, Router) {
     use board_observe::{Listener, Metrics, Pool, PoolSample};
     let mut metrics = Metrics::new();
     let observed_pool = pool.clone();
@@ -172,7 +183,7 @@ pub fn observed_routers_with_verification(
             max: observed_pool.options().get_max_connections(),
         })
         .expect("one pool registered before sharing metrics");
-    let (public, api) = routers_with_verification(pool, options, verification);
+    let (public, api) = routers_with_network(pool, options, verification, asn_database);
     let public = metrics.layer(public, Listener::Public);
     let api = if api_enabled {
         metrics.layer(api, Listener::Api)
@@ -243,6 +254,15 @@ pub fn routers_with_verification(
     options: PublicRouterOptions,
     verification: Option<board_config::PublicVerificationSettings>,
 ) -> (Router, Router) {
+    routers_with_network(pool, options, verification, None)
+}
+
+pub fn routers_with_network(
+    pool: PgPool,
+    options: PublicRouterOptions,
+    verification: Option<board_config::PublicVerificationSettings>,
+    asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
+) -> (Router, Router) {
     let PublicRouterOptions {
         origin,
         production,
@@ -258,6 +278,7 @@ pub fn routers_with_verification(
         "Production media is not qualified"
     );
     let state = AppState {
+        asn_database,
         tripcode_key,
         country_database,
         poster_id_key,

@@ -98,6 +98,29 @@ async fn submit_options(
         .unwrap()
 }
 
+fn network_router(
+    pool: PgPool,
+    board: &str,
+    peer: &str,
+    database: Option<std::sync::Arc<board_domain::content_admission::network::asn::Database>>,
+) -> Router {
+    let options = board_public::PublicRouterOptions {
+        origin: "http://127.0.0.1:3000".into(),
+        production: false,
+        media: None,
+        limits: board_config::PublicRequestLimits::default(),
+        proxy_uid: None,
+        poster_id_key: Some(posting::key(board)),
+        tripcode_key: None,
+        country_database: None,
+    };
+    board_public::routers_with_network(pool, options, None, database)
+        .0
+        .layer(axum::Extension(axum::extract::ConnectInfo(
+            std::net::SocketAddr::new(peer.parse().unwrap(), 40000),
+        )))
+}
+
 async fn accepted_id(response: axum::response::Response, index: usize) -> i64 {
     if index & 4 == 0 {
         assert_eq!(response.status(), 200);
@@ -440,6 +463,99 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         }
         assert_eq!(snapshot(&owner, &slug).await, before);
     }
+    sqlx::query(
+        "UPDATE admission.network_rules SET range_start=NULL,range_end=NULL,asn=15169 WHERE id=$1",
+    )
+    .bind(range)
+    .execute(&owner)
+    .await
+    .unwrap();
+    let database = std::sync::Arc::new(
+        board_domain::content_admission::network::asn::Database::from_bytes(
+            include_bytes!("../../../crates/domain/tests/fixtures/GeoLite2-ASN-Test.mmdb").to_vec(),
+        )
+        .unwrap(),
+    );
+    for peer in ["1.0.0.1", "::ffff:1.0.0.1"] {
+        let app = network_router(public.clone(), &slug, peer, Some(database.clone()));
+        let before = snapshot(&owner, &slug).await;
+        let response = submit(&app, &slug, 0, thread, "", "Matching offline ASN").await;
+        assert_eq!(response.status(), 200);
+        let json: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
+        assert!(
+            json["error"]
+                .as_str()
+                .unwrap()
+                .starts_with("Posting from your IP range")
+        );
+        assert_eq!(snapshot(&owner, &slug).await, before);
+    }
+    sqlx::query("UPDATE admission.network_rules SET asn=6730 WHERE id=$1")
+        .bind(range)
+        .execute(&owner)
+        .await
+        .unwrap();
+    let ipv6 = network_router(
+        public.clone(),
+        &slug,
+        "2001:1700::1",
+        Some(database.clone()),
+    );
+    let before_ipv6 = snapshot(&owner, &slug).await;
+    let response = submit(&ipv6, &slug, 0, thread, "", "IPv6 ASN admission").await;
+    let json: serde_json::Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .starts_with("Posting from your IP range")
+    );
+    assert_eq!(snapshot(&owner, &slug).await, before_ipv6);
+    sqlx::query("UPDATE admission.network_rules SET asn=15169 WHERE id=$1")
+        .bind(range)
+        .execute(&owner)
+        .await
+        .unwrap();
+    for peer in ["1.128.0.1", "192.0.2.201"] {
+        // The first peer resolves to a different ASN; the second is a successful
+        // no-record lookup. The forged x-geo-asn header must not decide either.
+        let app = network_router(public.clone(), &slug, peer, Some(database.clone()));
+        accepted_id(
+            submit(&app, &slug, 0, thread, "", "Unmatched offline ASN").await,
+            0,
+        )
+        .await;
+    }
+    let unavailable = network_router(public.clone(), &slug, "1.0.0.1", None);
+    let before = snapshot(&owner, &slug).await;
+    assert_eq!(
+        submit(&unavailable, &slug, 0, thread, "", "Missing ASN provider")
+            .await
+            .status(),
+        503
+    );
+    assert_eq!(snapshot(&owner, &slug).await, before);
+    // A successful ASN no-record must continue to a later matching range.
+    let later: i64 = sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end,position) VALUES($1,3221226185,3221226185,1) RETURNING id")
+        .bind(&slug).fetch_one(&owner).await.unwrap();
+    let app = network_router(public.clone(), &slug, "192.0.2.201", Some(database));
+    let response = submit(&app, &slug, 0, thread, "", "Later range after ASN miss").await;
+    let json: serde_json::Value =
+        serde_json::from_slice(&to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .starts_with("Posting from your IP range")
+    );
+    assert_eq!(snapshot(&owner, &slug).await, before);
+    sqlx::query("DELETE FROM admission.network_rules WHERE id=$1")
+        .bind(later)
+        .execute(&owner)
+        .await
+        .unwrap();
     sqlx::query("DELETE FROM admission.network_rules WHERE id=$1")
         .bind(range)
         .execute(&owner)

@@ -58,21 +58,23 @@ fn invalid_staff_identity_sources_fail_before_listener_binding() {
             assert!(!error.contains("Staff listener unavailable"));
         }
     }
-    for path in [
-        std::path::PathBuf::from("owned-private-source.mmdb"),
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")),
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("owned-private-source.mmdb"),
-    ] {
-        let error = failure(staff_command(&bind).env("STAFF_COUNTRY_DATABASE", path));
-        assert!(error.contains("Invalid STAFF_COUNTRY_DATABASE"));
+    for variable in ["STAFF_COUNTRY_DATABASE", "STAFF_ASN_DATABASE"] {
+        for path in [
+            std::path::PathBuf::from("owned-private-source.mmdb"),
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")),
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("owned-private-source.mmdb"),
+        ] {
+            let error = failure(staff_command(&bind).env(variable, path));
+            assert!(error.contains(&format!("Invalid {variable}")));
+            assert!(!error.contains("Staff listener unavailable"));
+        }
+        let source = tempfile::NamedTempFile::new().unwrap();
+        source.as_file().set_len(64 * 1024 * 1024 + 1).unwrap();
+        let error = failure(staff_command(&bind).env(variable, source.path()));
+        assert!(error.contains(&format!("Invalid {variable}")));
+        assert!(!error.contains(source.path().to_str().unwrap()));
         assert!(!error.contains("Staff listener unavailable"));
     }
-    let source = tempfile::NamedTempFile::new().unwrap();
-    source.as_file().set_len(64 * 1024 * 1024 + 1).unwrap();
-    let error = failure(staff_command(&bind).env("STAFF_COUNTRY_DATABASE", source.path()));
-    assert!(error.contains("Invalid STAFF_COUNTRY_DATABASE"));
-    assert!(!error.contains(source.path().to_str().unwrap()));
-    assert!(!error.contains("Staff listener unavailable"));
 }
 
 #[test]

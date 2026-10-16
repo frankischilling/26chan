@@ -19,6 +19,7 @@ impl MonitorSettings {
             "STAFF_TRIPCODE_KEY",
             "STAFF_POSTER_ID_KEY",
             "STAFF_COUNTRY_DATABASE",
+            "STAFF_ASN_DATABASE",
             "STAFF_PROXY_SOCKET",
             "STAFF_PROXY_UID",
             "INTAKE_DATABASE_URL",

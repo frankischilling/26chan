@@ -19,6 +19,7 @@ pub(crate) struct Snapshot {
     network: network::Snapshot,
     now: u64,
     activity_now: u64,
+    asn: board_domain::content_admission::network::ProviderValue<Option<u32>>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -60,6 +61,7 @@ pub(crate) async fn begin(
     peer: Option<IpAddr>,
     session: Option<anonymous_session::PostingSession>,
     request_at: i64,
+    asn: board_domain::content_admission::network::ProviderValue<Option<u32>>,
 ) -> Result<Snapshot, StoreError> {
     let peer = peer.map(|peer| peer.to_canonical().to_string());
     let (revision, banned): (i64, bool) =
@@ -120,6 +122,7 @@ pub(crate) async fn begin(
         network,
         now,
         activity_now,
+        asn,
     })
 }
 
@@ -250,7 +253,7 @@ impl Evaluation {
                 now: self.snapshot.now,
                 activity_now: Some(self.snapshot.activity_now),
                 address,
-                asn: ProviderValue::Unavailable,
+                asn: self.snapshot.asn,
                 board: Some(&self.input.board),
                 work_safe,
                 op: self.input.parent == 0,

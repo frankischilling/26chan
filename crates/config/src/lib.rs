@@ -115,6 +115,8 @@ pub fn validate_origins(
 
 #[derive(Clone)]
 pub struct Settings {
+    pub asn_database:
+        Option<std::sync::Arc<board_domain::content_admission::network::asn::Database>>,
     pub database_url: String,
     pub bind: SocketAddr,
     pub public_origin: Origin,
@@ -208,6 +210,7 @@ impl Settings {
             "STAFF_TRIPCODE_KEY",
             "STAFF_POSTER_ID_KEY",
             "STAFF_COUNTRY_DATABASE",
+            "STAFF_ASN_DATABASE",
             "STAFF_PROXY_SOCKET",
             "STAFF_PROXY_UID",
             "MONITOR_DATABASE_URL",
@@ -271,6 +274,15 @@ impl Settings {
         };
         let database_url =
             env::var("DATABASE_URL").map_err(|_| ConfigError("DATABASE_URL is required."))?;
+        let asn_database = match env::var_os("ASN_DATABASE") {
+            None => None,
+            Some(path) => Some(std::sync::Arc::new(
+                board_domain::content_admission::network::asn::Database::load(
+                    std::path::Path::new(&path),
+                )
+                .map_err(|error| ConfigError(error.0))?,
+            )),
+        };
         let country_database = match env::var_os("COUNTRY_DATABASE") {
             None => None,
             Some(path) => Some(std::sync::Arc::new(
@@ -351,6 +363,7 @@ impl Settings {
             tripcode_key,
             poster_id_key,
             country_database,
+            asn_database,
         })
     }
 }
@@ -376,6 +389,7 @@ impl MediaAdminSettings {
             "STAFF_TRIPCODE_KEY",
             "STAFF_POSTER_ID_KEY",
             "STAFF_COUNTRY_DATABASE",
+            "STAFF_ASN_DATABASE",
             "STAFF_PROXY_SOCKET",
             "STAFF_PROXY_UID",
             "TEST_PUBLIC_DATABASE_URL",
@@ -455,6 +469,7 @@ impl MediaReaderSettings {
             "STAFF_TRIPCODE_KEY",
             "STAFF_POSTER_ID_KEY",
             "STAFF_COUNTRY_DATABASE",
+            "STAFF_ASN_DATABASE",
             "STAFF_PROXY_SOCKET",
             "STAFF_PROXY_UID",
             "TEST_PUBLIC_DATABASE_URL",

@@ -664,6 +664,7 @@ pub(crate) fn math_fixture_response(
         return Err("An exact HTTP origin is required.".into());
     }
     let state = AppState {
+        asn_database: None,
         pool: sqlx::postgres::PgPoolOptions::new()
             .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
             .map_err(|error| error.to_string())?,
@@ -726,6 +727,7 @@ mod tests {
     #[tokio::test]
     async fn video_fallback_authority_is_finite_and_requires_media() {
         let mut state = AppState {
+            asn_database: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -810,6 +812,7 @@ mod tests {
     #[tokio::test]
     async fn math_authority_requires_enabled_successful_board_html() {
         let state = AppState {
+            asn_database: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -915,6 +918,7 @@ mod tests {
     #[tokio::test]
     async fn only_renderer_marked_report_html_gets_the_exact_popup_script_even_on_errors() {
         let state = AppState {
+            asn_database: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -981,6 +985,7 @@ mod tests {
     async fn backlink_page_code_has_no_worker_or_additional_network_authority() {
         for origin in ["http://127.0.0.1:3000", "https://board.example"] {
             let state = AppState {
+                asn_database: None,
                 pool: sqlx::postgres::PgPoolOptions::new()
                     .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                     .unwrap(),
@@ -1138,6 +1143,7 @@ mod tests {
     async fn archive_navigation_authority_requires_a_successful_read_only_html_page() {
         let origin = "http://127.0.0.1:3000";
         let state = AppState {
+            asn_database: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -1218,6 +1224,7 @@ mod tests {
             ),
         ] {
             let state = AppState {
+                asn_database: None,
                 pool: sqlx::postgres::PgPoolOptions::new()
                     .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                     .unwrap(),
@@ -1264,6 +1271,7 @@ mod tests {
         })
         .unwrap();
         let state = AppState {
+            asn_database: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -1361,6 +1369,7 @@ mod tests {
     async fn request_clock_precedes_body_collection_and_replaces_untrusted_hints() {
         use http_body_util::BodyExt;
         let state = AppState {
+            asn_database: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -1453,6 +1462,7 @@ mod tests {
         .unwrap();
         let limits = Arc::new(Limits::new(settings));
         let state = AppState {
+            asn_database: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -1501,6 +1511,7 @@ mod verification_policy_tests {
     #[tokio::test]
     async fn posting_captcha_authority_requires_successful_marked_html() {
         let state = AppState {
+            asn_database: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
                 .unwrap(),
@@ -1562,6 +1573,7 @@ mod verification_policy_tests {
     #[tokio::test]
     async fn verification_image_authority_requires_a_successful_marked_html_response() {
         let state = AppState {
+            asn_database: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
                 .unwrap(),

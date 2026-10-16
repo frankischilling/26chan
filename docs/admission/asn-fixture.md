@@ -13,5 +13,6 @@ Size: 12,653 bytes. SHA-256:
 
 The fixture is test data, not a production ASN feed. It verifies local lookup
 and address canonicalization without a network request or a client-supplied
-ASN. A deployment must supply its own supported database. The lookup helper
-currently has no posting/configuration integration.
+ASN. A deployment must supply its own supported database. Configure `ASN_DATABASE` for public posting and `STAFF_ASN_DATABASE` for staff.
+See [network policy](network-policy.md) for provider failure semantics and the
+intentional IPv6 admission difference.

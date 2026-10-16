@@ -20,6 +20,7 @@ pub(crate) fn response(mode: &str, origin: &str) -> Result<Response, String> {
         return Err("Invalid CAPTCHA fixture.".into());
     }
     let state = AppState {
+        asn_database: None,
         pool: sqlx::postgres::PgPoolOptions::new()
             .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
             .map_err(|_| "Fixture pool unavailable.")?,
