@@ -3,6 +3,8 @@
 use crate::admission_normalization::{NormalizationError, Normalizer};
 use pcre2::bytes::{Regex, RegexBuilder};
 
+pub mod network;
+
 pub const MAX_RULES: usize = 128;
 pub const MAX_PATTERN_BYTES: usize = 2_048;
 pub const MAX_MATCH_CALLS: usize = 1_024;
