@@ -43,6 +43,7 @@ async fn submit(
         }
     }
 }
+#[track_caller]
 fn needs_proof(result: Result<(), StoreError>) {
     assert!(
         matches!(result,Err(StoreError::Database(ref error)) if error.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),
@@ -194,10 +195,14 @@ async fn scenario(categorical: bool) {
             changed.fingerprints.address = [42; 32];
             needs_proof(submit(&public, &board, thread, revision, &actor, changed, true).await);
             for field in ["address_at", "activity_at"] {
+                // Seed and submit against one server-captured request clock.
+                // Crossing a wall-clock second must not age this fixture into
+                // the exemption it is meant to reject.
+                let captured = session();
                 let value = if field == "address_at" {
-                    chrono::Utc::now().timestamp() - 604799
+                    captured.now.timestamp() - 604799
                 } else {
-                    chrono::Utc::now().timestamp() - 604800
+                    captured.now.timestamp() - 604800
                 };
                 let query = match field {
                     "address_at" => {
@@ -214,7 +219,20 @@ async fn scenario(categorical: bool) {
                     .await
                     .unwrap();
                 needs_proof(
-                    submit(&public, &board, thread, revision, &actor, session(), true).await,
+                    submit(&public, &board, thread, revision, &actor, captured, true).await,
+                );
+                let adjacent = PostingSession {
+                    now: captured.now
+                        + chrono::Duration::seconds(if field == "address_at" { 1 } else { -1 }),
+                    ..captured
+                };
+                assert!(
+                    board_store::report_challenge::advice(
+                        &public, &board, thread, &actor, adjacent, true
+                    )
+                    .await
+                    .unwrap(),
+                    "the adjacent {field} boundary should remain eligible"
                 );
                 sqlx::query("UPDATE post_secrets.anonymous_sessions SET address_at=extract(epoch FROM statement_timestamp())::bigint-700000,activity_at=extract(epoch FROM statement_timestamp())::bigint WHERE token_hash=$1").bind(fp.token.as_slice()).execute(&owner).await.unwrap();
             }
