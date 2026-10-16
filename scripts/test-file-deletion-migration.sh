@@ -305,6 +305,15 @@ INSERT INTO public.upgraded_rows VALUES(
  jsonb_build_object('singleton',true,'definition_hash',
   '\x'||encode(post_secrets.moderation_retention_catalog_hash(),'hex')));
 SQL
+# The new private fields are NULL for historical rows. Extend only those
+# expected keys; recapturing whole rows would hide unrelated identity changes.
+if [[ -f migrations/0180_automatic_range_metadata.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object(
+ 'automatic_browser',NULL,'automatic_prefix',NULL)
+WHERE relation='post_secrets.posting_history';
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
@@ -368,6 +377,23 @@ DO $$ BEGIN
 END $$;
 SQL
 done
+if [[ -f migrations/0180_automatic_range_metadata.sql ]]; then
+ # These rolled-back mutations prove the additive baseline still catches
+ # invented comparison evidence and changes to the original actor identity.
+ for mutation in \
+  "automatic_browser='1deadbeef',automatic_prefix=decode(repeat('22',32),'hex')" \
+  "actor_hash=decode(repeat('ff',32),'hex')"; do
+  {
+   printf 'UPDATE post_secrets.posting_history SET %s WHERE post_id=13000001;\n' "$mutation"
+   cat "$cluster/assert-retained.sql"
+  } > "$cluster/metadata-negative.sql"
+  if "${admin[@]}" --single-transaction -f - < "$cluster/metadata-negative.sql" > "$cluster/metadata-negative.log" 2>&1; then
+   echo 'File-deletion history guard accepted a private identity mutation.' >&3; exit 1
+  fi
+  grep -q 'File action changed unrelated history, audit or consumed media identity' "$cluster/metadata-negative.log"
+  "${admin[@]}" -f - < "$cluster/assert-retained.sql"
+ done
+fi
 # The administrative wrapper removes every report state and its private
 # cascades for exactly target 2. Rollback must restore the entire transaction.
 "${admin[@]}" <<'SQL'
