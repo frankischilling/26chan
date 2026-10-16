@@ -31,6 +31,7 @@ pub use polls::{
     POLL_READINESS_SQL, PollOption, PollSnapshot, PollSummary, poll_catalogue, poll_snapshot,
 };
 pub mod post_media;
+pub mod posting_challenge;
 mod posting_cooldown;
 pub use posting_cooldown::{PostingCooldownReason, PostingCooldownRejection};
 mod public_deletion;

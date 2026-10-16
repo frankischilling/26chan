@@ -1,5 +1,5 @@
 //! Email verification is mediated by the separately credentialed issuer.
-mod form;
+use crate::verification_form as form;
 use crate::{
     AppState,
     anonymous_session::{self, Session},
@@ -46,7 +46,7 @@ fn unavailable() -> AppError {
 fn client(state: &AppState) -> Result<&VerificationClient, AppError> {
     state.verification.as_ref().ok_or_else(unavailable)
 }
-fn trusted(
+pub(crate) fn trusted(
     session: &Session,
     state: &AppState,
     peer: Option<IpAddr>,

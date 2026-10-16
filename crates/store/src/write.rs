@@ -1809,8 +1809,8 @@ pub async fn report_with_anonymous_session(
 }
 
 pub struct ProtectedReportingContext {
-    /// The HTTP caller has checked that neither legacy authenticated-user nor
-    /// Pass cookie is present. This is an opt-out check, not authentication.
+    /// The HTTP caller found neither `4chan_auser` nor `pass_enabled`.
+    /// This opt-out is separate from the required anonymous browser session.
     pub source_cookies_absent: bool,
     pub session: anonymous_session::PostingSession,
     pub challenge: Option<WriteChallengeProof>,

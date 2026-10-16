@@ -210,8 +210,10 @@ and does not restore matching of active bans created under an older key.
 
 The source's attachment predicate is positive retained `fsize`, even after a
 file-only deletion. Its optional exemption is independent of the credit-bypass
-board switch. Either legacy authenticated-user or Pass cookie suppresses it;
-those cookie names do not establish authentication in this rewrite.
+board switch. Either `4chan_auser` or `pass_enabled` cookie suppresses it;
+those cookie names do not establish authentication in this rewrite. The stored
+anonymous session is the replacement for source UserPwd state, which came from
+its separate `4chan_pass` cookie.
 
 The optional exemption requires a valid stored browser session, seven days at
 the same exact address, a source-compatible IPv4 peer, positive retained
@@ -235,7 +237,16 @@ checks again, so a third report or intervening clear can require CAPTCHA after
 the form was opened. Tests verify repeated advice leaves activity and report
 history unchanged and that advice becomes false after the third report.
 
-Public HTTP integration and browser controls still need implementation and
-qualification. Existing posting fixtures must explicitly
+The public `/captcha` POST endpoint constructs scope from the server-resolved
+browser and transport peer. Its separate HttpOnly `board-captcha` cookie binds
+form nonces without disturbing sign-in forms. The response contains challenge
+images, waiting-ticket state, or report advice; private receipt, peer, and
+context hashes stay inside the services. The endpoint rejects browser-selected
+internal purposes, duplicate fields, invalid tokens, and stale form nonces.
+A real-role HTTP test covers classic issuance, ticket escalation and reuse,
+report-cookie opt-out, and a disabled board with the issuer offline.
+
+Posting/report submission integration and browser controls still need
+implementation and qualification. Existing posting fixtures must explicitly
 account for the new gate. The branch has not passed full-workspace CI and must
 not be treated as ready to merge.
