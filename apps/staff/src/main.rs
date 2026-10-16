@@ -27,7 +27,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         listener.serve(
             app,
             stopped,
-            board_http::transport::ConnectionBudget::new(limits),
+            board_http::transport::ConnectionBudget::new(limits).with_request_header_order(),
         ),
     );
     tokio::pin!(serving);

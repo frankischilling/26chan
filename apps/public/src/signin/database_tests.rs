@@ -107,6 +107,7 @@ async fn public_form_to_private_queue_and_browser_rotation_round_trip() {
     });
     let state = AppState {
         asn_database: None,
+        browser_hint_key: None,
         pool: public.clone(),
         origin: "http://127.0.0.1:3000".into(),
         production: false,

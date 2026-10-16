@@ -58,6 +58,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct AppState {
+    browser_hint_key: Option<Arc<board_domain::content_admission::network::hints::BrowserKey>>,
     asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
     pool: PgPool,
     origin: String,
@@ -163,7 +164,7 @@ pub fn observed_routers_with_verification(
     options: PublicRouterOptions,
     verification: Option<board_config::PublicVerificationSettings>,
 ) -> (board_observe::Metrics, Router, Router) {
-    observed_routers_with_network(pool, api_enabled, options, verification, None)
+    observed_routers_with_network(pool, api_enabled, options, verification, None, None)
 }
 
 pub fn observed_routers_with_network(
@@ -172,6 +173,7 @@ pub fn observed_routers_with_network(
     options: PublicRouterOptions,
     verification: Option<board_config::PublicVerificationSettings>,
     asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
+    browser_hint_key: Option<Arc<board_domain::content_admission::network::hints::BrowserKey>>,
 ) -> (board_observe::Metrics, Router, Router) {
     use board_observe::{Listener, Metrics, Pool, PoolSample};
     let mut metrics = Metrics::new();
@@ -183,7 +185,8 @@ pub fn observed_routers_with_network(
             max: observed_pool.options().get_max_connections(),
         })
         .expect("one pool registered before sharing metrics");
-    let (public, api) = routers_with_network(pool, options, verification, asn_database);
+    let (public, api) =
+        routers_with_network(pool, options, verification, asn_database, browser_hint_key);
     let public = metrics.layer(public, Listener::Public);
     let api = if api_enabled {
         metrics.layer(api, Listener::Api)
@@ -254,7 +257,7 @@ pub fn routers_with_verification(
     options: PublicRouterOptions,
     verification: Option<board_config::PublicVerificationSettings>,
 ) -> (Router, Router) {
-    routers_with_network(pool, options, verification, None)
+    routers_with_network(pool, options, verification, None, None)
 }
 
 pub fn routers_with_network(
@@ -262,6 +265,7 @@ pub fn routers_with_network(
     options: PublicRouterOptions,
     verification: Option<board_config::PublicVerificationSettings>,
     asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
+    browser_hint_key: Option<Arc<board_domain::content_admission::network::hints::BrowserKey>>,
 ) -> (Router, Router) {
     let PublicRouterOptions {
         origin,
@@ -278,6 +282,7 @@ pub fn routers_with_network(
         "Production media is not qualified"
     );
     let state = AppState {
+        browser_hint_key,
         asn_database,
         tripcode_key,
         country_database,

@@ -46,7 +46,11 @@ fn failure(command: &mut Command) -> String {
 fn invalid_staff_identity_sources_fail_before_listener_binding() {
     let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let bind = occupied.local_addr().unwrap().to_string();
-    for variable in ["STAFF_TRIPCODE_KEY", "STAFF_POSTER_ID_KEY"] {
+    for variable in [
+        "STAFF_TRIPCODE_KEY",
+        "STAFF_POSTER_ID_KEY",
+        "STAFF_BROWSER_HINT_KEY",
+    ] {
         for key in [
             "".to_owned(),
             "owned-invalid-secret".into(),

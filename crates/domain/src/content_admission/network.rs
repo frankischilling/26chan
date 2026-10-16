@@ -5,6 +5,7 @@ use crate::{BoardSlug, anonymous_session::State};
 use std::net::Ipv4Addr;
 
 pub mod asn;
+pub mod hints;
 
 pub const MAX_NETWORK_RULES: usize = 128;
 pub const MAX_SCOPE_BOARDS: usize = 128;
@@ -48,8 +49,29 @@ pub enum ProviderValue<T> {
 
 #[derive(Clone, Copy)]
 pub struct Signatures<'a> {
-    pub browser_id: Option<&'a str>,
-    pub request_signature: Option<&'a str>,
+    pub browser_id: ProviderValue<Option<&'a str>>,
+    pub request_signature: ProviderValue<Option<&'a str>>,
+}
+
+impl<'a> Signatures<'a> {
+    pub const fn unavailable() -> Self {
+        Self {
+            browser_id: ProviderValue::Unavailable,
+            request_signature: ProviderValue::Unavailable,
+        }
+    }
+    pub const fn available(
+        browser_id: Option<&'a str>,
+        request_signature: Option<&'a str>,
+    ) -> Self {
+        Self {
+            browser_id: ProviderValue::Available(browser_id),
+            request_signature: ProviderValue::Available(request_signature),
+        }
+    }
+    fn values(self) -> [ProviderValue<Option<&'a str>>; 2] {
+        [self.browser_id, self.request_signature]
+    }
 }
 
 pub struct Request<'a> {
@@ -63,7 +85,7 @@ pub struct Request<'a> {
     pub op: bool,
     pub image: bool,
     pub report: bool,
-    pub signatures: ProviderValue<Signatures<'a>>,
+    pub signatures: Signatures<'a>,
     /// A locked, request-adjusted activity snapshot, not client claims.
     pub actor: Option<&'a State>,
 }
@@ -106,15 +128,16 @@ impl Policy {
             .board
             .is_some_and(|board| BoardSlug::parse(board).is_err())
             || matches!(request.asn, ProviderValue::Available(Some(0)))
-            || match request.signatures {
-                ProviderValue::Unavailable => false,
-                ProviderValue::Available(hints) => [hints.browser_id, hints.request_signature]
-                    .into_iter()
-                    .flatten()
-                    .any(|value| {
+            || request
+                .signatures
+                .values()
+                .into_iter()
+                .any(|hint| match hint {
+                    ProviderValue::Available(Some(value)) => {
                         value.len() > MAX_SIGNATURE_BYTES || value.chars().any(char::is_control)
-                    }),
-            }
+                    }
+                    _ => false,
+                })
         {
             return Err(AdmissionError::InvalidPolicy);
         }
@@ -149,15 +172,25 @@ impl Policy {
                 }
             }
             if php_truthy(&rule.signatures) {
-                let hints = match request.signatures {
-                    ProviderValue::Unavailable => return Err(AdmissionError::Unavailable),
-                    ProviderValue::Available(hints) => hints,
-                };
-                if ![hints.browser_id, hints.request_signature]
+                let mut unavailable = false;
+                let matched = request
+                    .signatures
+                    .values()
                     .into_iter()
-                    .flatten()
-                    .any(|signature| php_truthy(signature) && rule.signatures.contains(signature))
-                {
+                    .any(|hint| match hint {
+                        ProviderValue::Available(Some(signature)) => {
+                            php_truthy(signature) && rule.signatures.contains(signature)
+                        }
+                        ProviderValue::Available(None) => false,
+                        ProviderValue::Unavailable => {
+                            unavailable = true;
+                            false
+                        }
+                    });
+                if !matched {
+                    if unavailable {
+                        return Err(AdmissionError::Unavailable);
+                    }
                     continue;
                 }
             }
@@ -271,10 +304,10 @@ mod tests {
                     op: case["is_op"].as_bool().unwrap(),
                     image: case["has_img"].as_bool().unwrap(),
                     report: case["is_report"].as_bool().unwrap(),
-                    signatures: ProviderValue::Available(Signatures {
-                        browser_id: case["browser_id"].as_str(),
-                        request_signature: case["req_sig"].as_str(),
-                    }),
+                    signatures: Signatures::available(
+                        case["browser_id"].as_str(),
+                        case["req_sig"].as_str(),
+                    ),
                     actor: actor.as_ref(),
                 })
                 .unwrap()
@@ -303,10 +336,7 @@ mod tests {
             op: false,
             image: false,
             report: false,
-            signatures: ProviderValue::Available(Signatures {
-                browser_id: None,
-                request_signature: None,
-            }),
+            signatures: Signatures::available(None, None),
             actor: None,
         };
         assert_eq!(
@@ -324,10 +354,7 @@ mod tests {
             (None, None, Some("../outside")),
         ] {
             let mut invalid = request();
-            invalid.signatures = ProviderValue::Available(Signatures {
-                browser_id: browser,
-                request_signature: signature,
-            });
+            invalid.signatures = Signatures::available(browser, signature);
             invalid.board = board;
             assert!(matches!(
                 policy.evaluate(invalid),
@@ -353,7 +380,7 @@ mod tests {
             op: false,
             image: false,
             report: false,
-            signatures: ProviderValue::Unavailable,
+            signatures: Signatures::unavailable(),
             actor: None,
         };
         for change in 0..7 {
@@ -398,6 +425,47 @@ mod tests {
     }
 
     #[test]
+    fn either_definite_hint_match_survives_an_unavailable_other_provider() {
+        use ProviderValue::{Available, Unavailable};
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/network-admission-reference.json"
+        ))
+        .unwrap();
+        let mut entry = rule(&fixture["cases"][0]["rules"][0]);
+        entry.signatures = "prefix-hit-suffix".into();
+        let policy = Policy::compile(vec![entry]).unwrap();
+        for (browser, signature, expected) in [
+            (Available(Some("hit")), Unavailable, Some(true)),
+            (Unavailable, Available(Some("hit")), Some(true)),
+            (Available(Some("miss")), Unavailable, None),
+            (Unavailable, Available(Some("miss")), None),
+            (Available(None), Available(None), Some(false)),
+            (Available(Some("0")), Available(Some("miss")), Some(false)),
+        ] {
+            let result = policy.evaluate(Request {
+                now: 1_700_000_000,
+                activity_now: None,
+                address: Some(Ipv4Addr::new(192, 0, 2, 10)),
+                asn: Unavailable,
+                board: Some("g"),
+                work_safe: false,
+                op: false,
+                image: false,
+                report: false,
+                actor: None,
+                signatures: Signatures {
+                    browser_id: browser,
+                    request_signature: signature,
+                },
+            });
+            match expected {
+                Some(matched) => assert_eq!(result.unwrap().is_some(), matched),
+                None => assert!(matches!(result, Err(AdmissionError::Unavailable))),
+            }
+        }
+    }
+
+    #[test]
     fn activity_age_uses_its_snapshot_clock_without_changing_rule_expiry() {
         let fixture: Value = serde_json::from_str(include_str!(
             "../../../../fixtures/network-admission-reference.json"
@@ -423,10 +491,7 @@ mod tests {
             op: true,
             image: false,
             report: false,
-            signatures: ProviderValue::Available(Signatures {
-                browser_id: None,
-                request_signature: None,
-            }),
+            signatures: Signatures::available(None, None),
             actor,
         };
         assert_eq!(

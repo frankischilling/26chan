@@ -46,6 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         settings.verification.clone(),
         settings.asn_database.clone(),
+        settings.browser_hint_key.clone(),
     );
     if let Some(proxy) = &settings.public_proxy {
         tracing::info!(socket = %proxy.socket().display(), proxy_uid = proxy.uid(), "verified public proxy listener started");
@@ -94,7 +95,7 @@ async fn serve_pair(
     stopped: tokio::sync::watch::Receiver<bool>,
     limits: board_config::PublicRequestLimits,
 ) -> std::io::Result<()> {
-    let budget = ConnectionBudget::new(limits);
+    let budget = ConnectionBudget::new(limits).with_request_header_order();
     let public = listener.serve(app, stopped.clone(), budget.clone());
     if let Some(api_listener) = api_listener {
         tokio::try_join!(

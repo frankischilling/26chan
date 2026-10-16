@@ -25,7 +25,7 @@ fn media_cannot_be_enabled_even_without_database_configuration() {
 #[test]
 fn invalid_public_identity_keys_fail_before_binding_without_echoing_secrets() {
     let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    for variable in ["TRIPCODE_KEY", "POSTER_ID_KEY"] {
+    for variable in ["TRIPCODE_KEY", "POSTER_ID_KEY", "BROWSER_HINT_KEY"] {
         for key in [
             "".to_owned(),
             "owned-invalid-secret".into(),
@@ -168,6 +168,7 @@ fn public_runtime_rejects_inherited_operator_credentials() {
         "STAFF_POSTER_ID_KEY",
         "STAFF_COUNTRY_DATABASE",
         "STAFF_ASN_DATABASE",
+        "STAFF_BROWSER_HINT_KEY",
         "STAFF_PROXY_SOCKET",
         "STAFF_PROXY_UID",
     ] {

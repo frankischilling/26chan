@@ -88,6 +88,7 @@ impl Fixture {
         let state = Arc::new(AppState {
             config: Config {
                 asn_database: None,
+                browser_hint_key: None,
                 proxy: None,
                 poster_id_key: Some(Arc::new(
                     board_domain::poster_id::PosterIdKey::parse(

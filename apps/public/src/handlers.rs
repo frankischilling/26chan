@@ -987,14 +987,18 @@ pub struct PostForm {
 pub async fn post(
     State(state): State<AppState>,
     Path(board): Path<String>,
-    axum::Extension(start): axum::Extension<crate::security::RequestStart>,
-    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
+    (axum::Extension(start), axum::Extension(peer), order): crate::security::PostingTransport,
     headers: HeaderMap,
     form: Result<crate::posting_form::PostingForm, crate::posting_form::Rejection>,
 ) -> Response {
     let format = crate::posting_response::Format::from_headers(&headers);
     let response = match form {
         Ok(crate::posting_form::PostingForm(form)) => {
+            let hints = board_http::network_hints::derive(
+                &headers,
+                order.as_ref().map(|order| &order.0),
+                state.browser_hint_key.as_deref(),
+            );
             match submit_post(
                 state,
                 board,
@@ -1006,6 +1010,7 @@ pub async fn post(
                     peer: peer.0,
                     op_password_proof: None,
                 },
+                hints,
             )
             .await
             {
@@ -1025,6 +1030,7 @@ async fn submit_post(
     form: PostForm,
     format: crate::posting_response::Format,
     mut context: board_store::PostingContext,
+    hints: board_domain::content_admission::network::hints::DerivedHints,
 ) -> Result<Response, AppError> {
     // Ordinary cooldown identity must come from verified transport on every
     // real posting route, including development and legacy/multipart requests.
@@ -1179,6 +1185,7 @@ async fn submit_post(
         &post,
         attachment.as_ref(),
         board_store::NetworkPostingContext {
+            hints: Some(&hints),
             asn_database: state.asn_database.as_deref(),
             posting: board_store::ProtectedPostingContext {
                 anonymous: board_store::AnonymousPostingContext {

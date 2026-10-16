@@ -86,6 +86,7 @@ async fn staff_issue_and_unban_use_live_session_scope_recent_auth_csrf_and_priva
     let app = router(Arc::new(AppState {
         config: Config {
             asn_database: None,
+            browser_hint_key: None,
             media: None,
             proxy: None,
             poster_id_key: None,

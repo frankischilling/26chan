@@ -717,6 +717,7 @@ impl Fixture {
         let state = Arc::new(AppState {
             config: Config {
                 asn_database: None,
+                browser_hint_key: None,
                 media: None,
                 proxy: None,
                 poster_id_key: Some(posting_fixture::key(&board)),

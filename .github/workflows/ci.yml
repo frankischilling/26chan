@@ -617,9 +617,26 @@ jobs:
               sudo chown -R "$(id -u):$(id -g)" "$cache_dir"
             fi
           done
+  http-parser-qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.94.0 --profile minimal
+      - name: Cache parser qualification dependencies
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: vendor/hyper -> target
+          key: header-order-${{ hashFiles('vendor/hyper/Cargo.lock') }}
+          cache-bin: false
+      - name: Qualify unchanged and opt-in HTTP parser configurations
+        run: bash scripts/test-hyper-header-order.sh
   rust-and-postgres:
     # Every Linux lane must succeed, including both browser matrix entries.
-    needs: [rust-and-browser, browser-suites, media-and-operations]
+    needs: [rust-and-browser, browser-suites, media-and-operations, http-parser-qualification]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -629,10 +646,12 @@ jobs:
           APPLICATION_RESULT: ${{ needs.rust-and-browser.result }}
           BROWSER_RESULT: ${{ needs.browser-suites.result }}
           QUALIFICATION_RESULT: ${{ needs.media-and-operations.result }}
+          PARSER_RESULT: ${{ needs.http-parser-qualification.result }}
         run: |
           test "$APPLICATION_RESULT" = success
           test "$BROWSER_RESULT" = success
           test "$QUALIFICATION_RESULT" = success
+          test "$PARSER_RESULT" = success
   visual-windows:
     # Retain the existing required check while core and themes run concurrently.
     needs: [visual-windows-core, visual-windows-themes]

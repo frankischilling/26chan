@@ -921,12 +921,18 @@ pub struct StaffMessage {
 pub async fn post_message(
     State(state): Shared,
     headers: HeaderMap,
+    order: Option<Extension<board_http::transport::RequestHeaderOrder>>,
     Extension(start): Extension<StaffRequestStart>,
     Extension(peer): Extension<StaffRequestPeer>,
     input: Result<Form<StaffMessage>, axum::extract::rejection::FormRejection>,
 ) -> Result<Redirect, AppError> {
     let Form(input) = input.map_err(|error| AppError::Form(error.status()))?;
     let request_start = start.0;
+    let hints = board_http::network_hints::derive(
+        &headers,
+        order.as_ref().map(|order| &order.0),
+        state.config.browser_hint_key.as_deref(),
+    );
     auth::origin(&headers, &state.config.origin)?;
     let session = auth::session(&state, &headers).await?;
     if !session.at_least(crate::access::Level::Janitor)
@@ -1047,6 +1053,7 @@ pub async fn post_message(
                 attachment: attachment.as_ref(),
             },
             board_store::NetworkPostingContext {
+                hints: Some(&hints),
                 asn_database: state.config.asn_database.as_deref(),
                 posting: board_store::PostingContext {
                     request_start,
@@ -1078,6 +1085,7 @@ pub async fn post_message(
                 attachment: attachment.as_ref(),
             },
             board_store::NetworkPostingContext {
+                hints: Some(&hints),
                 asn_database: state.config.asn_database.as_deref(),
                 posting: board_store::PostingContext {
                     request_start,

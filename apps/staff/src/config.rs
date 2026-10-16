@@ -5,6 +5,7 @@ use url::Url;
 
 #[derive(Clone)]
 pub struct Config {
+    pub browser_hint_key: Option<Arc<board_domain::content_admission::network::hints::BrowserKey>>,
     pub asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
     pub media: Option<board_intake_client::IntakeClient>,
     pub origin: String,
@@ -169,6 +170,7 @@ impl Config {
             "POSTER_ID_KEY",
             "COUNTRY_DATABASE",
             "ASN_DATABASE",
+            "BROWSER_HINT_KEY",
             "PUBLIC_PROXY_SOCKET",
             "PUBLIC_PROXY_UID",
         ] {
@@ -228,6 +230,14 @@ impl Config {
             Ok(value) => parse_staff_poster_id_key(Some(&value))?,
             Err(std::env::VarError::NotPresent) => None,
             Err(std::env::VarError::NotUnicode(_)) => return Err("Invalid STAFF_POSTER_ID_KEY"),
+        };
+        let browser_hint_key = match std::env::var("STAFF_BROWSER_HINT_KEY") {
+            Err(std::env::VarError::NotPresent) => None,
+            Err(_) => return Err("Invalid STAFF_BROWSER_HINT_KEY"),
+            Ok(value) => Some(Arc::new(
+                board_domain::content_admission::network::hints::BrowserKey::parse(&value)
+                    .map_err(|_| "Invalid STAFF_BROWSER_HINT_KEY")?,
+            )),
         };
         let asn_database = load_staff_asn_database(
             std::env::var_os("STAFF_ASN_DATABASE")
@@ -290,6 +300,7 @@ impl Config {
             poster_id_key,
             country_database,
             asn_database,
+            browser_hint_key,
             proxy,
         })
     }

@@ -26,6 +26,7 @@ static TEST: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 struct Fixture {
     asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
     peer_override: Option<IpAddr>,
+    hints: Option<board_domain::content_admission::network::hints::DerivedHints>,
     owner: PgPool,
     staff: PgPool,
     auth: PgPool,
@@ -105,6 +106,7 @@ impl Fixture {
             extra_boards: Arc::new(Mutex::new(Vec::new())),
             asn_database: None,
             peer_override: None,
+            hints: None,
         }
     }
 
@@ -232,6 +234,7 @@ impl Fixture {
                     attachment: a,
                 },
                 board_store::NetworkPostingContext {
+                    hints: self.hints.as_ref(),
                     posting: context,
                     asn_database: self.asn_database.as_deref(),
                 },
@@ -256,6 +259,7 @@ impl Fixture {
                     attachment: a,
                 },
                 board_store::NetworkPostingContext {
+                    hints: self.hints.as_ref(),
                     posting: context,
                     asn_database: self.asn_database.as_deref(),
                 },
@@ -1674,5 +1678,45 @@ async fn ordinary_staff_network(f: &Fixture) {
     assert!(
         matches!(result,Err(StoreError::ContentRejected(message)) if message.starts_with("Posting from your IP range"))
     );
+    assert_eq!(after, before);
+}
+
+database_case!(staff_hint_policy_preserves_capcode_scope, staff_hint_scope);
+async fn staff_hint_scope(f: &Fixture) {
+    use board_domain::content_admission::network::hints::{
+        BrowserHeaders, BrowserKey, DerivedHints,
+    };
+    let key = BrowserKey::parse(&"11".repeat(32)).unwrap();
+    let mut hinted = f.clone();
+    hinted.hints = Some(DerivedHints::derive(
+        Some(&key),
+        Some(BrowserHeaders {
+            user_agent: Some(b"Firefox/123.4"),
+            ..Default::default()
+        }),
+        None,
+    ));
+    sqlx::query("INSERT INTO admission.network_rules(boards,range_start,range_end,signatures) VALUES($1,0,4294967295,'030393b9b')")
+        .bind(&f.board).execute(&f.owner).await.unwrap();
+    let before = f.counts().await;
+    let result = hinted.write(0, None, true, &post(), 214, Utc::now()).await;
+    assert!(matches!(result, Err(StoreError::ContentRejected(_))));
+    assert_eq!(f.counts().await, before);
+    hinted
+        .write(0, None, false, &post(), 215, Utc::now())
+        .await
+        .unwrap();
+    let rule: i64 = sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end,signatures) VALUES('test',0,4294967295,'030393b9b') RETURNING id")
+        .fetch_one(&f.owner).await.unwrap();
+    hinted.board = "test".into();
+    let before = hinted.counts().await;
+    let result = hinted.write(0, None, false, &post(), 216, Utc::now()).await;
+    let after = hinted.counts().await;
+    sqlx::query("DELETE FROM admission.network_rules WHERE id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert!(matches!(result, Err(StoreError::ContentRejected(_))));
     assert_eq!(after, before);
 }

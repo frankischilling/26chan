@@ -9,6 +9,7 @@ fn application_roles_reject_staff_identity_sources_before_connecting() {
             "STAFF_POSTER_ID_KEY",
             "STAFF_COUNTRY_DATABASE",
             "STAFF_ASN_DATABASE",
+            "STAFF_BROWSER_HINT_KEY",
             "STAFF_PROXY_SOCKET",
             "STAFF_PROXY_UID",
         ] {

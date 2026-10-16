@@ -3,8 +3,8 @@
 Network admission is under development for issue #212. IPv4 range rules now
 run in the posting transaction, including ordinary staff posts. Migration 0178
 adds private operator-owned rules and a scoped reader; it installs no rules.
-The offline ASN provider is wired into public and staff posting. Browser and
-request-signature providers, reports and automatic range bans remain unfinished.
+The offline ASN provider and bounded browser/request hints are wired into
+public and staff posting. Reports and automatic range bans remain unfinished.
 
 ## Covered decisions
 
@@ -71,11 +71,11 @@ callers supply the database, not an asserted ASN or a separately resolved value.
 Public forwarding or ASN headers cannot grant authority. A successful lookup
 with no match is distinct from an unavailable provider. Provider-dependent rules
 fail closed only when the corresponding ordered stage is applicable; expired,
-out-of-scope or report-only rules do not require posting providers. Browser
-hints need a bounded server-side derivation with operator-managed key material; source
-embedded constants and private production lists must not be copied. Signature
-providers, bypass eligibility and the mobile automatic-range stage still need
-implementation and tests.
+out-of-scope or report-only rules do not require posting providers.
+[Browser and request hints](network-hints.md) use bounded server-side derivation
+and a fresh operator-managed key. Source embedded constants and private
+production lists must not be copied. Bypass eligibility and the mobile
+automatic-range stage still need implementation and tests.
 
 The source posting caller uses PHP `ip2long` truthiness to skip IPv6 and
 `0.0.0.0`. This implementation deliberately closes that bypass: configured ASN

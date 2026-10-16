@@ -831,3 +831,54 @@ async fn stop_drains_a_released_handler_but_the_original_deadline_bounds_a_stall
         .expect("server returned an I/O error");
     permits(&budget, 2).await;
 }
+
+#[tokio::test]
+async fn parser_header_order_is_opt_in_and_fresh_across_pipelined_requests() {
+    for capture in [false, true] {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let app = Router::new().route(
+            "/",
+            get(|request: axum::extract::Request| async move {
+                request
+                    .extensions()
+                    .get::<super::RequestHeaderOrder>()
+                    .map(|order| {
+                        order
+                            .names()
+                            .map(|name| name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    })
+                    .unwrap_or_else(|| "missing".into())
+            }),
+        );
+        let budget = ConnectionBudget::new(board_config::PublicRequestLimits::default());
+        let budget = if capture {
+            budget.with_request_header_order()
+        } else {
+            budget
+        };
+        let (stop, stopped) = watch::channel(false);
+        let server = tokio::spawn(HttpListener::Tcp(listener).serve(app, stopped, budget));
+        let mut socket = TcpStream::connect(address).await.unwrap();
+        socket.write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: cors\r\nSEC-FETCH-SITE: same-origin\r\nSec-Fetch-Dest: empty\r\n\r\nGET / HTTP/1.1\r\nHost: localhost\r\nSec-Fetch-Dest: empty\r\nSec-Fetch-Mode: cors\r\nSec-Fetch-Site: same-origin\r\nConnection: close\r\n\r\n").await.unwrap();
+        let mut bytes = Vec::new();
+        tokio::time::timeout(OUTER, socket.read_to_end(&mut bytes))
+            .await
+            .unwrap()
+            .unwrap();
+        let response = String::from_utf8(bytes).unwrap();
+        assert_eq!(response.matches("HTTP/1.1 200 OK").count(), 2);
+        if capture {
+            let first = "host,sec-fetch-site,sec-fetch-mode,sec-fetch-site,sec-fetch-dest";
+            let second = "host,sec-fetch-dest,sec-fetch-mode,sec-fetch-site,connection";
+            assert!(response.find(first).unwrap() < response.find(second).unwrap());
+            assert!(!response.contains("missing"));
+        } else {
+            assert_eq!(response.matches("missing").count(), 2);
+        }
+        stop.send(true).unwrap();
+        finish(server).await;
+    }
+}

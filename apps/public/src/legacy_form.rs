@@ -268,8 +268,7 @@ impl<S: Send + Sync> FromRequest<S> for LegacyForm {
 pub(crate) async fn submit(
     State(state): State<AppState>,
     Path(board): Path<String>,
-    Extension(start): Extension<crate::security::RequestStart>,
-    Extension(peer): Extension<crate::security::RequestPeer>,
+    (Extension(start), Extension(peer), order): crate::security::PostingTransport,
     headers: HeaderMap,
     OriginalUri(uri): OriginalUri,
     form: Result<LegacyForm, Rejection>,
@@ -301,8 +300,7 @@ pub(crate) async fn submit(
             handlers::post(
                 State(state),
                 Path(board),
-                Extension(start),
-                Extension(peer),
+                (Extension(start), Extension(peer), order),
                 headers,
                 Ok(PostingForm(*form)),
             )

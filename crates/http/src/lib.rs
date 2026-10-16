@@ -4,6 +4,7 @@
 //! delivery. Request leases count admitted responses; the shared output budget
 //! counts allocated payload blocks. Emitted data keeps both leases alive.
 
+pub mod network_hints;
 mod output;
 pub mod proxy_peer;
 pub mod transport;

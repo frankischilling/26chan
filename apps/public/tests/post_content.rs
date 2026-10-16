@@ -114,7 +114,7 @@ fn network_router(
         tripcode_key: None,
         country_database: None,
     };
-    board_public::routers_with_network(pool, options, None, database)
+    board_public::routers_with_network(pool, options, None, database, None)
         .0
         .layer(axum::Extension(axum::extract::ConnectInfo(
             std::net::SocketAddr::new(peer.parse().unwrap(), 40000),

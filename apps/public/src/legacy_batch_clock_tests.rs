@@ -67,6 +67,7 @@ async fn captured_batch_session_clock_survives_a_delayed_first_deletion() {
         );
         let state = AppState {
         asn_database: None,
+        browser_hint_key: None,
             pool: run_public.clone(),origin:"http://127.0.0.1:3000".into(),production:false,
             limits: Arc::new(crate::security::Limits::new(board_config::PublicRequestLimits::default())),
             media:None,verification: None,

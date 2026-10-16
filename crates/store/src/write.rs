@@ -35,6 +35,7 @@ pub struct ProtectedPostingContext {
 /// Server-owned providers are resolved against this posting context's trusted
 /// peer. A caller cannot substitute a pre-resolved ASN or a public header.
 pub struct NetworkPostingContext<'a, C> {
+    pub hints: Option<&'a board_domain::content_admission::network::hints::DerivedHints>,
     pub posting: C,
     pub asn_database: Option<&'a board_domain::content_admission::network::asn::Database>,
 }
@@ -200,6 +201,7 @@ pub async fn create_post_with_metadata(
         attachment,
         context,
         PostWriteOptions {
+            hints: None,
             asn_database: None,
             metadata,
             staff: None,
@@ -227,6 +229,7 @@ pub async fn create_post_with_anonymous_session(
         attachment,
         context.posting,
         PostWriteOptions {
+            hints: None,
             asn_database: None,
             metadata,
             staff: None,
@@ -253,6 +256,7 @@ pub async fn create_post_with_challenge(
         post,
         attachment,
         NetworkPostingContext {
+            hints: None,
             posting: context,
             asn_database: None,
         },
@@ -271,6 +275,7 @@ pub async fn create_protected_post_with_network(
     metadata: PostMetadata<'_>,
 ) -> Result<i64, StoreError> {
     let NetworkPostingContext {
+        hints,
         posting: context,
         asn_database,
     } = context;
@@ -282,6 +287,7 @@ pub async fn create_protected_post_with_network(
         attachment,
         context.anonymous.posting,
         PostWriteOptions {
+            hints,
             asn_database,
             metadata,
             staff: None,
@@ -395,6 +401,7 @@ pub async fn create_staff_post_with_attachment_and_context_and_keys(
         parent,
         content,
         NetworkPostingContext {
+            hints: None,
             posting: context,
             asn_database: None,
         },
@@ -414,6 +421,7 @@ pub async fn create_staff_post_with_network(
     authority: StaffPostAuthority<'_>,
 ) -> Result<i64, StoreError> {
     let NetworkPostingContext {
+        hints,
         posting: context,
         asn_database,
     } = context;
@@ -440,6 +448,7 @@ pub async fn create_staff_post_with_network(
         attachment,
         context,
         PostWriteOptions {
+            hints,
             asn_database,
             metadata: PostMetadata {
                 spoiler: false,
@@ -511,6 +520,7 @@ pub async fn create_ordinary_staff_post_with_attachment(
         parent,
         content,
         NetworkPostingContext {
+            hints: None,
             posting: context,
             asn_database: None,
         },
@@ -530,6 +540,7 @@ pub async fn create_ordinary_staff_post_with_network(
     authority: StaffPostAuthority<'_>,
 ) -> Result<i64, StoreError> {
     let NetworkPostingContext {
+        hints,
         posting: context,
         asn_database,
     } = context;
@@ -558,6 +569,7 @@ pub async fn create_ordinary_staff_post_with_network(
         attachment,
         context,
         PostWriteOptions {
+            hints,
             asn_database,
             metadata,
             staff: Some(authority),
@@ -593,6 +605,7 @@ pub async fn staff_op_deletion_hash(
 }
 
 struct PostWriteOptions<'a> {
+    hints: Option<&'a board_domain::content_admission::network::hints::DerivedHints>,
     asn_database: Option<&'a board_domain::content_admission::network::asn::Database>,
     metadata: PostMetadata<'a>,
     staff: Option<StaffPostAuthority<'a>>,
@@ -610,6 +623,7 @@ async fn create_post_in_context(
     options: PostWriteOptions<'_>,
 ) -> Result<i64, StoreError> {
     let PostWriteOptions {
+        hints,
         asn_database,
         metadata,
         staff,
@@ -740,6 +754,7 @@ async fn create_post_in_context(
                 anonymous,
                 context.request_start.timestamp(),
                 asn,
+                hints.cloned().unwrap_or_default(),
             )
             .await?,
         )

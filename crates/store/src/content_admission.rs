@@ -11,6 +11,7 @@ static WORK: LazyLock<Arc<tokio::sync::Semaphore>> =
     LazyLock::new(|| Arc::new(tokio::sync::Semaphore::new(2)));
 
 pub(crate) struct Snapshot {
+    hints: board_domain::content_admission::network::hints::DerivedHints,
     revision: i64,
     peer: Option<String>,
     actor: Actor,
@@ -62,6 +63,7 @@ pub(crate) async fn begin(
     session: Option<anonymous_session::PostingSession>,
     request_at: i64,
     asn: board_domain::content_admission::network::ProviderValue<Option<u32>>,
+    hints: board_domain::content_admission::network::hints::DerivedHints,
 ) -> Result<Snapshot, StoreError> {
     let peer = peer.map(|peer| peer.to_canonical().to_string());
     let (revision, banned): (i64, bool) =
@@ -114,6 +116,7 @@ pub(crate) async fn begin(
         .await?;
     let network = network::snapshot(connection, board, request_at).await?;
     Ok(Snapshot {
+        hints,
         revision,
         peer,
         actor,
@@ -233,7 +236,7 @@ impl Evaluation {
         work_safe: bool,
         has_image: bool,
     ) -> Result<Option<String>, StoreError> {
-        use board_domain::content_admission::network::{Leniency, ProviderValue, Request};
+        use board_domain::content_admission::network::{Leniency, Request};
         let peer = self
             .snapshot
             .peer
@@ -259,7 +262,7 @@ impl Evaluation {
                 op: self.input.parent == 0,
                 image: has_image,
                 report: false,
-                signatures: ProviderValue::Unavailable,
+                signatures: self.snapshot.hints.signatures(),
                 actor: self.snapshot.activity.as_ref(),
             })
             .map_err(unavailable)?;
