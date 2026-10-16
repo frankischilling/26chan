@@ -575,7 +575,7 @@ impl Fixture {
 
     async fn credential_reassignment_locks_both_boards(&self) {
         let next_board = format!("{}b", self.board);
-        sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Credential reassignment','Owned fixture',200,100,100,100,10)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(false,0,0,0,$1,'Credential reassignment','Owned fixture',200,100,100,100,10)")
             .bind(&next_board).execute(&self.owner).await.unwrap();
         self.boards.lock().unwrap().push(next_board.clone());
         posting_fixture::register_alias(&next_board, &self.board);
@@ -788,7 +788,7 @@ async fn run(scenario: Scenario) {
         .await
         .unwrap();
     let board = format!("da{seed:x}");
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES(0,0,0,$1,'Deletion authorization','Owned fixtures',200,100,100,100,10,100,0,0)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES(false,0,0,0,$1,'Deletion authorization','Owned fixtures',200,100,100,100,10,100,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let jobs = Arc::new(Mutex::new(Vec::new()));
     let boards = Arc::new(Mutex::new(vec![board.clone()]));

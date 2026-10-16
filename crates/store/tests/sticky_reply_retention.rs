@@ -41,7 +41,7 @@ impl Fixture {
                 .fetch_one(&owner)
                 .await
                 .unwrap();
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Sticky retention fixture','Owned synthetic',2000,$2,$2,100,10,100,0,0,0,100)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES(false,$1,'Sticky retention fixture','Owned synthetic',2000,$2,$2,100,10,100,0,0,0,100)")
             .bind(&board)
             .bind(cap)
             .execute(&owner)

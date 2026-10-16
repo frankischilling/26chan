@@ -381,3 +381,12 @@ pub fn verification_fixture_response(
 ) -> Result<axum::response::Response, String> {
     signin::fixture_response(mode, origin)
 }
+
+/// Synthetic posting controls with production templates and CSP; no write authority.
+#[cfg(feature = "browser-tests")]
+pub fn posting_captcha_fixture_response(
+    mode: &str,
+    origin: &str,
+) -> Result<axum::response::Response, String> {
+    posting_challenge::fixture::response(mode, origin)
+}

@@ -68,7 +68,7 @@ async fn drawing_replay_cors_requires_visible_verified_bytes_and_one_canonical_o
             .fetch_one(&admin)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,oekaki,oekaki_replays) VALUES ($1,'Drawing CORS fixture','Owned synthetic PNG',2000,100,100,10,10,10,0,0,0,true,true)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,oekaki,oekaki_replays) VALUES (false,$1,'Drawing CORS fixture','Owned synthetic PNG',2000,100,100,10,10,10,0,0,0,true,true)")
         .bind(&board)
         .execute(&admin)
         .await

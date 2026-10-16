@@ -1,5 +1,9 @@
 //! Browser CAPTCHA requests carry only form input. Trusted peer/session scope
 //! and private issuer credentials never come from the browser request body.
+#[cfg(feature = "browser-tests")]
+pub(crate) mod fixture;
+pub(crate) mod page;
+
 use crate::{
     AppState,
     anonymous_session::Session,
@@ -306,7 +310,7 @@ async fn request(
         _ => return Err(invalid()),
     };
     if initial
-        && ["csrf", "ticket", "ticket_challenge", "ticket_answer"]
+        && ["csrf", "ticket_challenge", "ticket_answer"]
             .iter()
             .any(|name| fields.has(name))
     {

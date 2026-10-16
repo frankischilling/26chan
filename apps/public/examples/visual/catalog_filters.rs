@@ -119,6 +119,7 @@ fn page(slug: &str, sorted: bool) -> String {
         threads.sort_by_key(|view| std::cmp::Reverse(view.thread.id));
     }
     views::BoardPage {
+        captcha: Default::default(),
         announcement: None,
         public_origin: String::new(),
         blotter: Vec::new(),

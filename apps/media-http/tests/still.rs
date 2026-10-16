@@ -81,6 +81,14 @@ async fn exercise(format: StillFormat) {
     let admin = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
+    // Keep source media policy while owning an isolated, non-CAPTCHA fixture.
+    let board: String =
+        sqlx::query_scalar("SELECT substr(replace(gen_random_uuid()::text,'-',''),1,10)")
+            .fetch_one(&admin)
+            .await
+            .unwrap();
+    sqlx::query("INSERT INTO content.boards SELECT (jsonb_populate_record(NULL::content.boards, to_jsonb(b) || jsonb_build_object('slug',$1::text,'captcha_enabled',false,'posting_thread_seconds',0))).* FROM content.boards b WHERE slug='aco'")
+        .bind(&board).execute(&admin).await.unwrap();
     let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -88,7 +96,7 @@ async fn exercise(format: StillFormat) {
         .await
         .unwrap();
     let upload = intake
-        .reserve_image(&format!("synthetic.{extension}"), "aco", 0, true)
+        .reserve_image(&format!("synthetic.{extension}"), &board, 0, true)
         .await
         .unwrap();
     let id = upload.id.clone();
@@ -99,6 +107,7 @@ async fn exercise(format: StillFormat) {
     let actor = *identity
         .public_posting_rate_identity("192.0.2.203".parse().unwrap())
         .as_bytes();
+    let cleanup_board = board.clone();
     let result = tokio::spawn(async move {
         let reader = MediaReader::connect(&std::env::var("MEDIA_READ_DATABASE_URL").unwrap())
             .await
@@ -253,7 +262,7 @@ async fn exercise(format: StillFormat) {
                 .unwrap();
         let post = board_store::create_post_with_metadata(
             &public,
-            "aco",
+            &board,
             0,
             &board_store::NewPost {
                 name: String::new(),
@@ -295,11 +304,11 @@ async fn exercise(format: StillFormat) {
             .unwrap();
         assert_eq!(attachment.has_mobile, !gif);
         let mut source_urls = vec![
-            format!("/aco/{}.{extension}", attachment.tim),
-            format!("/aco/{}s.jpg", attachment.tim),
+            format!("/{board}/{}.{extension}", attachment.tim),
+            format!("/{board}/{}s.jpg", attachment.tim),
         ];
         if !gif {
-            source_urls.push(format!("/aco/{}m.jpg", attachment.tim));
+            source_urls.push(format!("/{board}/{}m.jpg", attachment.tim));
         }
         for (index, (url, expected)) in source_urls.iter().zip(&files).enumerate() {
             let response = app
@@ -335,7 +344,7 @@ async fn exercise(format: StillFormat) {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
-        board_store::post_media::delete_attachment(&public, "aco", post)
+        board_store::post_media::delete_attachment(&public, &board, post)
             .await
             .unwrap();
         let deleted = board_store::post_media::attachment(&public, post)
@@ -358,38 +367,44 @@ async fn exercise(format: StillFormat) {
     })
     .await;
     let post = posted.load(std::sync::atomic::Ordering::SeqCst);
+    let mut tx = admin.begin().await.unwrap();
+    sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+        .bind(&cleanup_board)
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
     if post > 0 {
-        let mut tx = admin.begin().await.unwrap();
-        sqlx::query("SELECT slug FROM content.boards WHERE slug='aco' FOR UPDATE")
-            .fetch_one(&mut *tx)
-            .await
-            .unwrap();
-        sqlx::query("SELECT id FROM content.threads WHERE board='aco' AND id=$1 FOR UPDATE")
+        sqlx::query("SELECT id FROM content.threads WHERE board=$1 AND id=$2 FOR UPDATE")
+            .bind(&cleanup_board)
             .bind(post)
             .fetch_one(&mut *tx)
             .await
             .unwrap();
         for query in [
-            "DELETE FROM content.post_media WHERE post_id=$1",
-            "DELETE FROM post_secrets.deletion WHERE post_id=$1",
-            "DELETE FROM content.posts WHERE board='aco' AND id=$1",
-            "DELETE FROM content.threads WHERE board='aco' AND id=$1",
+            "DELETE FROM content.post_media WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",
+            "DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",
+            "DELETE FROM content.posts WHERE board=$1",
+            "DELETE FROM content.threads WHERE board=$1",
         ] {
             sqlx::query(query)
-                .bind(post)
+                .bind(&cleanup_board)
                 .execute(&mut *tx)
                 .await
                 .unwrap();
         }
-        tx.commit().await.unwrap();
     }
-    sqlx::query(
-        "DELETE FROM post_secrets.posting_thread_actions WHERE board='aco' AND actor_hash=$1",
-    )
-    .bind(actor.as_slice())
-    .execute(&admin)
-    .await
-    .unwrap();
+    sqlx::query("DELETE FROM post_secrets.posting_thread_actions WHERE board=$1 AND actor_hash=$2")
+        .bind(&cleanup_board)
+        .bind(actor.as_slice())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.boards WHERE slug=$1")
+        .bind(&cleanup_board)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
     sqlx::query("DELETE FROM media.assets WHERE job_id=$1")
         .bind(&id)
         .execute(&admin)

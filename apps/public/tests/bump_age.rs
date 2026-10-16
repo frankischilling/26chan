@@ -456,7 +456,7 @@ async fn source_age_policy_uses_request_start_and_op_seconds_without_changing_ad
     let mut random = [0_u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES(0,0,0,$1,'Age rules','Owned synthetic fixture',1000,1000,1000,10,10,1)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES(false,0,0,0,$1,'Age rules','Owned synthetic fixture',1000,1000,1000,10,10,1)").bind(&slug).execute(&owner).await.unwrap();
     let id = posting_fixture::create_post(&public, &slug, 0, &post(false))
         .await
         .unwrap();

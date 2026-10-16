@@ -91,7 +91,7 @@ async fn source_sage_ids_follow_locked_heaven_policy_and_preserve_saved_fields()
             .unwrap();
     // Keep the saved OP identity-policy matrix on this owned board without
     // letting the unrelated actor quota preempt its field assertions.
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Owned source sage IDs','Synthetic fixture',1000,100,100,100,10,2,0,0,0,100)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES(false,$1,'Owned source sage IDs','Synthetic fixture',1000,100,100,100,10,2,0,0,0,100)")
         .bind(&board).execute(&owner).await.unwrap();
     let key = fixture_key();
     let (app, api) = board_public::routers_with_options(public.clone(), options(Some(key.clone())));
@@ -462,7 +462,7 @@ async fn poster_labels_are_persisted_scoped_and_never_supplied_by_headers_or_fie
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_ids,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned poster IDs','Synthetic fixture',1000,100,100,100,10,true,0,0,0)").bind(&board).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_ids,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Owned poster IDs','Synthetic fixture',1000,100,100,100,10,true,0,0,0)").bind(&board).execute(&owner).await.unwrap();
     let key = fixture_key();
     let (app, api) = board_public::routers_with_options(public.clone(), options(Some(key.clone())));
     let no_key = board_public::routers_with_options(public.clone(), options(None)).0;

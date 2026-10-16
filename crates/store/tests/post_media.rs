@@ -182,7 +182,7 @@ async fn oekaki_annotation_uses_owned_image_and_source_row_without_provenance_cl
             .fetch_one(&admin)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,user_thread_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,oekaki,oekaki_replays) VALUES($1,'Drawing annotation','Owned source metadata',2000,100,100,100,10,100,100,0,0,0,true,true)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,user_thread_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,oekaki,oekaki_replays) VALUES(false,$1,'Drawing annotation','Owned source metadata',2000,100,100,100,10,100,100,0,0,0,true,true)")
         .bind(&board)
         .execute(&admin)
         .await
@@ -399,7 +399,7 @@ async fn run(attachment_only: bool) {
             .unwrap();
     // Retain OPs across the attachment scenarios without letting an unrelated
     // actor quota preempt their media admission and capability checks.
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES ($1,'Attachment test','Synthetic',2000,100,100,100,10,true,0,0,0,100)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES (false,$1,'Attachment test','Synthetic',2000,100,100,100,10,true,0,0,0,100)")
         .bind(&board).execute(&admin).await.unwrap();
     let jobs = Arc::new(Mutex::new(Vec::new()));
     let f = Fixture {

@@ -6,6 +6,7 @@
 {% import "catalog_text_row.html" as catalog_text_rows %}
 {% import "thread_navigation.html" as thread_navigation %}
 {% import "page_navigation.html" as page_navigation %}
+{% block captcha_assets %}{% if captcha.enabled %}<link rel="stylesheet" href="/static/posting-captcha.v1.css">{% if !captcha.noscript_only %}<script type="module" src="/static/posting-captcha.v1.js"></script>{% endif %}{% endif %}{% endblock %}
 {% block title %}{{ browser_title() }}{% endblock %}
 {% block alternate_feed %}{% if board.rss_enabled %}<link rel="alternate" title="RSS feed" href="/{{ board.slug }}/index.rss" type="application/rss+xml">{% endif %}{% endblock %}
 {% block body_attributes %}{% if board.math_tags && !catalog %} data-math-tags="1"{% endif %} data-worksafe="{{ board.worksafe }}" data-page-catalog="{{ catalog }}"{% if !catalog %} data-post-headers="true"{% endif %} class="publicPageChrome {% if board.worksafe %}ws{% else %}nws{% endif %}{% if catalog %} is_catalog{% endif %}{% if board.text_only %} text_only{% endif %}"{% endblock %}
@@ -40,7 +41,7 @@
 <div id="togglePostFormLink" class="desktop" hidden>[<a href="#postForm" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a>]</div>
 <h2>{% if parent == 0 %}Start a new thread{% else %}Post a reply{% endif %}</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
-{% call posting::fields(parent, false, board.comment_spoiler_cleanup, board.text_only, board.forced_anon, board.country_flags, board.flag_options(), quote, drawing_allowed(), board.oekaki_width, board.oekaki_height) %}{% endcall %}
+{% call posting::fields(parent, false, board.comment_spoiler_cleanup, board.text_only, board.forced_anon, board.country_flags, board.flag_options(), quote, drawing_allowed(), board.oekaki_width, board.oekaki_height, captcha) %}{% endcall %}
 {% if drawing_edit_allowed() && !drawing_allowed() %}<div class="painter-ctrl" hidden>Size <input type="text" value="{{ board.oekaki_width }}" maxlength="4" inputmode="numeric" aria-label="Drawing width" data-drawing-width> &times; <input type="text" value="{{ board.oekaki_height }}" maxlength="4" inputmode="numeric" aria-label="Drawing height" data-drawing-height> <button type="button" data-drawing-draw>Edit</button> <button disabled type="button" data-drawing-clear>Clear</button><span role="status" aria-live="polite" data-drawing-status></span></div>{% endif %}
 <p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.ordinary_reply_limit() }} per thread. {% if media_origin.is_empty() || board.image_limit == 0 || board.text_only %}Media uploads are unavailable.{% else %}Use the upload form above to post with an image.{% endif %}</p>
 {% include "posting_notices.html" %}

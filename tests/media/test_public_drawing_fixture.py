@@ -43,10 +43,10 @@ class PublicDrawingFixtureTest(unittest.TestCase):
             before = dict(slug='i',title='Oekaki',description='Source board',oekaki=True,
                           oekaki_replays=True,oekaki_width=400,oekaki_height=400,image_limit=300,
                           staff_only=False,text_only=False,posting_reply_seconds=10,
-                          posting_image_seconds=30,posting_thread_seconds=60,
+                          posting_image_seconds=30,posting_thread_seconds=60,captcha_enabled=True,
                           deletion_known_min_seconds=10,deletion_unknown_min_seconds=600)
             active = {**before, 'title': 'Drawing qualification', 'description': value.marker,
-                      **{name: 0 for name in PublicDrawingEdit._changed[2:]}}
+                      **{name: 0 for name in PublicDrawingEdit._changed[2:-1]}, 'captcha_enabled': False}
             value.lease = dict(before=before,active=active)
         value.created = True
         value.mode = mode

@@ -57,7 +57,7 @@ early_browser_checks() {
 }
 
 rust_checks() {
-  node --test tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs
+  node --test tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs
   cargo fmt --all -- --check
   cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
   python3 scripts/check-media-parser-dependencies.py

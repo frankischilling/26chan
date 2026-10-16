@@ -15,12 +15,13 @@ const prerequisites = [
   'cargo test -p board-store -p board-verification --all-features --locked',
   'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact',
   'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact',
+  'cargo test -p board-public --all-features --locked --lib posting_challenge::database_tests::public_captcha_requests_keep_private_scope_and_source_report_opt_out -- --ignored --exact',
   'cargo test --workspace --exclude board-store --exclude board-verification --all-features --locked',
   'cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture',
   'cargo test -p board-public --example deletion-fixture --features database-tests --locked',
   'cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked',
 ];
-const browserPrerequisites = [prerequisites[0], prerequisites[1], prerequisites[7], prerequisites[8]];
+const browserPrerequisites = [prerequisites[0], prerequisites[1], prerequisites[8], prerequisites[9]];
 const dependencyCommands = ['npm ci --ignore-scripts', 'npx playwright install --with-deps chromium'];
 const suites = ['rust', 'browser-content', 'browser-interactions'];
 const roles = ['TEST_PUBLIC', 'MEDIA', 'MEDIA_READ', 'INTAKE', 'MONITOR', 'AUTH', 'STAFF'];
@@ -41,6 +42,7 @@ python3 scripts/extract-navigation-reference.py
 python3 scripts/test-navigation-reference.py
 python3 scripts/extract-board-format-metadata-reference.py
 python3 scripts/test-board-format-metadata-reference.py
+python3 scripts/test-captcha-board-policy.py
 python3 scripts/test-image-board-policy-reference.py
 python3 scripts/test-image-presentation-reference.py
 npm ci --ignore-scripts
@@ -52,7 +54,7 @@ timeout 300s npm run test:math
 npm run test:math
 python3 scripts/check-windows-test-exits.py
 npm run test:settings-categories
-node --test tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs
+node --test tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
@@ -61,6 +63,7 @@ cargo build -p board-public --example deletion-quota-fixture --features browser-
 cargo test -p board-store -p board-verification --all-features --locked
 cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact
 cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact
+cargo test -p board-public --all-features --locked --lib posting_challenge::database_tests::public_captcha_requests_keep_private_scope_and_source_report_opt_out -- --ignored --exact
 cargo test --workspace --exclude board-store --exclude board-verification --all-features --locked
 cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture
 cargo test -p board-public --example deletion-fixture --features database-tests --locked
@@ -366,7 +369,7 @@ test('only explicit verification tests receive isolated verification database cr
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.verificationEnvironments.length, result.commands.length);
     for (const [command, issuer, mailer] of result.verificationEnvironments) {
-      assert.deepEqual([issuer, mailer], ['cargo test -p board-store -p board-verification --all-features --locked', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact'].includes(command)
+      assert.deepEqual([issuer, mailer], ['cargo test -p board-store -p board-verification --all-features --locked', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact', 'cargo test -p board-public --all-features --locked --lib posting_challenge::database_tests::public_captcha_requests_keep_private_scope_and_source_report_opt_out -- --ignored --exact'].includes(command)
         ? ['owned-issuer-trace', 'owned-mail-trace'] : ['', ''], command);
     }
   }

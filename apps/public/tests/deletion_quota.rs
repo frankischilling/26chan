@@ -612,7 +612,7 @@ async fn run(scenario: Scenario) {
     });
     for board in &boards {
         // Explicit policy for owned synthetic boards only; production defaults remain intact.
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Deletion quota','Owned fixtures',200,100,100,1000,10,100,0,0,86400,0,0,0)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Deletion quota','Owned fixtures',200,100,100,1000,10,100,0,0,86400,0,0,0)")
             .bind(board).execute(&owner).await.unwrap();
     }
     let fixture = Fixture {

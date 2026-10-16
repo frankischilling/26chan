@@ -722,7 +722,7 @@ async fn persisted_source_spacing_uses_locked_operator_policy_and_escaped_render
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Spacing','Owned fixture',1000,100,100,10,10)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(false,0,0,0,$1,'Spacing','Owned fixture',1000,100,100,10,10)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;

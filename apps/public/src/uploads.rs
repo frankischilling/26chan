@@ -130,6 +130,7 @@ fn page(
     stage: UploadState,
     message: &'static str,
     format: Format,
+    captcha: crate::views::CaptchaView,
 ) -> Result<Response, AppError> {
     if matches!(format, Format::Json) {
         return json(
@@ -147,6 +148,7 @@ fn page(
         crate::output::html(
             state,
             &UploadPage {
+                captcha,
                 public_origin: state.origin.clone(),
                 board,
                 form,
@@ -243,6 +245,7 @@ async fn receive_drawing(
         UploadState::Queued,
         "Your drawing is queued for isolated processing. Check its status before posting.",
         format,
+        Default::default(),
     )
 }
 
@@ -385,17 +388,20 @@ async fn receive(
         UploadState::Queued,
         "Your file is queued for isolated processing. Check its status before posting.",
         format,
+        Default::default(),
     )
 }
 
 pub async fn status(
     State(state): State<AppState>,
     Path(board): Path<String>,
+    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
     headers: HeaderMap,
     form: Result<Form<UploadForm>, FormRejection>,
 ) -> Response {
     let format = Format::from_headers(&headers);
-    let result = async { current(&state, &board, parsed(form)?, format).await }.await;
+    let result =
+        async { current(&state, &board, parsed(form)?, format, &headers, peer.0).await }.await;
     finish(&state, format, result)
 }
 
@@ -404,6 +410,8 @@ async fn current(
     board: &str,
     form: UploadForm,
     format: Format,
+    headers: &HeaderMap,
+    peer: Option<std::net::IpAddr>,
 ) -> Result<Response, AppError> {
     let board_settings = settings(state, board, form.resto).await?;
     board_store::post_media::check_upload(&state.pool, &form.upload_id, &form.upload_capability)
@@ -438,7 +446,28 @@ async fn current(
             "Your file is still being processed. Check again shortly.",
         ),
     };
-    page(state, board_settings, form, stage, message, format)
+    let (captcha, captcha_context) =
+        if matches!(stage, UploadState::Approved) && !matches!(format, Format::Json) {
+            crate::posting_challenge::page::prepare(
+                state,
+                headers,
+                peer,
+                crate::posting_challenge::Scope {
+                    board: board.into(),
+                    target: form.resto,
+                    purpose: if form.resto == 0 {
+                        board_verification_client::protocol::Purpose::Thread
+                    } else {
+                        board_verification_client::protocol::Purpose::Reply
+                    },
+                },
+            )
+            .await
+        } else {
+            (Default::default(), Default::default())
+        };
+    page(state, board_settings, form, stage, message, format, captcha)
+        .map(|response| crate::posting_challenge::page::finish(response, &captcha_context))
 }
 
 pub async fn cancel(

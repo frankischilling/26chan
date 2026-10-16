@@ -413,7 +413,7 @@ async fn source_op_peer_intervals_are_private_atomic_and_deletion_aware() {
     let mut random = [0; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'OP rules','Owned synthetic fixture',1000,1000,1000,10,10)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(false,0,0,0,$1,'OP rules','Owned synthetic fixture',1000,1000,1000,10,10)").bind(&slug).execute(&owner).await.unwrap();
     let f = Fixture {
         owner: owner.clone(),
         public: public.clone(),

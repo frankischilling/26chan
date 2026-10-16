@@ -304,7 +304,7 @@ async fn current_reply_counts_drive_bumps_and_all_public_limit_flags() {
     let mut random = [0_u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES(0,0,0,$1,'Bump rules','Owned source-rule fixture',1000,100,3,10,10,1)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES(false,0,0,0,$1,'Bump rules','Owned source-rule fixture',1000,100,3,10,10,1)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

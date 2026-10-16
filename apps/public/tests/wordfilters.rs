@@ -38,7 +38,7 @@ async fn fixture() -> (PgPool, PgPool, String) {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_spoiler_cleanup,comment_sjis_spacing,op_markup,rss_enabled,word_filter_enabled) VALUES(0,0,0,$1,'Owned wordfilters','Owned wordfilter HTTP fixture',16000,100,100,100,10,true,true,true,true,true,true)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_spoiler_cleanup,comment_sjis_spacing,op_markup,rss_enabled,word_filter_enabled) VALUES(false,0,0,0,$1,'Owned wordfilters','Owned wordfilter HTTP fixture',16000,100,100,100,10,true,true,true,true,true,true)").bind(&slug).execute(&owner).await.unwrap();
     (owner, public, slug)
 }
 async fn cleanup(owner: &PgPool, slug: &str) {

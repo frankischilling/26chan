@@ -258,10 +258,12 @@ async function sendPost({ board, thread, fields, signal, origin = location.origi
     || !fields.upload_id || !fields.upload_capability)) throw new Error('Invalid drawing annotation.');
   const form = new FormData();
   let bytes = 0;
-  for (const name of ['name', 'email', ...(allowNew ? ['sub'] : []), 'com', 'pwd', 'upload_id', 'upload_capability', 'spoiler', 'flag',
+  for (const name of ['name', 'email', ...(allowNew ? ['sub'] : []), 'com', 'pwd', 'upload_id', 'upload_capability', 'spoiler', 'flag', 'captcha-csrf', 't-challenge', 't-response', 'captcha-credit',
     ...(annotated ? ['oe_time', 'oe_src'] : [])]) {
     const value = fields[name] ?? '';
     if (typeof value !== 'string') throw new Error('Invalid posting form.');
+    const captchaLimit = { 'captcha-csrf': 64, 't-challenge': 67, 't-response': 64, 'captcha-credit': 1 }[name];
+    if (captchaLimit && value.length > captchaLimit) throw new Error('Invalid CAPTCHA form.');
     bytes += new TextEncoder().encode(value).length;
     if (bytes > 90_000) throw new Error('Posting form is too large.');
     if (value || ['com', 'pwd'].includes(name)) form.append(name, value);

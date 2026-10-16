@@ -574,12 +574,24 @@ pub async fn board_redirect(
 pub async fn board_index(
     State(state): State<AppState>,
     Path(board): Path<String>,
+    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
+    headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    board_page(&state, &board, 1, false, catalog::Options::default()).await
+    board_page(
+        &state,
+        &board,
+        1,
+        false,
+        catalog::Options::default(),
+        &headers,
+        peer.0,
+    )
+    .await
 }
 pub async fn page(
     State(state): State<AppState>,
     Path((board, page)): Path<(String, String)>,
+    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
     headers: HeaderMap,
     uri: Uri,
 ) -> Result<Response, AppError> {
@@ -589,7 +601,7 @@ pub async fn page(
                 StatusCode::BAD_REQUEST,
                 "Invalid catalog options.",
             ))?;
-            board_page(&state, &board, 1, true, options).await
+            board_page(&state, &board, 1, true, options, &headers, peer.0).await
         }
         "threads.json" => api::thread_list(&state, &board, &headers).await,
         "catalog.json" => api::catalog(&state, &board, &headers).await,
@@ -634,6 +646,8 @@ pub async fn page(
                     index + 1,
                     false,
                     catalog::Options::default(),
+                    &headers,
+                    peer.0,
                 )
                 .await
             }
@@ -646,6 +660,8 @@ async fn board_page(
     page: i64,
     catalog: bool,
     options: catalog::Options,
+    headers: &HeaderMap,
+    peer: Option<std::net::IpAddr>,
 ) -> Result<Response, AppError> {
     let selection = if catalog {
         board_store::BoardSelection::All
@@ -723,9 +739,25 @@ async fn board_page(
     let replay = board.oekaki_replays && !catalog && state.media.is_some();
     let math_tags = board.math_tags && !catalog;
     let drawing = !catalog && board.ordinary_drawing_enabled(state.media.is_some());
+    let (captcha, captcha_context) = if catalog {
+        (Default::default(), Default::default())
+    } else {
+        crate::posting_challenge::page::prepare(
+            state,
+            headers,
+            peer,
+            crate::posting_challenge::Scope {
+                board: slug.into(),
+                target: 0,
+                purpose: board_verification_client::protocol::Purpose::Thread,
+            },
+        )
+        .await
+    };
     let response = crate::output::html(
         state,
         &BoardPage {
+            captcha,
             announcement: board_store::site_content::site_page(&state.pool, "announcement").await?,
             public_origin: state.origin.clone(),
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
@@ -756,6 +788,7 @@ async fn board_page(
                 .unwrap_or_default(),
         },
     )?;
+    let response = crate::posting_challenge::page::finish(response, &captcha_context);
     Ok(crate::security::drawing_page(
         crate::security::replay_page(crate::security::math_page(response, math_tags), replay),
         drawing,
@@ -764,6 +797,7 @@ async fn board_page(
 pub async fn thread(
     State(state): State<AppState>,
     Path((board, key)): Path<(String, String)>,
+    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
     headers: HeaderMap,
     uri: Uri,
 ) -> Result<Response, AppError> {
@@ -834,9 +868,25 @@ pub async fn thread(
         && thread.archived_at.is_none()
         && (board.ordinary_drawing_enabled(state.media.is_some())
             || board.drawing_edit_enabled(state.media.is_some()));
+    let (captcha, captcha_context) = if thread.closed || thread.archived_at.is_some() {
+        (Default::default(), Default::default())
+    } else {
+        crate::posting_challenge::page::prepare(
+            &state,
+            &headers,
+            peer.0,
+            crate::posting_challenge::Scope {
+                board: board.slug.clone(),
+                target: id,
+                purpose: board_verification_client::protocol::Purpose::Reply,
+            },
+        )
+        .await
+    };
     let response = crate::output::html(
         &state,
         &BoardPage {
+            captcha,
             announcement: board_store::site_content::site_page(&state.pool, "announcement").await?,
             public_origin: state.origin.clone(),
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
@@ -868,6 +918,7 @@ pub async fn thread(
                 .unwrap_or_default(),
         },
     )?;
+    let response = crate::posting_challenge::page::finish(response, &captcha_context);
     Ok(crate::security::drawing_page(
         crate::security::replay_page(crate::security::math_page(response, math_tags), replay),
         drawing,

@@ -92,7 +92,7 @@ async fn complete_private_contexts_supply_counts_and_incomplete_or_archived_hist
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned counters','Synthetic fixture',1000,100,100,100,10,3600,1,0,0,0)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Owned counters','Synthetic fixture',1000,100,100,100,10,3600,1,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let outcome = tokio::spawn(exercise(owner.clone(), public.clone(), board.clone())).await;
     for query in [

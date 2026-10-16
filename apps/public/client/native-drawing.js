@@ -241,7 +241,7 @@ export function mountNativeDrawing({ board, source, uploadForm }) {
         transfer.retire();
         if (status) status.textContent = failure.message;
       } finally {
-        if (!dead && epoch === postEpoch) { busy = false; transfer.posting(false); postController = null; ordinary.sync(); sync(); }
+        if (!dead && epoch === postEpoch) { busy = false; transfer.posting(false); postController = null; source.dispatchEvent(new Event('captcha:submitted')); ordinary.sync(); sync(); }
       }
     }
   }

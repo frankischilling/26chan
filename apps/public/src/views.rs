@@ -1,3 +1,4 @@
+pub use crate::posting_challenge::page::View as CaptchaView;
 use askama::Template;
 use board_domain::comment_markup::Tag;
 use board_domain::word_break::WordPart;
@@ -51,6 +52,7 @@ impl Home {
 #[derive(Template)]
 #[template(path = "board.html")]
 pub struct BoardPage {
+    pub captcha: CaptchaView,
     pub announcement: Option<board_store::site_content::SitePage>,
     /// Fixed configured public origin; never derived from a request Host header.
     pub public_origin: String,
@@ -74,6 +76,7 @@ pub struct BoardPage {
 #[derive(Template)]
 #[template(path = "upload.html")]
 pub struct UploadPage {
+    pub captcha: CaptchaView,
     pub public_origin: String,
     pub board: Board,
     pub form: UploadForm,

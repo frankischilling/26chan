@@ -24,6 +24,15 @@ async fn main() {
             }),
         );
     }
+    for mode in ["thread", "reply", "report", "classic", "noscript", "qr"] {
+        app = app.route(
+            &format!("/fixture/captcha/{mode}"),
+            get(move || async move {
+                board_public::posting_captcha_fixture_response(mode, ORIGIN)
+                    .expect("production CAPTCHA controls")
+            }),
+        );
+    }
     let app = app.fallback_service(board_public::router(pool, ORIGIN.into(), false));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await

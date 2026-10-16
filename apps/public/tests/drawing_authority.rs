@@ -235,7 +235,7 @@ async fn drawing_authority_requires_successful_supported_ordinary_html_from_the_
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,oekaki,archive_retention_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned drawing authority','Synthetic renderer fixture',2000,100,100,100,10,100,true,86400,0,0,0)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,oekaki,archive_retention_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Owned drawing authority','Synthetic renderer fixture',2000,100,100,100,10,100,true,86400,0,0,0)")
         .bind(&slug).execute(&owner).await.unwrap();
     let owned = owner.clone();
     let runtime = public.clone();

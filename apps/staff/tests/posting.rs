@@ -692,7 +692,7 @@ impl Fixture {
     async fn new() -> Arc<Self> {
         let owner = pool("MIGRATION_DATABASE_URL").await;
         let board = format!("c{}", &uuid::Uuid::new_v4().simple().to_string()[..9]);
-        sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Owned staff posting','Synthetic',16000,100,100,100,10)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(false,0,0,0,$1,'Owned staff posting','Synthetic',16000,100,100,100,10)")
             .bind(&board).execute(&owner).await.unwrap();
         let account: i64 = sqlx::query_scalar(
             "INSERT INTO staff_identity.accounts(role,flags) VALUES('moderator',ARRAY['capcode','capcodename','developer']) RETURNING id",

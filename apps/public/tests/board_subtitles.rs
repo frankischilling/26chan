@@ -106,11 +106,11 @@ async fn clone_boards(owner: &PgPool, fixtures: &[Fixture]) {
     let mut tx = owner.begin().await.unwrap();
     for fixture in fixtures {
         // Copy source policy to unique slugs so HTTP assertions cannot pass
-        // through a board-name special case. Only fixture capacity is relaxed.
+        // through a board-name special case. Fixture capacity and CAPTCHA policy are explicit.
         let inserted = sqlx::query(
             "INSERT INTO content.boards SELECT (jsonb_populate_record(NULL::content.boards, \
              to_jsonb(b) || jsonb_build_object( \
-             'slug',$1::text,'title','Owned subtitle ' || $1::text,'description',$3::text, \
+             'slug',$1::text,'captcha_enabled',false,'title','Owned subtitle ' || $1::text,'description',$3::text, \
              'posting_reply_seconds',0,'posting_image_seconds',0,'posting_thread_seconds',0, \
              'archive_retention_seconds',3600,'archive_limit',100,'thread_limit',100, \
              'threads_per_page',10))).* FROM content.boards b WHERE b.slug=$2",

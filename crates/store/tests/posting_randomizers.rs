@@ -61,7 +61,7 @@ async fn board_randomizers_are_guarded_persisted_and_rollback_with_the_post() {
             .await
             .unwrap();
     sqlx::query(
-        "INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,dice_roll,fortune_trip,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Randomizer test','Synthetic',2000,100,100,100,10,false,false,0,0,0)",
+        "INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,dice_roll,fortune_trip,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES (false,$1,'Randomizer test','Synthetic',2000,100,100,100,10,false,false,0,0,0)",
     )
     .bind(&board)
     .execute(&admin)

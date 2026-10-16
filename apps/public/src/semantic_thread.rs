@@ -98,6 +98,7 @@ pub(crate) fn stored_comment(post: &PostView) -> String {
 pub async fn get(
     State(state): State<AppState>,
     Path((board, key, _context)): Path<(String, String, String)>,
+    peer: axum::Extension<crate::security::RequestPeer>,
     headers: HeaderMap,
     uri: Uri,
 ) -> Result<Response, AppError> {
@@ -107,7 +108,7 @@ pub async fn get(
     if !is_path(uri.path()) {
         return Err(AppError(StatusCode::NOT_FOUND, "Thread not found."));
     }
-    handlers::thread(State(state), Path((board, key)), headers, uri).await
+    handlers::thread(State(state), Path((board, key)), peer, headers, uri).await
 }
 
 #[cfg(test)]

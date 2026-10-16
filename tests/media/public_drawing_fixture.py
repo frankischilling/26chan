@@ -329,7 +329,7 @@ class PublicDrawingUpload(PublicUpload):
 class PublicDrawingEdit(PublicDrawingUpload):
     """Own an empty disposable /i/ board during its source-specific browser case."""
     _changed = ('title', 'description', 'posting_reply_seconds', 'posting_image_seconds',
-                'posting_thread_seconds', 'deletion_known_min_seconds', 'deletion_unknown_min_seconds')
+                'posting_thread_seconds', 'deletion_known_min_seconds', 'deletion_unknown_min_seconds', 'captcha_enabled')
 
     def __init__(self, host):
         super().__init__(host)
@@ -350,7 +350,7 @@ class PublicDrawingEdit(PublicDrawingUpload):
         assert self.board == self._owned_board == 'i' and re.fullmatch('[a-f0-9]{32}', self.marker)
         before = json.loads(sql("SELECT to_jsonb(b) FROM content.boards b WHERE slug='i';"))
         active = {**before, 'title': 'Drawing qualification', 'description': self.marker,
-                  **{name: 0 for name in self._changed[2:]}}
+                  **{name: 0 for name in self._changed[2:-1]}, 'captcha_enabled': False}
         # Save the exact recovery data BEFORE the mutation. An ambiguous psql
         # result after COMMIT must still leave cleanup able to identify the lease.
         self.lease = dict(before=before,active=active)
@@ -370,7 +370,7 @@ class PublicDrawingEdit(PublicDrawingUpload):
                 THEN RAISE EXCEPTION 'Drawing Edit requires an untouched disposable source board'; END IF;
                 UPDATE content.boards SET title='Drawing qualification',description='{self.marker}',
                     posting_reply_seconds=0,posting_image_seconds=0,posting_thread_seconds=0,
-                    deletion_known_min_seconds=0,deletion_unknown_min_seconds=0 WHERE slug='i';
+                    deletion_known_min_seconds=0,deletion_unknown_min_seconds=0,captcha_enabled=false WHERE slug='i';
                 IF (SELECT to_jsonb(b) FROM content.boards b WHERE slug='i') IS DISTINCT FROM {expected}
                 THEN RAISE EXCEPTION 'Drawing Edit changed unrelated policy'; END IF;
             END $owned_edit$; COMMIT;""")
@@ -389,7 +389,8 @@ class PublicDrawingEdit(PublicDrawingUpload):
         assert active['oekaki'] is True and active['oekaki_replays'] is True
         assert active['staff_only'] is False and active['text_only'] is False
         assert active['oekaki_width'] == active['oekaki_height'] == 400 and active['image_limit'] > 0
-        assert all(active[name] == 0 for name in self._changed[2:])
+        assert all(active[name] == 0 for name in self._changed[2:-1])
+        assert active['captcha_enabled'] is False
 
     def _policy_guard(self):
         self._validate_owned()

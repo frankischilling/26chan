@@ -47,7 +47,7 @@ async fn paired_identity_only_lookup_honors_visibility_and_repeatable_read() {
         .unwrap();
     let boards = vec![format!("qa{seed:x}"), format!("qb{seed:x}")];
     for board in &boards {
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,archive_retention_seconds) VALUES($1,'Owned quote identities','Synthetic visibility fixture',16000,1000,1000,1000,10,0,0,0,100,3600)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,archive_retention_seconds) VALUES(false,$1,'Owned quote identities','Synthetic visibility fixture',16000,1000,1000,1000,10,0,0,0,100,3600)")
             .bind(board).execute(&owner).await.unwrap();
     }
     let test_boards = boards.clone();

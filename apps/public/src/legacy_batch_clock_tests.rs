@@ -22,7 +22,7 @@ async fn captured_batch_session_clock_survives_a_delayed_first_deletion() {
         .await
         .unwrap();
     let board = format!("lc{seed}");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Batch clock','Owned fixture',200,100,100,100,10,60,600,86400,0,0,0)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Batch clock','Owned fixture',200,100,100,100,10,60,600,86400,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let capability = Capability::generate().unwrap();
     let fingerprints = capability.fingerprints(None, *b"XX");

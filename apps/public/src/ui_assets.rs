@@ -43,6 +43,16 @@ pub(crate) const TEGAKI_FONT_PATH: &str = "/static/tegaki/tegaki-icons.v1.woff";
 
 const ASSETS: &[(&str, &str, &[u8])] = &[
     (
+        "/static/posting-captcha.v1.js",
+        "text/javascript; charset=utf-8",
+        include_bytes!("../static/posting-captcha.v1.js"),
+    ),
+    (
+        "/static/posting-captcha.v1.css",
+        "text/css; charset=utf-8",
+        include_bytes!("../static/posting-captcha.v1.css"),
+    ),
+    (
         crate::signin::SCRIPT_PATH,
         "text/javascript; charset=utf-8",
         include_bytes!("../static/verification.v1.js"),

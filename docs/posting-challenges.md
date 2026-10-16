@@ -1,10 +1,11 @@
 # Posting and report challenges
 
 Issue [#199](https://github.com/frankischilling/26chan/issues/199) is in progress.
-Board policy, tickets, protected writes, and the public challenge exchange are
-implemented. Browser controls still need to request and submit those proofs. Transactional report exemption is implemented; its browser controls
-and the credit controls are unfinished. Email verification is covered in
-[public verification](public-verification.md).
+Board policy, tickets, protected writes, and public challenge exchange are
+implemented, along with normal posting, Quick Reply, and report controls.
+Classic forms also carry server-rendered challenges for no-JavaScript submission.
+Browser qualification and full-workspace CI remain pending. Email verification
+is covered in [public verification](public-verification.md).
 
 ## Board policy
 
@@ -256,12 +257,46 @@ A changed exemption is rechecked before and during final admission. Missing
 issuer service, wrong scope, replay, and stale forms fail closed. Receipt
 rejection returns a fixed CAPTCHA message without private database diagnostics.
 
-The public crate's local no-TLS test build passes 178 unit tests. Its Unix-socket
-transport test cannot run in this environment because socket creation is
-denied; it remains enabled for CI. These checks do not replace the locked
-production build or browser qualification.
+## Browser controls and qualification
 
-Browser controls and classic no-script rendering still need implementation
-and qualification. Existing posting fixtures must explicitly
-account for the new gate. The branch has not passed full-workspace CI and must
-not be treated as ready to merge.
+The normal form, Quick Reply, and report form share a bounded controller. It
+loads challenges on demand, exposes the image alignment slider, honors refresh
+cooldowns, and clears answers three seconds before expiry. Ticket answers start
+the waiting period; its timer may request an ordinary challenge but never submits
+a post. Waiting tickets are saved per board. Storage failure leaves in-memory
+reuse available.
+
+Credits display “Verification not required.” and populate a hidden claim field.
+They are not a checkbox or an entitlement chosen by the browser. Report exemption
+hides the controls while retaining its form nonce. Both decisions are checked
+again by the server on submission.
+
+Classic forms include a real challenge image, token, and form nonce in their
+HTML. They can submit without JavaScript. `NOSCRIPT_CAPTCHA_ONLY` suppresses the
+controller and Quick Reply; the native form remains available. Twister retains
+its source requirement for JavaScript. The replacement uses local raster images;
+it does not claim the missing provider's visual output or credentials.
+
+Quick Reply creates fresh controls for its current target. Retargeting, closing,
+failed submission, and persisted-page restoration clear stale proofs. Concurrent
+main-form and Quick Reply initialization is serialized so their first responses
+do not replace each other's anonymous/form cookies. CAPTCHA requests have a
+bounded timeout, and a failed request requires manual retry after a delay.
+
+Successful marked HTML responses alone receive inline PNG and `/captcha` CSP
+authority. Ordinary board pages can import the shared module for Quick Reply
+without gaining that network or image authority. Unit tests cover marked,
+unmarked, error, and JSON responses.
+
+The local no-TLS public build and controller state tests pass. The Unix-socket
+transport test cannot run in this environment because socket creation is
+denied; it remains enabled for CI. Real-role tests cover public challenge
+exchange and classic server-rendered submission. These checks do not replace
+the locked production build or browser qualification.
+
+The hosted browser suite now includes posting, reporting, classic/no-script,
+credits, tickets, expiry, failure, and Quick Reply cases. These are synthetic UI
+fixtures using the production template, modules, and CSP; real database proof
+consumption is tested separately. Browser results and full-workspace CI are
+still pending. Unrelated tests opt out only on their owned fixture boards;
+production defaults and dedicated challenge tests retain the gate.

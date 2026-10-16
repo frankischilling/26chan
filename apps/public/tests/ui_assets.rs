@@ -596,6 +596,10 @@ async fn display_and_thread_controls_serve_exact_page_assets_without_worker_auth
             "/static/native-quick-reply.v1.js",
             include_bytes!("../static/native-quick-reply.v1.js").as_slice(),
         ),
+        (
+            "/static/posting-captcha.v1.js",
+            include_bytes!("../static/posting-captcha.v1.js").as_slice(),
+        ),
     ] {
         for method in ["GET", "HEAD", "POST"] {
             let response = app

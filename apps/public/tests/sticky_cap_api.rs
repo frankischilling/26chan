@@ -263,7 +263,7 @@ async fn sticky_cap_matches_enforced_retention_across_both_json_listeners() {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,replies_shown,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,text_only) VALUES($1,'Owned sticky API','Synthetic retention fixture',1000,6,6,5,5,5,1,0,0,0,true)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,replies_shown,json_tail_size,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,text_only) VALUES(false,$1,'Owned sticky API','Synthetic retention fixture',1000,6,6,5,5,5,1,0,0,0,true)")
         .bind(&slug).execute(&owner).await.unwrap();
     let owned = owner.clone();
     let runtime = public.clone();

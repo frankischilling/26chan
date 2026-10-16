@@ -1,3 +1,4 @@
+import { createPostingCaptcha, mountPostingCaptcha } from '../static/posting-captcha.v1.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { cancelQuickReplyUpload, checkQuickReplyUpload, commentLengthWarning, quoteInsertion, sendQuickReply,
   uploadQuickReplyFile, uploadDrawingFile } from './native-quick-reply-transport.js';
@@ -10,6 +11,8 @@ import { mountNativeDrawing, mountDrawingEditLinks } from './native-drawing.js';
 
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed, math }) {
   const source = document.querySelector('form.postEditor');
+  const sourceCaptcha = source?.querySelector('[data-posting-captcha]');
+  let captcha = null;
   if (!/^[a-z0-9]{1,10}$/.test(board)) return null;
   restorePostPreferences(source);
   mountBoardFlagPreference(source?.elements.namedItem('flag'), board);
@@ -43,7 +46,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   const cancelAuto = () => { armedDraft = null; cooldown.disarm(); };
   const hasImage = () => !!(form?.elements.namedItem('upload_id')?.value || uploadInput?.files?.length || uploadPhase !== 'empty' || qrDrawing?.pending());
   const pollDelays = [1000, 2000, 4000];
-  const disabled = () => settings().disableAll === true || settings().quickReply === false;
+  const disabled = () => settings().disableAll === true || settings().quickReply === false || sourceCaptcha?.dataset.noscriptOnly === 'true';
   const section = id => document.getElementById(`t${id}`);
   const closed = id => section(id) ? ['closed', 'archived'].some(key => section(id).dataset[key] === 'true')
     : approvedThread !== id;
@@ -131,6 +134,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   }
   function close() {
     cancelAuto(); cooldown.stop(); math?.closePreview();
+    captcha?.dispose(); captcha = null;
     if (!dialog) return;
     uploadSelection++; targetEpoch++;
     qrDrawing?.dispose(); qrDrawing = null;
@@ -179,6 +183,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
         }
         qrDrawing?.dispose({ destroy: true }); qrDrawing = null;
         current = id; form.elements.resto.value = id; document.getElementById('qrTid').textContent = id; comment.value = '';
+        captcha?.setTarget(id);
         mountDrawing();
       }
       if (quoting || quote || selected) insert(quote, selected);
@@ -269,6 +274,10 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     const actions = node('div'); submit = node('input'); submit.type = 'submit'; submit.value = 'Post'; actions.append(submit); fields.append(actions);
     error = node('div'); error.id = 'qrError'; error.hidden = true; error.setAttribute('role', 'alert');
     dialog.append(header, form, error); document.body.append(dialog); dialog.show();
+    if (sourceCaptcha) {
+      const root = createPostingCaptcha(form, { board, target: id, purpose: 'reply', classic: sourceCaptcha.dataset.classic === 'true', prefix: 'qr-' });
+      if (root) { fields.insertBefore(root, actions); captcha = mountPostingCaptcha(root, { interceptSubmit: false, changed: () => { cancelAuto(); sync(); } }); }
+    }
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     form.addEventListener('submit', event => { event.preventDefault(); void send(); });
     submit.addEventListener('click', event => {
@@ -326,7 +335,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   async function send(force = false) {
     if (busy) { controller?.abort(); return; }
     if (qrDrawing?.blocked() || uploadBusy || (uploadOwned && uploadReceipt?.state !== 'approved')) return;
-    if (!dialog || disabled() || closed(current) || !form.reportValidity()) return;
+    if (!dialog || disabled() || closed(current) || (captcha && !captcha.canSubmit()) || !form.reportValidity()) return;
     if (!force && cooldown.refresh(hasImage())) {
       armedDraft = cooldown.toggle() ? { form, value: draft() } : null;
       return;
@@ -335,6 +344,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     message(''); busy = true; submit.value = 'Sending';
     const active = ++epoch, id = current; controller = new AbortController();
     const fields = Object.fromEntries(new FormData(form));
+    captcha?.setBusy(true);
     // Source attaches the import post and elapsed time only to the QR drawing
     // that produced the approved upload, not a replacement file or old draft.
     if (board === 'i' && drawing && uploadOwned) Object.assign(fields, qrDrawing?.annotation() ?? {});
@@ -366,7 +376,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
         postingAttachment = false;
         message(failure instanceof Error ? failure.message : 'Connection error. Check the thread before retrying.');
       }
-    } finally { if (active === epoch) { busy = false; controller = null; renderUpload(); sync(); } }
+    } finally { if (active === epoch) { busy = false; controller = null; captcha?.setBusy(false); captcha?.invalidate(); renderUpload(); sync(); } }
   }
   function scheduleUploadCheck() {
     clearTimeout(uploadTimer);

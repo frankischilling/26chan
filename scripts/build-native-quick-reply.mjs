@@ -13,12 +13,13 @@ const result = await build({
   entryPoints: ['apps/public/client/native-quick-reply.js'],
   outfile: 'apps/public/static/native-quick-reply.v1.js',
   bundle: true, platform: 'browser', format: 'esm', target: ['es2022'], minify: true, charset: 'ascii',
-  external: ['../static/thread-watcher-core.v1.js', '/static/tegaki/tegaki-0.9.4.v1.js'], write: false, metafile: true, logLevel: 'silent',
+  external: ['../static/posting-captcha.v1.js', '../static/thread-watcher-core.v1.js', '/static/tegaki/tegaki-0.9.4.v1.js'], write: false, metafile: true, logLevel: 'silent',
   banner: { js: '/*! Build with npm run build:native-quick-reply. Uses the fixed thread-watcher-core.v1.js ID helpers. */' },
 });
 assert.equal(result.outputFiles.length, 1);
 const output = Object.values(result.metafile.outputs)[0];
 assert.deepEqual(output.imports.map(item => [item.path, item.kind, item.external]), [
+  ['../static/posting-captcha.v1.js', 'import-statement', true],
   ['../static/thread-watcher-core.v1.js', 'import-statement', true],
   ['../static/thread-watcher-core.v1.js', 'import-statement', true],
   ['../static/thread-watcher-core.v1.js', 'import-statement', true],

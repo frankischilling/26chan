@@ -141,7 +141,7 @@ async fn categorical_http_mode_is_read_only_until_an_authoritative_valid_submiss
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned categorical HTTP','Synthetic',2000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Owned categorical HTTP','Synthetic',2000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
     let (a, p, b) = (owner.clone(), public.clone(), board.clone());
     // Catch assertion panics so cleanup always restores the inactive mode.
     let outcome = tokio::spawn(async move {

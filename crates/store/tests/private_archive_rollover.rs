@@ -39,7 +39,7 @@ impl Fixture {
             .await
             .unwrap();
         let board = format!("v{}", &seed[..9]);
-        sqlx::query("INSERT INTO content.boards(slug,title,description,staff_only,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned private rollover','Synthetic fixture',true,2000,1000,1000,1000,10,0,0,0)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,staff_only,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Owned private rollover','Synthetic fixture',true,2000,1000,1000,1000,10,0,0,0)")
             .bind(&board).execute(&owner).await.unwrap();
         // Source badge/name authority is real and remains valid when this
         // synthetic non-j board changes privacy while a writer is queued.

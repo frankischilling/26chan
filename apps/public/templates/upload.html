@@ -3,6 +3,7 @@
 {% import "post_fields.html" as posting %}
 {% block theme_stylesheet %}<link rel="stylesheet" href="/static/theme.css?worksafe={{ board.worksafe }}">{% endblock %}
 {% block theme_link %}<a href="/settings/theme?worksafe={{ board.worksafe }}">Style</a>{% endblock %}
+{% block captcha_assets %}{% if captcha.enabled %}<link rel="stylesheet" href="/static/posting-captcha.v1.css">{% if !captcha.noscript_only %}<script type="module" src="/static/posting-captcha.v1.js"></script>{% endif %}{% endif %}{% endblock %}
 {% block title %}Upload status - /{{ board.slug }}/{% endblock %}
 {% block feature_notice %}Development media workflow.{% endblock %}
 {% block content %}
@@ -13,7 +14,7 @@
 <input type="hidden" name="upload_id" value="{{ form.upload_id }}">
 <input type="hidden" name="upload_capability" value="{{ form.upload_capability }}">
 <input type="hidden" name="resto" value="{{ form.resto }}">
-{% call posting::fields(form.resto, true, board.comment_spoiler_cleanup, board.text_only, board.forced_anon, board.country_flags, board.flag_options(), "", false, 0, 0) %}{% endcall %}
+{% call posting::fields(form.resto, true, board.comment_spoiler_cleanup, board.text_only, board.forced_anon, board.country_flags, board.flag_options(), "", false, 0, 0, captcha) %}{% endcall %}
 <p id="postHelp">Comment optional with an approved image; maximum {{ board.max_comment_chars }} characters.</p>
 </form>
 {% else %}

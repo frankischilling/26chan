@@ -77,7 +77,7 @@ impl Fixture {
         let mut posts = [0; 2];
         let mut reports = [0; 2];
         for (index, board) in boards.iter().enumerate() {
-            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Owned scope board','',1000,100,100,100,10)")
+            sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(false,$1,'Owned scope board','',1000,100,100,100,10)")
                 .bind(board).execute(&owner).await.unwrap();
             posts[index] =
                 sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")

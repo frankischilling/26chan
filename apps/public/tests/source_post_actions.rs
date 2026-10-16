@@ -127,7 +127,7 @@ async fn original_selection_controls_bind_only_visible_nonarchive_posts_without_
         .await
         .unwrap();
     let slug = format!("sel{:06x}", OsRng.next_u32() & 0xffffff);
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES(0,0,0,$1,'Owned selection','Synthetic',2000,100,100,100,10,3600)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES(false,0,0,0,$1,'Owned selection','Synthetic',2000,100,100,100,10,3600)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;

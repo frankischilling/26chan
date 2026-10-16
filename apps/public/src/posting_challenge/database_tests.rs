@@ -1,4 +1,14 @@
 use super::*;
+use askama::Template;
+#[derive(Template)]
+#[template(
+    source = "{% import \"captcha_fields.html\" as captcha_markup %}<form method=\"post\">{% call captcha_markup::fields(captcha) %}{% endcall %}</form>",
+    ext = "html"
+)]
+struct ClassicForm {
+    captcha: page::View,
+}
+
 use axum::body::to_bytes;
 use board_domain::{
     challenge_secrets::{ReceiptToken, TokenKind, VerificationKey, VerificationToken},
@@ -133,6 +143,19 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
         assert_eq!(replay.err().unwrap().0,StatusCode::BAD_REQUEST);
         let old_form=FormInput{csrf:"00".repeat(32),..FormInput::default()};
         assert_eq!(proof(&state,&headers,&session,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread},&old_form).await.err().unwrap().0,StatusCode::FORBIDDEN);
+        for noscript_only in [false,true] {
+            sqlx::query("UPDATE content.boards SET noscript_captcha_only=$1 WHERE slug=$2").bind(noscript_only).bind(&board).execute(&owner).await.unwrap();
+            sqlx::query("UPDATE verification_private.peers SET refresh_after=clock_timestamp()-interval '1 second' WHERE peer_hash=$1").bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
+            let (captcha,context)=page::prepare(&state,&headers,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread}).await;
+            assert!(captcha.enabled && captcha.classic && !captcha.image.is_empty());assert_eq!(captcha.noscript_only,noscript_only);
+            let token=VerificationToken::parse(TokenKind::Challenge,&captcha.token).unwrap();let answer=key.challenge_answer(&token,6).unwrap();
+            let input=FormInput{csrf:captcha.csrf.clone(),challenge:captcha.token.clone(),answer:answer.as_str().into(),credit:String::new()};
+            let html=ClassicForm{captcha}.render().unwrap();assert!(html.contains("data:image/png;base64,"));assert!(html.contains("name=\"t-response\""));assert!(!html.contains("<script"));assert_eq!(html.contains("id=\"t-load\""),!noscript_only);
+            let response=page::finish((StatusCode::OK,"").into_response(),&context);let classic_headers=cookies(&response);
+            let classic_session=Session::resolve(&state,&classic_headers,Some(peer)).await.unwrap();
+            assert!(proof(&state,&classic_headers,&classic_session,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread},&input).await.unwrap().is_some());
+        }
+        sqlx::query("UPDATE content.boards SET noscript_captcha_only=false WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
         // A waiting ticket is distinct from the ordinary posting challenge.
         sqlx::query("UPDATE content.boards SET captcha_twister=true WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
         sqlx::query("UPDATE verification_private.peers SET refresh_after=clock_timestamp()-interval '1 second' WHERE peer_hash=$1").bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
@@ -144,6 +167,9 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
         let ticket=waiting["challenge"]["ticket"].as_str().unwrap();
         let response=request(State(state.clone()),Extension(RequestPeer(Some(peer))),headers.clone(),encoded(&[("action","challenge"),("board",&board),("purpose","thread"),("target","0"),("csrf",nonce),("ticket",ticket)])).await.unwrap();
         assert_eq!(decoded(response).await["challenge"]["ticket"],ticket);
+        let response=request(State(state.clone()),Extension(RequestPeer(Some(peer))),headers.clone(),encoded(&[("action","init"),("board",&board),("purpose","thread"),("target","0"),("ticket",ticket)])).await.unwrap();
+        assert_eq!(decoded(response).await["challenge"]["ticket"],ticket);
+
         // Mature UserPwd-equivalent state can omit report CAPTCHA, even when
         // the attachment was deleted and the board prohibits credit bypass.
         sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=extract(epoch FROM statement_timestamp())::bigint-700000,network_at=extract(epoch FROM statement_timestamp())::bigint-700000,address_at=extract(epoch FROM statement_timestamp())::bigint-700000,activity_at=extract(epoch FROM statement_timestamp())::bigint WHERE token_hash=$1").bind(session.posting.fingerprints.token.as_slice()).execute(&owner).await.unwrap();
