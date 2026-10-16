@@ -29,12 +29,13 @@ SQL
 created=1
 upgrade_url="${MIGRATION_DATABASE_URL%/imageboard}/$upgrade_db"
 db=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 --dbname="$upgrade_url")
+[[ -f migrations/0180_automatic_range_metadata.sql ]] || exit 1
 for migration in migrations/*.sql; do
-  [[ $migration != migrations/0179_automatic_metadata_policy.sql ]] || break
+  [[ $migration != migrations/0180_automatic_range_metadata.sql ]] || break
   "${db[@]}" --single-transaction -f "$migration"
 done
 "${db[@]}" -f fixtures/demo.sql
 "${db[@]}" -f scripts/test-automatic-metadata-predecessor.sql
-"${db[@]}" --single-transaction -f migrations/0179_automatic_metadata_policy.sql
+"${db[@]}" --single-transaction -f migrations/0180_automatic_range_metadata.sql
 "${db[@]}" -f scripts/test-automatic-metadata-upgrade.sql
 printf 'Automatic metadata upgrade preserves history and private authority.\n'
