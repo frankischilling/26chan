@@ -106,11 +106,16 @@ test('screenshot failures stay fatal while the Windows core starts independently
 test('both required aggregate checks reject every failed, cancelled, skipped or absent child result', () => {
   for (const [name, dependencies] of [
     ['visual-windows', ['visual-windows-core', 'visual-windows-themes']],
-    ['rust-and-postgres', ['rust-and-browser', 'browser-suites', 'media-and-operations']],
+    ['rust-and-postgres', ['rust-and-browser', 'browser-suites', 'media-and-operations', 'http-parser-qualification']],
   ]) {
     const source = workflowJob(name);
     assert.equal(source.match(/^    needs: \[([^\]]+)\]$/m)?.[1], dependencies.join(', '));
-    assert.match(source, /^    if: always\(\)$/m);
+    assert.match(source, /^    if: \$\{\{ !cancelled\(\) \}\}$/m);
+    const conditionSource = source.replace(/^    if:/m, '        if:');
+    for (const previous of ['success', 'failure', 'skipped']) {
+      assert.equal(scheduled(conditionSource, { previous }), true, `${name}: failed dependencies still reach the gate`);
+      assert.equal(scheduled(conditionSource, { previous, cancelled: true }), false, `${name}: superseded runs must cancel`);
+    }
     assert.match(source, /^    runs-on: ubuntu-24\.04$/m);
     assert.match(source, /^    timeout-minutes: 5$/m);
     assert.equal(source.match(/^      - name:/gm)?.length, 1);
@@ -121,7 +126,7 @@ test('both required aggregate checks reject every failed, cancelled, skipped or 
 
 test('aggregate status assertions detect an omitted comparison and a result mapped to the wrong child', () => {
   const source = workflowJob('rust-and-postgres');
-  const dependencies = ['rust-and-browser', 'browser-suites', 'media-and-operations'];
+  const dependencies = ['rust-and-browser', 'browser-suites', 'media-and-operations', 'http-parser-qualification'];
   const omitted = source.replace('          test "$BROWSER_RESULT" = success\n', '');
   assert.notEqual(omitted, source);
   assert.throws(() => assertAggregateOutcomes(omitted, dependencies), /aggregate gate outcome:/);

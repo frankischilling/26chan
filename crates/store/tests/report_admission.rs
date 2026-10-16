@@ -112,6 +112,7 @@ impl Fixture {
         for board in &self.boards {
             support::cleanup_posting(&self.owner, board).await;
             for query in [
+                "DELETE FROM admission.network_rules WHERE boards=$1",
                 "DELETE FROM content.reports WHERE board=$1",
                 "DELETE FROM content.moderation_audit WHERE board=$1",
                 "DELETE FROM content.post_media WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",
@@ -1754,4 +1755,126 @@ async fn whole_report_cleanup_does_not_grant_runtime_report_delete_authority() {
         staff.close().await;
     })
     .await;
+}
+
+#[tokio::test]
+async fn network_rules_preserve_get_advice_and_quota_precedence_without_partial_reports() {
+    run(|f| async move {
+        let rule: i64=sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end,reports_only) VALUES($1,0,4294967295,true) RETURNING id")
+            .bind(&f.boards[0]).fetch_one(&f.owner).await.unwrap();
+        let identity=actor();
+        let capability=f.report_capability();
+        let context=|minted| board_store::NetworkReportingContext {
+            protected: board_store::ProtectedReportingContext {
+                session: session(&capability,minted,Utc::now()), challenge:None,source_cookies_absent:false,
+            },
+            request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
+        };
+        board_store::report_admission::check_with_session(&f.public,&f.boards[0],f.posts[0][0],&identity,None,Utc::now().timestamp()).await.unwrap();
+        let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][0],"Owned network refusal",&identity,context(true)).await;
+        assert!(matches!(result,Err(StoreError::Invalid("Reporting from this IP range has been blocked due to abuse."))));
+        assert_eq!(f.counts().await,(0,0));
+        assert!(board_store::anonymous_session::snapshot(&f.public,&capability.storage_hash()).await.unwrap().is_none());
+        sqlx::query("UPDATE admission.network_rules SET ops_only=true WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
+        board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][0],"Posting-only policy is irrelevant",&identity,context(true)).await.unwrap();
+        assert_eq!(f.counts().await,(1,1));
+        sqlx::query("UPDATE admission.network_rules SET ops_only=false WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
+        let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][0],"Duplicate precedes network block",&identity,context(false)).await;
+        assert_eq!(result.unwrap_err().to_string(),DUPLICATE);
+        assert_eq!(f.counts().await,(1,1));
+        sqlx::query("UPDATE admission.network_rules SET range_start=NULL,range_end=NULL,asn=15169 WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
+        let other=f.report_capability();
+        let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][1],"Missing provider is not an exemption",&actor(),board_store::NetworkReportingContext {
+            protected:board_store::ProtectedReportingContext {session:session(&other,true,Utc::now()),challenge:None,source_cookies_absent:false},
+            request_start:Utc::now(),peer:Some("198.51.100.8".parse().unwrap()),asn_database:None,hints:None,
+        }).await;
+        assert!(matches!(result,Err(StoreError::Database(_))));
+        assert_eq!(f.counts().await,(1,1));
+        assert!(board_store::anonymous_session::snapshot(&f.public,&other.storage_hash()).await.unwrap().is_none());
+    }).await;
+}
+
+#[tokio::test]
+async fn report_waiting_on_policy_generation_observes_committed_rule() {
+    run(|f| async move {
+        let public=sqlx::postgres::PgPoolOptions::new().max_connections(1)
+            .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap()).await.unwrap();
+        let waiter:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&public).await.unwrap();
+        let mut policy=f.owner.begin().await.unwrap();
+        let blocker:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *policy).await.unwrap();
+        sqlx::query("INSERT INTO admission.network_rules(boards,range_start,range_end,reports_only) VALUES($1,0,4294967295,true)")
+            .bind(&f.boards[0]).execute(&mut *policy).await.unwrap();
+        let board=f.boards[0].clone(); let post=f.posts[0][0]; let capability=f.report_capability();
+        let task=tokio::spawn(async move {
+            board_store::report_with_network(&public,&board,post,"Waited network decision",&actor(),board_store::NetworkReportingContext {
+                protected:board_store::ProtectedReportingContext {session:session(&capability,true,Utc::now()),challenge:None,source_cookies_absent:false},
+                request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
+            }).await
+        });
+        wait_for_row_blocker(&f.owner,waiter,blocker).await;
+        policy.commit().await.unwrap();
+        assert!(matches!(task.await.unwrap(),Err(StoreError::Invalid("Reporting from this IP range has been blocked due to abuse."))));
+        assert_eq!(f.counts().await,(0,0));
+    }).await;
+}
+
+#[tokio::test]
+async fn policy_update_waits_until_report_transaction_releases_shared_generation() {
+    run(|f| async move {
+        let public=sqlx::postgres::PgPoolOptions::new().max_connections(1)
+            .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap()).await.unwrap();
+        let report_pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&public).await.unwrap();
+        let mut gate=f.owner.begin().await.unwrap();
+        let gate_pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *gate).await.unwrap();
+        private_role(&mut gate).await;
+        sqlx::query("SELECT singleton FROM post_secrets.report_admission_gate WHERE singleton FOR UPDATE").execute(&mut *gate).await.unwrap();
+        let board=f.boards[0].clone();let post=f.posts[0][0];let capability=f.report_capability();
+        let report=tokio::spawn(async move {
+            board_store::report_with_network(&public,&board,post,"Locked network generation",&actor(),board_store::NetworkReportingContext {
+                protected:board_store::ProtectedReportingContext {session:session(&capability,true,Utc::now()),challenge:None,source_cookies_absent:false},
+                request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
+            }).await
+        });
+        wait_for_row_blocker(&f.owner,report_pid,gate_pid).await;
+        let updater=sqlx::postgres::PgPoolOptions::new().max_connections(1)
+            .connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap()).await.unwrap();
+        let update_pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&updater).await.unwrap();
+        let board=f.boards[0].clone();
+        let update=tokio::spawn(async move {
+            sqlx::query("INSERT INTO admission.network_rules(boards,range_start,range_end,reports_only) VALUES($1,0,4294967295,true)")
+                .bind(board).execute(&updater).await
+        });
+        wait_for_row_blocker(&f.owner,update_pid,report_pid).await;
+        gate.rollback().await.unwrap();
+        report.await.unwrap().unwrap(); update.await.unwrap().unwrap();
+        assert_eq!(f.counts().await,(1,1));
+        let capability=f.report_capability();
+        let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][1],"New request sees new generation",&actor(),board_store::NetworkReportingContext {
+            protected:board_store::ProtectedReportingContext {session:session(&capability,true,Utc::now()),challenge:None,source_cookies_absent:false},
+            request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
+        }).await;
+        assert!(matches!(result,Err(StoreError::Invalid("Reporting from this IP range has been blocked due to abuse."))));
+        assert_eq!(f.counts().await,(1,1));
+    }).await;
+}
+
+#[tokio::test]
+async fn staff_private_board_reports_use_trusted_network_inputs_without_badge_exemption() {
+    run(|f| async move {
+        sqlx::query("UPDATE content.boards SET staff_only=true WHERE slug=$1")
+            .bind(&f.boards[0]).execute(&f.owner).await.unwrap();
+        let rule:i64=sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end,reports_only) VALUES($1,3405803776,3405804031,true) RETURNING id")
+            .bind(&f.boards[0]).fetch_one(&f.owner).await.unwrap();
+        let staff=PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap()).await.unwrap();
+        let source=|| board_store::ReportNetworkSource {
+            request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
+        };
+        board_store::report_with_network_source(&staff,&f.boards[0],f.posts[0][0],"Unmatched private-board rule",&actor(),source()).await.unwrap();
+        assert_eq!(f.counts().await,(1,1));
+        sqlx::query("UPDATE admission.network_rules SET range_start=0,range_end=4294967295 WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
+        let result=board_store::report_with_network_source(&staff,&f.boards[0],f.posts[0][1],"Staff is still subject to range policy",&actor(),source()).await;
+        assert!(matches!(&result,Err(StoreError::Invalid("Reporting from this IP range has been blocked due to abuse."))), "{result:?}");
+        assert!(matches!(board_store::report(&staff,&f.boards[0],f.posts[0][2],"Missing legacy context",&actor()).await,Err(StoreError::Database(_))));
+        assert_eq!(f.counts().await,(1,1));
+    }).await;
 }

@@ -1471,7 +1471,7 @@ pub(crate) enum ReportSubmission {
 pub async fn report(
     State(state): State<AppState>,
     Path(board): Path<String>,
-    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
+    (axum::Extension(start), axum::Extension(peer), order): crate::security::PostingTransport,
     headers: HeaderMap,
     form: Result<Form<ReportForm>, axum::extract::rejection::FormRejection>,
 ) -> Result<Response, AppError> {
@@ -1495,6 +1495,8 @@ pub async fn report(
         &state,
         &board,
         peer,
+        start,
+        order.as_ref().map(|order| &order.0),
         &headers,
         ReportSubmission::FreeText {
             no: form.no,
@@ -1514,6 +1516,8 @@ pub(crate) async fn submit_report(
     state: &AppState,
     board: &str,
     peer: crate::security::RequestPeer,
+    start: crate::security::RequestStart,
+    order: Option<&board_http::transport::RequestHeaderOrder>,
     headers: &HeaderMap,
     form: ReportSubmission,
 ) -> Result<Response, AppError> {
@@ -1566,39 +1570,41 @@ pub(crate) async fn submit_report(
         Ok(absent) => absent,
         Err(error) => return Ok(fail(error)),
     };
+    let hints =
+        board_http::network_hints::derive(headers, order, state.browser_hint_key.as_deref());
     let protected = board_store::ProtectedReportingContext {
         session: session.posting,
         challenge,
         source_cookies_absent,
+    };
+    let network = board_store::NetworkReportingContext {
+        protected,
+        request_start: start.0,
+        peer: peer.0,
+        asn_database: state.asn_database.as_deref(),
+        hints: Some(&hints),
     };
     // Reserve and render the bounded response before committing. An exhausted
     // output budget must never make a saved report appear to have failed.
     let mut response = crate::legacy_report::success(state, &target)?;
     let result = match form {
         ReportSubmission::FreeText { reason, .. } => {
-            board_store::report_with_challenge(
-                &state.pool,
-                board,
-                no,
-                &reason,
-                &identity,
-                protected,
-            )
-            .await
+            board_store::report_with_network(&state.pool, board, no, &reason, &identity, network)
+                .await
         }
         ReportSubmission::Categorical {
             category_id,
             expected_revision,
             ..
         } => {
-            board_store::report_categorical_with_challenge(
+            board_store::report_categorical_with_network(
                 &state.pool,
                 board,
                 no,
                 category_id,
                 expected_revision,
                 &identity,
-                protected,
+                network,
             )
             .await
         }

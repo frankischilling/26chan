@@ -292,9 +292,17 @@ pub(crate) async fn submit(
                     AppError(StatusCode::BAD_REQUEST, "Invalid reporting request."),
                 );
             }
-            handlers::submit_report(&state, &board, peer, &headers, form)
-                .await
-                .unwrap_or_else(AppError::into_response)
+            handlers::submit_report(
+                &state,
+                &board,
+                peer,
+                start,
+                order.as_ref().map(|order| &order.0),
+                &headers,
+                form,
+            )
+            .await
+            .unwrap_or_else(AppError::into_response)
         }
         Ok(LegacyForm(Submission::Post(form))) => {
             handlers::post(

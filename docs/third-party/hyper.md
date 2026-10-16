@@ -38,14 +38,15 @@ server header order, and client/server header order.
 
 The CI qualification script runs upstream library tests with client/server
 HTTP/1 and HTTP/2, then repeats them with `server-header-order`. The main CI aggregate
-requires that job to pass. The local offline cache lacks `pretty_env_logger`,
-so upstream library-test execution and hosted qualification remain pending.
+requires that job to pass. The official locked test dependencies are now cached locally. Both upstream
+runs pass 115 tests, with the same six upstream-ignored tests in each run.
+Hosted qualification remains required.
 
 The first hosted parser job failed because the selected upstream test feature
 set omitted HTTP/2, which provides its shared `Compat` test adapter. The test
 script now enables that feature in both comparison runs. Application HTTP/1
-features and runtime behavior are unchanged; the corrected hosted suite still
-needs to pass.
+features and runtime behavior are unchanged. The corrected local suites pass;
+the corrected hosted suite still needs to pass.
 
 The application projects repeated names to the first normalized CGI/PHP key
 position before computing the legacy hint. Proxy and SAPI behavior can affect

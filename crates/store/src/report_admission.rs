@@ -1,5 +1,7 @@
 //! Private, report-bound IP and anonymous-session admission. GET is advisory;
 //! POST atomically inserts the report, membership, and anonymous activity.
+pub(crate) mod network;
+
 use crate::{StoreError, anonymous_session::PostingSession};
 use board_domain::poster_id::PublicReportRateIdentity;
 use sqlx::{PgConnection, PgPool};
@@ -124,6 +126,16 @@ pub(crate) async fn admit_categorical_with_session_on(
 pub(crate) fn admission_error(error: sqlx::Error) -> StoreError {
     if let Some(database) = error.as_database_error() {
         match database.code().as_deref() {
+            Some("P179B") => {
+                return StoreError::Invalid(
+                    "Reporting from this IP range has been blocked due to abuse.",
+                );
+            }
+            Some("P0179") => {
+                return StoreError::Database(sqlx::Error::Protocol(
+                    "Report network policy is unavailable.".into(),
+                ));
+            }
             Some("P135B") => return StoreError::Invalid(crate::restrictions::REPORT_BANNED),
             Some("P0002") => return StoreError::NotFound,
             Some("28000") => return StoreError::AuthorizationChanged,
@@ -839,6 +851,40 @@ AND NOT EXISTS (
                   AND a.attnum>0 AND NOT a.attisdropped ORDER BY names.ordinal)
           AND lower(translate(replace(replace(pg_catalog.pg_get_expr(k.conbin,k.conrelid),
               '::text',''),'::bigint',''),' ()',''))=required.expression
+    )
+)
+-- Network helpers remain private to their owner and the report boundary.
+-- The restriction seal includes their definitions and ACLs, as well as callers.
+AND content.restrictions_ready()
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('content','lock_report_network_policy','board_admission_owner',''::oidvector,'void',false,'plpgsql'),
+        ('content','report_network_rules','board_admission_owner','25 20 16'::oidvector,'record',true,'sql'),
+        ('post_secrets','report_network_activity','board_anonymous_owner','17 17 17 17 16 20'::oidvector,'record',true,'plpgsql'),
+        ('post_secrets','assert_report_network','board_report_admission_owner','25 20 17 17 17 17 17 16 20'::oidvector,'void',false,'plpgsql')
+    ) AS required(schema_name,function_name,owner_name,input_types,result_type,returns_set,language_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+        JOIN pg_catalog.pg_roles o ON o.oid=p.proowner
+        JOIN pg_catalog.pg_language l ON l.oid=p.prolang
+        CROSS JOIN owner_role report_owner
+        WHERE n.nspname=required.schema_name AND p.proname=required.function_name
+          AND o.rolname=required.owner_name AND p.proargtypes=required.input_types
+          AND NOT (o.rolcanlogin OR o.rolsuper OR o.rolcreatedb OR o.rolcreaterole OR o.rolreplication OR o.rolbypassrls)
+          AND p.prokind='f' AND p.prosecdef AND p.provolatile='v'
+          AND p.proretset=required.returns_set AND p.prorettype=to_regtype(required.result_type)
+          AND l.lanname=required.language_name AND p.pronargdefaults=0 AND p.provariadic=0
+          AND NOT p.proisstrict AND NOT p.proleakproof AND p.proparallel='u'
+          AND cardinality(p.proconfig)=1
+          AND replace(p.proconfig[1],' ','')='search_path=pg_catalog,pg_temp'
+          AND NOT has_schema_privilege(o.oid,n.oid,'CREATE')
+          AND has_function_privilege(report_owner.oid,p.oid,'EXECUTE')
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles runtime
+              WHERE runtime.rolname IN ('board_public','board_staff','board_auth','board_migrator','board_media','board_media_read','board_media_intake')
+                AND has_function_privilege(runtime.oid,p.oid,'EXECUTE'))
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+              WHERE a.is_grantable OR a.grantee NOT IN (o.oid,report_owner.oid))
     )
 )
 -- Pre-report observation is an anonymous-owner boundary, callable only by the

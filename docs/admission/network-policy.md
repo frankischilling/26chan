@@ -4,7 +4,9 @@ Network admission is under development for issue #212. IPv4 range rules now
 run in the posting transaction, including ordinary staff posts. Migration 0178
 adds private operator-owned rules and a scoped reader; it installs no rules.
 The offline ASN provider and bounded browser/request hints are wired into
-public and staff posting. Reports and automatic range bans remain unfinished.
+public and staff posting. [Report admission](report-network-policy.md) now has
+a transaction-local implementation under qualification. Automatic range bans
+and trusted bypass behavior remain unfinished.
 
 ## Covered decisions
 

@@ -1942,11 +1942,32 @@ pub async fn report(
     reason: &str,
     identity: &board_domain::poster_id::PublicReportRateIdentity,
 ) -> Result<(), StoreError> {
+    report_with_network_source(
+        pool,
+        slug,
+        id,
+        reason,
+        identity,
+        crate::ReportNetworkSource::unavailable(),
+    )
+    .await
+}
+
+pub async fn report_with_network_source(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    reason: &str,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+    source: crate::ReportNetworkSource<'_>,
+) -> Result<(), StoreError> {
+    let prepared_network = source.prepare(slug, id, identity)?;
     validate_report_reason(reason)?;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::report_admission::network::install(&mut tx, &prepared_network).await?;
     crate::write_challenge::install_report_epoch(&mut tx, identity).await?;
     crate::restrictions::prepare_report(
         &mut tx,
@@ -2001,12 +2022,34 @@ pub async fn report_with_challenge(
     identity: &board_domain::poster_id::PublicReportRateIdentity,
     context: ProtectedReportingContext,
 ) -> Result<(), StoreError> {
+    report_with_network(
+        pool,
+        slug,
+        id,
+        reason,
+        identity,
+        crate::NetworkReportingContext::unavailable(context),
+    )
+    .await
+}
+
+pub async fn report_with_network(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    reason: &str,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+    network: crate::NetworkReportingContext<'_>,
+) -> Result<(), StoreError> {
+    let prepared_network = network.prepare(slug, id, identity)?;
+    let context = network.protected;
     let session = context.session;
     validate_report_reason(reason)?;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::report_admission::network::install(&mut tx, &prepared_network).await?;
     crate::write_challenge::install(&mut tx, context.challenge.as_ref(), Some(&session)).await?;
     crate::write_challenge::install_report_exemption(
         &mut tx,
@@ -2067,11 +2110,35 @@ pub async fn report_categorical_with_challenge(
     identity: &board_domain::poster_id::PublicReportRateIdentity,
     context: ProtectedReportingContext,
 ) -> Result<(), StoreError> {
+    report_categorical_with_network(
+        pool,
+        slug,
+        id,
+        category_id,
+        expected_revision,
+        identity,
+        crate::NetworkReportingContext::unavailable(context),
+    )
+    .await
+}
+
+pub async fn report_categorical_with_network(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    category_id: i64,
+    expected_revision: i64,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+    network: crate::NetworkReportingContext<'_>,
+) -> Result<(), StoreError> {
+    let prepared_network = network.prepare(slug, id, identity)?;
+    let context = network.protected;
     let session = context.session;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::report_admission::network::install(&mut tx, &prepared_network).await?;
     crate::write_challenge::install(&mut tx, context.challenge.as_ref(), Some(&session)).await?;
     crate::write_challenge::install_report_exemption(
         &mut tx,

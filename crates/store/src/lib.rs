@@ -43,6 +43,9 @@ pub mod quote_targets;
 mod read;
 pub use quote_targets::{MAX_QUOTE_TARGETS, QuoteTargets};
 pub mod report_admission;
+pub use report_admission::network::{
+    Context as NetworkReportingContext, Source as ReportNetworkSource,
+};
 pub mod report_catalog;
 pub mod report_categories;
 pub mod report_challenge;
