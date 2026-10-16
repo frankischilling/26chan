@@ -3,7 +3,8 @@
 Issue [#199](https://github.com/frankischilling/26chan/issues/199) is in progress.
 Board policy, ticket storage, and normal post receipt enforcement are implemented
 in the database. Public posting and Quick Reply still need to request and supply
-those proofs; the report exemption and browser credit controls are unfinished. Email verification is covered in
+those proofs. Transactional report exemption is implemented; its browser controls
+and the credit controls are unfinished. Email verification is covered in
 [public verification](public-verification.md).
 
 ## Board policy
@@ -164,7 +165,7 @@ They also verify that the separate staff-only report path remains usable and
 that an explicitly CAPTCHA-disabled test board accepts a report without proof.
 The public handlers still need to supply proofs through the new Store APIs.
 
-The source's optional no-CAPTCHA report exemption remains unfinished. Existing
+The source's optional no-CAPTCHA report exemption uses retained history. Existing
 report memberships can disappear during retirement, so they cannot establish
 complete hourly report or recent-clear history. Source clear history comes from
 target/group clearing and new reports against an already-cleared group; the
@@ -186,9 +187,8 @@ moderator clearing. Bulk membership inserts above the 10,000-event capture
 bound also mark history incomplete rather than rejecting the existing bulk
 operation. Initial
 history also needs a 72-hour warm-up because retired events cannot be recovered.
-This storage does not yet enable the exemption. The exact-IP age, retained
-warning/ban history, key-epoch continuity, and request-context checks still need
-to be wired into its final eligibility decision.
+Migration 0174 checks this state during report admission, before consuming a
+proof, and keeps its lock until the transaction commits.
 
 Migration 0173 tracks a private fingerprint of the report and restriction
 identity key. A known key change preserves the existing incomplete-history
@@ -200,17 +200,42 @@ while observing this state; administrative imports only invalidate history.
 Failed reports roll back epoch changes with the rest of admission.
 
 This guards the recent-event history windows. It does not migrate active bans
-when an operator replaces the identity key. Keep that key stable; any exemption
-implementation must also account for active restrictions from an older key.
-The exemption decision still needs to run before proof consumption and hold the
-history lock until the report commits.
+when an operator replaces the identity key. Keep that key stable. Migration
+0174 permanently marks optional-exemption continuity uncertain after a key
+change or missing epoch metadata. First adoption also marks it uncertain if
+active bans or warnings already exist. Retired restriction events still age
+out normally. Later requests cannot clear this flag; restoring it would need a
+separate operator-reviewed migration. This fallback requires ordinary CAPTCHA
+and does not restore matching of active bans created under an older key.
 
 The source's attachment predicate is positive retained `fsize`, even after a
 file-only deletion. Its optional exemption is independent of the credit-bypass
 board switch. Either legacy authenticated-user or Pass cookie suppresses it;
 those cookie names do not establish authentication in this rewrite.
 
-Report exemption and browser credit controls still need implementation or
+The optional exemption requires a valid stored browser session, seven days at
+the same exact address, a source-compatible IPv4 peer, positive retained
+attachment bytes, fewer than three reports in the last hour, no target-clear
+event in the last 72 hours, and no warning or ban event in the last thirty days.
+An idle reset or address/network change removes eligibility; an environment
+change alone does not. The Store carries the route's legacy-cookie opt-out
+separately from the server-derived transport identity.
+
+Tests exercise both free-text and categorical admission, including a deleted
+file on a board with credit bypass disabled. They reject young or changed
+addresses, idle sessions, IPv6, text-only targets, recent reports and clears,
+retired warnings, incomplete history, uncertain key continuity, and exhausted
+history capacity. A forced late failure restores report history. Concurrent
+attempts to use the third exempt report admit only one. Separate SQL tests cover
+the strict thirty-day edge and persistent uncertainty after key changes.
+
+The report advice API applies the same predicate without recording a report or
+advancing browser activity. Advice does not reserve eligibility: final admission
+checks again, so a third report or intervening clear can require CAPTCHA after
+the form was opened. Tests verify repeated advice leaves activity and report
+history unchanged and that advice becomes false after the third report.
+
+Public HTTP integration and browser controls still need implementation and
 qualification. Existing posting fixtures must explicitly
 account for the new gate. The branch has not passed full-workspace CI and must
 not be treated as ready to merge.

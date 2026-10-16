@@ -44,6 +44,7 @@ pub use quote_targets::{MAX_QUOTE_TARGETS, QuoteTargets};
 pub mod report_admission;
 pub mod report_catalog;
 pub mod report_categories;
+pub mod report_challenge;
 pub mod restrictions;
 pub use report_categories::{CategoryChoice, CategoryForm, CategoryKind, category_form};
 mod report_target;

@@ -169,6 +169,7 @@ async fn scenario(categorical: bool, credit: bool) {
             let actor = &actor;
             let submit = |proof: bool, stale: bool| async move {
                 let protected = ProtectedReportingContext {
+                    source_cookies_absent: false,
                     session: PostingSession {
                         fingerprints,
                         minted: false,
@@ -336,6 +337,7 @@ async fn scenario(categorical: bool, credit: bool) {
                     revision.unwrap(),
                     &inherited_actor,
                     ProtectedReportingContext {
+                        source_cookies_absent: false,
                         session: PostingSession {
                             fingerprints: inherited_fp,
                             minted: false,

@@ -71,6 +71,19 @@ pub(crate) async fn install_report_epoch(
     Ok(())
 }
 
+pub(crate) async fn install_report_exemption(
+    connection: &mut PgConnection,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+    source_cookies_absent: bool,
+) -> Result<(), StoreError> {
+    let eligible = source_cookies_absent && identity.permits_source_report_exemption();
+    sqlx::query("SELECT set_config('board.report_exemption',$1,true)")
+        .bind(if eligible { "eligible" } else { "" })
+        .execute(connection)
+        .await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

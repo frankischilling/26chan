@@ -34,6 +34,7 @@ impl PublicPostingRateIdentity {
 pub struct PublicReportRateIdentity {
     report: [u8; 32],
     history_epoch: [u8; 32],
+    source_ipv4: bool,
     restriction: PublicPostingRateIdentity,
 }
 
@@ -47,6 +48,11 @@ impl PublicReportRateIdentity {
     /// It is shared across peers and must never be exposed as a public label.
     pub fn report_history_epoch(&self) -> &[u8; 32] {
         &self.history_epoch
+    }
+
+    /// Whether PHP's source ip2long predicate accepts this canonical peer.
+    pub fn permits_source_report_exemption(&self) -> bool {
+        self.source_ipv4
     }
 
     /// Independently derived posting identity for source restriction matching.
@@ -150,6 +156,7 @@ impl PosterIdKey {
         PublicReportRateIdentity {
             report: context.sign().as_ref().try_into().expect("SHA-256 length"),
             history_epoch: epoch.as_ref().try_into().expect("SHA-256 length"),
+            source_ipv4: matches!(peer.to_canonical(), IpAddr::V4(ip) if !ip.is_unspecified()),
             restriction: self.public_posting_rate_identity(peer),
         }
     }
@@ -611,5 +618,30 @@ mod report_history_epoch_tests {
             .unwrap()
             .public_report_rate_identity("192.0.2.1".parse().unwrap());
         assert_ne!(first.report_history_epoch(), other.report_history_epoch());
+    }
+}
+
+#[cfg(test)]
+mod report_source_address_tests {
+    use super::*;
+    #[test]
+    fn optional_report_exemption_keeps_the_source_ipv4_predicate() {
+        let key = PosterIdKey::parse(&"ab".repeat(32)).unwrap();
+        for (address, expected) in [
+            ("192.0.2.1", true),
+            ("255.255.255.255", true),
+            ("::ffff:192.0.2.1", true),
+            ("0.0.0.0", false),
+            ("::ffff:0.0.0.0", false),
+            ("::192.0.2.1", false),
+            ("2001:db8::1", false),
+            ("::", false),
+        ] {
+            assert_eq!(
+                key.public_report_rate_identity(address.parse().unwrap())
+                    .permits_source_report_exemption(),
+                expected
+            );
+        }
     }
 }

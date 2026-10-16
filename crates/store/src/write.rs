@@ -1800,6 +1800,7 @@ pub async fn report_with_anonymous_session(
         reason,
         identity,
         ProtectedReportingContext {
+            source_cookies_absent: false,
             session,
             challenge: None,
         },
@@ -1808,6 +1809,9 @@ pub async fn report_with_anonymous_session(
 }
 
 pub struct ProtectedReportingContext {
+    /// The HTTP caller has checked that neither legacy authenticated-user nor
+    /// Pass cookie is present. This is an opt-out check, not authentication.
+    pub source_cookies_absent: bool,
     pub session: anonymous_session::PostingSession,
     pub challenge: Option<WriteChallengeProof>,
 }
@@ -1827,6 +1831,12 @@ pub async fn report_with_challenge(
         .execute(&mut *tx)
         .await?;
     crate::write_challenge::install(&mut tx, context.challenge.as_ref(), Some(&session)).await?;
+    crate::write_challenge::install_report_exemption(
+        &mut tx,
+        identity,
+        context.source_cookies_absent,
+    )
+    .await?;
     crate::write_challenge::install_report_epoch(&mut tx, identity).await?;
     crate::restrictions::prepare_report(
         &mut tx,
@@ -1863,6 +1873,7 @@ pub async fn report_categorical_with_anonymous_session(
         expected_revision,
         identity,
         ProtectedReportingContext {
+            source_cookies_absent: false,
             session,
             challenge: None,
         },
@@ -1885,6 +1896,12 @@ pub async fn report_categorical_with_challenge(
         .execute(&mut *tx)
         .await?;
     crate::write_challenge::install(&mut tx, context.challenge.as_ref(), Some(&session)).await?;
+    crate::write_challenge::install_report_exemption(
+        &mut tx,
+        identity,
+        context.source_cookies_absent,
+    )
+    .await?;
     crate::write_challenge::install_report_epoch(&mut tx, identity).await?;
     crate::restrictions::prepare_report(
         &mut tx,
