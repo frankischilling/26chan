@@ -175,6 +175,17 @@ impl VerificationStore {
     }
 
     pub async fn ready(&self) -> Result<(), StoreError> {
+        // PostgreSQL may evaluate AND operands in either order. Reject a wrong
+        // login before calling the issuer-only readiness function, so a mailer
+        // connection fails as UnsafeRole rather than a permission SQL error.
+        let issuer: bool = sqlx::query_scalar(
+            "SELECT current_user='board_verifier' AND session_user='board_verifier'",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        if !issuer {
+            return Err(StoreError::UnsafeRole);
+        }
         let safe: bool = sqlx::query_scalar(
             "SELECT current_user='board_verifier' AND session_user='board_verifier'
              AND content.public_challenge_ready()

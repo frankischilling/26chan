@@ -316,3 +316,8 @@ changed-policy refusal, idempotent cleanup, and run-teardown restoration. The
 JavaScript helper rejects nested scopes and attempts cleanup for every board
 whose setup was attempted. The source-specific media cases retain their own
 explicit, guarded `/i/` and `/gif/` leases.
+
+Issuer readiness checks the login identity before calling issuer-only database
+functions. A mailer or public connection is rejected as an unsafe role without
+relying on PostgreSQL's evaluation order for `AND` expressions. The delivery
+integration test covers this separation alongside its receipt and lease checks.
