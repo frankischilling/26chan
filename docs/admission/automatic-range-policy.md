@@ -1,9 +1,9 @@
 # Automatic mobile-range policy
 
 Issue #212 includes automatic mobile-range events created by moderation. The
-domain evaluator and event planner are implemented and tested. Posting and
-moderation do not yet call them; there is no runtime event store or trusted
-per-post browser metadata capture.
+domain evaluator and event planner are implemented and tested. Migration 0180
+adds private accepted-post comparison metadata. Posting and moderation do not
+yet call the event planner or evaluator; the runtime event store is unfinished.
 
 ## Decisions covered
 
@@ -55,18 +55,49 @@ The current local domain suite passes 308 tests, including both fixtures and
 the keyed-prefix checks. Strict domain Clippy passes. These results qualify the
 domain code only.
 
+## Accepted-post metadata
+
+Accepted mobile IPv4 posts retain a server-derived browser comparison value
+and keyed /16 token in private posting history. Capture includes badged staff
+posts, independently of the filter's narrower enforcement scope. Unknown
+browser metadata, desktop browsers and native IPv6 retain no pair. Old rows
+remain NULL; the migration infers no historical evidence.
+
+The insert trigger consumes a bounded request-local context bound to the
+new row's board, parent and posting actor. It shares posting history's existing
+application-role trust boundary. Headers influence the browser comparison
+value; neither that value nor the prefix grants posting or staff authority.
+Runtime roles cannot read or write the private columns directly.
+
+Source thread moves preserve browser metadata and change reply scope to the
+destination thread. Source-scope events remain on their original board and
+parent. The separate source copy operation drops browser metadata.
+The Rust move copies and verifies both private fields, includes them in its
+prepared fingerprint, and rejects a later metadata change. Deletion follows
+the existing posting-history lifecycle. Transfer and restriction seals cover
+the changed schema and functions.
+
+Local database qualification passes 56 tests across content admission,
+randomizers, staff posting, cooldowns and thread transfer. Ten malformed or
+mismatched contexts are rejected, and a second insert cannot reuse consumed
+metadata. The populated 0179-to-0180 upgrade preserves old identity and content,
+keeps metadata NULL, and rejects partial, desktop and short-prefix pairs.
+Actual public HTTP tests cover
+both posting routes with mobile metadata, including private storage and the
+absence of these fields from responses. The initial staff fixture reused one
+peer for consecutive posts and hit the existing five-second timer; distinct
+synthetic peers in the same /16 now isolate metadata capture from that timer.
+
 ## Runtime work still required
 
-Accepted posts need private server-derived metadata before moderation can
-create events from a trusted target. Moderator form fields must never supply
-the browser ID or prefix. The existing posting history stores the actual
-thread ID for an OP, so a target lookup must explicitly recover parent zero.
+BROWSER_HINT_KEY and its staff equivalent remain optional. When absent,
+accepted posts retain no browser comparison metadata. Later event creation
+must treat those rows as unavailable evidence; complete capture requires
+configuring the key before accepting posts.
 
-Thread moves preserve source browser metadata and change reply scope to the
-destination thread. Existing source-scope events remain on their original
-board and parent. The separate source copy operation drops browser metadata.
-Any new metadata table needs corresponding transfer evidence, catalog checks,
-private grants and deletion handling.
+Moderation event creation must read this stored target evidence, never
+browser IDs or prefixes submitted in moderator forms. Posting history stores
+the actual thread ID for an OP, so the target lookup must recover parent zero.
 
 Event writes must serialize with posting's shared policy lock. A rejected post
 must roll back earlier admission effects; recording a hit cannot commit its

@@ -104,6 +104,8 @@ async fn exercise(owner: PgPool, public: PgPool, board: String) {
                 (REQUEST, "post", "Firefox/123.4", true, false, 0),
                 (REQUEST, "imgboard.php", "Firefox/123.4", false, true, 1),
                 (BROWSER, "post", "Firefox/123.4", false, true, 2),
+                (BROWSER, "post", "Android/1", false, false, 0),
+                (BROWSER, "imgboard.php", "Android/1", false, false, 0),
             ]
         } else if capture {
             vec![
@@ -136,6 +138,24 @@ async fn exercise(owner: PgPool, public: PgPool, board: String) {
                         "Owned posting response unexpectedly rejected"
                     );
                     assert!(json["pid"].as_i64().unwrap() > 0);
+                    let saved: (Option<String>, Option<Vec<u8>>) = sqlx::query_as(
+                        "SELECT automatic_browser,automatic_prefix FROM post_secrets.posting_history WHERE post_id=$1",
+                    )
+                    .bind(json["pid"].as_i64().unwrap())
+                    .fetch_one(&task_owner)
+                    .await
+                    .unwrap();
+                    if ua.starts_with("Android") {
+                        assert!(saved.0.as_ref().is_some_and(|browser| browser.len() == 9 && browser.starts_with('1')));
+                        let expected = posting::key(&task_board)
+                            .automatic_range_prefix("127.0.0.1".parse().unwrap())
+                            .unwrap();
+                        assert_eq!(saved.1.as_deref(), Some(expected.as_bytes().as_slice()));
+                    } else {
+                        assert_eq!(saved, (None, None));
+                    }
+                    assert!(json.get("automatic_browser").is_none());
+                    assert!(json.get("automatic_prefix").is_none());
                     assert_eq!(
                         counts(&task_owner, &task_board).await,
                         (before.0 + 1, before.1 + 1)

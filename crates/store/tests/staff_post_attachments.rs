@@ -1720,3 +1720,106 @@ async fn staff_hint_scope(f: &Fixture) {
     assert!(matches!(result, Err(StoreError::ContentRejected(_))));
     assert_eq!(after, before);
 }
+
+database_case!(
+    accepted_mobile_metadata_is_private_and_independent_of_badge,
+    automatic_metadata
+);
+async fn automatic_metadata(f: &Fixture) {
+    use board_domain::content_admission::network::{
+        ProviderValue,
+        hints::{BrowserHeaders, BrowserKey, DerivedHints},
+    };
+    let browser_key = BrowserKey::parse(&"11".repeat(32)).unwrap();
+    let mut mobile = f.clone();
+    mobile.peer_override = Some("192.0.2.17".parse().unwrap());
+    mobile.hints = Some(DerivedHints::derive(
+        Some(&browser_key),
+        Some(BrowserHeaders {
+            user_agent: Some(b"Android/1"),
+            ..Default::default()
+        }),
+        None,
+    ));
+    let ProviderValue::Available(Some(browser)) =
+        mobile.hints.as_ref().unwrap().signatures().browser_id
+    else {
+        panic!("owned browser derivation failed");
+    };
+    let key = PosterIdKey::parse(&f.key).unwrap();
+    let prefix = key
+        .automatic_range_prefix(mobile.peer_override.unwrap())
+        .unwrap();
+    let op = mobile
+        .write(0, None, false, &post(), 217, Utc::now())
+        .await
+        .unwrap();
+    mobile.peer_override = Some("192.0.2.18".parse().unwrap());
+    for (id, parent) in [
+        (op, 0),
+        (
+            mobile
+                .write(op, None, true, &post(), 218, Utc::now())
+                .await
+                .unwrap(),
+            op,
+        ),
+    ] {
+        let saved: (String, Vec<u8>, i64) = sqlx::query_as("SELECT automatic_browser,automatic_prefix,CASE WHEN post_id=thread_id THEN 0 ELSE thread_id END FROM post_secrets.posting_history WHERE post_id=$1")
+            .bind(id).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(saved.0, browser);
+        assert_eq!(saved.1, prefix.as_bytes());
+        assert_eq!(saved.2, parent);
+    }
+    let mut absent = mobile.clone();
+    absent.hints = None;
+    absent.peer_override = Some("192.0.2.19".parse().unwrap());
+    let unknown = absent
+        .write(op, None, false, &post(), 219, Utc::now())
+        .await
+        .unwrap();
+    absent.hints = Some(DerivedHints::derive(
+        Some(&browser_key),
+        Some(BrowserHeaders {
+            user_agent: Some(b"Firefox/123.4"),
+            ..Default::default()
+        }),
+        None,
+    ));
+    absent.peer_override = Some("192.0.2.20".parse().unwrap());
+    let desktop = absent
+        .write(op, None, false, &post(), 220, Utc::now())
+        .await
+        .unwrap();
+    absent.hints = mobile.hints.clone();
+    absent.peer_override = Some("2001:db8::17".parse().unwrap());
+    let ipv6 = absent
+        .write(op, None, false, &post(), 221, Utc::now())
+        .await
+        .unwrap();
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.posting_history WHERE post_id=ANY($1) AND automatic_browser IS NULL AND automatic_prefix IS NULL")
+        .bind([unknown, desktop, ipv6].as_slice()).fetch_one(&f.owner).await.unwrap();
+    assert_eq!(count, 3);
+    for runtime in [&f.public, &f.staff] {
+        assert!(sqlx::query("SELECT automatic_browser,automatic_prefix FROM post_secrets.posting_history WHERE post_id=$1")
+            .bind(op).fetch_all(runtime).await.is_err());
+    }
+    let visible: serde_json::Value =
+        sqlx::query_scalar("SELECT to_jsonb(p) FROM content.posts p WHERE id=$1")
+            .bind(op)
+            .fetch_one(&f.public)
+            .await
+            .unwrap();
+    assert!(
+        !visible
+            .as_object()
+            .unwrap()
+            .contains_key("automatic_browser")
+    );
+    assert!(
+        !visible
+            .as_object()
+            .unwrap()
+            .contains_key("automatic_prefix")
+    );
+}

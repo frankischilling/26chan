@@ -1608,6 +1608,24 @@ async fn create_post_in_context(
     // The insert-only trigger registers history inside the post savepoint.
     // A Robot9000 rejection rolls it back together with the post and actions.
     crate::posting_cooldown::set_insert_actor(&mut tx, &posting_actor).await?;
+    // Source capture also includes badged staff, independently of filter scope.
+    // Both inputs were required when deriving posting_actor above.
+    crate::content_admission::automatic::install_metadata(
+        &mut tx,
+        crate::content_admission::automatic::Capture {
+            board: slug,
+            parent,
+            actor: &posting_actor,
+            key: keys
+                .poster_id
+                .ok_or(StoreError::Invalid("Posting identity is unavailable."))?,
+            peer: context
+                .peer
+                .ok_or(StoreError::Invalid("Posting identity is unavailable."))?,
+            hints,
+        },
+    )
+    .await?;
     if let Some(attachment) = attachment.filter(|_| staff.is_none()) {
         sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
             .bind(id)

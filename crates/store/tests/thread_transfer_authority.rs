@@ -333,6 +333,12 @@ async fn successful_move_preserves_exact_private_evidence_and_old_registration_x
         let cap = f.capability();
         let source = f.post(0, 0, Some(&cap)).await;
         let reply = f.post(0, source, None).await;
+        // Synthetic retained evidence isolates transfer from capture. Runtime
+        // capture, including badged staff, has a separate posting regression.
+        sqlx::query("UPDATE post_secrets.posting_history SET automatic_browser='1deadbeef',automatic_prefix=decode(repeat('12',32),'hex') WHERE post_id=$1")
+            .bind(source).execute(&f.owner).await.unwrap();
+        sqlx::query("UPDATE post_secrets.posting_history SET automatic_browser='1cafebabe',automatic_prefix=decode(repeat('34',32),'hex') WHERE post_id=$1")
+            .bind(reply).execute(&f.owner).await.unwrap();
         let before: serde_json::Value = sqlx::query_scalar("SELECT jsonb_build_object('deletion',(SELECT password_hash FROM post_secrets.deletion WHERE post_id=$1),'peer',(SELECT peer::text FROM post_secrets.op_peers WHERE thread_id=$1),'history',(SELECT to_jsonb(h)-'post_id'-'board'-'thread_id' FROM post_secrets.posting_history h WHERE post_id=$1),'anonymous',(SELECT to_jsonb(a)-'post_id' FROM post_secrets.anonymous_posts a WHERE post_id=$1),'session',(SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s WHERE token_hash=$2),'reply',(SELECT count(*) FROM post_secrets.op_replies WHERE post_id=$3 AND thread_id=$1))")
             .bind(source).bind(cap.storage_hash().as_slice()).bind(reply).fetch_one(&f.owner).await.unwrap();
         assert!(before["peer"].is_string());
@@ -348,6 +354,10 @@ async fn successful_move_preserves_exact_private_evidence_and_old_registration_x
         let after: serde_json::Value = sqlx::query_scalar("SELECT jsonb_build_object('deletion',(SELECT password_hash FROM post_secrets.deletion WHERE post_id=$1),'peer',(SELECT peer::text FROM post_secrets.op_peers WHERE thread_id=$1),'history',(SELECT to_jsonb(h)-'post_id'-'board'-'thread_id' FROM post_secrets.posting_history h WHERE post_id=$1),'anonymous',(SELECT to_jsonb(a)-'post_id' FROM post_secrets.anonymous_posts a WHERE post_id=$1),'session',(SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s WHERE token_hash=$2),'reply',(SELECT count(*) FROM post_secrets.op_replies WHERE post_id=$3 AND thread_id=$1))")
             .bind(target).bind(cap.storage_hash().as_slice()).bind(result.posts[1].destination_post_id).fetch_one(&f.owner).await.unwrap();
         assert_eq!(after, before, "copy evidence exactly, never mover context or fresh activity");
+        let moved_reply: (String, Vec<u8>, i64) = sqlx::query_as("SELECT automatic_browser,automatic_prefix,CASE WHEN post_id=thread_id THEN 0 ELSE thread_id END FROM post_secrets.posting_history WHERE post_id=$1")
+            .bind(result.posts[1].destination_post_id).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(moved_reply, ("1cafebabe".into(), vec![0x34;32], target));
+
         let erased: bool = sqlx::query_scalar("SELECT content_erased AND deleted AND comment='' AND saved_presentation IS NULL FROM content.posts WHERE id=$1").bind(source).fetch_one(&f.owner).await.unwrap();
         assert!(erased);
         let source_secrets: i64 = sqlx::query_scalar("SELECT (SELECT count(*) FROM post_secrets.deletion WHERE post_id=$1)+(SELECT count(*) FROM post_secrets.posting_history WHERE post_id=$1)+(SELECT count(*) FROM post_secrets.anonymous_posts WHERE post_id=$1)").bind(source).fetch_one(&f.owner).await.unwrap();
@@ -907,4 +917,18 @@ async fn verified_ownership_schema_access_drift_fails_readiness() {
         );
     })
     .await;
+}
+
+#[tokio::test]
+async fn retained_mobile_metadata_changes_invalidate_prepared_transfer() {
+    run(|f| async move {
+        let source = f.post(0, 0, None).await;
+        let (ticket, _) = f.sealed(source).await;
+        sqlx::query("UPDATE post_secrets.posting_history SET automatic_browser='1deadbeef',automatic_prefix=decode(repeat('12',32),'hex') WHERE post_id=$1")
+            .bind(source).execute(&f.owner).await.unwrap();
+        let before = f.snapshot().await;
+        assert_eq!(transfer::consume(&f.staff, &ticket).await.unwrap_err(), TransferError::Drift);
+        assert_eq!(f.snapshot().await, before);
+        transfer::discard(&f.auth, &f.credentials(), &ticket).await.unwrap();
+    }).await;
 }
