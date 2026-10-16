@@ -140,3 +140,21 @@ The first HTTP repeat expected 500 for an unavailable provider; the existing
 public error mapping uses 503. The assertion was corrected and the full test
 passed without changing runtime response behavior. Hosted qualification remains
 pending; results from earlier branch heads do not qualify these changes.
+
+## Bootstrap permission check correction
+
+CI at `3f15bc6` stopped in the fresh role-bootstrap check. Its admission-owner
+column allowlist still expected only `slug` and `staff_only`, while migration
+0178 deliberately adds `SELECT(worksafe)` for work-safe network-rule scope.
+The guard now requires that read, permits no other board columns, and checks
+network-table and reader-function privileges explicitly. Runtime and migration
+grants are unchanged by this correction.
+
+Against the owned PostgreSQL fixture, the old guard reproduces the CI failure
+and the corrected guard passes. Six rolled-back permission changes are rejected:
+an extra board-column read, loss of the required work-safe read, policy writes
+by the function owner, direct public policy reads, loss of public reader
+execution, and reader execution granted to the media role. The populated
+upgrade and real public-role scoped-reader checks also pass. The local probe
+uses the exact two bootstrap admission assertions over TCP; full hosted
+bootstrap qualification remains required.

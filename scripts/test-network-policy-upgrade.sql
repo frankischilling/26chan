@@ -31,6 +31,13 @@ DO $$ BEGIN
  OR NOT has_function_privilege('board_staff','content.network_admission_rules(text,bigint)','EXECUTE')
  OR has_function_privilege('board_media','content.network_admission_rules(text,bigint)','EXECUTE') THEN
   RAISE EXCEPTION 'Network policy reader grant mismatch'; END IF;
+ IF NOT has_column_privilege('board_admission_owner','content.boards','worksafe','SELECT')
+ OR NOT has_table_privilege('board_admission_owner','admission.network_rules','SELECT')
+ OR has_table_privilege('board_admission_owner','admission.network_rules','INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+ OR EXISTS(SELECT 1 FROM information_schema.columns c WHERE c.table_schema='content' AND c.table_name='boards'
+    AND c.column_name NOT IN ('slug','staff_only','worksafe')
+    AND has_column_privilege('board_admission_owner','content.boards',c.column_name,'SELECT')) THEN
+  RAISE EXCEPTION 'Network reader column or table authority differs'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid='content.network_admission_rules(text,bigint)'::regprocedure
     AND p.prosecdef AND p.proowner='board_admission_owner'::regrole
     AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'])

@@ -187,14 +187,20 @@ BEGIN
      OR has_any_column_privilege('board_admission_owner','content.threads','SELECT,INSERT,UPDATE,REFERENCES')
      OR has_table_privilege('board_admission_owner','admission.rules','INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
      OR has_table_privilege('board_admission_owner','admission.logs','UPDATE,DELETE,TRUNCATE,TRIGGER')
+     OR has_table_privilege('board_admission_owner','admission.network_rules','INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+     OR NOT has_column_privilege('board_admission_owner','content.boards','worksafe','SELECT')
+     OR NOT has_table_privilege('board_admission_owner','admission.network_rules','SELECT')
      OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='content' AND c.table_name='boards'
-          AND c.column_name NOT IN ('slug','staff_only') AND has_column_privilege('board_admission_owner','content.boards',c.column_name,'SELECT')) THEN
+          AND c.column_name NOT IN ('slug','staff_only','worksafe') AND has_column_privilege('board_admission_owner','content.boards',c.column_name,'SELECT')) THEN
     RAISE EXCEPTION 'Content admission function owner exceeds required authority';
   END IF;
   IF EXISTS (SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
        'board_media_read','board_media_intake','board_monitor']) runtime(name)
        WHERE has_schema_privilege(name,'admission','USAGE')
           OR has_any_column_privilege(name,'admission.rules','SELECT,INSERT,UPDATE,REFERENCES')
+          OR has_any_column_privilege(name,'admission.network_rules','SELECT,INSERT,UPDATE,REFERENCES')
+          OR has_table_privilege(name,'admission.network_rules','DELETE,TRUNCATE,TRIGGER')
+          OR has_function_privilege(name,'admission.stamp_network_update()','EXECUTE')
           OR has_any_column_privilege(name,'admission.hits','SELECT,INSERT,UPDATE,REFERENCES')
           OR has_any_column_privilege(name,'admission.logs','SELECT,INSERT,UPDATE,REFERENCES')
           OR has_any_column_privilege(name,'admission.bans','SELECT,INSERT,UPDATE,REFERENCES')
@@ -202,15 +208,18 @@ BEGIN
           OR (name NOT IN ('board_public','board_staff') AND EXISTS(
               SELECT 1 FROM (VALUES('content.lock_content_admission(text,text)'),
                   ('content.content_admission_rules(text)'),
+              ('content.network_admission_rules(text,bigint)'),
                   ('content.record_content_admission(text,text,bigint,bigint,text,bigint,text,text,text,text)')) helper(signature)
               WHERE has_function_privilege(name,signature,'EXECUTE'))))
      OR EXISTS(SELECT 1 FROM unnest(ARRAY['board_public','board_staff']) runtime(name)
           CROSS JOIN (VALUES('content.lock_content_admission(text,text)'),
               ('content.content_admission_rules(text)'),
+              ('content.network_admission_rules(text,bigint)'),
               ('content.record_content_admission(text,text,bigint,bigint,text,bigint,text,text,text,text)')) helper(signature)
           WHERE NOT has_function_privilege(name,signature,'EXECUTE'))
      OR has_function_privilege('board_public','content.stamp_content_autosage()','EXECUTE')
      OR has_function_privilege('board_staff','content.stamp_content_autosage()','EXECUTE')
+     OR EXISTS(SELECT 1 FROM admission.network_rules)
      OR EXISTS(SELECT 1 FROM admission.rules)
      OR EXISTS(SELECT 1 FROM admission.hits)
      OR EXISTS(SELECT 1 FROM admission.logs)
