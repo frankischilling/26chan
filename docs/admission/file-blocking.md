@@ -104,7 +104,7 @@ processed-source digest. They do not qualify blacklist enforcement.
 
 ## Bounded decision model
 
-The domain model is not yet connected to posting or an operator rule store. Its
+The domain model and private rule store are not yet connected to posting. The
 reference fixture exercises 2,358 exact-file decisions from the pinned checker
 and 600 prior-ban cases. The SQL and effect callbacks use synthetic data; they do
 not run the application or import private lists.
@@ -136,3 +136,25 @@ ban-day requests are bounded to -1 through 3,650 (-1 means permanent). Two
 applicable rules for the same digest produce a configuration error. The legacy
 query's unordered `LIMIT 1` supplies no stable scope priority; the replacement
 does not invent one. Missing needed history or digest providers fail closed.
+
+## Operator rule storage
+
+`admission.file_rules` holds operator-owned MD5 rules. Migration 0184 starts with
+an empty table. Runtime roles cannot read or change the table or its sequence.
+The scoped `content.file_admission_rules` reader returns active global, board,
+and applicable work-safe rules for a public board. Private reasons and complaint
+descriptions stay outside its result.
+
+The reader holds the shared admission-generation lock until its transaction
+ends. Operator edits to text, network, or file rules must wait for that snapshot.
+Posting callers must already hold the board lock, as they do for other admission
+stages. The reader requires read-committed isolation and returns at most 129 rows;
+the extra row makes a policy above the domain's 128-rule bound fail closed.
+Ordering by ID makes snapshots reproducible but does not resolve overlapping
+matches. The domain model still rejects an ambiguous match.
+
+Rule modes are reject, automatic ban, and DMCA warning/repeat. Storage validates
+scopes, digest length, modes, reason sizes, and ban-day bounds. Ban days apply only
+to automatic-ban rules; the DMCA branch has its own fixed repeat duration. These
+stored settings do not issue bans until the posting integration and trusted
+side-effect handling are implemented.
