@@ -164,7 +164,10 @@ the constructor oracle, and the Node adapter tests. Bounded temporary-copy
 controls exercise source pinning, same-length mutations, frozen-output drift,
 malformed CLI and record mode; Python integrity checks are exercised with
 `PYTHONOPTIMIZE=0`, `1` and `2`. These controls do not edit production source or
-checked-in fixture bytes. No external reference checkout is needed.
+checked-in fixture bytes. Binary comparisons retain exact byte equality but
+report a short mismatch error instead of constructing a per-byte assertion
+diff. The drift controls require diagnostics below 4 KiB and retain the
+15-second subprocess deadline. No external reference checkout is needed.
 
 The existing `test:drawing-core` script retains its checks and then runs this
 aggregate. Linux CI reaches it through `scripts/verify.sh` → `test:drawing` →
