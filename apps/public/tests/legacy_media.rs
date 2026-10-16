@@ -38,7 +38,7 @@ async fn legacy_manifest_upgrade_invalidates_public_and_api_dates_without_renumb
         .unwrap();
     let id = ObjectId::generate().unwrap().to_string();
     let board = id[..10].to_owned();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Legacy API test','Synthetic',2000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES (false,$1,'Legacy API test','Synthetic',2000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
     let test_owner = owner.clone();
     let test_board = board.clone();
     let test_id = id.clone();

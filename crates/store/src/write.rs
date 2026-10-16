@@ -1,3 +1,4 @@
+pub use crate::write_challenge::WriteChallengeProof;
 use crate::*;
 use chrono::Timelike;
 use sha2::{Digest, Sha256};
@@ -24,6 +25,11 @@ pub struct PostingContext {
 pub struct AnonymousPostingContext {
     pub posting: PostingContext,
     pub session: anonymous_session::PostingSession,
+}
+
+pub struct ProtectedPostingContext {
+    pub anonymous: AnonymousPostingContext,
+    pub challenge: Option<WriteChallengeProof>,
 }
 
 pub async fn create_post(
@@ -190,6 +196,7 @@ pub async fn create_post_with_metadata(
             metadata,
             staff: None,
             anonymous: None,
+            challenge: None,
         },
     )
     .await
@@ -215,6 +222,33 @@ pub async fn create_post_with_anonymous_session(
             metadata,
             staff: None,
             anonymous: Some(context.session),
+            challenge: None,
+        },
+    )
+    .await
+}
+
+pub async fn create_post_with_challenge(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: ProtectedPostingContext,
+    metadata: PostMetadata<'_>,
+) -> Result<i64, StoreError> {
+    create_post_in_context(
+        pool,
+        slug,
+        parent,
+        post,
+        attachment,
+        context.anonymous.posting,
+        PostWriteOptions {
+            metadata,
+            staff: None,
+            anonymous: Some(context.anonymous.session),
+            challenge: context.challenge,
         },
     )
     .await
@@ -350,6 +384,7 @@ pub async fn create_staff_post_with_attachment_and_context_and_keys(
             },
             staff: Some(authority),
             anonymous: None,
+            challenge: None,
         },
     )
     .await;
@@ -431,6 +466,7 @@ pub async fn create_ordinary_staff_post_with_attachment(
             metadata,
             staff: Some(authority),
             anonymous: None,
+            challenge: None,
         },
     )
     .await;
@@ -464,6 +500,7 @@ struct PostWriteOptions<'a> {
     metadata: PostMetadata<'a>,
     staff: Option<StaffPostAuthority<'a>>,
     anonymous: Option<anonymous_session::PostingSession>,
+    challenge: Option<WriteChallengeProof>,
 }
 
 async fn create_post_in_context(
@@ -479,6 +516,7 @@ async fn create_post_in_context(
         metadata,
         staff,
         anonymous,
+        challenge,
     } = options;
     if staff.is_some() && attachment.is_none() && metadata.spoiler {
         return Err(StoreError::Invalid("Invalid staff posting metadata."));
@@ -535,6 +573,7 @@ async fn create_post_in_context(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::write_challenge::install(&mut tx, challenge.as_ref(), anonymous.as_ref()).await?;
     // Clear attachment intent even when a pooled session previously set it.
     sqlx::query("SELECT set_config('board.staff_attachment_job','',true),set_config('board.staff_attachment_capability','',true),set_config('board.staff_attachment_spoiler','',true),set_config('board.post_image_spoiler','false',true)")
         .execute(&mut *tx)
@@ -1731,6 +1770,7 @@ pub async fn report(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::write_challenge::install_report_epoch(&mut tx, identity).await?;
     crate::restrictions::prepare_report(
         &mut tx,
         identity,
@@ -1753,11 +1793,51 @@ pub async fn report_with_anonymous_session(
     identity: &board_domain::poster_id::PublicReportRateIdentity,
     session: anonymous_session::PostingSession,
 ) -> Result<(), StoreError> {
+    report_with_challenge(
+        pool,
+        slug,
+        id,
+        reason,
+        identity,
+        ProtectedReportingContext {
+            source_cookies_absent: false,
+            session,
+            challenge: None,
+        },
+    )
+    .await
+}
+
+pub struct ProtectedReportingContext {
+    /// The HTTP caller found neither `4chan_auser` nor `pass_enabled`.
+    /// This opt-out is separate from the required anonymous browser session.
+    pub source_cookies_absent: bool,
+    pub session: anonymous_session::PostingSession,
+    pub challenge: Option<WriteChallengeProof>,
+}
+
+pub async fn report_with_challenge(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    reason: &str,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+    context: ProtectedReportingContext,
+) -> Result<(), StoreError> {
+    let session = context.session;
     validate_report_reason(reason)?;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::write_challenge::install(&mut tx, context.challenge.as_ref(), Some(&session)).await?;
+    crate::write_challenge::install_report_exemption(
+        &mut tx,
+        identity,
+        context.source_cookies_absent,
+    )
+    .await?;
+    crate::write_challenge::install_report_epoch(&mut tx, identity).await?;
     crate::restrictions::prepare_report(
         &mut tx,
         identity,
@@ -1785,10 +1865,44 @@ pub async fn report_categorical_with_anonymous_session(
     identity: &board_domain::poster_id::PublicReportRateIdentity,
     session: anonymous_session::PostingSession,
 ) -> Result<(), StoreError> {
+    report_categorical_with_challenge(
+        pool,
+        slug,
+        id,
+        category_id,
+        expected_revision,
+        identity,
+        ProtectedReportingContext {
+            source_cookies_absent: false,
+            session,
+            challenge: None,
+        },
+    )
+    .await
+}
+
+pub async fn report_categorical_with_challenge(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    category_id: i64,
+    expected_revision: i64,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+    context: ProtectedReportingContext,
+) -> Result<(), StoreError> {
+    let session = context.session;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::write_challenge::install(&mut tx, context.challenge.as_ref(), Some(&session)).await?;
+    crate::write_challenge::install_report_exemption(
+        &mut tx,
+        identity,
+        context.source_cookies_absent,
+    )
+    .await?;
+    crate::write_challenge::install_report_epoch(&mut tx, identity).await?;
     crate::restrictions::prepare_report(
         &mut tx,
         identity,

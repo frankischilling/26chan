@@ -33,7 +33,7 @@ impl Fixture {
         let boards = [format!("ca{token}"), format!("cb{token}")];
         support::share_key(&boards[1], &boards[0]);
         for board in &boards {
-            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned content admission','Synthetic',2000,100,100,100,10,true,0,0,0)")
+            sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Owned content admission','Synthetic',2000,100,100,100,10,true,0,0,0)")
                 .bind(board).execute(&owner).await.unwrap();
         }
         let peer = format!("2001:db8:ad:{}:{}::1", &token[..4], &token[4..])

@@ -134,7 +134,7 @@ async fn browsers_post_and_delete_approved_attachments_with_and_without_javascri
     let filename = format!("public-upload-{board}.png");
     // This random fixture board tests immediate media deletion, independently
     // of the source age gates exercised by deletion_authorization.
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,deletion_known_min_seconds,deletion_unknown_min_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Browser upload','Synthetic',2000,100,100,100,10,3,true,0,0,0,0,0)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,deletion_known_min_seconds,deletion_unknown_min_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES (false,$1,'Browser upload','Synthetic',2000,100,100,100,10,3,true,0,0,0,0,0)")
         .bind(&board).execute(&admin).await.unwrap();
     let policy: (i32, i32, i32) = sqlx::query_as("SELECT deletion_known_min_seconds,deletion_unknown_min_seconds,deletion_max_seconds FROM content.boards WHERE slug=$1")
         .bind(&board).fetch_one(&admin).await.unwrap();

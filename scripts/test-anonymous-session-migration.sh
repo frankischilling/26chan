@@ -74,6 +74,16 @@ for migration in migrations/*.sql; do
     "${db[@]}" -U board_migrator -d anonymous_upgrade --single-transaction -f - < "$migration"
 done
 "${db[@]}" -d anonymous_upgrade <<'SQL'
+-- Public writes below isolate anonymous ownership and capacity, not challenges.
+-- Set only this synthetic board after the current schema has added the flag.
+DO $$ BEGIN
+    UPDATE content.boards SET captcha_enabled=false
+    WHERE slug='anonold' AND title='Owned anonymous upgrade' AND description='Synthetic history';
+    IF NOT FOUND THEN RAISE EXCEPTION 'Owned anonymous fixture board is missing'; END IF;
+    IF NOT EXISTS(SELECT 1 FROM content.boards WHERE slug='b' AND captcha_enabled) THEN
+        RAISE EXCEPTION 'Unrelated public challenge policy changed';
+    END IF;
+END $$;
 DO $$ BEGIN
     IF EXISTS(SELECT 1 FROM post_secrets.anonymous_sessions)
         OR EXISTS(SELECT 1 FROM post_secrets.anonymous_posts)

@@ -27,7 +27,8 @@ class PublicUploadBoardTest(unittest.TestCase):
                 deletion_max_seconds INTEGER NOT NULL DEFAULT 1800,
                 posting_reply_seconds INTEGER NOT NULL DEFAULT 60,
                 posting_image_seconds INTEGER NOT NULL DEFAULT 60,
-                posting_thread_seconds INTEGER NOT NULL DEFAULT 600
+                posting_thread_seconds INTEGER NOT NULL DEFAULT 600,
+                captcha_enabled BOOLEAN NOT NULL DEFAULT true
             )''')
             db.execute("INSERT INTO content.boards(slug) VALUES ('a')")
             fixture = self.fixture()
@@ -40,6 +41,8 @@ class PublicUploadBoardTest(unittest.TestCase):
                 posting_reply_seconds, posting_image_seconds, posting_thread_seconds
                 FROM content.boards ORDER BY slug''').fetchall(),
                 [('a', 60, 600, 1800, 60, 60, 600), (fixture.board, 0, 0, 1800, 0, 0, 0)])
+            self.assertEqual(db.execute('SELECT slug,captcha_enabled FROM content.boards ORDER BY slug').fetchall(),
+                             [('a', 1), (fixture.board, 0)])
 
     def test_non_synthetic_slugs_are_rejected_before_sql(self):
         for board in ('a', 'demo', 'fixture', 'u12345678-extra', 'u12345678\n', 'uffffffff'):

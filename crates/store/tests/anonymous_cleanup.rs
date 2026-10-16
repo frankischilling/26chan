@@ -31,7 +31,7 @@ impl Fixture {
                 .fetch_one(&owner)
                 .await
                 .unwrap();
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,deletion_known_min_seconds,deletion_unknown_min_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned anonymous session','Synthetic',2000,100,100,100,10,true,0,0,0,0,0)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,deletion_known_min_seconds,deletion_unknown_min_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Owned anonymous session','Synthetic',2000,100,100,100,10,true,0,0,0,0,0)")
             .bind(&board).execute(&owner).await.unwrap();
         Self {
             owner,

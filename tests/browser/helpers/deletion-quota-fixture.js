@@ -249,3 +249,36 @@ export async function withReportCatalog(callback) {
     });
   } finally { release(); }
 }
+
+// A whole-test lease keeps source-specific UI assertions on their real slugs.
+// It changes only CAPTCHA policy in an owned disposable database and restores
+// the exact row before the next test. Dedicated CAPTCHA tests never use it.
+const sourceCaptchaState = globalThis[Symbol.for('paperboard.ownedSourceCaptchaScopes')] ||= {
+  context: new AsyncLocalStorage(), queue: Promise.resolve(),
+};
+export async function withSourceCaptchaFixture(boards, callback) {
+  if (!Array.isArray(boards) || boards.length < 1 || boards.length > 7 || new Set(boards).size !== boards.length
+      || !boards.every(board => ['b', 'sjis', 'news', 'qst', 'tg', 'r9k', 's4s'].includes(board))
+      || typeof callback !== 'function') throw new TypeError('Finite source CAPTCHA fixture required');
+  if (sourceCaptchaState.context.getStore()) throw new Error('Nested source CAPTCHA fixtures are not allowed');
+  if (process.env.VISUAL_FIXTURE_SERVER === '1') throw new Error('Source CAPTCHA fixture requires the real disposable backend');
+  readManifest(process.env[manifestVariable]);
+  const previous = sourceCaptchaState.queue; let release;
+  sourceCaptchaState.queue = new Promise(resolve => { release = resolve; });
+  await previous;
+  try { return await sourceCaptchaState.context.run(true, async () => {
+  const attempts = [], failures = []; let result;
+  try {
+    for (const board of [...boards].sort()) { attempts.push(board); invoke('captcha-enable', [board]); }
+    result = await callback();
+  } catch (error) { failures.push(error); }
+  finally {
+    for (const board of attempts.reverse()) {
+      try { invoke('captcha-disable', [board]); } catch (error) { failures.push(error); }
+    }
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length) throw new AggregateError(failures, 'Source CAPTCHA fixture and restoration failed');
+  return result;
+  }); } finally { release(); }
+}

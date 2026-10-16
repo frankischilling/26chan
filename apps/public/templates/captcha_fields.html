@@ -1,0 +1,17 @@
+{% macro fields(captcha) %}
+{% if captcha.enabled %}
+<div id="t-root" class="postingCaptcha" data-posting-captcha data-board="{{ captcha.board }}" data-target="{{ captcha.target }}" data-purpose="{{ captcha.purpose }}" data-classic="{{ captcha.classic }}" data-noscript-only="{{ captcha.noscript_only }}" data-exempt="{{ captcha.exempt }}" data-ttl="{{ captcha.ttl_seconds }}"{% if captcha.exempt %} hidden{% endif %}>
+<input type="hidden" name="captcha-csrf" value="{{ captcha.csrf }}">
+<input id="t-challenge" type="hidden" name="t-challenge" value="{{ captcha.token }}">
+<input type="hidden" name="captcha-credit" value="">
+<div id="t-frame" class="captchaFrame"{% if captcha.image.is_empty() %} hidden{% endif %}>
+<div id="t-cnt" class="captchaImage"><img id="t-bg" class="captchaBackground" alt="CAPTCHA background" draggable="false" hidden><img id="t-fg" class="captchaForeground" alt="CAPTCHA text" draggable="false"{% if !captcha.image.is_empty() %} src="{{ captcha.image }}"{% endif %}></div>
+<label for="t-slider" class="captchaSliderLabel" hidden>Align the image</label><input id="t-slider" class="captchaSlider" type="range" min="0" max="100" value="0" hidden>
+<label for="t-resp">CAPTCHA text</label><input id="t-resp" name="t-response" type="text" maxlength="64" autocomplete="off" autocapitalize="characters" spellcheck="false"{% if !captcha.image.is_empty() %} required{% endif %}>
+</div>
+<p id="t-msg" class="captchaMessage" role="status" aria-live="polite">{{ captcha.message }}</p>
+{% if !captcha.noscript_only %}<button id="t-load" type="button">Get Captcha</button><button id="t-help" type="button" aria-label="CAPTCHA help">?</button>{% endif %}
+{% if captcha.classic %}<noscript><p>Type the text in the image before submitting. Reload this page if the CAPTCHA expires.</p></noscript>{% else %}<noscript><p>JavaScript is required to load this board's CAPTCHA.</p></noscript>{% endif %}
+</div>
+{% endif %}
+{% endmacro %}

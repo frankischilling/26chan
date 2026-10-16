@@ -86,6 +86,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
     let mut board = board();
     board.worksafe = worksafe;
     views::BoardPage {
+        captcha: Default::default(),
         announcement: None,
         public_origin: String::new(),
         blotter: Vec::new(),

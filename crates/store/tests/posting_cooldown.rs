@@ -39,7 +39,7 @@ impl Fixture {
                 .unwrap();
         let boards = [format!("a{seed}"), format!("b{seed}")];
         for board in &boards {
-            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Owned cooldown','Synthetic fixture',2000,100,100,100,10)").bind(board).execute(&owner).await.unwrap();
+            sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(false,$1,'Owned cooldown','Synthetic fixture',2000,100,100,100,10)").bind(board).execute(&owner).await.unwrap();
         }
         let actor = sqlx::query_scalar("SELECT sha256(convert_to(gen_random_uuid()::text,'UTF8'))")
             .fetch_one(&owner)

@@ -37,7 +37,7 @@ async fn fixture(c: &mut PgConnection) -> (String, i64, i64) {
         .await
         .unwrap();
     let board = format!("gc{post:x}");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Owned group clear','Synthetic',2000,100,100,100,10)").bind(&board).execute(&mut *c).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(false,$1,'Owned group clear','Synthetic',2000,100,100,100,10)").bind(&board).execute(&mut *c).await.unwrap();
     sqlx::query("INSERT INTO content.threads(id,board) VALUES($1,$2)")
         .bind(post)
         .bind(&board)

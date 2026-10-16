@@ -96,7 +96,7 @@ async fn real_forms_preserve_rule_errors_quiet_success_and_fail_closed_storage()
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Owned HTTP admission','Synthetic',1000,100,100,100,10)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(false,0,0,0,$1,'Owned HTTP admission','Synthetic',1000,100,100,100,10)")
         .bind(&board).execute(&owner).await.unwrap();
     let (a, p, b) = (owner.clone(), public.clone(), board.clone());
     let outcome = tokio::spawn(async move {

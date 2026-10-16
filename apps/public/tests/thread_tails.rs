@@ -74,7 +74,7 @@ async fn persisted_tail_threshold_counts_cache_policy_and_privilege_boundaries()
             .unwrap()
             .subsec_nanos()
     );
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES (0,0,0,$1,'Owned tail contract','Synthetic tail HTTP fixture',4000,1000,300,100,10,2)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,json_tail_size) VALUES (false,0,0,0,$1,'Owned tail contract','Synthetic tail HTTP fixture',4000,1000,300,100,10,2)").bind(&slug).execute(&owner).await.unwrap();
     let id = add(&public, &slug, 0).await;
     let mut ids = vec![id];
     for _ in 0..3 {

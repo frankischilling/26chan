@@ -32,7 +32,7 @@ async fn spoiler_choice_uses_policy_after_an_observed_board_lock_wait() {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned spoiler lock','Synthetic policy wait',2000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Owned spoiler lock','Synthetic policy wait',2000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
     let op = posting::create_post(
         &public,
         &board,
@@ -178,7 +178,7 @@ async fn public_spoilers_match_source_scalar_policy_and_attachment_independence(
             .unwrap();
     let boards = [format!("s0{suffix}"), format!("s1{suffix}")];
     for (enabled, board) in boards.iter().enumerate() {
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned spoiler policy','Synthetic source comparison',2000,1000,1000,1000,10,1000,$2,0,0,0)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,comment_spoiler_cleanup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Owned spoiler policy','Synthetic source comparison',2000,1000,1000,1000,10,1000,$2,0,0,0)")
             .bind(board).bind(enabled==1).execute(&owner).await.unwrap();
     }
     let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())

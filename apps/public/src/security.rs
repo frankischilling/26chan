@@ -245,6 +245,16 @@ fn headers(
     page: Option<InteractivePage>,
     posting: Option<&str>,
 ) -> Response {
+    let captcha_page = response
+        .extensions()
+        .get::<crate::posting_challenge::page::CaptchaPage>()
+        .is_some()
+        && response.status().is_success()
+        && response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.starts_with("text/html"));
     let verification_page = response
         .extensions()
         .get::<crate::signin::VerificationPage>()
@@ -553,6 +563,24 @@ fn headers(
     } else {
         connect
     };
+    let script = if captcha_page || full_board_page {
+        if script == "'none'" {
+            format!("{}/static/posting-captcha.v1.js", state.origin)
+        } else {
+            format!("{script} {}/static/posting-captcha.v1.js", state.origin)
+        }
+    } else {
+        script
+    };
+    let connect = if captcha_page {
+        if connect == "'none'" {
+            format!("{}/captcha", state.origin)
+        } else {
+            format!("{connect} {}/captcha", state.origin)
+        }
+    } else {
+        connect
+    };
     let headers = response.headers_mut();
     // Only fixed, release-owned UI images may load from the public origin.
     // Do not broaden this to 'self': uploaded content stays on the media origin.
@@ -562,7 +590,7 @@ fn headers(
         state.origin,
         crate::ui_assets::image_sources(&state.origin)
     );
-    if verification_page {
+    if verification_page || captcha_page {
         images.push_str(" data:");
     }
     if let Some(media) = &state.media {
@@ -668,6 +696,16 @@ pub(crate) fn math_fixture_response(
         }),
         None,
     ))
+}
+
+#[cfg(feature = "browser-tests")]
+pub(crate) fn posting_fixture_headers(response: Response, state: &AppState) -> Response {
+    headers(
+        response,
+        state,
+        Some(InteractivePage::Board),
+        Some(&format!("{}/g/imgboard.php", state.origin)),
+    )
 }
 
 #[cfg(feature = "browser-tests")]
@@ -1460,6 +1498,67 @@ mod tests {
 #[cfg(test)]
 mod verification_policy_tests {
     use super::*;
+    #[tokio::test]
+    async fn posting_captcha_authority_requires_successful_marked_html() {
+        let state = AppState {
+            pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+                .unwrap(),
+            origin: "https://board.example".into(),
+            production: false,
+            limits: std::sync::Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+            media: None,
+            verification: None,
+            proxy_uid: None,
+            poster_id_key: None,
+            tripcode_key: None,
+            country_database: None,
+        };
+        for (marked, status, kind, allowed) in [
+            (true, StatusCode::OK, "text/html", true),
+            (false, StatusCode::OK, "text/html", false),
+            (true, StatusCode::BAD_REQUEST, "text/html", false),
+            (true, StatusCode::OK, "application/json", false),
+        ] {
+            let mut response = (status, [("content-type", kind)], "synthetic").into_response();
+            if marked {
+                response
+                    .extensions_mut()
+                    .insert(crate::posting_challenge::page::CaptchaPage);
+            }
+            let response = headers(response, &state, None, None);
+            let policy = response.headers()["content-security-policy"]
+                .to_str()
+                .unwrap();
+            assert_eq!(policy.contains(" data:"), allowed);
+            assert_eq!(
+                policy.contains("script-src https://board.example/static/posting-captcha.v1.js;"),
+                allowed
+            );
+            assert_eq!(
+                policy.contains("connect-src https://board.example/captcha;"),
+                allowed
+            );
+            assert!(!policy.contains("img-src 'self'"));
+            assert!(!policy.contains("'none' https://"));
+            assert!(policy.contains("script-src-attr 'none'"));
+            assert!(!policy.contains("/signin/challenge"));
+        }
+        // QR imports the shared controller on ordinary board pages, but that
+        // import alone must not grant CAPTCHA network or inline image access.
+        let response = headers(
+            axum::response::Html("fixture").into_response(),
+            &state,
+            Some(InteractivePage::Board),
+            None,
+        );
+        let policy = response.headers()["content-security-policy"]
+            .to_str()
+            .unwrap();
+        assert!(policy.contains("https://board.example/static/posting-captcha.v1.js"));
+        assert!(!policy.contains("https://board.example/captcha"));
+        assert!(!policy.contains(" data:"));
+    }
     #[tokio::test]
     async fn verification_image_authority_requires_a_successful_marked_html_response() {
         let state = AppState {

@@ -41,6 +41,10 @@ impl IntoResponse for Rejection {
 }
 
 const TEXT_FIELDS: &[&str] = &[
+    "captcha-csrf",
+    "t-challenge",
+    "t-response",
+    "captcha-credit",
     "flag",
     "name",
     "sub",
@@ -63,7 +67,10 @@ const TEXT_FIELDS: &[&str] = &[
 ];
 const INVALID: &str = "Invalid posting form.";
 const FILE_INTAKE: &str = "Upload files through the isolated upload form before posting.";
-pub(crate) const MAX_FORM_FIELDS: usize = 20;
+pub(crate) const MAX_FORM_FIELDS: usize = 24;
+
+#[derive(Clone, Copy)]
+pub(crate) struct MultipartFieldCount(pub usize);
 
 impl<S: Send + Sync> FromRequest<S> for PostingForm {
     type Rejection = Rejection;
@@ -167,10 +174,14 @@ pub(crate) async fn normalize_multipart<S: Send + Sync>(
     if encoded.len() > 3 * 262_144 {
         return Err(Rejection::Multipart(StatusCode::PAYLOAD_TOO_LARGE, INVALID));
     }
-    let request = Request::post("/")
+    let mut request = Request::post("/")
         .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
         .body(Body::from(encoded))
         .expect("literal internal request");
+    // Preserve the raw part count even when an empty file part was discarded.
+    request
+        .extensions_mut()
+        .insert(MultipartFieldCount(names.len()));
     Ok(request)
 }
 
@@ -271,6 +282,10 @@ mod tests {
             ("hasjs", b"".as_slice(), None),
             ("textonly", b"on".as_slice(), None),
             ("upfile", b"".as_slice(), Some("")),
+            ("captcha-csrf", b"owned-nonce".as_slice(), None),
+            ("t-challenge", b"owned-challenge".as_slice(), None),
+            ("t-response", b"ABC123".as_slice(), None),
+            ("captcha-credit", b"".as_slice(), None),
         ];
         assert_eq!(
             app.clone()
@@ -292,6 +307,10 @@ mod tests {
         );
         for extra in [
             ("pwd", b"duplicate".as_slice(), None),
+            ("captcha-csrf", b"duplicate".as_slice(), None),
+            ("t-challenge", b"duplicate".as_slice(), None),
+            ("t-response", b"duplicate".as_slice(), None),
+            ("captcha-credit", b"duplicate".as_slice(), None),
             ("password", b"ambiguous-alias".as_slice(), None),
             ("mode", b"usrdel".as_slice(), None),
             ("resto", b"9223372036854775808".as_slice(), None),

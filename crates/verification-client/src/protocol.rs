@@ -63,6 +63,7 @@ pub enum Challenge {
     },
     Credits {
         remaining: u8,
+        ttl_seconds: u16,
     },
     Disabled {},
 }
@@ -145,4 +146,27 @@ pub struct SessionResult {
 #[serde(deny_unknown_fields)]
 pub struct Readiness {
     pub ready: bool,
+}
+
+/// Ticket escalation is distinct from the challenge that authorizes a write.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TicketAnswer {
+    pub challenge: String,
+    pub answer: String,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PostingChallengeRequest {
+    pub context: ChallengeContext,
+    pub ticket: Option<String>,
+    pub ticket_answer: Option<TicketAnswer>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PostingChallengeResult {
+    pub challenge: Challenge,
+    pub ticket_challenge: bool,
 }

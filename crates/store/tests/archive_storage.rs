@@ -23,7 +23,7 @@ async fn fixture() -> (PgPool, PgPool, String) {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,archive_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Archive storage','Owned synthetic',2000,1000,300,1,1,864000,1,0,0,0,100)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,archive_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES(false,$1,'Archive storage','Owned synthetic',2000,1000,300,1,1,864000,1,0,0,0,100)")
         .bind(&board).execute(&owner).await.unwrap();
     (owner, public, board)
 }
@@ -122,6 +122,12 @@ async fn oversized_complete_archive_metadata_is_rejected_without_a_partial_list(
         );
         assert_eq!(complete.entries.first().unwrap().id, ids[0]);
         assert_eq!(complete.entries.last().unwrap().id, ids[ids.len() - 2]);
+        assert_eq!(
+            complete.entries.iter().map(|entry| entry.id).collect::<Vec<_>>(),
+            ids[..ids.len() - 1],
+            "the complete projection preserves every retained ID in source order"
+        );
+        assert!(complete.entries.iter().all(|entry| entry.subject == "Owned archive"));
         sqlx::query(
             "UPDATE content.posts SET subject=repeat('x',100) WHERE board=$1 AND NOT deleted",
         )

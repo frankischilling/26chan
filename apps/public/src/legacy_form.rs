@@ -1,7 +1,9 @@
 use crate::{
     AppState,
     handlers::{self, AppError, DeleteForm, PostForm},
-    posting_form::{MAX_FORM_FIELDS, PostingForm, Rejection, normalize_multipart},
+    posting_form::{
+        MAX_FORM_FIELDS, MultipartFieldCount, PostingForm, Rejection, normalize_multipart,
+    },
 };
 use askama::Template;
 use axum::{
@@ -18,6 +20,9 @@ use serde::{Deserialize, de};
 use std::{collections::BTreeSet, fmt};
 
 const INVALID: &str = "Invalid posting or deletion form.";
+// CAPTCHA adds posting/report fields without expanding deletion batches.
+const MAX_DELETION_FIELDS: usize = 20;
+const MAX_QUERY_FIELDS: usize = 20;
 
 enum Submission {
     Post(Box<PostForm>),
@@ -72,6 +77,9 @@ fn invalid() -> Rejection {
 }
 
 fn deletion(fields: Vec<(String, String)>) -> Result<Deletion, Rejection> {
+    if fields.len() > MAX_DELETION_FIELDS {
+        return Err(invalid());
+    }
     let mut posts = Vec::new();
     let mut password = None;
     let mut file_only = false;
@@ -124,7 +132,16 @@ fn categorical_report(
     if fields.iter().any(|(name, _)| {
         !matches!(
             name.as_str(),
-            "mode" | "board" | "no" | "cat" | "cat_id" | "revision"
+            "mode"
+                | "board"
+                | "no"
+                | "cat"
+                | "cat_id"
+                | "revision"
+                | "captcha-csrf"
+                | "t-challenge"
+                | "t-response"
+                | "captcha-credit"
         )
     }) {
         return Err(invalid());
@@ -162,6 +179,12 @@ fn categorical_report(
             no,
             category_id,
             expected_revision,
+            captcha: crate::posting_challenge::FormInput {
+                csrf: value("captcha-csrf").unwrap_or("").into(),
+                challenge: value("t-challenge").unwrap_or("").into(),
+                answer: value("t-response").unwrap_or("").into(),
+                credit: value("captcha-credit").unwrap_or("").into(),
+            },
         },
     ))
 }
@@ -172,10 +195,10 @@ impl<S: Send + Sync> FromRequest<S> for LegacyForm {
     async fn from_request(request: Request, state: &S) -> Result<Self, Self::Rejection> {
         let query: Vec<_> =
             url::form_urlencoded::parse(request.uri().query().unwrap_or("").as_bytes())
-                .take(MAX_FORM_FIELDS + 1)
+                .take(MAX_QUERY_FIELDS + 1)
                 .map(|(name, value)| (name.into_owned(), value.into_owned()))
                 .collect();
-        if query.len() > MAX_FORM_FIELDS {
+        if query.len() > MAX_QUERY_FIELDS {
             return Err(invalid());
         }
         let reporting = query
@@ -195,6 +218,7 @@ impl<S: Send + Sync> FromRequest<S> for LegacyForm {
             }
         }
         let request = normalize_multipart(request, state, true).await?;
+        let raw_multipart_fields = request.extensions().get::<MultipartFieldCount>().copied();
         let Form(Fields(mut fields)) = Form::<Fields>::from_request(request, state)
             .await
             .map_err(Rejection::Form)?;
@@ -222,6 +246,9 @@ impl<S: Send + Sync> FromRequest<S> for LegacyForm {
             .iter()
             .any(|(name, mode)| name == "mode" && matches!(mode.as_str(), "usrdel" | "delete"))
         {
+            if raw_multipart_fields.is_some_and(|count| count.0 > MAX_DELETION_FIELDS) {
+                return Err(invalid());
+            }
             return deletion(fields).map(|form| Self(Submission::Delete(form)));
         }
         let encoded = url::form_urlencoded::Serializer::new(String::new())
@@ -457,6 +484,10 @@ mod tests {
                     ("revision", "2"),
                     ("cat", cat),
                     ("cat_id", cat_id),
+                    ("captcha-csrf", "owned-nonce"),
+                    ("t-challenge", "owned-challenge"),
+                    ("t-response", "ABC123"),
+                    ("captcha-credit", ""),
                 ];
                 let Ok(LegacyForm(Submission::Report {
                     board,
@@ -465,6 +496,7 @@ mod tests {
                             no,
                             category_id,
                             expected_revision,
+                            captcha,
                         },
                 })) = LegacyForm::from_request(
                     request("/test/imgboard.php?mode=report&no=19", &fields, multipart),
@@ -476,6 +508,10 @@ mod tests {
                 };
                 assert_eq!(board.as_deref(), Some("test"));
                 assert_eq!((no, category_id, expected_revision), (19, expected, 2));
+                assert_eq!(captcha.csrf, "owned-nonce");
+                assert_eq!(captcha.challenge, "owned-challenge");
+                assert_eq!(captcha.answer, "ABC123");
+                assert!(captcha.credit.is_empty());
             }
             for fields in [
                 vec![("revision", "2"), ("cat", "bad"), ("cat_id", "17")],
@@ -486,6 +522,18 @@ mod tests {
                 vec![("revision", "2"), ("cat[]", "31")],
                 vec![("revision", "2"), ("cat", "31"), ("reason", "other")],
                 vec![("revision", "2"), ("cat", "31"), ("mode", "regist")],
+                vec![
+                    ("revision", "2"),
+                    ("cat", "31"),
+                    ("captcha-csrf", "a"),
+                    ("captcha-csrf", "b"),
+                ],
+                vec![
+                    ("revision", "2"),
+                    ("cat", "31"),
+                    ("t-response", "a"),
+                    ("t-response", "b"),
+                ],
             ] {
                 assert!(
                     LegacyForm::from_request(
@@ -643,10 +691,10 @@ mod tests {
             assert_eq!(form.password, "owned-password");
             assert!(form.file_only);
 
-            let ids: Vec<_> = (1..=MAX_FORM_FIELDS).map(|id| id.to_string()).collect();
+            let ids: Vec<_> = (1..=MAX_DELETION_FIELDS).map(|id| id.to_string()).collect();
             let mut fields = vec![("mode", "usrdel"), ("pwd", "owned-password")];
             fields.extend(
-                ids[..MAX_FORM_FIELDS - 2]
+                ids[..MAX_DELETION_FIELDS - 2]
                     .iter()
                     .map(|id| (id.as_str(), "delete")),
             );
@@ -655,7 +703,28 @@ mod tests {
                     .await
                     .is_ok()
             );
-            fields.push((ids[MAX_FORM_FIELDS - 2].as_str(), "delete"));
+            if multipart {
+                let mut with_empty_file = fields[..fields.len() - 1].to_vec();
+                with_empty_file.push(("upfile", ""));
+                assert!(
+                    LegacyForm::from_request(
+                        request("/test/imgboard.php", &with_empty_file, true),
+                        &()
+                    )
+                    .await
+                    .is_ok(),
+                    "an empty file part still fits inside the original raw budget"
+                );
+                fields.push(("upfile", ""));
+                assert!(
+                    LegacyForm::from_request(request("/test/imgboard.php", &fields, true), &())
+                        .await
+                        .is_err(),
+                    "discarding an empty file must not expand the deletion field budget"
+                );
+                fields.pop();
+            }
+            fields.push((ids[MAX_DELETION_FIELDS - 2].as_str(), "delete"));
             assert!(
                 LegacyForm::from_request(request("/test/imgboard.php", &fields, multipart), &())
                     .await
@@ -719,9 +788,15 @@ mod tests {
     #[tokio::test]
     async fn query_mode_consumes_the_same_field_budget_as_body_mode() {
         for multipart in [false, true] {
-            let ids: Vec<_> = (1..=18).map(|id| id.to_string()).collect();
+            let ids: Vec<_> = (1..=MAX_DELETION_FIELDS - 2)
+                .map(|id| id.to_string())
+                .collect();
             let mut fields = vec![("pwd", ""), ("res", "1")];
-            fields.extend(ids[..17].iter().map(|id| (id.as_str(), "delete")));
+            fields.extend(
+                ids[..MAX_DELETION_FIELDS - 3]
+                    .iter()
+                    .map(|id| (id.as_str(), "delete")),
+            );
             assert!(
                 LegacyForm::from_request(
                     request("/test/imgboard.php?mode=usrdel", &fields, multipart),
@@ -730,7 +805,20 @@ mod tests {
                 .await
                 .is_ok()
             );
-            fields.push((ids[17].as_str(), "delete"));
+            if multipart {
+                let mut with_empty_file = fields.clone();
+                with_empty_file.push(("upfile", ""));
+                assert!(
+                    LegacyForm::from_request(
+                        request("/test/imgboard.php?mode=usrdel", &with_empty_file, true),
+                        &()
+                    )
+                    .await
+                    .is_ok(),
+                    "query mode counts after empty-file normalization within the raw budget"
+                );
+            }
+            fields.push((ids[MAX_DELETION_FIELDS - 3].as_str(), "delete"));
             assert!(
                 LegacyForm::from_request(
                     request("/test/imgboard.php?mode=usrdel", &fields, multipart),
@@ -738,6 +826,30 @@ mod tests {
                 )
                 .await
                 .is_err()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn captcha_body_fields_do_not_expand_legacy_query_limits() {
+        let fields = [("17", "delete"), ("pwd", "owned-password")];
+        let mut query = url::form_urlencoded::Serializer::new(String::new());
+        query.append_pair("mode", "usrdel");
+        for index in 1..MAX_QUERY_FIELDS {
+            query.append_pair(&format!("owned{index}"), "value");
+        }
+        let accepted = format!("/test/imgboard.php?{}", query.finish());
+        let rejected = format!("{accepted}&overflow=value");
+        for multipart in [false, true] {
+            assert!(
+                LegacyForm::from_request(request(&accepted, &fields, multipart), &())
+                    .await
+                    .is_ok()
+            );
+            assert!(
+                LegacyForm::from_request(request(&rejected, &fields, multipart), &())
+                    .await
+                    .is_err()
             );
         }
     }

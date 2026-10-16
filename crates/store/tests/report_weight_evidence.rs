@@ -97,7 +97,7 @@ impl Fixture {
             .await
             .unwrap();
         let board = format!("we{op:x}");
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Owned weight evidence','Synthetic',2000,100,100,100,10)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(false,$1,'Owned weight evidence','Synthetic',2000,100,100,100,10)")
             .bind(&board).execute(&mut *tx).await.unwrap();
         sqlx::query("INSERT INTO content.threads(id,board) VALUES($1,$2)")
             .bind(op)

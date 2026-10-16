@@ -72,8 +72,31 @@ fn request(path: &str) -> axum::http::request::Builder {
 }
 #[tokio::test]
 async fn jpeg_and_gif_require_approval_exact_suffixes_and_intact_bytes() {
-    exercise(StillFormat::Jpeg).await;
-    exercise(StillFormat::Gif).await;
+    // Still-image receipt policy is bound to the actual imported board name.
+    // Borrow only its CAPTCHA flag in this disposable database, then restore
+    // the exact original policy even when the owned media assertion panics.
+    let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let before: String = sqlx::query_scalar("SELECT to_jsonb(b)::text FROM content.boards b WHERE slug='aco' AND captcha_enabled AND NOT staff_only")
+        .fetch_one(&owner).await.unwrap();
+    let changed = sqlx::query("UPDATE content.boards b SET captcha_enabled=false WHERE slug='aco' AND to_jsonb(b)=$1::jsonb")
+        .bind(&before).execute(&owner).await.unwrap();
+    assert_eq!(changed.rows_affected(), 1);
+    let outcome = tokio::spawn(async {
+        exercise(StillFormat::Jpeg).await;
+        exercise(StillFormat::Gif).await;
+    })
+    .await;
+    let restored = sqlx::query("UPDATE content.boards b SET captcha_enabled=($1::jsonb->>'captcha_enabled')::boolean WHERE slug='aco' AND to_jsonb(b)=($1::jsonb || '{\"captcha_enabled\":false}'::jsonb)")
+        .bind(&before).execute(&owner).await.unwrap();
+    assert_eq!(
+        restored.rows_affected(),
+        1,
+        "Refuse to overwrite unrelated source policy changes"
+    );
+    owner.close().await;
+    outcome.unwrap();
 }
 async fn exercise(format: StillFormat) {
     let gif = format == StillFormat::Gif;

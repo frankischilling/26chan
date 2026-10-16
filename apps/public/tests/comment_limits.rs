@@ -66,7 +66,7 @@ async fn advertised_unicode_limit_survives_forms_storage_html_and_json() {
     let mut random = [0_u8; 5];
     OsRng.fill_bytes(&mut random);
     let board: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(0,0,0,$1,'Unicode HTTP boundary','Synthetic test',16000,10,10,10,10)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(false,0,0,0,$1,'Unicode HTTP boundary','Synthetic test',16000,10,10,10,10)")
         .bind(&board).execute(&owner).await.unwrap();
     let app = posting_fixture::router(
         public.clone(),

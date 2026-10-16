@@ -258,7 +258,7 @@ async fn active_op_quota_preserves_public_and_legacy_response_contracts_and_atom
     let filename = format!("owned-quota-{board}.png");
     // Explicit synthetic policy isolates quota from cooldowns and image limits.
     // Imported source boards and public request/password limits are untouched.
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,user_thread_period_hours) VALUES($1,'Owned public quota','Synthetic quota response fixture',2000,100,100,100,10,10,0,0,0,2,24)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,user_thread_period_hours) VALUES(false,$1,'Owned public quota','Synthetic quota response fixture',2000,100,100,100,10,10,0,0,0,2,24)")
         .bind(&board).execute(&owner).await.unwrap();
     let outcome = tokio::spawn(exercise(
         owner.clone(),

@@ -1,6 +1,8 @@
+import { sourceCaptchaTest } from './helpers/source-captcha-fixture.js';
 import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, deletionFixture } from './helpers/deletion-fixture.js';
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
+const test = sourceCaptchaTest(base, ['qst', 'news']);
 
 test('source required subjects reject cleaned-empty OPs but allow subjectless replies without JavaScript', async ({ browser }) => {
   const origin = 'http://127.0.0.1:3000';

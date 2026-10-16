@@ -1,5 +1,6 @@
 """Real SQL predicates and private-file evidence reject foreign drawing jobs."""
 import os
+import json
 import pathlib
 import sqlite3
 import tempfile
@@ -10,6 +11,53 @@ from unittest import mock
 from test_intake_service import IntakeExercise
 from drawing_input_witness import private_input, private_inputs
 from public_drawing_fixture import PublicDrawingUpload, PublicDrawingEdit
+from public_source_gif_fixture import PublicSourceGif
+
+
+class SourceGifPolicyLease(unittest.TestCase):
+    def fixture(self):
+        return PublicSourceGif(SimpleNamespace(f=SimpleNamespace()))
+
+    def test_lease_preserves_media_and_deletion_policy_and_restores_captcha(self):
+        fixture = self.fixture()
+        before = dict(slug='gif', staff_only=False, captcha_enabled=True,
+                      description="Original board's description", deletion_known_min_seconds=60,
+                      deletion_unknown_min_seconds=600, image_limit=300)
+        with mock.patch('public_source_gif_fixture.sql', side_effect=[json.dumps(before), '']) as sql:
+            fixture.lease_board()
+        self.assertEqual(fixture.policy['before'], before)
+        self.assertEqual(fixture.policy['active'], {**before, 'description': fixture.filename, 'captcha_enabled': False})
+        statement = sql.call_args.args[0]
+        for guard in ['FOR UPDATE NOWAIT', "content.posts WHERE board='gif'", "content.threads WHERE board='gif'",
+                      "post_secrets.posting_history WHERE board='gif'", "post_secrets.posting_thread_actions WHERE board='gif'",
+                      'IS DISTINCT FROM', 'captcha_enabled=false']:
+            self.assertIn(guard, statement)
+        self.assertIn("Original board''s description", statement)
+        with mock.patch('public_source_gif_fixture.sql') as sql:
+            fixture.restore_board()
+        self.assertIn('captcha_enabled=original.captcha_enabled', sql.call_args.args[0])
+        self.assertIn('cannot restore changed or occupied policy', sql.call_args.args[0])
+        self.assertIsNone(fixture.policy)
+
+    def test_uncertain_lease_and_failed_restoration_keep_recovery_snapshot(self):
+        fixture = self.fixture()
+        before = dict(slug='gif', staff_only=False, captcha_enabled=True, description='Source')
+        with mock.patch('public_source_gif_fixture.sql', side_effect=[json.dumps(before), RuntimeError('uncertain commit')]):
+            with self.assertRaises(RuntimeError):
+                fixture.lease_board()
+        self.assertEqual(fixture.policy['before'], before)
+        with mock.patch('public_source_gif_fixture.sql', side_effect=RuntimeError('changed board')):
+            with self.assertRaises(RuntimeError):
+                fixture.restore_board()
+        self.assertIsNotNone(fixture.policy)
+
+    def test_already_modified_policy_refuses_before_write(self):
+        fixture = self.fixture()
+        with mock.patch('public_source_gif_fixture.sql', return_value=json.dumps(dict(slug='gif', staff_only=False, captcha_enabled=False))) as sql:
+            with self.assertRaises(AssertionError):
+                fixture.lease_board()
+        sql.assert_called_once()
+        self.assertIsNone(fixture.policy)
 
 
 class IntakeDispatchControls(unittest.TestCase):
@@ -43,10 +91,10 @@ class PublicDrawingFixtureTest(unittest.TestCase):
             before = dict(slug='i',title='Oekaki',description='Source board',oekaki=True,
                           oekaki_replays=True,oekaki_width=400,oekaki_height=400,image_limit=300,
                           staff_only=False,text_only=False,posting_reply_seconds=10,
-                          posting_image_seconds=30,posting_thread_seconds=60,
+                          posting_image_seconds=30,posting_thread_seconds=60,captcha_enabled=True,
                           deletion_known_min_seconds=10,deletion_unknown_min_seconds=600)
             active = {**before, 'title': 'Drawing qualification', 'description': value.marker,
-                      **{name: 0 for name in PublicDrawingEdit._changed[2:]}}
+                      **{name: 0 for name in PublicDrawingEdit._changed[2:-1]}, 'captcha_enabled': False}
             value.lease = dict(before=before,active=active)
         value.created = True
         value.mode = mode

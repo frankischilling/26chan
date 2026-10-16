@@ -31,6 +31,7 @@ pub(crate) fn positive_id(value: &str) -> Option<i64> {
 #[derive(Template)]
 #[template(path = "report_categorical_form.html")]
 struct CategoricalReportPage<'a> {
+    captcha: crate::views::CaptchaView,
     board: &'a str,
     no: i64,
     thread: i64,
@@ -47,6 +48,7 @@ pub(crate) struct ReportShell(());
 #[derive(Template)]
 #[template(path = "report_form.html")]
 struct ReportPage<'a> {
+    captcha: crate::views::CaptchaView,
     board: &'a str,
     no: i64,
     thread: i64,
@@ -203,11 +205,23 @@ pub(crate) async fn get(
             Ok(categories) => categories,
             Err(cause) => return Ok(target_error(&state, &target, cause.into())),
         };
+    let (captcha, captcha_context) = crate::posting_challenge::page::prepare(
+        &state,
+        &headers,
+        peer.0,
+        crate::posting_challenge::Scope {
+            board: board.clone(),
+            target: no,
+            purpose: board_verification_client::protocol::Purpose::Report,
+        },
+    )
+    .await;
     if let Some(revision) = categories.revision {
         use board_store::report_categories::CategoryKind;
         return crate::output::html(
             &state,
             &CategoricalReportPage {
+                captcha,
                 board: &target.board,
                 no: target.post_id,
                 thread: target.thread_id,
@@ -224,18 +238,29 @@ pub(crate) async fn get(
                     .find(|category| category.kind == CategoryKind::Illegal),
             },
         )
-        .map(|response| shell(response, StatusCode::OK));
+        .map(|response| {
+            shell(
+                crate::posting_challenge::page::finish(response, &captcha_context),
+                StatusCode::OK,
+            )
+        });
     }
     crate::output::html(
         &state,
         &ReportPage {
+            captcha,
             board: &target.board,
             no: target.post_id,
             thread: target.thread_id,
             worksafe: target.worksafe,
         },
     )
-    .map(|response| shell(response, StatusCode::OK))
+    .map(|response| {
+        shell(
+            crate::posting_challenge::page::finish(response, &captcha_context),
+            StatusCode::OK,
+        )
+    })
 }
 
 #[cfg(test)]
@@ -302,6 +327,7 @@ mod tests {
             },
         ];
         let html = super::CategoricalReportPage {
+            captcha: Default::default(),
             board: "test",
             no: 20,
             thread: 10,
@@ -328,6 +354,7 @@ mod tests {
     #[test]
     fn report_templates_escape_values_and_separate_success_from_error() {
         let form = super::ReportPage {
+            captcha: Default::default(),
             board: "x\"<",
             no: 17,
             thread: 12,
@@ -363,6 +390,7 @@ mod tests {
     fn report_templates_use_only_validated_board_theme_context_after_base_css() {
         for worksafe in [false, true] {
             let form = super::ReportPage {
+                captcha: Default::default(),
                 board: "test",
                 no: 17,
                 thread: 12,
@@ -371,6 +399,7 @@ mod tests {
             .render()
             .unwrap();
             let categorical = super::CategoricalReportPage {
+                captcha: Default::default(),
                 board: "test",
                 no: 17,
                 thread: 12,

@@ -585,7 +585,7 @@ async fn fresh_whole_deletion_revokes_public_payload_media_and_consumed_receipt_
         .await
         .unwrap();
     let board = format!("fe{seed:x}");
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,deletion_known_min_seconds,deletion_unknown_min_seconds,archive_retention_seconds) VALUES($1,'Fresh erasure','Owned synthetic fixture',2000,100,100,100,10,100,0,0,0,0,0,86400)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,deletion_known_min_seconds,deletion_unknown_min_seconds,archive_retention_seconds) VALUES(false,$1,'Fresh erasure','Owned synthetic fixture',2000,100,100,100,10,100,0,0,0,0,0,86400)")
         .bind(&board).execute(&owner).await.unwrap();
     let jobs = Arc::new(Mutex::new(Vec::new()));
     let fixture = Fixture {

@@ -68,7 +68,7 @@ async fn sticky_window_admits_upload_preflight_and_publishes_surviving_json_on_b
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES ($1,'Owned source sticky HTTP','Synthetic',2000,3,3,100,10,10,0,0,0,100)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES (false,$1,'Owned source sticky HTTP','Synthetic',2000,3,3,100,10,10,0,0,0,100)")
         .bind(&board).execute(&owner).await.unwrap();
     let post = board_store::NewPost {
         name: "Anonymous".into(),

@@ -419,7 +419,7 @@ async fn source_op_markup_uses_address_or_password_and_preserves_locked_posting_
     let mut random = [0u8; 5];
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'OP markup','Owned fixture',4000,200,150,100,10,true,0,0,0)").bind(&slug).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,op_markup,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'OP markup','Owned fixture',4000,200,150,100,10,true,0,0,0)").bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();

@@ -20,6 +20,7 @@ pub mod paired_upload;
 mod polls;
 mod post_preferences;
 mod post_receipts;
+mod posting_challenge;
 mod posting_form;
 mod posting_response;
 mod restrictions;
@@ -33,6 +34,7 @@ pub mod themes;
 pub mod transport;
 mod ui_assets;
 mod uploads;
+mod verification_form;
 // The screenshot fixture imports the production renderer and its projections.
 pub mod views;
 
@@ -286,6 +288,7 @@ pub fn routers_with_verification(
         .merge(restrictions::routes())
         .merge(blotter::routes())
         .merge(signin::routes())
+        .merge(posting_challenge::routes())
         .route("/", get(handlers::home))
         .route("/derefer", get(derefer::get))
         .route("/healthz", get(|| async { "ok" }))
@@ -377,4 +380,13 @@ pub fn verification_fixture_response(
     origin: &str,
 ) -> Result<axum::response::Response, String> {
     signin::fixture_response(mode, origin)
+}
+
+/// Synthetic posting controls with production templates and CSP; no write authority.
+#[cfg(feature = "browser-tests")]
+pub fn posting_captcha_fixture_response(
+    mode: &str,
+    origin: &str,
+) -> Result<axum::response::Response, String> {
+    posting_challenge::fixture::response(mode, origin)
 }

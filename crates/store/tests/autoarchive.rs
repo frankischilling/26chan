@@ -26,7 +26,7 @@ async fn automatic_archive_threshold_and_preserved_reply() {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,autoarchive_cap,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Autoarchive fixture','Owned synthetic',2000,1000,1000,100,10,3600,3,0,0,0,100)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds,autoarchive_cap,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES(false,$1,'Autoarchive fixture','Owned synthetic',2000,1000,1000,100,10,3600,3,0,0,0,100)")
         .bind(&board).execute(&owner).await.unwrap();
     let b = board.clone();
     let o = owner.clone();

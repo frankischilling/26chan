@@ -1,3 +1,4 @@
+import { sourceCaptchaTest } from './helpers/source-captcha-fixture.js';
 import { cleanupDeletionFixtures, ownedDeletionMarker } from './helpers/deletion-fixture.js';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
@@ -23,7 +24,7 @@ const trailingLines = Array.from({ length: 30 }, (_, index) => `Owned backlink t
 const absent = '9223372036854775807';
 const ownedPostThreads = new Map();
 
-const test = base.extend({
+const test = sourceCaptchaTest(base, ['tg']).extend({
   owned: async ({ request, context }, use) => {
     const password = 'owned-native-backlinks-password', threads = [];
     ownedPostThreads.clear();

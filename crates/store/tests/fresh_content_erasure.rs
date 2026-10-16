@@ -46,7 +46,7 @@ impl Fixture {
             .await
             .unwrap();
         let board = format!("fe{seed:x}");
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,archive_retention_seconds) VALUES($1,'Fresh erasure','Owned fixture',2000,100,100,100,10,0,0,0,3600)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,archive_retention_seconds) VALUES(false,$1,'Fresh erasure','Owned fixture',2000,100,100,100,10,0,0,0,3600)")
             .bind(&board).execute(&owner).await.unwrap();
         let capability = Capability::generate().unwrap();
         let token = capability.storage_hash();

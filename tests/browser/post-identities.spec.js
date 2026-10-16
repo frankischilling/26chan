@@ -1,6 +1,8 @@
+import { sourceCaptchaTest } from './helpers/source-captcha-fixture.js';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, deletionFixture } from './helpers/deletion-fixture.js';
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
+const test = sourceCaptchaTest(base, ['b', 's4s']);
 import { readFileSync } from 'node:fs';
 
 const origin = 'http://127.0.0.1:3000', password = 'owned-identity-browser-password';

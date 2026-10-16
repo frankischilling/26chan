@@ -174,6 +174,7 @@ impl VerificationKey {
 pub enum TokenKind {
     Challenge,
     Email,
+    Ticket,
 }
 
 impl TokenKind {
@@ -181,12 +182,14 @@ impl TokenKind {
         match self {
             Self::Challenge => "c1_",
             Self::Email => "e1_",
+            Self::Ticket => "t1_",
         }
     }
     fn purpose(self) -> &'static [u8] {
         match self {
             Self::Challenge => b"challenge-token",
             Self::Email => b"email-token",
+            Self::Ticket => b"pre-cooldown-ticket",
         }
     }
 }
@@ -232,7 +235,7 @@ impl VerificationToken {
             bytes: decode(value.strip_prefix(kind.prefix())?)?,
         })
     }
-    /// Only the challenge response or private mail queue may expose the bearer.
+    /// Expose only through the matching challenge/ticket response or mail queue.
     pub fn encode(&self) -> String {
         encode(self.kind.prefix(), &self.bytes)
     }
@@ -363,7 +366,7 @@ mod tests {
     }
     #[test]
     fn generated_tokens_roundtrip_without_using_display_or_debug() {
-        for kind in [TokenKind::Challenge, TokenKind::Email] {
+        for kind in [TokenKind::Challenge, TokenKind::Email, TokenKind::Ticket] {
             let token = VerificationToken::generate(kind).unwrap();
             assert_eq!(
                 VerificationToken::parse(kind, &token.encode())
@@ -372,6 +375,26 @@ mod tests {
                 token.encode()
             );
         }
+    }
+
+    #[test]
+    fn tickets_cannot_be_used_as_answers_emails_or_receipts() {
+        let key = VerificationKey::parse(&"01".repeat(32)).unwrap();
+        let ticket =
+            VerificationToken::parse(TokenKind::Ticket, &format!("t1_{}", "02".repeat(32)))
+                .unwrap();
+        for kind in [TokenKind::Challenge, TokenKind::Email] {
+            assert!(VerificationToken::parse(kind, &ticket.encode()).is_none());
+            let other =
+                VerificationToken::parse(kind, &format!("{}{}", kind.prefix(), "02".repeat(32)))
+                    .unwrap();
+            assert_ne!(key.token_hash(&ticket), key.token_hash(&other));
+            assert!(VerificationToken::parse(TokenKind::Ticket, &other.encode()).is_none());
+        }
+        assert!(ReceiptToken::parse(&ticket.encode()).is_none());
+        assert!(key.answer_hash(&ticket, "ADGH").is_none());
+        assert!(key.challenge_answer(&ticket, 6).is_none());
+        assert!(key.render_seed(&ticket).is_none());
     }
 
     #[test]

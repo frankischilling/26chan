@@ -43,7 +43,7 @@ async fn board_trip_suppression_uses_locked_policy_and_preserves_saved_identitie
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Trip suppression','Owned source policy fixture',1000,100,100,100,10,0,0,0)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Trip suppression','Owned source policy fixture',1000,100,100,100,10,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     let poster_key = fixture_key();
     let (app, api) = board_public::routers_with_options(
@@ -301,7 +301,7 @@ async fn identities_persist_across_posting_forms_json_and_escaped_fragments() {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Posting identities','Owned synthetic fixture',1000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Posting identities','Owned synthetic fixture',1000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
     let poster_key = fixture_key();
     let (app, api) = board_public::routers_with_options(
         public.clone(),
@@ -498,7 +498,7 @@ async fn source_names_reach_saved_posts_and_every_json_projection() {
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Source name cases','Owned fixture',1000,100,100,100,10,0,0,0)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Source name cases','Owned fixture',1000,100,100,100,10,0,0,0)")
         .bind(&board).execute(&owner).await.unwrap();
     // This corpus exceeds the production write budget through one router.
     // http_limits.rs separately checks the production write limit.

@@ -57,6 +57,18 @@ impl From<StoreError> for AppError {
             StoreError::NotFound => {
                 Self(StatusCode::NOT_FOUND, "Board, thread, or post not found.")
             }
+            StoreError::Database(ref error)
+                if error
+                    .as_database_error()
+                    .and_then(|error| error.code())
+                    .as_deref()
+                    == Some("P0166") =>
+            {
+                Self(
+                    StatusCode::BAD_REQUEST,
+                    "CAPTCHA verification is required. Please reload the CAPTCHA.",
+                )
+            }
             StoreError::Invalid(message) => Self(StatusCode::UNPROCESSABLE_ENTITY, message),
             StoreError::Conflict(message) => Self(StatusCode::CONFLICT, message),
             StoreError::PublicDeletionRejected(message) => Self(StatusCode::FORBIDDEN, message),
@@ -562,12 +574,24 @@ pub async fn board_redirect(
 pub async fn board_index(
     State(state): State<AppState>,
     Path(board): Path<String>,
+    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
+    headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    board_page(&state, &board, 1, false, catalog::Options::default()).await
+    board_page(
+        &state,
+        &board,
+        1,
+        false,
+        catalog::Options::default(),
+        &headers,
+        peer.0,
+    )
+    .await
 }
 pub async fn page(
     State(state): State<AppState>,
     Path((board, page)): Path<(String, String)>,
+    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
     headers: HeaderMap,
     uri: Uri,
 ) -> Result<Response, AppError> {
@@ -577,7 +601,7 @@ pub async fn page(
                 StatusCode::BAD_REQUEST,
                 "Invalid catalog options.",
             ))?;
-            board_page(&state, &board, 1, true, options).await
+            board_page(&state, &board, 1, true, options, &headers, peer.0).await
         }
         "threads.json" => api::thread_list(&state, &board, &headers).await,
         "catalog.json" => api::catalog(&state, &board, &headers).await,
@@ -622,6 +646,8 @@ pub async fn page(
                     index + 1,
                     false,
                     catalog::Options::default(),
+                    &headers,
+                    peer.0,
                 )
                 .await
             }
@@ -634,6 +660,8 @@ async fn board_page(
     page: i64,
     catalog: bool,
     options: catalog::Options,
+    headers: &HeaderMap,
+    peer: Option<std::net::IpAddr>,
 ) -> Result<Response, AppError> {
     let selection = if catalog {
         board_store::BoardSelection::All
@@ -711,9 +739,25 @@ async fn board_page(
     let replay = board.oekaki_replays && !catalog && state.media.is_some();
     let math_tags = board.math_tags && !catalog;
     let drawing = !catalog && board.ordinary_drawing_enabled(state.media.is_some());
+    let (captcha, captcha_context) = if catalog {
+        (Default::default(), Default::default())
+    } else {
+        crate::posting_challenge::page::prepare(
+            state,
+            headers,
+            peer,
+            crate::posting_challenge::Scope {
+                board: slug.into(),
+                target: 0,
+                purpose: board_verification_client::protocol::Purpose::Thread,
+            },
+        )
+        .await
+    };
     let response = crate::output::html(
         state,
         &BoardPage {
+            captcha,
             announcement: board_store::site_content::site_page(&state.pool, "announcement").await?,
             public_origin: state.origin.clone(),
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
@@ -744,6 +788,7 @@ async fn board_page(
                 .unwrap_or_default(),
         },
     )?;
+    let response = crate::posting_challenge::page::finish(response, &captcha_context);
     Ok(crate::security::drawing_page(
         crate::security::replay_page(crate::security::math_page(response, math_tags), replay),
         drawing,
@@ -752,6 +797,7 @@ async fn board_page(
 pub async fn thread(
     State(state): State<AppState>,
     Path((board, key)): Path<(String, String)>,
+    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
     headers: HeaderMap,
     uri: Uri,
 ) -> Result<Response, AppError> {
@@ -822,9 +868,25 @@ pub async fn thread(
         && thread.archived_at.is_none()
         && (board.ordinary_drawing_enabled(state.media.is_some())
             || board.drawing_edit_enabled(state.media.is_some()));
+    let (captcha, captcha_context) = if thread.closed || thread.archived_at.is_some() {
+        (Default::default(), Default::default())
+    } else {
+        crate::posting_challenge::page::prepare(
+            &state,
+            &headers,
+            peer.0,
+            crate::posting_challenge::Scope {
+                board: board.slug.clone(),
+                target: id,
+                purpose: board_verification_client::protocol::Purpose::Reply,
+            },
+        )
+        .await
+    };
     let response = crate::output::html(
         &state,
         &BoardPage {
+            captcha,
             announcement: board_store::site_content::site_page(&state.pool, "announcement").await?,
             public_origin: state.origin.clone(),
             spoiler_thumbnail: crate::views::spoilers::choose_thumbnail(&board),
@@ -856,6 +918,7 @@ pub async fn thread(
                 .unwrap_or_default(),
         },
     )?;
+    let response = crate::posting_challenge::page::finish(response, &captcha_context);
     Ok(crate::security::drawing_page(
         crate::security::replay_page(crate::security::math_page(response, math_tags), replay),
         drawing,
@@ -875,6 +938,14 @@ pub async fn quote(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PostForm {
+    #[serde(default, rename = "captcha-csrf")]
+    captcha_csrf: String,
+    #[serde(default, rename = "t-challenge")]
+    captcha_challenge: String,
+    #[serde(default, rename = "t-response")]
+    captcha_answer: String,
+    #[serde(default, rename = "captcha-credit")]
+    captcha_credit: String,
     #[serde(default)]
     flag: String,
     #[serde(default)]
@@ -1022,6 +1093,28 @@ async fn submit_post(
     }
     let session =
         crate::anonymous_session::Session::resolve(&state, &headers, context.peer).await?;
+    let challenge = crate::posting_challenge::proof(
+        &state,
+        &headers,
+        &session,
+        context.peer,
+        crate::posting_challenge::Scope {
+            board: board.clone(),
+            target: form.resto,
+            purpose: if form.resto == 0 {
+                board_verification_client::protocol::Purpose::Thread
+            } else {
+                board_verification_client::protocol::Purpose::Reply
+            },
+        },
+        &crate::posting_challenge::FormInput {
+            csrf: form.captcha_csrf,
+            challenge: form.captcha_challenge,
+            answer: form.captcha_answer,
+            credit: form.captcha_credit,
+        },
+    )
+    .await?;
     let password = session.password(&form.password);
     // The operator may enable OP markup while this request waits on the board
     // lock. Capture proof independently of the earlier policy snapshot.
@@ -1078,15 +1171,18 @@ async fn submit_post(
         deletion_hash: hash,
         sage: options.sage,
     };
-    let id = board_store::create_post_with_anonymous_session(
+    let id = board_store::create_post_with_challenge(
         &state.pool,
         &board,
         form.resto,
         &post,
         attachment.as_ref(),
-        board_store::AnonymousPostingContext {
-            posting: context,
-            session: session.posting,
+        board_store::ProtectedPostingContext {
+            anonymous: board_store::AnonymousPostingContext {
+                posting: context,
+                session: session.posting,
+            },
+            challenge,
         },
         board_store::PostMetadata {
             spoiler: form.spoiler,
@@ -1328,6 +1424,14 @@ async fn delete_authorized(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReportForm {
+    #[serde(default, rename = "captcha-csrf")]
+    captcha_csrf: String,
+    #[serde(default, rename = "t-challenge")]
+    captcha_challenge: String,
+    #[serde(default, rename = "t-response")]
+    captcha_answer: String,
+    #[serde(default, rename = "captcha-credit")]
+    captcha_credit: String,
     #[serde(deserialize_with = "canonical_report_id")]
     no: i64,
     reason: String,
@@ -1343,11 +1447,13 @@ pub(crate) enum ReportSubmission {
     FreeText {
         no: i64,
         reason: String,
+        captcha: crate::posting_challenge::FormInput,
     },
     Categorical {
         no: i64,
         category_id: i64,
         expected_revision: i64,
+        captcha: crate::posting_challenge::FormInput,
     },
 }
 
@@ -1382,6 +1488,12 @@ pub async fn report(
         ReportSubmission::FreeText {
             no: form.no,
             reason: form.reason,
+            captcha: crate::posting_challenge::FormInput {
+                csrf: form.captcha_csrf,
+                challenge: form.captcha_challenge,
+                answer: form.captcha_answer,
+                credit: form.captcha_credit,
+            },
         },
     )
     .await
@@ -1418,18 +1530,48 @@ pub(crate) async fn submit_report(
         Ok(session) => session,
         Err(error) => return Ok(fail(error)),
     };
+    let captcha = match &form {
+        ReportSubmission::FreeText { captcha, .. }
+        | ReportSubmission::Categorical { captcha, .. } => captcha,
+    };
+    let challenge = match crate::posting_challenge::proof(
+        state,
+        headers,
+        &session,
+        peer.0,
+        crate::posting_challenge::Scope {
+            board: board.into(),
+            target: no,
+            purpose: board_verification_client::protocol::Purpose::Report,
+        },
+        captcha,
+    )
+    .await
+    {
+        Ok(challenge) => challenge,
+        Err(error) => return Ok(fail(error)),
+    };
+    let source_cookies_absent = match crate::posting_challenge::source_cookies_absent(headers) {
+        Ok(absent) => absent,
+        Err(error) => return Ok(fail(error)),
+    };
+    let protected = board_store::ProtectedReportingContext {
+        session: session.posting,
+        challenge,
+        source_cookies_absent,
+    };
     // Reserve and render the bounded response before committing. An exhausted
     // output budget must never make a saved report appear to have failed.
     let mut response = crate::legacy_report::success(state, &target)?;
     let result = match form {
         ReportSubmission::FreeText { reason, .. } => {
-            board_store::report_with_anonymous_session(
+            board_store::report_with_challenge(
                 &state.pool,
                 board,
                 no,
                 &reason,
                 &identity,
-                session.posting,
+                protected,
             )
             .await
         }
@@ -1438,14 +1580,14 @@ pub(crate) async fn submit_report(
             expected_revision,
             ..
         } => {
-            board_store::report_categorical_with_anonymous_session(
+            board_store::report_categorical_with_challenge(
                 &state.pool,
                 board,
                 no,
                 category_id,
                 expected_revision,
                 &identity,
-                session.posting,
+                protected,
             )
             .await
         }
@@ -1952,6 +2094,21 @@ mod storage_diagnostic_tests {
             .unwrap();
             assert_eq!(actual, expected);
         }
+    }
+
+    #[test]
+    fn challenge_rejection_uses_fixed_text_without_private_database_diagnostics() {
+        let (error, log) = convert_with_log(StoreError::Database(sqlx::Error::Database(Box::new(
+            FakeDatabaseError {
+                code: Some("P0166"),
+            },
+        ))));
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            error.1,
+            "CAPTCHA verification is required. Please reload the CAPTCHA."
+        );
+        assert!(log.is_empty());
     }
 
     #[test]

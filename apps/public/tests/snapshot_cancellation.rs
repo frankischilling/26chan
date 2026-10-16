@@ -263,7 +263,7 @@ async fn run_case(owner: &PgPool, public_url: &str, case: Case) -> ProbeResult {
     )
     .await?;
     let board = format!("sc{seed:x}");
-    checked("owned board setup", sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES(0,0,0,$1,'Snapshot cancellation','Owned diagnostic fixture',200,100,100,100,10,0,0)")
+    checked("owned board setup", sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,deletion_known_min_seconds,deletion_unknown_min_seconds) VALUES(false,0,0,0,$1,'Snapshot cancellation','Owned diagnostic fixture',200,100,100,100,10,0,0)")
         .bind(&board).execute(owner)).await?;
 
     // Catch assertion failures in existing fixture helpers, then clean up only

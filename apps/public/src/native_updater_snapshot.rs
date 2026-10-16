@@ -458,6 +458,7 @@ pub(crate) mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                captcha: Default::default(),
                 announcement: None,
                 public_origin: String::new(),
                 blotter: Vec::new(),
@@ -503,6 +504,7 @@ pub(crate) mod tests {
             board.posting_reply_seconds = reply;
             board.posting_image_seconds = image;
             let upload = crate::views::UploadPage {
+                captcha: Default::default(),
                 public_origin: String::new(),
                 board: board.clone(),
                 form: crate::views::UploadForm {
@@ -516,6 +518,7 @@ pub(crate) mod tests {
             .render()
             .unwrap();
             let page = crate::views::BoardPage {
+                captcha: Default::default(),
                 announcement: None,
                 public_origin: String::new(),
                 blotter: Vec::new(),

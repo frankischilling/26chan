@@ -189,7 +189,7 @@ impl Fixture {
             .unwrap(),
             "Source must be a freshly migrated database without posts or media"
         );
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,archive_retention_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ('restore','Restore fixture','Synthetic only',2000,100,100,100,10,20,3600,0,0,0)").execute(&self.admin).await.unwrap();
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,archive_retention_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES (false,'restore','Restore fixture','Synthetic only',2000,100,100,100,10,20,3600,0,0,0)").execute(&self.admin).await.unwrap();
         // An ahead-of-wall-clock counter catches a restore that resets the clock.
         sqlx::query("UPDATE content.media_clock SET last_number=floor(extract(epoch FROM clock_timestamp())*1000)::bigint+86400000").execute(&self.admin).await.unwrap();
         let op = self.add(0, false).await;

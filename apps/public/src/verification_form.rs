@@ -1,13 +1,22 @@
-//! Bounded sign-in inputs and a separate, HttpOnly browser form secret.
+//! Bounded verification inputs and purpose-separated HttpOnly form secrets.
 use axum::http::{HeaderMap, HeaderValue, header};
 use rand_core::{OsRng, RngCore};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-pub(super) const MAX_BODY: usize = 8192;
-pub(super) struct FormSecret([u8; 32]);
+pub(crate) const MAX_BODY: usize = 8192;
+pub(crate) struct BrowserSecret<const POSTING: bool>([u8; 32]);
+pub(crate) type FormSecret = BrowserSecret<false>;
+pub(crate) type PostingSecret = BrowserSecret<true>;
 
-fn name(production: bool) -> &'static str {
+fn name<const POSTING: bool>(production: bool) -> &'static str {
+    if POSTING {
+        return if production {
+            "__Host-board-captcha"
+        } else {
+            "board-captcha"
+        };
+    }
     if production {
         "__Host-board-verification"
     } else {
@@ -41,13 +50,13 @@ fn decode(value: &str) -> Option<[u8; 32]> {
     }
     Some(output)
 }
-impl FormSecret {
-    pub(super) fn generate() -> Result<Self, ()> {
+impl<const POSTING: bool> BrowserSecret<POSTING> {
+    pub(crate) fn generate() -> Result<Self, ()> {
         let mut secret = [0; 32];
         OsRng.try_fill_bytes(&mut secret).map_err(|_| ())?;
         Ok(Self(secret))
     }
-    pub(super) fn read(headers: &HeaderMap, production: bool) -> Result<Option<Self>, ()> {
+    pub(crate) fn read(headers: &HeaderMap, production: bool) -> Result<Option<Self>, ()> {
         let mut total = 0usize;
         let mut found = None;
         let mut seen = false;
@@ -60,7 +69,7 @@ impl FormSecret {
                 let Some((key, value)) = pair.trim().split_once('=') else {
                     continue;
                 };
-                if key != name(production) {
+                if key != name::<POSTING>(production) {
                     continue;
                 }
                 if seen {
@@ -72,13 +81,17 @@ impl FormSecret {
         }
         Ok(found)
     }
-    pub(super) fn nonce(&self) -> String {
+    pub(crate) fn nonce(&self) -> String {
         let mut hash = Sha256::new();
-        hash.update(b"26chan:verification-form:v1\0");
+        if POSTING {
+            hash.update(b"26chan:posting-form:v1\0");
+        } else {
+            hash.update(b"26chan:verification-form:v1\0");
+        }
         hash.update(self.0);
         hex(&hash.finalize())
     }
-    pub(super) fn matches(&self, supplied: &str) -> bool {
+    pub(crate) fn matches(&self, supplied: &str) -> bool {
         // This is a public form nonce, not the cookie secret. A fixed-length
         // comparison also avoids accepting alternate encodings.
         let Some(supplied) = decode(supplied) else {
@@ -91,18 +104,23 @@ impl FormSecret {
             .fold(0u8, |diff, (a, b)| diff | (a ^ b))
             == 0
     }
-    pub(super) fn append(&self, headers: &mut HeaderMap, production: bool) {
-        set_cookie(headers, production, &hex(&self.0), 1800);
+    pub(crate) fn append(&self, headers: &mut HeaderMap, production: bool) {
+        set_cookie::<POSTING>(headers, production, &hex(&self.0), 1800);
     }
-    pub(super) fn clear(headers: &mut HeaderMap, production: bool) {
-        set_cookie(headers, production, "", 0);
+    pub(crate) fn clear(headers: &mut HeaderMap, production: bool) {
+        set_cookie::<POSTING>(headers, production, "", 0);
     }
 }
-fn set_cookie(headers: &mut HeaderMap, production: bool, value: &str, age: u16) {
+fn set_cookie<const POSTING: bool>(
+    headers: &mut HeaderMap,
+    production: bool,
+    value: &str,
+    age: u16,
+) {
     let secure = if production { "; Secure" } else { "" };
     let value = format!(
         "{}={value}; Path=/; Max-Age={age}; HttpOnly; SameSite=Strict{secure}",
-        name(production)
+        name::<POSTING>(production)
     );
     headers.append(
         header::SET_COOKIE,
@@ -111,9 +129,9 @@ fn set_cookie(headers: &mut HeaderMap, production: bool, value: &str, age: u16) 
     headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
 }
 
-pub(super) struct Fields(BTreeMap<String, String>);
+pub(crate) struct Fields(BTreeMap<String, String>);
 impl Fields {
-    pub(super) fn parse(input: &[u8], allowed: &[&str], limit: usize) -> Result<Self, ()> {
+    pub(crate) fn parse(input: &[u8], allowed: &[&str], limit: usize) -> Result<Self, ()> {
         if input.len() > limit || input.iter().filter(|&&b| b == b'&').count() >= allowed.len() {
             return Err(());
         }
@@ -146,15 +164,15 @@ impl Fields {
         }
         Ok(Self(fields))
     }
-    pub(super) fn get(&self, key: &str) -> &str {
+    pub(crate) fn get(&self, key: &str) -> &str {
         self.0.get(key).map(String::as_str).unwrap_or("")
     }
-    pub(super) fn has(&self, key: &str) -> bool {
+    pub(crate) fn has(&self, key: &str) -> bool {
         self.0.contains_key(key)
     }
 }
 
-pub(super) fn email_token(value: &str) -> bool {
+pub(crate) fn email_token(value: &str) -> bool {
     value.strip_prefix("e1_").and_then(decode).is_some()
 }
 
@@ -191,6 +209,38 @@ mod tests {
         assert!(!secret.matches(&secret.nonce().to_uppercase()));
         assert!(!secret.matches(&FormSecret::generate().unwrap().nonce()));
     }
+    #[test]
+    fn posting_and_signin_secrets_never_share_cookies_or_nonces() {
+        let signin = BrowserSecret::<false>([7; 32]);
+        let posting = BrowserSecret::<true>([7; 32]);
+        assert_ne!(signin.nonce(), posting.nonce());
+        assert!(!posting.matches(&signin.nonce()));
+        assert!(!signin.matches(&posting.nonce()));
+        for production in [false, true] {
+            let mut output = HeaderMap::new();
+            posting.append(&mut output, production);
+            let value = output[header::SET_COOKIE].to_str().unwrap();
+            assert!(value.starts_with(if production {
+                "__Host-board-captcha="
+            } else {
+                "board-captcha="
+            }));
+            assert!(value.contains("HttpOnly; SameSite=Strict"));
+            let mut input = HeaderMap::new();
+            input.insert(
+                header::COOKIE,
+                value.split(';').next().unwrap().parse().unwrap(),
+            );
+            assert!(
+                PostingSecret::read(&input, production)
+                    .unwrap()
+                    .unwrap()
+                    .matches(&posting.nonce())
+            );
+            assert!(FormSecret::read(&input, production).unwrap().is_none());
+        }
+    }
+
     #[test]
     fn form_limits_and_duplicate_decoded_names_fail_closed() {
         let allowed = ["action", "csrf", "email"];

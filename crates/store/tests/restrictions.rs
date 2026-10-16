@@ -38,7 +38,7 @@ impl Fixture {
                 .unwrap();
         let boards = vec![format!("ra{suffix}"), format!("rb{suffix}")];
         for board in &boards {
-            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES($1,'Owned restrictions','Synthetic fixture',2000,1000,1000,1000,10,0,0,0,100)").bind(board).execute(&owner).await.unwrap();
+            sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit) VALUES(false,$1,'Owned restrictions','Synthetic fixture',2000,1000,1000,1000,10,0,0,0,100)").bind(board).execute(&owner).await.unwrap();
         }
         let account = sqlx::query_scalar("INSERT INTO staff_identity.accounts(role,allow_boards,deny_boards) VALUES('moderator',$1,'{}') RETURNING id").bind(&boards).fetch_one(&owner).await.unwrap();
         let session = Capability::generate().unwrap().storage_hash();

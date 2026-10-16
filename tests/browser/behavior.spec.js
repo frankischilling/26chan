@@ -1,8 +1,10 @@
+import { sourceCaptchaTest } from './helpers/source-captcha-fixture.js';
 import { withFailurePreservingCleanup } from './helpers/preserve-cleanup-failure.js';
 import { cleanupDeletionFixtures, deletionFixture, ownedDeletionMarker } from './helpers/deletion-fixture.js';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { fillCatalogSearch } from './catalog-actions.js';
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
+const test = sourceCaptchaTest(base, ['tg']);
 import { readFile } from 'node:fs/promises';
 import { request as httpRequest } from 'node:http';
 import { saveWatcherSettings } from './helpers/watcher-settings.js';

@@ -250,6 +250,7 @@ impl Fixture {
             }]
         };
         views::BoardPage {
+            captcha: Default::default(),
             announcement: None,
             public_origin: String::new(),
             blotter: Vec::new(),

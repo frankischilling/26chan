@@ -31,6 +31,7 @@ pub use polls::{
     POLL_READINESS_SQL, PollOption, PollSnapshot, PollSummary, poll_catalogue, poll_snapshot,
 };
 pub mod post_media;
+pub mod posting_challenge;
 mod posting_cooldown;
 pub use posting_cooldown::{PostingCooldownReason, PostingCooldownRejection};
 mod public_deletion;
@@ -44,6 +45,7 @@ pub use quote_targets::{MAX_QUOTE_TARGETS, QuoteTargets};
 pub mod report_admission;
 pub mod report_catalog;
 pub mod report_categories;
+pub mod report_challenge;
 pub mod restrictions;
 pub use report_categories::{CategoryChoice, CategoryForm, CategoryKind, category_form};
 mod report_target;
@@ -56,6 +58,7 @@ mod thread_statistics;
 pub mod thread_transfer;
 pub mod verification;
 mod write;
+mod write_challenge;
 pub use board_snapshot::*;
 use chrono::{DateTime, Utc};
 pub use read::*;
@@ -425,9 +428,11 @@ pub async fn connect_public(url: &str) -> Result<PgPool, StoreError> {
         pool.close().await;
         return Err(StoreError::UnsafeRole);
     }
-    let ready: bool = sqlx::query_scalar("SELECT content.restrictions_ready()")
-        .fetch_one(&pool)
-        .await?;
+    let ready: bool = sqlx::query_scalar(
+        "SELECT content.restrictions_ready() AND content.public_challenge_ready()",
+    )
+    .fetch_one(&pool)
+    .await?;
     if !ready {
         pool.close().await;
         return Err(StoreError::UnsafeRole);

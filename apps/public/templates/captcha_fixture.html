@@ -1,0 +1,13 @@
+{% import "captcha_fields.html" as captcha_markup %}
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Posting CAPTCHA fixture</title>
+<link rel="stylesheet" href="/static/board.css"><link rel="stylesheet" href="/static/posting-captcha.v1.css">
+{% if !captcha.noscript_only %}<script type="module" src="/static/posting-captcha.v1.js"></script>{% endif %}</head>
+<body><main><h1>Posting CAPTCHA</h1>
+<form class="postEditor" method="post" action="/fixture/captcha/submission"><input type="hidden" name="resto" value="{{ captcha.target }}">
+<label for="fixture-comment">Comment or report reason</label><textarea id="fixture-comment" name="com" required></textarea>
+{% call captcha_markup::fields(captcha) %}{% endcall %}<button type="submit">Submit</button></form>
+{% if quick_reply %}<nav class="threadNav desktop"></nav>
+<section class="thread" id="t10" data-closed="false" data-archived="false"><div id="pc10"><div id="p10"><div class="postInfo" id="pi10"><span class="postNum"><a href="/g/thread/10#p10" title="Link to this post">No.</a><a href="/g/thread/10?quote=10#reply" title="Reply to this post">10</a></span></div></div></div></section>
+<section class="thread" id="t11" data-closed="false" data-archived="false"><div id="pc11"><div id="p11"><div class="postInfo" id="pi11"><span class="postNum"><a href="/g/thread/11#p11" title="Link to this post">No.</a><a href="/g/thread/11?quote=11#reply" title="Reply to this post">11</a></span></div></div></div></section>{% endif %}
+</main></body></html>

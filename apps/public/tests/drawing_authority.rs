@@ -45,7 +45,7 @@ fn directive<'a>(policy: &'a str, name: &str) -> Option<&'a str> {
         .find(|value| value.split_ascii_whitespace().next() == Some(name))
 }
 
-fn authority(headers: &HeaderMap, enabled: bool, replay: bool) -> String {
+fn authority(headers: &HeaderMap, enabled: bool, replay: bool, captcha: bool) -> String {
     let policy = headers["content-security-policy"].to_str().unwrap();
     let script = directive(policy, "script-src").unwrap();
     let tegaki_scripts: Vec<_> = script
@@ -76,8 +76,33 @@ fn authority(headers: &HeaderMap, enabled: bool, replay: bool) -> String {
                 || value == format!("{ORIGIN}/"))
     );
     assert!(!policy.contains("'unsafe-inline'") && !policy.contains("'unsafe-eval'"));
-    assert!(!policy.contains("blob:") && !policy.contains("data:"));
+    assert!(!policy.contains("blob:"));
     let images = directive(policy, "img-src").unwrap();
+    assert_eq!(
+        images
+            .split_ascii_whitespace()
+            .filter(|value| *value == "data:")
+            .count(),
+        usize::from(captcha),
+        "only a live CAPTCHA form grants inline challenge image authority"
+    );
+    for entry in policy.split(';').map(str::trim) {
+        if entry.split_ascii_whitespace().next() != Some("img-src") {
+            assert!(
+                !entry.contains("data:"),
+                "challenge image authority leaked: {entry}"
+            );
+        }
+    }
+    assert_eq!(
+        directive(policy, "connect-src")
+            .unwrap()
+            .split_ascii_whitespace()
+            .filter(|value| *value == format!("{ORIGIN}/captcha"))
+            .count(),
+        usize::from(captcha),
+        "challenge exchange authority follows the posting form, not drawing"
+    );
     assert!(!images.contains("tegaki"));
     assert!(
         !images
@@ -169,7 +194,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
                             .unwrap()
                             .starts_with("text/html")
                     );
-                    let images = authority(&headers, admitted, media_enabled && replay);
+                    let images = authority(&headers, admitted, media_enabled && replay, false);
                     assert_eq!(
                         image_authority.get_or_insert_with(|| images.clone()),
                         &images,
@@ -197,12 +222,12 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
         ] {
             let (status, headers, html) = request(app, "GET", &path).await;
             assert_eq!(status, expected, "{path}");
-            authority(&headers, false, false);
+            authority(&headers, false, false, false);
             controls(&html, false, false, false);
         }
         let (status, headers, _) = request(&web, "POST", &format!("/{slug}/")).await;
         assert_eq!(status, StatusCode::METHOD_NOT_ALLOWED);
-        authority(&headers, false, false);
+        authority(&headers, false, false, false);
         for archived in [false, true] {
             sqlx::query("UPDATE content.threads SET closed=true,archived_at=CASE WHEN $2 THEN now() ELSE NULL END,archive_expires_at=CASE WHEN $2 THEN now()+interval '1 hour' ELSE NULL END WHERE board=$1 AND id=$3")
                 .bind(slug).bind(archived).bind(id).execute(owner).await.unwrap();
@@ -210,7 +235,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, slug: &str) {
                 let (status, headers, html) =
                     request(&web, method, &format!("/{slug}/thread/{id}")).await;
                 assert_eq!(status, StatusCode::OK);
-                authority(&headers, false, false);
+                authority(&headers, false, false, false);
                 if method == "GET" {
                     controls(&html, false, false, false);
                     assert!(!html.contains("class=\"postEditor\""));
@@ -235,7 +260,7 @@ async fn drawing_authority_requires_successful_supported_ordinary_html_from_the_
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,oekaki,archive_retention_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned drawing authority','Synthetic renderer fixture',2000,100,100,100,10,100,true,86400,0,0,0)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,oekaki,archive_retention_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES(false,$1,'Owned drawing authority','Synthetic renderer fixture',2000,100,100,100,10,100,true,86400,0,0,0)")
         .bind(&slug).execute(&owner).await.unwrap();
     let owned = owner.clone();
     let runtime = public.clone();
@@ -343,7 +368,7 @@ async fn source_i_edit_requires_a_live_thread_and_media_in_the_real_renderer_and
         for method in ["GET", "HEAD"] {
             let (status, headers, html) = request(&enabled, method, &thread).await;
             assert_eq!(status, StatusCode::OK, "{method} {thread}");
-            let images = authority(&headers, true, true);
+            let images = authority(&headers, true, true, true);
             assert!(images.contains(MEDIA_ORIGIN), "enabled media origin is exact");
             if method == "GET" {
                 controls(&html, true, true, true);
@@ -375,7 +400,7 @@ async fn source_i_edit_requires_a_live_thread_and_media_in_the_real_renderer_and
                 let (status, headers, html) = request(app, method, &path).await;
                 assert_eq!(status, expected, "{method} {path}");
                 let ordinary = path == "/i/";
-                authority(&headers, ordinary, ordinary);
+                authority(&headers, ordinary, ordinary, ordinary);
                 if method == "GET" {
                     controls(&html, ordinary, false, ordinary);
                 } else {
@@ -386,7 +411,7 @@ async fn source_i_edit_requires_a_live_thread_and_media_in_the_real_renderer_and
         for method in ["GET", "HEAD"] {
             let (status, headers, html) = request(&without_media, method, &thread).await;
             assert_eq!(status, StatusCode::OK, "media-off {method} {thread}");
-            assert!(!authority(&headers, false, false).contains(MEDIA_ORIGIN));
+            assert!(!authority(&headers, false, false, true).contains(MEDIA_ORIGIN));
             if method == "GET" {
                 controls(&html, false, false, false);
             } else {
@@ -406,7 +431,7 @@ async fn source_i_edit_requires_a_live_thread_and_media_in_the_real_renderer_and
             for method in ["GET", "HEAD"] {
                 let (status, headers, html) = request(&enabled, method, &thread).await;
                 assert_eq!(status, StatusCode::OK, "closed/archived {method} {thread}");
-                authority(&headers, false, true);
+                authority(&headers, false, true, false);
                 if method == "GET" {
                     controls(&html, false, false, true);
                     assert!(!html.contains("class=\"postEditor\""));

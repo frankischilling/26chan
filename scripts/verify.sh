@@ -38,6 +38,7 @@ reference_checks() {
   python3 scripts/test-navigation-reference.py
   python3 scripts/extract-board-format-metadata-reference.py
   python3 scripts/test-board-format-metadata-reference.py
+  python3 scripts/test-captcha-board-policy.py
   python3 scripts/test-image-board-policy-reference.py
   python3 scripts/test-image-presentation-reference.py
 }
@@ -56,7 +57,7 @@ early_browser_checks() {
 }
 
 rust_checks() {
-  node --test tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs
+  node --test tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs
   cargo fmt --all -- --check
   cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
   python3 scripts/check-media-parser-dependencies.py
@@ -70,6 +71,7 @@ rust_checks() {
     cargo test -p board-store -p board-verification --all-features --locked
     cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact
     cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact
+    cargo test -p board-public --all-features --locked --lib posting_challenge::database_tests::public_captcha_requests_keep_private_scope_and_source_report_opt_out -- --ignored --exact
   )
   cargo test --workspace --exclude board-store --exclude board-verification --all-features --locked
   cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture

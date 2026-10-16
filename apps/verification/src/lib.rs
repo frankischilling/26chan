@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
-//! Isolated public verification authority. Challenge and email mutation routes
-//! remain under construction; unavailable routes fail closed.
+//! Isolated challenge and email verification authority. Only explicitly
+//! registered, authenticated routes are available.
 mod access;
 mod challenge;
 pub mod config;
@@ -40,6 +40,9 @@ pub fn router(state: AppState) -> Router {
         .route("/readyz", post(handlers::ready))
         .route("/v1/session", post(handlers::ensure_session))
         .route("/v1/challenge", post(handlers::challenge))
+        .route("/v1/check", post(challenge::check::check))
+        .route("/v1/credit", post(challenge::credit::claim))
+        .route("/v1/posting/challenge", post(challenge::posting::challenge))
         .route("/v1/signout", post(handlers::signout))
         .route("/v1/email/state", post(handlers::email_state))
         .route("/v1/email/request", post(handlers::request_email))

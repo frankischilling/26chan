@@ -1,4 +1,5 @@
-{% macro fields(parent, image, spoilers, text_only, forced_anon, country_flags, flag_options, quote, drawing, drawing_width, drawing_height) %}
+{% import "captcha_fields.html" as captcha_markup %}
+{% macro fields(parent, image, spoilers, text_only, forced_anon, country_flags, flag_options, quote, drawing, drawing_width, drawing_height, captcha) %}
 <input type="hidden" name="mode" value="regist">
 <input id="postPassword" name="pwd" type="hidden">
 {% if forced_anon %}<input type="hidden" name="name">{% endif %}
@@ -14,5 +15,6 @@
 {% if drawing %}
 <tr data-type="Painter" class="desktop"><td>Draw</td><td class="painter-ctrl">Size <input type="text" value="{{ drawing_width }}" maxlength="4" inputmode="numeric" aria-label="Drawing width" data-drawing-width> &times; <input type="text" value="{{ drawing_height }}" maxlength="4" inputmode="numeric" aria-label="Drawing height" data-drawing-height> <button data-dims="{{ drawing_width }}" type="button" data-drawing-draw>Draw</button> <button disabled type="button" data-drawing-clear>Clear</button><span role="status" aria-live="polite" data-drawing-status></span></td></tr>
 {% endif %}
+{% if captcha.enabled %}<tr id="captchaFormPart"><td colspan="2">{% call captcha_markup::fields(captcha) %}{% endcall %}</td></tr>{% endif %}
 </tbody></table>
 {% endmacro %}

@@ -32,7 +32,7 @@ async fn public_posts_use_board_character_limits_and_database_global_limits() {
     let migration = sqlx::PgPool::connect(&migration_url).await.unwrap();
     let slug = fixture_board();
 
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES ($1,'Comment limits','Disposable limit fixture',4,100,100,100,10,0,0,0)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES (false,$1,'Comment limits','Disposable limit fixture',4,100,100,100,10,0,0,0)")
         .bind(&slug)
         .execute(&migration)
         .await

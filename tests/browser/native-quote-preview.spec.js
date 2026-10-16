@@ -1,3 +1,4 @@
+import { sourceCaptchaTest } from './helpers/source-captcha-fixture.js';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
 import { ownedDeletionMarker, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
@@ -9,7 +10,7 @@ const localComment = `Owned local preview target\n>green\n${escaped}`;
 const trailingLines = Array.from({ length: 28 }, (_, index) => `Persisted trailing line ${index + 1}`).join('\n');
 const themes = ['yotsuba', 'yotsuba-b', 'futaba', 'burichan', 'photon', 'tomorrow'];
 
-const test = base.extend({
+const test = sourceCaptchaTest(base, ['tg']).extend({
   owned: async ({ request }, use) => {
     const password = 'owned-quote-preview-password', marker = ownedDeletionMarker();
     const threads = [];

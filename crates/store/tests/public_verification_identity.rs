@@ -73,7 +73,8 @@ async fn verification_preserves_unverified_activity_and_resets_previously_verifi
             .fetch_one(&owner)
             .await
             .unwrap();
-    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES($1,'Owned verified admission','Synthetic',2000,100,100,100,10,0,0,0)").bind(&board).execute(&owner).await.unwrap();
+    // This owned board isolates verified content-filter admission.
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,captcha_enabled) VALUES($1,'Owned verified admission','Synthetic',2000,100,100,100,10,0,0,0,false)").bind(&board).execute(&owner).await.unwrap();
     sqlx::query("INSERT INTO admission.rules(board,pattern,lenient) VALUES($1,'ownedverificationfilter',true)").bind(&board).execute(&owner).await.unwrap();
     let key = VerificationKey::parse(&ReceiptToken::generate().unwrap().encode()[3..]).unwrap();
     let email = ReceiptToken::generate().unwrap().storage_hash();

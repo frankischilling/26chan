@@ -224,7 +224,8 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     );
 
     // A standalone role switch is not an attachment capability invocation.
-    // Keep its fail-closed boundary explicit, including absence of a saved row.
+    // The challenge authority gate now rejects it before history registration.
+    // Keep that exact boundary and the absence of a saved row explicit.
     set_policy(&owner, &slug, 7).await;
     let id: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&owner)
@@ -238,11 +239,8 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     let denied = sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES ($1,$2,$3,'Anonymous','','Owned attachment-role stamp')")
         .bind(id).bind(&slug).bind(ids[0]).execute(&mut *standalone).await.unwrap_err();
     let denied = denied.as_database_error().unwrap();
-    assert_eq!(denied.code().as_deref(), Some("23514"));
-    assert_eq!(
-        denied.message(),
-        "Posting history registration is unavailable."
-    );
+    assert_eq!(denied.code().as_deref(), Some("42501"));
+    assert_eq!(denied.message(), "Post challenge authority is unavailable.");
     standalone.rollback().await.unwrap();
     assert!(
         !sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM content.posts WHERE id=$1)")
@@ -393,7 +391,7 @@ async fn new_posts_stamp_locked_markup_policy_without_changing_earlier_posts() {
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
     // Retain each policy case's OP for rendering comparisons on this owned
     // board without exhausting the unrelated per-actor thread quota.
-    sqlx::query("INSERT INTO content.boards(posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_thread_limit) VALUES(0,0,0,$1,'Markup policy','Owned fixture',1000,100,100,100,10,100)")
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_thread_limit) VALUES(false,0,0,0,$1,'Markup policy','Owned fixture',1000,100,100,100,10,100)")
         .bind(&slug).execute(&owner).await.unwrap();
     let result = tokio::spawn(exercise(owner.clone(), public.clone(), slug.clone())).await;
     public.close().await;
