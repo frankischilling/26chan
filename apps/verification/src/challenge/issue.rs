@@ -13,7 +13,7 @@ use board_domain::{
 use board_store::verification::{ChallengePurpose, NewChallenge};
 use board_verification_client::protocol;
 
-pub(crate) async fn render(
+pub(crate) async fn prepare(
     state: &AppState,
     input: &protocol::ChallengeContext,
     purpose: ChallengePurpose,
@@ -21,15 +21,15 @@ pub(crate) async fn render(
     style: ImageStyle,
     suspicious: bool,
     render_permit: tokio::sync::OwnedSemaphorePermit,
-) -> Response {
+) -> Result<protocol::Challenge, StatusCode> {
     let Ok(token) = VerificationToken::generate(TokenKind::Challenge) else {
-        return error(StatusCode::SERVICE_UNAVAILABLE);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
     let Some(answer) = state.key.challenge_answer(&token, style.characters) else {
-        return error(StatusCode::SERVICE_UNAVAILABLE);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
     let Some(answer_hash) = state.key.answer_hash(&token, answer.as_str()) else {
-        return error(StatusCode::SERVICE_UNAVAILABLE);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
     let result = match state
         .store
@@ -47,20 +47,19 @@ pub(crate) async fn render(
         .await
     {
         Ok(value) => value,
-        Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE),
+        Err(_) => return Err(StatusCode::SERVICE_UNAVAILABLE),
     };
     let Ok(cooldown) = u16::try_from(result.cooldown_seconds) else {
-        return error(StatusCode::SERVICE_UNAVAILABLE);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
     if !result.issued {
-        return Json(protocol::Challenge::Wait {
+        return Ok(protocol::Challenge::Wait {
             seconds: cooldown,
             ticket: None,
-        })
-        .into_response();
+        });
     }
     let Some(seed) = state.key.render_seed(&token) else {
-        return error(StatusCode::SERVICE_UNAVAILABLE);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
     let rendered = tokio::task::spawn_blocking(move || {
         // The permit outlives cancellation of the HTTP future, bounding queued
@@ -70,7 +69,7 @@ pub(crate) async fn render(
     })
     .await;
     let Ok(Some(image)) = rendered else {
-        return error(StatusCode::SERVICE_UNAVAILABLE);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
     let encode = |bytes: &[u8]| {
         format!(
@@ -78,7 +77,7 @@ pub(crate) async fn render(
             base64::engine::general_purpose::STANDARD.encode(bytes)
         )
     };
-    Json(protocol::Challenge::Ready {
+    Ok(protocol::Challenge::Ready {
         token: token.encode(),
         image: encode(&image.foreground),
         background: image.background.as_deref().map(encode),
@@ -87,5 +86,31 @@ pub(crate) async fn render(
         slider: style.slider,
         offset_max: image.offset_max,
     })
-    .into_response()
+}
+
+/// Preserve the email endpoint's existing response shape while sharing the
+/// typed challenge result with the posting ticket state machine.
+pub(crate) async fn render(
+    state: &AppState,
+    input: &protocol::ChallengeContext,
+    purpose: ChallengePurpose,
+    context_hash: &[u8; 32],
+    style: ImageStyle,
+    suspicious: bool,
+    render_permit: tokio::sync::OwnedSemaphorePermit,
+) -> Response {
+    match prepare(
+        state,
+        input,
+        purpose,
+        context_hash,
+        style,
+        suspicious,
+        render_permit,
+    )
+    .await
+    {
+        Ok(challenge) => Json(challenge).into_response(),
+        Err(status) => error(status),
+    }
 }

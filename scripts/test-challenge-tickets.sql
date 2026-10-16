@@ -3,6 +3,11 @@ BEGIN;
 SET LOCAL ROLE board_migrator;
 INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page)
 VALUES('qcticket1','Ticket test','',2000,100,100,100,10),('qcticket2','Ticket test','',2000,100,100,100,10);
+-- Storage/capacity cases use explicit trusted scores. Missing or revoked
+-- scores are covered by the issuer completion and HTTP policy tests.
+INSERT INTO verification_private.peer_risk(peer_hash,score,expires_at)
+VALUES(decode(repeat('c3',32),'hex'),99,statement_timestamp()+interval '1 hour'),
+ (decode(repeat('b2',32),'hex'),99,statement_timestamp()+interval '1 hour');
 DO $tests$
 DECLARE first_ticket record; reused record; replacement record; policy record;
  a bytea:=decode(repeat('a1',32),'hex'); b bytea:=decode(repeat('b2',32),'hex');

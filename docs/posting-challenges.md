@@ -56,7 +56,25 @@ The ticket-advice API distinguishes missing tickets from valid waiting tickets
 without creating either one. Missing or expired trusted risk input requires a
 ticket challenge; a current score of 99 or 100 skips that escalation. This
 keeps the source's score threshold without its user-agent exception. The
-posting issuer still needs to act on that advice.
+posting issuer applies that advice before creating a new ticket. Issuance
+rechecks the precise risk expiry and score under the policy lock, so a
+concurrent downgrade cannot leave the earlier advice usable. Only the private
+completion path may substitute a consumed ticket-challenge receipt for that
+trusted-score check.
+
+The authenticated `/v1/posting/challenge` endpoint keeps ticket escalation
+separate from the challenge used to submit a post or report. It uses an
+eight-character local image when the source would require the external ticket
+provider. Migration 0168 consumes that solved ticket challenge's receipt and
+creates the waiting ticket in one transaction. The ticket still has to wait;
+it cannot authorize a protected write.
+
+Once the stored wait has elapsed, the issuer creates the ordinary action-bound
+challenge. Reloads reuse the original ticket start. Classic-provider boards
+request a non-slider replacement directly, without the Twister ticket protocol.
+A disabled board returns an explicit disabled result. HTTP tests cover these
+branches, ticket expiry, the trusted-score threshold, and ticket challenges
+being rejected as posting proofs. Browser integration remains unfinished.
 
 ## Validation and remaining work
 
@@ -107,7 +125,7 @@ report challenge for a thirty-second receipt. HTTP tests verify purpose and
 form binding, stored receipt scope, wrong-answer consumption, and replay
 rejection. It does not consume the receipt or complete a protected write.
 
-Posting challenge issuance, report integration, credit spending, and browser
-flows still need implementation or qualification. Existing posting fixtures must explicitly
+Report integration, credit spending, and browser flows still need
+implementation or qualification. Existing posting fixtures must explicitly
 account for the new gate. The branch has not passed full-workspace CI and must
 not be treated as ready to merge.

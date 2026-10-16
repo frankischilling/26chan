@@ -122,6 +122,12 @@ impl VerificationClient {
     ) -> Result<protocol::Challenge, Error> {
         self.exchange("/v1/challenge", input).await
     }
+    pub async fn posting_challenge(
+        &self,
+        input: &protocol::PostingChallengeRequest,
+    ) -> Result<protocol::PostingChallengeResult, Error> {
+        self.exchange("/v1/posting/challenge", input).await
+    }
     pub async fn check(&self, input: &protocol::Answer) -> Result<protocol::AnswerResult, Error> {
         self.exchange("/v1/check", input).await
     }
