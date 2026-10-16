@@ -33,6 +33,33 @@ $$;
 REVOKE ALL ON FUNCTION content.verification_board_policy(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION content.verification_board_policy(text) TO board_verifier;
 
+-- Inspect an existing wait ticket before deciding whether a new ticket needs
+-- an escalated challenge. Missing/expired trusted risk input requires that
+-- challenge; only a current score of at least 99 skips it.
+CREATE FUNCTION content.verification_ticket_advice(p_ticket bytea,p_peer bytea,p_board text)
+RETURNS TABLE(valid boolean,issued_at bigint,current_at bigint,escalation_required boolean)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE v_now timestamptz; v_ticket verification_private.tickets%ROWTYPE; v_valid boolean;
+BEGIN
+ IF (p_ticket IS NOT NULL AND octet_length(p_ticket)<>32)
+    OR p_peer IS NULL OR octet_length(p_peer)<>32 OR p_board IS NULL THEN
+  RAISE EXCEPTION 'Invalid challenge ticket context.' USING ERRCODE='23514';
+ END IF;
+ PERFORM b.slug FROM content.boards b WHERE b.slug=p_board AND NOT b.staff_only FOR KEY SHARE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Public board not found.' USING ERRCODE='P0002'; END IF;
+ v_now:=date_trunc('second',clock_timestamp());
+ SELECT t.* INTO v_ticket FROM verification_private.tickets t
+ WHERE t.token_hash=p_ticket AND t.peer_hash=p_peer AND t.board=p_board;
+ v_valid:=FOUND AND v_ticket.created_at<=v_now AND v_ticket.expires_at>v_now;
+ RETURN QUERY SELECT v_valid,
+  CASE WHEN v_valid THEN extract(epoch FROM v_ticket.created_at)::bigint ELSE 0::bigint END,
+  extract(epoch FROM v_now)::bigint,
+  NOT EXISTS(SELECT 1 FROM verification_private.peer_risk r
+   WHERE r.peer_hash=p_peer AND r.expires_at>v_now AND r.score>=99);
+END $$;
+REVOKE ALL ON FUNCTION content.verification_ticket_advice(bytea,bytea,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION content.verification_ticket_advice(bytea,bytea,text) TO board_verifier;
+
 -- Tickets attest only elapsed waiting time, never a CAPTCHA solution or a
 -- posting entitlement. The issuer supplies random candidates, not timestamps.
 -- A valid ticket remains reusable on its board and peer until the one-hour

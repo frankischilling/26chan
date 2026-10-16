@@ -42,6 +42,14 @@ pub struct PreparedTicket {
     pub current_at: i64,
 }
 
+#[derive(sqlx::FromRow)]
+pub struct TicketAdvice {
+    pub valid: bool,
+    pub issued_at: i64,
+    pub current_at: i64,
+    pub escalation_required: bool,
+}
+
 #[derive(Clone, Copy)]
 pub enum ChallengePurpose {
     Thread,
@@ -152,7 +160,7 @@ impl VerificationStore {
              AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                WHERE n.nspname='verification_private' AND c.relkind='r'
                  AND has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))
-             AND coalesce((SELECT count(*)=11 AND bool_and(p.prosecdef AND p.proowner='board_anonymous_owner'::regrole
+             AND coalesce((SELECT count(*)=12 AND bool_and(p.prosecdef AND p.proowner='board_anonymous_owner'::regrole
                AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
                AND has_function_privilege(current_user,p.oid,'EXECUTE')
                AND NOT has_function_privilege('board_public',p.oid,'EXECUTE')
@@ -170,6 +178,7 @@ impl VerificationStore {
                  to_regprocedure('content.verification_email_advice(bytea,bytea,bytea)'),
                  to_regprocedure('content.verification_risk(bytea,bytea)'),
                  to_regprocedure('content.verification_board_policy(text)'),
+                 to_regprocedure('content.verification_ticket_advice(bytea,bytea,text)'),
                  to_regprocedure('content.verification_prepare_ticket(bytea,bytea,bytea,text)'))),false)
              AND coalesce((SELECT count(*)=1 AND bool_and(p.prosecdef
                 AND p.proowner='board_anonymous_owner'::regrole
@@ -232,6 +241,22 @@ impl VerificationStore {
             sqlx::query_as("SELECT * FROM content.verification_board_policy($1)")
                 .bind(board)
                 .fetch_optional(&self.pool)
+                .await?,
+        )
+    }
+
+    pub async fn ticket_advice(
+        &self,
+        presented: Option<&[u8; 32]>,
+        peer: &[u8; 32],
+        board: &str,
+    ) -> Result<TicketAdvice, StoreError> {
+        Ok(
+            sqlx::query_as("SELECT * FROM content.verification_ticket_advice($1,$2,$3)")
+                .bind(presented.map(|value| value.as_slice()))
+                .bind(peer.as_slice())
+                .bind(board)
+                .fetch_one(&self.pool)
                 .await?,
         )
     }

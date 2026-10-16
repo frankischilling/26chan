@@ -52,6 +52,11 @@ If a lowered capacity still leaves too many rows after one cleanup batch, the
 issuer receives an unavailable result while the expired-row cleanup commits.
 Later attempts can continue that bounded cleanup. Valid ticket reuse does not
 wait for the global issuance-capacity lock.
+The ticket-advice API distinguishes missing tickets from valid waiting tickets
+without creating either one. Missing or expired trusted risk input requires a
+ticket challenge; a current score of 99 or 100 skips that escalation. This
+keeps the source's score threshold without its user-agent exception. The
+posting issuer still needs to act on that advice.
 
 ## Validation and remaining work
 
