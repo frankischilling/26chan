@@ -1727,6 +1727,12 @@ async fn tail_counts(f: &Fixture) {
         .await
         .unwrap();
     assert_eq!(tail.images, 0);
+    // Put the next attachment beyond the first loader batch.
+    for _ in 0..17 {
+        create_post(&f.public, &f.board, thread, &post())
+            .await
+            .unwrap();
+    }
     let last = f.reserve().await;
     let asset = f.approve(&last).await;
     f.insert(thread, &last).await.unwrap();
@@ -1739,6 +1745,30 @@ async fn tail_counts(f: &Fixture) {
         .await
         .unwrap();
     assert_eq!(generic_tail.images, 1);
+    let full = board_store::thread_snapshot(&generic, &f.board, thread)
+        .await
+        .unwrap();
+    assert!(full.posts.len() > 16);
+    assert_eq!(
+        full.posts
+            .last()
+            .unwrap()
+            .attachment
+            .as_ref()
+            .unwrap()
+            .asset_id,
+        asset
+    );
+    assert!(
+        full.posts
+            .iter()
+            .find(|post| post.id == image)
+            .unwrap()
+            .attachment
+            .as_ref()
+            .unwrap()
+            .file_deleted
+    );
     assert_eq!(
         generic_tail.posts[1].attachment.as_ref().unwrap().asset_id,
         asset
