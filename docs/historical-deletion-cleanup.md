@@ -34,7 +34,9 @@ It does not copy deleted text into a new audit record.
 
 ## Preview and apply
 
-Build `board-deletion-cleanup` and apply migration 0141 with writers stopped.
+Build `board-deletion-cleanup` and apply all migrations shipped with that build
+with writers stopped. The operator checks the current report and restriction
+catalog as well as the erasure guards; migration 0141 alone is not sufficient.
 Use the actual `board_migrator` login through `MIGRATION_DATABASE_URL`; a runtime
 login or a different login using `SET ROLE` is refused by the command.
 
