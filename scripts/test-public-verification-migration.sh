@@ -62,8 +62,15 @@ SQL
 "${migrator[@]}" -Atc "SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash" > "$cluster/before.json"
 for migration in migrations/*.sql; do
     [[ $(basename "$migration") < 0158_ ]] && continue
-    [[ $(basename "$migration") < 0170_ ]] || break
+    [[ $(basename "$migration") < 0171_ ]] || break
     "${migrator[@]}" --single-transaction -f - < "$migration"
+    # The verifier's readiness predicate must distinguish the old two-column
+    # credit result from the upgraded lifetime-aware wire contract.
+    if [[ $(basename "$migration") = 0169_* ]]; then
+        "${migrator[@]}" -Atc "SELECT pg_get_function_result('content.verification_credit_receipt(bytea,bytea,bytea,bytea,bytea,bytea,text,bigint,text,bytea,bigint)'::regprocedure)='TABLE(status text, remaining smallint)'" | grep -qx t
+    elif [[ $(basename "$migration") = 0170_* ]]; then
+        "${migrator[@]}" -Atc "SELECT pg_get_function_result('content.verification_credit_receipt(bytea,bytea,bytea,bytea,bytea,bytea,text,bigint,text,bytea,bigint)'::regprocedure)='TABLE(status text, remaining smallint, ttl_seconds integer)'" | grep -qx t
+    fi
 done
 "${migrator[@]}" -Atc "SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash" > "$cluster/after.json"
 cmp "$cluster/before.json" "$cluster/after.json"

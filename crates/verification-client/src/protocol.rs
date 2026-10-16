@@ -63,6 +63,7 @@ pub enum Challenge {
     },
     Credits {
         remaining: u8,
+        ttl_seconds: u16,
     },
     Disabled {},
 }

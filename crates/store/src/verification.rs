@@ -105,7 +105,7 @@ pub struct ChallengeCheck<'a> {
 }
 
 pub struct CreditRequest<'a> {
-    pub receipt: &'a [u8; 32],
+    pub receipt: Option<&'a [u8; 32]>,
     pub peer: &'a [u8; 32],
     pub fingerprints: &'a Fingerprints,
     pub board: &'a str,
@@ -118,6 +118,7 @@ pub struct CreditRequest<'a> {
 pub struct CreditIssuance {
     pub status: String,
     pub remaining: i16,
+    pub ttl_seconds: i32,
 }
 
 pub struct TicketCompletion<'a> {
@@ -177,6 +178,7 @@ impl VerificationStore {
         let safe: bool = sqlx::query_scalar(
             "SELECT current_user='board_verifier' AND session_user='board_verifier'
              AND content.public_challenge_ready()
+             AND coalesce(pg_get_function_result(to_regprocedure('content.verification_credit_receipt(bytea,bytea,bytea,bytea,bytea,bytea,text,bigint,text,bytea,bigint)'))='TABLE(status text, remaining smallint, ttl_seconds integer)',false)
              AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
              AND NOT rolreplication AND NOT rolbypassrls
              AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid)
@@ -330,7 +332,7 @@ impl VerificationStore {
         Ok(sqlx::query_as(
             "SELECT * FROM content.verification_credit_receipt($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
         )
-        .bind(input.receipt.as_slice())
+        .bind(input.receipt.map(|value| value.as_slice()))
         .bind(input.peer.as_slice())
         .bind(input.fingerprints.token.as_slice())
         .bind(input.fingerprints.network.as_slice())

@@ -279,6 +279,51 @@ pub(crate) async fn challenge(
             }
         }
     }
+    if policy.twister
+        && matches!(
+            context.purpose,
+            protocol::Purpose::Reply | protocol::Purpose::Report
+        )
+    {
+        match state
+            .store
+            .credit_receipt(&board_store::verification::CreditRequest {
+                receipt: None,
+                peer: &peer,
+                fingerprints: &fp,
+                board,
+                target: context.target,
+                purpose,
+                context: &hash,
+                request_time: now as i64,
+            })
+            .await
+        {
+            Ok(credit) if credit.status == "ready" => {
+                let Ok(remaining) = u8::try_from(credit.remaining) else {
+                    return error(StatusCode::SERVICE_UNAVAILABLE);
+                };
+                if !(1..=3).contains(&remaining) {
+                    return error(StatusCode::SERVICE_UNAVAILABLE);
+                }
+                let Ok(ttl_seconds) = u16::try_from(credit.ttl_seconds) else {
+                    return error(StatusCode::SERVICE_UNAVAILABLE);
+                };
+                if !(1..=120).contains(&ttl_seconds) {
+                    return error(StatusCode::SERVICE_UNAVAILABLE);
+                }
+                return response(
+                    protocol::Challenge::Credits {
+                        remaining,
+                        ttl_seconds,
+                    },
+                    false,
+                );
+            }
+            Ok(credit) if credit.status == "ineligible" => (),
+            _ => return error(StatusCode::SERVICE_UNAVAILABLE),
+        }
+    }
     let style = if policy.twister {
         challenge_policy::image_style(&resumed, now, policy_purpose, risk.suspicious())
     } else {

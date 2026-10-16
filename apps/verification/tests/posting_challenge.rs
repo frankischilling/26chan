@@ -61,6 +61,13 @@ async fn posting_issuer_preserves_ticket_wait_and_separates_classic_and_disabled
             .await
             .unwrap();
     sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES($1,'Posting issuer','Synthetic',2000,100,100,100,10)").bind(&board).execute(&owner).await.unwrap();
+    let target: i64 =
+        sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
+            .bind(&board)
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Anonymous','Credit target','Owned synthetic target')").bind(target).bind(&board).execute(&owner).await.unwrap();
     let material = ReceiptToken::generate().unwrap().encode();
     let key = VerificationKey::parse(&material[3..]).unwrap();
     let app = router(
@@ -198,6 +205,62 @@ async fn posting_issuer_preserves_ticket_wait_and_separates_classic_and_disabled
             assert_eq!(trusted["ticket_challenge"], false);
             assert_eq!(trusted["challenge"]["state"], "wait");
             assert_eq!(trusted["challenge"]["seconds"], 900);
+            sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=extract(epoch FROM statement_timestamp())::bigint-259260,network_at=extract(epoch FROM statement_timestamp())::bigint-259260,address_at=extract(epoch FROM statement_timestamp())::bigint-120,activity_at=extract(epoch FROM statement_timestamp())::bigint,posts=5 WHERE token_hash=$1").bind(fp.token.as_slice()).execute(&owner).await.unwrap();
+            sqlx::query("INSERT INTO verification_private.credits(identity_key,remaining,expires_at) VALUES(sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea),1,statement_timestamp()+interval '1 hour')").bind(fp.token.as_slice()).execute(&owner).await.unwrap();
+            input.context.purpose = protocol::Purpose::Reply;
+            input.context.target = target;
+            let before: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM verification_private.receipts WHERE session_hash=$1",
+            )
+            .bind(fp.token.as_slice())
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+            for _ in 0..3 {
+                let (status, advice) = request(&app, "/v1/posting/challenge", &input).await;
+                assert_eq!(status, StatusCode::OK);
+                assert_eq!(advice["challenge"]["state"], "credits");
+                assert_eq!(advice["challenge"]["remaining"], 1);
+                assert_eq!(advice["challenge"]["ttl_seconds"], 120);
+            }
+            let after: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM verification_private.receipts WHERE session_hash=$1",
+            )
+            .bind(fp.token.as_slice())
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+            assert_eq!(
+                before, after,
+                "Credit advice must not fill the receipt store"
+            );
+            for _ in 0..2 {
+                let (status, claim) = request(&app, "/v1/credit", &input.context).await;
+                assert_eq!(status, StatusCode::OK);
+                assert_eq!(claim["state"], "verified");
+                let receipt = ReceiptToken::parse(claim["receipt"].as_str().unwrap()).unwrap();
+                let from_credit:bool=sqlx::query_scalar("SELECT from_credit AND NOT may_grant_credit FROM verification_private.receipts WHERE token_hash=$1").bind(receipt.storage_hash().as_slice()).fetch_one(&owner).await.unwrap();
+                assert!(from_credit);
+            }
+            let remaining:i16=sqlx::query_scalar("SELECT remaining FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fp.token.as_slice()).fetch_one(&owner).await.unwrap();
+            assert_eq!(
+                remaining, 1,
+                "Claims must leave spending to the protected write"
+            );
+            let mut thread = input.context.clone();
+            thread.purpose = protocol::Purpose::Thread;
+            thread.target = 0;
+            assert_eq!(
+                request(&app, "/v1/credit", &thread).await.0,
+                StatusCode::BAD_REQUEST
+            );
+            sqlx::query("UPDATE content.boards SET captcha_allow_bypass=false WHERE slug=$1")
+                .bind(&board)
+                .execute(&owner)
+                .await
+                .unwrap();
+            let (_, denied) = request(&app, "/v1/credit", &input.context).await;
+            assert_eq!(denied["state"], "rejected");
         }
     };
     let outcome = tokio::spawn(work).await;
@@ -218,6 +281,17 @@ async fn posting_issuer_preserves_ticket_wait_and_separates_classic_and_disabled
         .unwrap();
     sqlx::query("DELETE FROM verification_private.peers WHERE peer_hash=$1")
         .bind(peer_hash.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fp.token.as_slice()).execute(&owner).await.unwrap();
+    sqlx::query("DELETE FROM content.posts WHERE board=$1")
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM content.threads WHERE board=$1")
+        .bind(&board)
         .execute(&owner)
         .await
         .unwrap();

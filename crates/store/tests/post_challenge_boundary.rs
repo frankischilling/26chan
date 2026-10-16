@@ -326,7 +326,7 @@ async fn run_scenario(initial_posts: i16, expected_credits: i16, with_attachment
                 for receipt in &claims {
                     let issued = verifier
                         .credit_receipt(&board_store::verification::CreditRequest {
-                            receipt: &receipt.storage_hash(),
+                            receipt: Some(&receipt.storage_hash()),
                             peer: &peer_hash,
                             fingerprints: &fingerprints,
                             board: &board,

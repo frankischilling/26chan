@@ -140,6 +140,16 @@ only one reply. Other cases revoke board bypass or trusted risk after issuance,
 expire the balance, or substitute a different private identity; all reject the
 write without consuming its claim.
 
+Migration 0170 separates credit advice from claiming a credit. Repeated
+challenge refreshes return the available count and bounded lifetime without
+allocating receipts or changing the balance. The authenticated `/v1/credit`
+endpoint supplies a reply/report claim for immediate submission; it refuses
+thread claims and rechecks current eligibility. The protected write still owns
+consumption. HTTP tests cover refreshes without allocation, multiple claims
+without spending, and revoked board bypass. Readiness checks the lifetime-aware
+SQL result shape; upgrade tests exercise actual verifier startup against both
+the old and new contracts.
+
 Report integration and browser credit controls still need implementation or
 qualification. Existing posting fixtures must explicitly
 account for the new gate. The branch has not passed full-workspace CI and must
