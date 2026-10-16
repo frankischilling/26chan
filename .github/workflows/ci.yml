@@ -637,7 +637,7 @@ jobs:
   rust-and-postgres:
     # Every Linux lane must succeed, including both browser matrix entries.
     needs: [rust-and-browser, browser-suites, media-and-operations, http-parser-qualification]
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -655,7 +655,7 @@ jobs:
   visual-windows:
     # Retain the existing required check while core and themes run concurrently.
     needs: [visual-windows-core, visual-windows-themes]
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
