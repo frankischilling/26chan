@@ -3,7 +3,7 @@
 Issue [#199](https://github.com/frankischilling/26chan/issues/199) is in progress.
 Board policy, ticket storage, and normal post receipt enforcement are implemented
 in the database. Public posting and Quick Reply still need to request and supply
-those proofs; report enforcement and credit spending are unfinished. Email verification is covered in
+those proofs; report enforcement and browser credit controls are unfinished. Email verification is covered in
 [public verification](public-verification.md).
 
 ## Board policy
@@ -95,8 +95,9 @@ checks the private issuer receipt rather than trusting that input.
 Migration 0166 provides the private receipt-consumption helper for those writes.
 It checks scope and expiry after acquiring its locks, consumes a matching proof
 once, and rolls consumption back with a failed transaction. Runtime logins
-cannot call it directly. Credit-backed receipts remain rejected until their
-transactional spending path is implemented.
+cannot call it directly. Its normal-proof interface rejects credit claims;
+migration 0169 adds a separate private receipt-data interface for the posting
+guard and its transactional credit path.
 
 The private credit profile uses resumed activity from before the current post,
 matching the source's grant-before-activity ordering. It keeps the three grant
@@ -125,7 +126,21 @@ report challenge for a thirty-second receipt. HTTP tests verify purpose and
 form binding, stored receipt scope, wrong-answer consumption, and replay
 rejection. It does not consume the receipt or complete a protected write.
 
-Report integration, credit spending, and browser flows still need
-implementation or qualification. Existing posting fixtures must explicitly
+## Credit-backed replies
+
+Migration 0169 issues short-lived credit claims bound to the browser's current
+private credit identity. Issuing a claim does not decrement the balance. The
+reply transaction checks board policy, current risk, resumed activity, identity,
+and credit expiry again, then conditionally spends one credit before activity
+registration. Credit-backed replies cannot replenish credits.
+
+Tests force a registration failure after spending and verify that the balance
+and receipt are restored. Two concurrent claims for the same last credit admit
+only one reply. Other cases revoke board bypass or trusted risk after issuance,
+expire the balance, or substitute a different private identity; all reject the
+write without consuming its claim.
+
+Report integration and browser credit controls still need implementation or
+qualification. Existing posting fixtures must explicitly
 account for the new gate. The branch has not passed full-workspace CI and must
 not be treated as ready to merge.

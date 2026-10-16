@@ -104,6 +104,22 @@ pub struct ChallengeCheck<'a> {
     pub receipt_hash: &'a [u8; 32],
 }
 
+pub struct CreditRequest<'a> {
+    pub receipt: &'a [u8; 32],
+    pub peer: &'a [u8; 32],
+    pub fingerprints: &'a Fingerprints,
+    pub board: &'a str,
+    pub target: i64,
+    pub purpose: ChallengePurpose,
+    pub context: &'a [u8; 32],
+    pub request_time: i64,
+}
+#[derive(sqlx::FromRow)]
+pub struct CreditIssuance {
+    pub status: String,
+    pub remaining: i16,
+}
+
 pub struct TicketCompletion<'a> {
     pub presented: Option<&'a [u8; 32]>,
     pub candidate: &'a [u8; 32],
@@ -172,7 +188,7 @@ impl VerificationStore {
              AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                WHERE n.nspname='verification_private' AND c.relkind='r'
                  AND has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))
-             AND coalesce((SELECT count(*)=13 AND bool_and(p.prosecdef AND p.proowner='board_anonymous_owner'::regrole
+             AND coalesce((SELECT count(*)=14 AND bool_and(p.prosecdef AND p.proowner='board_anonymous_owner'::regrole
                AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
                AND has_function_privilege(current_user,p.oid,'EXECUTE')
                AND NOT has_function_privilege('board_public',p.oid,'EXECUTE')
@@ -192,17 +208,18 @@ impl VerificationStore {
                  to_regprocedure('content.verification_board_policy(text)'),
                  to_regprocedure('content.verification_ticket_advice(bytea,bytea,text)'),
                  to_regprocedure('content.verification_prepare_ticket(bytea,bytea,bytea,text)'),
-                 to_regprocedure('content.verification_finish_ticket(bytea,bytea,bytea,bytea,text,bigint,bytea,bytea)'))),false)
+                 to_regprocedure('content.verification_finish_ticket(bytea,bytea,bytea,bytea,text,bigint,bytea,bytea)'),
+                 to_regprocedure('content.verification_credit_receipt(bytea,bytea,bytea,bytea,bytea,bytea,text,bigint,text,bytea,bigint)'))),false)
              AND NOT EXISTS(SELECT 1 FROM unnest(ARRAY['board_public','board_verifier','board_mailer','board_staff','board_auth']) AS runtime(role_name)
                 WHERE pg_has_role(runtime.role_name,'board_anonymous_owner','MEMBER'))
-             AND coalesce((SELECT count(*)=3 AND bool_and(NOT p.prosecdef
+             AND coalesce((SELECT count(*)=4 AND bool_and(NOT p.prosecdef
                 AND p.proowner='board_anonymous_owner'::regrole
                 AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
                 AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
                   WHERE acl.privilege_type='EXECUTE' AND acl.grantee<>p.proowner))
                 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
                 WHERE n.nspname='verification_private' AND (
-                  (p.proname='take_write_receipt' AND p.proargtypes='17 17 17 25 25 20 17'::oidvector)
+                  (p.proname IN('take_write_receipt','take_write_receipt_data') AND p.proargtypes='17 17 17 25 25 20 17'::oidvector)
                   OR (p.proname='credit_profile' AND p.proargtypes='17 17 17 17 20'::oidvector)
                   OR (p.proname='prepare_ticket' AND p.proargtypes='17 17 17 25 16'::oidvector))),false)
              AND coalesce((SELECT count(*)=1 AND bool_and(p.prosecdef
@@ -304,6 +321,28 @@ impl VerificationStore {
                 .fetch_optional(&self.pool)
                 .await?,
         )
+    }
+
+    pub async fn credit_receipt(
+        &self,
+        input: &CreditRequest<'_>,
+    ) -> Result<CreditIssuance, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT * FROM content.verification_credit_receipt($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+        )
+        .bind(input.receipt.as_slice())
+        .bind(input.peer.as_slice())
+        .bind(input.fingerprints.token.as_slice())
+        .bind(input.fingerprints.network.as_slice())
+        .bind(input.fingerprints.address.as_slice())
+        .bind(input.fingerprints.environment.as_slice())
+        .bind(input.board)
+        .bind(input.target)
+        .bind(input.purpose.value())
+        .bind(input.context.as_slice())
+        .bind(input.request_time)
+        .fetch_one(&self.pool)
+        .await?)
     }
 
     pub async fn finish_ticket(

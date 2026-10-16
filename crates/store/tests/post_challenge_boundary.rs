@@ -309,9 +309,191 @@ async fn run_scenario(initial_posts: i16, expected_credits: i16, with_attachment
             assert_eq!(handoffs, 0);
             let remaining:Option<i16>=sqlx::query_scalar("SELECT remaining FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).fetch_optional(&owner).await.unwrap();
             assert_eq!(remaining.unwrap_or(0), expected_credits);
+            if initial_posts == 5 && !with_attachment {
+                let parent: i64 =
+                    sqlx::query_scalar("SELECT id FROM content.threads WHERE board=$1 LIMIT 1")
+                        .bind(&board)
+                        .fetch_one(&owner)
+                        .await
+                        .unwrap();
+                let context = key
+                    .form_context("reply", Some(&board), parent, &"cd".repeat(32))
+                    .unwrap();
+                let claims = [
+                    ReceiptToken::generate().unwrap(),
+                    ReceiptToken::generate().unwrap(),
+                ];
+                for receipt in &claims {
+                    let issued = verifier
+                        .credit_receipt(&board_store::verification::CreditRequest {
+                            receipt: &receipt.storage_hash(),
+                            peer: &peer_hash,
+                            fingerprints: &fingerprints,
+                            board: &board,
+                            target: parent,
+                            purpose: ChallengePurpose::Reply,
+                            context: &context,
+                            request_time: chrono::Utc::now().timestamp(),
+                        })
+                        .await
+                        .unwrap();
+                    assert_eq!(issued.status, "ready");
+                    assert_eq!(
+                        issued.remaining, 1,
+                        "Claims must not spend a credit before a protected write"
+                    );
+                }
+                let token_hex: String = fingerprints
+                    .token
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect();
+                // This owned constraint fails after finish_post_challenge has
+                // spent the credit and before anonymous registration commits.
+                sqlx::query(sqlx::AssertSqlSafe(format!("ALTER TABLE post_secrets.anonymous_posts ADD CONSTRAINT {board}_credit_failure CHECK(token_hash<>decode('{token_hex}','hex')) NOT VALID"))).execute(&owner).await.unwrap();
+                let public = &public;
+                let board = board.as_str();
+                let poster_key = &poster_key;
+                let claims = &claims;
+                let submit = |i: usize| async move {
+                    let now = chrono::Utc::now();
+                    create_post_with_challenge(
+                        public,
+                        board,
+                        parent,
+                        &NewPost {
+                            name: "Anonymous".into(),
+                            subject: String::new(),
+                            comment: format!("Owned credit reply {i}"),
+                            deletion_hash: "fixture".into(),
+                            sage: false,
+                        },
+                        None,
+                        ProtectedPostingContext {
+                            anonymous: AnonymousPostingContext {
+                                posting: PostingContext {
+                                    request_start: now,
+                                    peer: Some(peer),
+                                    op_password_proof: None,
+                                },
+                                session: PostingSession {
+                                    fingerprints,
+                                    minted: false,
+                                    now,
+                                },
+                            },
+                            challenge: WriteChallengeProof::from_issuer(
+                                &claims[i].encode(),
+                                peer_hash,
+                                context,
+                            ),
+                        },
+                        PostMetadata {
+                            keys: PostIdentityKeys {
+                                tripcode: None,
+                                poster_id: Some(poster_key),
+                            },
+                            country_database: None,
+                            flag: "",
+                            options: "",
+                            spoiler: false,
+                            drawing: None,
+                        },
+                    )
+                    .await
+                };
+                // Entitlements are checked again at the protected write, not
+                // retained just because both claims were previously issued.
+                sqlx::query("UPDATE content.boards SET captcha_allow_bypass=false WHERE slug=$1")
+                    .bind(board)
+                    .execute(&owner)
+                    .await
+                    .unwrap();
+                let denied = submit(0).await.unwrap_err();
+                assert!(
+                    matches!(denied,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),
+                    "{denied:?}"
+                );
+                sqlx::query("UPDATE content.boards SET captcha_allow_bypass=true WHERE slug=$1")
+                    .bind(board)
+                    .execute(&owner)
+                    .await
+                    .unwrap();
+                sqlx::query("INSERT INTO verification_private.peer_risk(peer_hash,score,expires_at) VALUES($1,79,statement_timestamp()+interval '1 hour')").bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
+                let denied = submit(0).await.unwrap_err();
+                assert!(
+                    matches!(denied,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),
+                    "{denied:?}"
+                );
+                sqlx::query("DELETE FROM verification_private.peer_risk WHERE peer_hash=$1")
+                    .bind(peer_hash.as_slice())
+                    .execute(&owner)
+                    .await
+                    .unwrap();
+                let credit_expiry:chrono::DateTime<chrono::Utc>=sqlx::query_scalar("UPDATE verification_private.credits SET expires_at=statement_timestamp()-interval '1 second' WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea) RETURNING expires_at").bind(fingerprints.token.as_slice()).fetch_one(&owner).await.unwrap();
+                let denied = submit(0).await.unwrap_err();
+                assert!(
+                    matches!(denied,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),
+                    "{denied:?}"
+                );
+                sqlx::query("UPDATE verification_private.credits SET expires_at=$2 WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).bind(credit_expiry+chrono::Duration::hours(1)).execute(&owner).await.unwrap();
+                sqlx::query("UPDATE verification_private.receipts SET credit_identity=decode(repeat('a7',32),'hex') WHERE token_hash=$1").bind(claims[0].storage_hash().as_slice()).execute(&owner).await.unwrap();
+                let denied = submit(0).await.unwrap_err();
+                assert!(
+                    matches!(denied,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),
+                    "{denied:?}"
+                );
+                sqlx::query("UPDATE verification_private.receipts SET credit_identity=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$2::bytea) WHERE token_hash=$1").bind(claims[0].storage_hash().as_slice()).bind(fingerprints.token.as_slice()).execute(&owner).await.unwrap();
+                let failed = submit(0).await.unwrap_err();
+                assert!(
+                    matches!(failed,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("23514")),
+                    "{failed:?}"
+                );
+                sqlx::query(sqlx::AssertSqlSafe(format!("ALTER TABLE post_secrets.anonymous_posts DROP CONSTRAINT {board}_credit_failure"))).execute(&owner).await.unwrap();
+                let restored:i16=sqlx::query_scalar("SELECT remaining FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).fetch_one(&owner).await.unwrap();
+                assert_eq!(
+                    restored, 1,
+                    "Late registration failure must restore the spent credit"
+                );
+                let retained:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM verification_private.receipts WHERE token_hash=$1)").bind(claims[0].storage_hash().as_slice()).fetch_one(&owner).await.unwrap();
+                assert!(retained, "Late registration failure must restore the claim");
+                let (left, right) = tokio::join!(submit(0), submit(1));
+                assert_eq!(
+                    usize::from(left.is_ok()) + usize::from(right.is_ok()),
+                    1,
+                    "Only one concurrent write can spend the last credit"
+                );
+                let denied = if let Err(error) = left {
+                    error
+                } else {
+                    right.unwrap_err()
+                };
+                assert!(
+                    matches!(denied,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),
+                    "{denied:?}"
+                );
+                let final_credit:i16=sqlx::query_scalar("SELECT remaining FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).fetch_one(&owner).await.unwrap();
+                assert_eq!(
+                    final_credit, 0,
+                    "Credit-backed posts must not grant new credits"
+                );
+                let final_posts: i64 =
+                    sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+                        .bind(board)
+                        .fetch_one(&owner)
+                        .await
+                        .unwrap();
+                assert_eq!(final_posts, 2);
+            }
         }
     };
     let outcome = tokio::spawn(work).await;
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "ALTER TABLE post_secrets.anonymous_posts DROP CONSTRAINT IF EXISTS {board}_credit_failure"
+    )))
+    .execute(&owner)
+    .await
+    .unwrap();
     if with_attachment {
         sqlx::query(sqlx::AssertSqlSafe(format!(
             "ALTER TABLE content.post_media DROP CONSTRAINT IF EXISTS {board}_late_failure"
@@ -344,6 +526,11 @@ async fn run_scenario(initial_posts: i16, expected_credits: i16, with_attachment
     sqlx::query("DELETE FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).execute(&owner).await.unwrap();
     sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
         .bind(fingerprints.token.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM verification_private.peer_risk WHERE peer_hash=$1")
+        .bind(peer_hash.as_slice())
         .execute(&owner)
         .await
         .unwrap();
