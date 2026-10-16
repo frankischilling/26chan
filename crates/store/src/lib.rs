@@ -56,6 +56,7 @@ mod thread_statistics;
 pub mod thread_transfer;
 pub mod verification;
 mod write;
+mod write_challenge;
 pub use board_snapshot::*;
 use chrono::{DateTime, Utc};
 pub use read::*;

@@ -78,3 +78,15 @@ once, and rolls consumption back with a failed transaction. Runtime logins
 cannot call it directly. It is not yet called by ordinary post or report writes;
 credit-backed receipts remain rejected until their transactional spending path
 is implemented.
+
+The private credit profile uses resumed activity from before the current post,
+matching the source's grant-before-activity ordering. It keeps the three grant
+tiers and the separate sixty-second address-age requirement for new grants.
+Existing-credit eligibility is computed separately. Verified browsers with the
+same email identity share the private credit key; anonymous browsers keep
+separate keys. This profile does not yet grant or spend stored credits.
+
+The Store's typed receipt carrier installs transaction-local proof input and
+clears any prior pooled-connection value when a writer supplies no proof. The
+post-table guard still needs to consume that input; the carrier itself provides
+no authorization.

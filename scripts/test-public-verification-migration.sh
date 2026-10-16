@@ -113,6 +113,7 @@ END $$;
 SQL
     "${runner[@]}" "${psql[@]}" -d "$database" -f - < scripts/test-challenge-tickets.sql
     "${runner[@]}" "${psql[@]}" -d "$database" -f - < scripts/test-protected-challenge-receipts.sql
+    "${runner[@]}" "${psql[@]}" -d "$database" -f - < scripts/test-challenge-credit-profile.sql
     "${admin[@]}" -At > "$cluster/$database.fingerprint" <<'SQL'
 SELECT 'session',to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash;
 SELECT 'identity',to_jsonb(i) FROM verification_private.identities i ORDER BY id;
