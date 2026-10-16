@@ -47,8 +47,11 @@ pub(crate) async fn load(
     posts: &mut [crate::Post],
 ) -> Result<(), StoreError> {
     let ids: Vec<i64> = posts.iter().map(|p| p.id).collect();
+    // Keep each lookup anchored to one primary key. A generic ANY(array) plan
+    // can scan unrelated posts and probe the complete array for every row.
+    // The security-barrier projection still enforces all visibility checks.
     let rows: Vec<PostAttachment> =
-        sqlx::query_as("SELECT * FROM content.visible_post_media WHERE post_id=ANY($1)")
+        sqlx::query_as("SELECT m.* FROM unnest($1::bigint[]) AS requested(post_id) CROSS JOIN LATERAL (SELECT * FROM content.visible_post_media WHERE post_id=requested.post_id LIMIT 1) m")
             .bind(&ids)
             .fetch_all(connection)
             .await?;
