@@ -328,9 +328,8 @@ pub(crate) async fn challenge(
     State(state): State<AppState>,
     Json(input): Json<protocol::ChallengeContext>,
 ) -> Response {
-    use base64::Engine;
     use board_domain::challenge_policy;
-    use board_store::verification::{ChallengePurpose, NewChallenge};
+    use board_store::verification::ChallengePurpose;
     let Some(fingerprints) = session(&input.session) else {
         return error(StatusCode::BAD_REQUEST);
     };
@@ -411,70 +410,14 @@ pub(crate) async fn challenge(
         style.characters = 8;
         style.slider = true;
     }
-    let Ok(token) = VerificationToken::generate(TokenKind::Challenge) else {
-        return error(StatusCode::SERVICE_UNAVAILABLE);
-    };
-    let Some(answer) = state.key.challenge_answer(&token, style.characters) else {
-        return error(StatusCode::SERVICE_UNAVAILABLE);
-    };
-    let Some(answer_hash) = state.key.answer_hash(&token, answer.as_str()) else {
-        return error(StatusCode::SERVICE_UNAVAILABLE);
-    };
-    let result = match state
-        .store
-        .issue_challenge(&NewChallenge {
-            token_hash: &state.key.token_hash(&token),
-            answer_hash: &answer_hash,
-            peer_hash: &state.key.network_identity(input.session.peer),
-            session_hash: &fingerprints.token,
-            purpose,
-            board: None,
-            target: 0,
-            context_hash: &context_hash,
-            suspicious: risk.suspicious(),
-        })
-        .await
-    {
-        Ok(value) => value,
-        Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE),
-    };
-    let Ok(cooldown) = u16::try_from(result.cooldown_seconds) else {
-        return error(StatusCode::SERVICE_UNAVAILABLE);
-    };
-    if !result.issued {
-        return Json(protocol::Challenge::Wait {
-            seconds: cooldown,
-            ticket: None,
-        })
-        .into_response();
-    }
-    let Some(seed) = state.key.render_seed(&token) else {
-        return error(StatusCode::SERVICE_UNAVAILABLE);
-    };
-    let rendered = tokio::task::spawn_blocking(move || {
-        // The permit outlives cancellation of the HTTP future, bounding queued
-        // and running raster work even if the requesting client disconnects.
-        let _permit = render_permit;
-        crate::challenge::render::render(&answer, seed, style.slider)
-    })
-    .await;
-    let Ok(Some(image)) = rendered else {
-        return error(StatusCode::SERVICE_UNAVAILABLE);
-    };
-    let encode = |bytes: &[u8]| {
-        format!(
-            "data:image/png;base64,{}",
-            base64::engine::general_purpose::STANDARD.encode(bytes)
-        )
-    };
-    Json(protocol::Challenge::Ready {
-        token: token.encode(),
-        image: encode(&image.foreground),
-        background: image.background.as_deref().map(encode),
-        ttl_seconds: challenge_policy::CHALLENGE_SECONDS as u16,
-        cooldown_seconds: cooldown,
-        slider: style.slider,
-        offset_max: image.offset_max,
-    })
-    .into_response()
+    crate::challenge::issue::render(
+        &state,
+        &input,
+        purpose,
+        &context_hash,
+        style,
+        risk.suspicious(),
+        render_permit,
+    )
+    .await
 }

@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
-//! Isolated public verification authority. Challenge and email mutation routes
-//! remain under construction; unavailable routes fail closed.
+//! Isolated challenge and email verification authority. Only explicitly
+//! registered, authenticated routes are available.
 mod access;
 mod challenge;
 pub mod config;
