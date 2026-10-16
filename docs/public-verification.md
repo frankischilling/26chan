@@ -80,6 +80,20 @@ copies and verifies durable ownership with the other private evidence; whole-pos
 erasure removes the proof. The existing restriction and transfer catalogs are
 checked before their reviewed dependencies change and resealed afterward.
 
+Verified status also reaches the existing posting-admission rules. A verified
+browser with more than ten posts skips rules marked `lenient`, matching the
+source predicate; verification does not bypass non-lenient rules. The identity
+integration test starts with a young unverified browser, checks rejection,
+completes receipt-backed email verification, and submits the same content through
+the public posting store. It then checks that a non-lenient rule still rejects it.
+Report admission retains its pre-report known-or-verified evidence; weighted
+report ordering remains separate unfinished work. Ordinary posting and report
+CAPTCHA receipts remain #199 work.
+
+An email-expiry regression answers the verification challenge before expiring
+the link. Both preview and acceptance must then report expiry, without replacing
+the browser capability or marking the email token used.
+
 The source's CAPTCHA failure budget is six normally and three for suspicious
 verification. The queued request retains its limit; a suspicious verification
 challenge can tighten it. These counters are separate from the five failed
