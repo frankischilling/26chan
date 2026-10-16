@@ -1,4 +1,4 @@
-{% macro comment(lines, board = "", public_origin = "") -%}
+{% macro comment(lines, board = "", public_origin = "", source_style = false) -%}
 {%- for line in lines -%}
 {%- if !loop.first -%}<br>{%- endif -%}
 {%- if line.green -%}<span class="quote">{%- endif -%}
@@ -21,8 +21,12 @@
 {%- when Token::ChangedEntity with (entity) -%}
 {%- if entity.spelling() == "&4mp;" -%}&4mp;{%- elif entity.spelling() == "&qu0t;" -%}&qu0t;{%- elif entity.spelling() == "&quo7;" -%}&quo7;{%- elif entity.spelling() == "&qu07;" -%}&qu07;{%- endif -%}
 {%- when Token::FilteredDelimiter with (delimiter) -%}
-{%- if delimiter.valid_element() -%}
+{%- if delimiter.valid_element() || source_style -%}
 {%- if delimiter.opening() -%}<{{ delimiter.element_name() }}{% if delimiter.has_class() %} {{ delimiter.class_attribute() }}="{{ delimiter.class_value() }}"{% endif %}>{%- else -%}</{{ delimiter.element_name() }}>{%- endif -%}
+{%- elif delimiter.opening() -%}{{ delimiter.source_projection() }}{%- endif -%}
+{%- when Token::FilteredGenerated with (delimiter) -%}
+{%- if delimiter.valid_element() || source_style -%}
+{%- if delimiter.opening() -%}<{{ delimiter.element_name() }}{% if delimiter.has_class() %}{% if source_style %} {{ delimiter.class_attribute() }}="{{ delimiter.class_value() }}" {{ delimiter.style_attribute() }}="{{ delimiter.style_value() }}"{% else %} {{ delimiter.class_attribute() }}="{{ delimiter.html_class_value() }}"{% if let Some(color) = delimiter.extra_color_class() %} class="{{ color }}"{% endif %}{% endif %}{% endif %}>{%- else -%}</{{ delimiter.element_name() }}>{%- endif -%}
 {%- elif delimiter.opening() -%}{{ delimiter.source_projection() }}{%- endif -%}
 {%- when Token::OpenQuote -%}<span class="quote">
 {%- when Token::CloseQuote -%}</span>

@@ -72,6 +72,7 @@ enum Section {
     Text(Text),
     Break,
     Delimiter(crate::wordfiltered_comment::Delimiter),
+    Generated(crate::wordfiltered_comment::GeneratedDelimiter),
 }
 
 pub fn lines(prepared: &PreparedComment, board: &str) -> Vec<Line> {
@@ -110,6 +111,7 @@ fn lines_and_wrap(
                 sections.push(match part {
                     Part::Break => Section::Break,
                     Part::Delimiter(delimiter) => Section::Delimiter(*delimiter),
+                    Part::Generated(delimiter) => Section::Generated(*delimiter),
                     _ => unreachable!("nontext part"),
                 });
             }
@@ -124,6 +126,7 @@ fn lines_and_wrap(
             Section::Text(text) => text.value.clone(),
             Section::Break => "<br>".into(),
             Section::Delimiter(delimiter) => delimiter.source_projection(),
+            Section::Generated(delimiter) => delimiter.source_projection(),
         })
         .collect();
     let internal_links = crate::server_link::link_probe(&normalized);
@@ -134,6 +137,7 @@ fn lines_and_wrap(
         match section {
             Section::Break => linked.push_str("<br>"),
             Section::Delimiter(delimiter) => linked.push_str(&delimiter.source_projection()),
+            Section::Generated(delimiter) => linked.push_str(&delimiter.source_projection()),
             Section::Text(text) => {
                 for (token, range) in
                     tokenize_spanned(&text.value, false, false, internal_links, true, false)
@@ -188,6 +192,9 @@ fn lines_and_wrap(
         let after_break = lines.len() > 1;
         let output = &mut lines.last_mut().expect("initial line").tokens;
         match section {
+            Section::Generated(delimiter) => {
+                output.push(Token::FilteredGenerated(delimiter));
+            }
             Section::Delimiter(delimiter) => {
                 if delimiter.rolls().is_some() {
                     output.push(Token::FilteredDelimiter(delimiter));
@@ -311,6 +318,9 @@ pub fn source_projection(lines: &[Line]) -> String {
                 Token::Text(text) => result.push_str(&crate::source_html_entities(text)),
                 Token::ChangedEntity(entity) => result.push_str(entity.spelling()),
                 Token::FilteredDelimiter(delimiter) => {
+                    result.push_str(&delimiter.source_projection())
+                }
+                Token::FilteredGenerated(delimiter) => {
                     result.push_str(&delimiter.source_projection())
                 }
                 Token::OpenMarkup(tag) | Token::CloseMarkup(tag) => {

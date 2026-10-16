@@ -962,36 +962,50 @@ async fn create_post_in_context(
     let board_domain::PreparedPostContent { comment, subject } = content
         .finish_with_randomizer(special.as_ref())
         .map_err(|error| StoreError::Invalid(error.0))?;
-    let mut wordfiltered = if board.word_filter_enabled {
+    let mut wordfiltered = if board.word_filter_enabled || special.is_some() {
         use board_domain::wordfilter::{LeetRolls, Profile};
-        let profile = match board.word_filter_profile {
-            0 => Profile::Global,
-            1 => Profile::Basic,
-            2 => Profile::Asp,
-            3 => Profile::Video,
-            4 => Profile::Test,
-            _ => return Err(StoreError::Invalid("Wordfilter policy is unavailable.")),
+        let profile = if board.word_filter_enabled {
+            Some(match board.word_filter_profile {
+                0 => Profile::Global,
+                1 => Profile::Basic,
+                2 => Profile::Asp,
+                3 => Profile::Video,
+                4 => Profile::Test,
+                _ => return Err(StoreError::Invalid("Wordfilter policy is unavailable.")),
+            })
+        } else {
+            None
         };
-        let rolls = if profile == Profile::Test {
+        let rolls = if profile == Some(Profile::Test) {
             Some(LeetRolls::generate().map_err(|_| StoreError::RandomnessUnavailable)?)
         } else {
             None
         };
-        Some(
-            board_domain::wordfiltered_comment::prepare_with_limits(
+        let markup = board_domain::comment_markup::MarkupPolicy {
+            spoilers: board.comment_spoiler_cleanup,
+            code: board.comment_code_spacing,
+            sjis: board.comment_sjis_spacing,
+            op: op_markup,
+        };
+        let prepared = if let Some(outcome) = &special {
+            board_domain::wordfiltered_comment::prepare_with_randomizer(
                 &comment,
-                board_domain::comment_markup::MarkupPolicy {
-                    spoilers: board.comment_spoiler_cleanup,
-                    code: board.comment_code_spacing,
-                    sjis: board.comment_sjis_spacing,
-                    op: op_markup,
-                },
+                markup,
                 profile,
                 rolls,
                 post_limits,
+                outcome,
             )
-            .map_err(|error| StoreError::Invalid(error.0))?,
-        )
+        } else {
+            board_domain::wordfiltered_comment::prepare_with_limits(
+                &comment,
+                markup,
+                profile.expect("enabled board wordfilter"),
+                rolls,
+                post_limits,
+            )
+        };
+        Some(prepared.map_err(|error| StoreError::Invalid(error.0))?)
     } else {
         None
     };
@@ -1003,9 +1017,17 @@ async fn create_post_in_context(
         .map(board_domain::wordfiltered_comment::PreparedComment::encode)
         .transpose()
         .map_err(|error| StoreError::Invalid(error.0))?;
-    let formatted = wordfiltered
-        .as_ref()
-        .map(|prepared| board_domain::filtered_formatting::lines_for_post(prepared, slug, 232));
+    let formatted = wordfiltered.as_ref().map(|prepared| {
+        board_domain::filtered_formatting::lines_for_post(
+            prepared,
+            slug,
+            if prepared.has_generated_content() {
+                488
+            } else {
+                232
+            },
+        )
+    });
     let wordfilter_search = formatted
         .as_ref()
         .map(|lines| board_domain::formatting::plain_text(lines));

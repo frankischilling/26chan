@@ -1,6 +1,9 @@
 //! Posting-time filtering after source markup, with no trusted user HTML.
 //! Saved data grants only finite generated components; ordinary text is escaped.
 
+mod generated;
+pub use generated::GeneratedDelimiter;
+
 use crate::comment_markup::{MarkupPolicy, MarkupToken, Tag, parse_markup_with_limits};
 use crate::wordfilter::{self, Field, LeetRolls, Profile};
 use crate::{
@@ -166,6 +169,7 @@ pub enum Part {
     ChangedEntity(ChangedEntity),
     Break,
     Delimiter(Delimiter),
+    Generated(GeneratedDelimiter),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -174,9 +178,14 @@ pub struct PreparedComment {
     rolls: Option<LeetRolls>,
     wrap: Option<bool>,
     limits: WordfilterLimits,
+    generated: bool,
 }
 
 impl PreparedComment {
+    pub fn has_generated_content(&self) -> bool {
+        self.generated
+    }
+
     pub fn parts(&self) -> &[Part] {
         &self.parts
     }
@@ -197,7 +206,14 @@ impl PreparedComment {
     /// Versioned, bounded data; neither HTML nor an executable filter program.
     pub fn encode(&self) -> Result<Vec<u8>, ValidationError> {
         let mut output = Vec::new();
-        output.extend_from_slice(self.limits.version());
+        output.extend_from_slice(if self.generated {
+            match self.limits {
+                WordfilterLimits::Ordinary => b"WF03",
+                WordfilterLimits::Authorized => b"WF04",
+            }
+        } else {
+            self.limits.version()
+        });
         output.extend_from_slice(&(self.parts.len() as u32).to_be_bytes());
         output.extend_from_slice(&self.rolls.map_or([255, 255], LeetRolls::choices));
         output
@@ -220,6 +236,11 @@ impl PreparedComment {
                         ChangedEntity::QuoteZeroSeven => 3,
                     },
                 ]),
+                Part::Generated(delimiter) => output.extend_from_slice(&[
+                    4,
+                    delimiter.number(),
+                    u8::from(delimiter.opening()),
+                ]),
                 Part::Break => output.push(2),
                 Part::Delimiter(delimiter) => output.extend_from_slice(&[
                     3,
@@ -237,9 +258,10 @@ impl PreparedComment {
     /// Validate every field before constructing any rendering authority.
     pub fn decode(input: &[u8]) -> Result<Self, ValidationError> {
         const ERROR: ValidationError = ValidationError("Invalid saved wordfilter comment.");
-        let limits = if input.starts_with(b"WF01") {
+        let generated = input.starts_with(b"WF03") || input.starts_with(b"WF04");
+        let limits = if input.starts_with(b"WF01") || input.starts_with(b"WF03") {
             WordfilterLimits::Ordinary
-        } else if input.starts_with(b"WF02") {
+        } else if input.starts_with(b"WF02") || input.starts_with(b"WF04") {
             WordfilterLimits::Authorized
         } else {
             return Err(ERROR);
@@ -266,6 +288,8 @@ impl PreparedComment {
         let mut parts = Vec::with_capacity(count);
         let mut source_bytes = 0;
         let mut depth = [0u8; 8];
+        let mut generated_depth = [0u8; 14];
+        let mut generated_seen = [false; 14];
         for _ in 0..count {
             let part = match cursor.take(1)?[0] {
                 0 => {
@@ -335,6 +359,31 @@ impl PreparedComment {
                     source_bytes += delimiter.source_projection().len();
                     Part::Delimiter(delimiter)
                 }
+                4 if generated => {
+                    let number = cursor.take(1)?[0];
+                    let opening = match cursor.take(1)?[0] {
+                        0 => false,
+                        1 => true,
+                        _ => return Err(ERROR),
+                    };
+                    let delimiter =
+                        GeneratedDelimiter::from_saved(number, opening, rolls).ok_or(ERROR)?;
+                    let index = usize::from(number);
+                    if opening {
+                        if generated_seen[index] {
+                            return Err(ERROR);
+                        }
+                        generated_seen[index] = true;
+                        generated_depth[index] = 1;
+                    } else {
+                        if generated_depth[index] == 0 {
+                            return Err(ERROR);
+                        }
+                        generated_depth[index] = 0;
+                    }
+                    source_bytes += delimiter.source_projection().len();
+                    Part::Generated(delimiter)
+                }
                 _ => return Err(ERROR),
             };
             if source_bytes > limits.output_bytes() {
@@ -342,7 +391,13 @@ impl PreparedComment {
             }
             parts.push(part);
         }
-        if cursor.offset != input.len() || depth.iter().any(|depth| *depth != 0) {
+        if cursor.offset != input.len()
+            || depth.iter().any(|depth| *depth != 0)
+            || generated_depth.iter().any(|depth| *depth != 0)
+            || (generated
+                && (!generated_seen[0]
+                    || generated_seen[1..].iter().filter(|seen| **seen).count() > 1))
+        {
             return Err(ERROR);
         }
         Ok(Self {
@@ -350,6 +405,7 @@ impl PreparedComment {
             rolls,
             wrap: Some(wrap),
             limits,
+            generated,
         })
     }
 
@@ -364,6 +420,7 @@ impl PreparedComment {
                 Part::ChangedEntity(entity) => result.push_str(entity.spelling()),
                 Part::Break => result.push_str("<br>"),
                 Part::Delimiter(delimiter) => result.push_str(&delimiter.source_projection()),
+                Part::Generated(delimiter) => result.push_str(&delimiter.source_projection()),
             }
         }
         result
@@ -385,6 +442,19 @@ pub fn prepare(
         rolls,
         PostLimits::ordinary(MAX_COMMENT_CHARS),
     )
+}
+
+/// Compose generated source content with user markup before the board's filter.
+/// A missing profile disables filtering, while preserving the typed pipeline.
+pub fn prepare_with_randomizer(
+    comment: &str,
+    policy: MarkupPolicy,
+    profile: Option<Profile>,
+    rolls: Option<LeetRolls>,
+    post_limits: PostLimits,
+    outcome: &crate::posting_randomizers::Outcome,
+) -> Result<PreparedComment, ValidationError> {
+    generated::prepare(comment, policy, profile, rolls, post_limits, outcome)
 }
 
 pub fn prepare_with_limits(
@@ -464,6 +534,7 @@ pub fn prepare_with_limits(
         },
         wrap: None,
         limits,
+        generated: false,
     })
 }
 

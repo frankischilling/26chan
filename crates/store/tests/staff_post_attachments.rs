@@ -1526,3 +1526,57 @@ async fn missing_ordinary_identity(f: &Fixture) {
     assert_eq!(f.counts().await, before);
     assert!(f.receipt(&a).await);
 }
+
+database_case!(
+    generated_staff_content_keeps_exact_payload_and_limit_authority,
+    generated_staff_content
+);
+async fn generated_staff_content(f: &Fixture) {
+    sqlx::query("UPDATE content.boards SET dice_roll=true,fortune_trip=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let mut ip = 1;
+    for role in ["moderator", "manager", "admin", "janitor"] {
+        f.role(role).await;
+        for (enabled, profile) in [(false, 0), (true, 0), (true, 4)] {
+            sqlx::query("UPDATE content.boards SET word_filter_enabled=$2,word_filter_profile=$3 WHERE slug=$1")
+                .bind(&f.board).bind(enabled).bind(profile as i16).execute(&f.owner).await.unwrap();
+            for options in ["dice+1d1", "fortune"] {
+                let mut input = post();
+                input.comment.clear();
+                input.subject.clear();
+                let id = f
+                    .write_with_options(0, None, true, &input, ip, Utc::now(), options)
+                    .await
+                    .unwrap();
+                ip += 1;
+                let saved = board_store::find_post(&f.public, &f.board, id)
+                    .await
+                    .unwrap();
+                assert!(saved.has_generated_comment());
+                assert_eq!(saved.staff_authorized_limits, role != "janitor");
+                assert!(saved.capcode.is_none());
+                let bytes = saved.wordfilter_payload.as_deref().unwrap();
+                assert_eq!(
+                    &bytes[..4],
+                    if role == "janitor" { b"WF03" } else { b"WF04" }
+                );
+                let prepared =
+                    board_domain::wordfiltered_comment::PreparedComment::decode(bytes).unwrap();
+                assert!(prepared.has_generated_content());
+                assert_eq!(prepared.rolls().is_some(), enabled && profile == 4);
+                let lines = saved.formatted_lines();
+                assert_eq!(
+                    board_domain::filtered_formatting::source_projection(&lines),
+                    saved.comment
+                );
+                assert_eq!(saved.separate_dice_result(), None);
+                assert_eq!(saved.separate_fortune_text(), None);
+                assert_eq!(saved.separate_fortune_color(), None);
+            }
+        }
+    }
+    assert_eq!(f.counts().await.3, 0, "No completed proof remains");
+}

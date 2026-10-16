@@ -25,7 +25,7 @@ impl From<&board_store::Board> for Policy {
 impl Policy {
     pub fn for_post(board: &board_store::Board, format: i16) -> Self {
         Self {
-            source_links: matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255),
+            source_links: matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255 | 488..=495 | 504..=511),
             ..board.into()
         }
     }
@@ -50,7 +50,7 @@ pub(crate) fn stored_comment(lines: &[Line], board: &str, format: i16) -> String
         result.push_str(&serialize(
             &line.tokens,
             board,
-            matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255),
+            matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255 | 488..=495 | 504..=511),
         ));
         if line.green {
             result.push_str("</span>");
@@ -159,6 +159,7 @@ fn closes_span(token: &Token) -> bool {
                 Tag::Sjis | Tag::Bold | Tag::Italic | Tag::Red | Tag::Green | Tag::Blue
             )
     ) || matches!(token, Token::FilteredDelimiter(delimiter) if delimiter.closes_span())
+        || matches!(token, Token::FilteredGenerated(delimiter) if delimiter.closes_span())
 }
 
 pub(crate) fn replace_sjis(tokens: Vec<Token>) -> Vec<Token> {
@@ -209,7 +210,7 @@ pub(crate) fn strip(tokens: Vec<Token>) -> Vec<Token> {
                     Token::CloseMarkup(Tag::Spoiler)
                 });
             }
-            Token::FilteredDelimiter(_) => {}
+            Token::FilteredDelimiter(_) | Token::FilteredGenerated(_) => {}
             Token::Spoiler(text) | Token::Link(text) => result.push(Token::Text(text)),
             Token::WrappedLink(_, parts) | Token::ServerLink(_, parts) => {
                 for part in parts {
@@ -345,6 +346,7 @@ pub(crate) fn serialize(tokens: &[Token], board: &str, source_links: bool) -> St
             Token::OpenMarkup(tag) => result.push_str(markup(*tag, true)),
             Token::CloseMarkup(tag) => result.push_str(markup(*tag, false)),
             Token::FilteredDelimiter(delimiter) => result.push_str(&delimiter.source_projection()),
+            Token::FilteredGenerated(delimiter) => result.push_str(&delimiter.source_projection()),
             Token::ChangedEntity(entity) => result.push_str(entity.spelling()),
             Token::OpenQuote => result.push_str("<span class=\"quote\">"),
             Token::CloseQuote => result.push_str("</span>"),

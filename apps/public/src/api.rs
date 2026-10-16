@@ -187,9 +187,9 @@ fn post_json(
     let comment = Comment {
         lines: &post.lines,
         board: &board.slug,
-        dice_result: post.post.dice_result.as_deref(),
-        fortune_text: post.post.fortune_text.as_deref(),
-        fortune_color: post.post.fortune_color.as_deref(),
+        dice_result: post.post.separate_dice_result(),
+        fortune_text: post.post.separate_fortune_text(),
+        fortune_color: post.post.separate_fortune_color(),
         drawing: post.drawing_annotation(),
     }
     .render_json(post.post.comment_format)?;

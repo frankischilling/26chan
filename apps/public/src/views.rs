@@ -378,8 +378,7 @@ impl PostView {
 
     pub fn fortune_class(&self) -> Option<&'static str> {
         self.post
-            .fortune_color
-            .as_deref()
+            .separate_fortune_color()
             .and_then(board_domain::posting_randomizers::fortune_class)
     }
 
@@ -392,11 +391,10 @@ impl PostView {
             &self.lines,
             &board.slug,
             crate::catalog::teaser::Policy::for_post(board, self.post.comment_format),
-            self.post.dice_result.as_deref(),
+            self.post.separate_dice_result(),
             self.post
-                .fortune_text
-                .as_deref()
-                .zip(self.post.fortune_color.as_deref()),
+                .separate_fortune_text()
+                .zip(self.post.separate_fortune_color()),
             self.drawing_annotation().as_ref(),
         )
     }
@@ -477,12 +475,20 @@ pub struct Comment<'a> {
 }
 
 impl Comment<'_> {
+    pub fn generated_source(&self) -> bool {
+        self.lines.iter().any(|line| {
+            line.tokens
+                .iter()
+                .any(|token| matches!(token, Token::FilteredGenerated(_)))
+        })
+    }
+
     /// JSON keeps the source ENT_QUOTES spelling after the typed template has
     /// escaped every value. This only changes equivalent entity spellings; it
     /// never decodes entities, parses user HTML, or changes historical profiles.
     pub(crate) fn render_json(&self, format: i16) -> askama::Result<String> {
         let html = self.render()?;
-        if matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255) {
+        if matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255 | 488..=495 | 504..=511) {
             Ok(html
                 .replace("&#38;", "&amp;")
                 .replace("&#60;", "&lt;")
@@ -769,6 +775,82 @@ mod comment_tests {
                 .source_post,
             None
         );
+    }
+
+    #[test]
+    fn generated_palette_payloads_keep_source_json_and_csp_safe_page_markup() {
+        use board_domain::posting_randomizers::Outcome;
+        use board_domain::wordfilter::{LeetRolls, Profile};
+        #[derive(Template)]
+        #[template(
+            source = "{% import \"formatting.html\" as formatting %}{% call formatting::comment(lines, \"test\") %}{% endcall %}",
+            ext = "html"
+        )]
+        struct Page<'a> {
+            lines: &'a [Line],
+        }
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../../../fixtures/randomizer-reference.json"))
+                .unwrap();
+        let css = include_str!("../../../assets/comment-markup.css");
+        for fortune in fixture["fortunes"].as_array().unwrap() {
+            // Thirteen fixed fixture strings; the production outcome remains static.
+            let text: &'static str = Box::leak(
+                fortune["text"]
+                    .as_str()
+                    .unwrap()
+                    .to_owned()
+                    .into_boxed_str(),
+            );
+            let outcome = Outcome::Fortune {
+                text,
+                color: fortune["color"].as_str().unwrap().into(),
+            };
+            for first in 0..6 {
+                for second in 0..6 {
+                    let mut prepared = board_domain::wordfiltered_comment::prepare_with_randomizer(
+                        "",
+                        Default::default(),
+                        Some(Profile::Test),
+                        Some(LeetRolls::from_choices(first, second).unwrap()),
+                        board_domain::PostLimits::ordinary(1000),
+                        &outcome,
+                    )
+                    .unwrap();
+                    prepared.freeze_format("test");
+                    let lines =
+                        board_domain::filtered_formatting::lines_for_post(&prepared, "test", 488);
+                    let source = board_domain::filtered_formatting::source_projection(&lines);
+                    let json = Comment {
+                        lines: &lines,
+                        board: "test",
+                        dice_result: None,
+                        fortune_text: None,
+                        fortune_color: None,
+                        drawing: None,
+                    }
+                    .render_json(488)
+                    .unwrap();
+                    assert_eq!(json, source, "{first},{second},{}", fortune["text"]);
+                    let html = Page { lines: &lines }.render().unwrap();
+                    assert!(!html.contains(" style="));
+                    for token in lines.iter().flat_map(|line| &line.tokens) {
+                        if let Token::FilteredGenerated(delimiter) = token
+                            && delimiter.opening()
+                            && let Some(class) = delimiter.color_class()
+                        {
+                            assert!(html.contains(&class));
+                            let color = delimiter
+                                .style_value()
+                                .strip_prefix("color:")
+                                .unwrap()
+                                .to_owned();
+                            assert!(css.contains(&format!(".{class} {{ color: {color}; }}")));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]

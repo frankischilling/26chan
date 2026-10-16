@@ -22,6 +22,7 @@ pub enum Token {
     OpenMarkup(Tag),
     CloseMarkup(Tag),
     FilteredDelimiter(crate::wordfiltered_comment::Delimiter),
+    FilteredGenerated(crate::wordfiltered_comment::GeneratedDelimiter),
     ChangedEntity(crate::wordfiltered_comment::ChangedEntity),
     OpenQuote,
     CloseQuote,
@@ -67,6 +68,11 @@ pub fn visible_text(token: &Token) -> std::borrow::Cow<'_, str> {
             .collect::<String>()
             .into(),
         Token::ChangedEntity(entity) => entity.spelling().into(),
+        Token::FilteredGenerated(delimiter)
+            if !delimiter.valid_element() && delimiter.opening() =>
+        {
+            delimiter.source_projection().into()
+        }
         Token::FilteredDelimiter(delimiter)
             if !delimiter.valid_element() && delimiter.opening() =>
         {
@@ -116,8 +122,14 @@ pub(crate) fn source_green_prefix(input: &str) -> bool {
     true
 }
 
+/// These new rows include the generated result in their typed comment payload.
+/// Older rows still render their retained metadata separately.
+pub fn generated_content_format(format: i16) -> bool {
+    matches!(format, 488..=495 | 504..=511)
+}
+
 pub(crate) fn source_green_format(format: i16) -> bool {
-    matches!(format, 232..=239 | 248..=255)
+    matches!(format, 232..=239 | 248..=255 | 488..=495 | 504..=511)
 }
 
 /// Nonrecursive grammar. HTML is always text; templates escape every text node.
@@ -283,14 +295,22 @@ pub fn parse_saved_comment_with_limits(
     wordfilter: Option<&[u8]>,
     limits: crate::PostLimits,
 ) -> Vec<Line> {
+    let unavailable = || {
+        vec![Line {
+            green: false,
+            tokens: vec![Token::Text("[Comment unavailable]".into())],
+        }]
+    };
     match wordfilter {
+        None if generated_content_format(format) => unavailable(),
         None => parse_post_comment_on_board_with_limits(input, format, board, limits),
         Some(bytes) => match crate::wordfiltered_comment::PreparedComment::decode(bytes) {
-            Ok(prepared) => crate::filtered_formatting::lines_for_post(&prepared, board, format),
-            Err(_) => vec![Line {
-                green: false,
-                tokens: vec![Token::Text("[Comment unavailable]".into())],
-            }],
+            Ok(prepared)
+                if prepared.has_generated_content() == generated_content_format(format) =>
+            {
+                crate::filtered_formatting::lines_for_post(&prepared, board, format)
+            }
+            _ => unavailable(),
         },
     }
 }

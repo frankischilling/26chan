@@ -353,6 +353,31 @@ pub struct Post {
 }
 
 impl Post {
+    pub fn has_generated_comment(&self) -> bool {
+        board_domain::formatting::generated_content_format(self.comment_format)
+    }
+    pub fn separate_dice_result(&self) -> Option<&str> {
+        if self.has_generated_comment() {
+            None
+        } else {
+            self.dice_result.as_deref()
+        }
+    }
+    pub fn separate_fortune_text(&self) -> Option<&str> {
+        if self.has_generated_comment() {
+            None
+        } else {
+            self.fortune_text.as_deref()
+        }
+    }
+    pub fn separate_fortune_color(&self) -> Option<&str> {
+        if self.has_generated_comment() {
+            None
+        } else {
+            self.fortune_color.as_deref()
+        }
+    }
+
     /// Historical attachment flags remain effective without a data backfill.
     pub fn file_deleted(&self) -> bool {
         self.file_deleted || self.attachment.as_ref().is_some_and(|a| a.file_deleted)

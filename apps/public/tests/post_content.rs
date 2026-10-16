@@ -304,55 +304,104 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         assert!(textarea.contains(&format!("data-randomizer-content=\"{enabled}\"")));
         assert_eq!(textarea.contains(" required"), !enabled);
     }
-    for options in ["dice+1d1", "fortune"] {
-        // Each independent route matrix gets a fresh process-local limiter;
-        // production request ceilings remain unchanged.
-        let (app, api) =
-            posting::routers(public.clone(), &slug, "http://127.0.0.1:3000".into(), false);
-        for index in 0..8 {
-            for parent in [0, thread] {
-                let id = accepted_id(
-                    submit_options(&app, &slug, index, parent, ("", ""), options).await,
-                    index,
-                )
-                .await;
-                let saved = board_store::find_post(&public, &slug, id).await.unwrap();
-                assert_eq!(saved.comment, "");
-                if options == "dice+1d1" {
-                    assert_eq!(saved.dice_result.as_deref(), Some("Rolled 1 (1d1)"));
-                } else {
-                    assert!(saved.fortune_text.is_some());
-                    assert!(saved.fortune_color.is_some());
-                }
-                let thread_id = if parent == 0 { id } else { parent };
-                let response = api
-                    .clone()
-                    .oneshot(
-                        Request::get(format!("/{slug}/thread/{thread_id}.json"))
-                            .body(Body::empty())
-                            .unwrap(),
+    let mut retained = Vec::new();
+    for (enabled, profile) in [(false, 0), (true, 0), (true, 4)] {
+        sqlx::query(
+            "UPDATE content.boards SET word_filter_enabled=$2,word_filter_profile=$3 WHERE slug=$1",
+        )
+        .bind(&slug)
+        .bind(enabled)
+        .bind(profile as i16)
+        .execute(&owner)
+        .await
+        .unwrap();
+        for options in ["dice+1d1", "fortune"] {
+            // Each independent route matrix gets a fresh process-local limiter;
+            // production request ceilings remain unchanged.
+            let (app, api) =
+                posting::routers(public.clone(), &slug, "http://127.0.0.1:3000".into(), false);
+            for index in if enabled {
+                vec![0, 7]
+            } else {
+                (0..8).collect()
+            } {
+                for parent in [0, thread] {
+                    let id = accepted_id(
+                        submit_options(&app, &slug, index, parent, ("", ""), options).await,
+                        index,
                     )
-                    .await
+                    .await;
+                    let saved = board_store::find_post(&public, &slug, id).await.unwrap();
+                    assert!(board_domain::formatting::generated_content_format(
+                        saved.comment_format
+                    ));
+                    assert!(
+                        saved
+                            .wordfilter_payload
+                            .as_ref()
+                            .unwrap()
+                            .starts_with(b"WF03")
+                    );
+                    if options == "dice+1d1" {
+                        assert_eq!(saved.dice_result.as_deref(), Some("Rolled 1 (1d1)"));
+                    } else {
+                        assert!(saved.fortune_text.is_some());
+                        assert!(saved.fortune_color.is_some());
+                    }
+                    let prepared = board_domain::wordfiltered_comment::PreparedComment::decode(
+                        saved.wordfilter_payload.as_deref().unwrap(),
+                    )
                     .unwrap();
-                assert_eq!(response.status(), 200);
-                let json: serde_json::Value =
-                    serde_json::from_slice(&to_bytes(response.into_body(), 262144).await.unwrap())
+                    assert_eq!(prepared.rolls().is_some(), enabled && profile == 4);
+                    assert!(saved.separate_dice_result().is_none());
+                    assert!(saved.separate_fortune_text().is_none());
+                    let thread_id = if parent == 0 { id } else { parent };
+                    let response = api
+                        .clone()
+                        .oneshot(
+                            Request::get(format!("/{slug}/thread/{thread_id}.json"))
+                                .body(Body::empty())
+                                .unwrap(),
+                        )
+                        .await
                         .unwrap();
-                let value = json["posts"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .find(|post| post["no"].as_i64() == Some(id))
+                    assert_eq!(response.status(), 200);
+                    let json: serde_json::Value = serde_json::from_slice(
+                        &to_bytes(response.into_body(), 262144).await.unwrap(),
+                    )
                     .unwrap();
-                let comment = value["com"].as_str().unwrap();
-                let marker = if options == "dice+1d1" {
-                    "Rolled 1 (1d1)"
-                } else {
-                    "Your fortune:"
-                };
-                assert_eq!(comment.matches(marker).count(), 1);
+                    let value = json["posts"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|post| post["no"].as_i64() == Some(id))
+                        .unwrap();
+                    let comment = value["com"].as_str().unwrap();
+                    assert_eq!(comment, saved.comment);
+                    let marker = if options == "dice+1d1" {
+                        "Rolled 1 (1d1)"
+                    } else {
+                        "Your fortune:"
+                    };
+                    if profile != 4 {
+                        assert_eq!(comment.matches(marker).count(), 1);
+                    }
+                    retained.push((id, saved.comment, saved.wordfilter_payload));
+                }
             }
         }
+    }
+    // Changing board policy must not reroll or re-filter retained generated content.
+    sqlx::query("UPDATE content.boards SET word_filter_enabled=false,word_filter_profile=0,dice_roll=false,fortune_trip=false WHERE slug=$1")
+        .bind(&slug).execute(&owner).await.unwrap();
+    for (id, comment, payload) in retained {
+        let saved = board_store::find_post(&public, &slug, id).await.unwrap();
+        assert_eq!(saved.comment, comment);
+        assert_eq!(saved.wordfilter_payload, payload);
+        assert_eq!(
+            board_domain::filtered_formatting::source_projection(&saved.formatted_lines()),
+            comment
+        );
     }
 }
 #[tokio::test]

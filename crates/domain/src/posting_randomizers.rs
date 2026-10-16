@@ -25,6 +25,10 @@ const FORTUNE_COLORS: [&str; 13] = [
     "#2a56fb", "#0893e1", "#00cbb0", "#16f174", "#43fd3b",
 ];
 
+pub(crate) fn fortune_palette_color(index: u8) -> Option<&'static str> {
+    FORTUNE_COLORS.get(usize::from(index)).copied()
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DiceRequest {
     pub count: u8,

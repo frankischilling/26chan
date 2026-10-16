@@ -36,10 +36,9 @@ pub(crate) fn from_post(post: &board_store::Post, board: &board_store::Board) ->
             &post.formatted_lines(),
             &board.slug,
             super::teaser::Policy::for_post(board, post.comment_format),
-            post.dice_result.as_deref(),
-            post.fortune_text
-                .as_deref()
-                .zip(post.fortune_color.as_deref()),
+            post.separate_dice_result(),
+            post.separate_fortune_text()
+                .zip(post.separate_fortune_color()),
             crate::views::drawing_annotation(post).as_ref(),
         )
         .serialized,

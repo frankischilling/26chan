@@ -190,7 +190,13 @@ async fn generated_results_reach_rules_before_final_blank_admission() {
             .fetch_one(&f.owner)
             .await
             .unwrap();
-    assert_eq!(saved, (String::new(), Some("Rolled 1 (1d1)".into())));
+    assert_eq!(
+        saved,
+        (
+            "<b>Rolled 1 (1d1)<br><br></b>".into(),
+            Some("Rolled 1 (1d1)".into())
+        )
+    );
     // Removing the sole generated content must recheck the final persisted row.
     let error = sqlx::query("UPDATE content.posts SET dice_result=NULL WHERE id=$1")
         .bind(post)
@@ -201,7 +207,7 @@ async fn generated_results_reach_rules_before_final_blank_admission() {
         error
             .as_database_error()
             .and_then(|error| error.constraint()),
-        Some("posts_empty_comment_attachment")
+        Some("posts_generated_payload_check")
     );
     let logged: String = sqlx::query_scalar(
         "SELECT comment FROM admission.logs WHERE rule_id=$1 ORDER BY id DESC LIMIT 1",
@@ -251,7 +257,7 @@ async fn generated_results_reach_rules_before_final_blank_admission() {
             .fetch_one(&f.owner)
             .await
             .unwrap();
-    assert_eq!(saved.0, "");
+    assert!(saved.0.starts_with("<span class=\"fortune\""));
     assert!(saved.1.is_some());
     assert!(saved.2.is_some());
     let logged: String = sqlx::query_scalar(
@@ -279,7 +285,7 @@ async fn generated_results_reach_rules_before_final_blank_admission() {
         error
             .as_database_error()
             .and_then(|error| error.constraint()),
-        Some("posts_empty_comment_attachment")
+        Some("posts_generated_payload_check")
     );
     let safe: bool = sqlx::query_scalar("SELECT NOT has_function_privilege('board_public','content.require_attachment_for_empty_post()','EXECUTE') AND NOT has_schema_privilege('board_attachment_owner','content','CREATE')")
         .fetch_one(&f.owner).await.unwrap();

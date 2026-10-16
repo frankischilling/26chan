@@ -143,6 +143,7 @@ impl<W: Write> Write for XmlText<'_, W> {
 #[derive(Template)]
 #[template(path = "rss_description.html")]
 struct Description<'a> {
+    source_generated: bool,
     lines: &'a [Line],
     board: &'a str,
     origin: &'a str,
@@ -188,16 +189,15 @@ fn write_feed(
         let lines = saved_comment_lines(post.formatted_lines());
         let mut stored =
             crate::catalog::teaser::stored_comment(&lines, &post.board, post.comment_format);
-        if let Some(dice) = &post.dice_result {
+        if let Some(dice) = post.separate_dice_result() {
             stored = format!(
                 "<b>{}<br><br></b>{stored}",
                 board_domain::source_html_entities(dice)
             );
         }
         if let Some((text, color)) = post
-            .fortune_text
-            .as_deref()
-            .zip(post.fortune_color.as_deref())
+            .separate_fortune_text()
+            .zip(post.separate_fortune_color())
         {
             stored.push_str(&format!(
                 "<span class=\"fortune\" style=\"color:{}\"><br><br><b>Your fortune: {}</b></span>",
@@ -256,15 +256,16 @@ fn write_feed(
         };
         writer.write_str("<description>")?;
         Description {
+            source_generated: post.has_generated_comment(),
             lines: &lines,
             board: &post.board,
             origin,
             source,
             thumbnail,
             spoilers: stored.contains("[spoiler"),
-            dice: post.dice_result.as_deref(),
-            fortune: post.fortune_text.as_deref(),
-            color: post.fortune_color.as_deref(),
+            dice: post.separate_dice_result(),
+            fortune: post.separate_fortune_text(),
+            color: post.separate_fortune_color(),
             drawing,
         }
         .render_into(&mut XmlText(writer))?;
@@ -331,6 +332,7 @@ mod tests {
             "test",
         ));
         let description = Description {
+            source_generated: false,
             lines: &lines,
             board: "test",
             origin: "https://boards.example",
@@ -385,6 +387,7 @@ mod tests {
             );
             let lines = saved_comment_lines(parsed);
             let description = Description {
+                source_generated: false,
                 lines: &lines,
                 board: "test",
                 origin: "https://boards.example",
@@ -414,6 +417,7 @@ mod tests {
     fn feed_descriptions_render_retained_randomizers_and_escape_their_text() {
         let lines = board_domain::parse_post_comment_on_board("ordinary comment", 104, "b");
         let description = Description {
+            source_generated: false,
             lines: &lines,
             board: "b",
             origin: "https://boards.example",
@@ -442,6 +446,7 @@ mod tests {
         let mut drawing = crate::views::DrawingAnnotation::from_saved(Some(90), None).unwrap();
         drawing.replay_tim = Some(123);
         let description = Description {
+            source_generated: false,
             lines: &[],
             board: "i",
             origin: "https://boards.example",

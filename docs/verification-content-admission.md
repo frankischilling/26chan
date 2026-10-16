@@ -126,10 +126,11 @@ ordinary name preparation, CP932 normal-trip bytes, delimiter selection and
 saved/API display fields. [PR #293](https://github.com/frankischilling/26chan/pull/293)
 completed staff preparation and caller exceptions after all 17 final-head checks
 passed. The [generated-content checkpoint](generated-post-content.md) adds
-rule/final-admission input, and the [PCRE2 wrapper record](third-party/pcre2.md)
+rule/final-admission input and locally qualified saved board transformations,
+while the [PCRE2 wrapper record](third-party/pcre2.md)
 covers the `D` and PHP 8 `X` modifiers.
 
-Complete caller ordering, generated content in board transformations and saved
-rendering, IP/ASN rules, file blacklists and optional classifiers remain open. The supplied source lacks private
+Full CI qualification of generated rendering, complete caller ordering, IP/ASN
+rules, file blacklists and optional classifiers remain open. The supplied source lacks private
 operator lists and trained data; none are invented as production policy or
 passing parity evidence.

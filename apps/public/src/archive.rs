@@ -39,7 +39,8 @@ pub fn prepare(input: Input<'_>) -> Prepared {
         drawing,
     } = input;
     let subject = subject.strip_prefix("SPOILER<>").unwrap_or(subject);
-    let source_links = matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255);
+    let source_links =
+        matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255 | 488..=495 | 504..=511);
     let mut tokens = Vec::new();
     if let Some(dice) = dice {
         tokens.extend([
@@ -197,16 +198,26 @@ pub(crate) fn row(
     );
     let subject = board_domain::source_html_entities(&entry.subject);
     let mut comment = teaser::stored_comment(&lines, &board.slug, entry.comment_format);
-    if let Some(dice) = &entry.dice_result {
+    let separate = !board_domain::formatting::generated_content_format(entry.comment_format);
+    let dice = if separate {
+        entry.dice_result.as_deref()
+    } else {
+        None
+    };
+    if let Some(dice) = dice {
         comment = format!(
             "<b>{}<br><br></b>{comment}",
             board_domain::source_html_entities(dice)
         );
     }
-    let fortune = entry
-        .fortune_text
-        .as_deref()
-        .zip(entry.fortune_color.as_deref());
+    let fortune = if separate {
+        entry
+            .fortune_text
+            .as_deref()
+            .zip(entry.fortune_color.as_deref())
+    } else {
+        None
+    };
     if let Some((text, color)) = fortune {
         comment.push_str(&format!(
             "<span class=\"fortune\" style=\"color:{}\"><br><br><b>Your fortune: {}</b></span>",
@@ -241,7 +252,7 @@ pub(crate) fn row(
         format: entry.comment_format,
         // Source's preview switch is current; saved parser authority is not.
         sjis: board.comment_sjis_spacing,
-        dice: entry.dice_result.as_deref(),
+        dice,
         fortune,
         drawing: drawing.as_ref(),
     });
