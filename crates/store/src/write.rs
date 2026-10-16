@@ -1110,6 +1110,11 @@ async fn create_post_in_context(
             )
             .await?
         {
+            // Validate the attempted attachment at the refusal decision too;
+            // expired capabilities must not produce a new derivative hit.
+            if let Some(metadata) = &attachment_admission {
+                metadata.revalidate(&mut tx).await?;
+            }
             // Preserve only the derivative hit. Earlier filter logs, autosage,
             // challenge state and other posting effects must all roll back.
             tx.rollback().await?;

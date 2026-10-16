@@ -56,7 +56,9 @@ in place.
 A file that cannot attach must not create a filename ban or other committed
 content-filter effect. Rejection and quiet-success paths therefore revalidate the
 metadata and capability expiry immediately before committing their effects.
-Preflight itself does not attach the file or consume its capability.
+The separate automatic-range hit also revalidates at the refusal decision,
+before rolling back unrelated posting effects. Preflight itself does not attach
+the file or consume its capability.
 
 The scoped result includes normalized MD5, nullable original MD5, and nullable
 original-digest eligibility. `/p/` JPEG and PDF are ineligible. The capcode-only

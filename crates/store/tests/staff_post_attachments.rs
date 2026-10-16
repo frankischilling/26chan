@@ -1931,8 +1931,11 @@ async fn automatic_range_refusal(f: &Fixture) {
     assert_eq!(automatic_stats(f).await, (1, 0));
     let rule: i64 = sqlx::query_scalar("INSERT INTO admission.rules(board,pattern,log) VALUES($1,'Synthetic attachment body',true) RETURNING id")
         .bind(&f.board).fetch_one(&f.owner).await.unwrap();
+    let attachment = f.approved("automatic.png", false).await;
     let before = f.counts().await;
-    let rejected = mobile.write(0, None, true, &post(), 223, Utc::now()).await;
+    let rejected = mobile
+        .write(0, Some(&attachment), true, &post(), 223, Utc::now())
+        .await;
     assert!(
         matches!(rejected, Err(StoreError::ContentRejected(message)) if message.contains("temporarily blocked"))
     );
@@ -1943,6 +1946,24 @@ async fn automatic_range_refusal(f: &Fixture) {
     assert_eq!(
         effects, 0,
         "Only the separate automatic hit may survive rejection"
+    );
+    sqlx::query(
+        "UPDATE media.jobs SET created_at=clock_timestamp()-interval '2 hours' WHERE id=$1",
+    )
+    .bind(&attachment.upload.id)
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    assert!(matches!(
+        mobile
+            .write(0, Some(&attachment), true, &post(), 230, Utc::now())
+            .await,
+        Err(StoreError::NotFound)
+    ));
+    assert_eq!(
+        automatic_stats(f).await,
+        (1, 1),
+        "An expired upload cannot add an automatic hit"
     );
     sqlx::query(
         "INSERT INTO admission.network_rules(boards,range_start,range_end) VALUES($1,0,4294967295)",
