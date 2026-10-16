@@ -168,8 +168,27 @@ The source's optional no-CAPTCHA report exemption remains unfinished. Existing
 report memberships can disappear during retirement, so they cannot establish
 complete hourly report or recent-clear history. Source clear history comes from
 target/group clearing and new reports against an already-cleared group; the
-reporter-wide clear logger is commented out. The replacement needs retained,
-bounded history and tests for those exact events before enabling the exemption.
+reporter-wide clear logger is commented out.
+
+Migration 0172 retains each private report actor's latest three successful
+report times and latest target-clear time independently of report foreign keys.
+The membership trigger captures new reports and inherited group clears; target
+clearing records each affected actor while holding the shared report gate.
+Deleting a report or target does not erase these windows. Tests cover ordinary,
+idempotent, and inherited clears, retirement, and failed-report rollback.
+
+History capacity is bounded. Cleanup removes at most 64 expired actor rows per
+call. Existing actors can still be updated at full capacity. If new history
+cannot be recorded, the store marks history incomplete through 72 hours after
+the latest omitted event, and at least 72 hours from the current time, for the
+eligibility check to honor. It does not prevent CAPTCHA-backed reporting or
+moderator clearing. Bulk membership inserts above the 10,000-event capture
+bound also mark history incomplete rather than rejecting the existing bulk
+operation. Initial
+history also needs a 72-hour warm-up because retired events cannot be recovered.
+This storage does not yet enable the exemption. The exact-IP age, retained
+warning/ban history, key-epoch continuity, and request-context checks still need
+to be wired into its final eligibility decision.
 
 Report exemption and browser credit controls still need implementation or
 qualification. Existing posting fixtures must explicitly

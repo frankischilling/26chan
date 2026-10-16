@@ -58,7 +58,7 @@ async fn scenario(categorical: bool, credit: bool) {
     .unwrap();
     catalog_read.rollback().await.unwrap();
     let revision: Option<i64> = if categorical {
-        Some(sqlx::query_scalar("SELECT content.import_report_catalog($1::text::jsonb)").bind(serde_json::json!({"version":1,"categories":[{"id":1,"board":"","op_only":false,"reply_only":false,"image_only":false,"exclude_boards":null,"title":"Owned category","weight":1.0,"filtered":0}]}).to_string()).fetch_one(&owner).await.unwrap())
+        Some(sqlx::query_scalar("SELECT content.import_report_catalog($1::text::jsonb)").bind(serde_json::json!({"version":1,"categories":[{"id":1,"board":"","op_only":false,"reply_only":false,"image_only":false,"exclude_boards":null,"title":"Owned category","weight":0.5,"filtered":0}]}).to_string()).fetch_one(&owner).await.unwrap())
     } else {
         None
     };
@@ -78,8 +78,21 @@ async fn scenario(categorical: bool, credit: bool) {
     let material = ReceiptToken::generate().unwrap().encode();
     let key = VerificationKey::parse(&material[3..]).unwrap();
     let peer_hash = key.network_identity(peer);
+    let inherited_peer = "192.0.2.110".parse().unwrap();
+    let inherited_fp = Capability::generate()
+        .unwrap()
+        .fingerprints(Some(inherited_peer), *b"US");
+    let inherited_hash = key.network_identity(inherited_peer);
     let receipt = ReceiptToken::generate().unwrap();
     let receipt_hash = receipt.storage_hash();
+    let poster_key = support::fresh_key();
+    let history_actors = [
+        peer,
+        "192.0.2.108".parse().unwrap(),
+        disabled_peer,
+        "192.0.2.110".parse().unwrap(),
+    ]
+    .map(|peer| *poster_key.public_report_rate_identity(peer).as_bytes());
     let work = {
         let owner = owner.clone();
         let public = public.clone();
@@ -148,7 +161,6 @@ async fn scenario(categorical: bool, credit: bool) {
                         .unwrap()
                 );
             }
-            let poster_key = support::fresh_key();
             let actor = poster_key.public_report_rate_identity(peer);
             let public = &public;
             let board = board.as_str();
@@ -240,6 +252,17 @@ async fn scenario(categorical: bool, credit: bool) {
                     .await
                     .unwrap();
             assert_eq!(reports, 0);
+            let failed_history: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM verification_private.report_history WHERE actor_hash=$1",
+            )
+            .bind(actor.as_bytes().as_slice())
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+            assert_eq!(
+                failed_history, 0,
+                "A failed report must not advance its exemption history"
+            );
             if credit {
                 let balance:i16=sqlx::query_scalar("SELECT remaining FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).fetch_one(&owner).await.unwrap();
                 assert_eq!(balance, 1);
@@ -257,6 +280,69 @@ async fn scenario(categorical: bool, credit: bool) {
                     .await
                     .unwrap();
             assert_eq!(reports, 1);
+            if categorical {
+                let staff = PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
+                    .await
+                    .unwrap();
+                let cleared: i64 = sqlx::query_scalar("SELECT content.clear_report_group($1,$2,1)")
+                    .bind(board)
+                    .bind(target)
+                    .fetch_one(&staff)
+                    .await
+                    .unwrap();
+                assert_eq!(cleared, 1);
+                let first_clear:chrono::DateTime<chrono::Utc>=sqlx::query_scalar("SELECT last_cleared_at FROM verification_private.report_history WHERE actor_hash=$1").bind(actor.as_bytes().as_slice()).fetch_one(&owner).await.unwrap();
+                let repeated: i64 =
+                    sqlx::query_scalar("SELECT content.clear_report_group($1,$2,1)")
+                        .bind(board)
+                        .bind(target)
+                        .fetch_one(&staff)
+                        .await
+                        .unwrap();
+                assert_eq!(repeated, 0);
+                let same_clear:chrono::DateTime<chrono::Utc>=sqlx::query_scalar("SELECT last_cleared_at FROM verification_private.report_history WHERE actor_hash=$1").bind(actor.as_bytes().as_slice()).fetch_one(&owner).await.unwrap();
+                assert_eq!(first_clear, same_clear);
+                let inherited_actor =
+                    poster_key.public_report_rate_identity("192.0.2.110".parse().unwrap());
+                verifier.ensure_session(&inherited_fp, true).await.unwrap();
+                let (inherited_receipt, inherited_context) = normal_report_receipt(
+                    &verifier,
+                    &key,
+                    &inherited_fp,
+                    &inherited_hash,
+                    board,
+                    target,
+                )
+                .await;
+                report_categorical_with_challenge(
+                    public,
+                    board,
+                    target,
+                    1,
+                    revision.unwrap(),
+                    &inherited_actor,
+                    ProtectedReportingContext {
+                        session: PostingSession {
+                            fingerprints: inherited_fp,
+                            minted: false,
+                            now: chrono::Utc::now(),
+                        },
+                        challenge: WriteChallengeProof::from_issuer(
+                            &inherited_receipt.encode(),
+                            inherited_hash,
+                            inherited_context,
+                        ),
+                    },
+                )
+                .await
+                .unwrap();
+                let inherited_clear:chrono::DateTime<chrono::Utc>=sqlx::query_scalar("SELECT last_cleared_at FROM verification_private.report_history WHERE actor_hash=$1").bind(inherited_actor.as_bytes().as_slice()).fetch_one(&owner).await.unwrap();
+                assert!(
+                    inherited_clear >= first_clear,
+                    "A new report against a cleared group records a new clear event"
+                );
+                staff.close().await;
+            }
             if !categorical {
                 let staff = PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
                     .await
@@ -333,7 +419,7 @@ async fn scenario(categorical: bool, credit: bool) {
     let mut tx = support::begin_cleanup_with_sessions(
         &owner,
         std::slice::from_ref(&board),
-        &[fingerprints.token, disabled_fp.token],
+        &[fingerprints.token, disabled_fp.token, inherited_fp.token],
     )
     .await;
     for query in [
@@ -350,6 +436,16 @@ async fn scenario(categorical: bool, credit: bool) {
     }
     tx.commit().await.unwrap();
     sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+        .bind(inherited_fp.token.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM verification_private.peers WHERE peer_hash=$1")
+        .bind(inherited_hash.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
         .bind(disabled_fp.token.as_slice())
         .execute(&owner)
         .await
@@ -365,8 +461,77 @@ async fn scenario(categorical: bool, credit: bool) {
         .execute(&owner)
         .await
         .unwrap();
+    let actors: Vec<&[u8]> = history_actors
+        .iter()
+        .map(|actor| actor.as_slice())
+        .collect();
+    let retained:i64=sqlx::query_scalar("SELECT count(*) FROM verification_private.report_history WHERE actor_hash=ANY($1::bytea[])").bind(&actors).fetch_one(&owner).await.unwrap();
+    if outcome.is_ok() {
+        assert!(
+            retained > 0,
+            "Deleting reports and targets must not erase the challenge windows"
+        );
+    }
+    sqlx::query(
+        "DELETE FROM verification_private.report_history WHERE actor_hash=ANY($1::bytea[])",
+    )
+    .bind(&actors)
+    .execute(&owner)
+    .await
+    .unwrap();
     public.close().await;
     verifier.close().await;
     owner.close().await;
     outcome.unwrap();
+}
+
+async fn normal_report_receipt(
+    store: &VerificationStore,
+    key: &VerificationKey,
+    fp: &board_domain::anonymous_session::Fingerprints,
+    peer: &[u8; 32],
+    board: &str,
+    target: i64,
+) -> (ReceiptToken, [u8; 32]) {
+    let context = key
+        .form_context("report", Some(board), target, &"ab".repeat(32))
+        .unwrap();
+    let challenge = VerificationToken::generate(TokenKind::Challenge).unwrap();
+    let answer = key.challenge_answer(&challenge, 6).unwrap();
+    let answer_hash = key.answer_hash(&challenge, answer.as_str()).unwrap();
+    let receipt = ReceiptToken::generate().unwrap();
+    assert!(
+        store
+            .issue_challenge(&NewChallenge {
+                token_hash: &key.token_hash(&challenge),
+                answer_hash: &answer_hash,
+                peer_hash: peer,
+                session_hash: &fp.token,
+                purpose: ChallengePurpose::Report,
+                board: Some(board),
+                target,
+                suspicious: false,
+                context_hash: &context
+            })
+            .await
+            .unwrap()
+            .issued
+    );
+    assert!(
+        store
+            .check_challenge(&ChallengeCheck {
+                token_hash: &key.token_hash(&challenge),
+                answer_hash: Some(&answer_hash),
+                peer_hash: peer,
+                session_hash: &fp.token,
+                purpose: ChallengePurpose::Report,
+                board: Some(board),
+                target,
+                context_hash: &context,
+                receipt_hash: &receipt.storage_hash()
+            })
+            .await
+            .unwrap()
+    );
+    (receipt, context)
 }
