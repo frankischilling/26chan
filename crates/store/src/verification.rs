@@ -180,6 +180,16 @@ impl VerificationStore {
                  to_regprocedure('content.verification_board_policy(text)'),
                  to_regprocedure('content.verification_ticket_advice(bytea,bytea,text)'),
                  to_regprocedure('content.verification_prepare_ticket(bytea,bytea,bytea,text)'))),false)
+             AND NOT EXISTS(SELECT 1 FROM unnest(ARRAY['board_public','board_verifier','board_mailer','board_staff','board_auth']) AS runtime(role_name)
+                WHERE pg_has_role(runtime.role_name,'board_anonymous_owner','MEMBER'))
+             AND coalesce((SELECT count(*)=1 AND bool_and(NOT p.prosecdef
+                AND p.proowner='board_anonymous_owner'::regrole
+                AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
+                AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
+                  WHERE acl.privilege_type='EXECUTE' AND acl.grantee<>p.proowner))
+                FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                WHERE n.nspname='verification_private' AND p.proname='take_write_receipt'
+                  AND p.proargtypes='17 17 17 25 25 20 17'::oidvector),false)
              AND coalesce((SELECT count(*)=1 AND bool_and(p.prosecdef
                 AND p.proowner='board_anonymous_owner'::regrole
                 AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']

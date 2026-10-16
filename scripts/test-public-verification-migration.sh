@@ -62,7 +62,7 @@ SQL
 "${migrator[@]}" -Atc "SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash" > "$cluster/before.json"
 for migration in migrations/*.sql; do
     [[ $(basename "$migration") < 0158_ ]] && continue
-    [[ $(basename "$migration") < 0166_ ]] || break
+    [[ $(basename "$migration") < 0167_ ]] || break
     "${migrator[@]}" --single-transaction -f - < "$migration"
 done
 "${migrator[@]}" -Atc "SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash" > "$cluster/after.json"
@@ -112,6 +112,7 @@ DO $$ DECLARE role_name text; BEGIN
 END $$;
 SQL
     "${runner[@]}" "${psql[@]}" -d "$database" -f - < scripts/test-challenge-tickets.sql
+    "${runner[@]}" "${psql[@]}" -d "$database" -f - < scripts/test-protected-challenge-receipts.sql
     "${admin[@]}" -At > "$cluster/$database.fingerprint" <<'SQL'
 SELECT 'session',to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash;
 SELECT 'identity',to_jsonb(i) FROM verification_private.identities i ORDER BY id;

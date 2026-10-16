@@ -71,3 +71,10 @@ same transaction as the post or report. The post-table insertion guard must
 also cover staged uploads and direct public-role inserts. Credit grants must
 roll back if any part of the protected write fails. Browser flows and these
 write paths require their own tests before #199 can close.
+
+Migration 0166 provides the private receipt-consumption helper for those writes.
+It checks scope and expiry after acquiring its locks, consumes a matching proof
+once, and rolls consumption back with a failed transaction. Runtime logins
+cannot call it directly. It is not yet called by ordinary post or report writes;
+credit-backed receipts remain rejected until their transactional spending path
+is implemented.
