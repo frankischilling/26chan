@@ -101,3 +101,38 @@ privacy, lease expiry, exact retries, approval refusal without a receipt,
 historical backfill refusal, paired-component checks, and cleanup. Controlled
 TLS dispatch tests compare frozen raw-input digests independently of the
 processed-source digest. They do not qualify blacklist enforcement.
+
+## Bounded decision model
+
+The domain model is not yet connected to posting or an operator rule store. Its
+reference fixture exercises 2,358 exact-file decisions from the pinned checker
+and 600 prior-ban cases. The SQL and effect callbacks use synthetic data; they do
+not run the application or import private lists.
+
+Exact matching tries normalized MD5 first. A different original digest is tried
+only after a miss and when eligible. An unknown provider does not override a
+definite normalized match. Unknown original eligibility matters only when the
+available original digest matches a candidate rule. Badge exemption belongs to
+the exact checker, not the earlier prior-ban gate.
+
+The prior-ban gate skips `/b/` and known absence of a digest. It blocks at three
+matching historical template-226 records, also counting template 6 on work-safe
+boards. These are history counts, not only active bans. Of the 600 source cases,
+100 demonstrate the source's failed-query allow behavior; the Rust model instead
+returns unavailable when that query is needed.
+
+The DMCA branch ignores quiet mode: a first warning records an attempt, while a
+repeat requests a three-day ban and redirect. `/test/` rejection diagnostics
+precede quiet handling for reject-only rules. Requested ban effects are not proof
+of an issued ban: whitelist checks, expiry dates, identity binding, the inclusive
+one-day warning query, and transactional persistence remain caller work. The
+fixture also covers 24 failed DMCA-history queries: the source takes its first-
+warning branch, while Rust returns unavailable without requesting an effect.
+Exact-rule query failure is not part of this corpus. The caller must propagate a
+failed rule fetch, never replace it with an empty successful rule set.
+
+Rules are capped at 128, IDs must be unique, scopes are validated, and configured
+ban-day requests are bounded to -1 through 3,650 (-1 means permanent). Two
+applicable rules for the same digest produce a configuration error. The legacy
+query's unordered `LIMIT 1` supplies no stable scope priority; the replacement
+does not invent one. Missing needed history or digest providers fail closed.
