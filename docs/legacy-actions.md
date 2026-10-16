@@ -39,9 +39,12 @@ value, including values above JavaScript's safe-integer range. `onlyimgdel=on` s
 Duplicate, conflicting, unknown or incomplete deletion fields are rejected.
 An optional query `mode` must agree with a body `mode` when both are present.
 
-Both encodings share the actual streamed 256 KiB request limit. Field decoding
-stops after 20 entries. Multipart rejects nonempty file parts before they can
-reach posting or deletion. The numeric field is enabled only on the legacy
+Both encodings share the actual streamed 256 KiB request limit. The shared
+posting/report body decoder allows 24 fields for CAPTCHA. Query decoding still
+stops after 20 entries, and deletion keeps its original 20-field budget,
+including a query-supplied mode and the raw multipart part limit. Discarding an
+empty file part cannot expand that budget. Multipart rejects nonempty file parts
+before they can reach posting or deletion. The numeric field is enabled only on the legacy
 adapter; the ordinary posting extractor keeps its narrower schema.
 
 The existing middleware checks Origin and fetch metadata and applies request,
@@ -109,7 +112,7 @@ committed. Unknown/private boards keep their denial response, and missing
 credentials or attachments on an existing post are not treated as missing posts.
 The modern `/delete` endpoint retains its existing missing-target response.
 
-The 20-field streamed form limit also bounds batch work. Canonical IDs, duplicate
+The separate 20-field deletion limit bounds batch work before dispatch. Canonical IDs, duplicate
 field rejection, the body limit and Origin checks remain security restrictions.
 A form with no selection is rejected. Migration 0085 enforces deletion action
 quotas. The [full-page selection controls](source-deletion-controls.md) submit
