@@ -60,3 +60,11 @@ test('server-rendered classic hydration preserves typed answers and focus',()=>{
   const comment=e.doc.createElement('textarea');comment.focus();const api=mountPostingCaptcha(root,{win:e.win});assert.equal(api.canSubmit(),true);assert.equal(root.querySelector('[name="t-response"]').value,'ABC123');assert.equal(e.doc.activeElement,comment);api.dispose();
   root.dataset.noscriptOnly='true';assert.equal(mountPostingCaptcha(root,{win:e.win}),null);
 });
+test('refresh cooldown ticks do not report proof changes that would cancel armed Quick Reply',async()=>{
+  const e=environment(async()=>response(ready())),form=e.doc.createElement('form');
+  const root=createPostingCaptcha(form,{board:'b',target:'10',purpose:'reply'},e.doc),events=[];
+  const api=mountPostingCaptcha(root,{win:e.win,changed:proofChanged=>events.push(proofChanged)});
+  await api.load();assert.ok(events.includes(true));events.length=0;
+  e.advance(4000);assert.ok(events.length>0);assert.ok(events.every(value=>value===false));
+  events.length=0;api.invalidate();assert.ok(events.includes(true));api.dispose();
+});

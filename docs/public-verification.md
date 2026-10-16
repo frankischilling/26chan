@@ -2,7 +2,8 @@
 
 Public email verification includes the request and verification routes, private
 issuer, mail worker, and local mail fixture tracked in #200. Ordinary posting,
-Quick Reply, report CAPTCHA, tickets, and credits remain #199 work.
+Quick Reply, report CAPTCHA, tickets, and credits are documented in
+[posting challenges](posting-challenges.md), with their current qualification status.
 
 ## Source behavior
 
@@ -46,8 +47,8 @@ Wrong and malformed answers consume the matching challenge. A context mismatch
 cannot consume another browser's challenge. Successful verification creates a
 short-lived receipt; only one concurrent answer can create it. Each protected
 consumer must recheck current session authorization and consume the receipt in
-its own transaction. Email enqueue already does this; posting and reporting
-integration remain unfinished.
+its own transaction. Email enqueue, posting, and reporting each perform that
+check in their protected write transaction.
 
 Migration 0159 adds encrypted email queuing and delivery leases. Enqueue applies
 a five-minute network cooldown, one pending entry per exact recipient, two
@@ -86,7 +87,8 @@ completes receipt-backed email verification, and submits the same content throug
 the public posting store. It then checks that a non-lenient rule still rejects it.
 Report admission retains its pre-report known-or-verified evidence; weighted
 report ordering remains separate unfinished work. Ordinary posting and report
-CAPTCHA receipts remain #199 work.
+CAPTCHA receipts follow the protected admission path described in
+[posting challenges](posting-challenges.md).
 
 An email-expiry regression answers the verification challenge before expiring
 the link. Both preview and acceptance must then report expiry, without replacing

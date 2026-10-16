@@ -276,7 +276,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     dialog.append(header, form, error); document.body.append(dialog); dialog.show();
     if (sourceCaptcha) {
       const root = createPostingCaptcha(form, { board, target: id, purpose: 'reply', classic: sourceCaptcha.dataset.classic === 'true', prefix: 'qr-' });
-      if (root) { fields.insertBefore(root, actions); captcha = mountPostingCaptcha(root, { interceptSubmit: false, changed: () => { cancelAuto(); sync(); } }); }
+      if (root) { fields.insertBefore(root, actions); captcha = mountPostingCaptcha(root, { interceptSubmit: false, changed: proofChanged => { if (proofChanged) cancelAuto(); sync(); } }); }
     }
     dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
     form.addEventListener('submit', event => { event.preventDefault(); void send(); });

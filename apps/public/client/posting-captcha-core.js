@@ -77,7 +77,13 @@ export function mountPostingCaptcha(root, { win = window, changed = () => {}, in
   try { const saved = storage?.getItem(ticketKey); if (TICKET.test(saved)) ticket = saved; } catch { /* Storage is optional. */ }
   let generation = 0, request, timeout, expiry, timer, deadline = 0, offset = 0, state = 'empty', busy = false, disposed = false, submitting = false;
   const now = () => win.Date.now();
-  const update = () => { load.disabled = busy || submitting || now() < deadline; changed(); };
+  let previousProof = '';
+  const update = () => {
+    load.disabled = busy || submitting || now() < deadline;
+    const proof = `${state}|${csrf.value}|${token.value}|${credit.value}`;
+    const proofChanged = proof !== previousProof; previousProof = proof;
+    changed(proofChanged);
+  };
   function clearProof() {
     win.clearTimeout(expiry); expiry = null;
     token.value = ''; credit.value = ''; answer.value = ''; answer.required = false; frame.hidden = true;

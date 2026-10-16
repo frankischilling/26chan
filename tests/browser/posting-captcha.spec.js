@@ -112,13 +112,17 @@ test('a disabled board hides controls without inventing a receipt or credit', as
   await expect(page.locator('#t-root')).toBeHidden(); await expect(page.locator('#t-challenge')).toHaveValue('');
   await expect(page.locator('[name="captcha-credit"]')).toHaveValue(''); await expect(page.locator('[name="captcha-csrf"]')).toHaveValue(nonce);
 });
-async function openQuickReply(page) {
+async function openQuickReply(page, cooldown = false) {
   await page.goto('/fixture/captcha/qr');
-  await page.evaluate(async () => {
+  await page.evaluate(async cooldown => {
+    if (cooldown) {
+      document.querySelector('form.postEditor').dataset.postingReplySeconds = '10';
+      localStorage.setItem('4chan-cd-g', String(Date.now()));
+    }
     const { mountNativeQuickReply } = await import('/static/native-quick-reply.v1.js');
     window.fixtureQR = mountNativeQuickReply({ board: 'g', thread: '10', settings: () => ({ quickReply: true, persistentQR: true }) });
     window.fixtureQR.open();
-  });
+  }, cooldown);
   await expect(page.locator('#quickReply')).toBeVisible();
 }
 test('Quick Reply scopes proofs to the current thread and clears them after a real submission attempt', async ({ page }) => {
@@ -165,4 +169,16 @@ test('submitting a ticket-stage form completes only the ticket exchange', async 
   await page.getByRole('button', { name: 'Submit', exact: true }).click();
   await expect(page.locator('#t-load')).toHaveText('Wait 900s'); expect(calls).toHaveLength(2); expect(posts).toBe(0);
   expect(calls[1].get('ticket_answer')).toBe('ABCDEFGH'); await expect(page.locator('#t-challenge')).toHaveValue('');
+});
+
+test('CAPTCHA refresh countdown preserves an explicitly armed Quick Reply cooldown', async ({ page }) => {
+  await page.clock.install(); await mock(page); await openQuickReply(page, true);
+  let posts = 0;
+  await page.route('**/g/imgboard.php', async route => { posts++; await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Owned cooldown submission.' }) }); });
+  await page.locator('#qr-t-load').click(); await expect(page.locator('#qr-t-challenge')).toHaveValue(token);
+  await page.locator('#qrCom').fill('Owned explicitly armed reply'); await page.locator('#qr-t-resp').fill('ABC123');
+  const submit = page.locator('#quickReply input[type="submit"]'); await submit.click();
+  await expect(submit).toHaveValue(/ \(auto\)$/);
+  await page.clock.fastForward(1000); await expect(submit).toHaveValue(/ \(auto\)$/); expect(posts).toBe(0);
+  await page.clock.fastForward(9000); await expect(page.locator('#qrError')).toContainText('Owned cooldown submission.'); expect(posts).toBe(1);
 });

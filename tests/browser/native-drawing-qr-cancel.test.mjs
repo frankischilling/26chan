@@ -261,7 +261,7 @@ test('QR send attaches source annotation only to an owned /i/ drawing and retire
   for (const [board, uploadOwned, annotated] of [['i', true, true], ['i', false, false], ['qst', true, false]]) {
     let delivered = null, resetCount = 0;
     const context = {
-      board, busy: false, uploadBusy: false, uploadOwned, uploadReceipt: { state: 'approved' },
+      board, captcha: null, busy: false, uploadBusy: false, uploadOwned, uploadReceipt: { state: 'approved' },
       dialog: {}, current: '100', epoch: 0, postingAttachment: false, controller: null, armedDraft: null,
       qrDrawing: { blocked: () => false, annotation: () => ({ oe_src: '101', oe_time: '9' }),
         reset() { resetCount++; } },
@@ -304,7 +304,7 @@ function retargetContext({ ask = () => true, cancellation = async () => true } =
     dispose({ destroy }) { actions.push(['dispose', destroy]); },
   };
   const context = {
-    source: {}, disabled: () => false, postId: value => value, closed: () => false,
+    source: {}, captcha: null, disabled: () => false, postId: value => value, closed: () => false,
     busy: false, targetEpoch: 0, dialog: {}, current: '10', uploadOwned: false,
     uploadBusy: false, qrDrawing: drawing,
     confirm(question) { actions.push(['confirm', question]); return ask(); },
