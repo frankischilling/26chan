@@ -315,7 +315,7 @@ async fn legacy_res_lookup_is_exact_public_read_only_and_keeps_report_get_separa
     let boards = [format!("lr{seed:x}"), format!("lp{seed:x}")];
     let mut setup = owner.begin().await.unwrap();
     for (board, private) in [(&boards[0], false), (&boards[1], true)] {
-        sqlx::query("INSERT INTO content.boards(slug,title,description,staff_only,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES($1,'Synthetic lookup board','Owned HTTP fixture',$2,2000,100,100,100,10,3600)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,staff_only,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,archive_retention_seconds) VALUES(false,$1,'Synthetic lookup board','Owned HTTP fixture',$2,2000,100,100,100,10,3600)")
             .bind(board).bind(private).execute(&mut *setup).await.unwrap();
     }
     let ordinary = seed_thread(&mut setup, &boards[0], None).await;

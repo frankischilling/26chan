@@ -168,75 +168,92 @@ async fn caller_cleanup_precedes_filters_and_markup_without_repeating_the_early_
 
 #[tokio::test]
 async fn original_test_board_keeps_its_source_filter_while_generic_fixtures_stay_unfiltered() {
-    let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
-        .await
-        .unwrap();
-    let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
-        .await
-        .unwrap();
-    let source_board = board_store::board(&public, "test").await.unwrap();
-    assert!(source_board.word_filter_enabled);
-    assert_eq!(source_board.word_filter_profile, 4);
-    assert!(
-        !board_store::board(&public, "fixture")
+    let (owner, public, slug) = fixture().await;
+    let (o, p, b) = (owner.clone(), public.clone(), slug.clone());
+    let outcome = tokio::spawn(async move {
+        let source_board = board_store::board(&p, "test").await.unwrap();
+        assert!(source_board.word_filter_enabled);
+        assert_eq!(source_board.word_filter_profile, 4);
+        assert!(
+            !board_store::board(&p, "fixture")
+                .await
+                .unwrap()
+                .word_filter_enabled
+        );
+        assert!(
+            sqlx::query_scalar::<_, bool>(
+                "SELECT captcha_enabled FROM content.boards WHERE slug='test'"
+            )
+            .fetch_one(&o)
             .await
+            .unwrap(),
+            "source /test/ keeps its challenge policy"
+        );
+        sqlx::query("UPDATE content.boards SET word_filter_profile=$2 WHERE slug=$1")
+            .bind(&b)
+            .bind(source_board.word_filter_profile)
+            .execute(&o)
+            .await
+            .unwrap();
+        let source_app =
+            posting_fixture::router(p.clone(), "test", "http://127.0.0.1:3000".into(), false);
+        let source_response = source_app
+            .oneshot(
+                Request::post("/test/imgboard.php")
+                    .header("origin", "http://127.0.0.1:3000")
+                    .header("accept", "application/json")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from("com=Owned+unverified+wordfilter+request"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let denied: serde_json::Value =
+            serde_json::from_slice(&to_bytes(source_response.into_body(), 65536).await.unwrap())
+                .unwrap();
+        assert_eq!(denied["error"], "Invalid CAPTCHA request.");
+        assert!(denied.get("pid").is_none());
+        // Exercise the imported filter on an owned board without changing /test/.
+        let app = posting_fixture::router(p.clone(), &b, "http://127.0.0.1:3000".into(), false);
+        let input = "ordinary text fam soy CUCK finna pcfat";
+        let fields = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("com", input)
+            .append_pair("password", "owned-original-wordfilter-password")
+            .finish();
+        let response = app
+            .oneshot(
+                Request::post(format!("/{b}/imgboard.php"))
+                    .header("origin", "http://127.0.0.1:3000")
+                    .header("accept", "application/json")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body(Body::from(fields))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let result: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        let id = result["pid"].as_i64().unwrap();
+        let saved = board_store::find_post(&p, &b, id).await.unwrap();
+        let typed = PreparedComment::decode(saved.wordfilter_payload.as_deref().unwrap()).unwrap();
+        let rolls = typed.rolls().unwrap().choices();
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../fixtures/wordfilter-posting-reference.json"
+        ))
+        .unwrap();
+        let expected = fixture["profiles"]["test"]
+            .as_array()
             .unwrap()
-            .word_filter_enabled
-    );
-    let app = posting_fixture::router(
-        public.clone(),
-        "test",
-        "http://127.0.0.1:3000".into(),
-        false,
-    );
-    let input = "ordinary text fam soy CUCK finna pcfat";
-    let fields = url::form_urlencoded::Serializer::new(String::new())
-        .append_pair("com", input)
-        .append_pair("password", "owned-original-wordfilter-password")
-        .finish();
-    let response = app
-        .oneshot(
-            Request::post("/test/imgboard.php")
-                .header("origin", "http://127.0.0.1:3000")
-                .header("accept", "application/json")
-                .header("content-type", "application/x-www-form-urlencoded")
-                .body(Body::from(fields))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    let result: serde_json::Value =
-        serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
-    let id = result["pid"].as_i64().unwrap();
-    let saved = board_store::find_post(&public, "test", id).await.unwrap();
-    for query in [
-        "DELETE FROM post_secrets.deletion WHERE post_id=$1",
-        "DELETE FROM content.posts WHERE id=$1 AND board='test'",
-        "DELETE FROM content.threads WHERE id=$1 AND board='test'",
-    ] {
-        sqlx::query(query).bind(id).execute(&owner).await.unwrap();
-    }
-    posting_fixture::cleanup_actor_posting(
-        &owner,
-        "test",
-        &posting_fixture::key("test"),
-        posting_fixture::peer(),
-    )
+            .iter()
+            .find(|case| case["input"] == input && case["rolls"] == serde_json::json!(rolls))
+            .unwrap();
+        assert_eq!(saved.comment, expected["final"].as_str().unwrap());
+    })
     .await;
-    let typed = PreparedComment::decode(saved.wordfilter_payload.as_deref().unwrap()).unwrap();
-    let rolls = typed.rolls().unwrap().choices();
-    let fixture: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../fixtures/wordfilter-posting-reference.json"
-    ))
-    .unwrap();
-    let expected = fixture["profiles"]["test"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|case| case["input"] == input && case["rolls"] == serde_json::json!(rolls))
-        .unwrap();
-    assert_eq!(saved.comment, expected["final"].as_str().unwrap());
+    posting_fixture::cleanup_posting(&owner, &slug).await;
+    cleanup(&owner, &slug).await;
+    outcome.unwrap();
 }
 
 #[tokio::test]
