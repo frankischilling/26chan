@@ -102,7 +102,12 @@ roll back, then commit a retry with the same upload and proof. The email-verific
 content-filter fixture disables CAPTCHA only on its owned test board so that it
 continues to isolate that separate admission rule.
 
-Staged-upload and report integration, credit spending, and browser flows still
-need implementation or qualification. Existing posting fixtures must explicitly
+The authenticated `/v1/check` endpoint exchanges a solved thread, reply, or
+report challenge for a thirty-second receipt. HTTP tests verify purpose and
+form binding, stored receipt scope, wrong-answer consumption, and replay
+rejection. It does not consume the receipt or complete a protected write.
+
+Posting challenge issuance, report integration, credit spending, and browser
+flows still need implementation or qualification. Existing posting fixtures must explicitly
 account for the new gate. The branch has not passed full-workspace CI and must
 not be treated as ready to merge.

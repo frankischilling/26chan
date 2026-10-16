@@ -30,7 +30,7 @@ pub(crate) fn fingerprints(input: &protocol::Fingerprints) -> Option<Fingerprint
         environment: input.environment,
     })
 }
-fn session(input: &protocol::Session) -> Option<Fingerprints> {
+pub(crate) fn session(input: &protocol::Session) -> Option<Fingerprints> {
     if input.peer.is_unspecified()
         || input.peer.is_multicast()
         || input.country.len() != 2
