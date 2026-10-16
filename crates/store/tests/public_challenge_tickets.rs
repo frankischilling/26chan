@@ -1,0 +1,61 @@
+#![cfg(feature = "database-tests")]
+use board_domain::{
+    challenge_policy::{TicketDecision, ticket_decision},
+    challenge_secrets::{TokenKind, VerificationKey, VerificationToken},
+};
+use board_store::verification::VerificationStore;
+use sqlx::PgPool;
+
+#[tokio::test]
+async fn ticket_storage_preserves_elapsed_wait_and_issuer_only_authority() {
+    let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let verifier =
+        VerificationStore::connect(&std::env::var("TEST_VERIFICATION_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+    let key = VerificationKey::parse(&"71".repeat(32)).unwrap();
+    let first = key.token_hash(&VerificationToken::generate(TokenKind::Ticket).unwrap());
+    let next = key.token_hash(&VerificationToken::generate(TokenKind::Ticket).unwrap());
+    let peer = key.network_identity("192.0.2.101".parse().unwrap());
+    let result = tokio::spawn({
+        let verifier = verifier.clone();
+        let owner = owner.clone();
+        async move {
+            let policy = verifier.board_policy("f").await.unwrap().unwrap();
+            assert!(policy.enabled);
+            assert!(!policy.twister);
+            assert!(verifier.board_policy("j").await.unwrap().is_none());
+            let ticket = verifier.prepare_ticket(None, &first, &peer, "g").await.unwrap();
+            assert!(ticket.issued);
+            assert_eq!(ticket.issued_at, ticket.current_at);
+            assert_eq!(ticket_decision(900, Some(ticket.issued_at as u64), ticket.current_at as u64), TicketDecision::Wait { seconds: 900 });
+            // Age only this test's row; do not sleep or alter the issuer clock.
+            sqlx::query("UPDATE verification_private.tickets SET created_at=date_trunc('second',statement_timestamp())-interval '900 seconds',expires_at=date_trunc('second',statement_timestamp())+interval '2700 seconds' WHERE token_hash=$1")
+                .bind(first.as_slice()).execute(&owner).await.unwrap();
+            let resumed = verifier.prepare_ticket(Some(&first), &next, &peer, "g").await.unwrap();
+            assert!(!resumed.issued);
+            assert_eq!(ticket_decision(900, Some(resumed.issued_at as u64), resumed.current_at as u64), TicketDecision::Ready);
+            let count: i64 = sqlx::query_scalar("SELECT count(*) FROM verification_private.tickets WHERE token_hash=$1")
+                .bind(next.as_slice()).fetch_one(&owner).await.unwrap();
+            assert_eq!(count, 0, "reuse must not insert the unused candidate");
+            sqlx::query("UPDATE verification_private.tickets SET created_at=date_trunc('second',statement_timestamp())-interval '1 hour',expires_at=date_trunc('second',statement_timestamp()) WHERE token_hash=$1")
+                .bind(first.as_slice()).execute(&owner).await.unwrap();
+            let renewed = verifier.prepare_ticket(Some(&first), &next, &peer, "g").await.unwrap();
+            assert!(renewed.issued);
+            assert_eq!(renewed.issued_at, renewed.current_at);
+            verifier.ready().await.unwrap();
+        }
+    })
+    .await;
+    sqlx::query("DELETE FROM verification_private.tickets WHERE token_hash=$1 OR token_hash=$2")
+        .bind(first.as_slice())
+        .bind(next.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
+    verifier.close().await;
+    owner.close().await;
+    result.unwrap();
+}

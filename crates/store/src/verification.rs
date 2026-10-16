@@ -26,6 +26,22 @@ pub struct VerificationStore {
     pool: PgPool,
 }
 
+#[derive(sqlx::FromRow)]
+pub struct ChallengeBoardPolicy {
+    pub enabled: bool,
+    pub twister: bool,
+    pub allow_bypass: bool,
+    pub preupload: bool,
+    pub noscript_only: bool,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct PreparedTicket {
+    pub issued: bool,
+    pub issued_at: i64,
+    pub current_at: i64,
+}
+
 #[derive(Clone, Copy)]
 pub enum ChallengePurpose {
     Thread,
@@ -136,7 +152,7 @@ impl VerificationStore {
              AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                WHERE n.nspname='verification_private' AND c.relkind='r'
                  AND has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))
-             AND coalesce((SELECT count(*)=9 AND bool_and(p.prosecdef AND p.proowner='board_anonymous_owner'::regrole
+             AND coalesce((SELECT count(*)=11 AND bool_and(p.prosecdef AND p.proowner='board_anonymous_owner'::regrole
                AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
                AND has_function_privilege(current_user,p.oid,'EXECUTE')
                AND NOT has_function_privilege('board_public',p.oid,'EXECUTE')
@@ -152,7 +168,9 @@ impl VerificationStore {
                  to_regprocedure('content.verification_accept_email(bytea,bytea,text,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea)'),
                  to_regprocedure('content.verification_signout(bytea)'),
                  to_regprocedure('content.verification_email_advice(bytea,bytea,bytea)'),
-                 to_regprocedure('content.verification_risk(bytea,bytea)'))),false)
+                 to_regprocedure('content.verification_risk(bytea,bytea)'),
+                 to_regprocedure('content.verification_board_policy(text)'),
+                 to_regprocedure('content.verification_prepare_ticket(bytea,bytea,bytea,text)'))),false)
              AND coalesce((SELECT count(*)=1 AND bool_and(p.prosecdef
                 AND p.proowner='board_anonymous_owner'::regrole
                 AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
@@ -206,6 +224,36 @@ impl VerificationStore {
 
     /// Persist only a freshly server-minted guest or validate an existing one.
     /// This operation never increments posting/report activity or verification.
+    pub async fn board_policy(
+        &self,
+        board: &str,
+    ) -> Result<Option<ChallengeBoardPolicy>, StoreError> {
+        Ok(
+            sqlx::query_as("SELECT * FROM content.verification_board_policy($1)")
+                .bind(board)
+                .fetch_optional(&self.pool)
+                .await?,
+        )
+    }
+
+    pub async fn prepare_ticket(
+        &self,
+        presented: Option<&[u8; 32]>,
+        candidate: &[u8; 32],
+        peer: &[u8; 32],
+        board: &str,
+    ) -> Result<PreparedTicket, StoreError> {
+        Ok(
+            sqlx::query_as("SELECT * FROM content.verification_prepare_ticket($1,$2,$3,$4)")
+                .bind(presented.map(|value| value.as_slice()))
+                .bind(candidate.as_slice())
+                .bind(peer.as_slice())
+                .bind(board)
+                .fetch_one(&self.pool)
+                .await?,
+        )
+    }
+
     pub async fn ensure_session(
         &self,
         fingerprints: &Fingerprints,

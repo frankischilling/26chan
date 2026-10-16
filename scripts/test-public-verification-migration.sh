@@ -62,7 +62,7 @@ SQL
 "${migrator[@]}" -Atc "SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash" > "$cluster/before.json"
 for migration in migrations/*.sql; do
     [[ $(basename "$migration") < 0158_ ]] && continue
-    [[ $(basename "$migration") < 0165_ ]] || break
+    [[ $(basename "$migration") < 0166_ ]] || break
     "${migrator[@]}" --single-transaction -f - < "$migration"
 done
 "${migrator[@]}" -Atc "SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash" > "$cluster/after.json"
@@ -111,6 +111,7 @@ DO $$ DECLARE role_name text; BEGIN
  THEN RAISE EXCEPTION 'Issuer or delivery grants drifted'; END IF;
 END $$;
 SQL
+    "${runner[@]}" "${psql[@]}" -d "$database" -f - < scripts/test-challenge-tickets.sql
     "${admin[@]}" -At > "$cluster/$database.fingerprint" <<'SQL'
 SELECT 'session',to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash;
 SELECT 'identity',to_jsonb(i) FROM verification_private.identities i ORDER BY id;
