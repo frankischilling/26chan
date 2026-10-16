@@ -149,6 +149,7 @@ impl VerificationStore {
     pub async fn ready(&self) -> Result<(), StoreError> {
         let safe: bool = sqlx::query_scalar(
             "SELECT current_user='board_verifier' AND session_user='board_verifier'
+             AND content.public_challenge_ready()
              AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
              AND NOT rolreplication AND NOT rolbypassrls
              AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid)

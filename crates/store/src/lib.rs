@@ -426,9 +426,11 @@ pub async fn connect_public(url: &str) -> Result<PgPool, StoreError> {
         pool.close().await;
         return Err(StoreError::UnsafeRole);
     }
-    let ready: bool = sqlx::query_scalar("SELECT content.restrictions_ready()")
-        .fetch_one(&pool)
-        .await?;
+    let ready: bool = sqlx::query_scalar(
+        "SELECT content.restrictions_ready() AND content.public_challenge_ready()",
+    )
+    .fetch_one(&pool)
+    .await?;
     if !ready {
         pool.close().await;
         return Err(StoreError::UnsafeRole);

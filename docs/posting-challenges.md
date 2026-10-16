@@ -1,9 +1,9 @@
 # Posting and report challenges
 
 Issue [#199](https://github.com/frankischilling/26chan/issues/199) is in progress.
-The board policy and ticket storage described here are implemented. Ordinary
-posting, Quick Reply, report forms, and credit consumption
-still need to use them. Email verification is covered in
+Board policy, ticket storage, and normal post receipt enforcement are implemented
+in the database. Public posting and Quick Reply still need to request and supply
+those proofs; report enforcement and credit spending are unfinished. Email verification is covered in
 [public verification](public-verification.md).
 
 ## Board policy
@@ -66,27 +66,43 @@ cross-board and cross-peer rejection, expiry, capacity, and runtime privileges.
 The populated verification upgrade/restore test also checks the ticket API and
 preservation of the transfer catalog.
 
-Protected writes still need to consume a context-bound issuer receipt in the
-same transaction as the post or report. The post-table insertion guard must
-also cover staged uploads and direct public-role inserts. Credit grants must
-roll back if any part of the protected write fails. Browser flows and these
-write paths require their own tests before #199 can close.
+## Post transactions
+
+Migration 0167 puts the receipt check on `content.posts` insertion, covering
+direct public-role writes and the nested insertion used by staged attachments.
+The Store's typed carrier installs transaction-local proof input and clears any
+prior pooled-connection value when a writer supplies no proof. The database
+checks the private issuer receipt rather than trusting that input.
 
 Migration 0166 provides the private receipt-consumption helper for those writes.
 It checks scope and expiry after acquiring its locks, consumes a matching proof
 once, and rolls consumption back with a failed transaction. Runtime logins
-cannot call it directly. It is not yet called by ordinary post or report writes;
-credit-backed receipts remain rejected until their transactional spending path
-is implemented.
+cannot call it directly. Credit-backed receipts remain rejected until their
+transactional spending path is implemented.
 
 The private credit profile uses resumed activity from before the current post,
 matching the source's grant-before-activity ordering. It keeps the three grant
 tiers and the separate sixty-second address-age requirement for new grants.
 Existing-credit eligibility is computed separately. Verified browsers with the
 same email identity share the private credit key; anonymous browsers keep
-separate keys. This profile does not yet grant or spend stored credits.
+separate keys.
 
-The Store's typed receipt carrier installs transaction-local proof input and
-clears any prior pooled-connection value when a writer supplies no proof. The
-post-table guard still needs to consume that input; the carrier itself provides
-no authorization.
+A private post/session/transaction handoff carries grant eligibility from the
+insertion check to anonymous activity registration. Registration applies any
+eligible credit grant before advancing activity. A deferred constraint prevents
+an unfinished handoff from committing. Post failures roll back the receipt,
+handoff, and credit grant together. Staff and migration writes retain their
+existing separate authority. Readiness rejects a missing or disabled guard.
+
+Focused database tests cover direct missing-proof rejection, a valid normal
+post, replay rejection, incomplete handoffs, readiness drift, and the difference
+between four and five posts before the new post. Staged-attachment tests force
+a failure after the nested post insertion, verify that the receipt and post
+roll back, then commit a retry with the same upload and proof. The email-verification
+content-filter fixture disables CAPTCHA only on its owned test board so that it
+continues to isolate that separate admission rule.
+
+Staged-upload and report integration, credit spending, and browser flows still
+need implementation or qualification. Existing posting fixtures must explicitly
+account for the new gate. The branch has not passed full-workspace CI and must
+not be treated as ready to merge.
