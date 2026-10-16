@@ -227,7 +227,9 @@ class ReplayFixtureGuards(unittest.TestCase):
                 self.assertEqual(self.snapshot(RECORDER, "*.tgkr") | self.snapshot(RECORDER, "*.json"), before)
         for name in ("empty.tgkr", "commands.tgkr", "manifest.json"):
             with self.subTest(name=name), self.changed(RECORDER / name, b"frozen drift"):
-                self.recorder(error="fixture changed: " + name)
+                output = self.recorder(error="fixture changed: " + name)
+                self.assertLess(len(output.encode("utf-8")), 4096,
+                                "Binary mismatches must use bounded diagnostics")
                 self.assertEqual((self.root / RECORDER / name).read_bytes(), b"frozen drift")
 
     def test_constructor_oracle_cli_pin_output_and_record_guards(self):

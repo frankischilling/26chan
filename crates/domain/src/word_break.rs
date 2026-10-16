@@ -12,7 +12,7 @@ pub enum WordPart {
 }
 
 pub(crate) fn enabled(format: i16) -> bool {
-    matches!(format, 40..=47 | 56..=63 | 104..=111 | 120..=127)
+    matches!(format, 40..=47 | 56..=63 | 104..=111 | 120..=127 | 232..=239 | 248..=255)
 }
 
 fn wrap(text: &str) -> String {

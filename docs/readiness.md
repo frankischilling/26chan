@@ -120,7 +120,9 @@ names and trips. [Source staff identities](staff-capcodes.md) retain the
 administrator's posting exception and the catalog's separate two-badge rule.
 [Poster IDs](poster-ids.md) add optional thread-scoped labels, public
 JSON fields, escaped staff previews and default-on ID colors. The secure hash is a documented security replacement; original
-Unicode encoding and remaining parser edge cases need permitted evidence.
+CP932 conversion is covered by the pinned exhaustive mapping.
+[Text admission and formatting](text-admission-parity.md) records the remaining
+source-input limits and the current edge-case qualification.
 [Posting preferences](post-preferences.md) also restore the remembered display
 name and Options field, with private identity suffixes excluded from storage.
 

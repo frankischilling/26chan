@@ -1,11 +1,12 @@
 # Posting and report challenges
 
-Issue [#199](https://github.com/frankischilling/26chan/issues/199) is in progress.
+Issue [#199](https://github.com/frankischilling/26chan/issues/199) was closed by
+[PR #292](https://github.com/frankischilling/26chan/pull/292).
 Board policy, tickets, protected writes, and public challenge exchange are
 implemented, along with normal posting, Quick Reply, and report controls.
 Classic forms also carry server-rendered challenges for no-JavaScript submission.
-The Linux and Windows CAPTCHA browser suites pass; final full-workspace CI
-remains a merge prerequisite. Email verification
+All 23 checks on final head `289a5bbe` passed before merge, including the Linux
+and Windows CAPTCHA browser suites and full Rust/database qualification. Email verification
 is covered in [public verification](public-verification.md).
 
 ## Board policy

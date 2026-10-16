@@ -1075,6 +1075,7 @@ async fn submit_post(
         settings.comment_spacing(),
         if form.resto == 0 {
             board_domain::PostKind::Thread {
+                staff_image_only: false,
                 subject_required: settings.require_subject,
                 text_only: settings.text_only,
             }

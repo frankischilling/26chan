@@ -8,6 +8,8 @@ use crate::{
 #[derive(Clone, Copy)]
 pub enum PostKind {
     Thread {
+        /// Server-selected moderator Options exception; attachment authority is checked separately.
+        staff_image_only: bool,
         subject_required: bool,
         text_only: bool,
     },
@@ -156,7 +158,9 @@ fn final_admission(
         });
     if blank {
         match kind {
-            PostKind::Thread { .. } if subject.is_empty() => {
+            PostKind::Thread {
+                staff_image_only, ..
+            } if subject.is_empty() && !(staff_image_only && has_attachment) => {
                 return Err(ValidationError(
                     "Error: New threads require a subject or comment.",
                 ));
@@ -174,6 +178,7 @@ fn final_admission(
             ..
         }
     ) && subject.is_empty()
+        && !blank
     {
         return Err(ValidationError("Error: New threads require a subject."));
     }

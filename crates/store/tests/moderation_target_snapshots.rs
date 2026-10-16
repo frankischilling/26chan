@@ -222,14 +222,16 @@ async fn snapshot_shape_saved_bounds_and_legacy_nulls() {
         value["action"] = json!(action);
         insert(&mut tx, &value).await.unwrap();
     }
-    for format in 0_i16..=127 {
+    for format in 0_i16..=256 {
         let supported = format == 0
             || (8..=15).contains(&format)
             || (24..=31).contains(&format)
             || (40..=47).contains(&format)
             || (56..=63).contains(&format)
             || (104..=111).contains(&format)
-            || (120..=127).contains(&format);
+            || (120..=127).contains(&format)
+            || (232..=239).contains(&format)
+            || (248..=255).contains(&format);
         let mut value = valid.clone();
         value["snapshot_comment_format"] = json!(format);
         if supported {

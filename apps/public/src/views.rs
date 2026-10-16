@@ -482,7 +482,7 @@ impl Comment<'_> {
     /// never decodes entities, parses user HTML, or changes historical profiles.
     pub(crate) fn render_json(&self, format: i16) -> askama::Result<String> {
         let html = self.render()?;
-        if matches!(format, 104..=111 | 120..=127) {
+        if matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255) {
             Ok(html
                 .replace("&#38;", "&amp;")
                 .replace("&#60;", "&lt;")
@@ -537,7 +537,11 @@ mod comment_tests {
                 fortune_color: None,
                 drawing: None,
             };
-            for profile in (104..=111).chain(120..=127) {
+            for profile in (104..=111)
+                .chain(120..=127)
+                .chain(232..=239)
+                .chain(248..=255)
+            {
                 assert_eq!(
                     comment.render_json(profile).unwrap(),
                     case["expected"].as_str().unwrap()
@@ -566,7 +570,11 @@ mod comment_tests {
                 drawing: None,
             };
             let historical = comment.render().unwrap();
-            for profile in (104..=111).chain(120..=127) {
+            for profile in (104..=111)
+                .chain(120..=127)
+                .chain(232..=239)
+                .chain(248..=255)
+            {
                 let html = comment.render_json(profile).unwrap();
                 assert_eq!(html, board_domain::source_html_entities(text));
                 assert!(!html.contains("<script>"));

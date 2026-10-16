@@ -104,6 +104,7 @@ pub(crate) struct Input {
     pub parent: i64,
     pub name: String,
     pub legacy_trip: String,
+    pub moderator: bool,
     pub subject: String,
     pub comment: String,
     pub filename: String,
@@ -148,6 +149,32 @@ impl Snapshot {
     }
 }
 
+/// Capcoded posts bypass configured public filters, but not the fixed source
+/// name/trip hook. Use the same bounded native-work pool for that final check.
+pub(crate) async fn evaluate_staff_identity(
+    name: String,
+    legacy_trip: String,
+    moderator: bool,
+) -> Result<Option<&'static str>, StoreError> {
+    if name.is_ascii() {
+        return name_trip_admission::evaluate(&name, &legacy_trip, moderator)
+            .map(|rejection| rejection.map(TripRejection::message))
+            .map_err(unavailable);
+    }
+    let permit = WORK
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| unavailable(()))?;
+    tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        name_trip_admission::evaluate(&name, &legacy_trip, moderator)
+            .map(|rejection| rejection.map(TripRejection::message))
+            .map_err(unavailable)
+    })
+    .await
+    .map_err(|_| unavailable(()))?
+}
+
 fn evaluate(
     rules: Vec<Rule>,
     actor: Actor,
@@ -171,7 +198,7 @@ fn evaluate(
         decision,
         Decision::Allow | Decision::Log { .. } | Decision::Autosage { .. }
     ) {
-        name_trip_admission::evaluate(&input.name, &input.legacy_trip, false)
+        name_trip_admission::evaluate(&input.name, &input.legacy_trip, input.moderator)
             .map_err(unavailable)?
     } else {
         None

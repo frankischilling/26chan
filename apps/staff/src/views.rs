@@ -525,7 +525,9 @@ mod tests {
 
     #[test]
     fn stamped_preview_keeps_markup_and_escapes_hostile_text() {
-        for format in [0, 8, 9, 15, 24, 31, 40, 47, 56, 63, 104, 105, 111, 120, 127] {
+        for format in [
+            0, 8, 9, 15, 24, 31, 40, 47, 56, 63, 104, 105, 111, 120, 127, 232, 239, 248, 255,
+        ] {
             let preview = Preview::from(Report {
                 id: 1,
                 board: "test".into(),

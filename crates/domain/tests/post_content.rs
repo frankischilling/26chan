@@ -1,6 +1,7 @@
 use board_domain::{CommentSpacing, PostKind, prepare_post_content};
 
 const OP: PostKind = PostKind::Thread {
+    staff_image_only: false,
     subject_required: false,
     text_only: false,
 };
@@ -180,6 +181,7 @@ fn raw_required_subject_spam_and_line_failures_keep_their_source_precedence() {
             true,
             spacing,
             PostKind::Thread {
+                staff_image_only: false,
                 subject_required: true,
                 text_only: false
             }
@@ -205,4 +207,96 @@ fn raw_required_subject_spam_and_line_failures_keep_their_source_precedence() {
         .0,
         "Enter a comment within this board's character limit."
     );
+}
+
+#[test]
+fn source_staff_image_only_exception_preserves_early_subject_and_attachment_rules() {
+    // imgboard.php final admission uses the pre-capcode Options field, an
+    // attachment and moderator authority. REQUIRE_SUBJECT is checked earlier;
+    // the later TEXT_ONLY subject check is the nonblank-comment else branch.
+    let spacing = CommentSpacing::for_board("test", false, false).with_line_rules(100, true);
+    for staff_image_only in [false, true] {
+        for has_attachment in [false, true] {
+            for subject_required in [false, true] {
+                for text_only in [false, true] {
+                    let kind = PostKind::Thread {
+                        staff_image_only,
+                        subject_required,
+                        text_only,
+                    };
+                    for comment in ["", " \n\t", "[spoiler] [/spoiler]"] {
+                        let result = prepare_post_content(
+                            "",
+                            "",
+                            comment,
+                            1000,
+                            has_attachment,
+                            spacing,
+                            kind,
+                        );
+                        if subject_required {
+                            assert_eq!(
+                                result.err().unwrap().0,
+                                "Error: New threads require a subject."
+                            );
+                        } else if staff_image_only && has_attachment {
+                            assert!(result.is_ok());
+                        } else {
+                            assert_eq!(result.err().unwrap().0, MISSING_OP);
+                        }
+                    }
+                    let result = prepare_post_content(
+                        "",
+                        "",
+                        "nonblank",
+                        1000,
+                        has_attachment,
+                        spacing,
+                        kind,
+                    );
+                    assert_eq!(result.is_err(), subject_required || text_only);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn pinned_source_final_admission_vectors_match() {
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/post-content-admission.json")).unwrap();
+    let cases = fixture["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 192);
+    let spacing = CommentSpacing::for_board("test", false, false);
+    for case in cases {
+        let kind = if case["resto"] == 0 {
+            PostKind::Thread {
+                staff_image_only: case["moderator"].as_bool().unwrap()
+                    && !case["options_field"].as_str().unwrap().is_empty(),
+                subject_required: false,
+                text_only: case["text_only"].as_bool().unwrap(),
+            }
+        } else {
+            PostKind::Reply
+        };
+        let result = prepare_post_content(
+            "",
+            case["sub"].as_str().unwrap(),
+            case["com"].as_str().unwrap(),
+            1000,
+            case["has_image"].as_bool().unwrap(),
+            spacing,
+            kind,
+        );
+        let outcome = match result {
+            Ok(_) => "allow",
+            Err(error) => match error.0 {
+                MISSING_OP => "op_text",
+                MISSING_REPLY => "reply_text",
+                "Error: New threads require a subject." => "subject",
+                other => panic!("Unexpected admission error: {other}"),
+            },
+        };
+        assert_eq!(outcome, case["outcome"].as_str().unwrap(), "{case}");
+    }
 }

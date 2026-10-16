@@ -775,6 +775,7 @@ async fn create_post_in_context(
     } else {
         (post.name.as_str(), post.subject.as_str())
     };
+    let mut masked_legacy_trip = None;
     let identity = if let Some(source) = staff.as_ref().and_then(|authority| authority.identity) {
         let prepared = board_domain::identity::prepare_for_board_with_limits(
             post_name,
@@ -785,14 +786,9 @@ async fn create_post_in_context(
         )
         .map_err(|error| StoreError::Invalid(error.0))?;
         // Source checks the finished name/trip bound before masking the name.
-        if source.name_allowed {
-            prepared
-        } else {
-            board_domain::identity::Identity {
-                name: "Anonymous".into(),
-                trip: None,
-            }
-        }
+        let (display, admission_trip) = staff_display_identity(prepared, source.name_allowed);
+        masked_legacy_trip = admission_trip;
+        display
     } else if staff.is_some() {
         // Legacy proofs and private discussion never publish a raw trip secret.
         let display = post_name.split('#').next().unwrap_or("").trim();
@@ -828,6 +824,16 @@ async fn create_post_in_context(
         board.comment_spacing().with_op_markup(op_markup),
         if parent == 0 {
             board_domain::PostKind::Thread {
+                // Source retains the Options field before removing a capcode.
+                // Separate staff badge selection represents that same nonempty field.
+                // The bound staff receipt and attachment are still checked below.
+                staff_image_only: authorized_staff
+                    && (!prepared_options.is_empty()
+                        || staff.as_ref().is_some_and(|authority| {
+                            authority
+                                .identity
+                                .is_some_and(|identity| identity.capcode.is_some())
+                        })),
                 subject_required: board.require_subject,
                 text_only: board.text_only,
             }
@@ -879,6 +885,24 @@ async fn create_post_in_context(
         )
         .await?;
     }
+    // Only public display text and an already-derived legacy hash enter the
+    // source hook. Suppressed or modern secure-trip secrets never do.
+    let admission_name = match &identity.trip {
+        Some(trip) => format!(
+            "{}</span> <span class=\"postertrip\">{trip}",
+            board_domain::source_html_entities(&identity.name)
+        ),
+        None => board_domain::source_html_entities(&identity.name),
+    };
+    let legacy_trip = masked_legacy_trip.unwrap_or_else(|| {
+        identity
+            .trip
+            .as_deref()
+            .filter(|trip| !trip.starts_with("!!"))
+            .and_then(|trip| trip.strip_prefix('!'))
+            .unwrap_or("")
+            .into()
+    });
     let mut autosage_proof = None;
     if let Some(admission) = admission {
         let filename = if let Some(attachment) = attachment {
@@ -897,23 +921,9 @@ async fn create_post_in_context(
                 parent,
                 // The source hook receives escaped display text and the public
                 // trip span after hashing, never the private trip password.
-                name: match &identity.trip {
-                    Some(trip) => format!(
-                        "{}</span> <span class=\"postertrip\">{trip}",
-                        board_domain::source_html_entities(&identity.name)
-                    ),
-                    None => board_domain::source_html_entities(&identity.name),
-                },
-                // Admit only a derived legacy hash. The source leaves its raw
-                // second field in $trip when suppression skips hashing; this
-                // backend excludes that secret from admission and logging.
-                legacy_trip: identity
-                    .trip
-                    .as_deref()
-                    .filter(|trip| !trip.starts_with("!!"))
-                    .and_then(|trip| trip.strip_prefix('!'))
-                    .unwrap_or("")
-                    .into(),
+                name: admission_name,
+                legacy_trip,
+                moderator: authorized_staff,
                 subject: board_domain::source_html_entities(content.subject()),
                 comment: board_domain::source_html_entities(content.comment()),
                 filename,
@@ -938,6 +948,14 @@ async fn create_post_in_context(
             // retain a preceding log/autosage hit from an incomplete post.
             return Err(StoreError::ContentRejected(message.into()));
         }
+    } else if let Some(message) = crate::content_admission::evaluate_staff_identity(
+        admission_name,
+        legacy_trip,
+        authorized_staff,
+    )
+    .await?
+    {
+        return Err(StoreError::ContentRejected(message.into()));
     }
     let board_domain::PreparedPostContent { comment, subject } = content
         .finish()
@@ -985,7 +1003,7 @@ async fn create_post_in_context(
         .map_err(|error| StoreError::Invalid(error.0))?;
     let formatted = wordfiltered
         .as_ref()
-        .map(|prepared| board_domain::filtered_formatting::lines(prepared, slug));
+        .map(|prepared| board_domain::filtered_formatting::lines_for_post(prepared, slug, 232));
     let wordfilter_search = formatted
         .as_ref()
         .map(|lines| board_domain::formatting::plain_text(lines));
@@ -1962,6 +1980,69 @@ mod drawing_submission_tests {
             ("-9223372036854775809", i64::MIN),
         ] {
             assert_eq!(drawing_source_integer(raw), expected, "{raw:?}");
+        }
+    }
+}
+
+/// Mask the public identity without discarding the already-derived normal trip
+/// used by the source's fixed hook. This transient value is never persisted.
+fn staff_display_identity(
+    prepared: board_domain::identity::Identity,
+    name_allowed: bool,
+) -> (board_domain::identity::Identity, Option<String>) {
+    if name_allowed {
+        return (prepared, None);
+    }
+    let admission_trip = prepared
+        .trip
+        .as_deref()
+        .filter(|trip| !trip.starts_with("!!"))
+        .and_then(|trip| trip.strip_prefix('!'))
+        .map(str::to_owned);
+    (
+        board_domain::identity::Identity {
+            name: "Anonymous".into(),
+            trip: None,
+        },
+        admission_trip,
+    )
+}
+
+#[cfg(test)]
+mod staff_identity_admission_tests {
+    use super::staff_display_identity;
+    use board_domain::{identity, name_trip_admission};
+
+    #[test]
+    fn masked_names_keep_only_a_transient_derived_normal_trip_for_the_fixed_hook() {
+        let prepared = identity::prepare("Hidden#password", None).unwrap();
+        let (display, trip) = staff_display_identity(prepared, false);
+        assert_eq!(display.name, "Anonymous");
+        assert!(display.trip.is_none());
+        assert_eq!(trip.as_deref(), Some("ozOtJW9BFA"));
+        // A synthetic already-derived hash exercises the exact hook boundary;
+        // no raw password, hash search or source private salt is involved.
+        let (display, trip) = staff_display_identity(
+            identity::Identity {
+                name: "Hidden".into(),
+                trip: Some("!l0l1c0mabc".into()),
+            },
+            false,
+        );
+        assert_eq!(
+            name_trip_admission::evaluate(&display.name, trip.as_deref().unwrap(), true).unwrap(),
+            Some(name_trip_admission::Rejection::BannedText)
+        );
+        assert!(display.trip.is_none());
+        for trip in [None, Some("!!01234567890".into())] {
+            let (display, hook) = staff_display_identity(
+                identity::Identity {
+                    name: "Hidden".into(),
+                    trip,
+                },
+                false,
+            );
+            assert!(display.trip.is_none() && hook.is_none());
         }
     }
 }

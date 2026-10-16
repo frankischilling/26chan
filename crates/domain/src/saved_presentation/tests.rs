@@ -309,7 +309,11 @@ fn rejects_historical_unknown_profiles_and_oversize_instead_of_clipping() {
             Err(PresentationError::UnsupportedFormat)
         ));
     }
-    for format in (104..=111).chain(120..=127) {
+    for format in (104..=111)
+        .chain(120..=127)
+        .chain(232..=239)
+        .chain(248..=255)
+    {
         assert!(
             FrozenPresentation::from_saved(SavedCommentRef {
                 comment: ">>1",
@@ -742,4 +746,52 @@ fn qualified_atoms_match_pinned_independent_source_replacement_vectors() {
             "existing-server-link-stays-frozen"
         ]
     );
+}
+
+#[test]
+fn greentext_profile_is_frozen_for_plain_and_wordfiltered_transfers() {
+    let raw = ">>not-a-post";
+    for format in [104, 232] {
+        for wordfiltered in [false, true] {
+            let mut prepared = crate::wordfiltered_comment::prepare(
+                raw,
+                MarkupPolicy::default(),
+                Profile::Global,
+                None,
+            )
+            .unwrap();
+            prepared.freeze_format("g");
+            let payload = prepared.encode().unwrap();
+            let projection = crate::filtered_formatting::source_projection(
+                &crate::filtered_formatting::lines_for_post(&prepared, "g", format),
+            );
+            let frozen = FrozenPresentation::from_saved(SavedCommentRef {
+                comment: if wordfiltered { &projection } else { raw },
+                format,
+                source_board: "g",
+                wordfilter_payload: wordfiltered.then_some(payload.as_slice()),
+                saved_presentation: None,
+                limits: ordinary(),
+            })
+            .unwrap();
+            let expected = if format == 232 {
+                "<span class=\"quote\">&gt;&gt;not-a-post</span>"
+            } else {
+                "&gt;&gt;not-a-post"
+            };
+            assert_eq!(frozen.source_projection(), expected);
+            let bytes = frozen.encode().unwrap();
+            let moved = FrozenPresentation::from_saved(SavedCommentRef {
+                comment: expected,
+                format,
+                source_board: "co",
+                wordfilter_payload: None,
+                saved_presentation: Some(&bytes),
+                limits: ordinary(),
+            })
+            .unwrap();
+            assert_eq!(moved.source_projection(), expected);
+            assert_eq!(moved.encode().unwrap(), bytes);
+        }
+    }
 }

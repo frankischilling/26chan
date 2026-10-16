@@ -89,6 +89,37 @@ pub fn plain_text(lines: &[Line]) -> String {
     text
 }
 
+/// The source protects only these lexical quote prefixes before greentext.
+/// Resolution may later fail, but an unresolved numeric quote stays uncolored.
+pub(crate) fn source_green_prefix(input: &str) -> bool {
+    if !input.starts_with('>') || crate::static_quote::StaticQuote::parse(input).is_some() {
+        return false;
+    }
+    if input
+        .strip_prefix(">>")
+        .and_then(|s| s.as_bytes().first())
+        .is_some_and(u8::is_ascii_digit)
+    {
+        return false;
+    }
+    if let Some(rest) = input.strip_prefix(">>>/") {
+        let board = rest
+            .bytes()
+            .take_while(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+            .count();
+        // The earlier 35-scalar wrap inserts a marker before a slash after
+        // 31 board characters (four prefix characters plus the board).
+        if (1..=30).contains(&board) && rest.as_bytes().get(board) == Some(&b'/') {
+            return false;
+        }
+    }
+    true
+}
+
+pub(crate) fn source_green_format(format: i16) -> bool {
+    matches!(format, 232..=239 | 248..=255)
+}
+
 /// Nonrecursive grammar. HTML is always text; templates escape every text node.
 /// The posting boundary caps input at 16,000 Unicode scalar values. This parser
 /// also bounds work when called independently on malformed or oversized input.
@@ -179,8 +210,12 @@ pub fn parse_post_comment_on_board_with_limits(
                     } else {
                         &text
                     };
-                    let mut green =
-                        line_start && start.starts_with('>') && !start.starts_with(">>");
+                    let mut green = line_start
+                        && if source_green_format(format) {
+                            source_green_prefix(start)
+                        } else {
+                            start.starts_with('>') && !start.starts_with(">>")
+                        };
                     if green {
                         // Source allows one space between a break and a quote.
                         if text.starts_with(' ') {
@@ -251,7 +286,7 @@ pub fn parse_saved_comment_with_limits(
     match wordfilter {
         None => parse_post_comment_on_board_with_limits(input, format, board, limits),
         Some(bytes) => match crate::wordfiltered_comment::PreparedComment::decode(bytes) {
-            Ok(prepared) => crate::filtered_formatting::lines(&prepared, board),
+            Ok(prepared) => crate::filtered_formatting::lines_for_post(&prepared, board, format),
             Err(_) => vec![Line {
                 green: false,
                 tokens: vec![Token::Text("[Comment unavailable]".into())],

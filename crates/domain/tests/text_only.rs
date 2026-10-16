@@ -4,6 +4,7 @@ use board_domain::{CommentSpacing, PostKind, prepare_post_content};
 fn text_only_requires_a_subject_after_ordinary_final_comment_admission() {
     let spacing = CommentSpacing::for_board("news", false, false).with_line_rules(2, true);
     let kind = PostKind::Thread {
+        staff_image_only: false,
         subject_required: false,
         text_only: true,
     };
@@ -44,6 +45,7 @@ fn text_only_requires_a_subject_after_ordinary_final_comment_admission() {
             false,
             spacing,
             PostKind::Thread {
+                staff_image_only: false,
                 subject_required: true,
                 text_only: true
             }

@@ -138,6 +138,10 @@ checkOrRecord('manifest.json', JSON.stringify({
 for (const [name, bytes] of outputs) {
   const target = path.join(__dirname, name);
   if (record) fs.writeFileSync(target, bytes);
-  else assert.deepEqual(fs.readFileSync(target), bytes, `fixture changed: ${name}`);
+  // Deep assertion diffs turn an expected binary mismatch into expensive
+  // diagnostic work. Compare every byte without inspecting either buffer.
+  else if (!fs.readFileSync(target).equals(bytes)) {
+    throw new Error(`fixture changed: ${name}`);
+  }
 }
 console.log(`verified ${outputs.size} production recorder fixtures`);

@@ -130,7 +130,7 @@ impl FrozenPresentation {
     /// Reconstruct only qualified source profiles, without current board filters.
     /// Repeated moves decode the frozen representation without reformatting it.
     pub fn from_saved(input: SavedCommentRef<'_>) -> Result<Self> {
-        if !matches!(input.format, 104..=111 | 120..=127) {
+        if !matches!(input.format, 104..=111 | 120..=127 | 232..=239 | 248..=255) {
             return Err(PresentationError::UnsupportedFormat);
         }
         let bounds = WordfilterLimits::for_post(input.limits);
@@ -155,7 +155,11 @@ impl FrozenPresentation {
             }
             let prepared =
                 PreparedComment::decode(bytes).map_err(|_| PresentationError::InvalidEncoding)?;
-            let lines = crate::filtered_formatting::lines(&prepared, input.source_board);
+            let lines = crate::filtered_formatting::lines_for_post(
+                &prepared,
+                input.source_board,
+                input.format,
+            );
             if crate::filtered_formatting::source_projection(&lines) != input.comment {
                 return Err(PresentationError::InconsistentSavedComment);
             }

@@ -191,7 +191,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                     let saved = board_store::find_post(&public, &slug, result.unwrap())
                         .await
                         .unwrap();
-                    assert_eq!(saved.comment_format, 104 + mask);
+                    assert_eq!(saved.comment_format, 232 + mask);
                 }
             }
         }
@@ -253,7 +253,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                     .await
                     .unwrap()
                     .comment_format,
-                110
+                238
             );
         }
     }

@@ -134,7 +134,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         let reply = submit(&app, &slug, op, mode).await;
         for id in [op, reply] {
             let saved = board_store::find_post(&public, &slug, id).await.unwrap();
-            assert_eq!(saved.comment_format, 127);
+            assert_eq!(saved.comment_format, 255);
             assert!(saved.comment.contains("{{w_br}}"));
             assert!(!saved.comment.contains("<wbr>"));
         }
@@ -195,7 +195,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .await
             .unwrap()
             .comment_format,
-        104
+        232
     );
     assert!(
         sqlx::query("UPDATE content.posts SET comment_format=8 WHERE id=$1")

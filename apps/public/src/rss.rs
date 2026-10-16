@@ -370,7 +370,11 @@ mod tests {
         let source = row["com"].as_str().unwrap();
         assert!(fixture["feed"].as_str().unwrap().contains(source));
         let input = source_text(source.split(" <a ").next().unwrap());
-        for format in (104..=111).chain(120..=127) {
+        for format in (104..=111)
+            .chain(120..=127)
+            .chain(232..=239)
+            .chain(248..=255)
+        {
             let parsed = board_domain::parse_post_comment_on_board(&input, format, "test");
             // Page parsing retains identities for snapshot resolution.
             assert!(

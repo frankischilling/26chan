@@ -75,14 +75,28 @@ enum Section {
 }
 
 pub fn lines(prepared: &PreparedComment, board: &str) -> Vec<Line> {
-    lines_and_wrap(prepared, board).0
+    lines_and_wrap(prepared, board, false).0
 }
 
 pub fn wrap_required(prepared: &PreparedComment, board: &str) -> bool {
-    lines_and_wrap(prepared, board).1
+    lines_and_wrap(prepared, board, false).1
 }
 
-fn lines_and_wrap(prepared: &PreparedComment, board: &str) -> (Vec<Line>, bool) {
+/// Saved rows select their own greentext rules; older profiles stay unchanged.
+pub fn lines_for_post(prepared: &PreparedComment, board: &str, format: i16) -> Vec<Line> {
+    lines_and_wrap(
+        prepared,
+        board,
+        crate::formatting::source_green_format(format),
+    )
+    .0
+}
+
+fn lines_and_wrap(
+    prepared: &PreparedComment,
+    board: &str,
+    source_green: bool,
+) -> (Vec<Line>, bool) {
     let normalize = crate::server_link::source_probe(&prepared.source_projection());
     let mut sections = Vec::new();
     let mut text = Text::default();
@@ -186,7 +200,12 @@ fn lines_and_wrap(prepared: &PreparedComment, board: &str) -> (Vec<Line>, bool) 
             Section::Text(text) => {
                 let prefix = usize::from(after_break && text.value.starts_with(' '));
                 let start = &text.value[prefix..];
-                let mut green = line_start && start.starts_with('>') && !start.starts_with(">>");
+                let mut green = line_start
+                    && if source_green {
+                        crate::formatting::source_green_prefix(start)
+                    } else {
+                        start.starts_with('>') && !start.starts_with(">>")
+                    };
                 let offset = if green { prefix } else { 0 };
                 if green {
                     if prefix > 0 {
@@ -375,6 +394,7 @@ mod tests {
                         .with_line_rules(100, true)
                         .with_op_markup(true),
                     crate::PostKind::Thread {
+                        staff_image_only: false,
                         subject_required: false,
                         text_only: false,
                     },

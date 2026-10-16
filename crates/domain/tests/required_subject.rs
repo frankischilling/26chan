@@ -1,10 +1,12 @@
 use board_domain::{CommentSpacing, PostKind, prepare_post_content};
 
 const REQUIRED: PostKind = PostKind::Thread {
+    staff_image_only: false,
     subject_required: true,
     text_only: false,
 };
 const OPTIONAL: PostKind = PostKind::Thread {
+    staff_image_only: false,
     subject_required: false,
     text_only: false,
 };

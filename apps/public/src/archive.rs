@@ -39,7 +39,7 @@ pub fn prepare(input: Input<'_>) -> Prepared {
         drawing,
     } = input;
     let subject = subject.strip_prefix("SPOILER<>").unwrap_or(subject);
-    let source_links = matches!(format, 104..=111 | 120..=127);
+    let source_links = matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255);
     let mut tokens = Vec::new();
     if let Some(dice) = dice {
         tokens.extend([

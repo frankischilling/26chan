@@ -1,0 +1,1931 @@
+{
+  "source": "imgboard.php",
+  "sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+  "scope": "Final content admission after formatting; early required subject and upload policy are separate",
+  "boundary_stubs": [
+    "moderator decision",
+    "terminal error"
+  ],
+  "cases": [
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": false
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "op_text",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "subject",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "subject",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "subject",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "subject",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "subject",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "subject",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "subject",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "subject",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 0,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "reply_text",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": " ",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": false,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": false,
+      "outcome": "allow",
+      "text_only": true
+    },
+    {
+      "resto": 1,
+      "sub": "subject",
+      "com": "text",
+      "has_image": true,
+      "options_field": "nonoko",
+      "moderator": true,
+      "outcome": "allow",
+      "text_only": true
+    }
+  ]
+}

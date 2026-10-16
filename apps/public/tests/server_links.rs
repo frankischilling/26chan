@@ -139,7 +139,7 @@ async fn exercise(owner: &PgPool, public: &PgPool, board: &str, target: i64, tar
         let id = submit(&app, board, op, mode, &reply).await;
         let saved = board_store::find_post(public, board, id).await.unwrap();
         assert_eq!(saved.comment, reply);
-        assert_eq!(saved.comment_format, 104);
+        assert_eq!(saved.comment_format, 232);
         let path = format!("/{board}/thread/{op}");
         let html = get(&app, &path).await;
         assert!(html.contains(&format!("href=\"#p{op}\">&gt;&gt;{op}</a>")));
