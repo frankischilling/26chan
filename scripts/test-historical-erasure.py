@@ -89,6 +89,10 @@ UPDATE post_secrets.report_snapshot_capacity SET used_bytes=(SELECT sum(charged_
 COMMIT;""")
 
 baseline = rows()
+# The operator must use its existing SET-only owner membership for the report
+# restriction seal. Do not broaden the migrator's direct function grants.
+assert sql("SELECT has_function_privilege('board_migrator','content.restrictions_ready()','EXECUTE')") == "f"
+sql("SELECT content.restrictions_ready()", role="board_migrator", ok=False)
 first = preview()
 assert rows() == baseline, "Preview changed persisted rows"
 assert len(first["report_ids"]) == 64 and len(first["post_ids"]) == 64 and first["thread_ids"] == []
@@ -171,6 +175,8 @@ for change, restore in (
      "ALTER FUNCTION post_secrets.guard_thread_erasure() SET search_path=pg_catalog,pg_temp"),
     ("ALTER TABLE post_secrets.report_post_snapshots DISABLE TRIGGER release_report_snapshot",
      "ALTER TABLE post_secrets.report_post_snapshots ENABLE TRIGGER release_report_snapshot"),
+    ("ALTER FUNCTION content.lock_report_network_policy() SECURITY INVOKER",
+     "ALTER FUNCTION content.lock_report_network_policy() SECURITY DEFINER"),
 ):
     sql(change)
     drift = rows()

@@ -83,6 +83,15 @@ the necessary visibility and column grant. The policy reader stays private
 and bounded; existing RLS and grants are unchanged. The focused test now
 passes both unmatched acceptance and matched rejection.
 
+Hosted qualification also found that the historical-erasure operator could no
+longer run its report-readiness check: the new restriction-seal call needs its
+owner, while the migrator has SET-only membership. The operator now assumes
+that existing owner for the check and resets its role afterward. No grants were
+expanded. The failure was reproduced locally; the corrected operator passes
+the populated upgrade, bounded cleanup, private-board, stale-state, rollback,
+fresh-install and dump/restore checks. Added controls retain the migrator's
+direct-execution denial and reject drift in the report network helper.
+
 Trusted Pass bypass and its source error footer remain unfinished. A public
 cookie, staff badge or CAPTCHA exemption must not stand in for a qualified Pass
 provider. The intentional IPv6 and unavailable-provider security differences

@@ -195,13 +195,23 @@ pub(crate) async fn preflight(connection: &mut PgConnection) -> Result<(), Erasu
     if !ready || !erasure {
         return Err(ErasureError::Schema);
     }
-    // This constant contains catalog inspection only. Inspect the configured
-    // public permissions without granting or assuming the public runtime role.
+    // Inspect configured public permissions without granting or assuming the
+    // public runtime role. The report check also calls restrictions_ready();
+    // the migrator has SET-only membership in its owner, not direct EXECUTE.
+    // Reuse that existing owner solely for this sealed readiness check.
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *connection)
+        .await
+        .map_err(|_| ErasureError::Schema)?;
     // No SQL or identity text comes from the command line.
     let report_catalog =
         crate::report_admission::READINESS_SQL.replace("current_user", "'board_public'::name");
     let reports: bool = sqlx::query_scalar(sqlx::AssertSqlSafe(report_catalog))
         .fetch_one(&mut *connection)
+        .await
+        .map_err(|_| ErasureError::Schema)?;
+    sqlx::query("RESET ROLE")
+        .execute(&mut *connection)
         .await
         .map_err(|_| ErasureError::Schema)?;
     if !reports {
