@@ -6,6 +6,16 @@ launch requirement and does not block local rewrite completion. Local parity
 remains incomplete where the compatibility inventory below records missing
 features or reference comparisons.
 
+[Posting and report challenges](posting-challenges.md) now implement the source
+board switches, waiting tickets, credit tiers, optional report exemption, normal
+posting and Quick Reply controls, and classic no-JavaScript submission. The
+local issuer and renderer replace unavailable provider inputs; original CAPTCHA
+pixels and risk-model outputs are not claimed. Linux and Windows challenge
+browser suites have passed, but the complete final-head CI result is still
+required before merge. [Public email verification](public-verification.md) has
+its own completed lifecycle; Pass remains open in #201. These checkpoints do
+not close the wider posting, layout, or deployment requirements.
+
 The consolidated work adds [guarded first-run Settings behavior](native-settings-categories.md),
 [native filter Help](native-filter-help.md), and
 [bounded ordinary report-group clearing](report-group-clear.md). Their local
