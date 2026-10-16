@@ -29,10 +29,10 @@ fn unavailable() -> AppError {
     )
 }
 
-struct Scope {
-    board: String,
-    target: i64,
-    purpose: protocol::Purpose,
+pub(crate) struct Scope {
+    pub(crate) board: String,
+    pub(crate) target: i64,
+    pub(crate) purpose: protocol::Purpose,
 }
 impl Scope {
     fn parse(fields: &Fields) -> Result<Self, AppError> {
@@ -87,7 +87,7 @@ impl Scope {
 
 /// PHP isset checks presence of these two names, even with an empty value.
 /// The UserPwd-equivalent anonymous session is checked separately by the Store.
-fn source_cookies_absent(headers: &HeaderMap) -> Result<bool, AppError> {
+pub(crate) fn source_cookies_absent(headers: &HeaderMap) -> Result<bool, AppError> {
     let mut total = 0usize;
     let mut absent = true;
     for value in headers.get_all(header::COOKIE) {
@@ -161,6 +161,124 @@ fn ticket_answer(fields: &Fields) -> Result<Option<protocol::TicketAnswer>, AppE
         answer: answer.into(),
     }))
 }
+#[derive(Default)]
+pub(crate) struct FormInput {
+    pub(crate) csrf: String,
+    pub(crate) challenge: String,
+    pub(crate) answer: String,
+    pub(crate) credit: String,
+}
+
+/// Exchange an answer immediately before the protected write. Only the issuer's
+/// private response supplies the peer/context hashes; they never cross HTTP to
+/// the browser. The database consumes the resulting receipt with the write.
+pub(crate) async fn proof(
+    state: &AppState,
+    headers: &HeaderMap,
+    session: &Session,
+    peer: Option<IpAddr>,
+    scope: Scope,
+    input: &FormInput,
+) -> Result<Option<board_store::WriteChallengeProof>, AppError> {
+    if !board_store::posting_challenge::board_policy(&state.pool, &scope.board)
+        .await?
+        .enabled
+    {
+        return Ok(None);
+    }
+    if !matches!(
+        (scope.purpose, scope.target),
+        (protocol::Purpose::Thread, 0)
+            | (protocol::Purpose::Reply | protocol::Purpose::Report, 1..)
+    ) {
+        return Err(invalid());
+    }
+    let secret = PostingSecret::read(headers, state.production)
+        .map_err(|_| invalid())?
+        .ok_or_else(invalid)?;
+    if !secret.matches(&input.csrf) || session.posting.minted {
+        return Err(AppError(
+            StatusCode::FORBIDDEN,
+            "This CAPTCHA form has expired. Reload it.",
+        ));
+    }
+    if !matches!(input.credit.as_str(), "" | "1")
+        || input.answer.len() > 64
+        || input.answer.chars().any(char::is_control)
+    {
+        return Err(invalid());
+    }
+    if scope.purpose == protocol::Purpose::Report
+        && input.challenge.is_empty()
+        && input.answer.is_empty()
+        && input.credit.is_empty()
+    {
+        let (key, peer) = state
+            .poster_id_key
+            .as_ref()
+            .zip(peer)
+            .ok_or_else(unavailable)?;
+        let identity = key.public_report_rate_identity(peer);
+        if board_store::report_challenge::advice(
+            &state.pool,
+            &scope.board,
+            scope.target,
+            &identity,
+            session.posting,
+            source_cookies_absent(headers)?,
+        )
+        .await?
+        {
+            return Ok(None);
+        }
+    }
+    let context = scope.context(state, session, peer, &input.csrf)?;
+    let service = state.verification.as_ref().ok_or_else(unavailable)?;
+    let checked = if input.credit == "1" {
+        if scope.purpose == protocol::Purpose::Thread
+            || !input.challenge.is_empty()
+            || !input.answer.is_empty()
+        {
+            return Err(invalid());
+        }
+        service.credit(&context).await
+    } else {
+        if board_domain::challenge_secrets::VerificationToken::parse(
+            board_domain::challenge_secrets::TokenKind::Challenge,
+            &input.challenge,
+        )
+        .is_none()
+            || input.answer.is_empty()
+        {
+            return Err(AppError(
+                StatusCode::BAD_REQUEST,
+                "Complete the CAPTCHA before submitting.",
+            ));
+        }
+        service
+            .check(&protocol::Answer {
+                context,
+                challenge: input.challenge.clone(),
+                answer: input.answer.clone(),
+            })
+            .await
+    }
+    .map_err(|_| unavailable())?;
+    match checked {
+        protocol::AnswerResult::Verified {
+            receipt,
+            peer_hash,
+            context_hash,
+        } => board_store::WriteChallengeProof::from_issuer(&receipt, peer_hash, context_hash)
+            .map(Some)
+            .ok_or_else(unavailable),
+        protocol::AnswerResult::Rejected {} => Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "Incorrect or expired CAPTCHA. Please try again.",
+        )),
+    }
+}
+
 #[derive(Serialize)]
 struct Reply {
     csrf: String,

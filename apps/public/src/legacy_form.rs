@@ -124,7 +124,16 @@ fn categorical_report(
     if fields.iter().any(|(name, _)| {
         !matches!(
             name.as_str(),
-            "mode" | "board" | "no" | "cat" | "cat_id" | "revision"
+            "mode"
+                | "board"
+                | "no"
+                | "cat"
+                | "cat_id"
+                | "revision"
+                | "captcha-csrf"
+                | "t-challenge"
+                | "t-response"
+                | "captcha-credit"
         )
     }) {
         return Err(invalid());
@@ -162,6 +171,12 @@ fn categorical_report(
             no,
             category_id,
             expected_revision,
+            captcha: crate::posting_challenge::FormInput {
+                csrf: value("captcha-csrf").unwrap_or("").into(),
+                challenge: value("t-challenge").unwrap_or("").into(),
+                answer: value("t-response").unwrap_or("").into(),
+                credit: value("captcha-credit").unwrap_or("").into(),
+            },
         },
     ))
 }
@@ -457,6 +472,10 @@ mod tests {
                     ("revision", "2"),
                     ("cat", cat),
                     ("cat_id", cat_id),
+                    ("captcha-csrf", "owned-nonce"),
+                    ("t-challenge", "owned-challenge"),
+                    ("t-response", "ABC123"),
+                    ("captcha-credit", ""),
                 ];
                 let Ok(LegacyForm(Submission::Report {
                     board,
@@ -465,6 +484,7 @@ mod tests {
                             no,
                             category_id,
                             expected_revision,
+                            captcha,
                         },
                 })) = LegacyForm::from_request(
                     request("/test/imgboard.php?mode=report&no=19", &fields, multipart),
@@ -476,6 +496,10 @@ mod tests {
                 };
                 assert_eq!(board.as_deref(), Some("test"));
                 assert_eq!((no, category_id, expected_revision), (19, expected, 2));
+                assert_eq!(captcha.csrf, "owned-nonce");
+                assert_eq!(captcha.challenge, "owned-challenge");
+                assert_eq!(captcha.answer, "ABC123");
+                assert!(captcha.credit.is_empty());
             }
             for fields in [
                 vec![("revision", "2"), ("cat", "bad"), ("cat_id", "17")],
@@ -486,6 +510,18 @@ mod tests {
                 vec![("revision", "2"), ("cat[]", "31")],
                 vec![("revision", "2"), ("cat", "31"), ("reason", "other")],
                 vec![("revision", "2"), ("cat", "31"), ("mode", "regist")],
+                vec![
+                    ("revision", "2"),
+                    ("cat", "31"),
+                    ("captcha-csrf", "a"),
+                    ("captcha-csrf", "b"),
+                ],
+                vec![
+                    ("revision", "2"),
+                    ("cat", "31"),
+                    ("t-response", "a"),
+                    ("t-response", "b"),
+                ],
             ] {
                 assert!(
                     LegacyForm::from_request(
@@ -719,9 +755,13 @@ mod tests {
     #[tokio::test]
     async fn query_mode_consumes_the_same_field_budget_as_body_mode() {
         for multipart in [false, true] {
-            let ids: Vec<_> = (1..=18).map(|id| id.to_string()).collect();
+            let ids: Vec<_> = (1..=MAX_FORM_FIELDS - 2).map(|id| id.to_string()).collect();
             let mut fields = vec![("pwd", ""), ("res", "1")];
-            fields.extend(ids[..17].iter().map(|id| (id.as_str(), "delete")));
+            fields.extend(
+                ids[..MAX_FORM_FIELDS - 3]
+                    .iter()
+                    .map(|id| (id.as_str(), "delete")),
+            );
             assert!(
                 LegacyForm::from_request(
                     request("/test/imgboard.php?mode=usrdel", &fields, multipart),
@@ -730,7 +770,7 @@ mod tests {
                 .await
                 .is_ok()
             );
-            fields.push((ids[17].as_str(), "delete"));
+            fields.push((ids[MAX_FORM_FIELDS - 3].as_str(), "delete"));
             assert!(
                 LegacyForm::from_request(
                     request("/test/imgboard.php?mode=usrdel", &fields, multipart),

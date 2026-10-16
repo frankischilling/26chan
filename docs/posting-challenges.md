@@ -1,9 +1,8 @@
 # Posting and report challenges
 
 Issue [#199](https://github.com/frankischilling/26chan/issues/199) is in progress.
-Board policy, ticket storage, and normal post receipt enforcement are implemented
-in the database. Public posting and Quick Reply still need to request and supply
-those proofs. Transactional report exemption is implemented; its browser controls
+Board policy, tickets, protected writes, and the public challenge exchange are
+implemented. Browser controls still need to request and submit those proofs. Transactional report exemption is implemented; its browser controls
 and the credit controls are unfinished. Email verification is covered in
 [public verification](public-verification.md).
 
@@ -163,7 +162,9 @@ Actual public-role tests cover normal and credit proofs in both modes, missing
 proof, stale category revision, late registration failure, success, and replay.
 They also verify that the separate staff-only report path remains usable and
 that an explicitly CAPTCHA-disabled test board accepts a report without proof.
-The public handlers still need to supply proofs through the new Store APIs.
+Public posting and reporting handlers now obtain private issuer proofs and
+pass them through the protected Store APIs. Browser form integration remains
+in progress.
 
 The source's optional no-CAPTCHA report exemption uses retained history. Existing
 report memberships can disappear during retirement, so they cannot establish
@@ -246,7 +247,21 @@ internal purposes, duplicate fields, invalid tokens, and stale form nonces.
 A real-role HTTP test covers classic issuance, ticket escalation and reuse,
 report-cookie opt-out, and a disabled board with the issuer offline.
 
-Posting/report submission integration and browser controls still need
-implementation and qualification. Existing posting fixtures must explicitly
+Normal and legacy posting/report forms accept bounded CAPTCHA nonce, answer,
+challenge, and credit fields. The public handler checks the form cookie before
+requesting a private receipt, then sends the receipt to the existing protected
+write. Reply/report credits are claimed immediately before submission and still
+spent only by the write transaction. Thread submissions cannot claim a credit.
+A changed exemption is rechecked before and during final admission. Missing
+issuer service, wrong scope, replay, and stale forms fail closed. Receipt
+rejection returns a fixed CAPTCHA message without private database diagnostics.
+
+The public crate's local no-TLS test build passes 178 unit tests. Its Unix-socket
+transport test cannot run in this environment because socket creation is
+denied; it remains enabled for CI. These checks do not replace the locked
+production build or browser qualification.
+
+Browser controls and classic no-script rendering still need implementation
+and qualification. Existing posting fixtures must explicitly
 account for the new gate. The branch has not passed full-workspace CI and must
 not be treated as ready to merge.

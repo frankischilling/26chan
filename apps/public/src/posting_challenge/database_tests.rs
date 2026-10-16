@@ -122,6 +122,17 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
         assert_eq!(scope,("thread".into(),board.clone(),0,session.posting.fingerprints.token.to_vec()));
         let bad=request(State(state.clone()),Extension(RequestPeer(Some(peer))),headers.clone(),encoded(&[("action","challenge"),("board",&board),("purpose","thread"),("target","0"),("csrf","wrong")])).await.err().unwrap();assert_eq!(bad.0,StatusCode::FORBIDDEN);
         let forged=request(State(state.clone()),Extension(RequestPeer(Some(peer))),headers.clone(),encoded(&[("action","init"),("board",&board),("purpose","thread"),("target","0"),("peer","192.0.2.1")])).await;assert_eq!(forged.err().unwrap().0,StatusCode::BAD_REQUEST);
+        let ordinary_token=result["challenge"]["token"].as_str().unwrap();
+        let ordinary_answer=key.challenge_answer(&challenge,6).unwrap();
+        let input=FormInput{csrf:nonce.into(),challenge:ordinary_token.into(),answer:ordinary_answer.as_str().into(),credit:String::new()};
+        let wrong_scope=proof(&state,&headers,&session,Some(peer),Scope{board:board.clone(),target,purpose:protocol::Purpose::Report},&input).await;
+        assert_eq!(wrong_scope.err().unwrap().0,StatusCode::BAD_REQUEST);
+        let accepted=proof(&state,&headers,&session,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread},&input).await.unwrap();
+        assert!(accepted.is_some());
+        let replay=proof(&state,&headers,&session,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread},&input).await;
+        assert_eq!(replay.err().unwrap().0,StatusCode::BAD_REQUEST);
+        let old_form=FormInput{csrf:"00".repeat(32),..FormInput::default()};
+        assert_eq!(proof(&state,&headers,&session,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread},&old_form).await.err().unwrap().0,StatusCode::FORBIDDEN);
         // A waiting ticket is distinct from the ordinary posting challenge.
         sqlx::query("UPDATE content.boards SET captcha_twister=true WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
         sqlx::query("UPDATE verification_private.peers SET refresh_after=clock_timestamp()-interval '1 second' WHERE peer_hash=$1").bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
@@ -140,9 +151,21 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
         sqlx::query("UPDATE verification_private.policy SET report_history_epoch=$1,report_history_epoch_tainted=false,report_history_complete_after=clock_timestamp()-interval '1 second' WHERE singleton").bind(actor.report_history_epoch().as_slice()).execute(&owner).await.unwrap();
         let target=target.to_string();
         let response=request(State(state.clone()),Extension(RequestPeer(Some(peer))),headers.clone(),encoded(&[("action","challenge"),("board",&board),("purpose","report"),("target",&target),("csrf",nonce)])).await.unwrap();assert_eq!(decoded(response).await["report_exempt"],true);
+        let empty_proof=FormInput{csrf:nonce.into(),..FormInput::default()};
+        let current=Session::resolve(&state,&headers,Some(peer)).await.unwrap();
+        assert!(proof(&state,&headers,&current,Some(peer),Scope{board:board.clone(),target:target.parse().unwrap(),purpose:protocol::Purpose::Report},&empty_proof).await.unwrap().is_none());
         let mut opted_out=headers.clone();opted_out.append(header::COOKIE,"pass_enabled=".parse().unwrap());
         sqlx::query("UPDATE verification_private.peers SET refresh_after=clock_timestamp()-interval '1 second' WHERE peer_hash=$1").bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
         let response=request(State(state.clone()),Extension(RequestPeer(Some(peer))),opted_out,encoded(&[("action","challenge"),("board",&board),("purpose","report"),("target",&target),("csrf",nonce)])).await.unwrap();let result=decoded(response).await;assert_eq!(result["report_exempt"],false);assert_ne!(result["challenge"]["state"],"disabled");
+        sqlx::query("UPDATE content.boards SET captcha_allow_bypass=true WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
+        sqlx::query("UPDATE post_secrets.anonymous_sessions SET posts=5 WHERE token_hash=$1").bind(current.posting.fingerprints.token.as_slice()).execute(&owner).await.unwrap();
+        sqlx::query("INSERT INTO verification_private.credits(identity_key,remaining,expires_at) VALUES(sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea),1,clock_timestamp()+interval '1 hour')").bind(current.posting.fingerprints.token.as_slice()).execute(&owner).await.unwrap();
+        let credit=FormInput{csrf:nonce.into(),credit:"1".into(),..FormInput::default()};
+        assert!(proof(&state,&headers,&current,Some(peer),Scope{board:board.clone(),target:target.parse().unwrap(),purpose:protocol::Purpose::Reply},&credit).await.unwrap().is_some());
+        let balance:i16=sqlx::query_scalar("SELECT remaining FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(current.posting.fingerprints.token.as_slice()).fetch_one(&owner).await.unwrap();assert_eq!(balance,1);
+        assert_eq!(proof(&state,&headers,&current,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread},&credit).await.err().unwrap().0,StatusCode::BAD_REQUEST);
+        let mut unavailable_state=state.clone(); unavailable_state.verification=None;
+        assert_eq!(proof(&unavailable_state,&headers,&current,Some(peer),Scope{board:board.clone(),target:target.parse().unwrap(),purpose:protocol::Purpose::Reply},&credit).await.err().unwrap().0,StatusCode::SERVICE_UNAVAILABLE);
         sqlx::query("UPDATE content.boards SET captcha_enabled=false WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
         let mut offline=state.clone();offline.verification=None;
         let response=request(State(offline),Extension(RequestPeer(Some(peer))),headers,encoded(&[("action","challenge"),("board",&board),("purpose","thread"),("target","0"),("csrf",nonce)])).await.unwrap();assert_eq!(decoded(response).await["challenge"]["state"],"disabled");
@@ -161,6 +184,7 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
         .unwrap();
     let token = *token.lock().unwrap();
     if let Some(token) = token {
+        sqlx::query("DELETE FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(token.as_slice()).execute(&owner).await.unwrap();
         sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
             .bind(token.as_slice())
             .execute(&owner)
