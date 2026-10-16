@@ -640,19 +640,19 @@ async fn create_post_in_context(
             .map_err(|_| StoreError::RandomnessUnavailable)
     })
     .transpose()?;
-    let (dice_result, fortune_text, fortune_color) = match special {
+    let (dice_result, fortune_text, fortune_color) = match &special {
         Some(board_domain::posting_randomizers::Outcome::Dice(result)) => {
-            (Some(result), None, None)
+            (Some(result.as_str()), None, None)
         }
         Some(board_domain::posting_randomizers::Outcome::Fortune { text, color }) => {
-            (None, Some(text), Some(color))
+            (None, Some(*text), Some(color.as_str()))
         }
         None => (None, None, None),
     };
     sqlx::query("SELECT set_config('board.dice_result',$1,true),set_config('board.fortune_text',$2,true),set_config('board.fortune_color',$3,true)")
-        .bind(dice_result.as_deref().unwrap_or(""))
+        .bind(dice_result.unwrap_or(""))
         .bind(fortune_text.unwrap_or(""))
-        .bind(fortune_color.as_deref().unwrap_or(""))
+        .bind(fortune_color.unwrap_or(""))
         .execute(&mut *tx)
         .await?;
     board.check_attachment_allowed(parent, attachment.is_some())?;
@@ -925,7 +925,9 @@ async fn create_post_in_context(
                 legacy_trip,
                 moderator: authorized_staff,
                 subject: board_domain::source_html_entities(content.subject()),
-                comment: board_domain::source_html_entities(content.comment()),
+                comment: content
+                    .admission_comment(special.as_ref())
+                    .map_err(|error| StoreError::Invalid(error.0))?,
                 filename,
             })
             .await?;
@@ -958,7 +960,7 @@ async fn create_post_in_context(
         return Err(StoreError::ContentRejected(message.into()));
     }
     let board_domain::PreparedPostContent { comment, subject } = content
-        .finish()
+        .finish_with_randomizer(special.as_ref())
         .map_err(|error| StoreError::Invalid(error.0))?;
     let mut wordfiltered = if board.word_filter_enabled {
         use board_domain::wordfilter::{LeetRolls, Profile};

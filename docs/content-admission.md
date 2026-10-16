@@ -36,7 +36,9 @@ line limits before configured rules. Rules then precede final blank-comment
 and text-only subject admission, as in `imgboard.php:5733-5804`. A blank OP or
 fileless reply can therefore receive a rule rejection or quiet response before
 its ordinary missing-content error. With no matching rejection, the established
-missing-content checks still apply.
+missing-content checks still apply. The same generated dice or fortune result
+now reaches these rules and final admission; see [generated posting content](generated-post-content.md)
+for ordering, storage and the remaining rendering work.
 
 The fixed public name/trip stage follows configured decisions and precedes final
 markup admission, as in `imgboard.php:5748`. It retains the source's normalized
@@ -47,7 +49,9 @@ the separate legacy value empty, as in the source. Raw trip passwords are never
 passed to this stage. ASCII names use the same dot/case/character projection
 without a native handle; non-ASCII names run within the existing worker limit.
 Independent extraction records 352 name/trip cases, including both source
-moderator decisions. Authenticated staff call-site exceptions remain unfinished.
+moderator decisions. [PR #293](https://github.com/frankischilling/26chan/pull/293)
+completed the authenticated staff caller paths, including the test-board
+exception, unbadged staff posts and the fixed hook on capcoded posts.
 
 The actual anonymous activity row is locked before known-user evaluation. Lenient
 rules require the source's 24-hour known-or-verified decision and more than ten
@@ -57,11 +61,18 @@ Rejection messages use the source strings, with the filter ID exposed only for
 the test board.
 
 The safe PCRE2 wrapper accepts paired or symmetric PHP delimiters, escapes and
-the qualified `i,m,s,x,u,A,U,J,n,S` modifiers. It counts nonoverlapping matches,
+the qualified `i,m,s,x,u,A,U,J,n,S,D,X` modifiers. It counts nonoverlapping matches,
 including PHP's nonempty retry after an empty match. Unsupported modifiers,
 invalid patterns and match exhaustion fail policy evaluation. No JIT or public
 pattern input is permitted. The [native pattern specification](https://www.pcre.org/current/doc/html/pcre2pattern.html)
 defines the lower-limit behavior used by the wrapper.
+
+`D` sets PCRE2's dollar-end-only option. Multiline scopes retain their native
+meaning, and `\Z` is unchanged. Uppercase `X` is a no-op in PHP 8; invalid
+escapes still fail compilation. Lowercase `x` remains extended mode. The
+[small vendored wrapper patch](third-party/pcre2.md) exposes the native option
+without rewriting pattern text. A separate synthetic PHP oracle records 21
+modifier cases, including empty-match retries, inline scopes and invalid escapes.
 
 ## Transactions and database permissions
 

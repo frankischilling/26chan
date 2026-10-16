@@ -37,7 +37,20 @@ async fn submit(
     subject: &str,
     comment: &str,
 ) -> axum::response::Response {
+    submit_options(app, slug, index, parent, (subject, comment), "").await
+}
+
+async fn submit_options(
+    app: &Router,
+    slug: &str,
+    index: usize,
+    parent: i64,
+    fields: (&str, &str),
+    options: &str,
+) -> axum::response::Response {
+    let (subject, comment) = fields;
     let fields = [
+        ("email", options.to_owned()),
         ("mode", "regist".to_owned()),
         ("resto", parent.to_string()),
         ("sub", subject.to_owned()),
@@ -255,6 +268,90 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                     .comment_format,
                 238
             );
+        }
+    }
+    for enabled in [false, true] {
+        sqlx::query("UPDATE content.boards SET dice_roll=$2,fortune_trip=$2 WHERE slug=$1")
+            .bind(&slug)
+            .bind(enabled)
+            .execute(&owner)
+            .await
+            .unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::get(format!("/{slug}/thread/{thread}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let body = String::from_utf8(
+            to_bytes(response.into_body(), 1048576)
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        let textarea = body
+            .split("<textarea id=\"com\"")
+            .nth(1)
+            .unwrap()
+            .split('>')
+            .next()
+            .unwrap();
+        assert!(textarea.contains(&format!("data-randomizer-content=\"{enabled}\"")));
+        assert_eq!(textarea.contains(" required"), !enabled);
+    }
+    for options in ["dice+1d1", "fortune"] {
+        // Each independent route matrix gets a fresh process-local limiter;
+        // production request ceilings remain unchanged.
+        let (app, api) =
+            posting::routers(public.clone(), &slug, "http://127.0.0.1:3000".into(), false);
+        for index in 0..8 {
+            for parent in [0, thread] {
+                let id = accepted_id(
+                    submit_options(&app, &slug, index, parent, ("", ""), options).await,
+                    index,
+                )
+                .await;
+                let saved = board_store::find_post(&public, &slug, id).await.unwrap();
+                assert_eq!(saved.comment, "");
+                if options == "dice+1d1" {
+                    assert_eq!(saved.dice_result.as_deref(), Some("Rolled 1 (1d1)"));
+                } else {
+                    assert!(saved.fortune_text.is_some());
+                    assert!(saved.fortune_color.is_some());
+                }
+                let thread_id = if parent == 0 { id } else { parent };
+                let response = api
+                    .clone()
+                    .oneshot(
+                        Request::get(format!("/{slug}/thread/{thread_id}.json"))
+                            .body(Body::empty())
+                            .unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(response.status(), 200);
+                let json: serde_json::Value =
+                    serde_json::from_slice(&to_bytes(response.into_body(), 262144).await.unwrap())
+                        .unwrap();
+                let value = json["posts"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|post| post["no"].as_i64() == Some(id))
+                    .unwrap();
+                let comment = value["com"].as_str().unwrap();
+                let marker = if options == "dice+1d1" {
+                    "Rolled 1 (1d1)"
+                } else {
+                    "Your fortune:"
+                };
+                assert_eq!(comment.matches(marker).count(), 1);
+            }
         }
     }
 }

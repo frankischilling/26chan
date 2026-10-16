@@ -97,23 +97,8 @@ pub fn project(
         return Err(ProjectionError::InvalidInput);
     }
     let budget = WordfilterLimits::for_post(limits);
-    let (prefix, suffix) = match input.randomizer {
-        None => (String::new(), String::new()),
-        Some(outcome) => {
-            if !crate::posting_randomizers::valid_outcome(outcome) {
-                return Err(ProjectionError::InvalidInput);
-            }
-            match outcome {
-                Outcome::Dice(text) => (format!("<b>{text}<br><br></b>"), String::new()),
-                Outcome::Fortune { text, color } => (
-                    String::new(),
-                    format!(
-                        "<span class=\"fortune\" style=\"color:{color}\"><br><br><b>Your fortune: {text}</b></span>"
-                    ),
-                ),
-            }
-        }
-    };
+    let (prefix, suffix) = crate::posting_randomizers::source_wrappers(input.randomizer)
+        .map_err(|_| ProjectionError::InvalidInput)?;
     // Randomizer decorations precede markup, so an unclosed tag can contain
     // the fortune suffix. They also participate in the global filter/wrap pass.
     // Posting preparation already performed the initial marker cleanup. Doing

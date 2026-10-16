@@ -1,0 +1,112 @@
+{
+    "version": 1,
+    "php": "8.4.26",
+    "pcre": "10.46 2025-08-27",
+    "cases": [
+        {
+            "pattern": "/^abc$/",
+            "text": "abc\n",
+            "count": 1
+        },
+        {
+            "pattern": "/^abc$/D",
+            "text": "abc\n",
+            "count": 0
+        },
+        {
+            "pattern": "/^abc$/D",
+            "text": "abc",
+            "count": 1
+        },
+        {
+            "pattern": "/abc$/D",
+            "text": "abc\nx",
+            "count": 0
+        },
+        {
+            "pattern": "/abc$/mD",
+            "text": "abc\nx",
+            "count": 1
+        },
+        {
+            "pattern": "/(?m:abc$)/D",
+            "text": "abc\nx",
+            "count": 1
+        },
+        {
+            "pattern": "/(?-m:abc$)/mD",
+            "text": "abc\n",
+            "count": 0
+        },
+        {
+            "pattern": "/abc\\Z/D",
+            "text": "abc\n",
+            "count": 1
+        },
+        {
+            "pattern": "/abc\\$/D",
+            "text": "abc$",
+            "count": 1
+        },
+        {
+            "pattern": "/[$]/D",
+            "text": "$",
+            "count": 1
+        },
+        {
+            "pattern": "/\\Qabc$\\E/D",
+            "text": "abc$",
+            "count": 1
+        },
+        {
+            "pattern": "/abc$/DX",
+            "text": "abc\n",
+            "count": 0
+        },
+        {
+            "pattern": "/\\d+/",
+            "text": "123",
+            "count": 1
+        },
+        {
+            "pattern": "/\\d+/X",
+            "text": "123",
+            "count": 1
+        },
+        {
+            "pattern": "/a b/X",
+            "text": "ab",
+            "count": 0
+        },
+        {
+            "pattern": "/a b/xX",
+            "text": "ab",
+            "count": 1
+        },
+        {
+            "pattern": "/\\q/",
+            "text": "q",
+            "count": null
+        },
+        {
+            "pattern": "/\\q/X",
+            "text": "q",
+            "count": null
+        },
+        {
+            "pattern": "/|abc$/D",
+            "text": "abc",
+            "count": 3
+        },
+        {
+            "pattern": "/|abc$/D",
+            "text": "abc\n",
+            "count": 5
+        },
+        {
+            "pattern": "/abc $ # literal dollar follows $\n /xD",
+            "text": "abc\n",
+            "count": 0
+        }
+    ]
+}

@@ -300,3 +300,100 @@ fn pinned_source_final_admission_vectors_match() {
         assert_eq!(outcome, case["outcome"].as_str().unwrap(), "{case}");
     }
 }
+
+#[test]
+fn generated_results_participate_in_early_filters_and_final_blank_admission() {
+    use board_domain::posting_randomizers::Outcome;
+    use board_domain::prepare_post_content_input;
+    let spacing = CommentSpacing::for_board("b", true, true);
+    let dice = Outcome::Dice("Rolled 1 (1d1)".into());
+    let fortune = Outcome::Fortune {
+        text: "Bad Luck",
+        color: "#7fec11".into(),
+    };
+    for outcome in [&dice, &fortune] {
+        for kind in [OP, PostKind::Reply] {
+            for attached in [false, true] {
+                let input =
+                    prepare_post_content_input("", "", "", 1000, attached, spacing, kind).unwrap();
+                let comparison = input.admission_comment(Some(outcome)).unwrap();
+                assert!(!comparison.is_empty());
+                let saved = input.finish_with_randomizer(Some(outcome)).unwrap();
+                assert_eq!(saved.comment, "");
+                assert_eq!(saved.subject, "");
+            }
+        }
+        for subject_required in [false, true] {
+            let kind = PostKind::Thread {
+                staff_image_only: false,
+                subject_required,
+                text_only: true,
+            };
+            let input = prepare_post_content_input("", "", "", 1000, false, spacing, kind);
+            if subject_required {
+                assert_eq!(
+                    input.err().unwrap().0,
+                    "Error: New threads require a subject."
+                );
+            } else {
+                assert_eq!(
+                    input
+                        .unwrap()
+                        .finish_with_randomizer(Some(outcome))
+                        .err()
+                        .unwrap()
+                        .0,
+                    "Error: New threads require a subject."
+                );
+            }
+        }
+    }
+    let input =
+        prepare_post_content_input("", "", "<b>[code]paper[/code]", 1000, false, spacing, OP)
+            .unwrap();
+    assert_eq!(
+        input.admission_comment(Some(&dice)).unwrap(),
+        "<b>Rolled 1 (1d1)<br><br></b>&lt;b&gt;[code]paper[/code]"
+    );
+    assert_eq!(
+        input.admission_comment(Some(&fortune)).unwrap(),
+        "&lt;b&gt;[code]paper[/code]<span class=\"fortune\" style=\"color:#7fec11\"><br><br><b>Your fortune: Bad Luck</b></span>"
+    );
+    assert_eq!(
+        input.admission_comment(None).unwrap(),
+        "&lt;b&gt;[code]paper[/code]"
+    );
+    assert_eq!(
+        prepare_post_content_input("", "", "", 1000, false, spacing, OP)
+            .unwrap()
+            .finish()
+            .err()
+            .unwrap()
+            .0,
+        MISSING_OP
+    );
+}
+
+#[test]
+fn randomizers_cannot_introduce_arbitrary_html_or_bypass_early_limits() {
+    use board_domain::posting_randomizers::Outcome;
+    use board_domain::prepare_post_content_input;
+    let spacing = CommentSpacing::for_board("b", true, true);
+    for outcome in [
+        Outcome::Dice("<img src=x>".into()),
+        Outcome::Fortune {
+            text: "Bad Luck",
+            color: "red\"><img src=x>".into(),
+        },
+        Outcome::Fortune {
+            text: "Bad Luck",
+            color: "#bac200".into(),
+        },
+    ] {
+        let input =
+            prepare_post_content_input("", "", "ordinary", 1000, false, spacing, OP).unwrap();
+        assert!(input.admission_comment(Some(&outcome)).is_err());
+        assert!(input.finish_with_randomizer(Some(&outcome)).is_err());
+    }
+    assert!(prepare_post_content_input("", "", "four", 3, false, spacing, OP).is_err());
+}

@@ -1,0 +1,40 @@
+# Pinned upstream package with a safe dollar-end-only builder option.
+[package]
+edition = "2024"
+name = "pcre2"
+version = "0.2.11"
+publish = false
+authors = ["Andrew Gallant <jamslam@gmail.com>"]
+build = false
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "High level wrapper library for PCRE2."
+homepage = "https://github.com/BurntSushi/rust-pcre2"
+documentation = "https://docs.rs/pcre2"
+readme = "../../docs/third-party/pcre2.md"
+keywords = [
+    "pcre",
+    "pcre2",
+    "regex",
+    "jit",
+    "perl",
+]
+categories = ["text-processing"]
+license = "Unlicense OR MIT"
+repository = "https://github.com/BurntSushi/rust-pcre2"
+
+[lib]
+name = "pcre2"
+path = "src/lib.rs"
+
+[dependencies.libc]
+version = "0.2.146"
+
+[dependencies.log]
+version = "0.4.19"
+
+[dependencies.pcre2-sys]
+version = "0.2.10"

@@ -53,6 +53,8 @@ jobs:
         run: |
           python3 scripts/extract-quote-resolution-reference.py --php-oracle
           python3 scripts/extract-quote-numeric-reference.py --php-oracle
+      - name: Qualify PHP regexp modifier decisions
+        run: php -n -d allow_url_fopen=0 -d allow_url_include=0 scripts/extract-regex-modifier-reference.php crates/domain/tests/fixtures/regex-modifiers.json --check
       - name: Verify pinned thread-transfer replacement semantics
         run: python3 scripts/extract-thread-transfer-reference.py --php-oracle
       - name: Verify independent archive enablement and age
@@ -537,6 +539,8 @@ jobs:
         run: sudo bash scripts/test-static-quote-migration.sh
       - name: Upgrade source greentext without changing saved posts or transfer authority
         run: sudo bash scripts/test-greentext-migration.sh
+      - name: Upgrade generated content without changing saved rows or attachment authority
+        run: sudo bash scripts/test-generated-content-migration.sh
       - name: Upgrade existing content for attachment-only posts
         run: sudo bash scripts/test-attachment-only-migration.sh
       - name: Upgrade existing threads from migration 0008

@@ -322,6 +322,29 @@ fn generate_with(
     }
 }
 
+/// Fixed source markup used by admission before user markup and wordfilters.
+/// Caller-constructed outcomes must pass the same finite validation as generated
+/// outcomes; this never grants rendering authority to arbitrary strings.
+pub(crate) fn source_wrappers(
+    outcome: Option<&Outcome>,
+) -> Result<(String, String), ValidationError> {
+    let Some(outcome) = outcome else {
+        return Ok((String::new(), String::new()));
+    };
+    if !valid_outcome(outcome) {
+        return Err(ValidationError("Invalid generated posting result."));
+    }
+    Ok(match outcome {
+        Outcome::Dice(text) => (format!("<b>{text}<br><br></b>"), String::new()),
+        Outcome::Fortune { text, color } => (
+            String::new(),
+            format!(
+                "<span class=\"fortune\" style=\"color:{color}\"><br><br><b>Your fortune: {text}</b></span>"
+            ),
+        ),
+    })
+}
+
 /// Public Outcome variants are constructible by callers. Validate the complete
 /// generated value before using it in a source comparison projection.
 pub(crate) fn valid_outcome(outcome: &Outcome) -> bool {

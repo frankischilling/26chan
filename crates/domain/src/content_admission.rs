@@ -343,6 +343,9 @@ impl BoundedRegex {
                 b'i' => {
                     builder.caseless(true);
                 }
+                b'D' => {
+                    builder.dollar_endonly(true);
+                }
                 b'm' => {
                     builder.multi_line(true);
                 }
@@ -360,8 +363,8 @@ impl BoundedRegex {
                     anchored = true;
                 }
                 b'U' | b'J' | b'n' => inline.push(char::from(modifier)),
-                // Study is only an optimization hint, not matching semantics.
-                b'S' | b' ' | b'\n' | b'\r' | b'\t' => {}
+                // Study is only an optimization hint. PHP 8 ignores uppercase X.
+                b'S' | b'X' | b' ' | b'\n' | b'\r' | b'\t' => {}
                 _ => return Err(AdmissionError::InvalidPolicy),
             }
         }

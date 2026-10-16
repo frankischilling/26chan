@@ -75,6 +75,18 @@ impl Fixture {
         subject: &str,
         comment: &str,
     ) -> Result<i64, StoreError> {
+        self.create_options(board, parent, (name, subject, comment), "")
+            .await
+    }
+
+    async fn create_options(
+        &self,
+        board: usize,
+        parent: i64,
+        fields: (&str, &str, &str),
+        options: &str,
+    ) -> Result<i64, StoreError> {
+        let (name, subject, comment) = fields;
         support::create_post_with_metadata(
             &self.public,
             &self.boards[board],
@@ -101,7 +113,7 @@ impl Fixture {
                 },
                 country_database: None,
                 flag: "",
-                options: "",
+                options,
             },
         )
         .await
@@ -143,6 +155,151 @@ impl Fixture {
             .await
             .unwrap();
     }
+}
+
+#[tokio::test]
+async fn generated_results_reach_rules_before_final_blank_admission() {
+    let _guard = POLICY_TEST.lock().await;
+    let f = Fixture::new().await;
+    sqlx::query("UPDATE content.boards SET dice_roll=true,fortune_trip=true WHERE slug=$1")
+        .bind(&f.boards[0])
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let parent = f.create(0, 0, "", "ordinary parent").await.unwrap();
+    let rule = f.rule("rolled").await;
+    for parent in [0, parent] {
+        let result = f
+            .create_options(0, parent, ("Anonymous", "", ""), "dice+1d1")
+            .await;
+        assert!(matches!(result, Err(StoreError::ContentRejected(_))));
+    }
+    assert_eq!(f.count("posts").await, 1);
+    sqlx::query("UPDATE admission.rules SET log=true WHERE id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let post = f
+        .create_options(0, 0, ("Anonymous", "", ""), "dice+1d1")
+        .await
+        .unwrap();
+    let saved: (String, Option<String>) =
+        sqlx::query_as("SELECT comment,dice_result FROM content.posts WHERE id=$1")
+            .bind(post)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+    assert_eq!(saved, (String::new(), Some("Rolled 1 (1d1)".into())));
+    // Removing the sole generated content must recheck the final persisted row.
+    let error = sqlx::query("UPDATE content.posts SET dice_result=NULL WHERE id=$1")
+        .bind(post)
+        .execute(&f.owner)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error
+            .as_database_error()
+            .and_then(|error| error.constraint()),
+        Some("posts_empty_comment_attachment")
+    );
+    let logged: String = sqlx::query_scalar(
+        "SELECT comment FROM admission.logs WHERE rule_id=$1 ORDER BY id DESC LIMIT 1",
+    )
+    .bind(rule)
+    .fetch_one(&f.owner)
+    .await
+    .unwrap();
+    assert_eq!(logged, "<b>Rolled 1 (1d1)<br><br></b>");
+    let random_dice = f
+        .create_options(0, 0, ("Anonymous", "", ""), "dice+25d1000")
+        .await
+        .unwrap();
+    let saved_dice: String =
+        sqlx::query_scalar("SELECT dice_result FROM content.posts WHERE id=$1")
+            .bind(random_dice)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+    let logged: String = sqlx::query_scalar(
+        "SELECT comment FROM admission.logs WHERE rule_id=$1 ORDER BY id DESC LIMIT 1",
+    )
+    .bind(rule)
+    .fetch_one(&f.owner)
+    .await
+    .unwrap();
+    assert_eq!(logged, format!("<b>{saved_dice}<br><br></b>"));
+    sqlx::query("UPDATE admission.rules SET pattern='/Your fortune:/',regex=true,log=false,quiet=true WHERE id=$1")
+        .bind(rule).execute(&f.owner).await.unwrap();
+    let quiet = f
+        .create_options(0, 0, ("Anonymous", "", ""), "fortune")
+        .await;
+    assert!(matches!(quiet, Err(StoreError::ContentQuiet { .. })));
+    assert_eq!(f.count("posts").await, 3);
+    sqlx::query("UPDATE admission.rules SET quiet=false,log=true WHERE id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let fortune = f
+        .create_options(0, 0, ("Anonymous", "", ""), "fortune")
+        .await
+        .unwrap();
+    let saved: (String, Option<String>, Option<String>) =
+        sqlx::query_as("SELECT comment,fortune_text,fortune_color FROM content.posts WHERE id=$1")
+            .bind(fortune)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+    assert_eq!(saved.0, "");
+    assert!(saved.1.is_some());
+    assert!(saved.2.is_some());
+    let logged: String = sqlx::query_scalar(
+        "SELECT comment FROM admission.logs WHERE rule_id=$1 ORDER BY id DESC LIMIT 1",
+    )
+    .bind(rule)
+    .fetch_one(&f.owner)
+    .await
+    .unwrap();
+    assert_eq!(
+        logged,
+        format!(
+            "<span class=\"fortune\" style=\"color:{}\"><br><br><b>Your fortune: {}</b></span>",
+            saved.2.as_deref().unwrap(),
+            saved.1.as_deref().unwrap()
+        )
+    );
+    let error =
+        sqlx::query("UPDATE content.posts SET fortune_text=NULL,fortune_color=NULL WHERE id=$1")
+            .bind(fortune)
+            .execute(&f.owner)
+            .await
+            .unwrap_err();
+    assert_eq!(
+        error
+            .as_database_error()
+            .and_then(|error| error.constraint()),
+        Some("posts_empty_comment_attachment")
+    );
+    let safe: bool = sqlx::query_scalar("SELECT NOT has_function_privilege('board_public','content.require_attachment_for_empty_post()','EXECUTE') AND NOT has_schema_privilege('board_attachment_owner','content','CREATE')")
+        .fetch_one(&f.owner).await.unwrap();
+    assert!(safe);
+    let mut readiness = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_thread_transfer_owner")
+        .execute(&mut *readiness)
+        .await
+        .unwrap();
+    let ready: bool = sqlx::query_scalar("SELECT content.text_thread_transfer_ready()")
+        .fetch_one(&mut *readiness)
+        .await
+        .unwrap();
+    assert!(ready);
+    readiness.rollback().await.unwrap();
+    assert!(matches!(
+        f.create(0, 0, "", "").await,
+        Err(StoreError::Invalid(_))
+    ));
+    f.cleanup().await;
 }
 
 #[tokio::test]

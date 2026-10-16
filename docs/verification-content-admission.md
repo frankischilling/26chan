@@ -123,10 +123,13 @@ contains the exact runs. Later changes require their own complete qualification.
 
 [Public-name verification](verification-public-names.md) separately records
 ordinary name preparation, CP932 normal-trip bytes, delimiter selection and
-saved/API display fields. Staff-specific preparation and exceptions remain open.
+saved/API display fields. [PR #293](https://github.com/frankischilling/26chan/pull/293)
+completed staff preparation and caller exceptions after all 17 final-head checks
+passed. The [generated-content checkpoint](generated-post-content.md) adds
+rule/final-admission input, and the [PCRE2 wrapper record](third-party/pcre2.md)
+covers the `D` and PHP 8 `X` modifiers.
 
-Complete caller ordering, the staff `/test/` exception, remaining name and
-randomizer scope, unsupported regexp modifiers, IP/ASN rules, file blacklists
-and optional classifiers remain open. The supplied source lacks private
+Complete caller ordering, generated content in board transformations and saved
+rendering, IP/ASN rules, file blacklists and optional classifiers remain open. The supplied source lacks private
 operator lists and trained data; none are invented as production policy or
 passing parity evidence.
