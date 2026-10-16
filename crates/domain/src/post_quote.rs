@@ -234,7 +234,11 @@ mod tests {
 
     #[test]
     fn source_profiles_resolve_without_changing_lexical_search_projection() {
-        for profile in (104..=111).chain(120..=127) {
+        for profile in (104..=111)
+            .chain(120..=127)
+            .chain(232..=239)
+            .chain(248..=255)
+        {
             let mut quote = quotes(">>42", profile, "g").remove(0);
             assert_eq!(
                 quote.classify("g"),
@@ -330,7 +334,11 @@ mod tests {
 
     #[test]
     fn zero_is_inert_and_long_zero_prefixes_follow_source_word_breaks() {
-        for profile in (104..=111).chain(120..=127) {
+        for profile in (104..=111)
+            .chain(120..=127)
+            .chain(232..=239)
+            .chain(248..=255)
+        {
             for input in [">>0", ">>0000", ">>>/co/0", ">>>/co/0000"] {
                 let mut quote = quotes(input, profile, "g").remove(0);
                 assert_eq!(quote.classify("g"), QuoteClassification::Dead);
@@ -410,7 +418,11 @@ mod tests {
             let expected_href = expected["href"]
                 .as_str()
                 .map(|href| href.strip_prefix("//boards.example.test").unwrap_or(href));
-            for profile in (104..=111).chain(120..=127) {
+            for profile in (104..=111)
+                .chain(120..=127)
+                .chain(232..=239)
+                .chain(248..=255)
+            {
                 let mut parsed = quotes(&label, profile, board);
                 assert_eq!(parsed.len(), 1, "{name}, profile {profile}");
                 let mut quote = parsed.remove(0);

@@ -54,7 +54,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .await
             .unwrap();
         let saved = board_store::find_post(&public, &slug, id).await.unwrap();
-        assert_eq!(saved.comment_format, 104 + mask);
+        assert_eq!(saved.comment_format, 232 + mask);
         assert_eq!(saved.comment, post().comment);
         ids.push(id);
     }
@@ -163,7 +163,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .unwrap();
         set_policy(&owner, &slug, 0).await;
         let saved = board_store::find_post(&public, &slug, id).await.unwrap();
-        assert_eq!(saved.comment_format, 104 + mask);
+        assert_eq!(saved.comment_format, 232 + mask);
         let body = get(&api, &format!("/{slug}/thread/{id}.json")).await;
         let json: serde_json::Value = serde_json::from_str(&body).unwrap();
         if expected.is_empty() {
@@ -177,6 +177,99 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         let html = get(&app, &format!("/{slug}/thread/{id}")).await;
         assert!(html.contains(&format!("id=\"m{id}\">{expected}</blockquote>")));
     }
+
+    let previous_filter: (bool, i16) = sqlx::query_as(
+        "SELECT word_filter_enabled,word_filter_profile FROM content.boards WHERE slug=$1",
+    )
+    .bind(&slug)
+    .fetch_one(&owner)
+    .await
+    .unwrap();
+    // New profiles preserve the source's lexical greentext decision in both
+    // ordinary and saved-wordfilter paths, across the actual public readers.
+    for filtered in [false, true] {
+        sqlx::query(
+            "UPDATE content.boards SET word_filter_enabled=$2,word_filter_profile=0 WHERE slug=$1",
+        )
+        .bind(&slug)
+        .bind(filtered)
+        .execute(&owner)
+        .await
+        .unwrap();
+        for (raw, expected) in [
+            (
+                ">>not-a-post",
+                "<span class=\"quote\">&gt;&gt;not-a-post</span>",
+            ),
+            (
+                ">>>9000000000000000",
+                "<span class=\"quote\">&gt;<span class=\"deadlink\">&gt;&gt;9000000000000000</span></span>",
+            ),
+            (">>>/unknown/term", "&gt;&gt;&gt;/unknown/term"),
+        ] {
+            let id = posting_fixture::create_post(
+                &public,
+                &slug,
+                0,
+                &NewPost {
+                    comment: raw.into(),
+                    ..post()
+                },
+            )
+            .await
+            .unwrap();
+            let saved = board_store::find_post(&public, &slug, id).await.unwrap();
+            assert_eq!(saved.comment_format, 232);
+            assert_eq!(saved.wordfilter_payload.is_some(), filtered);
+            let body = get(&api, &format!("/{slug}/thread/{id}.json")).await;
+            let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+            assert_eq!(json["posts"][0]["com"], expected);
+            let html = get(&app, &format!("/{slug}/thread/{id}")).await;
+            let marker = format!("id=\"m{id}\">");
+            let block = html
+                .split_once(&marker)
+                .unwrap()
+                .1
+                .split_once("</blockquote>")
+                .unwrap()
+                .0;
+            // Literal quote labels and escaped text use equivalent HTML entity spellings.
+            assert_eq!(
+                block.replace("&#62;", "&gt;"),
+                expected,
+                "{raw}, filtered={filtered}"
+            );
+            let body = get(&app, &format!("/_watch/{slug}/thread/{id}/posts")).await;
+            let update: serde_json::Value = serde_json::from_str(&body).unwrap();
+            assert!(
+                update["posts"][0]["html"]
+                    .as_str()
+                    .unwrap()
+                    .replace("&#62;", "&gt;")
+                    .contains(expected)
+            );
+            let body = get(&api, &format!("/{slug}/catalog.json")).await;
+            let catalog: serde_json::Value = serde_json::from_str(&body).unwrap();
+            let entry = catalog
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|page| page["threads"].as_array().unwrap())
+                .find(|entry| entry["no"] == id)
+                .unwrap();
+            assert_eq!(entry["com"], expected);
+        }
+    }
+
+    sqlx::query(
+        "UPDATE content.boards SET word_filter_enabled=$2,word_filter_profile=$3 WHERE slug=$1",
+    )
+    .bind(&slug)
+    .bind(previous_filter.0)
+    .bind(previous_filter.1)
+    .execute(&owner)
+    .await
+    .unwrap();
 
     for statement in [
         "UPDATE content.posts SET comment_format=15 WHERE board=$1",
@@ -302,7 +395,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .fetch_one(&mut *attachment)
             .await
             .unwrap(),
-        111
+        239
     );
     let recorded: Vec<u8> = sqlx::query_scalar(
         "SELECT actor_hash FROM post_secrets.posting_history WHERE board=$1 AND post_id=$2",
@@ -363,7 +456,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .await
                 .unwrap()
                 .comment_format,
-            104 + after
+            232 + after
         );
     }
 }

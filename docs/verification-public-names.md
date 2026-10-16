@@ -4,8 +4,9 @@ Ordinary public posting follows the supplied name-preparation block rather
 than hashing UTF-8 password bytes directly. `#password` saves an empty display
 name with `!ozOtJW9BFA`; JSON omits its `name` field. `Name#かみ` uses CP932 bytes
 and produces `!v/ClhaTjaY`. Existing saved names and trip strings are retained.
-This is part of issue #208; staff preparation and privileged exceptions remain
-unfinished.
+This was an early checkpoint for issue #208. Later work covers
+[staff preparation](verification-staff-identity.md) and
+[text admission exceptions](text-admission-parity.md).
 
 ## Source and independent fixtures
 

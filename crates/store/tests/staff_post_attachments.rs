@@ -165,8 +165,23 @@ impl Fixture {
         ip: u8,
         at: DateTime<Utc>,
     ) -> Result<i64, StoreError> {
-        let role: String =
-            sqlx::query_scalar("SELECT role FROM staff_identity.accounts WHERE id=$1")
+        self.write_with_options(parent, a, ordinary, input, ip, at, "")
+            .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn write_with_options(
+        &self,
+        parent: i64,
+        a: Option<&NewAttachment>,
+        ordinary: bool,
+        input: &NewPost,
+        ip: u8,
+        at: DateTime<Utc>,
+        options: &str,
+    ) -> Result<i64, StoreError> {
+        let (role, badge_name_allowed): (String,bool) =
+            sqlx::query_as("SELECT role,role='admin' OR 'capcodename'=ANY(flags) FROM staff_identity.accounts WHERE id=$1")
                 .bind(self.account)
                 .fetch_one(&self.owner)
                 .await
@@ -193,7 +208,7 @@ impl Fixture {
             raw_name_nonempty: !input.name.is_empty(),
             identity: Some(StaffPostIdentity {
                 capcode: (!ordinary).then_some(Capcode::Moderator),
-                name_allowed: true,
+                name_allowed: ordinary || badge_name_allowed,
                 administrator: role == "admin",
                 tripcode_key: None,
             }),
@@ -218,7 +233,7 @@ impl Fixture {
                     keys,
                     country_database: None,
                     flag: "",
-                    options: "",
+                    options,
                     spoiler: false,
                 },
                 authority,
@@ -1297,4 +1312,217 @@ async fn receipt_authority_order(f: &Fixture) {
         leftovers, 0,
         "Neither completed store writer leaves authority state behind"
     );
+}
+
+database_case!(
+    staff_image_only_threads_require_options_and_moderator_authority,
+    image_only_threads
+);
+async fn image_only_threads(f: &Fixture) {
+    let mut ip = 1;
+    for role in ["moderator", "manager", "admin", "janitor"] {
+        f.role(role).await;
+        for (ordinary, options) in [(false, ""), (true, ""), (true, "sage"), (true, "nonoko")] {
+            if role == "janitor" && !ordinary {
+                continue;
+            }
+            for attached in [false, true] {
+                let a = f.approved("owned-image-only.png", false).await;
+                let mut input = post();
+                input.subject.clear();
+                input.comment.clear();
+                let before = f.counts().await;
+                let result = f
+                    .write_with_options(
+                        0,
+                        attached.then_some(&a),
+                        ordinary,
+                        &input,
+                        ip,
+                        Utc::now(),
+                        options,
+                    )
+                    .await;
+                let allowed = role != "janitor" && attached && (!ordinary || options == "nonoko");
+                if allowed {
+                    let id = result.expect("Authorized source Options admit an image-only OP");
+                    let (subject, comment, thread): (String, String, i64) = sqlx::query_as(
+                        "SELECT subject,comment,thread_id FROM content.posts WHERE id=$1",
+                    )
+                    .bind(id)
+                    .fetch_one(&f.owner)
+                    .await
+                    .unwrap();
+                    assert!(subject.is_empty() && comment.is_empty());
+                    assert_eq!(thread, id);
+                    assert!(attachment(&f.public, id).await.unwrap().is_some());
+                    assert!(!f.receipt(&a).await);
+                } else {
+                    assert!(matches!(
+                        result,
+                        Err(StoreError::Invalid(
+                            "Error: New threads require a subject or comment."
+                        ))
+                    ));
+                    assert_eq!(
+                        f.counts().await,
+                        before,
+                        "Rejected admission cannot create a post, thread or handoff"
+                    );
+                    assert!(
+                        f.receipt(&a).await,
+                        "Rejected admission retains the upload receipt"
+                    );
+                }
+                ip += 1;
+            }
+        }
+    }
+    f.role("moderator").await;
+    sqlx::query("UPDATE content.boards SET require_subject=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let a = f.approved("owned-required-subject.png", false).await;
+    let mut input = post();
+    input.subject.clear();
+    input.comment.clear();
+    let before = f.counts().await;
+    assert!(matches!(
+        f.write(0, Some(&a), false, &input, 60, Utc::now()).await,
+        Err(StoreError::Invalid("Error: New threads require a subject."))
+    ));
+    assert_eq!(f.counts().await, before);
+    assert!(f.receipt(&a).await);
+}
+
+database_case!(
+    fixed_name_trip_admission_runs_for_all_staff_modes,
+    staff_name_trip_checks
+);
+async fn staff_name_trip_checks(f: &Fixture) {
+    let mut ip = 70;
+    for role in ["moderator", "manager", "admin", "janitor"] {
+        f.role(role).await;
+        for ordinary in [false, true] {
+            if role == "janitor" && !ordinary {
+                continue;
+            }
+            for name in ["moot Ep8pui8Vw2", "\u{10000}\u{309d}", "Owned staff"] {
+                let a = f.approved("owned-name-admission.png", false).await;
+                let mut input = post();
+                input.name = name.into();
+                let before = f.counts().await;
+                let result = f.write(0, Some(&a), ordinary, &input, ip, Utc::now()).await;
+                if name == "\u{10000}\u{309d}" {
+                    assert!(
+                        matches!(result, Err(StoreError::Database(sqlx::Error::Protocol(_)))),
+                        "All staff modes must fail closed on the documented native normalization failure"
+                    );
+                } else if role == "janitor" && name.starts_with("moot") {
+                    assert!(
+                        matches!(result,Err(StoreError::ContentRejected(ref message)) if message=="Error: Upload failed.")
+                    );
+                } else {
+                    let id = result
+                        .expect("Source moderator exception applies with and without a badge");
+                    assert!(attachment(&f.public, id).await.unwrap().is_some());
+                    assert!(!f.receipt(&a).await);
+                    ip += 1;
+                    continue;
+                }
+                assert_eq!(f.counts().await, before);
+                assert!(f.receipt(&a).await);
+                ip += 1;
+            }
+        }
+    }
+}
+
+database_case!(
+    masked_badged_names_do_not_store_the_admission_trip,
+    masked_staff_trip
+);
+async fn masked_staff_trip(f: &Fixture) {
+    f.role("moderator").await;
+    sqlx::query(
+        "UPDATE staff_identity.accounts SET flags=ARRAY['capcode','developer'] WHERE id=$1",
+    )
+    .bind(f.account)
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    let a = f.approved("owned-masked-trip.png", false).await;
+    let mut input = post();
+    input.name = "Hidden#password".into();
+    let id = f
+        .write(0, Some(&a), false, &input, 120, Utc::now())
+        .await
+        .unwrap();
+    let (name, trip): (String, Option<String>) =
+        sqlx::query_as("SELECT name,trip FROM content.posts WHERE id=$1")
+            .bind(id)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+    assert_eq!(name, "Anonymous");
+    assert!(trip.is_none());
+    assert!(!f.receipt(&a).await);
+}
+
+database_case!(
+    ordinary_staff_writes_require_an_explicit_unbadged_identity,
+    missing_ordinary_identity
+);
+async fn missing_ordinary_identity(f: &Fixture) {
+    let input = post();
+    let a = f.approved("owned-explicit-identity.png", false).await;
+    let before = f.counts().await;
+    let key = PosterIdKey::parse(&f.key).unwrap();
+    let result = board_store::create_ordinary_staff_post_with_attachment(
+        &f.staff,
+        &f.board,
+        0,
+        board_store::StaffPostContent {
+            post: &input,
+            attachment: Some(&a),
+        },
+        PostingContext {
+            request_start: Utc::now(),
+            peer: Some(peer(121)),
+            op_password_proof: None,
+        },
+        PostMetadata {
+            keys: PostIdentityKeys {
+                tripcode: None,
+                poster_id: Some(&key),
+            },
+            country_database: None,
+            flag: "",
+            options: "nonoko",
+            spoiler: false,
+            drawing: None,
+        },
+        StaffPostAuthority {
+            auth_pool: &f.auth,
+            session_hash: &f.session,
+            csrf_hash: &f.csrf,
+            ticket_hash: &[1; 32],
+            idle_seconds: 900,
+            highlight: false,
+            authorized_limits: true,
+            raw_name_nonempty: true,
+            identity: None,
+        },
+    )
+    .await;
+    assert!(matches!(
+        result,
+        Err(StoreError::Invalid(
+            "Ordinary staff posting context is unavailable."
+        ))
+    ));
+    assert_eq!(f.counts().await, before);
+    assert!(f.receipt(&a).await);
 }

@@ -25,7 +25,7 @@ impl From<&board_store::Board> for Policy {
 impl Policy {
     pub fn for_post(board: &board_store::Board, format: i16) -> Self {
         Self {
-            source_links: matches!(format, 104..=111 | 120..=127),
+            source_links: matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255),
             ..board.into()
         }
     }
@@ -50,7 +50,7 @@ pub(crate) fn stored_comment(lines: &[Line], board: &str, format: i16) -> String
         result.push_str(&serialize(
             &line.tokens,
             board,
-            matches!(format, 104..=111 | 120..=127),
+            matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255),
         ));
         if line.green {
             result.push_str("</span>");

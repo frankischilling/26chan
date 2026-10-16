@@ -1,0 +1,327 @@
+{
+  "source": "imgboard.php",
+  "sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+  "scope": "Exact greentext pass after synthetic 35-scalar wrapping and line breaks; no linkification or BBCode",
+  "cases": [
+    {
+      "input": ">green",
+      "preformatted": "&gt;green",
+      "output": "<span class=\"quote\">&gt;green</span>"
+    },
+    {
+      "input": ">>not-a-post",
+      "preformatted": "&gt;&gt;not-a-post",
+      "output": "<span class=\"quote\">&gt;&gt;not-a-post</span>"
+    },
+    {
+      "input": ">>>not-a-board",
+      "preformatted": "&gt;&gt;&gt;not-a-board",
+      "output": "<span class=\"quote\">&gt;&gt;&gt;not-a-board</span>"
+    },
+    {
+      "input": ">>0",
+      "preformatted": "&gt;&gt;0",
+      "output": "&gt;&gt;0"
+    },
+    {
+      "input": ">>42tail",
+      "preformatted": "&gt;&gt;42tail",
+      "output": "&gt;&gt;42tail"
+    },
+    {
+      "input": ">>>42",
+      "preformatted": "&gt;&gt;&gt;42",
+      "output": "<span class=\"quote\">&gt;&gt;&gt;42</span>"
+    },
+    {
+      "input": ">>>>42",
+      "preformatted": "&gt;&gt;&gt;&gt;42",
+      "output": "<span class=\"quote\">&gt;&gt;&gt;&gt;42</span>"
+    },
+    {
+      "input": ">>>/unknown/",
+      "preformatted": "&gt;&gt;&gt;/unknown/",
+      "output": "&gt;&gt;&gt;/unknown/"
+    },
+    {
+      "input": ">>>/unknown/term",
+      "preformatted": "&gt;&gt;&gt;/unknown/term",
+      "output": "&gt;&gt;&gt;/unknown/term"
+    },
+    {
+      "input": ">>>/G/42",
+      "preformatted": "&gt;&gt;&gt;/G/42",
+      "output": "<span class=\"quote\">&gt;&gt;&gt;/G/42</span>"
+    },
+    {
+      "input": ">>>/unknown",
+      "preformatted": "&gt;&gt;&gt;/unknown",
+      "output": "<span class=\"quote\">&gt;&gt;&gt;/unknown</span>"
+    },
+    {
+      "input": ">>>//42",
+      "preformatted": "&gt;&gt;&gt;//42",
+      "output": "<span class=\"quote\">&gt;&gt;&gt;//42</span>"
+    },
+    {
+      "input": "> >tail",
+      "preformatted": "&gt; &gt;tail",
+      "output": "<span class=\"quote\">&gt; &gt;tail</span>"
+    },
+    {
+      "input": ">>>>/unknown/42",
+      "preformatted": "&gt;&gt;&gt;&gt;/unknown/42",
+      "output": "<span class=\"quote\">&gt;&gt;&gt;&gt;/unknown/42</span>"
+    },
+    {
+      "input": ">>>/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/42",
+      "preformatted": "&gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/{{w_br}}42",
+      "output": "&gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/<wbr>42"
+    },
+    {
+      "input": ">>>/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/42",
+      "preformatted": "&gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx{{w_br}}/42",
+      "output": "<span class=\"quote\">&gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>/42</span>"
+    },
+    {
+      "input": "text\n>green",
+      "preformatted": "text<br>&gt;green",
+      "output": "text<br><span class=\"quote\">&gt;green</span>"
+    },
+    {
+      "input": "text\n>>not-a-post",
+      "preformatted": "text<br>&gt;&gt;not-a-post",
+      "output": "text<br><span class=\"quote\">&gt;&gt;not-a-post</span>"
+    },
+    {
+      "input": "text\n>>>not-a-board",
+      "preformatted": "text<br>&gt;&gt;&gt;not-a-board",
+      "output": "text<br><span class=\"quote\">&gt;&gt;&gt;not-a-board</span>"
+    },
+    {
+      "input": "text\n>>0",
+      "preformatted": "text<br>&gt;&gt;0",
+      "output": "text<br>&gt;&gt;0"
+    },
+    {
+      "input": "text\n>>42tail",
+      "preformatted": "text<br>&gt;&gt;42tail",
+      "output": "text<br>&gt;&gt;42tail"
+    },
+    {
+      "input": "text\n>>>42",
+      "preformatted": "text<br>&gt;&gt;&gt;42",
+      "output": "text<br><span class=\"quote\">&gt;&gt;&gt;42</span>"
+    },
+    {
+      "input": "text\n>>>>42",
+      "preformatted": "text<br>&gt;&gt;&gt;&gt;42",
+      "output": "text<br><span class=\"quote\">&gt;&gt;&gt;&gt;42</span>"
+    },
+    {
+      "input": "text\n>>>/unknown/",
+      "preformatted": "text<br>&gt;&gt;&gt;/unknown/",
+      "output": "text<br>&gt;&gt;&gt;/unknown/"
+    },
+    {
+      "input": "text\n>>>/unknown/term",
+      "preformatted": "text<br>&gt;&gt;&gt;/unknown/term",
+      "output": "text<br>&gt;&gt;&gt;/unknown/term"
+    },
+    {
+      "input": "text\n>>>/G/42",
+      "preformatted": "text<br>&gt;&gt;&gt;/G/42",
+      "output": "text<br><span class=\"quote\">&gt;&gt;&gt;/G/42</span>"
+    },
+    {
+      "input": "text\n>>>/unknown",
+      "preformatted": "text<br>&gt;&gt;&gt;/unknown",
+      "output": "text<br><span class=\"quote\">&gt;&gt;&gt;/unknown</span>"
+    },
+    {
+      "input": "text\n>>>//42",
+      "preformatted": "text<br>&gt;&gt;&gt;//42",
+      "output": "text<br><span class=\"quote\">&gt;&gt;&gt;//42</span>"
+    },
+    {
+      "input": "text\n> >tail",
+      "preformatted": "text<br>&gt; &gt;tail",
+      "output": "text<br><span class=\"quote\">&gt; &gt;tail</span>"
+    },
+    {
+      "input": "text\n>>>>/unknown/42",
+      "preformatted": "text<br>&gt;&gt;&gt;&gt;/unknown/42",
+      "output": "text<br><span class=\"quote\">&gt;&gt;&gt;&gt;/unknown/42</span>"
+    },
+    {
+      "input": "text\n>>>/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/42",
+      "preformatted": "text<br>&gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/{{w_br}}42",
+      "output": "text<br>&gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/<wbr>42"
+    },
+    {
+      "input": "text\n>>>/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/42",
+      "preformatted": "text<br>&gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx{{w_br}}/42",
+      "output": "text<br><span class=\"quote\">&gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>/42</span>"
+    },
+    {
+      "input": "text\n >green",
+      "preformatted": "text<br> &gt;green",
+      "output": "text<br> <span class=\"quote\">&gt;green</span>"
+    },
+    {
+      "input": "text\n >>not-a-post",
+      "preformatted": "text<br> &gt;&gt;not-a-post",
+      "output": "text<br> <span class=\"quote\">&gt;&gt;not-a-post</span>"
+    },
+    {
+      "input": "text\n >>>not-a-board",
+      "preformatted": "text<br> &gt;&gt;&gt;not-a-board",
+      "output": "text<br> <span class=\"quote\">&gt;&gt;&gt;not-a-board</span>"
+    },
+    {
+      "input": "text\n >>0",
+      "preformatted": "text<br> &gt;&gt;0",
+      "output": "text<br> &gt;&gt;0"
+    },
+    {
+      "input": "text\n >>42tail",
+      "preformatted": "text<br> &gt;&gt;42tail",
+      "output": "text<br> &gt;&gt;42tail"
+    },
+    {
+      "input": "text\n >>>42",
+      "preformatted": "text<br> &gt;&gt;&gt;42",
+      "output": "text<br> <span class=\"quote\">&gt;&gt;&gt;42</span>"
+    },
+    {
+      "input": "text\n >>>>42",
+      "preformatted": "text<br> &gt;&gt;&gt;&gt;42",
+      "output": "text<br> <span class=\"quote\">&gt;&gt;&gt;&gt;42</span>"
+    },
+    {
+      "input": "text\n >>>/unknown/",
+      "preformatted": "text<br> &gt;&gt;&gt;/unknown/",
+      "output": "text<br> &gt;&gt;&gt;/unknown/"
+    },
+    {
+      "input": "text\n >>>/unknown/term",
+      "preformatted": "text<br> &gt;&gt;&gt;/unknown/term",
+      "output": "text<br> &gt;&gt;&gt;/unknown/term"
+    },
+    {
+      "input": "text\n >>>/G/42",
+      "preformatted": "text<br> &gt;&gt;&gt;/G/42",
+      "output": "text<br> <span class=\"quote\">&gt;&gt;&gt;/G/42</span>"
+    },
+    {
+      "input": "text\n >>>/unknown",
+      "preformatted": "text<br> &gt;&gt;&gt;/unknown",
+      "output": "text<br> <span class=\"quote\">&gt;&gt;&gt;/unknown</span>"
+    },
+    {
+      "input": "text\n >>>//42",
+      "preformatted": "text<br> &gt;&gt;&gt;//42",
+      "output": "text<br> <span class=\"quote\">&gt;&gt;&gt;//42</span>"
+    },
+    {
+      "input": "text\n > >tail",
+      "preformatted": "text<br> &gt; &gt;tail",
+      "output": "text<br> <span class=\"quote\">&gt; &gt;tail</span>"
+    },
+    {
+      "input": "text\n >>>>/unknown/42",
+      "preformatted": "text<br> &gt;&gt;&gt;&gt;/unknown/42",
+      "output": "text<br> <span class=\"quote\">&gt;&gt;&gt;&gt;/unknown/42</span>"
+    },
+    {
+      "input": "text\n >>>/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/42",
+      "preformatted": "text<br> &gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/{{w_br}}42",
+      "output": "text<br> &gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/<wbr>42"
+    },
+    {
+      "input": "text\n >>>/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/42",
+      "preformatted": "text<br> &gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx{{w_br}}/42",
+      "output": "text<br> <span class=\"quote\">&gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>/42</span>"
+    },
+    {
+      "input": "text\n  >green",
+      "preformatted": "text<br>  &gt;green",
+      "output": "text<br>  &gt;green"
+    },
+    {
+      "input": "text\n  >>not-a-post",
+      "preformatted": "text<br>  &gt;&gt;not-a-post",
+      "output": "text<br>  &gt;&gt;not-a-post"
+    },
+    {
+      "input": "text\n  >>>not-a-board",
+      "preformatted": "text<br>  &gt;&gt;&gt;not-a-board",
+      "output": "text<br>  &gt;&gt;&gt;not-a-board"
+    },
+    {
+      "input": "text\n  >>0",
+      "preformatted": "text<br>  &gt;&gt;0",
+      "output": "text<br>  &gt;&gt;0"
+    },
+    {
+      "input": "text\n  >>42tail",
+      "preformatted": "text<br>  &gt;&gt;42tail",
+      "output": "text<br>  &gt;&gt;42tail"
+    },
+    {
+      "input": "text\n  >>>42",
+      "preformatted": "text<br>  &gt;&gt;&gt;42",
+      "output": "text<br>  &gt;&gt;&gt;42"
+    },
+    {
+      "input": "text\n  >>>>42",
+      "preformatted": "text<br>  &gt;&gt;&gt;&gt;42",
+      "output": "text<br>  &gt;&gt;&gt;&gt;42"
+    },
+    {
+      "input": "text\n  >>>/unknown/",
+      "preformatted": "text<br>  &gt;&gt;&gt;/unknown/",
+      "output": "text<br>  &gt;&gt;&gt;/unknown/"
+    },
+    {
+      "input": "text\n  >>>/unknown/term",
+      "preformatted": "text<br>  &gt;&gt;&gt;/unknown/term",
+      "output": "text<br>  &gt;&gt;&gt;/unknown/term"
+    },
+    {
+      "input": "text\n  >>>/G/42",
+      "preformatted": "text<br>  &gt;&gt;&gt;/G/42",
+      "output": "text<br>  &gt;&gt;&gt;/G/42"
+    },
+    {
+      "input": "text\n  >>>/unknown",
+      "preformatted": "text<br>  &gt;&gt;&gt;/unknown",
+      "output": "text<br>  &gt;&gt;&gt;/unknown"
+    },
+    {
+      "input": "text\n  >>>//42",
+      "preformatted": "text<br>  &gt;&gt;&gt;//42",
+      "output": "text<br>  &gt;&gt;&gt;//42"
+    },
+    {
+      "input": "text\n  > >tail",
+      "preformatted": "text<br>  &gt; &gt;tail",
+      "output": "text<br>  &gt; &gt;tail"
+    },
+    {
+      "input": "text\n  >>>>/unknown/42",
+      "preformatted": "text<br>  &gt;&gt;&gt;&gt;/unknown/42",
+      "output": "text<br>  &gt;&gt;&gt;&gt;/unknown/42"
+    },
+    {
+      "input": "text\n  >>>/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/42",
+      "preformatted": "text<br>  &gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/{{w_br}}42",
+      "output": "text<br>  &gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/<wbr>42"
+    },
+    {
+      "input": "text\n  >>>/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/42",
+      "preformatted": "text<br>  &gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx{{w_br}}/42",
+      "output": "text<br>  &gt;&gt;&gt;/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx<wbr>/42"
+    }
+  ]
+}
