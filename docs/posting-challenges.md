@@ -337,7 +337,10 @@ The staff browser fixture also disables CAPTCHA on its newly created synthetic
 board, so spoiler and moderation cases can test their own public write paths.
 The file-deletion upgrade test extends its saved board baseline with the five
 CAPTCHA policy fields from the pinned fixture. It still compares every prior
-field and qualifies rollback and administrator dump/restore.
+field and qualifies rollback and administrator dump/restore. The anonymous-session
+upgrade test keeps its historical schema unchanged, then opts out only its
+synthetic board before exercising current public ownership and report writes;
+it also verifies that `/b/` retains CAPTCHA enforcement.
 
 The complete archive reader now requests only the subject and deletion flag
 from each root-post lookup. Its row and byte limits, visibility rules, ordering,
