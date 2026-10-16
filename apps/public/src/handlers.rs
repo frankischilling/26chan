@@ -311,6 +311,14 @@ AND NOT EXISTS (
 const REPORT_ADMISSION_READY_SQL: &str = board_store::report_admission::READINESS_SQL;
 
 pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppError> {
+    if let Some(verification) = &state.verification {
+        verification.ready().await.map_err(|_| {
+            AppError(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Email verification is unavailable.",
+            )
+        })?;
+    }
     if state.poster_id_key.is_none() {
         return Err(AppError(
             StatusCode::SERVICE_UNAVAILABLE,

@@ -255,6 +255,11 @@ impl Fixture {
                 .await
                 .unwrap();
         }
+        sqlx::query("DELETE FROM verification_private.identities WHERE email_hash=$1")
+            .bind(self.session.as_slice())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
         for query in [
             "DELETE FROM staff_identity.sessions WHERE account_id=$1",
             "DELETE FROM staff_identity.credentials WHERE account_id=$1",
@@ -844,4 +849,62 @@ async fn global_two_pending_limit_is_shared_across_distinct_accounts() {
         fixture.cleanup().await;
     }
     outcome.unwrap();
+}
+
+#[tokio::test]
+async fn verified_ownership_moves_without_a_live_browser_and_is_erased_with_content() {
+    run(|f| async move {
+        let cap=f.capability();
+        let source=f.post(0,0,Some(&cap)).await;
+        // Seed a private ownership row to isolate transfer/erasure semantics.
+        // Receipt-backed linking and normal registration have separate tests.
+        let identity:String=sqlx::query_scalar("INSERT INTO verification_private.identities(email_hash) VALUES($1) RETURNING id::text")
+            .bind(f.session.as_slice()).fetch_one(&f.owner).await.unwrap();
+        sqlx::query("INSERT INTO verification_private.post_ownership(post_id,identity_id,password_proof) SELECT post_id,$2::text::uuid,sha256(convert_to(password_hash,'UTF8')) FROM post_secrets.deletion WHERE post_id=$1")
+            .bind(source).bind(&identity).execute(&f.owner).await.unwrap();
+        sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+            .bind(cap.storage_hash().as_slice()).execute(&f.owner).await.unwrap();
+        let (ticket,_)=f.sealed(source).await;
+        let result=transfer::consume(&f.staff,&ticket).await.unwrap();
+        let copied:(String,bool)=sqlx::query_as("SELECT o.identity_id::text,o.password_proof=sha256(convert_to(d.password_hash,'UTF8')) FROM verification_private.post_ownership o JOIN post_secrets.deletion d ON d.post_id=o.post_id WHERE o.post_id=$1")
+            .bind(result.destination_thread).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(copied,(identity,true));
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM verification_private.post_ownership WHERE post_id=$1")
+            .bind(source).fetch_one(&f.owner).await.unwrap(),0);
+        let mut tx=f.owner.begin().await.unwrap();
+        sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE").bind(&f.boards[1]).execute(&mut *tx).await.unwrap();
+        sqlx::query("UPDATE content.threads SET deleted=true WHERE id=$1").bind(result.destination_thread).execute(&mut *tx).await.unwrap();
+        tx.commit().await.unwrap();
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM verification_private.post_ownership WHERE post_id=$1")
+            .bind(result.destination_thread).fetch_one(&f.owner).await.unwrap(),0);
+    }).await;
+}
+
+#[tokio::test]
+async fn verified_ownership_schema_access_drift_fails_readiness() {
+    run(|f| async move {
+        let mut tx = f.owner.begin().await.unwrap();
+        sqlx::query("REVOKE USAGE ON SCHEMA verification_private FROM board_thread_transfer_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("SET LOCAL ROLE board_thread_transfer_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        assert!(
+            !sqlx::query_scalar::<_, bool>("SELECT content.text_thread_transfer_ready()")
+                .fetch_one(&mut *tx)
+                .await
+                .unwrap()
+        );
+        tx.rollback().await.unwrap();
+        assert!(
+            sqlx::query_scalar::<_, bool>("SELECT content.text_thread_transfer_ready()")
+                .fetch_one(&f.staff)
+                .await
+                .unwrap()
+        );
+    })
+    .await;
 }

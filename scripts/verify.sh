@@ -62,7 +62,16 @@ rust_checks() {
   python3 scripts/check-media-parser-dependencies.py
   cargo build --workspace --examples --bins --locked
   cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked
-  cargo test --workspace --all-features --locked
+  # Only store and verifier tests receive the isolated issuer and delivery database roles.
+  (
+    source .local/verification-tests.env
+    : "${TEST_VERIFICATION_DATABASE_URL:?Set the disposable verifier database URL}"
+    : "${TEST_VERIFICATION_MAIL_DATABASE_URL:?Set the disposable mail database URL}"
+    cargo test -p board-store -p board-verification --all-features --locked
+    cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact
+    cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact
+  )
+  cargo test --workspace --exclude board-store --exclude board-verification --all-features --locked
   cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture
   cargo test -p board-public --example deletion-fixture --features database-tests --locked
   cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked
@@ -88,6 +97,7 @@ browser_content() {
   npm run test:polls
   npm run test:blotter
   npm run test:blotter-persisted
+  npm run test:verification
   npm run test:page-identity-core
   npm run test:board-subtitles
   npm run test:global-search
@@ -145,6 +155,8 @@ install_dependencies
 case "$suite" in
   all)
     npm run check:generated
+npm run test:verification-core
+python3 tests/helpers/test_verification_mail_fixture.py
     early_browser_checks
     rust_checks
     browser_content
@@ -152,6 +164,8 @@ case "$suite" in
     ;;
   rust)
     npm run check:generated
+npm run test:verification-core
+python3 tests/helpers/test_verification_mail_fixture.py
     rust_checks
     ;;
   browser-content)

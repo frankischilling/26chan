@@ -72,6 +72,7 @@ jobs:
         run: |
           python3 scripts/test-dev-db-env.py
           python3 scripts/test-dev-staff-db-env.py
+          python3 scripts/test-dev-verification-db-env.py
           sudo bash scripts/test-role-bootstrap.sh
           sudo bash scripts/test-source-restrictions-migration.sh
           sudo bash scripts/dev-db.sh
@@ -80,11 +81,16 @@ jobs:
           sudo bash scripts/dev-intake-db.sh
           sudo bash scripts/dev-monitor-db.sh
           sudo bash scripts/dev-staff-db.sh
+          sudo bash scripts/dev-verification-db.sh
           sudo chown -R "$(id -u):$(id -g)" .local
           source .local/database.env
           cargo run -p board-store --bin board-migrate --locked
           bash scripts/seed.sh
           psql "$MIGRATION_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f scripts/test-video-board-policy.sql
+      - name: Check primary email and challenge answer references
+        run: |
+          python3 scripts/test-email-verification-reference.py
+          python3 scripts/test-challenge-answer-reference.py
       - name: Qualify verified client identity through the actual HTTPS proxy
         run: |
           source .local/database.env
@@ -170,6 +176,16 @@ jobs:
           source .local/monitor.env
           source .local/staff.env
           bash scripts/verify.sh "browser-$BROWSER_SUITE"
+      - name: Retain synthetic verification review images
+        if: ${{ always() && matrix.suite == 'content' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verification-linux-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .local/verification-review/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: true
       - name: Retain synthetic Linux browser failure evidence
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -373,6 +389,8 @@ jobs:
         run: sudo bash scripts/test-image-admission-migration.sh
       - name: Upgrade automatic archive policy without changing historical threads
         run: sudo bash scripts/test-autoarchive-migration.sh
+      - name: Qualify populated public verification upgrade and restore
+        run: sudo bash scripts/test-public-verification-migration.sh
       - name: Upgrade archive age policy without restoring deleted content
         run: sudo bash scripts/test-archive-age-migration.sh
       - name: Retire legacy archive credentials without changing active authority
@@ -699,6 +717,15 @@ jobs:
         timeout-minutes: 5
         shell: pwsh
         run: npm run test:math
+      - name: Verify email form keyboard and lifecycle controls
+        timeout-minutes: 5
+        env:
+          WINDOWS_CI_DISABLE_TCP_PORT_RANDOMIZATION: '1'
+        shell: pwsh
+        run: |
+          cargo build -p board-public --example verification-browser-fixture --features browser-tests --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:verification
       - name: Verify pinned drawing assets and bounded editor lifecycle
         timeout-minutes: 5
         shell: pwsh
@@ -801,6 +828,16 @@ jobs:
           WINDOWS_CI_DISABLE_TCP_PORT_RANDOMIZATION: '1'
         shell: pwsh
         run: npm run test:states -- --output=test-results/windows-public-states
+      - name: Retain synthetic Windows verification review images
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verification-windows-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .local/verification-review/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
+          include-hidden-files: true
       - name: Retain owned native-client component review images
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

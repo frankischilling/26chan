@@ -245,6 +245,16 @@ fn headers(
     page: Option<InteractivePage>,
     posting: Option<&str>,
 ) -> Response {
+    let verification_page = response
+        .extensions()
+        .get::<crate::signin::VerificationPage>()
+        .is_some()
+        && response.status().is_success()
+        && response
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.starts_with("text/html"));
     let report_shell = response
         .extensions()
         .get::<crate::legacy_report::ReportShell>()
@@ -273,7 +283,9 @@ fn headers(
     let math = interactive
         && page == Some(InteractivePage::Board)
         && response.extensions().get::<MathPage>().is_some();
-    let script = if report_shell {
+    let script = if verification_page {
+        format!("{}{}", state.origin, crate::signin::SCRIPT_PATH)
+    } else if report_shell {
         format!("{}{}", state.origin, crate::ui_assets::REPORT_POPUP_PATH)
     } else if interactive {
         let watcher = format!(
@@ -536,6 +548,11 @@ fn headers(
     } else {
         connect
     };
+    let connect = if verification_page {
+        format!("{}/signin/challenge", state.origin)
+    } else {
+        connect
+    };
     let headers = response.headers_mut();
     // Only fixed, release-owned UI images may load from the public origin.
     // Do not broaden this to 'self': uploaded content stays on the media origin.
@@ -545,6 +562,9 @@ fn headers(
         state.origin,
         crate::ui_assets::image_sources(&state.origin)
     );
+    if verification_page {
+        images.push_str(" data:");
+    }
     if let Some(media) = &state.media {
         images = format!("{} {images}", media.settings.origin.as_string());
     }
@@ -580,7 +600,14 @@ fn headers(
     headers.insert("x-frame-options", HeaderValue::from_static("DENY"));
     // no-referrer makes browser form navigations send Origin: null. Keep the
     // same-origin signal while withholding referrers from external destinations.
-    headers.insert("referrer-policy", HeaderValue::from_static("same-origin"));
+    headers.insert(
+        "referrer-policy",
+        HeaderValue::from_static(if verification_page {
+            "strict-origin"
+        } else {
+            "same-origin"
+        }),
+    );
     headers.insert(
         "permissions-policy",
         HeaderValue::from_static("camera=(), microphone=(), geolocation=()"),
@@ -616,6 +643,7 @@ pub(crate) fn math_fixture_response(
         production: false,
         limits: std::sync::Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
         media: None,
+        verification: None,
         proxy_uid: None,
         poster_id_key: None,
         tripcode_key: None,
@@ -642,6 +670,11 @@ pub(crate) fn math_fixture_response(
     ))
 }
 
+#[cfg(feature = "browser-tests")]
+pub(crate) fn verification_fixture_headers(response: Response, state: &AppState) -> Response {
+    headers(response, state, None, None)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -662,6 +695,7 @@ mod tests {
             production: true,
             limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
             media: None,
+            verification: None,
             proxy_uid: None,
             poster_id_key: None,
             tripcode_key: None,
@@ -745,6 +779,7 @@ mod tests {
             production: true,
             limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
             media: None,
+            verification: None,
             proxy_uid: None,
             poster_id_key: None,
             tripcode_key: None,
@@ -849,6 +884,7 @@ mod tests {
             production: true,
             limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
             media: None,
+            verification: None,
             proxy_uid: None,
             poster_id_key: None,
             tripcode_key: None,
@@ -914,6 +950,7 @@ mod tests {
                 production: origin.starts_with("https:"),
                 limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
                 media: None,
+                verification: None,
                 proxy_uid: None,
                 poster_id_key: None,
                 tripcode_key: None,
@@ -1070,6 +1107,7 @@ mod tests {
             production: false,
             limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
             media: None,
+            verification: None,
             proxy_uid: None,
             poster_id_key: None,
             tripcode_key: None,
@@ -1149,6 +1187,7 @@ mod tests {
                 production: true,
                 limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
                 media: None,
+                verification: None,
                 proxy_uid: None,
                 poster_id_key: None,
                 tripcode_key: None,
@@ -1194,6 +1233,7 @@ mod tests {
             production: true,
             limits: Arc::new(Limits::new(settings)),
             media: None,
+            verification: None,
             proxy_uid: Some(33),
             poster_id_key: None,
             tripcode_key: None,
@@ -1290,6 +1330,7 @@ mod tests {
             production: false,
             limits: Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
             media: None,
+            verification: None,
             proxy_uid: None,
             poster_id_key: None,
             tripcode_key: None,
@@ -1381,6 +1422,7 @@ mod tests {
             production: false,
             limits: limits.clone(),
             media: None,
+            verification: None,
             proxy_uid: None,
             poster_id_key: None,
             tripcode_key: None,
@@ -1412,5 +1454,63 @@ mod tests {
         assert_eq!(limits.active.available_permits(), 0);
         drop(response);
         assert_eq!(limits.active.available_permits(), 1);
+    }
+}
+
+#[cfg(test)]
+mod verification_policy_tests {
+    use super::*;
+    #[tokio::test]
+    async fn verification_image_authority_requires_a_successful_marked_html_response() {
+        let state = AppState {
+            pool: sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+                .unwrap(),
+            origin: "https://board.example".into(),
+            production: false,
+            limits: std::sync::Arc::new(Limits::new(board_config::PublicRequestLimits::default())),
+            media: None,
+            verification: None,
+            proxy_uid: None,
+            poster_id_key: None,
+            tripcode_key: None,
+            country_database: None,
+        };
+        for (marked, status, kind, allowed) in [
+            (true, StatusCode::OK, "text/html", true),
+            (false, StatusCode::OK, "text/html", false),
+            (true, StatusCode::BAD_REQUEST, "text/html", false),
+            (true, StatusCode::OK, "application/json", false),
+        ] {
+            let mut response = (status, [("content-type", kind)], "synthetic").into_response();
+            if marked {
+                response
+                    .extensions_mut()
+                    .insert(crate::signin::VerificationPage);
+            }
+            let response = headers(response, &state, None, None);
+            let policy = response.headers()["content-security-policy"]
+                .to_str()
+                .unwrap();
+            assert_eq!(policy.contains(" data:"), allowed);
+            assert_eq!(
+                policy.contains("script-src https://board.example/static/verification.v1.js;"),
+                allowed
+            );
+            assert_eq!(
+                policy.contains("connect-src https://board.example/signin/challenge;"),
+                allowed
+            );
+            assert_eq!(
+                response.headers()["referrer-policy"],
+                if allowed {
+                    "strict-origin"
+                } else {
+                    "same-origin"
+                }
+            );
+            assert!(!policy.contains("img-src 'self'"));
+            assert!(policy.contains("script-src-attr 'none'"));
+        }
     }
 }

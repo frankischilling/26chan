@@ -1,0 +1,109 @@
+{
+  "source_commit": "545b7812d1849f7958d914950c91fdbbe38f6b22",
+  "source_path": "twister/twister_captcha.php",
+  "source_sha256": "0789325aa9d83bff99480e8a713a28b862ccfbf84c2b8a9f0e652ae562860253",
+  "method_sha256": "1e3e789f1de8c67387de5b56fa4aa05ab852ff169e464fe949175ea26bd7e01a",
+  "method": "  public static function normalizeReponseStr($str) {\n    return str_replace(\n      ['F', 'B', 'O', 'Z', 'U', '5', '6', 'Q'],\n      ['P', '8', '0', '2', 'V', 'S', 'G', '0'],\n      strtoupper(preg_replace('/[^a-zA-Z0-9]+/', '', $str))\n    );\n  }",
+  "cases": [
+    {
+      "raw": "ADGHJK",
+      "normalized": "ADGHJK",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": "adghjk",
+      "normalized": "ADGHJK",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": " f b o z u ",
+      "normalized": "P802V",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": "5-6-Q-A",
+      "normalized": "SG0A",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": "FBOZU5",
+      "normalized": "P802VS",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": "6qfboz",
+      "normalized": "G0P802",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": "A D\tG\nH",
+      "normalized": "ADGH",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": "ÀAéDñGüH",
+      "normalized": "ADGH",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": "ＡＤＧＨ",
+      "normalized": "",
+      "within_rust_bounds": false
+    },
+    {
+      "raw": "ADGHJKM",
+      "normalized": "ADGHJKM",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": "ADG",
+      "normalized": "ADG",
+      "within_rust_bounds": false
+    },
+    {
+      "raw": "",
+      "normalized": "",
+      "within_rust_bounds": false
+    },
+    {
+      "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "normalized": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "within_rust_bounds": false
+    },
+    {
+      "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "normalized": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "within_rust_bounds": false
+    },
+    {
+      "raw": "0OQ0",
+      "normalized": "0000",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": "PB80",
+      "normalized": "P880",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": "VVUU",
+      "normalized": "VVVV",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": "Ｓ5Ｇ6",
+      "normalized": "SG",
+      "within_rust_bounds": false
+    },
+    {
+      "raw": "!@ADGH#$",
+      "normalized": "ADGH",
+      "within_rust_bounds": true
+    },
+    {
+      "raw": "ADGH\u0000JK",
+      "normalized": "ADGHJK",
+      "within_rust_bounds": true
+    }
+  ]
+}

@@ -106,6 +106,26 @@ async fn automatic_archive_threshold_and_preserved_reply() {
         assert_eq!(snapshot.posts.len(),1501);
         assert_eq!(snapshot.posts.last().unwrap().id,last);
         assert!(snapshot.thread.archived_at.is_some());
+        // SQLx reuses prepared statements. Exercise the generic plan as well
+        // as the default planner, with the real public role and its 5s limit.
+        let generic = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .after_connect(|connection, _| Box::pin(async move {
+                sqlx::query("SET plan_cache_mode=force_generic_plan")
+                    .execute(connection).await?;
+                Ok(())
+            }))
+            .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+            .await.unwrap();
+        let (role, timeout): (String, String) = sqlx::query_as("SELECT current_user::text,current_setting('statement_timeout')")
+            .fetch_one(&generic).await.unwrap();
+        assert_eq!(role,"board_public");
+        assert_eq!(timeout,"5s");
+        let generic_snapshot = board_store::thread_snapshot(&generic,&b,op).await.unwrap();
+        assert_eq!(generic_snapshot.posts.iter().map(|post| post.id).collect::<Vec<_>>(),snapshot.posts.iter().map(|post| post.id).collect::<Vec<_>>());
+        assert!(generic_snapshot.posts.iter().all(|post| post.attachment.is_none()));
+        assert_eq!(generic_snapshot.thread.archived_at,snapshot.thread.archived_at);
+        generic.close().await;
         assert!(matches!(support::create_post(&p,&b,op,&post()).await,Err(StoreError::Conflict(_))|Err(StoreError::NotFound)));
     }).await;
     let mut tx = support::begin_cleanup(&owner, std::slice::from_ref(&board)).await;

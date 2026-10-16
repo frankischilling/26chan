@@ -1,0 +1,45 @@
+# Candidate isolation profile; qualify on an owned host before deployment.
+[Unit]
+Description=Paperboard verification mail delivery
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=board-mailer
+Group=board-mailer
+WorkingDirectory=/opt/paperboard
+ExecStart=/opt/paperboard/board-verification-mailer --once
+EnvironmentFile=/etc/paperboard/verification-mailer.env
+TimeoutStartSec=600
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+LimitNOFILE=128
+TasksMax=32
+MemoryMax=256M
+CPUQuota=100%
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

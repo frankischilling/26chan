@@ -1,0 +1,315 @@
+#![forbid(unsafe_code)]
+mod smtp;
+use board_domain::{challenge_secrets::ReceiptToken, verification_mail::MailKey};
+use board_store::verification::mail::MailStore;
+use std::{
+    collections::BTreeMap,
+    net::{IpAddr, SocketAddr},
+};
+struct Settings {
+    database: String,
+    key: MailKey,
+    relay: SocketAddr,
+    origin: String,
+}
+impl Settings {
+    fn parse(values: BTreeMap<String, String>) -> Result<Self, ()> {
+        for (name, value) in &values {
+            if value.is_empty() {
+                continue;
+            }
+            if (name.ends_with("DATABASE_URL") && name != "VERIFICATION_MAIL_DATABASE_URL")
+                || name.starts_with("AWS_")
+                || name.starts_with("AZURE_")
+                || name.starts_with("GOOGLE_")
+                || name.starts_with("DEPLOY_")
+                || matches!(name.as_str(), "SSH_AUTH_SOCK" | "DOCKER_HOST")
+                || ((name.ends_with("_KEY")
+                    || name.ends_with("_TOKEN")
+                    || name.ends_with("_PASSWORD")
+                    || name.ends_with("_SECRET"))
+                    && name != "VERIFICATION_MAIL_KEY")
+            {
+                return Err(());
+            }
+        }
+        let get = |name| values.get(name).ok_or(());
+        let database = get("VERIFICATION_MAIL_DATABASE_URL")?.clone();
+        let url = url::Url::parse(&database).map_err(|_| ())?;
+        let local = url.host_str().is_some_and(|host| {
+            host == "localhost"
+                || host
+                    .trim_matches(['[', ']'])
+                    .parse::<IpAddr>()
+                    .is_ok_and(|ip| ip.is_loopback())
+        });
+        if !matches!(url.scheme(), "postgres" | "postgresql")
+            || url.username() != "board_mailer"
+            || !local
+            || url.password().is_none_or(str::is_empty)
+            || url.path().len() <= 1
+            || url.query().is_some()
+            || url.fragment().is_some()
+        {
+            return Err(());
+        }
+        let raw_key = get("VERIFICATION_MAIL_KEY")?;
+        if url.password() == Some(raw_key.as_str()) {
+            return Err(());
+        }
+        let key = MailKey::parse(raw_key).ok_or(())?;
+        let relay: SocketAddr = get("VERIFICATION_SMTP_ADDR")?.parse().map_err(|_| ())?;
+        if !relay.ip().is_loopback() || relay.port() == 0 {
+            return Err(());
+        }
+        let origin = get("VERIFICATION_PUBLIC_ORIGIN")?.clone();
+        let parsed = url::Url::parse(&origin).map_err(|_| ())?;
+        if parsed.origin().ascii_serialization() != origin
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
+        {
+            return Err(());
+        }
+        if parsed.scheme() != "https"
+            && !(parsed.scheme() == "http"
+                && parsed.host_str().is_some_and(|s| {
+                    s.trim_matches(['[', ']'])
+                        .parse::<IpAddr>()
+                        .is_ok_and(|ip| ip.is_loopback())
+                }))
+        {
+            return Err(());
+        }
+        Ok(Self {
+            database,
+            key,
+            relay,
+            origin,
+        })
+    }
+}
+fn main() -> std::process::ExitCode {
+    let args: Vec<_> = std::env::args_os().skip(1).collect();
+    let check = args.len() == 1 && args[0] == "--check-config";
+    if args.len() != 1 || (!check && args[0] != "--once") {
+        eprintln!("mailer arguments rejected");
+        return std::process::ExitCode::FAILURE;
+    }
+    let mut values = BTreeMap::new();
+    for (name, value) in std::env::vars_os() {
+        let (Ok(name), Ok(value)) = (name.into_string(), value.into_string()) else {
+            return std::process::ExitCode::FAILURE;
+        };
+        if values.insert(name.to_ascii_uppercase(), value).is_some() {
+            return std::process::ExitCode::FAILURE;
+        }
+    }
+    let Ok(settings) = Settings::parse(values) else {
+        eprintln!("mailer configuration rejected");
+        return std::process::ExitCode::FAILURE;
+    };
+    if check {
+        return std::process::ExitCode::SUCCESS;
+    }
+    let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    else {
+        return std::process::ExitCode::FAILURE;
+    };
+    match runtime.block_on(run(settings)) {
+        Ok(count) => {
+            println!("verification mail acknowledged: {count}");
+            std::process::ExitCode::SUCCESS
+        }
+        Err(()) => {
+            eprintln!("verification mail delivery incomplete");
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+async fn run(settings: Settings) -> Result<usize, ()> {
+    let store = MailStore::connect(&settings.database)
+        .await
+        .map_err(|_| ())?;
+    let mut sent = 0;
+    let result = async {
+        for _ in 0..100 {
+            // Claim one message at a time so every delivery gets a fresh lease,
+            // even when previous deliveries consumed their entire SMTP budget.
+            let lease = ReceiptToken::generate().map_err(|_| ())?.storage_hash();
+            let jobs = store.claim(&lease, 1).await.map_err(|_| ())?;
+            let Some(job) = jobs.into_iter().next() else {
+                break;
+            };
+            let token: [u8; 32] = job.token_hash.as_slice().try_into().map_err(|_| ())?;
+            let delivered = if let Some(payload) = settings.key.open(&token, &job.encrypted_payload)
+            {
+                smtp::deliver(settings.relay, &settings.origin, &job.request_id, &payload)
+                    .await
+                    .is_ok()
+            } else {
+                false
+            };
+            if !store
+                .finish(&job.request_id, &lease, delivered)
+                .await
+                .map_err(|_| ())?
+            {
+                return Err(());
+            }
+            if !delivered {
+                return Err(());
+            }
+            sent += 1;
+        }
+        Ok(sent)
+    }
+    .await;
+    store.close().await;
+    result
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn values() -> BTreeMap<String, String> {
+        [
+            (
+                "VERIFICATION_MAIL_DATABASE_URL",
+                "postgres://board_mailer:synthetic@127.0.0.1:55432/owned".into(),
+            ),
+            ("VERIFICATION_MAIL_KEY", "ab".repeat(32)),
+            ("VERIFICATION_SMTP_ADDR", "127.0.0.1:1025".into()),
+            ("VERIFICATION_PUBLIC_ORIGIN", "http://127.0.0.1:3000".into()),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.into(), v))
+        .collect()
+    }
+    #[test]
+    fn isolated_local_mail_config_and_rejections() {
+        assert!(Settings::parse(values()).is_ok());
+        for (key, value) in [
+            ("VERIFICATION_KEY", "secret"),
+            ("DATABASE_URL", "postgres://other"),
+            ("VERIFICATION_SMTP_ADDR", "192.0.2.1:25"),
+            ("VERIFICATION_PUBLIC_ORIGIN", "http://public.example"),
+            ("VERIFICATION_PUBLIC_ORIGIN", "https://public.example/path"),
+            (
+                "VERIFICATION_PUBLIC_ORIGIN",
+                "https://user:secret@public.example",
+            ),
+        ] {
+            let mut v = values();
+            v.insert(key.into(), value.into());
+            assert!(Settings::parse(v).is_err(), "{key}");
+        }
+    }
+}
+
+#[cfg(all(test, feature = "database-tests"))]
+mod delivery_tests {
+    use super::*;
+    use board_domain::{
+        challenge_secrets::{TokenKind, VerificationToken},
+        verification_mail::MailPayload,
+    };
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    #[tokio::test]
+    #[ignore = "Run explicitly with isolated mailer test credentials."]
+    async fn delivery_acknowledges_only_accepted_local_mail() {
+        let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        for accepted in [false, true] {
+            let material = ReceiptToken::generate().unwrap().encode();
+            let bytes = &material[3..35];
+            let id = format!(
+                "{}-{}-{}-{}-{}",
+                &bytes[..8],
+                &bytes[8..12],
+                &bytes[12..16],
+                &bytes[16..20],
+                &bytes[20..]
+            );
+            let token = VerificationToken::generate(TokenKind::Email)
+                .unwrap()
+                .encode();
+            let payload = MailPayload::new("owned.delivery.fixture@gmail.com", &token).unwrap();
+            let key = MailKey::parse(&material[3..]).unwrap();
+            let hash = ReceiptToken::generate().unwrap().storage_hash();
+            let encrypted = key.seal(&hash, &payload).unwrap();
+            let mut tx = owner.begin().await.unwrap();
+            sqlx::query("INSERT INTO verification_private.email_requests(id,token_hash,email_hash,recipient_hash,peer_hash,country,created_at,expires_at,captcha_failure_limit) VALUES($1::text::uuid,$2,$2,$2,$2,'XX',statement_timestamp(),statement_timestamp()+interval '24 hours',6)")
+                .bind(&id).bind(hash.as_slice()).execute(&mut *tx).await.unwrap();
+            sqlx::query("INSERT INTO verification_private.mail_outbox(request_id,recipient_hash,encrypted_payload,created_at,expires_at,retry_after) VALUES($1::text::uuid,$2,$3,statement_timestamp(),statement_timestamp()+interval '1 hour',statement_timestamp())")
+                .bind(&id).bind(hash.as_slice()).bind(encrypted).execute(&mut *tx).await.unwrap();
+            tx.commit().await.unwrap();
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let relay = listener.local_addr().unwrap();
+            let receiver = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut stream = BufReader::new(stream);
+                stream
+                    .get_mut()
+                    .write_all(b"220 owned fixture\r\n")
+                    .await
+                    .unwrap();
+                for response in ["250 OK\r\n", "250 OK\r\n", "250 OK\r\n", "354 DATA\r\n"] {
+                    let mut line = String::new();
+                    stream.read_line(&mut line).await.unwrap();
+                    stream
+                        .get_mut()
+                        .write_all(response.as_bytes())
+                        .await
+                        .unwrap();
+                }
+                let mut data = String::new();
+                loop {
+                    let mut line = String::new();
+                    stream.read_line(&mut line).await.unwrap();
+                    if line == ".\r\n" {
+                        break;
+                    }
+                    assert!(data.len() < 8192);
+                    data.push_str(&line);
+                }
+                stream
+                    .get_mut()
+                    .write_all(if accepted {
+                        b"250 accepted\r\n"
+                    } else {
+                        b"451 rejected\r\n"
+                    })
+                    .await
+                    .unwrap();
+                data
+            });
+            let result = run(Settings {
+                database: std::env::var("TEST_VERIFICATION_MAIL_DATABASE_URL").unwrap(),
+                key,
+                relay,
+                origin: "http://127.0.0.1:3000".into(),
+            })
+            .await;
+            let mail = tokio::time::timeout(std::time::Duration::from_secs(8), receiver)
+                .await
+                .unwrap()
+                .unwrap();
+            let delivered:bool=sqlx::query_scalar("SELECT delivered_at IS NOT NULL FROM verification_private.email_requests WHERE id=$1::text::uuid").bind(&id).fetch_one(&owner).await.unwrap();
+            let queued:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM verification_private.mail_outbox WHERE request_id=$1::text::uuid AND lease_hash IS NULL AND retry_after>clock_timestamp())").bind(&id).fetch_one(&owner).await.unwrap();
+            sqlx::query("DELETE FROM verification_private.email_requests WHERE id=$1::text::uuid")
+                .bind(&id)
+                .execute(&owner)
+                .await
+                .unwrap();
+            assert_eq!(result.is_ok(), accepted);
+            assert_eq!(delivered, accepted);
+            assert_eq!(queued, !accepted);
+            assert!(mail.contains(&format!("/signin?action=verify&tkn={token}")));
+        }
+        owner.close().await;
+    }
+}

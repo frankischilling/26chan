@@ -128,9 +128,10 @@ test('ordinary public config has no launchOptions property and retains all workl
     else process.env.VISUAL_FIXTURE_SERVER = previous;
   }
 });
-test('only the five intended required Windows browser steps opt in', () => {
+test('only the six intended required Windows browser steps opt in', () => {
   const ci = read('.github/workflows/ci.yml');
   const expected = [
+    'Verify email form keyboard and lifecycle controls',
     'Run deterministic visual fixture without a database service',
     'Run archive desktop and mobile visual fixtures',
     'Run attachment desktop and mobile visual fixtures',
@@ -151,7 +152,7 @@ test('only the five intended required Windows browser steps opt in', () => {
 });
 test('common config reaches all intended suites while diagnostic workflows remain baseline', () => {
   assert.ok(read('playwright.public-base.js').includes('windowsCiLaunchOptions({})'));
-  for (const config of ['playwright.config.js', 'playwright.archive-visual.config.js', 'playwright.states.config.js']) {
+  for (const config of ['playwright.config.js', 'playwright.archive-visual.config.js', 'playwright.states.config.js', 'playwright.verification.config.js']) {
     assert.ok(read(config).includes("from './playwright.public-base.js'"));
   }
   for (const config of ['playwright.media-visual.config.js', 'playwright.themes.config.js']) {

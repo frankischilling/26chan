@@ -1,0 +1,10 @@
+{
+  "kind": "synthetic verification renderer output",
+  "renderer": "apps/verification/src/challenge/render.rs",
+  "purpose": "UI layout, keyboard, PNG loading and lifecycle qualification only",
+  "text": "JP22XR",
+  "characters": 6,
+  "slider": true,
+  "reference_pixel_parity": false,
+  "contains_real_user_data": false
+}

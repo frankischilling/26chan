@@ -1689,6 +1689,19 @@ async fn text_only_policy(f: &Fixture) {
 }
 
 async fn tail_counts(f: &Fixture) {
+    let generic = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .after_connect(|connection, _| {
+            Box::pin(async move {
+                sqlx::query("SET plan_cache_mode=force_generic_plan")
+                    .execute(connection)
+                    .await?;
+                Ok(())
+            })
+        })
+        .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
     sqlx::query("UPDATE content.boards SET image_limit=2,json_tail_size=1 WHERE slug=$1")
         .bind(&f.board)
         .execute(&f.admin)
@@ -1714,6 +1727,12 @@ async fn tail_counts(f: &Fixture) {
         .await
         .unwrap();
     assert_eq!(tail.images, 0);
+    // Put the next attachment beyond the first loader batch.
+    for _ in 0..17 {
+        create_post(&f.public, &f.board, thread, &post())
+            .await
+            .unwrap();
+    }
     let last = f.reserve().await;
     let asset = f.approve(&last).await;
     f.insert(thread, &last).await.unwrap();
@@ -1722,6 +1741,45 @@ async fn tail_counts(f: &Fixture) {
         .unwrap();
     assert_eq!(tail.images, 1);
     assert!(tail.posts[1].attachment.is_some());
+    let generic_tail = board_store::thread_snapshot_selection(&generic, &f.board, thread, true)
+        .await
+        .unwrap();
+    assert_eq!(generic_tail.images, 1);
+    let full = board_store::thread_snapshot(&generic, &f.board, thread)
+        .await
+        .unwrap();
+    assert!(full.posts.len() > 16);
+    assert_eq!(
+        full.posts
+            .last()
+            .unwrap()
+            .attachment
+            .as_ref()
+            .unwrap()
+            .asset_id,
+        asset
+    );
+    assert!(
+        full.posts
+            .iter()
+            .find(|post| post.id == image)
+            .unwrap()
+            .attachment
+            .as_ref()
+            .unwrap()
+            .file_deleted
+    );
+    assert_eq!(
+        generic_tail.posts[1].attachment.as_ref().unwrap().asset_id,
+        asset
+    );
+    assert!(
+        !generic_tail.posts[1]
+            .attachment
+            .as_ref()
+            .unwrap()
+            .file_deleted
+    );
     sqlx::query("UPDATE media.assets SET state='deleting',approved_at=NULL WHERE id=$1")
         .bind(&asset)
         .execute(&f.admin)
@@ -1732,6 +1790,18 @@ async fn tail_counts(f: &Fixture) {
         .unwrap();
     assert_eq!(tail.images, 0);
     assert!(tail.posts[1].attachment.as_ref().unwrap().file_deleted);
+    let generic_tail = board_store::thread_snapshot_selection(&generic, &f.board, thread, true)
+        .await
+        .unwrap();
+    assert_eq!(generic_tail.images, 0);
+    assert!(
+        generic_tail.posts[1]
+            .attachment
+            .as_ref()
+            .unwrap()
+            .file_deleted
+    );
+    generic.close().await;
 }
 
 async fn comment_spacing(f: &Fixture) {

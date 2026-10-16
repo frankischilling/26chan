@@ -47,13 +47,25 @@ pub(crate) async fn load(
     posts: &mut [crate::Post],
 ) -> Result<(), StoreError> {
     let ids: Vec<i64> = posts.iter().map(|p| p.id).collect();
-    let rows: Vec<PostAttachment> =
-        sqlx::query_as("SELECT * FROM content.visible_post_media WHERE post_id=ANY($1)")
-            .bind(&ids)
-            .fetch_all(connection)
-            .await?;
-    let mut rows: std::collections::BTreeMap<_, _> =
-        rows.into_iter().map(|a| (a.post_id, a)).collect();
+    // Keep each lookup anchored to one primary key. A generic ANY(array) plan
+    // can scan unrelated posts and probe the complete array for every row.
+    // The security-barrier projection still enforces all visibility checks.
+    // Bound each plan too: stale statistics can multiply the projection cost
+    // by a whole thread and trigger expensive JIT compilation for an empty
+    // result. Small batches remain in the caller's existing read snapshot.
+    let mut rows = std::collections::BTreeMap::new();
+    for ids in ids.chunks(16) {
+        let batch: Vec<PostAttachment> =
+            sqlx::query_as("SELECT m.* FROM unnest($1::bigint[]) AS requested(post_id) CROSS JOIN LATERAL (SELECT * FROM content.visible_post_media WHERE post_id=requested.post_id LIMIT 1) m")
+                .bind(ids)
+                .fetch_all(&mut *connection)
+                .await?;
+        rows.extend(
+            batch
+                .into_iter()
+                .map(|attachment| (attachment.post_id, attachment)),
+        );
+    }
     for post in posts {
         post.attachment = rows.remove(&post.id);
     }
