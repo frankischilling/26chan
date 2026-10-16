@@ -48,8 +48,10 @@ Production media remains disabled, and source presentation parity is unproven.
 
 [Private PNG source provenance](source-media-digests.md) binds async receipts
 to an immutable dispatched input snapshot while leaving output digests and
-public/staff reads unchanged. It adds no duplicate-image admission and no
-JPEG/GIF source digest. The runtime and 0112 migration passed local
+public/staff reads unchanged. That checkpoint added no duplicate-image
+admission or JPEG/GIF source digest. Later StillV6/GifV7 retained-file profiles
+are described in the same record; original-input MD5 is still not retained.
+The runtime and 0112 migration passed local
 qualification, including populated upgrades, rollback and restricted-role checks.
 The completed PNG checkpoint `fd519c8` passed
 [hosted build/test](https://github.com/frankischilling/26chan/actions/runs/37684199590),

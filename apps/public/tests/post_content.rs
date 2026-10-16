@@ -88,6 +88,9 @@ async fn submit_options(
                 .header("origin", "http://127.0.0.1:3000")
                 .header("accept", accept)
                 .header("content-type", kind)
+                // These public hints must never replace the trusted socket peer.
+                .header("x-forwarded-for", "203.0.113.9")
+                .header("x-geo-asn", "64512")
                 .body(Body::from(body))
                 .unwrap(),
         )
@@ -403,6 +406,58 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             comment
         );
     }
+    let range: i64 = sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end) VALUES($1,3221226185,3221226185) RETURNING id")
+        .bind(&slug).fetch_one(&owner).await.unwrap();
+    let (network_app, _) =
+        posting::routers(public.clone(), &slug, "http://127.0.0.1:3000".into(), false);
+    let before = snapshot(&owner, &slug).await;
+    for index in 0..8 {
+        let response = submit(
+            &network_app,
+            &slug,
+            index,
+            thread,
+            "",
+            "Owned network reply",
+        )
+        .await;
+        assert_eq!(response.status(), if index & 4 == 0 { 200 } else { 422 });
+        let body = to_bytes(response.into_body(), 262144).await.unwrap();
+        if index & 4 == 0 {
+            let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+            assert!(
+                json["error"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("Posting from your IP range")
+            );
+        } else {
+            assert!(
+                std::str::from_utf8(&body)
+                    .unwrap()
+                    .contains("Posting from your IP range")
+            );
+        }
+        assert_eq!(snapshot(&owner, &slug).await, before);
+    }
+    sqlx::query("DELETE FROM admission.network_rules WHERE id=$1")
+        .bind(range)
+        .execute(&owner)
+        .await
+        .unwrap();
+    accepted_id(
+        submit(
+            &network_app,
+            &slug,
+            0,
+            thread,
+            "",
+            "Route works after owned policy removal",
+        )
+        .await,
+        0,
+    )
+    .await;
 }
 #[tokio::test]
 async fn post_markup_admission_checks_http_transactions_and_locked_policy() {
@@ -422,6 +477,7 @@ async fn post_markup_admission_checks_http_transactions_and_locked_policy() {
     public.close().await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();
     for statement in [
+        "DELETE FROM admission.network_rules WHERE boards=$1",
         "DELETE FROM content.posts WHERE board=$1",
         "DELETE FROM content.threads WHERE board=$1",
         "DELETE FROM content.boards WHERE slug=$1",

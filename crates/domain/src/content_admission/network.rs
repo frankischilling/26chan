@@ -4,6 +4,8 @@ use super::AdmissionError;
 use crate::{BoardSlug, anonymous_session::State};
 use std::net::Ipv4Addr;
 
+pub mod asn;
+
 pub const MAX_NETWORK_RULES: usize = 128;
 pub const MAX_SCOPE_BOARDS: usize = 128;
 pub const MAX_SIGNATURE_LIST_BYTES: usize = 2_048;
@@ -37,17 +39,31 @@ pub struct Rule {
     pub signatures: String,
 }
 
+/// An unavailable provider is distinct from a successful lookup with no match.
+#[derive(Clone, Copy)]
+pub enum ProviderValue<T> {
+    Available(T),
+    Unavailable,
+}
+
+#[derive(Clone, Copy)]
+pub struct Signatures<'a> {
+    pub browser_id: Option<&'a str>,
+    pub request_signature: Option<&'a str>,
+}
+
 pub struct Request<'a> {
+    /// Rule expiry uses the request clock; activity keeps its snapshot clock.
     pub now: u64,
+    pub activity_now: Option<u64>,
     pub address: Option<Ipv4Addr>,
-    pub asn: Option<u32>,
+    pub asn: ProviderValue<Option<u32>>,
     pub board: Option<&'a str>,
     pub work_safe: bool,
     pub op: bool,
     pub image: bool,
     pub report: bool,
-    pub browser_id: Option<&'a str>,
-    pub request_signature: Option<&'a str>,
+    pub signatures: ProviderValue<Signatures<'a>>,
     /// A locked, request-adjusted activity snapshot, not client claims.
     pub actor: Option<&'a State>,
 }
@@ -89,12 +105,16 @@ impl Policy {
         if request
             .board
             .is_some_and(|board| BoardSlug::parse(board).is_err())
-            || [request.browser_id, request.request_signature]
-                .into_iter()
-                .flatten()
-                .any(|value| {
-                    value.len() > MAX_SIGNATURE_BYTES || value.chars().any(char::is_control)
-                })
+            || matches!(request.asn, ProviderValue::Available(Some(0)))
+            || match request.signatures {
+                ProviderValue::Unavailable => false,
+                ProviderValue::Available(hints) => [hints.browser_id, hints.request_signature]
+                    .into_iter()
+                    .flatten()
+                    .any(|value| {
+                        value.len() > MAX_SIGNATURE_BYTES || value.chars().any(char::is_control)
+                    }),
+            }
         {
             return Err(AdmissionError::InvalidPolicy);
         }
@@ -104,10 +124,8 @@ impl Policy {
                     .address
                     .is_some_and(|address| first <= address && address <= last)
             });
-            let asn_match = rule.asn.is_some_and(|asn| request.asn == Some(asn));
             if !rule.active
                 || (rule.expires_at != 0 && rule.expires_at <= request.now)
-                || (!range_match && !asn_match)
                 || (php_truthy(&rule.boards)
                     && !request.board.is_some_and(|board| {
                         rule.boards
@@ -120,24 +138,43 @@ impl Policy {
             {
                 continue;
             }
-            if php_truthy(&rule.signatures)
-                && ![request.browser_id, request.request_signature]
+            if !range_match {
+                let Some(asn) = rule.asn else {
+                    continue;
+                };
+                match request.asn {
+                    ProviderValue::Unavailable => return Err(AdmissionError::Unavailable),
+                    ProviderValue::Available(value) if value == Some(asn) => {}
+                    ProviderValue::Available(_) => continue,
+                }
+            }
+            if php_truthy(&rule.signatures) {
+                let hints = match request.signatures {
+                    ProviderValue::Unavailable => return Err(AdmissionError::Unavailable),
+                    ProviderValue::Available(hints) => hints,
+                };
+                if ![hints.browser_id, hints.request_signature]
                     .into_iter()
                     .flatten()
                     .any(|signature| php_truthy(signature) && rule.signatures.contains(signature))
-            {
-                continue;
+                {
+                    continue;
+                }
             }
             if let Some(actor) = request.actor {
                 let posts = actor.post_count();
                 let post_count_ok = !(rule.ops_only || rule.images_only)
-                    || (posts >= 3 && (actor.network_age(request.now) > 900 || posts >= 15));
+                    || (posts >= 3
+                        && (actor.network_age(request.activity_now.unwrap_or(request.now)) > 900
+                            || posts >= 15));
                 let since = if rule.updated_at != 0 {
                     rule.updated_at
                 } else {
                     rule.created_at
                 };
-                let known = actor.is_known(request.now, 1_440, since) && post_count_ok;
+                let known =
+                    actor.is_known(request.activity_now.unwrap_or(request.now), 1_440, since)
+                        && post_count_ok;
                 let verified = actor.verified_level != 0;
                 let exempt = match rule.leniency {
                     Leniency::None => false,
@@ -226,15 +263,18 @@ mod tests {
             let matched = policy
                 .evaluate(Request {
                     now,
+                    activity_now: None,
                     address: Some(Ipv4Addr::from(number(case, "address") as u32)),
-                    asn: (asn != 0).then_some(asn),
+                    asn: ProviderValue::Available((asn != 0).then_some(asn)),
                     board: case["board"].as_str(),
                     work_safe: case["is_sfw"].as_bool().unwrap(),
                     op: case["is_op"].as_bool().unwrap(),
                     image: case["has_img"].as_bool().unwrap(),
                     report: case["is_report"].as_bool().unwrap(),
-                    browser_id: case["browser_id"].as_str(),
-                    request_signature: case["req_sig"].as_str(),
+                    signatures: ProviderValue::Available(Signatures {
+                        browser_id: case["browser_id"].as_str(),
+                        request_signature: case["req_sig"].as_str(),
+                    }),
                     actor: actor.as_ref(),
                 })
                 .unwrap()
@@ -255,15 +295,18 @@ mod tests {
         let policy = Policy::compile(vec![entry]).unwrap();
         let request = || Request {
             now: 1_700_000_000,
+            activity_now: None,
             address: None,
-            asn: Some(64512),
+            asn: ProviderValue::Available(Some(64512)),
             board: Some("g"),
             work_safe: false,
             op: false,
             image: false,
             report: false,
-            browser_id: None,
-            request_signature: None,
+            signatures: ProviderValue::Available(Signatures {
+                browser_id: None,
+                request_signature: None,
+            }),
             actor: None,
         };
         assert_eq!(
@@ -271,7 +314,7 @@ mod tests {
             Some(1)
         );
         let mut missing = request();
-        missing.asn = None;
+        missing.asn = ProviderValue::Available(None);
         assert!(policy.evaluate(missing).unwrap().is_none());
         let long = "a".repeat(MAX_SIGNATURE_BYTES + 1);
         for (browser, signature, board) in [
@@ -281,14 +324,135 @@ mod tests {
             (None, None, Some("../outside")),
         ] {
             let mut invalid = request();
-            invalid.browser_id = browser;
-            invalid.request_signature = signature;
+            invalid.signatures = ProviderValue::Available(Signatures {
+                browser_id: browser,
+                request_signature: signature,
+            });
             invalid.board = board;
             assert!(matches!(
                 policy.evaluate(invalid),
                 Err(AdmissionError::InvalidPolicy)
             ));
         }
+    }
+
+    #[test]
+    fn unavailable_providers_fail_only_at_an_applicable_ordered_stage() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/network-admission-reference.json"
+        ))
+        .unwrap();
+        let base = &fixture["cases"][0]["rules"][0];
+        let request = || Request {
+            now: 1_700_000_000,
+            activity_now: None,
+            address: Some(Ipv4Addr::new(192, 0, 2, 10)),
+            asn: ProviderValue::Unavailable,
+            board: Some("g"),
+            work_safe: false,
+            op: false,
+            image: false,
+            report: false,
+            signatures: ProviderValue::Unavailable,
+            actor: None,
+        };
+        for change in 0..7 {
+            let mut entry = rule(base);
+            entry.range = None;
+            entry.asn = Some(64512);
+            match change {
+                0 => {}
+                1 => entry.reports_only = true,
+                2 => entry.ops_only = true,
+                3 => entry.images_only = true,
+                4 => entry.boards = "a".into(),
+                5 => entry.expires_at = 1,
+                6 => entry.active = false,
+                _ => unreachable!(),
+            }
+            let policy = Policy::compile(vec![entry]).unwrap();
+            let result = policy.evaluate(request());
+            if change == 0 {
+                assert!(matches!(result, Err(AdmissionError::Unavailable)));
+            } else {
+                assert!(result.unwrap().is_none(), "inapplicable case {change}");
+            }
+        }
+        let mut later = rule(base);
+        later.id = 2;
+        later.range = None;
+        later.asn = Some(64512);
+        let policy = Policy::compile(vec![rule(base), later]).unwrap();
+        assert_eq!(policy.evaluate(request()).unwrap().map(|r| r.id), Some(1));
+        for signature in ["", "0", "known-hint"] {
+            let mut entry = rule(base);
+            entry.signatures = signature.into();
+            let policy = Policy::compile(vec![entry]).unwrap();
+            let result = policy.evaluate(request());
+            if signature == "known-hint" {
+                assert!(matches!(result, Err(AdmissionError::Unavailable)));
+            } else {
+                assert_eq!(result.unwrap().map(|r| r.id), Some(1));
+            }
+        }
+    }
+
+    #[test]
+    fn activity_age_uses_its_snapshot_clock_without_changing_rule_expiry() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/network-admission-reference.json"
+        ))
+        .unwrap();
+        let now = 1_700_000_000;
+        let mut entry = rule(&fixture["cases"][0]["rules"][0]);
+        entry.ops_only = true;
+        entry.leniency = Leniency::Known;
+        entry.created_at = now - 899;
+        entry.expires_at = now + 1;
+        let policy = Policy::compile(vec![entry]).unwrap();
+        let mut actor = State::new(now - 3600);
+        actor.network_at = now - 900;
+        actor.posts = 3;
+        let request = |activity_now, actor| Request {
+            now,
+            activity_now,
+            address: Some(Ipv4Addr::new(192, 0, 2, 10)),
+            asn: ProviderValue::Available(None),
+            board: Some("g"),
+            work_safe: false,
+            op: true,
+            image: false,
+            report: false,
+            signatures: ProviderValue::Available(Signatures {
+                browser_id: None,
+                request_signature: None,
+            }),
+            actor,
+        };
+        assert_eq!(
+            policy
+                .evaluate(request(None, Some(&actor)))
+                .unwrap()
+                .map(|r| r.id),
+            Some(1)
+        );
+        assert!(
+            policy
+                .evaluate(request(Some(now + 1), Some(&actor)))
+                .unwrap()
+                .is_none()
+        );
+        // A later activity clock does not expire a rule at the earlier request clock.
+        assert_eq!(
+            policy
+                .evaluate(request(Some(now + 1), None))
+                .unwrap()
+                .map(|r| r.id),
+            Some(1)
+        );
+        let mut expired = request(Some(now + 1), None);
+        expired.now += 1;
+        assert!(policy.evaluate(expired).unwrap().is_none());
     }
 
     #[test]

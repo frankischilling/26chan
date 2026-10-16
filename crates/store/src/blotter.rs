@@ -257,57 +257,6 @@ pub async fn retract_blotter(connection: &mut PgConnection, id: i64) -> Result<(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    fn input(timestamp: i64, content: &str) -> Vec<u8> {
-        serde_json::to_vec(
-            &serde_json::json!({"version":1,"published_at":timestamp,"content":content}),
-        )
-        .unwrap()
-    }
-    #[test]
-    fn bounds_and_plain_text_are_validated_before_database_access() {
-        for date in [1, MAX_BLOTTER_TIMESTAMP] {
-            assert!(
-                read_blotter(input(date, "<script>x</script>\nhttps://example.org").as_slice())
-                    .is_ok()
-            );
-        }
-        for date in [-1, 0, MAX_BLOTTER_TIMESTAMP + 1] {
-            assert!(matches!(
-                read_blotter(input(date, "ok").as_slice()),
-                Err(BlotterError::Timestamp)
-            ));
-        }
-        for content in [
-            String::new(),
-            "a".repeat(8193),
-            "x\0".into(),
-            "x\r".into(),
-            "x\u{7f}".into(),
-        ] {
-            assert!(matches!(
-                read_blotter(input(1, &content).as_slice()),
-                Err(BlotterError::Content)
-            ));
-        }
-        assert!(read_blotter(input(1, &"a".repeat(8192)).as_slice()).is_ok());
-        assert!(matches!(
-            read_blotter(std::io::repeat(b' ')),
-            Err(BlotterError::Input)
-        ));
-        for json in [
-            r#"{"version":1,"version":1,"published_at":1,"content":"ok"}"#,
-            r#"{"version":1,"published_at":1,"content":"ok","html":true}"#,
-            r#"{"version":1,"published_at":1.5,"content":"ok"}"#,
-            r#"{"version":2,"published_at":1,"content":"ok"}"#,
-        ] {
-            assert!(read_blotter(json.as_bytes()).is_err());
-        }
-    }
-}
-
 /// Verify the operator/private boundary as well as the public projection.
 pub const BLOTTER_READINESS_SQL: &str = r#"
 WITH relations AS (
@@ -478,5 +427,56 @@ mod database_tests {
             clean_message && clean_board && unlock,
             "Owned snapshot cleanup failed"
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn input(timestamp: i64, content: &str) -> Vec<u8> {
+        serde_json::to_vec(
+            &serde_json::json!({"version":1,"published_at":timestamp,"content":content}),
+        )
+        .unwrap()
+    }
+    #[test]
+    fn bounds_and_plain_text_are_validated_before_database_access() {
+        for date in [1, MAX_BLOTTER_TIMESTAMP] {
+            assert!(
+                read_blotter(input(date, "<script>x</script>\nhttps://example.org").as_slice())
+                    .is_ok()
+            );
+        }
+        for date in [-1, 0, MAX_BLOTTER_TIMESTAMP + 1] {
+            assert!(matches!(
+                read_blotter(input(date, "ok").as_slice()),
+                Err(BlotterError::Timestamp)
+            ));
+        }
+        for content in [
+            String::new(),
+            "a".repeat(8193),
+            "x\0".into(),
+            "x\r".into(),
+            "x\u{7f}".into(),
+        ] {
+            assert!(matches!(
+                read_blotter(input(1, &content).as_slice()),
+                Err(BlotterError::Content)
+            ));
+        }
+        assert!(read_blotter(input(1, &"a".repeat(8192)).as_slice()).is_ok());
+        assert!(matches!(
+            read_blotter(std::io::repeat(b' ')),
+            Err(BlotterError::Input)
+        ));
+        for json in [
+            r#"{"version":1,"version":1,"published_at":1,"content":"ok"}"#,
+            r#"{"version":1,"published_at":1,"content":"ok","html":true}"#,
+            r#"{"version":1,"published_at":1.5,"content":"ok"}"#,
+            r#"{"version":2,"published_at":1,"content":"ok"}"#,
+        ] {
+            assert!(read_blotter(json.as_bytes()).is_err());
+        }
     }
 }

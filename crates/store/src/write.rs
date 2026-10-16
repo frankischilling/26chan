@@ -625,7 +625,16 @@ async fn create_post_in_context(
     // Source filters ordinary staff posts too; cosmetic badges do not confer
     // public identity or bypass authority on an unbadged post.
     let admission = if ordinary || slug == "test" {
-        Some(crate::content_admission::begin(&mut tx, slug, context.peer, anonymous).await?)
+        Some(
+            crate::content_admission::begin(
+                &mut tx,
+                slug,
+                context.peer,
+                anonymous,
+                context.request_start.timestamp(),
+            )
+            .await?,
+        )
     } else {
         None
     };
@@ -945,7 +954,10 @@ async fn create_post_in_context(
             return Err(StoreError::ContentQuiet { post });
         }
         autosage_proof = evaluated.autosage_proof();
-        if let Some(message) = evaluated.trip_rejection() {
+        if let Some(message) = evaluated.network_rejection(board.worksafe, attachment.is_some())? {
+            return Err(StoreError::ContentRejected(message));
+        }
+        if let Some(message) = evaluated.identity_rejection().await? {
             // Later admission failures share the posting transaction. Do not
             // retain a preceding log/autosage hit from an incomplete post.
             return Err(StoreError::ContentRejected(message.into()));

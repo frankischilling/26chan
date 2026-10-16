@@ -279,6 +279,7 @@ impl Fixture {
             "DELETE FROM content.posts WHERE board=$1",
             "DELETE FROM content.threads WHERE board=$1",
             "DELETE FROM post_secrets.posting_thread_actions WHERE board=$1",
+            "DELETE FROM admission.network_rules WHERE boards=$1",
             "DELETE FROM admission.logs WHERE board=$1",
             "DELETE FROM admission.hits WHERE board=$1",
             "DELETE FROM admission.bans WHERE board=$1",
@@ -1579,4 +1580,46 @@ async fn generated_staff_content(f: &Fixture) {
         }
     }
     assert_eq!(f.counts().await.3, 0, "No completed proof remains");
+}
+
+database_case!(
+    ordinary_staff_obeys_locked_network_policy,
+    ordinary_staff_network
+);
+async fn ordinary_staff_network(f: &Fixture) {
+    sqlx::query(
+        "INSERT INTO admission.network_rules(boards,range_start,range_end) VALUES($1,0,4294967295)",
+    )
+    .bind(&f.board)
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    let before = f.counts().await;
+    for (index, role) in ["moderator", "manager", "admin", "janitor"]
+        .into_iter()
+        .enumerate()
+    {
+        f.role(role).await;
+        let result = f
+            .write(0, None, true, &post(), 200 + index as u8, Utc::now())
+            .await;
+        assert!(
+            matches!(result, Err(StoreError::ContentRejected(message)) if message.starts_with("Posting from your IP range"))
+        );
+        assert_eq!(f.counts().await, before);
+    }
+    f.role("moderator").await;
+    // Badged staff preserve the source exemption on an ordinary public board.
+    let id = f
+        .write(0, None, false, &post(), 210, Utc::now())
+        .await
+        .unwrap();
+    assert!(
+        board_store::find_post(&f.public, &f.board, id)
+            .await
+            .unwrap()
+            .capcode
+            .is_some()
+    );
+    assert_eq!(f.counts().await.3, 0);
 }

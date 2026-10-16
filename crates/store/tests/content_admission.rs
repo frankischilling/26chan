@@ -134,6 +134,7 @@ impl Fixture {
 
     async fn cleanup(self) {
         for query in [
+            "DELETE FROM admission.network_rules WHERE boards=ANY($1)",
             "DELETE FROM admission.rules WHERE board=ANY($1)",
             "DELETE FROM admission.hits WHERE board=ANY($1)",
             "DELETE FROM admission.logs WHERE board=ANY($1)",
@@ -155,6 +156,205 @@ impl Fixture {
             .await
             .unwrap();
     }
+}
+
+#[tokio::test]
+async fn network_policy_updates_wait_for_the_shared_admission_generation() {
+    let _guard = POLICY_TEST.lock().await;
+    let f = Fixture::new().await;
+    let id: i64 = sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end) VALUES($1,0,4294967295) RETURNING id")
+        .bind(&f.boards[0]).fetch_one(&f.owner).await.unwrap();
+    let mut held = f.public.begin().await.unwrap();
+    let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *held)
+        .await
+        .unwrap();
+    let before: i64 =
+        sqlx::query_scalar("SELECT revision FROM content.lock_content_admission($1,$2)")
+            .bind(&f.boards[0])
+            .bind(f.peer.to_string())
+            .fetch_one(&mut *held)
+            .await
+            .unwrap();
+    let update = {
+        let owner = f.owner.clone();
+        tokio::spawn(async move {
+            sqlx::query("UPDATE admission.network_rules SET images_only=true WHERE id=$1")
+                .bind(id)
+                .execute(&owner)
+                .await
+        })
+    };
+    let observed = tokio::time::timeout(std::time::Duration::from_secs(5), async { loop {
+        let waiting: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid)))")
+            .bind(pid).fetch_one(&f.owner).await.unwrap();
+        if waiting { break; } tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }}).await;
+    held.rollback().await.unwrap();
+    update.await.unwrap().unwrap();
+    observed.expect("Network update waited on the same policy generation");
+    let after: i64 = sqlx::query_scalar("SELECT revision FROM admission.policy WHERE singleton")
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+    assert_eq!(after, before + 1);
+    let changed: bool = sqlx::query_scalar(
+        "SELECT images_only FROM content.network_admission_rules($1,$2) WHERE id=$3",
+    )
+    .bind(&f.boards[0])
+    .bind(Utc::now().timestamp())
+    .bind(id)
+    .fetch_one(&f.public)
+    .await
+    .unwrap();
+    assert!(changed);
+    let updated: i64 = sqlx::query_scalar(
+        "SELECT updated_at FROM content.network_admission_rules($1,$2) WHERE id=$3",
+    )
+    .bind(&f.boards[0])
+    .bind(Utc::now().timestamp())
+    .bind(id)
+    .fetch_one(&f.public)
+    .await
+    .unwrap();
+    assert!(updated > 0 && updated <= Utc::now().timestamp());
+    sqlx::query("UPDATE admission.network_rules SET updated_at=123 WHERE id=$1")
+        .bind(id)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let imported: i64 =
+        sqlx::query_scalar("SELECT updated_at FROM admission.network_rules WHERE id=$1")
+            .bind(id)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+    assert_eq!(
+        imported, 123,
+        "Explicit operator timestamp correction is retained"
+    );
+    sqlx::query("UPDATE admission.network_rules SET images_only=false WHERE id=$1")
+        .bind(id)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let refreshed: i64 =
+        sqlx::query_scalar("SELECT updated_at FROM admission.network_rules WHERE id=$1")
+            .bind(id)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+    assert!(refreshed > imported && refreshed <= Utc::now().timestamp());
+    f.cleanup().await;
+}
+
+#[tokio::test]
+async fn source_network_stage_preserves_precedence_and_rolls_back_incomplete_post_effects() {
+    let _guard = POLICY_TEST.lock().await;
+    let mut f = Fixture::new().await;
+    f.peer = "192.0.2.44".parse().unwrap();
+    let parent = f.create(0, 0, "", "Owned network parent").await.unwrap();
+    let content = f.rule("network-owned").await;
+    sqlx::query("UPDATE admission.rules SET log=true WHERE id=$1")
+        .bind(content)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let range: i64 = sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end) VALUES($1,3221226028,3221226028) RETURNING id")
+        .bind(&f.boards[0]).fetch_one(&f.owner).await.unwrap();
+    let rejected = f.create(0, parent, "", "network-owned").await;
+    assert!(
+        matches!(rejected, Err(StoreError::ContentRejected(message)) if message.starts_with("Posting from your IP range"))
+    );
+    assert_eq!(f.count("posts").await, 1);
+    let effects: i64 = sqlx::query_scalar("SELECT (SELECT count(*) FROM admission.logs WHERE rule_id=$1)+(SELECT count(*) FROM admission.hits WHERE rule_id=$1)")
+        .bind(content).fetch_one(&f.owner).await.unwrap();
+    assert_eq!(
+        effects, 0,
+        "Later network rejection rolls back prior log effects"
+    );
+    assert!(
+        matches!(f.create_named(0,parent,"moot Ep8pui8Vw2","","ordinary text").await,
+        Err(StoreError::ContentRejected(message)) if message.starts_with("Posting from your IP range"))
+    );
+
+    sqlx::query("UPDATE admission.rules SET log=false WHERE id=$1")
+        .bind(content)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert!(matches!(f.create(0,parent,"","network-owned").await,
+        Err(StoreError::ContentRejected(message)) if message.contains("system thinks your post is spam")));
+    sqlx::query("UPDATE admission.rules SET quiet=true WHERE id=$1")
+        .bind(content)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert!(matches!(
+        f.create(0, parent, "", "network-owned").await,
+        Err(StoreError::ContentQuiet { .. })
+    ));
+    assert_eq!(f.count("posts").await, 1);
+    sqlx::query("DELETE FROM admission.rules WHERE id=$1")
+        .bind(content)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE admission.network_rules SET ops_only=true WHERE id=$1")
+        .bind(range)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    f.create(0, parent, "", "Allowed reply under OP-only rule")
+        .await
+        .unwrap();
+    assert!(matches!(f.create(0,0,"","Blocked OP").await,
+        Err(StoreError::ContentRejected(message)) if message.starts_with("Posting threads")));
+    sqlx::query("UPDATE admission.network_rules SET ops_only=false,images_only=true WHERE id=$1")
+        .bind(range)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    f.create(0, parent, "", "No image under image-only rule")
+        .await
+        .unwrap();
+    sqlx::query("UPDATE admission.network_rules SET images_only=false,expires_at=1 WHERE id=$1")
+        .bind(range)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    f.create(0, parent, "", "Expired policy is inactive")
+        .await
+        .unwrap();
+    sqlx::query("UPDATE admission.network_rules SET expires_at=0,range_start=NULL,range_end=NULL,asn=64512 WHERE id=$1")
+        .bind(range).execute(&f.owner).await.unwrap();
+    let count = f.count("posts").await;
+    assert!(matches!(
+        f.create(0, parent, "", "Unavailable trusted ASN provider")
+            .await,
+        Err(StoreError::Database(_))
+    ));
+    assert_eq!(f.count("posts").await, count);
+    sqlx::query("UPDATE admission.network_rules SET reports_only=true WHERE id=$1")
+        .bind(range)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    f.create(
+        0,
+        parent,
+        "",
+        "Report-only rules do not require posting providers",
+    )
+    .await
+    .unwrap();
+    for query in [
+        "SELECT * FROM admission.network_rules",
+        "UPDATE admission.network_rules SET active=false",
+    ] {
+        assert!(sqlx::query(query).execute(&f.public).await.is_err());
+    }
+    f.cleanup().await;
 }
 
 #[tokio::test]

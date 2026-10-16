@@ -160,13 +160,18 @@ tests. All 19 selected browser cases pass for anonymous ownership, script-free
 posting, trips, wordfilters and randomizers across desktop/mobile layouts.
 Current-head CI and the isolated upload qualification remain required.
 
-The current caller bypasses authenticated staff;
-the source `/test/` exception and anonymous staff posting are unfinished.
-Full name preparation, generated fortune/dice scope, arbitrary regexp
-compatibility, `D`/`X` modifiers, IP/ASN policy, normalized/original file
-blacklists and optional classifier interfaces remain part of #212 and its
-related issues. Missing private data is not invented or counted as passing
-behavior. Browser and isolated upload regression checks remain required.
+The validation above records the earlier checkpoint. PR #293 completed staff
+name preparation, ordinary staff filtering and the `/test/` exception. The
+[generated-content checkpoint](generated-post-content.md) covers saved dice and
+fortune transformations; the [PCRE2 wrapper record](third-party/pcre2.md) covers
+`D` and PHP 8 `X` semantics. Their qualification is recorded separately.
+
+Issue #212 still includes complete caller ordering, integrated IP/ASN policy,
+normalized/original file blacklists and optional classifier interfaces. The
+[network evaluator](admission/network-policy.md) has executed-source fixtures and
+IPv4 posting integration; trusted providers and reporting remain unfinished.
+Missing private data is not invented or counted as passing behavior.
+Current-head hosted checks remain required.
 
 ```text
 php scripts/extract-content-admission-reference.php SOURCE crates/domain/tests/fixtures/content-admission.json --check
