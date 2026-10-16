@@ -1,9 +1,9 @@
 # Public CAPTCHA and email verification
 
 Work in progress for #200. The email-verification routes, private issuer, mail
-worker, and local mail fixture are implemented on the development branch. Full
-browser, deployment, and final-head CI qualification remain
-pending. Ordinary posting, Quick Reply, report CAPTCHA, tickets, and credits
+worker, and local mail fixture are implemented on the development branch.
+Final-head CI qualification remains pending. Ordinary posting, Quick Reply,
+report CAPTCHA, tickets, and credits
 remain #199 work. Neither issue is complete.
 
 ## Source behavior
@@ -146,8 +146,8 @@ issuer and owned PostgreSQL: request, encrypted queue, link preview without
 anonymous-cookie replacement, verification, capability rotation, and logout.
 This is not browser or full-middleware qualification.
 
-Still required for #200: real browser keyboard/mobile/lifecycle checks,
-deployment validation, and all final-head CI checks. The source's sign-in stylesheet and
+All final-head CI checks are still required for #200. The browser evidence below
+comes from an earlier commit. The source's sign-in stylesheet and
 mini-leaf image are absent from the supplied archive. Twister fonts,
 configuration, and private provider inputs are also missing. The bounded PNG
 renderer is a functional replacement with its own glyphs; its images and the
@@ -227,8 +227,10 @@ The dedicated verification browser fixture uses the production template and CSP
 with synthetic challenge responses. Its Linux and Windows suites cover desktop
 and mobile controls, native range-keyboard input, expiry, persisted restoration,
 submission fields and Origin, and native preview/logout/completion views. Review
-images are retained separately from later Playwright runs. These checks are
-implemented but have not yet completed hosted qualification.
+images are retained separately from later Playwright runs. Both suites passed
+for commit `f831e7ee` in [run 38822728541](https://github.com/frankischilling/26chan/actions/runs/38822728541),
+and the retained desktop/mobile images were reviewed. That run's Rust job failed;
+passing browser suites do not qualify the whole run or a later commit.
 
 The mail-worker integration test runs the actual worker loop against owned
 PostgreSQL and a loopback SMTP fixture. A final 250 acknowledgement removes the
