@@ -17,6 +17,51 @@ use bytes::Bytes;
 use sqlx::PgPool;
 use tower::ServiceExt;
 
+fn has_posting_textarea(page: &str) -> bool {
+    let mut fields = page
+        .split("<textarea")
+        .skip(1)
+        .filter_map(|part| part.split_once('>').map(|(tag, _)| tag))
+        .filter(|tag| tag.contains(" id=\"com\""));
+    let Some(field) = fields.next() else {
+        return false;
+    };
+    fields.next().is_none()
+        && [
+            " name=\"com\"",
+            " rows=\"4\"",
+            " aria-describedby=\"postHelp\"",
+            " data-randomizer-content=\"false\"",
+        ]
+        .iter()
+        .all(|attribute| field.contains(attribute))
+}
+
+#[test]
+fn posting_textarea_attributes_are_checked_on_the_same_control_without_ordering() {
+    for markup in [
+        "<textarea id=\"com\" name=\"com\" rows=\"4\" data-randomizer-content=\"false\" aria-describedby=\"postHelp\"></textarea>",
+        "<textarea aria-describedby=\"postHelp\" rows=\"4\" name=\"com\" id=\"com\" data-randomizer-content=\"false\"></textarea>",
+    ] {
+        assert!(has_posting_textarea(markup));
+        for (from, to) in [
+            ("rows=\"4\"", "rows=\"5\""),
+            (
+                "aria-describedby=\"postHelp\"",
+                "aria-describedby=\"other\"",
+            ),
+            ("name=\"com\"", "name=\"other\""),
+            ("data-randomizer-content=\"false\"", ""),
+        ] {
+            assert!(!has_posting_textarea(&markup.replace(from, to)));
+        }
+        assert!(!has_posting_textarea(&format!("{markup}{markup}")));
+    }
+    assert!(!has_posting_textarea(
+        "<textarea id=\"com\" name=\"com\"></textarea><textarea rows=\"4\" aria-describedby=\"postHelp\" data-randomizer-content=\"false\"></textarea>"
+    ));
+}
+
 fn post_request(path: &str, body: String) -> Request<Body> {
     Request::post(path)
         .header("origin", "http://127.0.0.1:3000")
@@ -239,7 +284,7 @@ async fn exercise(
     }
     let page = html(response, StatusCode::OK).await;
     assert!(page.contains("enctype=\"multipart/form-data\""));
-    assert!(page.contains("rows=\"4\" aria-describedby=\"postHelp\""));
+    assert!(has_posting_textarea(&page));
     reject_text_only_reply_before_file_body(&app, board, admin).await;
     for comment in ["&com=", "", "&com=+%09%0A"] {
         assert_eq!(
@@ -338,7 +383,7 @@ async fn exercise(
     )
     .await;
     assert!(approved.contains("Post with image"));
-    assert!(approved.contains("rows=\"4\" aria-describedby=\"postHelp\""));
+    assert!(has_posting_textarea(&approved));
     // Unsupported controls reject without consuming the approved receipt.
     // Whitespace is exercised by `posting`, which must clean to empty only
     // when the same receipt is approved, unexpired and unused.
