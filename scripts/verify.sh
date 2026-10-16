@@ -38,6 +38,7 @@ reference_checks() {
   python3 scripts/test-navigation-reference.py
   python3 scripts/extract-board-format-metadata-reference.py
   python3 scripts/test-board-format-metadata-reference.py
+  python3 scripts/test-captcha-board-policy.py
   python3 scripts/test-image-board-policy-reference.py
   python3 scripts/test-image-presentation-reference.py
 }

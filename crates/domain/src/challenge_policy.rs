@@ -7,6 +7,35 @@ pub const TICKET_SECONDS: u64 = 3600;
 pub const UNSOLVED_SECONDS: u64 = 600;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TicketDecision {
+    NotRequired,
+    Issue { seconds: u16 },
+    Wait { seconds: u16 },
+    Ready,
+}
+
+/// Evaluate an already authenticated, board- and peer-bound ticket using the
+/// store's clock. A browser timestamp is never an admissible `issued_at`.
+/// Changing the required wait does not reset a live ticket's starting time.
+pub fn ticket_decision(required: u16, issued_at: Option<u64>, now: u64) -> TicketDecision {
+    if required == 0 {
+        return TicketDecision::NotRequired;
+    }
+    let Some(age) = issued_at.and_then(|issued| now.checked_sub(issued)) else {
+        return TicketDecision::Issue { seconds: required };
+    };
+    if age >= TICKET_SECONDS {
+        return TicketDecision::Issue { seconds: required };
+    }
+    if age < u64::from(required) {
+        return TicketDecision::Wait {
+            seconds: required - age as u16,
+        };
+    }
+    TicketDecision::Ready
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Purpose {
     Thread,
     Reply,
@@ -130,6 +159,62 @@ pub fn image_style(state: &State, now: u64, purpose: Purpose, suspicious: bool) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn tickets_keep_elapsed_wait_until_the_exact_expiry_boundary() {
+        let start = 10_000;
+        assert_eq!(
+            ticket_decision(900, None, start),
+            TicketDecision::Issue { seconds: 900 }
+        );
+        assert_eq!(
+            ticket_decision(900, Some(start), start),
+            TicketDecision::Wait { seconds: 900 }
+        );
+        assert_eq!(
+            ticket_decision(900, Some(start), start + 899),
+            TicketDecision::Wait { seconds: 1 }
+        );
+        assert_eq!(
+            ticket_decision(900, Some(start), start + 900),
+            TicketDecision::Ready
+        );
+        assert_eq!(
+            ticket_decision(900, Some(start), start + TICKET_SECONDS - 1),
+            TicketDecision::Ready
+        );
+        assert_eq!(
+            ticket_decision(900, Some(start), start + TICKET_SECONDS),
+            TicketDecision::Issue { seconds: 900 }
+        );
+        assert_eq!(
+            ticket_decision(60, Some(start), start + 60),
+            TicketDecision::Ready
+        );
+        assert_eq!(
+            ticket_decision(300, Some(start), start + 60),
+            TicketDecision::Wait { seconds: 240 }
+        );
+    }
+
+    #[test]
+    fn absent_future_and_expired_tickets_do_not_skip_a_wait() {
+        for issued in [None, Some(101), Some(u64::MAX)] {
+            assert_eq!(
+                ticket_decision(60, issued, 100),
+                TicketDecision::Issue { seconds: 60 }
+            );
+            assert_eq!(ticket_decision(0, issued, 100), TicketDecision::NotRequired);
+        }
+        assert_eq!(
+            ticket_decision(60, Some(1), u64::MAX),
+            TicketDecision::Issue { seconds: 60 }
+        );
+        assert_eq!(
+            ticket_decision(0, Some(1), u64::MAX),
+            TicketDecision::NotRequired
+        );
+    }
+
     #[test]
     fn refresh_limits_have_exact_source_boundaries() {
         for (count, expected) in [
