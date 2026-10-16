@@ -300,3 +300,19 @@ fixtures using the production template, modules, and CSP; real database proof
 consumption is tested separately. Browser results and full-workspace CI are
 still pending. Unrelated tests opt out only on their owned fixture boards;
 production defaults and dedicated challenge tests retain the gate.
+
+Source-specific browser cases keep their original board names when those names
+are part of the behavior being tested. They use an explicit per-test CAPTCHA
+policy lease through the existing disposable-database fixture authority. The
+helper requires a private run manifest, loopback migration database, exact live
+run identity, and synthetic database witnesses. Only seven named fixture boards
+are admitted. It records the full original board row before changing the CAPTCHA
+flag and refuses to restore over any unrelated policy change. Cleanup restores
+the original flag, including when the test fails; run teardown also recovers
+remaining owned leases. Dedicated CAPTCHA tests do not use this helper.
+
+PostgreSQL tests check exact restoration, duplicate/foreign lease rejection,
+changed-policy refusal, idempotent cleanup, and run-teardown restoration. The
+JavaScript helper rejects nested scopes and attempts cleanup for every board
+whose setup was attempted. The source-specific media cases retain their own
+explicit, guarded `/i/` and `/gif/` leases.

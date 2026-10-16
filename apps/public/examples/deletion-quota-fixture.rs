@@ -113,10 +113,15 @@ async fn main() {
 
 async fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    let captcha = args
+        .first()
+        .is_some_and(|value| matches!(value.as_str(), "captcha-enable" | "captcha-disable"));
     if args.is_empty()
         || !matches!(
             args[0].as_str(),
             "init"
+                | "captcha-enable"
+                | "captcha-disable"
                 | "reset"
                 | "reset-posting"
                 | "check"
@@ -126,7 +131,8 @@ async fn run() -> Result<()> {
                 | "catalog-inspect"
         )
         || (args[0] == "catalog-inspect" && args.len() != 3)
-        || (args[0] != "catalog-inspect" && args.len() != 1)
+        || (captcha && (args.len() != 2 || !captcha_board(&args[1])))
+        || (!captcha && args[0] != "catalog-inspect" && args.len() != 1)
     {
         return Err("One fixed fixture command required".into());
     }
@@ -146,14 +152,21 @@ async fn run() -> Result<()> {
     } else {
         None
     };
-    let result = apply_command(&pool, &manifest, &args[0], target).await;
+    let result = apply_command(
+        &pool,
+        &manifest,
+        &args[0],
+        target,
+        captcha.then(|| args[1].as_str()),
+    )
+    .await;
     pool.close().await;
     result
 }
 
 #[cfg(test)]
 async fn apply(pool: &PgPool, manifest: &Manifest, command: &str) -> Result<()> {
-    apply_command(pool, manifest, command, None).await
+    apply_command(pool, manifest, command, None, None).await
 }
 
 async fn apply_command(
@@ -161,11 +174,14 @@ async fn apply_command(
     manifest: &Manifest,
     command: &str,
     target: Option<(i64, i64)>,
+    captcha_target: Option<&str>,
 ) -> Result<()> {
     manifest.validate()?;
     if !matches!(
         command,
         "init"
+            | "captcha-enable"
+            | "captcha-disable"
             | "reset"
             | "reset-posting"
             | "check"
@@ -221,6 +237,13 @@ async fn apply_command(
             .execute(&mut *tx).await?;
     }
     if command == "init" {
+        sqlx::query("CREATE TABLE IF NOT EXISTS post_secrets.browser_captcha_fixture_boards (board text PRIMARY KEY,marker text NOT NULL REFERENCES post_secrets.browser_deletion_fixture_runs(marker),policy jsonb NOT NULL)")
+            .execute(&mut *tx).await?;
+        sqlx::query("REVOKE ALL ON post_secrets.browser_captcha_fixture_boards FROM PUBLIC")
+            .execute(&mut *tx)
+            .await?;
+    }
+    if command == "init" {
         let catalog_owned: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM post_secrets.browser_deletion_fixture_runs WHERE catalog_revision IS NOT NULL)")
             .fetch_one(&mut *tx).await?;
         if catalog_owned {
@@ -268,6 +291,15 @@ async fn apply_command(
             .fetch_optional(&mut *tx).await?;
         let (groups, posting_groups) = lease.ok_or("Current exact ownership lease required")?;
         match command {
+            "captcha-enable" | "captcha-disable" => {
+                captcha_command(
+                    &mut tx,
+                    manifest,
+                    captcha_target.ok_or("CAPTCHA board required")?,
+                    command == "captcha-enable",
+                )
+                .await?;
+            }
             "reset" => {
                 if groups >= 10000 {
                     return Err("Finite fixture run exhausted".into());
@@ -301,6 +333,11 @@ async fn apply_command(
                 // Clear only this lease's pointer before deleting its proof. Any
                 // foreign pointer or uncertainty rolls back the entire finish.
                 catalog_command(&mut tx, manifest, "catalog-disable", None).await?;
+                let boards: Vec<String> = sqlx::query_scalar("SELECT board FROM post_secrets.browser_captcha_fixture_boards WHERE marker=$1 ORDER BY board")
+                    .bind(&manifest.marker).fetch_all(&mut *tx).await?;
+                for board in boards {
+                    captcha_command(&mut tx, manifest, &board, false).await?;
+                }
                 remove_posting_actor(&mut tx, &posting_actor).await?;
                 remove_actor(&mut tx, &actor).await?;
                 let changed = sqlx::query("DELETE FROM post_secrets.browser_deletion_fixture_runs WHERE marker=$1 AND actor_hash=$2")
@@ -492,6 +529,105 @@ mod tests {
         assert_eq!(rows[1]["weight"], 2.5);
     }
 
+    #[tokio::test]
+    async fn source_captcha_lease_restores_exact_policy_and_rejects_foreign_or_changed_rows() {
+        let _database_guard = DATABASE_TEST_LOCK.lock().await;
+        let cluster = std::env::var("BOARD_TEST_CLUSTER").unwrap();
+        let suffix = cluster
+            .strip_prefix("/tmp/board-postgres.")
+            .expect("Disposable cluster required");
+        assert!(suffix.len() == 8 && suffix.bytes().all(|b| b.is_ascii_alphanumeric()));
+        let url = std::env::var("MIGRATION_DATABASE_URL").unwrap();
+        let pool = PgPool::connect(&url).await.unwrap();
+        let mut own = manifest();
+        own.database = url::Url::parse(&url)
+            .unwrap()
+            .path()
+            .trim_start_matches('/')
+            .into();
+        let mut foreign = manifest();
+        foreign.database = own.database.clone();
+        validate_target(&std::env::var("APP_ENV").unwrap(), &url, &own).unwrap();
+        let before: String =
+            sqlx::query_scalar("SELECT to_jsonb(b)::text FROM content.boards b WHERE slug='b'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        apply(&pool, &own, "init").await.unwrap();
+        apply(&pool, &foreign, "init").await.unwrap();
+        let outcome = async {
+            apply_command(&pool, &own, "captcha-enable", None, Some("b"))
+                .await
+                .unwrap();
+            assert!(
+                apply_command(&pool, &own, "captcha-enable", None, Some("b"))
+                    .await
+                    .is_err()
+            );
+            assert!(
+                apply_command(&pool, &foreign, "captcha-disable", None, Some("b"))
+                    .await
+                    .is_err()
+            );
+            assert!(
+                apply_command(&pool, &foreign, "captcha-enable", None, Some("b"))
+                    .await
+                    .is_err()
+            );
+            let matches: bool = sqlx::query_scalar("SELECT to_jsonb(b)=($1::jsonb || '{\"captcha_enabled\":false}'::jsonb) FROM content.boards b WHERE slug='b'")
+                .bind(&before).fetch_one(&pool).await.unwrap();
+            assert!(matches);
+            sqlx::query(
+                "UPDATE content.boards SET description='Owned CAPTCHA guard' WHERE slug='b'",
+            )
+            .execute(&pool)
+            .await
+            .unwrap();
+            assert!(
+                apply_command(&pool, &own, "captcha-disable", None, Some("b"))
+                    .await
+                    .is_err()
+            );
+            assert!(apply(&pool, &own, "finish").await.is_err());
+            sqlx::query("UPDATE content.boards SET description=$1::jsonb->>'description' WHERE slug='b' AND description='Owned CAPTCHA guard'").bind(&before).execute(&pool).await.unwrap();
+            apply_command(&pool, &own, "captcha-disable", None, Some("b"))
+                .await
+                .unwrap();
+            apply_command(&pool, &own, "captcha-disable", None, Some("b"))
+                .await
+                .unwrap();
+            let restored: String =
+                sqlx::query_scalar("SELECT to_jsonb(b)::text FROM content.boards b WHERE slug='b'")
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+            assert_eq!(restored, before);
+            assert!(
+                apply_command(&pool, &own, "captcha-enable", None, Some("demo"))
+                    .await
+                    .is_err()
+            );
+            apply_command(&pool, &own, "captcha-enable", None, Some("b"))
+                .await
+                .unwrap();
+        };
+        use futures_util::FutureExt;
+        let checked = std::panic::AssertUnwindSafe(outcome).catch_unwind().await;
+        sqlx::query("UPDATE content.boards SET description=$1::jsonb->>'description' WHERE slug='b' AND description='Owned CAPTCHA guard'").bind(&before).execute(&pool).await.unwrap();
+        apply(&pool, &own, "finish").await.unwrap();
+        apply(&pool, &foreign, "finish").await.unwrap();
+        let restored: String =
+            sqlx::query_scalar("SELECT to_jsonb(b)::text FROM content.boards b WHERE slug='b'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(restored, before);
+        if let Err(panic) = checked {
+            std::panic::resume_unwind(panic);
+        }
+        pool.close().await;
+    }
+
     // Run serially with all other database tests in an exclusive disposable DB.
     #[tokio::test]
     async fn catalog_lease_is_lazy_exclusive_idempotent_and_never_clears_foreign_pointer() {
@@ -549,9 +685,15 @@ mod tests {
             assert!(apply(&pool, &foreign, "init").await.is_err());
             assert!(apply(&pool, &foreign, "catalog-disable").await.is_err());
             assert!(
-                apply_command(&pool, &own, "catalog-inspect", Some((1000001, 1000001)))
-                    .await
-                    .is_err()
+                apply_command(
+                    &pool,
+                    &own,
+                    "catalog-inspect",
+                    Some((1000001, 1000001)),
+                    None
+                )
+                .await
+                .is_err()
             );
             let wrong = Manifest {
                 key: manifest().key,
@@ -794,4 +936,66 @@ mod tests {
             std::panic::resume_unwind(panic);
         }
     }
+}
+
+fn captcha_board(board: &str) -> bool {
+    matches!(board, "b" | "sjis" | "news" | "qst" | "tg" | "r9k" | "s4s")
+}
+
+// Test-only policy lease. The enclosing command verifies a private manifest,
+// an exact live run, the migrator identity and disposable database witnesses.
+async fn captcha_command(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    manifest: &Manifest,
+    board: &str,
+    enable: bool,
+) -> Result<()> {
+    if !captcha_board(board) {
+        return Err("Finite source fixture board required".into());
+    }
+    let owner: String = sqlx::query_scalar("SELECT pg_get_userbyid(relowner)::text FROM pg_class WHERE oid='post_secrets.browser_captcha_fixture_boards'::regclass")
+        .fetch_one(&mut **tx).await?;
+    if owner != "board_migrator" {
+        return Err("Owned CAPTCHA lease table required".into());
+    }
+    sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 AND NOT staff_only FOR UPDATE")
+        .bind(board)
+        .fetch_one(&mut **tx)
+        .await?;
+    let lease: Option<String> = sqlx::query_scalar(
+        "SELECT marker FROM post_secrets.browser_captcha_fixture_boards WHERE board=$1 FOR UPDATE",
+    )
+    .bind(board)
+    .fetch_optional(&mut **tx)
+    .await?;
+    if enable {
+        if lease.is_some() {
+            return Err("Source CAPTCHA board already leased".into());
+        }
+        sqlx::query("INSERT INTO post_secrets.browser_captcha_fixture_boards(board,marker,policy) SELECT slug,$2,to_jsonb(b) FROM content.boards b WHERE slug=$1")
+            .bind(board).bind(&manifest.marker).execute(&mut **tx).await?;
+        sqlx::query("UPDATE content.boards SET captcha_enabled=false WHERE slug=$1")
+            .bind(board)
+            .execute(&mut **tx)
+            .await?;
+    } else if let Some(marker) = lease {
+        if marker != manifest.marker {
+            return Err("Foreign CAPTCHA lease".into());
+        }
+        let unchanged: bool = sqlx::query_scalar("SELECT to_jsonb(b) = (l.policy || '{\"captcha_enabled\":false}'::jsonb) FROM content.boards b JOIN post_secrets.browser_captcha_fixture_boards l ON l.board=b.slug WHERE b.slug=$1 AND l.marker=$2")
+            .bind(board).bind(&manifest.marker).fetch_one(&mut **tx).await?;
+        if !unchanged {
+            return Err("Source policy changed during CAPTCHA fixture".into());
+        }
+        sqlx::query("UPDATE content.boards b SET captcha_enabled=(l.policy->>'captcha_enabled')::boolean FROM post_secrets.browser_captcha_fixture_boards l WHERE b.slug=$1 AND l.board=b.slug AND l.marker=$2")
+            .bind(board).bind(&manifest.marker).execute(&mut **tx).await?;
+        sqlx::query(
+            "DELETE FROM post_secrets.browser_captcha_fixture_boards WHERE board=$1 AND marker=$2",
+        )
+        .bind(board)
+        .bind(&manifest.marker)
+        .execute(&mut **tx)
+        .await?;
+    }
+    Ok(())
 }

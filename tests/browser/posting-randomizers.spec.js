@@ -1,6 +1,8 @@
+import { sourceCaptchaTest } from './helpers/source-captcha-fixture.js';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
+const test = sourceCaptchaTest(base, ['b', 'tg']);
 import { randomUUID } from 'node:crypto';
 
 const origin = 'http://127.0.0.1:3000';

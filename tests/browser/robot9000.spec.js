@@ -1,6 +1,8 @@
+import { sourceCaptchaTest } from './helpers/source-captcha-fixture.js';
 import { withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, deletionFixture } from './helpers/deletion-fixture.js';
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
+const test = sourceCaptchaTest(base, ['r9k']);
 import { randomUUID } from 'node:crypto';
 import { installPostingResponseObserver } from './helpers/posting-response.js';
 

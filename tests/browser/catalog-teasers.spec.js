@@ -1,7 +1,9 @@
+import { sourceCaptchaTest } from './helpers/source-captcha-fixture.js';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
 import { fillCatalogSearch, applyCatalogSearch } from './catalog-actions.js';
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
+const test = sourceCaptchaTest(base, ['b', 'sjis', 'news']);
 
 test('persisted catalog teasers use board policy in HTML, GET filtering and live search', async ({ browser }, info) => {
   const origin = 'http://127.0.0.1:3000', password = 'owned-catalog-teaser-password';

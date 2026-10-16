@@ -18,8 +18,8 @@ function sql(board, input) {
 for (const sage of [false, true]) {
   test(`persisted ${sage ? 'sage' : 'network'} IDs render, color, filter and update through actual public projections`, async ({ page, request }) => {
     const board = `id${randomBytes(4).toString('hex')}`, origin = 'http://127.0.0.1:3000';
-    sql(board, `INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_ids)
-      VALUES(:'board','Owned browser IDs','Synthetic fixture',1000,100,100,100,10,true);`);
+    sql(board, `INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,user_ids)
+      VALUES(false,:'board','Owned browser IDs','Synthetic fixture',1000,100,100,100,10,true);`);
     const post = async (parent, com) => {
       const response = await withPostingHistory(() => request.post(`/${board}/post`, { headers: { Origin: origin }, maxRedirects: 0,
         form: { resto: parent, name: 'Owned', email: sage ? 'sage' : '', sub: 'Owned poster IDs', com, password: 'owned-poster-password' } }));

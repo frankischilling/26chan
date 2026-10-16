@@ -1,3 +1,4 @@
+import { sourceCaptchaTest } from './helpers/source-captcha-fixture.js';
 import { cleanupDeletionFixtures, ownedDeletionMarker } from './helpers/deletion-fixture.js';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test as base, expect } from '@playwright/test';
@@ -15,7 +16,7 @@ const enabled = { inlineQuotes: true, quotePreview: false };
 const trailingLines = Array.from({ length: 26 }, (_, index) => `Owned inline trailing line ${index + 1}`).join('\n');
 const copiedMarker = 'OWNED_INLINE_COPY_ONLY';
 
-const test = base.extend({
+const test = sourceCaptchaTest(base, ['tg']).extend({
   owned: async ({ request, context }, use) => {
     const password = 'owned-native-inline-password', threads = [];
     let last;

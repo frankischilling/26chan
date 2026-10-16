@@ -1,6 +1,8 @@
+import { sourceCaptchaTest } from './helpers/source-captcha-fixture.js';
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { ownedDeletionMarker, deletionFixture, cleanupDeletionFixtures } from './helpers/deletion-fixture.js';
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
+const test = sourceCaptchaTest(base, ['news']);
 
 test('persisted hover headers clone nested trips, follow reply deletion and safely render literal user text', async ({ page, request }) => {
   const origin = 'http://127.0.0.1:3000', password = 'owned-preview-password';

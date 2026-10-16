@@ -21,7 +21,7 @@ function fixture(source, environment = {}) {
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
       import assert from 'node:assert/strict';
       import { readFileSync, existsSync, chmodSync, writeFileSync, rmSync } from 'node:fs';
-      import { prepareDeletionQuotaRun, initializeDeletionQuotaRun, teardownDeletionQuotaRun, withDeletionQuota, withPostingHistory, withReportCatalog } from ${JSON.stringify(moduleUrl)};
+      import { prepareDeletionQuotaRun, initializeDeletionQuotaRun, teardownDeletionQuotaRun, withDeletionQuota, withPostingHistory, withReportCatalog, withSourceCaptchaFixture } from ${JSON.stringify(moduleUrl)};
       ${source}
     `], {
       encoding: 'utf8', timeout: 10_000,
@@ -403,4 +403,27 @@ test('uncertain catalog enable attempts exact cleanup without rerunning the call
     } finally { teardownDeletionQuotaRun(); }
   `);
   assert.deepEqual(commands, ['init','catalog-enable','catalog-disable','catalog-enable','catalog-disable','finish']);
+});
+
+test('source CAPTCHA leases restore every attempted board and reject nesting', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    assert.equal(await withSourceCaptchaFixture(['tg','b'], async () => {
+      await assert.rejects(() => withSourceCaptchaFixture(['b'], async () => {}), /Nested/);
+      return 42;
+    }), 42);
+    await assert.rejects(() => withSourceCaptchaFixture(['news'], async () => { throw new Error('owned failure'); }), /owned failure/);
+    teardownDeletionQuotaRun();
+  `);
+  assert.deepEqual(commands, ['init','captcha-enable','captcha-enable','captcha-disable','captcha-disable','captcha-enable','captcha-disable','finish']);
+});
+test('source CAPTCHA arguments refuse unknown boards and duplicate scopes before invoking commands', () => {
+  const { commands } = fixture(`
+    initializeDeletionQuotaRun();
+    for (const boards of [[], ['demo'], ['b','b'], ['b; DELETE'], 'b']) {
+      await assert.rejects(() => withSourceCaptchaFixture(boards, async () => {}), /Finite/);
+    }
+    teardownDeletionQuotaRun();
+  `);
+  assert.deepEqual(commands, ['init','finish']);
 });
