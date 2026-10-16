@@ -17,6 +17,7 @@ pub struct PairedInputDescriptor {
 pub struct PairedInputSnapshot {
     bytes: Box<[u8]>,
     image: Range<usize>,
+    raw_image_md5: [u8; 16],
     replay: paired::ReplayPresence,
     descriptor: PairedInputDescriptor,
 }
@@ -59,9 +60,11 @@ impl PairedInputSnapshot {
         let image =
             paired::INPUT_HEADER_BYTES..paired::INPUT_HEADER_BYTES + input.image_bytes().len();
         let replay = input.replay_presence();
+        let raw_image_md5 = <md5::Md5 as md5::Digest>::digest(input.image_bytes()).into();
         Ok(Self {
             bytes,
             image,
+            raw_image_md5,
             replay,
             descriptor,
         })
@@ -72,6 +75,11 @@ impl PairedInputSnapshot {
     }
     pub fn image_bytes(&self) -> &[u8] {
         &self.bytes[self.image.clone()]
+    }
+    /// Compatibility digest of the uploaded image, excluding framing and replay.
+    /// SHA-256 descriptor checks remain the integrity authority.
+    pub fn raw_image_md5(&self) -> &[u8; 16] {
+        &self.raw_image_md5
     }
     pub fn replay_presence(&self) -> paired::ReplayPresence {
         self.replay

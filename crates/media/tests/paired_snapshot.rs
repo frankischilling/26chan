@@ -89,8 +89,34 @@ async fn snapshot_does_not_follow_later_inode_mutation() {
     file.seek(SeekFrom::Start(0)).unwrap();
     let mut mutator = file.try_clone().unwrap();
     let snapshot = PairedInputSnapshot::read(file, d).await.unwrap();
+    let original_md5 = *snapshot.raw_image_md5();
     mutator.seek(SeekFrom::Start(0)).unwrap();
     mutator.write_all(&vec![0; bytes.len()]).unwrap();
     assert_eq!(snapshot.bytes(), bytes);
     assert_eq!(snapshot.image_bytes(), b"png source");
+    assert_eq!(*snapshot.raw_image_md5(), original_md5);
+}
+
+#[tokio::test]
+async fn raw_image_digest_excludes_frame_and_replay() {
+    let expected = [
+        0x90, 0x01, 0x50, 0x98, 0x3c, 0xd2, 0x4f, 0xb0, 0xd6, 0x96, 0x3f, 0x7d, 0x28, 0xe1, 0x7f,
+        0x72,
+    ];
+    for replay in [
+        None,
+        Some(b"first replay".as_slice()),
+        Some(b"different replay".as_slice()),
+    ] {
+        let (bytes, descriptor) = fixture(b"abc", replay);
+        let snapshot = read(&bytes, descriptor).await.unwrap();
+        assert_eq!(*snapshot.raw_image_md5(), expected);
+        let frame_md5: [u8; 16] = <md5::Md5 as md5::Digest>::digest(&bytes).into();
+        assert_ne!(*snapshot.raw_image_md5(), frame_md5);
+    }
+    let (bytes, descriptor) = fixture(b"xyz", None);
+    assert_ne!(
+        *read(&bytes, descriptor).await.unwrap().raw_image_md5(),
+        expected
+    );
 }
