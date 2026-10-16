@@ -93,6 +93,7 @@ async fn scenario(categorical: bool, credit: bool) {
         "192.0.2.110".parse().unwrap(),
     ]
     .map(|peer| *poster_key.public_report_rate_identity(peer).as_bytes());
+    let prior_epoch:(Option<Vec<u8>>,chrono::DateTime<chrono::Utc>)=sqlx::query_as("SELECT report_history_epoch,report_history_complete_after FROM verification_private.policy WHERE singleton").fetch_one(&owner).await.unwrap();
     let work = {
         let owner = owner.clone();
         let public = public.clone();
@@ -263,11 +264,24 @@ async fn scenario(categorical: bool, credit: bool) {
                 failed_history, 0,
                 "A failed report must not advance its exemption history"
             );
+            let failed_epoch:(Option<Vec<u8>>,chrono::DateTime<chrono::Utc>)=sqlx::query_as("SELECT report_history_epoch,report_history_complete_after FROM verification_private.policy WHERE singleton").fetch_one(&owner).await.unwrap();
+            assert_eq!(
+                failed_epoch, prior_epoch,
+                "Failed report must roll back epoch observation too"
+            );
+
             if credit {
                 let balance:i16=sqlx::query_scalar("SELECT remaining FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).fetch_one(&owner).await.unwrap();
                 assert_eq!(balance, 1);
             }
             submit(true, false).await.unwrap();
+            let accepted_epoch: Vec<u8> = sqlx::query_scalar(
+                "SELECT report_history_epoch FROM verification_private.policy WHERE singleton",
+            )
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+            assert_eq!(accepted_epoch, actor.report_history_epoch().as_slice());
             let replay = submit(true, false).await.unwrap_err();
             assert!(
                 matches!(replay,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),

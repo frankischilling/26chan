@@ -1770,6 +1770,7 @@ pub async fn report(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::write_challenge::install_report_epoch(&mut tx, identity).await?;
     crate::restrictions::prepare_report(
         &mut tx,
         identity,
@@ -1826,6 +1827,7 @@ pub async fn report_with_challenge(
         .execute(&mut *tx)
         .await?;
     crate::write_challenge::install(&mut tx, context.challenge.as_ref(), Some(&session)).await?;
+    crate::write_challenge::install_report_epoch(&mut tx, identity).await?;
     crate::restrictions::prepare_report(
         &mut tx,
         identity,
@@ -1883,6 +1885,7 @@ pub async fn report_categorical_with_challenge(
         .execute(&mut *tx)
         .await?;
     crate::write_challenge::install(&mut tx, context.challenge.as_ref(), Some(&session)).await?;
+    crate::write_challenge::install_report_epoch(&mut tx, identity).await?;
     crate::restrictions::prepare_report(
         &mut tx,
         identity,

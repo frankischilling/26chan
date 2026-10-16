@@ -50,14 +50,14 @@ BEGIN
   IF remaining<>expected THEN RAISE EXCEPTION 'History cleanup lost bounded progress'; END IF;
  END LOOP;
  EXECUTE 'SET LOCAL ROLE board_report_admission_owner';
- PERFORM content.invalidate_report_challenge_history(stamp+interval '1 day');
+ PERFORM content.invalidate_report_challenge_history(stamp+interval '100 days');
  PERFORM content.invalidate_report_challenge_history(stamp);
- PERFORM content.record_report_challenge_history(ARRAY[a],ARRAY[stamp+interval '1 day'],false);
+ PERFORM content.record_report_challenge_history(ARRAY[a],ARRAY[stamp+interval '100 days'],false);
  EXECUTE 'RESET ROLE'; EXECUTE 'SET LOCAL ROLE board_migrator';
- IF (SELECT report_history_complete_after FROM verification_private.policy WHERE singleton)<stamp+interval '4 days' THEN
+ IF (SELECT report_history_complete_after FROM verification_private.policy WHERE singleton)<stamp+interval '103 days' THEN
   RAISE EXCEPTION 'Future omitted events outlived the incomplete-history watermark'; END IF;
  IF NOT EXISTS(SELECT 1 FROM verification_private.report_history WHERE actor_hash=a
-  AND last_reports[1]=stamp+interval '1 day' AND expires_at>=stamp+interval '25 hours') THEN
+  AND last_reports[1]=stamp+interval '100 days' AND expires_at>=stamp+interval '2401 hours') THEN
   RAISE EXCEPTION 'Finite future actions lost their source window'; END IF;
  EXECUTE 'SET LOCAL ROLE board_public';
  BEGIN PERFORM content.record_report_challenge_history(ARRAY[a],ARRAY[stamp],false);

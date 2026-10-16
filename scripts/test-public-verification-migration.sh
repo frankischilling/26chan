@@ -62,7 +62,7 @@ SQL
 "${migrator[@]}" -Atc "SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s ORDER BY token_hash" > "$cluster/before.json"
 for migration in migrations/*.sql; do
     [[ $(basename "$migration") < 0158_ ]] && continue
-    [[ $(basename "$migration") < 0173_ ]] || break
+    [[ $(basename "$migration") < 0174_ ]] || break
     "${migrator[@]}" --single-transaction -f - < "$migration"
     # The verifier's readiness predicate must distinguish the old two-column
     # credit result from the upgraded lifetime-aware wire contract.
@@ -120,6 +120,7 @@ END $$;
 SQL
     "${runner[@]}" "${psql[@]}" -d "$database" -f - < scripts/test-challenge-tickets.sql
     "${runner[@]}" "${psql[@]}" -d "$database" -f - < scripts/test-report-challenge-history.sql
+    "${runner[@]}" "${psql[@]}" -d "$database" -f - < scripts/test-report-challenge-epochs.sql
     "${runner[@]}" "${psql[@]}" -d "$database" -f - < scripts/test-protected-challenge-receipts.sql
     "${runner[@]}" "${psql[@]}" -d "$database" -f - < scripts/test-challenge-credit-profile.sql
     "${admin[@]}" -At > "$cluster/$database.fingerprint" <<'SQL'

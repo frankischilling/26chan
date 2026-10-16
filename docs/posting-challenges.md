@@ -190,6 +190,26 @@ This storage does not yet enable the exemption. The exact-IP age, retained
 warning/ban history, key-epoch continuity, and request-context checks still need
 to be wired into its final eligibility decision.
 
+Migration 0173 tracks a private fingerprint of the report and restriction
+identity key. A known key change preserves the existing incomplete-history
+watermark, every retained report/clear expiry, and the latest retained
+restriction event plus thirty days. It does not restart an elapsed warm-up on
+a quiet site. Missing or malformed epoch metadata extends the conservative
+window by thirty days. Normal report transactions retain the restriction gate
+while observing this state; administrative imports only invalidate history.
+Failed reports roll back epoch changes with the rest of admission.
+
+This guards the recent-event history windows. It does not migrate active bans
+when an operator replaces the identity key. Keep that key stable; any exemption
+implementation must also account for active restrictions from an older key.
+The exemption decision still needs to run before proof consumption and hold the
+history lock until the report commits.
+
+The source's attachment predicate is positive retained `fsize`, even after a
+file-only deletion. Its optional exemption is independent of the credit-bypass
+board switch. Either legacy authenticated-user or Pass cookie suppresses it;
+those cookie names do not establish authentication in this rewrite.
+
 Report exemption and browser credit controls still need implementation or
 qualification. Existing posting fixtures must explicitly
 account for the new gate. The branch has not passed full-workspace CI and must

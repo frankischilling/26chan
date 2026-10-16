@@ -33,6 +33,7 @@ impl PublicPostingRateIdentity {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PublicReportRateIdentity {
     report: [u8; 32],
+    history_epoch: [u8; 32],
     restriction: PublicPostingRateIdentity,
 }
 
@@ -40,6 +41,12 @@ impl PublicReportRateIdentity {
     /// Full digest for private admission storage, never a public identifier.
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.report
+    }
+
+    /// Private fingerprint of the key and both admission identity derivations.
+    /// It is shared across peers and must never be exposed as a public label.
+    pub fn report_history_epoch(&self) -> &[u8; 32] {
+        &self.history_epoch
     }
 
     /// Independently derived posting identity for source restriction matching.
@@ -136,8 +143,13 @@ impl PosterIdKey {
                 context.update(&peer.octets());
             }
         }
+        let epoch = ring::hmac::sign(
+            &signing,
+            b"26chan:report-history-epoch:v1\0report-rate-v1\0posting-rate-v1",
+        );
         PublicReportRateIdentity {
             report: context.sign().as_ref().try_into().expect("SHA-256 length"),
+            history_epoch: epoch.as_ref().try_into().expect("SHA-256 length"),
             restriction: self.public_posting_rate_identity(peer),
         }
     }
@@ -577,5 +589,27 @@ mod tests {
         );
         assert_ne!(first, key.robot9000_fingerprint("test", peer).unwrap());
         assert!(key.robot9000_fingerprint("../r9k", peer).is_err());
+    }
+}
+
+#[cfg(test)]
+mod report_history_epoch_tests {
+    use super::*;
+    #[test]
+    fn epoch_tracks_keys_and_derivations_without_becoming_a_peer_identity() {
+        let key = PosterIdKey::parse(&"31".repeat(32)).unwrap();
+        let first = key.public_report_rate_identity("192.0.2.1".parse().unwrap());
+        let second = key.public_report_rate_identity("2001:db8::1".parse().unwrap());
+        assert_eq!(first.report_history_epoch(), second.report_history_epoch());
+        assert_ne!(first.as_bytes(), second.as_bytes());
+        assert_ne!(first.report_history_epoch(), first.as_bytes());
+        assert_ne!(
+            first.report_history_epoch(),
+            first.restriction_identity().as_bytes()
+        );
+        let other = PosterIdKey::parse(&"32".repeat(32))
+            .unwrap()
+            .public_report_rate_identity("192.0.2.1".parse().unwrap());
+        assert_ne!(first.report_history_epoch(), other.report_history_epoch());
     }
 }

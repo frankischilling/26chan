@@ -55,6 +55,22 @@ pub(crate) async fn install(
     Ok(())
 }
 
+pub(crate) async fn install_report_epoch(
+    connection: &mut PgConnection,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+) -> Result<(), StoreError> {
+    let epoch: String = identity
+        .report_history_epoch()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    sqlx::query("SELECT set_config('board.report_history_epoch',$1,true)")
+        .bind(epoch)
+        .execute(connection)
+        .await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
