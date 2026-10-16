@@ -130,12 +130,12 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
     'http://127.0.0.1:3000/static/page-chrome.v1.js',
     'http://127.0.0.1:3000/static/native-post-deletion.v1.js',
     'http://127.0.0.1:3000/static/native-blotter.v1.js',
-    'http://127.0.0.1:3000/static/posting-captcha.v1.js',
   ];
+  const captchaScript = 'http://127.0.0.1:3000/static/posting-captcha.v1.js';
   expect(response.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual([
     'http://127.0.0.1:3000/static/catalog-preferences.v1.js',
     'http://127.0.0.1:3000/static/catalog-filters.v1.js',
-    'http://127.0.0.1:3000/static/catalog-theme.v1.js', ...pageScripts,
+    'http://127.0.0.1:3000/static/catalog-theme.v1.js', ...pageScripts, captchaScript,
   ]);
   await page.evaluate(() => {
     window.violations = [];
@@ -153,7 +153,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
   await expect(page.locator('#threads')).toHaveClass('catalog extended-large');
   const index = await page.goto('/fixture/');
   expect(index.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual([
-    ...pageScripts, 'http://127.0.0.1:3000/static/source-post-actions.v1.js',
+    ...pageScripts, 'http://127.0.0.1:3000/static/source-post-actions.v1.js', captchaScript,
   ]);
   expect(await page.locator('script').evaluateAll(nodes => nodes.map(node => ({
     src: node.getAttribute('src'), type: node.type,
