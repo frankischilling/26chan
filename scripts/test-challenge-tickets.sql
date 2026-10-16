@@ -41,13 +41,11 @@ BEGIN
  EXECUTE 'SET LOCAL ROLE board_migrator';
  UPDATE verification_private.policy SET challenge_limit=(SELECT count(*) FROM verification_private.tickets);
  EXECUTE 'SET LOCAL ROLE board_verifier';
- BEGIN
-  PERFORM * FROM content.verification_prepare_ticket(NULL,decode(repeat('f6',32),'hex'),peer,'qcticket1');
-  RAISE EXCEPTION 'Ticket capacity was ignored';
- EXCEPTION WHEN SQLSTATE '54000' THEN NULL; END;
+ SELECT * INTO replacement FROM content.verification_prepare_ticket(NULL,decode(repeat('f6',32),'hex'),peer,'qcticket1');
+ IF replacement.available THEN RAISE EXCEPTION 'Ticket capacity was ignored'; END IF;
  -- A full store still permits reuse of an unexpired authenticated ticket.
  SELECT * INTO reused FROM content.verification_prepare_ticket(b,a,peer,'qcticket2');
- IF reused.issued THEN RAISE EXCEPTION 'Full capacity discarded a valid ticket'; END IF;
+ IF NOT reused.available OR reused.issued THEN RAISE EXCEPTION 'Full capacity discarded a valid ticket'; END IF;
  BEGIN
   PERFORM * FROM content.verification_prepare_ticket(NULL,a,peer,'qcmissing');
   RAISE EXCEPTION 'Missing board unexpectedly admitted';
@@ -66,6 +64,34 @@ BEGIN
   PERFORM token_hash FROM verification_private.tickets;
   RAISE EXCEPTION 'Public role read ticket authority';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN
+  PERFORM * FROM content.verification_board_policy('g');
+  RAISE EXCEPTION 'Public role called issuer policy API';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $tests$;
+RESET ROLE;
+SET LOCAL ROLE board_migrator;
+-- More than one cleanup batch must make progress after a lowered capacity.
+UPDATE verification_private.policy SET challenge_limit=(SELECT count(*)+1 FROM verification_private.tickets);
+INSERT INTO verification_private.tickets(token_hash,peer_hash,board,created_at,expires_at)
+SELECT sha256(convert_to('owned-expired-ticket-'||n,'UTF8')),decode(repeat('c3',32),'hex'),'qcticket1',
+ statement_timestamp()-interval '2 hours',statement_timestamp()-interval '1 hour'
+FROM generate_series(1,130) n;
+DO $cleanup_progress$
+DECLARE result record; remaining integer; expected integer; attempt integer;
+BEGIN
+ FOR attempt IN 1..3 LOOP
+  EXECUTE 'SET LOCAL ROLE board_verifier';
+  SELECT * INTO result FROM content.verification_prepare_ticket(NULL,
+   decode(repeat('f6',32),'hex'),decode(repeat('c3',32),'hex'),'qcticket1');
+  IF result.available IS DISTINCT FROM (attempt=3) OR result.issued IS DISTINCT FROM (attempt=3) THEN
+   RAISE EXCEPTION 'Bounded ticket cleanup returned the wrong capacity state'; END IF;
+  EXECUTE 'RESET ROLE';
+  EXECUTE 'SET LOCAL ROLE board_migrator';
+  SELECT count(*) INTO remaining FROM verification_private.tickets WHERE expires_at<=clock_timestamp();
+  expected:=greatest(130-attempt*64,0);
+  IF remaining<>expected THEN RAISE EXCEPTION 'Expired ticket cleanup lost progress'; END IF;
+ END LOOP;
+END $cleanup_progress$;
 RESET ROLE;
 ROLLBACK;

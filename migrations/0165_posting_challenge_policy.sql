@@ -39,7 +39,7 @@ GRANT EXECUTE ON FUNCTION content.verification_board_policy(text) TO board_verif
 -- boundary, matching the source's refresh/reload behavior.
 CREATE FUNCTION content.verification_prepare_ticket(
  p_presented bytea,p_candidate bytea,p_peer bytea,p_board text
-) RETURNS TABLE(issued boolean,issued_at bigint,current_at bigint)
+) RETURNS TABLE(available boolean,issued boolean,issued_at bigint,current_at bigint)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE v_now timestamptz; v_ticket verification_private.tickets%ROWTYPE; v_limit integer;
 BEGIN
@@ -51,24 +51,28 @@ BEGIN
  END IF;
  PERFORM b.slug FROM content.boards b WHERE b.slug=p_board AND NOT b.staff_only FOR KEY SHARE;
  IF NOT FOUND THEN RAISE EXCEPTION 'Public board not found.' USING ERRCODE='P0002'; END IF;
+ v_now:=date_trunc('second',clock_timestamp());
+ SELECT t.* INTO v_ticket FROM verification_private.tickets t
+ WHERE t.token_hash=p_presented AND t.peer_hash=p_peer AND t.board=p_board;
+ IF FOUND AND v_ticket.created_at<=v_now AND v_ticket.expires_at>v_now THEN
+  RETURN QUERY SELECT true,false,extract(epoch FROM v_ticket.created_at)::bigint,extract(epoch FROM v_now)::bigint;
+  RETURN;
+ END IF;
  SELECT challenge_limit INTO v_limit FROM verification_private.policy WHERE singleton FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'Verification policy is unavailable.' USING ERRCODE='55000'; END IF;
  v_now:=date_trunc('second',clock_timestamp());
- SELECT t.* INTO v_ticket FROM verification_private.tickets t
- WHERE t.token_hash=p_presented AND t.peer_hash=p_peer AND t.board=p_board FOR SHARE;
- IF FOUND AND v_ticket.created_at<=v_now AND v_ticket.expires_at>v_now THEN
-  RETURN QUERY SELECT false,extract(epoch FROM v_ticket.created_at)::bigint,extract(epoch FROM v_now)::bigint;
-  RETURN;
- END IF;
  DELETE FROM verification_private.tickets t WHERE t.token_hash IN (
   SELECT old.token_hash FROM verification_private.tickets old WHERE old.expires_at<=v_now
   ORDER BY old.expires_at LIMIT 64 FOR UPDATE SKIP LOCKED);
  IF (SELECT count(*) FROM (SELECT 1 FROM verification_private.tickets LIMIT v_limit) bounded)>=v_limit THEN
-  RAISE EXCEPTION 'Challenge ticket capacity is unavailable.' USING ERRCODE='54000';
+  -- Return exhaustion so bounded cleanup commits even after a lowered cap.
+  -- Raising here would roll it back and could prevent all future progress.
+  RETURN QUERY SELECT false,false,0::bigint,extract(epoch FROM v_now)::bigint;
+  RETURN;
  END IF;
  INSERT INTO verification_private.tickets(token_hash,peer_hash,board,created_at,expires_at)
  VALUES(p_candidate,p_peer,p_board,v_now,v_now+interval '1 hour');
- RETURN QUERY SELECT true,extract(epoch FROM v_now)::bigint,extract(epoch FROM v_now)::bigint;
+ RETURN QUERY SELECT true,true,extract(epoch FROM v_now)::bigint,extract(epoch FROM v_now)::bigint;
 END $$;
 REVOKE ALL ON FUNCTION content.verification_prepare_ticket(bytea,bytea,bytea,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION content.verification_prepare_ticket(bytea,bytea,bytea,text) TO board_verifier;

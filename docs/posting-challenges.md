@@ -2,7 +2,7 @@
 
 Issue [#199](https://github.com/frankischilling/26chan/issues/199) is in progress.
 The board policy and ticket storage described here are implemented. Ordinary
-posting, Quick Reply, report forms, pre-upload controls, and credit consumption
+posting, Quick Reply, report forms, and credit consumption
 still need to use them. Email verification is covered in
 [public verification](public-verification.md).
 
@@ -13,7 +13,7 @@ still need to use them. Email verification is covered in
 The source revision is `545b7812d1849f7958d914950c91fdbbe38f6b22`.
 
 - `/f/` enables CAPTCHA but selects the classic provider instead of Twister.
-- `/hr/` enables pre-upload CAPTCHA.
+- `/hr/` sets the pre-upload CAPTCHA switch.
 - `/pol/`, `/trash/`, and `/bant/` disable the bypass switch.
 - The staff-only `/j/` configuration disables CAPTCHA.
 - No captured board enables `NOSCRIPT_CAPTCHA_ONLY`.
@@ -23,6 +23,18 @@ exports only these switches, board names, and file hashes. A provider switch
 must not turn off verification. Migration 0165 keeps the switches separate and
 checks the existing thread-transfer catalog before updating its seal for the
 new board columns and narrow issuer grants.
+
+The primary source does not emit `window.preupload_captcha` or handle
+`mode=checkcaptcha` and `captcha_token`. Those fields occur only in the
+experimental `js/extension-test-sync2.js`. The stored `/hr/` switch therefore
+does not establish a working pre-upload protocol. Any future pre-upload gate
+must verify a server-issued proof again when the final post consumes the upload;
+network failure must not silently skip verification.
+
+The classic provider's `NOSCRIPT_CAPTCHA_ONLY` branch suppresses its JavaScript
+loader and retains the fallback form. Twister has no corresponding no-script
+renderer in the primary source. Provider credentials and the Twister font are
+deployment inputs missing from the reference checkout.
 
 ## Waiting tickets
 
@@ -36,6 +48,10 @@ Only `board_verifier` can create or resume stored tickets. PostgreSQL supplies
 the timestamps and checks board visibility, peer binding, expiry, and bounded
 capacity. Ticket possession alone grants no posting or reporting permission.
 The public database role cannot mint tickets or read the private ticket table.
+If a lowered capacity still leaves too many rows after one cleanup batch, the
+issuer receives an unavailable result while the expired-row cleanup commits.
+Later attempts can continue that bounded cleanup. Valid ticket reuse does not
+wait for the global issuance-capacity lock.
 
 ## Validation and remaining work
 

@@ -236,20 +236,22 @@ impl VerificationStore {
         )
     }
 
+    /// None means capacity is exhausted. The issuer must fail closed while
+    /// allowing this call's bounded expired-row cleanup to commit.
     pub async fn prepare_ticket(
         &self,
         presented: Option<&[u8; 32]>,
         candidate: &[u8; 32],
         peer: &[u8; 32],
         board: &str,
-    ) -> Result<PreparedTicket, StoreError> {
+    ) -> Result<Option<PreparedTicket>, StoreError> {
         Ok(
-            sqlx::query_as("SELECT * FROM content.verification_prepare_ticket($1,$2,$3,$4)")
+            sqlx::query_as("SELECT issued,issued_at,current_at FROM content.verification_prepare_ticket($1,$2,$3,$4) WHERE available")
                 .bind(presented.map(|value| value.as_slice()))
                 .bind(candidate.as_slice())
                 .bind(peer.as_slice())
                 .bind(board)
-                .fetch_one(&self.pool)
+                .fetch_optional(&self.pool)
                 .await?,
         )
     }
