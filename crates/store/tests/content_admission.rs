@@ -1275,8 +1275,64 @@ async fn filename_proxy_uses_authenticated_approved_metadata_and_byte_semantics(
         },
     )
     .await;
+    assert!(matches!(result, Err(StoreError::Conflict(_))));
+    let effects: i64 = sqlx::query_scalar("SELECT count(*) FROM admission.bans WHERE board=$1")
+        .bind(&f.boards[0])
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+    assert_eq!(
+        effects, 0,
+        "An upload to a no-image board cannot create a filename ban"
+    );
+    sqlx::query("UPDATE content.boards SET image_limit=100 WHERE slug=$1")
+        .bind(&f.boards[0])
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let metadata: (String, Option<String>, Option<Vec<u8>>, Option<bool>) = sqlx::query_as(
+        "SELECT * FROM content.attachment_upload_filter_metadata($1,$2,$3,0,false,false)",
+    )
+    .bind(&id)
+    .bind(&attachment.upload.capability)
+    .bind(&f.boards[0])
+    .fetch_one(&f.public)
+    .await
+    .unwrap();
+    assert_eq!(metadata, ("phpé".into(), None, None, None));
     assert!(
-        matches!(result,Err(StoreError::ContentRejected(message)) if message=="Error: Abnormal reply.")
+        sqlx::query(
+            "SELECT * FROM content.attachment_upload_filter_metadata($1,$2,$3,0,true,true)"
+        )
+        .bind(&id)
+        .bind(&attachment.upload.capability)
+        .bind(&f.boards[0])
+        .execute(&f.public)
+        .await
+        .is_err()
+    );
+    let result = support::create_post_with_context(
+        &f.public,
+        &f.boards[0],
+        0,
+        &NewPost {
+            name: "Anonymous".into(),
+            subject: "".into(),
+            comment: "ordinary content".into(),
+            deletion_hash: "owned".into(),
+            sage: false,
+        },
+        Some(&attachment),
+        PostingContext {
+            request_start: Utc::now(),
+            peer: Some(f.peer),
+            op_password_proof: None,
+        },
+    )
+    .await;
+    assert!(
+        matches!(&result,Err(StoreError::ContentRejected(message)) if message=="Error: Abnormal reply."),
+        "unexpected filename result: {result:?}"
     );
     assert_eq!(f.count("posts").await, 0);
     assert_eq!(f.count("threads").await, 0);

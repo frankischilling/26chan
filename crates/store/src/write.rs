@@ -1017,6 +1017,28 @@ async fn create_post_in_context(
         )
         .await?;
     }
+    // Validate the exact attachment before any filter can commit effects. This
+    // also covers badged staff; only the later exact-file rule is badge-exempt.
+    let attachment_admission = if let Some(attachment) = attachment {
+        Some(
+            crate::content_admission::attachment::Preflight::begin(
+                &mut tx,
+                attachment,
+                crate::content_admission::attachment::Target {
+                    board: slug,
+                    parent,
+                    authorized: authorized_staff,
+                    badged: staff
+                        .as_ref()
+                        .and_then(|authority| authority.identity)
+                        .is_some_and(|identity| identity.capcode.is_some()),
+                },
+            )
+            .await?,
+        )
+    } else {
+        None
+    };
     // Only public display text and an already-derived legacy hash enter the
     // source hook. Suppressed or modern secure-trip secrets never do.
     let admission_name = match &identity.trip {
@@ -1037,16 +1059,10 @@ async fn create_post_in_context(
     });
     let mut autosage_proof = None;
     if let Some(admission) = admission {
-        let filename = if let Some(attachment) = attachment {
-            sqlx::query_scalar("SELECT content.attachment_upload_filename($1,$2)")
-                .bind(&attachment.upload.id)
-                .bind(&attachment.upload.capability)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(post_media::scoped_error)?
-        } else {
-            String::new()
-        };
+        let filename = attachment_admission
+            .as_ref()
+            .map(|metadata| metadata.filename().to_owned())
+            .unwrap_or_default();
         let evaluated = admission
             .evaluate(crate::content_admission::Input {
                 board: slug.into(),
@@ -1065,6 +1081,9 @@ async fn create_post_in_context(
             .await?;
         evaluated.record(&mut tx).await?;
         if let Some(message) = evaluated.rejection() {
+            if let Some(metadata) = &attachment_admission {
+                metadata.revalidate(&mut tx).await?;
+            }
             tx.commit().await?;
             return Err(StoreError::ContentRejected(message));
         }
@@ -1073,6 +1092,9 @@ async fn create_post_in_context(
             board_domain::content_admission::Decision::Reject { quiet: true, .. }
         ) {
             let post = crate::content_admission::quiet_post(&mut tx, slug, parent).await?;
+            if let Some(metadata) = &attachment_admission {
+                metadata.revalidate(&mut tx).await?;
+            }
             tx.commit().await?;
             return Err(StoreError::ContentQuiet { post });
         }

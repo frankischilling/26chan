@@ -492,6 +492,7 @@ async fn exercise(f: &Fixture) {
             'content.next_media_number()'::regprocedure,
             'content.require_attachment_for_empty_post()'::regprocedure,
             'content.attachment_upload_filename(text,text)'::regprocedure,
+            'content.attachment_upload_filter_metadata(text,text,text,bigint,boolean,boolean)'::regprocedure,
             'content.sync_image_spoiler()'::regprocedure,
             'content.stamp_drawing_annotation()'::regprocedure,
             'content.set_post_image_spoiler(text,bigint,boolean)'::regprocedure,
@@ -515,6 +516,17 @@ async fn exercise(f: &Fixture) {
     assert!(
         functions_safe,
         "Attachment owner must have exactly the reviewed function set"
+    );
+    let metadata_grants: bool = sqlx::query_scalar(
+        "SELECT has_function_privilege('board_public',p.oid,'EXECUTE')
+          AND has_function_privilege('board_staff',p.oid,'EXECUTE')
+          AND NOT EXISTS(SELECT 1 FROM aclexplode(p.proacl) a WHERE a.is_grantable
+            OR (a.grantee<>p.proowner AND a.grantee NOT IN ('board_public'::regrole,'board_staff'::regrole)))
+          FROM pg_proc p WHERE p.oid='content.attachment_upload_filter_metadata(text,text,text,bigint,boolean,boolean)'::regprocedure"
+    ).fetch_one(&f.admin).await.unwrap();
+    assert!(
+        metadata_grants,
+        "Only posting roles may use the scoped metadata reader"
     );
     let policy_helper_private: bool = sqlx::query_scalar(
         "SELECT count(*)=3 AND bool_and(NOT p.prosecdef

@@ -1,7 +1,7 @@
 # File-blocking parity
 
 File blocking is unfinished. Trusted publication records the original upload's
-MD5 in a private receipt. Posting rules do not yet read or enforce that receipt.
+MD5 in a private receipt. Posting rules do not yet enforce those hashes.
 Existing SHA-256 integrity checks remain unchanged. MD5 is only a compatibility key for
 matching operator-owned rules; it is not an approval or integrity proof.
 
@@ -40,8 +40,30 @@ continue to leave original identity unknown.
 
 Both private functions have fixed search paths and the migration owner. Runtime
 publication receives only function execution, with no direct receipt-table grant.
-Public posting, staff, intake, and media-reader roles cannot read the tuple.
-Admission still needs its own capability-scoped reader and enforcement tests.
+Public posting, staff, intake, and media-reader roles cannot read the table.
+Posting roles have a separate capability-scoped metadata function; it is not an
+HTTP endpoint and does not add fields to public media views.
+
+## Posting preflight
+
+Before content-rule evaluation, every attachment passes a read-only preflight under
+the board, reply-thread, and media-job locks. It checks the live upload capability,
+approval, board media limits, reply image quota, PDF/video consistency and the
+stored still-image context. Staff identity comes from validated posting authority,
+not upload flags. The final proof handoff and one-use attachment consume remain
+in place.
+
+A file that cannot attach must not create a filename ban or other committed
+content-filter effect. Rejection and quiet-success paths therefore revalidate the
+metadata and capability expiry immediately before committing their effects.
+Preflight itself does not attach the file or consume its capability.
+
+The scoped result includes normalized MD5, nullable original MD5, and nullable
+original-digest eligibility. `/p/` JPEG and PDF are ineligible. The capcode-only
+JPEG strip on `/p/` changes normalized bytes but does not enable original fallback.
+A generic PNG output can have originated from a different format; without a
+retained-format manifest or the PNG source profile, eligibility stays unknown.
+Later blacklist decisions must distinguish unknown eligibility from false.
 
 ## Required posting behavior
 

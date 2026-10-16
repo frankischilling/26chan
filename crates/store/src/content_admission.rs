@@ -5,6 +5,7 @@ use sqlx::PgConnection;
 use std::net::IpAddr;
 use std::sync::{Arc, LazyLock};
 
+pub(crate) mod attachment;
 pub(crate) mod automatic;
 mod network;
 
