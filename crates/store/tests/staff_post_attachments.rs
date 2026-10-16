@@ -283,6 +283,35 @@ impl Fixture {
     async fn cleanup(&self) {
         let mut boards = vec![self.board.clone()];
         boards.extend(self.extra_boards.lock().unwrap().iter().cloned());
+        // Remove only this fixture's restrictions before taking content locks.
+        let mut tx = self.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("SELECT singleton FROM restrictions.capacity WHERE singleton FOR UPDATE")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("SELECT content.lock_automatic_range_policy(true)")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM restrictions.automatic_ranges WHERE board=ANY($1)")
+            .bind(&boards)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes-coalesce((SELECT sum(charged_bytes) FROM restrictions.bans WHERE board=ANY($1)),0) WHERE singleton")
+            .bind(&boards).execute(&mut *tx).await.unwrap();
+        sqlx::query("DELETE FROM restrictions.audit WHERE ban_id IN(SELECT id FROM restrictions.bans WHERE board=ANY($1))")
+            .bind(&boards).execute(&mut *tx).await.unwrap();
+        sqlx::query("DELETE FROM restrictions.bans WHERE board=ANY($1)")
+            .bind(&boards)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
         let mut tx = support::begin_cleanup(&self.owner, &boards).await;
         for sql in [
             "DELETE FROM content.moderation_audit WHERE board=$1",
@@ -1822,4 +1851,301 @@ async fn automatic_metadata(f: &Fixture) {
             .unwrap()
             .contains_key("automatic_prefix")
     );
+}
+
+database_case!(
+    automatic_range_refusal_rolls_back_post_effects_and_records_only_hit,
+    automatic_range_refusal
+);
+async fn automatic_range_refusal(f: &Fixture) {
+    use board_domain::content_admission::network::hints::{
+        BrowserHeaders, BrowserKey, DerivedHints,
+    };
+    for pool in [&f.public, &f.staff] {
+        assert!(
+            sqlx::query_scalar::<_, bool>(board_store::AUTOMATIC_RANGE_READINESS_SQL)
+                .fetch_one(pool)
+                .await
+                .unwrap()
+        );
+    }
+    for mutation in [
+        "ALTER FUNCTION content.automatic_range_events(text,bigint,bytea,text) SECURITY INVOKER",
+        "REVOKE EXECUTE ON FUNCTION content.automatic_range_events(text,bigint,bytea,text) FROM board_public",
+        "GRANT SELECT ON restrictions.automatic_ranges TO board_public",
+        "GRANT USAGE ON SEQUENCE restrictions.automatic_ranges_id_seq TO board_staff",
+    ] {
+        let mut tx = f.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::raw_sql(mutation).execute(&mut *tx).await.unwrap();
+        // Inspect public permissions under the existing owner without granting
+        // runtime role membership or committing schema changes.
+        let query = board_store::AUTOMATIC_RANGE_READINESS_SQL
+            .replace("current_user", "'board_public'::name");
+        let ready: bool = sqlx::query_scalar(sqlx::AssertSqlSafe(query))
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        assert!(!ready, "Automatic readiness accepted an authority mutation");
+        tx.rollback().await.unwrap();
+    }
+    let key = BrowserKey::parse(&"11".repeat(32)).unwrap();
+    let mut mobile = f.clone();
+    mobile.hints = Some(DerivedHints::derive(
+        Some(&key),
+        Some(BrowserHeaders {
+            user_agent: Some(b"Android/1"),
+            ..Default::default()
+        }),
+        None,
+    ));
+    let target = mobile
+        .write(0, None, false, &post(), 222, Utc::now())
+        .await
+        .unwrap();
+    // A custom global ban is not a source global-rule template. Its existing
+    // public issuer must not acquire the automatic producer as a side effect.
+    let ban: i64 = sqlx::query_scalar("SELECT content.issue_post_restriction($1,$2,900,$3,$4,true,false,60,'Owned custom ban','Synthetic')")
+        .bind(&f.session).bind(&f.csrf).bind(&f.board).bind(target).fetch_one(&f.staff).await.unwrap();
+    assert_eq!(automatic_stats(f).await, (0, 0));
+    // Owned private fixture exercises the future qualified producer seam.
+    // It does not pretend the custom-ban endpoint provides template authority.
+    let mut tx = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    for _ in 0..2 {
+        sqlx::query("SELECT restrictions.record_automatic_range($1,$2,$3)")
+            .bind(&f.board)
+            .bind(target)
+            .bind(ban)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+    }
+    tx.commit().await.unwrap();
+    assert_eq!(automatic_stats(f).await, (1, 0));
+    let rule: i64 = sqlx::query_scalar("INSERT INTO admission.rules(board,pattern,log) VALUES($1,'Synthetic attachment body',true) RETURNING id")
+        .bind(&f.board).fetch_one(&f.owner).await.unwrap();
+    let before = f.counts().await;
+    let rejected = mobile.write(0, None, true, &post(), 223, Utc::now()).await;
+    assert!(
+        matches!(rejected, Err(StoreError::ContentRejected(message)) if message.contains("temporarily blocked"))
+    );
+    assert_eq!(f.counts().await, before);
+    assert_eq!(automatic_stats(f).await, (1, 1));
+    let effects: i64 = sqlx::query_scalar("SELECT (SELECT count(*) FROM admission.logs WHERE rule_id=$1)+(SELECT count(*) FROM admission.hits WHERE rule_id=$1)")
+        .bind(rule).fetch_one(&f.owner).await.unwrap();
+    assert_eq!(
+        effects, 0,
+        "Only the separate automatic hit may survive rejection"
+    );
+    sqlx::query(
+        "INSERT INTO admission.network_rules(boards,range_start,range_end) VALUES($1,0,4294967295)",
+    )
+    .bind(&f.board)
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    let rejected = mobile.write(0, None, true, &post(), 224, Utc::now()).await;
+    assert!(
+        matches!(rejected, Err(StoreError::ContentRejected(message)) if message.contains("permanently blocked"))
+    );
+    assert_eq!(
+        automatic_stats(f).await,
+        (1, 1),
+        "Configured network rule short-circuits automatic range stage"
+    );
+    sqlx::query("DELETE FROM admission.network_rules WHERE boards=$1")
+        .bind(&f.board)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    // A reply has a positive parent; this event is only for parent zero.
+    mobile
+        .write(target, None, true, &post(), 225, Utc::now())
+        .await
+        .unwrap();
+    // Badged normal-board posts retain the source filter-scope exemption.
+    mobile
+        .write(0, None, false, &post(), 226, Utc::now())
+        .await
+        .unwrap();
+    assert_eq!(automatic_stats(f).await, (1, 1));
+    board_store::delete_post(&f.staff, &f.board, target)
+        .await
+        .unwrap();
+    let history_gone: bool = sqlx::query_scalar(
+        "SELECT NOT EXISTS(SELECT 1 FROM post_secrets.posting_history WHERE post_id=$1)",
+    )
+    .bind(target)
+    .fetch_one(&f.owner)
+    .await
+    .unwrap();
+    assert!(history_gone);
+    assert_eq!(
+        automatic_stats(f).await,
+        (1, 1),
+        "Deleting the target must not erase its active event"
+    );
+    assert!(matches!(
+        mobile.write(0, None, true, &post(), 229, Utc::now()).await,
+        Err(StoreError::ContentRejected(_))
+    ));
+    assert_eq!(automatic_stats(f).await, (1, 2));
+    let mut unknown = mobile.clone();
+    unknown.hints = None;
+    assert!(matches!(
+        unknown.write(0, None, true, &post(), 227, Utc::now()).await,
+        Err(StoreError::Database(_))
+    ));
+    assert_eq!(automatic_stats(f).await, (1, 2));
+    // Expiry uses the database clock, independently of request/session age.
+    let mut tx = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE restrictions.automatic_ranges SET created_at=floor(extract(epoch FROM clock_timestamp()))::bigint-7200 WHERE board=$1")
+        .bind(&f.board).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    mobile
+        .write(0, None, true, &post(), 228, Utc::now())
+        .await
+        .unwrap();
+    assert_eq!(automatic_stats(f).await, (1, 2));
+    sqlx::query("DELETE FROM admission.rules WHERE id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+}
+
+async fn automatic_stats(f: &Fixture) -> (i64, i64) {
+    let mut tx = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let stats = sqlx::query_as("SELECT count(*),coalesce(sum(hit_count),0)::bigint FROM restrictions.automatic_ranges WHERE board=$1")
+        .bind(&f.board).fetch_one(&mut *tx).await.unwrap();
+    tx.rollback().await.unwrap();
+    stats
+}
+
+database_case!(
+    automatic_event_policy_serializes_both_directions,
+    automatic_policy_locks
+);
+async fn automatic_policy_locks(f: &Fixture) {
+    use board_domain::content_admission::network::hints::{
+        BrowserHeaders, BrowserKey, DerivedHints,
+    };
+    let key = BrowserKey::parse(&"11".repeat(32)).unwrap();
+    let mut mobile = f.clone();
+    mobile.hints = Some(DerivedHints::derive(
+        Some(&key),
+        Some(BrowserHeaders {
+            user_agent: Some(b"Android/1"),
+            ..Default::default()
+        }),
+        None,
+    ));
+    let target = mobile
+        .write(0, None, false, &post(), 230, Utc::now())
+        .await
+        .unwrap();
+    let mut held = f.public.begin().await.unwrap();
+    sqlx::query("SELECT * FROM content.lock_content_admission($1,'192.0.2.231')")
+        .bind(&f.board)
+        .fetch_all(&mut *held)
+        .await
+        .unwrap();
+    let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *held)
+        .await
+        .unwrap();
+    let owner = f.owner.clone();
+    let board = f.board.clone();
+    let writer = tokio::spawn(async move {
+        let mut tx = owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("SELECT restrictions.record_automatic_range($1,$2,1)")
+            .bind(&board)
+            .bind(target)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+    });
+    wait_for_policy_blocker(&f.owner, blocker).await;
+    assert!(!writer.is_finished());
+    held.commit().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(5), writer)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(automatic_stats(f).await, (1, 0));
+    // Publish an expired event, then hold its reactivation uncommitted. A post
+    // waiting on the generation must see the committed reactivation afterward.
+    let mut held = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *held)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE restrictions.automatic_ranges SET created_at=1 WHERE board=$1")
+        .bind(&f.board)
+        .execute(&mut *held)
+        .await
+        .unwrap();
+    held.commit().await.unwrap();
+    let mut held = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *held)
+        .await
+        .unwrap();
+    sqlx::query("SELECT content.lock_automatic_range_policy(true)")
+        .execute(&mut *held)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE restrictions.automatic_ranges SET created_at=floor(extract(epoch FROM clock_timestamp()))::bigint WHERE board=$1")
+        .bind(&f.board).execute(&mut *held).await.unwrap();
+    let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *held)
+        .await
+        .unwrap();
+    let writer =
+        tokio::spawn(async move { mobile.write(0, None, true, &post(), 232, Utc::now()).await });
+    wait_for_policy_blocker(&f.owner, blocker).await;
+    assert!(!writer.is_finished());
+    held.commit().await.unwrap();
+    let result = tokio::time::timeout(Duration::from_secs(5), writer)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(result, Err(StoreError::ContentRejected(_))));
+    assert_eq!(automatic_stats(f).await, (1, 1));
+}
+
+async fn wait_for_policy_blocker(owner: &PgPool, blocker: i32) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        let blocked: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_stat_activity a WHERE a.datname=current_database() AND $1=ANY(pg_blocking_pids(a.pid)))")
+            .bind(blocker).fetch_one(owner).await.unwrap();
+        if blocked {
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "Expected generation wait was not observed"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
 }

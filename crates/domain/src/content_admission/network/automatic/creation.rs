@@ -1,4 +1,4 @@
-//! Plans derivative events after an authorized global, non-warning action.
+//! Plans derivative events after an authorized non-warning, global-rule template action.
 //! The target evidence must come from the stored post, never moderator fields.
 use super::{Event, MAX_EVENTS, browser_valid};
 use crate::{BoardSlug, content_admission::AdmissionError};

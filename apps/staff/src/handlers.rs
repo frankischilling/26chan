@@ -378,6 +378,12 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     if !automatic_admission {
         return Err(AppError::Internal);
     }
+    if !sqlx::query_scalar::<_, bool>(board_store::AUTOMATIC_RANGE_READINESS_SQL)
+        .fetch_one(&state.staff)
+        .await?
+    {
+        return Err(AppError::Internal);
+    }
     let report_admission: bool = sqlx::query_scalar(REPORT_ADMISSION_READY_SQL)
         .fetch_one(&state.staff)
         .await?;

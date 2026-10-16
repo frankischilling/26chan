@@ -1080,6 +1080,24 @@ async fn create_post_in_context(
         if let Some(message) = evaluated.network_rejection(board.worksafe, attachment.is_some())? {
             return Err(StoreError::ContentRejected(message));
         }
+        if let Some(hit) = evaluated
+            .automatic_rejection(
+                &mut tx,
+                keys.poster_id
+                    .ok_or(StoreError::Invalid("Posting identity is unavailable."))?,
+            )
+            .await?
+        {
+            // Preserve only the derivative hit. Earlier filter logs, autosage,
+            // challenge state and other posting effects must all roll back.
+            tx.rollback().await?;
+            // Counter failure cannot turn a definite admission refusal into
+            // acceptance. The recorder independently rechecks the live event.
+            let _ = hit.record(pool).await;
+            return Err(StoreError::ContentRejected(
+                crate::content_admission::automatic::REJECTION.into(),
+            ));
+        }
         if let Some(message) = evaluated.identity_rejection().await? {
             // Later admission failures share the posting transaction. Do not
             // retain a preceding log/autosage hit from an incomplete post.

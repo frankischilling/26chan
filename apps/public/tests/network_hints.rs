@@ -172,6 +172,42 @@ async fn exercise(owner: PgPool, public: PgPool, board: String) {
                     assert_eq!(counts(&task_owner, &task_board).await, before);
                 }
             }
+            if capture && key_present {
+                sqlx::query("UPDATE admission.network_rules SET active=false WHERE id=$1")
+                    .bind(rule).execute(&task_owner).await.unwrap();
+                let target: i64 = sqlx::query_scalar("SELECT max(post_id) FROM post_secrets.posting_history WHERE board=$1 AND automatic_browser IS NOT NULL")
+                    .bind(&task_board).fetch_one(&task_owner).await.unwrap();
+                let mut tx = task_owner.begin().await.unwrap();
+                sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *tx).await.unwrap();
+                // Private synthetic event; template-qualified production is a
+                // separate unfinished authority path, not a public form input.
+                sqlx::query("SELECT restrictions.record_automatic_range($1,$2,1)")
+                    .bind(&task_board).bind(target).execute(&mut *tx).await.unwrap();
+                tx.commit().await.unwrap();
+                let before = counts(&task_owner, &task_board).await;
+                let sessions: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.anonymous_sessions")
+                    .fetch_one(&task_owner).await.unwrap();
+                for route in ["post", "imgboard.php"] {
+                    let (status, json) = request(address, &task_board, route, "Android/1", false, false).await;
+                    assert_eq!(status, 200);
+                    assert!(json["error"].as_str().unwrap().contains("temporarily blocked"));
+                    assert_eq!(counts(&task_owner, &task_board).await, before);
+                }
+                let after_sessions: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.anonymous_sessions")
+                    .fetch_one(&task_owner).await.unwrap();
+                assert_eq!(after_sessions, sessions, "Automatic refusal cannot register a minted session");
+                let mut tx = task_owner.begin().await.unwrap();
+                sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *tx).await.unwrap();
+                let hits: i64 = sqlx::query_scalar("SELECT sum(hit_count)::bigint FROM restrictions.automatic_ranges WHERE board=$1")
+                    .bind(&task_board).fetch_one(&mut *tx).await.unwrap();
+                assert_eq!(hits, 2);
+                sqlx::query("SELECT content.lock_automatic_range_policy(true)").execute(&mut *tx).await.unwrap();
+                sqlx::query("DELETE FROM restrictions.automatic_ranges WHERE board=$1")
+                    .bind(&task_board).execute(&mut *tx).await.unwrap();
+                tx.commit().await.unwrap();
+                sqlx::query("UPDATE admission.network_rules SET active=true WHERE id=$1")
+                    .bind(rule).execute(&task_owner).await.unwrap();
+            }
         })
         .await;
         stop.send(true).unwrap();

@@ -9,6 +9,7 @@ mod board_snapshot;
 pub mod site_content;
 pub use blotter::BlotterMessage;
 mod content_admission;
+pub use content_admission::automatic::READINESS_SQL as AUTOMATIC_RANGE_READINESS_SQL;
 pub mod content_erasure;
 pub mod historical_erasure;
 pub mod homepage;
@@ -462,6 +463,13 @@ pub async fn connect_public(url: &str) -> Result<PgPool, StoreError> {
     .fetch_one(&pool)
     .await?;
     if !ready {
+        pool.close().await;
+        return Err(StoreError::UnsafeRole);
+    }
+    let automatic_ranges: bool = sqlx::query_scalar(AUTOMATIC_RANGE_READINESS_SQL)
+        .fetch_one(&pool)
+        .await?;
+    if !automatic_ranges {
         pool.close().await;
         return Err(StoreError::UnsafeRole);
     }

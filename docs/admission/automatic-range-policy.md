@@ -2,8 +2,9 @@
 
 Issue #212 includes automatic mobile-range events created by moderation. The
 domain evaluator and event planner are implemented and tested. Migration 0180
-adds private accepted-post comparison metadata. Posting and moderation do not
-yet call the event planner or evaluator; the runtime event store is unfinished.
+adds private accepted-post comparison metadata. Migration 0181 adds a bounded
+event store and posting enforcement, currently under qualification. The
+template-qualified moderation producer and ban-request workflow are unfinished.
 
 ## Decisions covered
 
@@ -19,8 +20,10 @@ posts and a network age of at least fifteen minutes only matches events created
 at or before that network timestamp. Pending activity uses the same source
 post-count rules as other admission stages.
 
-The creation planner accepts a previously authorized global, non-warning ban
-or ban request. A direct ban records a range event unless a matching one is
+The creation planner accepts a previously authorized, non-warning ban or ban
+request using a template whose rule contains `global`. The source checks this
+template predicate separately from the submitted local/global ban scope.
+A direct ban records a range event unless a matching one is
 younger than one hour. A first ban request records a hint. A later request with
 a matching hint may record a range event, including when both requests concern
 the same address. Hint retention includes the exact one-hour boundary; range
@@ -94,17 +97,69 @@ BROWSER_HINT_KEY and its staff equivalent remain optional. When absent,
 accepted posts retain no browser comparison metadata. Later event creation
 must treat those rows as unavailable evidence; complete capture requires
 configuring the key before accepting posts.
+Services comparing the same posts need matching browser-hint and poster-identity
+keys, even though each role reads its own configuration variables.
 
 Moderation event creation must read this stored target evidence, never
 browser IDs or prefixes submitted in moderator forms. Posting history stores
 the actual thread ID for an OP, so the target lookup must recover parent zero.
+The current custom-ban API has no template qualifier. Its global-scope flag
+must not activate automatic events; the template workflow still needs work
+under issue #220.
+The source also renews an existing anonymous cookie on automatic refusal.
+That response and server-session lifetime path still need implementation;
+the current rejection leaves anonymous state unchanged.
 
-Event writes must serialize with posting's shared policy lock. A rejected post
-must roll back earlier admission effects; recording a hit cannot commit its
-posting transaction. Active events must survive deletion of their target for
-their remaining lifetime. Database failures in the source lookup are ignored;
-the planned fail-closed runtime behavior is an intentional security difference
-that still needs qualification.
+## Event storage and enforcement
+
+The private creator enforces a 100,000-row limit. Issuance removes up to
+1,024 expired rows before checking capacity. A private creator reads retained
+target metadata and deduplicates the strict one-hour scope. It is deliberately
+unwired from the custom-ban endpoint until template authority exists.
+
+Posting reads at most 129 same-board, parent and keyed-prefix candidates; the
+extra row detects overflow. A known browser further narrows the lookup. Missing
+browser hints require a scoped lookup so an applicable event cannot be bypassed
+by making that provider unavailable. Desktop and native IPv6 requests skip the
+mobile IPv4 stage. Enforcement follows configured network rules and precedes
+fixed identity checks, within the existing ordinary/test-board filter scope.
+
+Event writes serialize with posting's shared policy lock. Database tests
+observe contention in both directions and verify that a waiting post sees a
+committed policy change. An automatic refusal explicitly rolls back the posting
+transaction before a separate transaction rechecks the live event and increments
+its bounded hit counter. Counter failure never admits the post. No raw address,
+header or post text is stored in that counter.
+This replaces the source's per-hit address log with aggregate telemetry.
+The supplied source has no later reader for those hit records, but the counter
+does not preserve its seven-day per-attempt audit history.
+
+Active events survive target deletion. Tests also cover earlier content-log
+rollback, configured-rule precedence, OP/reply scope, badged-staff exemption,
+missing hints and expiry. Actual HTTP checks reject mobile posts through both
+routes without registering their newly minted anonymous sessions. Database
+lookup failures fail closed, an intentional security difference from the source.
+
+The catalog check initially failed after dump/restore because it interpreted
+a sequence's implicit ACL as a table ACL. The revised seal uses the sequence
+code `s` for `acldefault`, as specified in the
+[PostgreSQL 16 documentation](https://www.postgresql.org/docs/16/functions-info.html).
+The populated historical cleanup, fresh installation and dump/restore tests
+pass with that correction. The upgrade also rejects a runtime sequence grant.
+
+The current event checkpoint passes 101 local database regressions across
+posting, reports and transfers. Four rolled-back readiness mutations verify
+function security, runtime execution grants, private reads and sequence access.
+The production store/public/staff manifests pass locked, all-target, all-feature
+checks and strict Clippy; the production public HTTP test also passes. Those
+tests use an owned PostgreSQL TCP fixture, so they do not qualify production
+database TLS transport.
+
+Hosted qualification of the preceding metadata checkpoint exposed an older
+file-deletion fixture whose saved JSON lacked the two new NULL fields. Its
+expected rows now add only those reviewed keys. Both invented comparison data
+and a changed original actor still fail the guard. The full file-deletion
+upgrade, repeat-action, rollback and restore sequence passes locally.
 
 The application has no live ban-request backend yet. Trusted Pass, local-auth
 and janitor bypass authority also remain unfinished. Cosmetic badges and

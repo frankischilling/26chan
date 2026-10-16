@@ -7,6 +7,9 @@ use board_domain::{
 use sqlx::PgConnection;
 use std::net::IpAddr;
 
+mod readiness;
+pub use readiness::READINESS_SQL;
+
 pub(crate) struct Capture<'a> {
     pub board: &'a str,
     pub parent: i64,
@@ -48,4 +51,122 @@ pub(crate) async fn install_metadata(
         .execute(connection)
         .await?;
     Ok(())
+}
+
+#[derive(sqlx::FromRow)]
+struct EventRow {
+    id: i64,
+    board: String,
+    parent: i64,
+    prefix: Vec<u8>,
+    browser: String,
+    created_at: i64,
+    observed_at: i64,
+}
+
+pub(crate) const REJECTION: &str = "Posting from your IP range has been temporarily blocked due to abuse. Please verify your e-mail address or try again later.";
+
+/// Private match receipt, never formatted, serialized or returned to a client.
+/// Its recorder rechecks the scoped live event after posting rollback.
+pub(crate) struct Hit {
+    id: i64,
+    board: String,
+    parent: i64,
+    prefix: [u8; 32],
+    browser: String,
+}
+
+impl Hit {
+    pub(crate) async fn record(&self, pool: &sqlx::PgPool) -> Result<(), StoreError> {
+        let mut tx = pool.begin().await?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("SELECT content.record_automatic_range_hit($1,$2,$3,$4,$5)")
+            .bind(self.id)
+            .bind(&self.board)
+            .bind(self.parent)
+            .bind(self.prefix.as_slice())
+            .bind(&self.browser)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+}
+
+impl super::Evaluation {
+    pub(crate) async fn automatic_rejection(
+        &self,
+        connection: &mut PgConnection,
+        key: &PosterIdKey,
+    ) -> Result<Option<Hit>, StoreError> {
+        use board_domain::content_admission::network::automatic::{Event, Policy, Request};
+        let peer = self
+            .snapshot
+            .peer
+            .as_deref()
+            .ok_or_else(|| super::unavailable(()))?
+            .parse::<IpAddr>()
+            .map_err(super::unavailable)?;
+        let Some(prefix) = key.automatic_range_prefix(peer) else {
+            return Ok(None);
+        };
+        let browser = self.snapshot.hints.signatures().browser_id;
+        let selector = match browser {
+            ProviderValue::Available(Some(browser)) if browser.starts_with('1') => Some(browser),
+            ProviderValue::Available(_) => return Ok(None),
+            ProviderValue::Unavailable => None,
+        };
+        // The posting transaction already owns its shared policy generation.
+        // The reader adds no board/actor lock, and returns one overflow sentinel.
+        let rows: Vec<EventRow> =
+            sqlx::query_as("SELECT * FROM content.automatic_range_events($1,$2,$3,$4)")
+                .bind(&self.input.board)
+                .bind(self.input.parent)
+                .bind(prefix.as_bytes().as_slice())
+                .bind(selector)
+                .fetch_all(connection)
+                .await?;
+        let event_at = rows
+            .first()
+            .map(|row| row.observed_at)
+            .map(u64::try_from)
+            .transpose()
+            .map_err(super::unavailable)?
+            .unwrap_or(self.snapshot.now);
+        let events = rows
+            .into_iter()
+            .map(|row| {
+                Ok(Event {
+                    id: row.id,
+                    board: row.board,
+                    parent: row.parent,
+                    prefix: row.prefix.try_into().map_err(super::unavailable)?,
+                    browser: row.browser,
+                    created_at: row.created_at.try_into().map_err(super::unavailable)?,
+                })
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        let policy = Policy::compile(events).map_err(super::unavailable)?;
+        let matched = policy
+            .evaluate(Request {
+                board: &self.input.board,
+                parent: Some(self.input.parent),
+                prefix: ProviderValue::Available(Some(prefix.as_bytes())),
+                browser,
+                request_at: self.snapshot.now,
+                activity_at: self.snapshot.activity_now,
+                event_at,
+                actor: self.snapshot.activity.as_ref(),
+            })
+            .map_err(super::unavailable)?;
+        Ok(matched.map(|event| Hit {
+            id: event.id,
+            board: event.board.clone(),
+            parent: event.parent,
+            prefix: event.prefix,
+            browser: event.browser.clone(),
+        }))
+    }
 }
