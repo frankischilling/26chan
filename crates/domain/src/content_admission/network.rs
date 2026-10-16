@@ -5,6 +5,7 @@ use crate::{BoardSlug, anonymous_session::State};
 use std::net::Ipv4Addr;
 
 pub mod asn;
+pub mod automatic;
 pub mod hints;
 
 pub const MAX_NETWORK_RULES: usize = 128;

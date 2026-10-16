@@ -63,6 +63,17 @@ impl PublicReportRateIdentity {
     }
 }
 
+/// Private comparison token for an IPv4 /16 automatic-range event.
+/// It is domain-separated from every actor identity and has no public formatter.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct AutomaticRangePrefix([u8; 32]);
+
+impl AutomaticRangePrefix {
+    pub fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+}
+
 pub struct PosterCountContext {
     pub fingerprint: String,
     pub epoch: String,
@@ -161,6 +172,21 @@ impl PosterIdKey {
         }
     }
 
+    /// Derive only from the canonical trusted peer. Native IPv6 has no source
+    /// IPv4 /16 equivalent; never manufacture one from its displayed text.
+    pub fn automatic_range_prefix(&self, peer: IpAddr) -> Option<AutomaticRangePrefix> {
+        let IpAddr::V4(peer) = peer.to_canonical() else {
+            return None;
+        };
+        let signing = ring::hmac::Key::new(ring::hmac::HMAC_SHA256, &self.0);
+        let mut context = ring::hmac::Context::with_key(&signing);
+        context.update(b"26chan-automatic-range-prefix-v1\0");
+        context.update(&peer.octets()[..2]);
+        Some(AutomaticRangePrefix(
+            context.sign().as_ref().try_into().expect("SHA-256 length"),
+        ))
+    }
+
     pub fn label(
         &self,
         board: &str,
@@ -242,6 +268,53 @@ impl PosterIdKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn automatic_range_prefix_is_private_keyed_canonical_and_domain_separated() {
+        let key = PosterIdKey::parse(&"11".repeat(32)).unwrap();
+        let peer = "192.0.2.10".parse().unwrap();
+        let token = key.automatic_range_prefix(peer).unwrap();
+        // Independent Python stdlib HMAC-SHA256 vector with a synthetic key.
+        assert_eq!(
+            token
+                .as_bytes()
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>(),
+            "ae7908dc5a0ece7502cc78977e7160331e3c94d2c8a3970f89f0b9ea206e48c2"
+        );
+        for same in ["192.0.0.0", "192.0.255.255", "::ffff:192.0.2.10"] {
+            assert!(key.automatic_range_prefix(same.parse().unwrap()).unwrap() == token);
+        }
+        assert!(
+            key.automatic_range_prefix("192.1.2.10".parse().unwrap())
+                .unwrap()
+                != token
+        );
+        assert!(
+            key.automatic_range_prefix("2001:db8::10".parse().unwrap())
+                .is_none()
+        );
+        assert!(
+            PosterIdKey::parse(&"22".repeat(32))
+                .unwrap()
+                .automatic_range_prefix(peer)
+                .unwrap()
+                != token
+        );
+        assert_ne!(
+            token.as_bytes(),
+            key.public_posting_rate_identity(peer).as_bytes()
+        );
+        assert_ne!(
+            token.as_bytes(),
+            key.public_report_rate_identity(peer).as_bytes()
+        );
+        assert_ne!(
+            token.as_bytes(),
+            key.public_deletion_rate_identity(peer).as_bytes()
+        );
+    }
 
     #[test]
     fn report_rate_identity_is_canonical_full_address_and_keyed() {

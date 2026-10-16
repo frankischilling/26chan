@@ -62,7 +62,9 @@ Posting evaluates this stage after configured content decisions and before
 fixed name/trip checks. A later range rejection rolls back earlier log/autosage
 effects. Content rejection and quiet success still short-circuit first. The
 active file-blacklist stage remains to be inserted before fixed identity checks.
-Reporting has separate source options and lock order and is not connected yet.
+Reporting uses its own source options and lock order; see
+[report network policy](report-network-policy.md) for the connected paths and
+their qualification.
 
 The server must supply canonical transport identity and a trusted ASN lookup.
 Set `ASN_DATABASE` for the public service and `STAFF_ASN_DATABASE` for staff.
@@ -77,7 +79,9 @@ out-of-scope or report-only rules do not require posting providers.
 [Browser and request hints](network-hints.md) use bounded server-side derivation
 and a fresh operator-managed key. Source embedded constants and private
 production lists must not be copied. Bypass eligibility and the mobile
-automatic-range stage still need implementation and tests.
+automatic-range stage still need runtime integration. The
+[automatic-range decision model](automatic-range-policy.md) has source-derived
+fixtures, but does not yet create or enforce events in the application.
 
 The source posting caller uses PHP `ip2long` truthiness to skip IPv6 and
 `0.0.0.0`. This implementation deliberately closes that bypass: configured ASN
