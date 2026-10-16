@@ -332,3 +332,16 @@ opt-outs run only when that column exists and match each synthetic board's slug,
 title, and description. Historical upgrade tests keep their earlier schemas.
 The still-image HTTP fixture retains the real `/aco/` name required by the
 pinned decoder policy and restores its original CAPTCHA flag after the case.
+
+The staff browser fixture also disables CAPTCHA on its newly created synthetic
+board, so spoiler and moderation cases can test their own public write paths.
+The file-deletion upgrade test extends its saved board baseline with the five
+CAPTCHA policy fields from the pinned fixture. It still compares every prior
+field and qualifies rollback and administrator dump/restore.
+
+The complete archive reader now requests only the subject and deletion flag
+from each root-post lookup. Its row and byte limits, visibility rules, ordering,
+and five-second public database timeout are unchanged. The 100,000-entry boundary
+test checks every returned ID and subject. A local PostgreSQL 16 comparison found
+the narrower lookup faster in both alternating runs; hosted CI still determines
+whether the full suite passes on the final commit.

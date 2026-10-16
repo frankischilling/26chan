@@ -261,6 +261,27 @@ pathlib.Path(sys.argv[1]).write_text("UPDATE public.upgraded_rows SET value=valu
 PYVIDEO
  "${admin[@]}" -f - < "$cluster/video-expectation.sql"
 fi
+# Extend the saved board baseline with the five source CAPTCHA switches.
+# Existing board values remain independently captured before the upgrade.
+python3 - "$cluster/captcha-policy-expectation.sql" <<'PYCAPTCHA'
+import json, pathlib, re, sys
+rows=json.loads(pathlib.Path('fixtures/captcha-board-policy.json').read_text(encoding='utf-8'))['boards']
+fields={'captcha_enabled':'enabled','captcha_twister':'twister',
+        'captcha_allow_bypass':'allow_bypass','preupload_captcha':'preupload',
+        'noscript_captcha_only':'noscript_only'}
+defaults=(True,True,True,False,False)
+assert len(rows)==82 and len({row['slug'] for row in rows})==82
+values=[]
+for row in rows:
+    assert re.fullmatch(r'[a-z0-9]{1,10}',row['slug'])
+    assert all(type(row[key]) is bool for key in fields.values())
+    values.append("('"+row['slug']+"',"+','.join(str(row[key]).lower() for key in fields.values())+')')
+sql="UPDATE public.upgraded_rows u SET value=value||coalesce((SELECT to_jsonb(policy)-'slug' FROM (VALUES\n"
+sql+=',\n'.join(values)+") policy(slug,"+','.join(fields)+") WHERE policy.slug=u.value->>'slug'),"
+sql+="jsonb_build_object("+','.join("'"+field+"',"+str(default).lower() for field,default in zip(fields,defaults))+")) WHERE relation='content.boards';\n"
+pathlib.Path(sys.argv[1]).write_text(sql,encoding='utf-8')
+PYCAPTCHA
+"${admin[@]}" -f - < "$cluster/captcha-policy-expectation.sql"
 "${admin[@]}" -f - < scripts/report-snapshot-upgrade-expectations.sql
 # Extend the saved baseline only with the reviewed additive retention fields.
 # Neither migration sweeps existing media payloads or moderation snapshots.

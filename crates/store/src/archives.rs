@@ -135,7 +135,9 @@ async fn read_archive_snapshot(
     if count > MAX_ARCHIVE_JSON_ENTRIES as i64 || bytes > MAX_ARCHIVE_PAGE_READ_BYTES as i64 {
         return Err(StoreError::ReadLimit);
     }
-    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN LATERAL (SELECT p.* FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT $2")
+    // Keep the bounded root lookup narrow: the metadata response needs no body
+    // or saved presentation columns across up to 100,000 retained posts.
+    let entries = sqlx::query_as("SELECT t.id,p.subject,t.archived_at FROM content.visible_threads t JOIN LATERAL (SELECT p.subject,p.deleted FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted ORDER BY t.id LIMIT $2")
         .bind(slug).bind(MAX_ARCHIVE_JSON_ENTRIES as i64).fetch_all(&mut *tx).await?;
     let navigation_boards = crate::read::snapshot_navigation(&mut tx, include_navigation).await?;
     tx.commit().await?;

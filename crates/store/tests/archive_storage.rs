@@ -122,6 +122,12 @@ async fn oversized_complete_archive_metadata_is_rejected_without_a_partial_list(
         );
         assert_eq!(complete.entries.first().unwrap().id, ids[0]);
         assert_eq!(complete.entries.last().unwrap().id, ids[ids.len() - 2]);
+        assert_eq!(
+            complete.entries.iter().map(|entry| entry.id).collect::<Vec<_>>(),
+            ids[..ids.len() - 1],
+            "the complete projection preserves every retained ID in source order"
+        );
+        assert!(complete.entries.iter().all(|entry| entry.subject == "Owned archive"));
         sqlx::query(
             "UPDATE content.posts SET subject=repeat('x',100) WHERE board=$1 AND NOT deleted",
         )
