@@ -1635,3 +1635,124 @@ async fn leniency_uses_locked_anonymous_state_and_survives_cross_board_concurren
         .unwrap();
     f.cleanup().await;
 }
+
+#[tokio::test]
+async fn automatic_ban_exemption_preserves_rejection_and_quiet_effects() {
+    let _guard = POLICY_TEST.lock().await;
+    let mut f = Fixture::new().await;
+    f.peer = "192.0.2.182".parse().unwrap();
+    let rule = f.rule("ownedexemption").await;
+    sqlx::query("UPDATE admission.rules SET ban_days=3 WHERE id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO admission.automatic_ban_exemptions(network) VALUES('192.0.2.0/24')")
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert!(matches!(
+        f.create(0, 0, "", "ownedexemption").await,
+        Err(StoreError::ContentRejected(_))
+    ));
+    assert_eq!(f.count("posts").await, 0);
+    let bans: i64 = sqlx::query_scalar("SELECT count(*) FROM admission.bans WHERE board=ANY($1)")
+        .bind(&f.boards[..])
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+    assert_eq!(bans, 0);
+    let hits: i64 = sqlx::query_scalar("SELECT count FROM admission.hits WHERE rule_id=$1")
+        .bind(rule)
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+    assert_eq!(
+        hits, 1,
+        "An exemption suppresses the ban, not the filter hit"
+    );
+    sqlx::query("UPDATE admission.rules SET quiet=true WHERE id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert!(matches!(
+        f.create(0, 0, "", "ownedexemption").await,
+        Err(StoreError::ContentQuiet { .. })
+    ));
+    assert!(
+        f.create(1, 0, "", "Ordinary content remains permitted")
+            .await
+            .is_ok()
+    );
+    sqlx::query(
+        "UPDATE admission.automatic_ban_exemptions SET active=false WHERE network='192.0.2.0/24'",
+    )
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    assert!(matches!(
+        f.create(0, 0, "", "ownedexemption").await,
+        Err(StoreError::ContentQuiet { .. })
+    ));
+    assert!(matches!(
+        f.create(1, 0, "", "The ordinary peer is now banned").await,
+        Err(StoreError::ContentRejected(_))
+    ));
+    sqlx::query(
+        "UPDATE admission.automatic_ban_exemptions SET active=true WHERE network='192.0.2.0/24'",
+    )
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    assert!(matches!(
+        f.create(1, 0, "", "Exemption does not remove an existing ban")
+            .await,
+        Err(StoreError::ContentRejected(_))
+    ));
+    sqlx::query("DELETE FROM admission.bans WHERE board=ANY($1)")
+        .bind(&f.boards[..])
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    // The same recorder serves the filename-proxy automatic-ban branch.
+    let revision: i64 = sqlx::query_scalar("SELECT revision FROM admission.policy")
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+    sqlx::query(
+        "SELECT content.record_content_admission($1,$2,$3,NULL,'filename',0,'','','','phpab')",
+    )
+    .bind(&f.boards[0])
+    .bind(f.peer.to_string())
+    .bind(revision)
+    .execute(&f.public)
+    .await
+    .unwrap();
+    let bans: i64 = sqlx::query_scalar("SELECT count(*) FROM admission.bans WHERE board=ANY($1)")
+        .bind(&f.boards[..])
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+    assert_eq!(bans, 0);
+    // An overfull policy must not turn into an empty exemption list and ban.
+    sqlx::query("INSERT INTO admission.automatic_ban_exemptions(network) SELECT ('192.0.2.'||n||'/32')::cidr FROM generate_series(1,129) n")
+        .execute(&f.owner).await.unwrap();
+    sqlx::query("DELETE FROM admission.hits WHERE rule_id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let before = f.count("posts").await;
+    assert!(matches!(
+        f.create(0, 0, "", "ownedexemption").await,
+        Err(StoreError::Database(_))
+    ));
+    assert_eq!(f.count("posts").await, before);
+    let effects:i64=sqlx::query_scalar("SELECT (SELECT count(*) FROM admission.hits WHERE rule_id=$1)+(SELECT count(*) FROM admission.bans WHERE board=ANY($2))")
+        .bind(rule).bind(&f.boards[..]).fetch_one(&f.owner).await.unwrap();
+    assert_eq!(effects, 0);
+    sqlx::query("DELETE FROM admission.automatic_ban_exemptions WHERE network='192.0.2.0/24' OR network IN (SELECT ('192.0.2.'||n||'/32')::cidr FROM generate_series(1,129) n)")
+        .execute(&f.owner).await.unwrap();
+    f.cleanup().await;
+}

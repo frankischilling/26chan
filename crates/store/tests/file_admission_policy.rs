@@ -123,6 +123,7 @@ async fn private_file_rules_keep_scopes_bounds_and_shared_generation() {
         "UPDATE admission.file_rules SET active=active WHERE false",
         "UPDATE admission.rules SET active=active WHERE false",
         "UPDATE admission.network_rules SET active=active WHERE false",
+        "UPDATE admission.automatic_ban_exemptions SET active=active WHERE false",
     ] {
         let mut writer = owner.begin().await.unwrap();
         sqlx::query("SET LOCAL lock_timeout='100ms'")
