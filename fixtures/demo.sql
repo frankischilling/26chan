@@ -13,23 +13,23 @@ INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,
 VALUES ('news','News','Synthetic source text-only posting fixture.',4000,100,75,100,10,true)
 ON CONFLICT (slug) DO NOTHING;
 
-INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_max_lines,comment_spoiler_cleanup)
-VALUES (true,'test','Test board','A place to test text posts and replies.',4000,100,75,100,10,true,100,true),
-       (false,'limit','Small limits','Synthetic concurrency tests: three replies per thread.',1000,3,2,100,10,false,70,false)
+INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_max_lines,comment_spoiler_cleanup)
+VALUES ('test','Test board','A place to test text posts and replies.',4000,100,75,100,10,true,100,true),
+       ('limit','Small limits','Synthetic concurrency tests: three replies per thread.',1000,3,2,100,10,false,70,false)
 ON CONFLICT (slug) DO NOTHING;
 
 -- General tests need stable unfiltered bodies. /test/ retains its active
 -- source random filter; synthetic posting fixtures use this separate board.
 -- CAPTCHA is disabled only on these owned non-CAPTCHA test boards.
 -- Zero deletion delays apply only to this synthetic board, never imported policy.
-INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_max_lines,comment_spoiler_cleanup,op_markup,deletion_known_min_seconds,deletion_unknown_min_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds)
-VALUES (false,'fixture','Test fixtures','Owned unfiltered posting fixtures.',4000,100,75,100,10,true,100,true,true,0,0,0,0,0)
+INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,comment_code_spacing,comment_max_lines,comment_spoiler_cleanup,op_markup,deletion_known_min_seconds,deletion_unknown_min_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds)
+VALUES ('fixture','Test fixtures','Owned unfiltered posting fixtures.',4000,100,75,100,10,true,100,true,true,0,0,0,0,0)
 ON CONFLICT (slug) DO NOTHING;
 
 -- /demo/ is also synthetic; fresh test cleanup uses explicit zero delays.
 -- Posting timer overrides are confined to these two synthetic inserts.
-INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,deletion_known_min_seconds,deletion_unknown_min_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds)
-VALUES (false,'demo','Paper craft','Discuss paper models, folding, and works in progress.',4000,100,75,100,10,0,0,0,0,0)
+INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,deletion_known_min_seconds,deletion_unknown_min_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds)
+VALUES ('demo','Paper craft','Discuss paper models, folding, and works in progress.',4000,100,75,100,10,0,0,0,0,0)
 ON CONFLICT (slug) DO NOTHING;
 -- Deliberately separate HTTP and source clocks in this immutable demo row.
 INSERT INTO content.threads(id,board,created_at,bumped_at,modified_at,http_modified_at,reply_count)
@@ -46,3 +46,17 @@ UPDATE content.posts SET comment_format=0 WHERE board='demo' AND id IN (1000001,
 
 -- Active source OP_MARKUP overrides, including already-seeded boards.
 UPDATE content.boards SET op_markup=true WHERE slug IN ('qst','test');
+
+-- Historical upgrade tests load this file before CAPTCHA columns exist.
+-- On the current schema, opt out only the three exact owned posting fixtures.
+DO $fixture_captcha$
+BEGIN
+ IF EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='content.boards'::regclass
+            AND attname='captcha_enabled' AND NOT attisdropped) THEN
+   UPDATE content.boards SET captcha_enabled=false WHERE (slug,title,description) IN (
+     ('fixture','Test fixtures','Owned unfiltered posting fixtures.'),
+     ('demo','Paper craft','Discuss paper models, folding, and works in progress.'),
+     ('limit','Small limits','Synthetic concurrency tests: three replies per thread.')
+   );
+ END IF;
+END $fixture_captcha$;

@@ -4,7 +4,8 @@ Issue [#199](https://github.com/frankischilling/26chan/issues/199) is in progres
 Board policy, tickets, protected writes, and public challenge exchange are
 implemented, along with normal posting, Quick Reply, and report controls.
 Classic forms also carry server-rendered challenges for no-JavaScript submission.
-Browser qualification and full-workspace CI remain pending. Email verification
+The Linux and Windows CAPTCHA browser suites pass; final full-workspace CI
+remains a merge prerequisite. Email verification
 is covered in [public verification](public-verification.md).
 
 ## Board policy
@@ -75,9 +76,10 @@ challenge. Reloads reuse the original ticket start. Classic-provider boards
 request a non-slider replacement directly, without the Twister ticket protocol.
 A disabled board returns an explicit disabled result. HTTP tests cover these
 branches, ticket expiry, the trusted-score threshold, and ticket challenges
-being rejected as posting proofs. Browser integration remains unfinished.
+being rejected as posting proofs. The browser controller keeps ticket answers
+separate from ordinary submission fields.
 
-## Validation and remaining work
+## Ticket validation
 
 Domain tests cover wait boundaries, future timestamps, and separation from
 challenge, email, and receipt tokens. Database tests cover ticket reuse,
@@ -297,9 +299,12 @@ the locked production build or browser qualification.
 The hosted browser suite now includes posting, reporting, classic/no-script,
 credits, tickets, expiry, failure, and Quick Reply cases. These are synthetic UI
 fixtures using the production template, modules, and CSP; real database proof
-consumption is tested separately. Browser results and full-workspace CI are
-still pending. Unrelated tests opt out only on their owned fixture boards;
-production defaults and dedicated challenge tests retain the gate.
+consumption is tested separately. All 21 verification/CAPTCHA browser cases
+passed on Linux and Windows in [run 38881524160](https://github.com/frankischilling/26chan/actions/runs/38881524160),
+and the desktop/mobile captures were reviewed. Full-workspace qualification of
+the final head is still required before merge. Unrelated tests opt out only on
+their owned fixture boards; production defaults and dedicated challenge tests
+retain the gate.
 
 Source-specific browser cases keep their original board names when those names
 are part of the behavior being tested. They use an explicit per-test CAPTCHA
@@ -321,3 +326,9 @@ Issuer readiness checks the login identity before calling issuer-only database
 functions. A mailer or public connection is rejected as an unsafe role without
 relying on PostgreSQL's evaluation order for `AND` expressions. The delivery
 integration test covers this separation alongside its receipt and lease checks.
+
+The shared demo seed remains loadable before migration 0165. Its CAPTCHA
+opt-outs run only when that column exists and match each synthetic board's slug,
+title, and description. Historical upgrade tests keep their earlier schemas.
+The still-image HTTP fixture retains the real `/aco/` name required by the
+pinned decoder policy and restores its original CAPTCHA flag after the case.
