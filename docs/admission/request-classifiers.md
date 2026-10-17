@@ -241,8 +241,11 @@ records logging, response and random calls through local stubs. It never loads
 the application or connects to storage. Its 13,280 cases compare outcomes,
 ordered event names and exact draw ranges, including combined markers, pending
 activity, new-user mask suppression, known/trusted/verified distinctions and disabled source branches.
-These cases do not qualify logging payloads, database effects or a production
-random generator.
+These cases do not qualify logging payloads or database effects. The native
+draw adapter uses the same bounded rejection-sampling helper as dice and
+fortunes, driven by system entropy. It accepts only the two source ranges and
+returns unavailable on entropy failure or invalid output. It preserves uniform
+threshold probabilities, not PHP global PRNG seeds or cross-request sequences.
 
 Thread text, browser-ID, country and timing-cookie providers are checked only
 when reached. Input bounds are stricter than this source prefix; exceeding them

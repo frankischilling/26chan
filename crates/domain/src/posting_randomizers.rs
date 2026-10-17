@@ -247,7 +247,7 @@ pub fn generate(request: &Request) -> Result<Outcome, GenerationError> {
     generate_with(request, |upper| random_below(&random, upper))
 }
 
-fn random_below(random: &dyn SecureRandom, upper: u32) -> Result<u32, GenerationError> {
+pub(crate) fn random_below(random: &dyn SecureRandom, upper: u32) -> Result<u32, GenerationError> {
     if upper == 0 {
         return Err(GenerationError::InvalidRequest);
     }

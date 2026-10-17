@@ -1,9 +1,11 @@
 //! Ordered late posting checks before the optional edge/history classifiers.
 //! Facts are server-qualified; this module neither authenticates nor persists.
 pub mod history;
+mod random;
 use crate::content_admission::{AdmissionError, network::ProviderValue, threat::Score};
 use crate::{BoardSlug, anonymous_session::State};
 use ProviderValue::{Available as A, Unavailable as U};
+pub use random::NativeRandom;
 
 /// Only the qualified scorer can construct production numeric evidence.
 #[derive(Clone, Copy)]
