@@ -590,7 +590,7 @@ async fn mixed_dispositions_keep_each_origin_and_exclude_reporter_cleared_or_unc
                 );
                 assert_eq!(group.representative.state, "dismissed");
                 assert_eq!(
-                    group.representative.group_cleared_at.timestamp(),
+                    group.representative.group_cleared_at.unwrap().timestamp(),
                     1_600_000_001
                 );
                 assert!(group.representative.group_clear_inherited);
@@ -687,7 +687,7 @@ async fn mixed_dispositions_keep_each_origin_and_exclude_reporter_cleared_or_unc
                     ] {
                         assert_eq!(record.id, id);
                         assert_eq!(record.state, state);
-                        assert_eq!(record.group_cleared_at.timestamp(), time);
+                        assert_eq!(record.group_cleared_at.unwrap().timestamp(), time);
                         assert_eq!(record.group_cleared_by, Some(actor));
                         assert!(!record.group_clear_inherited);
                         let article = report_article(&html, id);
@@ -1154,7 +1154,7 @@ async fn group_selection_member_evidence_and_categories_share_one_read_snapshot(
             assert_eq!(group.representative.id, selected_id);
             assert_eq!(group.representative.state, "resolved");
             assert!(group.representative.group_clear_inherited);
-            assert_eq!(group.representative.group_cleared_at.timestamp(), 1_600_000_001);
+            assert_eq!(group.representative.group_cleared_at.unwrap().timestamp(), 1_600_000_001);
             let summary = group.moderator_summary.as_ref().unwrap();
             assert_eq!(summary.report_count, 2);
             assert_eq!(summary.additional_members.iter().map(|r| r.id).collect::<Vec<_>>(), vec![first]);
@@ -1170,7 +1170,7 @@ async fn group_selection_member_evidence_and_categories_share_one_read_snapshot(
             let group = &after.groups[1];
             assert_eq!(group.representative.id, new_reports[0]);
             assert_eq!(group.representative.state, "dismissed");
-            assert_eq!(group.representative.group_cleared_at.timestamp(), 1_700_000_002);
+            assert_eq!(group.representative.group_cleared_at.unwrap().timestamp(), 1_700_000_002);
             assert!(!group.representative.group_clear_inherited);
             let summary = group.moderator_summary.as_ref().unwrap();
             assert_eq!(summary.report_count, 2);
@@ -1181,6 +1181,93 @@ async fn group_selection_member_evidence_and_categories_share_one_read_snapshot(
             assert!(!summary.categories_truncated);
         }).await.expect("bounded concurrent history snapshot check completed");
     }}).await;
+    f.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn automatic_clear_labels_group_without_replacing_each_reports_actor() {
+    let _serial = TEST.lock().await;
+    let f = Fixture::new().await;
+    let result = tokio::spawn({
+        let f = f.clone();
+        async move {
+            let manual = f
+                .cleared(
+                    0,
+                    f.posts[0],
+                    "resolved",
+                    "OwnedManualAutoHistory",
+                    Some((0, 1)),
+                )
+                .await;
+            f.mark(manual, 1600000000, 7123456789, false).await;
+            let automatic = f
+                .report(0, f.posts[0], "open", "OwnedAutoOnlyHistory", Some((0, 2)))
+                .await;
+            let retired_post = f.post(0, "Owned retired automatic report target").await;
+            let retired = f
+                .report(0, retired_post, "open", "OwnedRetiredAutoHistory", None)
+                .await;
+            let mut tx = f.owner.begin().await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_restriction_owner")
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            for post in [f.posts[0], retired_post] {
+                sqlx::query("SELECT post_secrets.auto_clear_post_reports($1,$2)")
+                    .bind(&f.boards[0])
+                    .bind(post)
+                    .execute(&mut *tx)
+                    .await
+                    .unwrap();
+            }
+            tx.commit().await.unwrap();
+            sqlx::query(
+                "UPDATE content.reports SET reporter_cleared_at=clock_timestamp() WHERE id=$1",
+            )
+            .bind(retired)
+            .execute(&f.owner)
+            .await
+            .unwrap();
+            let page = f.page("moderator", 0).await;
+            assert_eq!(page.groups.len(), 1);
+            let group = &page.groups[0];
+            assert!(group.automatic_clear);
+            assert_eq!(group.representative.id, automatic);
+            assert_eq!(group.representative.group_cleared_by, None);
+            assert_eq!(group.representative.group_cleared_at, None);
+            assert!(group.representative.auto_cleared_at.is_some());
+            let old = &group.moderator_summary.as_ref().unwrap().additional_members[0];
+            assert_eq!(old.id, manual);
+            assert_eq!(old.group_cleared_by, Some(7123456789));
+            assert_eq!(old.group_cleared_at.unwrap().timestamp(), 1600000000);
+            f.role("moderator", &f.boards, &[]).await;
+            let html = f.history(0).await;
+            assert!(html.contains("Auto-clear"));
+            assert!(html.contains("Originating clear account: 7123456789"));
+            assert!(!html.contains("Originating clear account: 0"));
+            assert!(!html.contains("OwnedRetiredAutoHistory"));
+            let (status, open) = f
+                .request(&format!("/reports?board={}", f.boards[0]), None)
+                .await;
+            assert_eq!(status, StatusCode::OK);
+            assert!(!open.contains("OwnedAutoOnlyHistory"));
+            f.role("janitor", &f.boards, &[]).await;
+            let html = f.history(0).await;
+            for hidden in [
+                "7123456789",
+                "Originating clear account",
+                "Auto-clear",
+                "OwnedManualAutoHistory",
+                "OwnedAutoOnlyHistory",
+            ] {
+                assert!(!html.contains(hidden), "Janitor leaked {hidden}");
+            }
+            assert!(!html.contains("Automatic clear time:"));
+        }
+    })
+    .await;
     f.cleanup().await;
     result.unwrap();
 }

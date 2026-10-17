@@ -529,6 +529,7 @@ AND NOT EXISTS (
         ('reports','reporter_cleared_at','SELECT'),('reports','reporter_cleared_at','UPDATE'),
         ('reports','board','SELECT'),('reports','post_id','SELECT'),
         ('reports','group_cleared_at','SELECT'),('reports','group_cleared_at','UPDATE'),
+        ('reports','auto_cleared_at','SELECT'),('reports','auto_cleared_at','UPDATE'),
         ('reports','group_cleared_by','SELECT'),('reports','group_cleared_by','UPDATE'),
         ('reports','group_clear_inherited','SELECT'),('reports','group_clear_inherited','UPDATE'),
         ('boards','worksafe','SELECT'),('post_media','post_id','SELECT'),
@@ -794,9 +795,30 @@ AND EXISTS (
       AND lower(translate(pg_catalog.pg_get_expr(i.indpred,i.indrelid),' ()',''))
           ='group_cleared_atisnotnullandreporter_cleared_atisnull'
 )
+AND EXISTS (
+    SELECT 1 FROM relations c
+    JOIN pg_catalog.pg_index i ON i.indrelid=c.oid
+    JOIN pg_catalog.pg_class index_relation ON index_relation.oid=i.indexrelid
+    JOIN pg_catalog.pg_am method ON method.oid=index_relation.relam
+    WHERE c.nspname='content' AND c.relname='reports'
+      AND index_relation.relname='reports_auto_clear_history'
+      AND index_relation.relnamespace=(SELECT oid FROM pg_catalog.pg_namespace WHERE nspname='content')
+      AND index_relation.relkind='i' AND index_relation.relpersistence='p'
+      AND index_relation.relowner=c.relowner AND method.amname='btree'
+      AND NOT i.indisprimary AND NOT i.indisunique AND NOT i.indisexclusion
+      AND i.indisvalid AND i.indisready AND i.indislive AND i.indimmediate
+      AND i.indnkeyatts=2 AND i.indnatts=2 AND i.indexprs IS NULL
+      AND i.indkey[0]=(SELECT a.attnum FROM pg_catalog.pg_attribute a
+          WHERE a.attrelid=c.oid AND a.attname='board' AND a.attnum>0 AND NOT a.attisdropped)
+      AND i.indkey[1]=(SELECT a.attnum FROM pg_catalog.pg_attribute a
+          WHERE a.attrelid=c.oid AND a.attname='id' AND a.attnum>0 AND NOT a.attisdropped)
+      AND i.indoption::text='0 3'
+      AND lower(translate(pg_catalog.pg_get_expr(i.indpred,i.indrelid),' ()',''))
+          ='auto_cleared_atisnotnullandreporter_cleared_atisnull'
+)
 AND NOT EXISTS (
     SELECT 1 FROM (VALUES ('reports','reporter_cleared_at','timestamptz'),
-        ('reports','group_cleared_at','timestamptz'),
+        ('reports','group_cleared_at','timestamptz'),('reports','auto_cleared_at','timestamptz'),
         ('reports','group_cleared_by','int8'),('reports','group_clear_inherited','bool'),
         ('moderation_audit','reporter_clear_count','int8'),
         ('moderation_audit','group_clear_count','int8')) AS required(table_name,column_name,type_name)
@@ -830,12 +852,12 @@ AND EXISTS (
       AND NOT has_table_privilege(r.oid,c.oid,'UPDATE,TRUNCATE')
       AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
           WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
-            AND a.attname NOT IN ('reporter_cleared_at','group_cleared_at','group_cleared_by','group_clear_inherited')
+            AND a.attname NOT IN ('reporter_cleared_at','group_cleared_at','group_cleared_by','group_clear_inherited','auto_cleared_at')
             AND has_column_privilege(r.oid,c.oid,a.attnum,'UPDATE'))
       AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute column_acl
           CROSS JOIN LATERAL pg_catalog.aclexplode(column_acl.attacl) a
           WHERE column_acl.attrelid=c.oid
-            AND column_acl.attname IN ('reporter_cleared_at','group_cleared_at','group_cleared_by','group_clear_inherited')
+            AND column_acl.attname IN ('reporter_cleared_at','group_cleared_at','group_cleared_by','group_clear_inherited','auto_cleared_at')
             AND (a.is_grantable OR a.grantee<>r.oid OR a.privilege_type NOT IN ('SELECT','UPDATE')))
 )
 AND NOT EXISTS (
@@ -934,4 +956,21 @@ AND NOT EXISTS (
           AND NOT has_schema_privilege(r.oid,n.oid,'CREATE')
     )
 )
-AND content.report_profile_ready()"#;
+AND content.report_profile_ready()
+AND EXISTS (
+ SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ JOIN pg_language l ON l.oid=p.prolang
+ WHERE n.nspname='post_secrets' AND p.proname='auto_clear_post_reports'
+  AND p.proowner='board_report_admission_owner'::regrole AND p.proargtypes='25 20'::oidvector
+  AND p.prorettype='pg_catalog.int8'::regtype AND p.prokind='f' AND p.prosecdef
+  AND p.provolatile='v' AND NOT p.proretset AND NOT p.proisstrict AND NOT p.proleakproof
+  AND p.proparallel='u' AND l.lanname='plpgsql' AND p.pronargdefaults=0 AND p.provariadic=0
+  AND cardinality(p.proconfig)=1 AND replace(p.proconfig[1],' ','')='search_path=pg_catalog,pg_temp'
+  AND has_function_privilege('board_restriction_owner',p.oid,'EXECUTE')
+  AND has_schema_privilege('board_restriction_owner','post_secrets','USAGE')
+  AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname IN('board_public','board_staff','board_auth','board_migrator',
+   'board_media','board_media_read','board_media_intake','board_monitor','board_verifier','board_mailer','board_moderation_retention')
+   AND has_function_privilege(r.oid,p.oid,'EXECUTE'))
+  AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+   WHERE a.is_grantable OR a.grantee NOT IN(p.proowner,'board_restriction_owner'::regrole))
+)"#;

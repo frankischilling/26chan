@@ -2024,3 +2024,217 @@ async fn qualified_report_profiles_preserve_unknown_authority_and_scope() {
     })
     .await;
 }
+
+async fn auto_clear(f: &Fixture, target: usize, commit: bool) -> i64 {
+    let mut tx = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let count = sqlx::query_scalar("SELECT post_secrets.auto_clear_post_reports($1,$2)")
+        .bind(&f.boards[0])
+        .bind(f.posts[0][target])
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    if commit {
+        tx.commit().await.unwrap();
+    } else {
+        tx.rollback().await.unwrap();
+    }
+    count
+}
+async fn challenge_history(f: &Fixture) -> String {
+    let mut tx = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let value=sqlx::query_scalar("SELECT md5(coalesce(jsonb_agg(to_jsonb(h) ORDER BY actor_hash),'[]')::text) FROM verification_private.report_history h")
+        .fetch_one(&mut *tx).await.unwrap();
+    tx.rollback().await.unwrap();
+    value
+}
+#[tokio::test]
+async fn source_auto_clear_is_unweighted_atomic_and_does_not_record_clear_credits() {
+    run(|f|async move {
+        let first=f.admit(0,0,&actor()).await.unwrap();
+        let other=f.admit(0,1,&actor()).await.unwrap();
+        let before=f.file_action_snapshot().await;
+        let history=challenge_history(&f).await;
+        assert_eq!(auto_clear(&f,0,false).await,1);
+        assert_eq!(f.file_action_snapshot().await,before);
+        assert_eq!(auto_clear(&f,0,true).await,1);
+        assert_eq!(challenge_history(&f).await,history);
+        let row:(Option<i64>,Option<bool>,bool)=sqlx::query_as("SELECT group_cleared_by,group_clear_inherited,auto_cleared_at IS NOT NULL FROM content.reports WHERE id=$1")
+            .bind(first).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(row,(None,None,true));
+        let unaffected:Option<i64>=sqlx::query_scalar("SELECT group_cleared_by FROM content.reports WHERE id=$1")
+            .bind(other).fetch_one(&f.owner).await.unwrap();assert_eq!(unaffected,None);
+        let mut tx=f.owner.begin().await.unwrap();private_role(&mut tx).await;
+        let weight:Option<f64>=sqlx::query_scalar("SELECT effective_weight FROM post_secrets.report_weight_evidence WHERE report_id=$1")
+            .bind(first).fetch_one(&mut *tx).await.unwrap();assert_eq!(weight,None);tx.rollback().await.unwrap();
+        let later_actor=actor();
+        let later=f.admit(0,0,&later_actor).await.unwrap();
+        let inherited:(Option<i64>,Option<bool>,bool)=sqlx::query_as("SELECT group_cleared_by,group_clear_inherited,auto_cleared_at IS NOT NULL FROM content.reports WHERE id=$1")
+            .bind(later).fetch_one(&f.owner).await.unwrap();assert_eq!(inherited,(None,None,true));
+        assert_ne!(challenge_history(&f).await,history,"Later inherited clear must record its own history");
+        let mut tx=f.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *tx).await.unwrap();
+        let inherited_event:bool=sqlx::query_scalar("SELECT last_cleared_at IS NOT NULL FROM verification_private.report_history WHERE actor_hash=$1")
+            .bind(later_actor.as_bytes()).fetch_one(&mut *tx).await.unwrap();
+        assert!(inherited_event,"Automatic inheritance omitted source clear event");
+        tx.rollback().await.unwrap();
+        let history=challenge_history(&f).await;
+        assert_eq!(auto_clear(&f,0,true).await,2);
+        assert_eq!(challenge_history(&f).await,history);
+        let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.reports WHERE board=$1 AND post_id=$2 AND auto_cleared_at IS NOT NULL AND group_cleared_by IS NULL AND group_clear_inherited IS NULL")
+            .bind(&f.boards[0]).bind(f.posts[0][0]).fetch_one(&f.owner).await.unwrap();assert_eq!(count,2);
+        assert_eq!(auto_clear(&f,2,true).await,0);
+        assert_eq!(f.counts().await,(3,3));
+    }).await;
+}
+#[tokio::test]
+async fn automatic_clear_has_no_runtime_entry_point_and_rejects_catalog_drift() {
+    run(|f|async move {
+        for variable in ["TEST_PUBLIC_DATABASE_URL","STAFF_DATABASE_URL","AUTH_DATABASE_URL"] {
+            let pool=PgPool::connect(&std::env::var(variable).unwrap()).await.unwrap();
+            let error=sqlx::query("SELECT post_secrets.auto_clear_post_reports($1,$2)").bind(&f.boards[0]).bind(f.posts[0][0]).execute(&pool).await.unwrap_err();
+            assert_eq!(code(&error),"42501");pool.close().await;
+        }
+        let mut tx=f.owner.begin().await.unwrap();private_role(&mut tx).await;
+        sqlx::query("GRANT EXECUTE ON FUNCTION post_secrets.auto_clear_post_reports(text,bigint) TO board_public").execute(&mut *tx).await.unwrap();
+        let ready:bool=sqlx::query_scalar("SELECT content.report_profile_ready()").fetch_one(&mut *tx).await.unwrap();assert!(!ready);
+        sqlx::query("RESET ROLE").execute(&mut *tx).await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *tx).await.unwrap();
+        let error=sqlx::query("SELECT post_secrets.auto_clear_post_reports($1,$2)").bind(&f.boards[0]).bind(f.posts[0][0]).execute(&mut *tx).await.unwrap_err();
+        assert_eq!(code(&error),"P201U");tx.rollback().await.unwrap();
+    }).await;
+}
+
+#[tokio::test]
+async fn automatic_clear_refuses_conflicting_board_locks_and_stronger_isolation() {
+    run(|f| async move {
+        f.admit(0, 0, &actor()).await.unwrap();
+        let before = f.file_action_snapshot().await;
+        let mut holder = f.owner.begin().await.unwrap();
+        sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR SHARE")
+            .bind(&f.boards[0])
+            .execute(&mut *holder)
+            .await
+            .unwrap();
+        let mut tx = f.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            sqlx::query("SELECT post_secrets.auto_clear_post_reports($1,$2)")
+                .bind(&f.boards[0])
+                .bind(f.posts[0][0])
+                .execute(&mut *tx),
+        )
+        .await
+        .unwrap()
+        .unwrap_err();
+        assert_eq!(code(&error), "55P03");
+        tx.rollback().await.unwrap();
+        holder.rollback().await.unwrap();
+        assert_eq!(f.file_action_snapshot().await, before);
+        for isolation in [
+            "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ",
+            "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE",
+        ] {
+            let mut tx = f.owner.begin().await.unwrap();
+            sqlx::query(isolation).execute(&mut *tx).await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_restriction_owner")
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            let error = sqlx::query("SELECT post_secrets.auto_clear_post_reports($1,$2)")
+                .bind(&f.boards[0])
+                .bind(f.posts[0][0])
+                .execute(&mut *tx)
+                .await
+                .unwrap_err();
+            assert_eq!(code(&error), "22023");
+            tx.rollback().await.unwrap();
+        }
+        assert_eq!(f.file_action_snapshot().await, before);
+        assert_eq!(auto_clear(&f, 0, true).await, 1);
+    })
+    .await;
+}
+#[tokio::test]
+async fn automatic_clear_accepts_its_exact_bound_and_refuses_one_more_without_partial_updates() {
+    run(|f|async move {
+        sqlx::query("INSERT INTO content.reports(board,post_id,reason) SELECT $1,$2,'Owned automatic-clear bound' FROM generate_series(1,10000)")
+            .bind(&f.boards[0]).bind(f.posts[0][0]).execute(&f.owner).await.unwrap();
+        assert_eq!(auto_clear(&f,0,true).await,10000);
+        let before:chrono::DateTime<Utc>=sqlx::query_scalar("SELECT min(auto_cleared_at) FROM content.reports WHERE board=$1 AND post_id=$2")
+            .bind(&f.boards[0]).bind(f.posts[0][0]).fetch_one(&f.owner).await.unwrap();
+        sqlx::query("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Owned over-bound report')")
+            .bind(&f.boards[0]).bind(f.posts[0][0]).execute(&f.owner).await.unwrap();
+        let mut tx=f.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *tx).await.unwrap();
+        let error=sqlx::query("SELECT post_secrets.auto_clear_post_reports($1,$2)").bind(&f.boards[0]).bind(f.posts[0][0]).execute(&mut *tx).await.unwrap_err();
+        assert_eq!(code(&error),"54000");tx.rollback().await.unwrap();
+        let counts:(i64,i64,i64)=sqlx::query_as("SELECT count(*),count(*) FILTER(WHERE auto_cleared_at=$3),count(*) FILTER(WHERE auto_cleared_at IS NULL) FROM content.reports WHERE board=$1 AND post_id=$2")
+            .bind(&f.boards[0]).bind(f.posts[0][0]).bind(before).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(counts,(10001,10000,1));
+        assert!(!f.group_exists(0,0).await);
+        sqlx::query("DELETE FROM content.reports WHERE board=$1 AND post_id=$2").bind(&f.boards[0]).bind(f.posts[0][0]).execute(&f.owner).await.unwrap();
+    }).await;
+}
+
+#[tokio::test]
+async fn automatic_clear_preserves_manual_attribution_and_inherits_retained_legacy_evidence() {
+    run(|f| async move {
+        for target in 0..2 {
+            let first = if target == 0 {
+                f.admit(0, target, &actor()).await.unwrap()
+            } else {
+                sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Owned legacy attribution') RETURNING id")
+                    .bind(&f.boards[0]).bind(f.posts[0][target]).fetch_one(&f.owner).await.unwrap()
+            };
+            let mut tx = f.owner.begin().await.unwrap();
+            private_role(&mut tx).await;
+            sqlx::query("UPDATE content.reports SET group_cleared_at=to_timestamp(1600000000),group_cleared_by=7123,group_clear_inherited=false WHERE id=$1")
+                .bind(first).execute(&mut *tx).await.unwrap();
+            sqlx::query("UPDATE post_secrets.report_group SET cleared_at=to_timestamp(1600000000),cleared_by=7123 WHERE board=$1 AND post_id=$2")
+                .bind(&f.boards[0]).bind(f.posts[0][target]).execute(&mut *tx).await.unwrap();
+            tx.commit().await.unwrap();
+            let before:serde_json::Value=sqlx::query_scalar("SELECT to_jsonb(r)-'auto_cleared_at' FROM content.reports r WHERE id=$1")
+                .bind(first).fetch_one(&f.owner).await.unwrap();
+            assert_eq!(auto_clear(&f,target,true).await,1);
+            let after:serde_json::Value=sqlx::query_scalar("SELECT to_jsonb(r)-'auto_cleared_at' FROM content.reports r WHERE id=$1")
+                .bind(first).fetch_one(&f.owner).await.unwrap();
+            assert_eq!(before,after,"Automatic clear rewrote manual provenance");
+            if target == 1 { assert!(!f.group_exists(0,target).await); }
+            let later=f.admit(0,target,&actor()).await.unwrap();
+            let inherited:(i64,i64,bool,bool)=sqlx::query_as("SELECT group_cleared_by,extract(epoch FROM group_cleared_at)::bigint,group_clear_inherited,auto_cleared_at IS NOT NULL FROM content.reports WHERE id=$1")
+                .bind(later).fetch_one(&f.owner).await.unwrap();
+            assert_eq!(inherited,(7123,1600000000,true,true));
+            let history=challenge_history(&f).await;
+            let staff=PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap()).await.unwrap();
+            let cleared:i64=sqlx::query_scalar("SELECT content.clear_report_group($1,$2,9999)")
+                .bind(&f.boards[0]).bind(f.posts[0][target]).fetch_one(&staff).await.unwrap();
+            assert_eq!(cleared,0);
+            staff.close().await;
+            assert_eq!(challenge_history(&f).await,history);
+        }
+        // Source reporter purge deletes these rows. Native retained audit must
+        // not confer inherited clear state on a later new group lifetime.
+        let retired:i64=sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Owned retired legacy') RETURNING id")
+            .bind(&f.boards[0]).bind(f.posts[0][2]).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(auto_clear(&f,2,true).await,1);
+        sqlx::query("UPDATE content.reports SET reporter_cleared_at=clock_timestamp() WHERE id=$1")
+            .bind(retired).execute(&f.owner).await.unwrap();
+        assert_eq!(auto_clear(&f,2,true).await,0);
+        let later=f.admit(0,2,&actor()).await.unwrap();
+        let open:bool=sqlx::query_scalar("SELECT auto_cleared_at IS NULL AND group_cleared_at IS NULL FROM content.reports WHERE id=$1")
+            .bind(later).fetch_one(&f.owner).await.unwrap();
+        assert!(open);
+    }).await;
+}

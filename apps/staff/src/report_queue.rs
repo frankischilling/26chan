@@ -79,7 +79,7 @@ const SELECT_GROUPS: &str = r#"
         JOIN content.boards b ON b.slug=p.board
         WHERE ('all'=ANY($1) OR r.board=ANY($1)) AND NOT r.board=ANY($2)
           AND NOT p.deleted AND NOT t.deleted
-          AND r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL
+          AND r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL AND r.auto_cleared_at IS NULL
           AND ($3::text IS NULL OR r.board=$3)
           AND ($4::boolean IS NULL OR b.worksafe=$4)
     )
@@ -126,7 +126,7 @@ const SELECT_CATEGORIES: &str = r#"
         SELECT r.board,r.post_id,r.category_revision AS revision,
                r.category_id AS id,r.category_kind AS kind,r.reason AS title
         FROM content.reports r
-        WHERE r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL
+        WHERE r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL AND r.auto_cleared_at IS NULL
           AND r.category_id IS NOT NULL
           AND r.board=ANY($1::text[]) AND r.post_id=ANY($2::bigint[])
     ), categories AS (

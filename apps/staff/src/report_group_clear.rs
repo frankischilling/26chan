@@ -268,6 +268,7 @@ mod tests {
             has_more: true,
             groups: vec![crate::cleared_report_queue::ClearedReportGroup {
                 preview: None,
+                automatic_clear: false,
                 post_id: 42,
                 representative: crate::store::ClearedReport {
                     id: 2,
@@ -275,7 +276,8 @@ mod tests {
                     reason: Some("<script>alert(1)</script>".into()),
                     category_id: Some(3),
                     state: "open".into(),
-                    group_cleared_at: chrono::DateTime::from_timestamp(1_700_000_000, 0).unwrap(),
+                    group_cleared_at: chrono::DateTime::from_timestamp(1_700_000_000, 0),
+                    auto_cleared_at: None,
                     group_cleared_by: Some(7654321),
                     group_clear_inherited: true,
                 },
@@ -288,8 +290,8 @@ mod tests {
                             reason: Some("<img src=x onerror=additional-record>".into()),
                             category_id: Some(4),
                             state: "dismissed".into(),
-                            group_cleared_at: chrono::DateTime::from_timestamp(1_600_000_000, 0)
-                                .unwrap(),
+                            group_cleared_at: chrono::DateTime::from_timestamp(1_600_000_000, 0),
+                            auto_cleared_at: None,
                             group_cleared_by: Some(6543210),
                             group_clear_inherited: false,
                         }],
@@ -306,10 +308,17 @@ mod tests {
             }],
         };
         let html = history.render().unwrap();
+        history.groups[0].automatic_clear = true;
+        history.groups[0].representative.auto_cleared_at =
+            chrono::DateTime::from_timestamp(1_700_000_001, 0);
+        let automatic = history.render().unwrap();
+        assert!(automatic.contains("Auto-clear"));
+        assert!(automatic.contains("Originating clear account: 7654321"));
         history.moderator = false;
         let janitor = history.render().unwrap();
         for forbidden in [
             "7654321",
+            "Auto-clear",
             "Originating clear account",
             "Reason:",
             "Category:",

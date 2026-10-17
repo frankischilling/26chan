@@ -28,9 +28,9 @@ restriction catalog has changed.
 
 Staff use `/ban?board=BOARD&target=POST` to issue a restriction. `/ban/unban`
 retires a restriction after checking its stored board's current authority.
-The report queue links live posts to the form. These forms provide manual
-reasons and durations; source template selection and combined post actions
-remain unfinished.
+The report queue links live posts to the form. These forms provide manual reasons and durations and operator-configured
+[template presets](restriction-templates.md). Combined post actions remain
+unfinished.
 
 `/banned?board=BOARD` returns only the requesting transport or valid stored
 automatic identity's public reasons and restriction dates. Its native viewing
@@ -168,9 +168,10 @@ local status link; exact original rendering remains unqualified.
 
 ## Remaining implementation
 
-Report range/ASN restrictions and account/Pass flows still need their source
-rules and authoritative identity/entitlement binding. Reason/length templates,
-post notices, other combined post actions,
+Report range/ASN rules are implemented through the request-bound network
+admission path, and configured reason/duration presets are available.
+Account/Pass flows still need authoritative identity and entitlement binding.
+Post notices and other combined post actions,
 the public recent-ban sample, janitor requests and special restriction types
 remain unfinished. Concurrent issuance, revocation and viewing need broader
 runtime qualification before this issue can close.

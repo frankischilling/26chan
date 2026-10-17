@@ -351,6 +351,13 @@ DO $$ BEGIN IF content.report_profile_ready() IS DISTINCT FROM true THEN
  RAISE EXCEPTION 'Report profile catalog is unavailable'; END IF; END $$;
 SQL
 fi
+# Automatic clear metadata starts NULL; preserve the historical row baseline.
+if [[ -f migrations/0202_automatic_report_clear.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('auto_cleared_at',NULL)
+WHERE relation='content.reports';
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
