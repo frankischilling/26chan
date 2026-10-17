@@ -13,7 +13,7 @@ export const PREVIEW_LIMITS = Object.freeze({ bytes: 262144, nodes: 16384, depth
   requestMs: 5000, parseMs: 1000, intervalMs: 300, companions: 4096 });
 const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'sideArrows', 'post',
   'op', 'reply', 'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'imgspoiler', 'fileDeleted', 'fileDeletedRes',
-  'postMessage', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions',
+  'postMessage', 'post-notice', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions',
   'fortune', 'fortune-0', 'fortune-1', 'fortune-2', 'fortune-3', 'fortune-4', 'fortune-5', 'fortune-6',
   'fortune-7', 'fortune-8', 'fortune-9', 'fortune-10', 'fortune-11', 'fortune-12']);
 const attributes = {
@@ -175,6 +175,12 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       // nested links, resources or controls. Do not grant deadlink to anchors.
       require(comment && !link && node.tag === 'span' && Object.keys(node.attrs).join(',') === 'class'
         && node.children.every(child => typeof child === 'string'));
+    }
+    if ((node.attrs.class || '').split(' ').includes('post-notice')) {
+      require(comment && !link && node.tag === 'strong' && node.attrs.class === 'post-notice'
+        && Object.keys(node.attrs).join(',') === 'class'
+        && node.children.every(child => typeof child === 'string')
+        && new TextEncoder().encode(node.children.join('')).length <= 4098);
     }
     const mobileLabel = node.tag === 'span' && ['name', 'subject'].includes(node.attrs.class) && Object.hasOwn(node.attrs, 'title');
     const fileTitle = node.tag === 'div' && node.attrs.class === 'fileText' && Object.hasOwn(node.attrs, 'title');

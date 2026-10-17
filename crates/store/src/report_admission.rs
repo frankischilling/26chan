@@ -957,6 +957,7 @@ AND NOT EXISTS (
     )
 )
 AND content.report_profile_ready()
+AND content.post_notices_ready()
 AND EXISTS (
  SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
  JOIN pg_language l ON l.oid=p.prolang

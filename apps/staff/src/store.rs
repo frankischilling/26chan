@@ -21,6 +21,7 @@ pub struct Report {
     pub flag_name: Option<String>,
     pub subject: String,
     pub comment: String,
+    pub staff_notices: Vec<String>,
     pub drawing_time_seconds: Option<i32>,
     pub drawing_source_post_id: Option<i64>,
     pub comment_format: i16,

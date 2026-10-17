@@ -146,3 +146,5 @@ body.publicPageChrome.is_catalog #boardNavDesktopFoot a:hover { color: rgb(255, 
   body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"]) #boardNavDesktopFoot a:hover { color: #5f89ac; border-bottom-color: #5f89ac; }
   body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"]) #footer-links a, body.publicPageChrome[data-post-headers="true"].m-dark:not(.is_catalog):not([data-native-never-mobile="true"]) #footer-links a:hover { color: #81a2be; border-bottom-color: #81a2be; }
 }
+
+.post-notice { color: red; }

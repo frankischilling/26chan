@@ -358,6 +358,13 @@ UPDATE public.upgraded_rows SET value=value||jsonb_build_object('auto_cleared_at
 WHERE relation='content.reports';
 SQL
 fi
+# Ordered notices are additive and must not backfill historical post content.
+if [[ -f migrations/0203_staff_post_notices.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('staff_notices','[]'::jsonb)
+WHERE relation='content.posts';
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)

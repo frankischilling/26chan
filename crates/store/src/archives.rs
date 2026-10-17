@@ -25,6 +25,7 @@ pub struct ArchivePageEntry {
     pub subject: String,
     pub archived_at: DateTime<Utc>,
     pub comment: String,
+    pub staff_notices: Vec<String>,
     pub drawing_time_seconds: Option<i32>,
     pub drawing_source_post_id: Option<i64>,
     #[sqlx(default)]
@@ -70,12 +71,12 @@ pub async fn archive_page_snapshot(
     // The lateral primary-key lookup prevents stale board statistics from
     // reversing the join into one full thread scan for every post. LIMIT 1
     // preserves the unique-ID join and keeps the post RLS policy in force.
-    let bytes: i64 = sqlx::query_scalar("SELECT coalesce(sum(body_bytes),0)::bigint FROM (SELECT octet_length(p.subject)::bigint+octet_length(p.comment)+coalesce(octet_length(p.wordfilter_payload),0)+coalesce(octet_length(p.wordfilter_search),0)+coalesce(octet_length(p.saved_presentation),0)+coalesce(octet_length(p.saved_presentation_search),0)+coalesce(octet_length(p.dice_result),0)+coalesce(octet_length(p.fortune_text),0)+coalesce(octet_length(p.fortune_color),0) AS body_bytes FROM content.visible_threads t JOIN LATERAL (SELECT p.* FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000) selected")
+    let bytes: i64 = sqlx::query_scalar("SELECT coalesce(sum(body_bytes),0)::bigint FROM (SELECT octet_length(p.subject)::bigint+octet_length(p.comment)+CASE WHEN cardinality(p.staff_notices)=0 THEN 0 ELSE octet_length(p.staff_notices::text) END+coalesce(octet_length(p.wordfilter_payload),0)+coalesce(octet_length(p.wordfilter_search),0)+coalesce(octet_length(p.saved_presentation),0)+coalesce(octet_length(p.saved_presentation_search),0)+coalesce(octet_length(p.dice_result),0)+coalesce(octet_length(p.fortune_text),0)+coalesce(octet_length(p.fortune_color),0) AS body_bytes FROM content.visible_threads t JOIN LATERAL (SELECT p.* FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000) selected")
         .bind(slug).fetch_one(&mut *tx).await?;
     if bytes > MAX_ARCHIVE_PAGE_READ_BYTES as i64 {
         return Err(StoreError::ReadLimit);
     }
-    let mut entries: Vec<ArchivePageEntry> = sqlx::query_as("SELECT t.id,p.subject,t.archived_at,p.comment,p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.saved_presentation,p.dice_result,p.fortune_text,p.fortune_color FROM content.visible_threads t JOIN LATERAL (SELECT p.* FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000")
+    let mut entries: Vec<ArchivePageEntry> = sqlx::query_as("SELECT t.id,p.subject,t.archived_at,p.comment,p.staff_notices,p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,p.staff_authorized_limits,p.wordfilter_payload,p.saved_presentation,p.dice_result,p.fortune_text,p.fortune_color FROM content.visible_threads t JOIN LATERAL (SELECT p.* FROM content.posts p WHERE p.board=t.board AND p.id=t.id LIMIT 1) p ON true WHERE t.board=$1 AND t.archived_at IS NOT NULL AND NOT p.deleted AND t.bumped_at>=transaction_timestamp()-interval '72 hours' ORDER BY t.bumped_at DESC,t.id DESC LIMIT 3000")
         .bind(slug).fetch_all(&mut *tx).await?;
     // Only the bounded HTML selection can contribute replay labels. Keep the
     // visibility/policy lookup in this snapshot; private replay rows stay hidden.

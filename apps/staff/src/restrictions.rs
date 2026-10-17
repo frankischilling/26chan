@@ -28,6 +28,8 @@ pub(crate) struct Ban {
     seconds: Option<i64>,
     public_reason: String,
     private_reason: String,
+    banmsg: Option<String>,
+    custombanmsg: Option<String>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -98,6 +100,7 @@ struct Page {
     recent: bool,
     restriction: Option<i64>,
     can_ban_thread: bool,
+    can_custom_notice: bool,
     templates: Vec<TemplateChoice>,
 }
 
@@ -127,7 +130,7 @@ fn database(error: sqlx::Error) -> AppError {
         Some("P134Q") => AppError::Recent,
         Some("P134N") => AppError::NotFound,
         Some("23514") => AppError::Invalid,
-        Some("P134C" | "P136R" | "55P03") => AppError::Capacity,
+        Some("P134C" | "P136R" | "55P03" | "54000") => AppError::Capacity,
         _ => AppError::Database(error),
     }
 }
@@ -150,6 +153,8 @@ pub(crate) async fn show(
             .permissions
             .can_ban_thread(&session.role, &context.board)
         && (!sticky || session.at_least(Level::Admin));
+    let can_custom_notice =
+        session.at_least(Level::Manager) || session.permissions.has_global_flag("banmsg");
     let recent = session.recent;
     let token = auth::hash(&auth::cookie(&headers, state.config.cookie_name())?);
     let templates =
@@ -168,6 +173,7 @@ pub(crate) async fn show(
         recent,
         restriction: context.restriction.filter(|id| *id > 0),
         can_ban_thread,
+        can_custom_notice,
         templates,
     }
     .render()
@@ -266,24 +272,45 @@ pub(crate) async fn issue(
     {
         return Err(AppError::Invalid);
     }
+    let notice_enabled = match input.banmsg.as_deref() {
+        None => false,
+        Some("1") => true,
+        _ => return Err(AppError::Invalid),
+    };
+    let custom_allowed =
+        session.at_least(Level::Manager) || session.permissions.has_global_flag("banmsg");
+    board_domain::post_notice::select(
+        notice_enabled,
+        warning,
+        custom_allowed,
+        input.custombanmsg.as_deref(),
+    )
+    .map_err(|_| AppError::Invalid)?;
+    let custom_notice = input
+        .custombanmsg
+        .as_deref()
+        .filter(|_| notice_enabled && custom_allowed);
     let token = auth::hash(&auth::cookie(&headers, state.config.cookie_name())?);
     // lock_session has already committed its activity update. The independent
     // definer now locks/revalidates real authority through the content commit.
-    let id: i64 =
-        sqlx::query_scalar("SELECT content.issue_post_restriction($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
-            .bind(token)
-            .bind(auth::hash(&input.csrf))
-            .bind(state.config.idle_timeout.as_secs() as i32)
-            .bind(&input.board)
-            .bind(input.target)
-            .bind(global)
-            .bind(warning)
-            .bind(seconds)
-            .bind(input.public_reason)
-            .bind(input.private_reason)
-            .fetch_one(&state.staff)
-            .await
-            .map_err(database)?;
+    let id: i64 = sqlx::query_scalar(
+        "SELECT content.issue_post_restriction_notice($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+    )
+    .bind(token)
+    .bind(auth::hash(&input.csrf))
+    .bind(state.config.idle_timeout.as_secs() as i32)
+    .bind(&input.board)
+    .bind(input.target)
+    .bind(global)
+    .bind(warning)
+    .bind(seconds)
+    .bind(input.public_reason)
+    .bind(input.private_reason)
+    .bind(notice_enabled)
+    .bind(custom_notice)
+    .fetch_one(&state.staff)
+    .await
+    .map_err(database)?;
     Ok(Redirect::to(&format!(
         "/ban?board={}&target={}&restriction={id}",
         input.board, input.target

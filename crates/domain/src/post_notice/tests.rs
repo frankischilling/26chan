@@ -53,3 +53,30 @@ fn disabled_and_unprivileged_custom_fields_do_not_gain_notice_authority() {
         WARNED
     );
 }
+
+#[test]
+fn saved_lists_preserve_order_duplicates_and_plain_text_with_exact_limits() {
+    let notices = vec!["first".into(), "<b>second</b>".into(), "first".into()];
+    assert_eq!(
+        super::plain_suffix(&notices).unwrap(),
+        "\n\n(first)\n\n(<b>second</b>)\n\n(first)"
+    );
+    assert_eq!(super::plain_suffix(&[]).unwrap(), "");
+    assert!(
+        super::validate_saved(&vec![
+            "x".repeat(super::MAX_NOTICE_BYTES);
+            super::MAX_NOTICES
+        ])
+        .is_ok()
+    );
+    for values in [
+        vec!["x".into(); super::MAX_NOTICES + 1],
+        vec![String::new()],
+        vec!["x\0y".into()],
+        vec!["x".repeat(super::MAX_NOTICE_BYTES + 1)],
+        vec!["猫".repeat(super::MAX_NOTICE_BYTES / 3 + 1)],
+    ] {
+        assert!(super::validate_saved(&values).is_err());
+        assert!(super::plain_suffix(&values).is_err());
+    }
+}

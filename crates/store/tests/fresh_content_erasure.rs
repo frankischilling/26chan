@@ -186,7 +186,7 @@ impl Fixture {
             board_domain::wordfiltered_comment::PreparedComment::decode(&payload).unwrap(),
             prepared
         );
-        sqlx::query("UPDATE content.posts SET name='Erase name sentinel',subject='Erase subject sentinel',comment=$3,trip='!1234567890',poster_id='AbCd1234',country='US',country_name='Erase country sentinel',comment_format=8,staff_authorized_limits=true,image_spoiler=true,wordfilter_payload=$2,wordfilter_search=$3,dice_result='Erase dice sentinel',created_at='2001-02-03 04:05:06+00' WHERE id=ANY($1)")
+        sqlx::query("UPDATE content.posts SET staff_notices=ARRAY['Erase notice sentinel'],name='Erase name sentinel',subject='Erase subject sentinel',comment=$3,trip='!1234567890',poster_id='AbCd1234',country='US',country_name='Erase country sentinel',comment_format=8,staff_authorized_limits=true,image_spoiler=true,wordfilter_payload=$2,wordfilter_search=$3,dice_result='Erase dice sentinel',created_at='2001-02-03 04:05:06+00' WHERE id=ANY($1)")
             .bind(&self.ids[..3]).bind(&payload).bind(&projection).execute(&self.owner).await.unwrap();
         sqlx::query("UPDATE content.posts SET json_op_poster_id='QrSt5678' WHERE id=$1")
             .bind(self.ids[0])
@@ -250,7 +250,7 @@ impl Fixture {
         for id in ids {
             let row = rows.iter().find(|p| p["id"] == *id).unwrap();
             let mut expected = json!({"id":id,"board":self.board,"thread_id":row["thread_id"],"deleted":true,"content_erased":true,
-                "name":"","subject":"","comment":"","created_at":"1970-01-01T00:00:00+00:00", "comment_format":0,
+                "name":"","subject":"","comment":"","staff_notices":[],"created_at":"1970-01-01T00:00:00+00:00", "comment_format":0,
                 "staff_authorized_limits":false,"image_spoiler":false,"file_deleted":false,"board_flag_type":"pol"});
             for key in [
                 "trip",
@@ -490,14 +490,14 @@ async fn tombstones_cannot_resurrect_repopulate_or_regain_authority_and_live_emp
         board_store::delete_post(&f.public,&f.board,f.ids[0]).await.unwrap();
         f.assert_erased(&f.ids[..3]).await;
             f.assert_thread_erased(f.ids[0]).await;
-        for query in ["UPDATE content.posts SET deleted=false WHERE id=$1", "UPDATE content.posts SET content_erased=false WHERE id=$1", "UPDATE content.posts SET file_deleted=true WHERE id=$1", "UPDATE content.posts SET comment='resurrected' WHERE id=$1", "UPDATE content.posts SET name='resurrected' WHERE id=$1", "UPDATE content.posts SET wordfilter_search='resurrected' WHERE id=$1", "UPDATE content.posts SET drawing_time_seconds=119 WHERE id=$1", "UPDATE content.posts SET drawing_time_seconds=119,drawing_source_post_id=1 WHERE id=$1", "UPDATE content.threads SET deleted=false WHERE id=$1", "UPDATE content.threads SET content_erased=false WHERE id=$1", "UPDATE content.threads SET bumped_at=clock_timestamp() WHERE id=$1"] {
+        for query in ["UPDATE content.posts SET deleted=false WHERE id=$1", "UPDATE content.posts SET content_erased=false WHERE id=$1", "UPDATE content.posts SET file_deleted=true WHERE id=$1", "UPDATE content.posts SET comment='resurrected' WHERE id=$1", "UPDATE content.posts SET name='resurrected' WHERE id=$1", "UPDATE content.posts SET wordfilter_search='resurrected' WHERE id=$1", "UPDATE content.posts SET staff_notices=ARRAY['restored'] WHERE id=$1", "UPDATE content.posts SET drawing_time_seconds=119 WHERE id=$1", "UPDATE content.posts SET drawing_time_seconds=119,drawing_source_post_id=1 WHERE id=$1", "UPDATE content.threads SET deleted=false WHERE id=$1", "UPDATE content.threads SET content_erased=false WHERE id=$1", "UPDATE content.threads SET bumped_at=clock_timestamp() WHERE id=$1"] {
             let error=sqlx::query(query).bind(f.ids[0]).execute(&f.owner).await.unwrap_err();
             assert_eq!(code(&error),"23514","{query}");
         }
         for pool in [&f.public,&f.staff] {
             let error=sqlx::query("UPDATE content.posts SET content_erased=false WHERE id=$1").bind(f.ids[0]).execute(pool).await.unwrap_err();
             assert_eq!(code(&error),"42501");
-            for query in ["UPDATE content.posts SET drawing_time_seconds=119 WHERE id=$1", "UPDATE content.posts SET drawing_source_post_id=1 WHERE id=$1"] {
+            for query in ["UPDATE content.posts SET staff_notices=ARRAY['restored'] WHERE id=$1", "UPDATE content.posts SET drawing_time_seconds=119 WHERE id=$1", "UPDATE content.posts SET drawing_source_post_id=1 WHERE id=$1"] {
                 let error=sqlx::query(query).bind(f.ids[3]).execute(pool).await.unwrap_err();
                 assert_eq!(code(&error),"42501","Erasure must not grant runtime drawing annotation authority");
             }

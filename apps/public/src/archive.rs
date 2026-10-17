@@ -25,6 +25,7 @@ pub struct Input<'a> {
     pub dice: Option<&'a str>,
     pub fortune: Option<(&'a str, &'a str)>,
     pub drawing: Option<&'a crate::views::DrawingAnnotation>,
+    pub notices: &'a [String],
 }
 
 pub fn prepare(input: Input<'_>) -> Prepared {
@@ -37,6 +38,7 @@ pub fn prepare(input: Input<'_>) -> Prepared {
         dice,
         fortune,
         drawing,
+        notices,
     } = input;
     let subject = subject.strip_prefix("SPOILER<>").unwrap_or(subject);
     let source_links =
@@ -90,6 +92,14 @@ pub fn prepare(input: Input<'_>) -> Prepared {
     }
     if let Some(drawing) = drawing {
         tokens.extend(drawing.tokens(" "));
+    }
+    for notice in notices {
+        tokens.extend([
+            Token::Text("  ".into()),
+            Token::GeneratedNotice(true),
+            Token::Text(format!("({notice})")),
+            Token::GeneratedNotice(false),
+        ]);
     }
     // Source !empty() also excludes the string "0".
     if !subject.is_empty() && subject != "0" {
@@ -237,6 +247,18 @@ pub(crate) fn row(
     if let Some(drawing) = &drawing {
         comment.push_str(&drawing.stored_html());
     }
+    for text in &entry.staff_notices {
+        comment.push_str(
+            &board_domain::post_notice::Notice::from_saved(text)
+                .map_err(|_| {
+                    AppError(
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        "Post notices are unavailable.",
+                    )
+                })?
+                .source_html(),
+        );
+    }
     let context = board_domain::semantic_context::generate(&subject, &comment, board.staff_only)
         .map_err(|_| {
             AppError(
@@ -246,6 +268,7 @@ pub(crate) fn row(
         })?;
     let href = crate::semantic_thread::href(&board.slug, entry.id, &context);
     let prepared = prepare(Input {
+        notices: &entry.staff_notices,
         subject: &subject,
         lines: &lines,
         board: &board.slug,
@@ -270,6 +293,7 @@ mod tests {
     fn excerpt(subject: &str, comment: &str, format: i16, sjis: bool) -> String {
         let lines = board_domain::parse_post_comment(comment, format);
         prepare(Input {
+            notices: &[],
             subject,
             lines: &lines,
             board: "g",
@@ -345,6 +369,7 @@ mod tests {
     fn saved_randomizers_participate_in_archive_length_check() {
         let lines = board_domain::parse_post_comment("body", 9);
         let prepared = prepare(Input {
+            notices: &[],
             subject: "",
             lines: &lines,
             board: "g",
@@ -356,6 +381,7 @@ mod tests {
         });
         assert_eq!(prepared.serialized, "<b>Rolled 3 (1d6) </b>body");
         let prepared = prepare(Input {
+            notices: &[],
             subject: "",
             lines: &lines,
             board: "g",
@@ -375,6 +401,7 @@ mod tests {
         drawing.replay_tim = Some(123);
         let lines = board_domain::parse_comment("body");
         let prepared = prepare(Input {
+            notices: &[],
             subject: "",
             lines: &lines,
             board: "i",
@@ -396,6 +423,7 @@ mod tests {
         let drawing = crate::views::DrawingAnnotation::from_saved(Some(90), Some(42)).unwrap();
         let lines = board_domain::parse_comment("body");
         let prepared = prepare(Input {
+            notices: &[],
             subject: "",
             lines: &lines,
             board: "i",

@@ -85,6 +85,8 @@ async fn snapshots_keep_source_candidate_order_and_recheck_current_public_state(
     );
     tx.rollback().await.unwrap();
     let main = op(&owner, &board, "Owned popular thread").await;
+    sqlx::query("UPDATE content.posts SET staff_notices=ARRAY['Owned notice <literal>','Owned repeated','Owned repeated'] WHERE id=$1")
+        .bind(main).execute(&owner).await.unwrap();
     let picture = op(&owner, &board, "Owned image").await;
     let blocked = op(&owner, &board, "Owned excluded filename").await;
     let excluded = op(&owner, "b", "Owned excluded source board").await;
@@ -102,6 +104,8 @@ async fn snapshots_keep_source_candidate_order_and_recheck_current_public_state(
         assert!(snap.statistics.as_ref().unwrap().recorded_posts>=19);
         assert_eq!(snap.cards.iter().filter(|c|c.kind=="latest" && c.board==board).count(),5);
         assert!(snap.cards.iter().any(|c|c.kind=="popular" && c.id==main && c.reply_count==15));
+        let notice_card=snap.cards.iter().find(|c|c.kind=="popular" && c.id==main).unwrap();
+        assert!(notice_card.excerpt.ends_with("\n\n(Owned notice <literal>)\n\n(Owned repeated)\n\n(Owned repeated)"));
         assert!(snap.cards.iter().any(|c|c.kind=="images" && c.id==picture));
         assert!(!snap.cards.iter().any(|c|c.id==blocked || c.id==excluded));
         assert_eq!(homepage::board_statistics(&public,Some(&board)).await.unwrap()[0].recorded_posts,18);

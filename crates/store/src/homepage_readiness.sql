@@ -33,7 +33,15 @@ AND NOT EXISTS(SELECT 1 FROM (VALUES
     p.thread_id,
     "left"(b.title, 120) AS board_title,
     "left"(p.subject, 120) AS subject,
-    "left"(p.comment, 300) AS excerpt,
+    "left"(p.comment ||
+        CASE
+            WHEN cardinality(p.staff_notices) = 0 THEN ''::text
+            ELSE ('
+
+('::text || array_to_string(p.staff_notices, ')
+
+('::text)) || ')'::text
+        END, 300) AS excerpt,
     p.created_at,
     t.bumped_at,
     t.sticky,

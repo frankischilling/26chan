@@ -348,6 +348,8 @@ pub struct Post {
     pub subject: String,
     pub image_spoiler: bool,
     pub comment: String,
+    /// Ordered staff annotations; never reparsed as user comment markup.
+    pub staff_notices: Vec<String>,
     /// Source Oekaki metadata is generated after accepted image insertion.
     /// It does not prove that the submitted pixels came from this source.
     pub drawing_time_seconds: Option<i32>,

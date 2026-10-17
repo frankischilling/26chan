@@ -78,6 +78,7 @@ AND NOT EXISTS(SELECT 1 FROM (VALUES ('posts'),('threads')) required(table_name)
           AND pg_catalog.pg_get_constraintdef(c.oid) LIKE '%content_erased%'
           AND (required.table_name<>'posts' OR (
               pg_catalog.pg_get_constraintdef(c.oid) LIKE '%NOT file_deleted%'
+              AND pg_catalog.pg_get_constraintdef(c.oid) LIKE '%staff_notices%'
               AND pg_catalog.pg_get_constraintdef(c.oid) LIKE '%drawing_time_seconds IS NULL%'
               AND pg_catalog.pg_get_constraintdef(c.oid) LIKE '%drawing_source_post_id IS NULL%'))))
 AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles runtime

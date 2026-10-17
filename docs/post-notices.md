@@ -23,9 +23,8 @@ function and its report-challenge history are not substitutes.
 
 The extractor runs only the pinned block with recording stubs. Its corpus
 qualifies selection, escaped HTML and the update/auto-clear conditions. It does
-not qualify database writes, staff authentication or a production notice caller.
-Those parts, including transfer, erasure and every public post projection, remain
-under issue #220.
+not qualify database writes or staff authentication. Separate integration tests
+exercise the authenticated manual issuer and persisted notice lifecycle below.
 
 ## Private automatic report clear
 
@@ -48,6 +47,37 @@ the oldest eligible report deterministically. It never substitutes the aggregate
 label for that report's actor. Manual clearing an automatically cleared target
 returns without reweighting it or recording another manual clear.
 
-This is a private prerequisite, not a completed notice issuer. The public-post
-projection, authenticated issuance transaction and post-action integration still
-need implementation before the notice feature can be claimed.
+## Manual issuance and saved notices
+
+Migration 0203 stores an ordered notice array separately from the immutable
+comment body. Existing posts receive an empty array. A checked manual ban-form
+option appends one notice, advances the thread modification clock and performs
+the private automatic report clear in the same transaction as the restriction
+and its audit. The option starts unchecked. The asynchronous template issuer
+continues to disable notices.
+
+Both the form handler and database enforce custom-message authority. Global
+`banmsg` access permits custom text; a board-scoped flag alone does not. The
+database repeats the staff-session, board-access and recent-authentication
+checks. It also bounds each post to 16 notices of at most 4,096 bytes each. A
+capacity refusal rolls back the restriction, audit, counters and display change.
+Unbanning does not remove a previously issued notice.
+
+Thread and board pages, JSON, catalogs, search, archives, RSS and homepage
+excerpts include notices after the saved comment annotations. Text remains
+escaped and repeated notices remain separate. New report snapshots preserve the
+array; old snapshots without the field read as an empty array. Thread transfers
+include notices in their sealed byte budget, source hash and destination copy.
+Content erasure clears the array and prevents restoring it on a tombstone.
+
+Local tests cover custom-message permissions, default warning/ban labels,
+repeated issuance, count-limit rollback, report auto-clear, transfer, erasure,
+homepage excerpts and escaped JSON/RSS/catalog output. The migration checks
+populated upgrade, rollback, preserved historical rows, unexpected default
+function grants, seal drift and dump/restore. Hosted CI must still qualify each
+published commit before merge.
+
+Issue #220 remains open. Combined post-ban delete, move and archive actions and
+the other outstanding restriction/status workflows still need their own complete
+source-matched integration. The manual endpoint has no combined post action;
+future callers must preserve the source's auto-clear exclusions.

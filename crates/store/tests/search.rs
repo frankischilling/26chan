@@ -123,6 +123,17 @@ async fn search_groups_public_matches_and_never_crosses_board_visibility() {
             .await
             .unwrap();
         assert_eq!(visible_private, 0);
+        let notice_marker=format!("notice-only-{seed:x}");
+        let notices=vec![format!("{notice_marker} <literal>"), "repeat".into(), "repeat".into()];
+        sqlx::query("UPDATE content.posts SET staff_notices=$2 WHERE id=$1")
+            .bind(second).bind(&notices).execute(&test_owner).await.unwrap();
+        sqlx::query("UPDATE content.posts SET staff_notices=$2 WHERE id=$1")
+            .bind(private_thread).bind(&notices).execute(&test_owner).await.unwrap();
+        let notice_result=board_store::search(&test_public,&notice_marker,None,0).await.unwrap();
+        assert_eq!(notice_result.nhits,1);
+        assert_eq!(notice_result.threads[0].thread.id,second);
+        assert_eq!(notice_result.threads[0].posts[0].staff_notices,notices);
+
     })
     .await;
 

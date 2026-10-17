@@ -778,3 +778,16 @@ test('approved replay controls survive snapshots only as exact inert View anchor
   }
   assert.equal(parse(value,{...context,mediaOrigin:''}).status,'ok', 'The fragment grants no fetching authority without a mounted player');
 });
+
+test('staff notices stay bounded escaped text inside comment-only strong wrappers', () => {
+  const result = parse(snapshot('Body <br><br><strong class="post-notice">(&lt;script&gt;literal&lt;/script&gt; &amp; text)</strong>'));
+  assert.equal(result.status, 'ok');
+  const comment = commentNode(result.snapshot.posts[0].tree, context.thread);
+  assert.match(commentText(comment), /\(<script>literal<\/script> & text\)/);
+  for (const fragment of [
+    '<strong class="post-notice"><b>nested</b></strong>',
+    '<strong class="post-notice" title="extra">text</strong>',
+    '<span class="post-notice">text</span>',
+    `<strong class="post-notice">${'x'.repeat(4099)}</strong>`,
+  ]) assert.equal(parse(snapshot(fragment)).status, 'invalid-snapshot');
+});

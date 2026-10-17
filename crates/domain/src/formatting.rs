@@ -30,6 +30,7 @@ pub enum Token {
     GeneratedBold(bool),
     GeneratedSmall(bool),
     GeneratedFortune(bool, String),
+    GeneratedNotice(bool),
 }
 
 impl Token {

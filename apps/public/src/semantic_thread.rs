@@ -91,6 +91,13 @@ pub(crate) fn stored_comment(post: &PostView) -> String {
     if let Some(drawing) = post.drawing_annotation() {
         comment.push_str(&drawing.stored_html());
     }
+    for text in &post.post.staff_notices {
+        // The persisted array is bounded by its database contract; text remains
+        // escaped even in this data-only source-shaped representation.
+        if let Ok(notice) = board_domain::post_notice::Notice::from_saved(text) {
+            comment.push_str(&notice.source_html());
+        }
+    }
     comment
 }
 

@@ -23,13 +23,18 @@ const escapedName = value => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', 
 // own header. A same-origin URL alone does not grant an image fetch.
 export function validateCapcodeTree(tree, no) {
   const marked = [], all = [];
-  function collect(node) {
+  function collect(node, comment = false) {
     if (typeof node === 'string') return;
     all.push(node);
-    if (classes(node).some(isCapcodeToken) || node.tag === 'strong'
+    const notice = node.tag === 'strong' && node.attrs.class === 'post-notice';
+    if (notice) require(comment && exact(node.attrs, { class: 'post-notice' })
+      && node.children.every(child => typeof child === 'string')
+      && new TextEncoder().encode(node.children.join('')).length <= 4098);
+    if (classes(node).some(isCapcodeToken) || (node.tag === 'strong' && !notice)
       || (Object.hasOwn(node.attrs, 'srcset') && !postFileAssetUrl(node.attrs.src)) || (node.tag === 'img' && Object.hasOwn(node.attrs, 'title'))
       || postIdentityUrl(node.attrs.src)) marked.push(node);
-    node.children.forEach(collect);
+    const message = node.tag === 'blockquote' && node.attrs.class === 'postMessage' && node.attrs.id === `m${no}`;
+    node.children.forEach(child => collect(child, comment || message));
   }
   collect(tree);
   const blocks = all.filter(node => classes(node).includes('nameBlock'));

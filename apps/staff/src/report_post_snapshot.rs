@@ -28,6 +28,8 @@ struct CapturedPost {
     flag_name: Option<String>,
     subject: String,
     comment: String,
+    #[serde(default)]
+    staff_notices: Vec<String>,
     comment_format: i16,
     file_deleted: bool,
     staff_authorized_limits: bool,
@@ -130,6 +132,8 @@ pub(crate) async fn load(
     for row in rows {
         let payload = row.payload.ok_or(AppError::Capacity)?;
         let post: CapturedPost = serde_json::from_str(&payload).map_err(|_| AppError::Internal)?;
+        board_domain::post_notice::validate_saved(&post.staff_notices)
+            .map_err(|_| AppError::Internal)?;
         if row.version != 1
             || post.board != row.board
             || post.post_id != row.post_id
@@ -275,6 +279,7 @@ impl ReportPostSnapshot {
         report.flag_name = self.post.flag_name;
         report.subject = self.post.subject;
         report.comment = self.post.comment;
+        report.staff_notices = self.post.staff_notices;
         report.comment_format = self.post.comment_format;
         report.staff_authorized_limits = self.post.staff_authorized_limits;
         report.wordfilter_payload = self.wordfilter;

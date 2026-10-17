@@ -100,7 +100,7 @@ const SELECT_PREVIEWS: &str = r#"
            CASE WHEN $2::boolean THEN r.category_id ELSE NULL::bigint END AS category_id,
            CASE WHEN $2::boolean THEN r.category_kind ELSE NULL::smallint END AS category_kind,
            p.name,p.trip,p.poster_id,p.capcode,p.country,p.country_name,
-           p.board_flag,p.board_flag_type,p.flag_name,p.subject,p.comment,
+           p.board_flag,p.board_flag_type,p.flag_name,p.subject,p.comment,p.staff_notices,
            p.drawing_time_seconds,p.drawing_source_post_id,p.comment_format,
            p.staff_authorized_limits,p.wordfilter_payload,p.saved_presentation,r.state,
            (t.closed OR t.archived_at IS NOT NULL) AS closed,
@@ -249,7 +249,7 @@ async fn load_inner(
     // selection. Count the complete saved bodies before fetching any payload.
     let bytes: i64 = sqlx::query_scalar(
         r#"
-        SELECT coalesce(sum(octet_length(p.comment)::bigint
+        SELECT coalesce(sum(octet_length(p.comment)+CASE WHEN cardinality(p.staff_notices)=0 THEN 0 ELSE octet_length(p.staff_notices::text) END::bigint
             +coalesce(octet_length(p.wordfilter_payload),0)
             +coalesce(octet_length(p.wordfilter_search),0)
             +coalesce(octet_length(p.saved_presentation),0)

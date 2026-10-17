@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use sqlx::{Connection, PgConnection};
 
 const LIMIT: i64 = 64;
-const POST_GUARD: &str = "44ccfbb1cbd5dcae569bf3057a065fd4126d767f9a72823913dc5e6d7ff0ed28";
+const POST_GUARD: &str = "011547b9575a05f12b6154884bdef7624bfa241caf6e88910b978ce588d9e3b6";
 const THREAD_GUARD: &str = "01aff94037bf0af55a594fe13916bbe6255bcf2925d5b7f1bbfe91aaa977b63b";
 
 #[derive(Debug, thiserror::Error)]

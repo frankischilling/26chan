@@ -27,6 +27,32 @@ impl Notice {
     }
 }
 
+/// Validate an ordered persisted list without accepting null, empty or oversized
+/// entries. Repeated messages are distinct staff actions and stay in order.
+pub fn validate_saved(notices: &[String]) -> Result<(), ValidationError> {
+    if notices.len() > MAX_NOTICES
+        || notices
+            .iter()
+            .any(|text| text.is_empty() || text.len() > MAX_NOTICE_BYTES || text.contains('\0'))
+    {
+        return Err(ValidationError("Post notices are unavailable."));
+    }
+    Ok(())
+}
+
+/// Plain-text projection for search and excerpts. Escaping belongs to the
+/// destination renderer; notice text is never parsed as comment markup.
+pub fn plain_suffix(notices: &[String]) -> Result<String, ValidationError> {
+    validate_saved(notices)?;
+    let mut suffix = String::new();
+    for text in notices {
+        suffix.push_str("\n\n(");
+        suffix.push_str(text);
+        suffix.push(')');
+    }
+    Ok(suffix)
+}
+
 /// `custom_allowed` is the already-qualified manager/global-banmsg predicate.
 /// An unprivileged custom field is ignored, matching the source default path.
 pub fn select(

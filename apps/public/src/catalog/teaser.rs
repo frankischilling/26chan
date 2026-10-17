@@ -71,6 +71,18 @@ pub fn prepare_with_metadata(
     fortune: Option<(&str, &str)>,
     drawing: Option<&crate::views::DrawingAnnotation>,
 ) -> Prepared {
+    prepare_with_notices(lines, board, policy, dice, fortune, drawing, &[])
+}
+
+pub fn prepare_with_notices(
+    lines: &[Line],
+    board: &str,
+    policy: Policy,
+    dice: Option<&str>,
+    fortune: Option<(&str, &str)>,
+    drawing: Option<&crate::views::DrawingAnnotation>,
+    notices: &[String],
+) -> Prepared {
     let mut tokens = Vec::new();
     let mut previous_break = false;
     for (index, line) in lines.iter().enumerate() {
@@ -126,6 +138,14 @@ pub fn prepare_with_metadata(
     }
     if let Some(drawing) = drawing {
         tokens.extend(drawing.tokens(separator));
+    }
+    for notice in notices {
+        tokens.extend([
+            Token::Text(format!(" {separator}")),
+            Token::GeneratedNotice(true),
+            Token::Text(format!("({notice})")),
+            Token::GeneratedNotice(false),
+        ]);
     }
     if policy.sjis {
         tokens = replace_sjis(tokens);
@@ -228,7 +248,10 @@ pub(crate) fn strip(tokens: Vec<Token>) -> Vec<Token> {
             | Token::CloseMarkup(_)
             | Token::OpenQuote
             | Token::CloseQuote => {}
-            Token::GeneratedBold(_) | Token::GeneratedSmall(_) | Token::GeneratedFortune(_, _) => {}
+            Token::GeneratedBold(_)
+            | Token::GeneratedSmall(_)
+            | Token::GeneratedFortune(_, _)
+            | Token::GeneratedNotice(_) => {}
         }
     }
     result
@@ -354,6 +377,7 @@ pub(crate) fn serialize(tokens: &[Token], board: &str, source_links: bool) -> St
             Token::GeneratedSmall(open) => result.push_str(if *open { "<small>" } else { "</small>" }),
             Token::GeneratedFortune(true, color) => result.push_str(&format!("<span class=\"fortune\" style=\"color:{color}\">")),
             Token::GeneratedFortune(false, _) => result.push_str("</span>"),
+            Token::GeneratedNotice(open) => result.push_str(if *open { "<strong style=\"color: red;\">" } else { "</strong>" }),
         }
     }
     result
@@ -425,6 +449,45 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn notices_keep_order_and_literal_text_in_catalog_projections() {
+        let notices = vec!["<b>first</b>".into(), "again".into(), "again".into()];
+        let plain = prepare_with_notices(&[], "g", Policy::default(), None, None, None, &notices);
+        assert_eq!(
+            plain.serialized,
+            "  (&lt;b&gt;first&lt;/b&gt;)  (again)  (again)"
+        );
+        let short = prepare_with_notices(
+            &[],
+            "b",
+            Policy {
+                truncate: true,
+                ..Default::default()
+            },
+            None,
+            None,
+            None,
+            &notices,
+        );
+        assert_eq!(
+            short.serialized,
+            "  <strong style=\"color: red;\">(&lt;b&gt;first&lt;/b&gt;)</strong>  <strong style=\"color: red;\">(again)</strong>  <strong style=\"color: red;\">(again)</strong>"
+        );
+        let long = prepare_with_notices(
+            &[],
+            "b",
+            Policy {
+                truncate: true,
+                ..Default::default()
+            },
+            None,
+            None,
+            None,
+            &["x".repeat(400)],
+        );
+        assert_eq!(long.serialized, format!("  ({}…", "x".repeat(297)));
     }
 
     #[test]

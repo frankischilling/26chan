@@ -1,4 +1,6 @@
 #![cfg(feature = "database-tests")]
+#[path = "restrictions/notices.rs"]
+mod notices;
 #[path = "restrictions/templates.rs"]
 mod templates;
 use axum::{
@@ -119,6 +121,7 @@ async fn staff_issue_and_unban_use_live_session_scope_recent_auth_csrf_and_priva
     let path = format!("/ban?board={board}&target={post}");
     assert_eq!(request(&app, &path, None, &cookie).await.0, StatusCode::OK);
     templates::exercise(&owner, &app, &board, post, &csrf, &cookie).await;
+    notices::exercise(&owner, &app, &board, post, account, &csrf, &cookie).await;
     let form = format!(
         "board={board}&target={post}&csrf={csrf}&scope=local&kind=finite&seconds=3600&public_reason=Synthetic+public&private_reason=Synthetic+private"
     );

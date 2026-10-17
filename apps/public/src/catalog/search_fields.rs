@@ -32,7 +32,7 @@ pub(crate) fn compose(subject: &str, teaser: &str) -> String {
 pub(crate) fn from_post(post: &board_store::Post, board: &board_store::Board) -> String {
     compose(
         &post.subject,
-        &super::teaser::prepare_with_metadata(
+        &super::teaser::prepare_with_notices(
             &post.formatted_lines(),
             &board.slug,
             super::teaser::Policy::for_post(board, post.comment_format),
@@ -40,6 +40,7 @@ pub(crate) fn from_post(post: &board_store::Post, board: &board_store::Board) ->
             post.separate_fortune_text()
                 .zip(post.separate_fortune_color()),
             crate::views::drawing_annotation(post).as_ref(),
+            &post.staff_notices,
         )
         .serialized,
     )

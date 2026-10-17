@@ -13,6 +13,8 @@
 <p><label>Duration in seconds <input name="seconds" type="number" value="0" min="0" max="863913600" required></label> Use 0 for a warning or indefinite ban.</p>
 <p><label>Public reason <textarea name="public_reason" required maxlength="16384"></textarea></label></p>
 <p><label>Private reason <textarea name="private_reason" maxlength="32768"></textarea></label></p>
+<p><label><input type="checkbox" name="banmsg" value="1"> Display a warning or ban notice on this post</label></p>
+{% if can_custom_notice %}<p><label>Custom post notice <textarea name="custombanmsg" maxlength="4096"></textarea></label> Leave empty for the standard notice.</p>{% endif %}
 <button type="submit">Issue restriction</button></form>
 <form action="/ban/unban" method="post"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="target" value="{{ target }}"><input type="hidden" name="csrf" value="{{ csrf }}"><label>Restriction ID <input name="id" type="number" min="1" required></label><button type="submit">Unban</button></form>
 {% if can_ban_thread %}<section id="thread-ban-layer"><h2>Ban Entire Thread</h2>

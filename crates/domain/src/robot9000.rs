@@ -118,7 +118,8 @@ pub fn prepare_post(
                 Token::FilteredGenerated(_)
                 | Token::GeneratedBold(_)
                 | Token::GeneratedSmall(_)
-                | Token::GeneratedFortune(_, _) => {
+                | Token::GeneratedFortune(_, _)
+                | Token::GeneratedNotice(_) => {
                     return Err("Invalid Robot9000 comment projection.");
                 }
             }

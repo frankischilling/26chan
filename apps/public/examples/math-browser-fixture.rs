@@ -116,6 +116,7 @@ fn fixture(enabled: bool, empty: bool, catalog: bool, index: bool) -> axum::resp
         archive_expires_at: None,
     };
     let mut posts = vec![PostView::new(Post {
+        staff_notices: Vec::new(),
         image_spoiler: false,
         comment_format: 0,
         staff_authorized_limits: false,
@@ -148,6 +149,7 @@ fn fixture(enabled: bool, empty: bool, catalog: bool, index: bool) -> axum::resp
     })];
     if !empty {
         posts.push(PostView::new(Post {
+            staff_notices: Vec::new(),
             id: 1000003,
             subject: String::new(),
             comment: ">>1000001\nReply with [math]y^2[/math]".into(),
