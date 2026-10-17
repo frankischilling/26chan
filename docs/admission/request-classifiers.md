@@ -269,6 +269,36 @@ checks before any refusal or event can be committed.
 php -n -d extension=tokenizer scripts/extract-post-history-reference.php SOURCE crates/domain/tests/fixtures/post-history.json --check
 ```
 
+### Private lookup storage
+
+Migration 0197 adds the private lookup projection for `block_bm_bot` and
+`country_changed`. Each row contains only a hashed anonymous capability, a fixed
+kind and the last event's integer timestamp. The composite key and two-kind
+constraint bound storage to two rows per existing capped anonymous session.
+Deleting a session cascades its rows; deleting a post or transferring a thread
+does not move this session-wide history. Stale rows may remain until session
+removal. The 24-hour limit controls matching, not physical retention.
+
+Private helpers lock the session and use the database's current second after
+waiting. Matching uses only the strict lower cutoff, as in the source; it does
+not invent an upper cutoff for future timestamps. Repeated active events do not
+extend the cooldown. A recorder can refresh an expired event, but cannot create
+a session, change activity counters or choose its own event timestamp.
+
+The dedicated catalog attests the table shape, constraints, indexes, grants,
+schema permissions, function definitions and foreign-key trigger state. Creation
+removes default grants to other roles before applying the narrow private grants. The transfer and restriction
+catalogs remain separate and unchanged. No runtime role can read the table or
+execute these helpers. This migration does not enable posting enforcement or
+provide the future authenticated refusal issuer.
+
+Database tests cover distinct kinds and sessions, cutoff boundaries, unchanged
+activity, repeat events, missing/expired sessions, runtime denial, catalog drift
+and serialization of concurrent same-session issuers. Upgrade qualification
+checks rollback, retained session state, predecessor drift, role-specific default
+privileges and a full dump/restore
+with populated private history.
+
 ## Remaining source behavior
 
 Posting uses the numeric score in several late refusal branches. Reporting has

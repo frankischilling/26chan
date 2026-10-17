@@ -581,6 +581,8 @@ jobs:
         run: sudo bash scripts/test-ban-template-migration.sh
       - name: Qualify prior-ban upload history upgrade
         run: sudo bash scripts/test-prior-upload-migration.sh
+      - name: Qualify private classifier history upgrade and restore
+        run: sudo bash scripts/test-classifier-history-migration.sh
       - name: Upgrade existing content for attachment-only posts
         run: sudo bash scripts/test-attachment-only-migration.sh
       - name: Upgrade existing threads from migration 0008
