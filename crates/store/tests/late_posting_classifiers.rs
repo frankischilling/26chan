@@ -228,3 +228,42 @@ async fn late_refusals_keep_only_source_state_and_do_not_consume_provisional_con
         .unwrap();
     result.unwrap();
 }
+
+// Session issuance and request-start clocks use elapsed whole seconds. A
+// PostgreSQL numeric-to-bigint cast rounds, which can put a new session ahead
+// of an immediately following request during the second half of a second.
+#[tokio::test]
+async fn verification_session_timestamps_do_not_round_into_the_future() {
+    let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let verifier = PgPool::connect(&std::env::var("TEST_VERIFICATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let mut failures = Vec::new();
+    for _ in 0..3 {
+        let fingerprints = Capability::generate().unwrap().fingerprints(None, *b"US");
+        let (issued, before, after): (bool, i64, i64) = sqlx::query_as(
+            "WITH waited AS MATERIALIZED (SELECT pg_sleep(mod(1.65-mod(extract(epoch FROM clock_timestamp()),1),1)::double precision)), started AS MATERIALIZED (SELECT floor(extract(epoch FROM clock_timestamp()))::bigint AS before FROM waited), issued AS MATERIALIZED (SELECT before,content.verification_ensure_session($1,$2,$3,$4,true) AS issued FROM started) SELECT issued,before,floor(extract(epoch FROM clock_timestamp()))::bigint AS after FROM issued"
+        ).bind(fingerprints.token.as_slice()).bind(fingerprints.network.as_slice())
+         .bind(fingerprints.address.as_slice()).bind(fingerprints.environment.as_slice())
+         .fetch_one(&verifier).await.unwrap();
+        let times: (i64,i64,i64,i64) = sqlx::query_as("SELECT created_at,network_at,address_at,environment_at FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+            .bind(fingerprints.token.as_slice()).fetch_one(&owner).await.unwrap();
+        sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+            .bind(fingerprints.token.as_slice())
+            .execute(&owner)
+            .await
+            .unwrap();
+        assert!(issued);
+        for at in [times.0, times.1, times.2, times.3] {
+            if !(before..=after).contains(&at) {
+                failures.push((before, at, after));
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "Session clock escaped issuance interval: {failures:?}"
+    );
+}
