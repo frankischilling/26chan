@@ -330,6 +330,17 @@ INSERT INTO public.upgraded_rows VALUES('restrictions.file_clock',
  jsonb_build_object('singleton',true,'timezone',NULL));
 SQL
 fi
+# The private classifier projection starts empty. Only its attested catalog
+# singleton is additive; do not recapture unrelated rows or ignore this schema.
+if [[ -f migrations/0197_private_classifier_history.sql ]]; then
+ "${admin[@]}" <<'SQL'
+INSERT INTO public.upgraded_rows VALUES('post_secrets.classifier_history_catalog',
+ jsonb_build_object('singleton',true,'definition_hash',
+  '\x'||encode(post_secrets.classifier_history_catalog_hash(),'hex')));
+DO $$ BEGIN IF post_secrets.classifier_history_ready() IS DISTINCT FROM true THEN
+ RAISE EXCEPTION 'Classifier history catalog is unavailable'; END IF; END $$;
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
