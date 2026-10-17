@@ -202,6 +202,45 @@ fail closed; it cannot skip rejection or become score zero. An optional credit
 bonus can instead be withheld. The native profile currently produces a bounded
 score only; it has not enabled any posting or report rejection branch.
 
+## Late posting decision model
+
+`content_admission::classifiers::posting` covers the ordered source checks from
+numeric-score initialization through the final timing-cookie refusal, before
+the disabled flood call and optional edge/history checks. It distinguishes a
+six-hour known-user score bypass from unavailable scoring evidence. Knownness,
+trusted post counts and verification come from the qualified pre-post anonymous
+state. The caller must use the same frozen time that resumed that snapshot;
+a later wall-clock read changes new-user and mask-change comparisons. Board
+validation remains a prerequisite. A cosmetic badge cannot supply the CAPTCHA
+bypass input.
+
+The model preserves the strict `>0.31` early refusal, the later `>=0.09` checks,
+board/thread/file conditions, mask-change event ordering and random thresholds.
+It requests draws only where the source does. In particular, the public-proxy
+condition draws before testing the `/f/` exception. Missing or out-of-range
+randomness is unavailable, never a favorable default.
+
+An isolated harness runs the hash-pinned source prefix and selected pure
+`UserPwd` methods. It substitutes the invocation's fixed board identifier and
+records logging, response and random calls through local stubs. It never loads
+the application or connects to storage. Its 13,280 cases compare outcomes,
+ordered event names and exact draw ranges, including combined markers, pending
+activity, new-user mask suppression, known/trusted/verified distinctions and disabled source branches.
+These cases do not qualify logging payloads, database effects or a production
+random generator.
+
+Thread text, browser-ID, country and timing-cookie providers are checked only
+when reached. Input bounds are stricter than this source prefix; exceeding them
+is an intentional fail-closed case. Draw ranges follow the source. An unavailable needed fact
+returns no decision or partial event list. The result is a plan for a future
+transactional caller, not a persisted refusal. The hardcoded browser-ID condition
+also needs a qualified provider in the chosen fingerprint namespace; the model
+alone cannot establish equivalence between operator keys and the old deployment.
+
+```text
+php -n -d extension=tokenizer scripts/extract-late-post-reference.php SOURCE crates/domain/tests/fixtures/late-post.json --check
+```
+
 ## Remaining source behavior
 
 Posting uses the numeric score in several late refusal branches. Reporting has

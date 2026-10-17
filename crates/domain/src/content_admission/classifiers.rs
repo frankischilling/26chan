@@ -1,5 +1,7 @@
 //! Bounded source classifier predicates over qualified server request facts.
 //! These predicates do not grant CAPTCHA, posting, or staff authority.
+pub mod posting;
+
 use super::network::ProviderValue;
 
 const MAX_HEADER_BYTES: usize = 4096;
