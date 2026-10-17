@@ -1,5 +1,8 @@
 #![cfg(feature = "database-tests")]
 mod support;
+#[path = "staff_post_attachments/templates.rs"]
+mod templates;
+use templates::template_history;
 
 use board_domain::{capcode::Capcode, poster_id::PosterIdKey};
 use board_store::{
@@ -40,6 +43,7 @@ struct Fixture {
     key: String,
     jobs: Arc<Mutex<Vec<String>>>,
     extra_boards: Arc<Mutex<Vec<String>>>,
+    templates: Arc<Mutex<Vec<i64>>>,
 }
 
 async fn pool(name: &str) -> PgPool {
@@ -104,6 +108,7 @@ impl Fixture {
                 .unwrap(),
             jobs: Arc::new(Mutex::new(Vec::new())),
             extra_boards: Arc::new(Mutex::new(Vec::new())),
+            templates: Arc::new(Mutex::new(Vec::new())),
             asn_database: None,
             peer_override: None,
             hints: None,
@@ -372,6 +377,12 @@ impl Fixture {
             .execute(&mut *tx)
             .await
             .unwrap();
+        let templates = self.templates.lock().unwrap().clone();
+        sqlx::query("DELETE FROM restrictions.templates WHERE id=ANY($1)")
+            .bind(&templates)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
         tx.commit().await.unwrap();
         let mut tx = support::begin_cleanup(&self.owner, &boards).await;
         for sql in [
@@ -451,6 +462,11 @@ macro_rules! database_case {
         }
     };
 }
+
+database_case!(
+    template_bans_retain_authorized_upload_snapshots,
+    template_history
+);
 
 database_case!(
     source_and_ordinary_receipts_are_atomic_one_use_and_capture_identity,

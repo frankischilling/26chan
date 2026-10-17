@@ -254,6 +254,10 @@ pub fn router(state: Arc<AppState>) -> Router {
                 .layer(DefaultBodyLimit::max(65536)),
         )
         .route(
+            "/ban/template",
+            post(restrictions::issue_template).layer(DefaultBodyLimit::max(4096)),
+        )
+        .route(
             "/ban/unban",
             post(restrictions::unban).layer(DefaultBodyLimit::max(4096)),
         )

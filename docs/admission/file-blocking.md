@@ -60,7 +60,8 @@ media views still hide deleted media; neither exposes the retained column.
 Runtime roles cannot read or replace it. The content catalog covers its schema,
 trigger and function definition.
 
-This supplies attachment provenance for a later template-based ban writer.
+The [configured template writer](../restriction-templates.md) copies this
+provenance into a separate moderation-history snapshot when issuing a ban.
 It does not populate historical bans or connect the prior-ban admission gate.
 The original file-only deletion retains the post MD5, which a later staff ban
 copies into its own history (`imgboard.php:2610–2663`,

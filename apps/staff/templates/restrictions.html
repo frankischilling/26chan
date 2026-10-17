@@ -2,6 +2,11 @@
 <h1>Ban or warn poster</h1><p>/{{ board }}/ post {{ target }}</p>
 {% if !recent %}<p>Sign in again before changing restrictions.</p>{% endif %}
 {% if let Some(id) = restriction %}<p>Restriction ID: {{ id }}</p>{% endif %}
+{% if !templates.is_empty() %}<section><h2>Configured templates</h2>
+<form action="/ban/template" method="post"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="target" value="{{ target }}"><input type="hidden" name="csrf" value="{{ csrf }}">
+<label>Template <select name="template">{% for template in templates %}<option value="{{ template.id }}">{{ template.name }} ({{ template.scope_label() }}, {{ template.duration_label() }})</option>{% endfor %}</select></label>
+<details><summary>Configured public reasons</summary><ul>{% for template in templates %}<li><strong>{{ template.name }}</strong>: {{ template.public_reason }}</li>{% endfor %}</ul></details>
+<button type="submit">Issue configured restriction</button></form></section>{% endif %}
 <form action="/ban" method="post"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="target" value="{{ target }}"><input type="hidden" name="csrf" value="{{ csrf }}">
 <p><label>Scope <select name="scope"><option value="local">This board</option><option value="global">All boards</option></select></label></p>
 <p><label>Type <select name="kind"><option value="finite">Finite ban</option><option value="indefinite">Indefinite ban</option><option value="warning">Warning</option></select></label></p>

@@ -1,4 +1,6 @@
 #![cfg(feature = "database-tests")]
+#[path = "restrictions/templates.rs"]
+mod templates;
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -56,6 +58,10 @@ async fn staff_issue_and_unban_use_live_session_scope_recent_auth_csrf_and_priva
     let staff = PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
         .await
         .unwrap();
+    auth::check_identity(&auth_pool, "board_auth")
+        .await
+        .unwrap();
+    auth::check_identity(&staff, "board_staff").await.unwrap();
     let board: String =
         sqlx::query_scalar("SELECT 'sb'||substr(replace(gen_random_uuid()::text,'-',''),1,8)")
             .fetch_one(&owner)
@@ -112,6 +118,7 @@ async fn staff_issue_and_unban_use_live_session_scope_recent_auth_csrf_and_priva
     let cookie = format!("staff={token}; staff-csrf={csrf}");
     let path = format!("/ban?board={board}&target={post}");
     assert_eq!(request(&app, &path, None, &cookie).await.0, StatusCode::OK);
+    templates::exercise(&owner, &app, &board, post, &csrf, &cookie).await;
     let form = format!(
         "board={board}&target={post}&csrf={csrf}&scope=local&kind=finite&seconds=3600&public_reason=Synthetic+public&private_reason=Synthetic+private"
     );

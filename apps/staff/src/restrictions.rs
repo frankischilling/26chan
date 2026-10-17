@@ -31,6 +31,45 @@ pub(crate) struct Ban {
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+pub(crate) struct TemplateBan {
+    board: String,
+    target: i64,
+    csrf: String,
+    template: i64,
+}
+
+#[derive(sqlx::FromRow)]
+struct TemplateChoice {
+    id: i64,
+    name: String,
+    global: bool,
+    warning: bool,
+    seconds: Option<i64>,
+    public_reason: String,
+}
+
+impl TemplateChoice {
+    fn scope_label(&self) -> &'static str {
+        if self.global {
+            "All boards"
+        } else {
+            "This board"
+        }
+    }
+
+    fn duration_label(&self) -> String {
+        if self.warning {
+            "Warning".into()
+        } else if let Some(seconds) = self.seconds {
+            format!("Ban for {seconds} seconds")
+        } else {
+            "Indefinite ban".into()
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Unban {
     board: String,
     target: i64,
@@ -59,6 +98,7 @@ struct Page {
     recent: bool,
     restriction: Option<i64>,
     can_ban_thread: bool,
+    templates: Vec<TemplateChoice>,
 }
 
 fn validate(board: &str, target: i64) -> Result<(), AppError> {
@@ -110,13 +150,25 @@ pub(crate) async fn show(
             .permissions
             .can_ban_thread(&session.role, &context.board)
         && (!sticky || session.at_least(Level::Admin));
+    let recent = session.recent;
+    let token = auth::hash(&auth::cookie(&headers, state.config.cookie_name())?);
+    let templates =
+        sqlx::query_as("SELECT id,name,global,warning,seconds,public_reason FROM staff_identity.restriction_templates($1,$2,$3,$4)")
+            .bind(token)
+            .bind(auth::hash(&csrf))
+            .bind(state.config.idle_timeout.as_secs() as i32)
+            .bind(&context.board)
+            .fetch_all(authority.connection())
+            .await
+            .map_err(database)?;
     let html = Page {
         board: context.board,
         target: context.target,
         csrf,
-        recent: session.recent,
+        recent,
         restriction: context.restriction.filter(|id| *id > 0),
         can_ban_thread,
+        templates,
     }
     .render()
     .map_err(|_| AppError::Internal)?;
@@ -229,6 +281,40 @@ pub(crate) async fn issue(
             .bind(seconds)
             .bind(input.public_reason)
             .bind(input.private_reason)
+            .fetch_one(&state.staff)
+            .await
+            .map_err(database)?;
+    Ok(Redirect::to(&format!(
+        "/ban?board={}&target={}&restriction={id}",
+        input.board, input.target
+    )))
+}
+
+pub(crate) async fn issue_template(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Form(input): Form<TemplateBan>,
+) -> Result<Redirect, AppError> {
+    auth::origin(&headers, &state.config.origin)?;
+    validate(&input.board, input.target)?;
+    let session = auth::session(&state, &headers).await?;
+    authorize(&session, &input.board)?;
+    auth::csrf(&session, &input.csrf)?;
+    if !session.recent {
+        return Err(AppError::Recent);
+    }
+    if !(1..=i64::from(i32::MAX)).contains(&input.template) {
+        return Err(AppError::Invalid);
+    }
+    let token = auth::hash(&auth::cookie(&headers, state.config.cookie_name())?);
+    let id: i64 =
+        sqlx::query_scalar("SELECT content.issue_post_template_restriction($1,$2,$3,$4,$5,$6)")
+            .bind(token)
+            .bind(auth::hash(&input.csrf))
+            .bind(state.config.idle_timeout.as_secs() as i32)
+            .bind(&input.board)
+            .bind(input.target)
+            .bind(input.template)
             .fetch_one(&state.staff)
             .await
             .map_err(database)?;
