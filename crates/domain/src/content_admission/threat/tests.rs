@@ -38,7 +38,7 @@ fn numeric_score_matches_isolated_source_cases() {
     assert_eq!(fixture["php_version"], "8.4.24");
     assert_eq!(fixture["pcre_version"], "10.46 2025-08-27");
     let cases = fixture["cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 4517);
+    assert_eq!(cases.len(), 4524);
     fn entries(value: &serde_json::Value) -> Vec<(&str, &[u8])> {
         value
             .as_array()

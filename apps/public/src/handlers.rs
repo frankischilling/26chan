@@ -953,9 +953,9 @@ pub struct PostForm {
     #[serde(default, rename = "captcha-csrf")]
     captcha_csrf: String,
     #[serde(default, rename = "t-challenge")]
-    captcha_challenge: String,
+    captcha_challenge: Option<String>,
     #[serde(default, rename = "t-response")]
-    captcha_answer: String,
+    captcha_answer: Option<String>,
     #[serde(default, rename = "captcha-credit")]
     captcha_credit: String,
     #[serde(default)]
@@ -1507,9 +1507,9 @@ pub struct ReportForm {
     #[serde(default, rename = "captcha-csrf")]
     captcha_csrf: String,
     #[serde(default, rename = "t-challenge")]
-    captcha_challenge: String,
+    captcha_challenge: Option<String>,
     #[serde(default, rename = "t-response")]
-    captcha_answer: String,
+    captcha_answer: Option<String>,
     #[serde(default, rename = "captcha-credit")]
     captcha_credit: String,
     #[serde(deserialize_with = "canonical_report_id")]
@@ -2210,3 +2210,6 @@ mod storage_diagnostic_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod request_observations;

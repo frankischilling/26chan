@@ -181,8 +181,8 @@ fn categorical_report(
             expected_revision,
             captcha: crate::posting_challenge::FormInput {
                 csrf: value("captcha-csrf").unwrap_or("").into(),
-                challenge: value("t-challenge").unwrap_or("").into(),
-                answer: value("t-response").unwrap_or("").into(),
+                challenge: value("t-challenge").map(str::to_owned),
+                answer: value("t-response").map(str::to_owned),
                 credit: value("captcha-credit").unwrap_or("").into(),
             },
         },
@@ -515,8 +515,8 @@ mod tests {
                 assert_eq!(board.as_deref(), Some("test"));
                 assert_eq!((no, category_id, expected_revision), (19, expected, 2));
                 assert_eq!(captcha.csrf, "owned-nonce");
-                assert_eq!(captcha.challenge, "owned-challenge");
-                assert_eq!(captcha.answer, "ABC123");
+                assert_eq!(captcha.challenge.as_deref(), Some("owned-challenge"));
+                assert_eq!(captcha.answer.as_deref(), Some("ABC123"));
                 assert!(captcha.credit.is_empty());
             }
             for fields in [
@@ -1040,6 +1040,45 @@ mod tests {
             let response = app.clone().oneshot(request).await.unwrap();
             assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
             assert!(consumed.load(Ordering::SeqCst) < 400);
+        }
+    }
+    #[tokio::test]
+    async fn categorical_report_preserves_challenge_field_presence() {
+        for multipart in [false, true] {
+            for (challenge, answer) in [
+                (None, None),
+                (Some(""), None),
+                (None, Some("")),
+                (Some(""), Some("")),
+                (Some("owned"), Some("answer")),
+            ] {
+                let mut fields = vec![
+                    ("board", "test"),
+                    ("no", "19"),
+                    ("revision", "2"),
+                    ("cat", "17"),
+                ];
+                if let Some(value) = challenge {
+                    fields.push(("t-challenge", value));
+                }
+                if let Some(value) = answer {
+                    fields.push(("t-response", value));
+                }
+                let parsed = LegacyForm::from_request(
+                    request("/test/imgboard.php?mode=report&no=19", &fields, multipart),
+                    &(),
+                )
+                .await;
+                let Ok(LegacyForm(Submission::Report {
+                    form: handlers::ReportSubmission::Categorical { captcha, .. },
+                    ..
+                })) = parsed
+                else {
+                    panic!("owned categorical form must parse");
+                };
+                assert_eq!(captcha.challenge.as_deref(), challenge);
+                assert_eq!(captcha.answer.as_deref(), answer);
+            }
         }
     }
 }

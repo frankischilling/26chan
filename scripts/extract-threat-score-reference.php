@@ -142,6 +142,9 @@ for($i=0;$i<600;$i++) {
 record_case('negative-integer-time-boundary',$base,[['_tcs','x.UTC.-9007199254740993.33']],challenge:'owned',response:'answer',time:-9007199254740992);
 record_case('positive-integer-time-boundary',$base,[['_tcs','x.UTC.9007199254740991.33']],challenge:'owned',response:'answer',time:9007199254740992);
 record_case('steam-os-without-slash',replace_header($base,'HTTP_USER_AGENT','Mozilla/5.0 (compatible; SteamOS 1.0)'));
+foreach([[null,'answer'],['','answer'],['owned',null],['owned',''],['owned','0'],['0','answer'],['noop','answer']] as $i=>[$challenge,$response]) {
+ record_case("form-presence-$i",$base,[['_tcs','x.UTC.999.33']],challenge:$challenge,response:$response);
+}
 $metadata=['source_sha256'=>$sourceHash,'function_sha256'=>$scoreHash,'language_sha256'=>$languageHash,'php_version'=>PHP_VERSION,'pcre_version'=>PCRE_VERSION,'php_int_size'=>PHP_INT_SIZE];
 $flags=JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR;
 $json=rtrim(json_encode($metadata,JSON_PRETTY_PRINT|$flags));

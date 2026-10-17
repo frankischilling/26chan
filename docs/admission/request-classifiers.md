@@ -76,7 +76,7 @@ unqualified or unsupported numeric inputs remain unavailable. Request time is
 bounded to the exact integer range of a double. No score means unknown, not zero.
 
 The isolated extractor executes only the two hash-pinned pure functions on
-64-bit PHP 8.4.24 with PCRE 10.46. It rejects other engine versions. Its 4,517
+64-bit PHP 8.4.24 with PCRE 10.46. It rejects other engine versions. Its 4,524
 cases cover browser/version branches, request mode, header presence and order,
 cookie timing, language boundaries, every country-language
 alternative and combined terms. Arbitrary-byte tests also check finite results
@@ -120,8 +120,11 @@ callers must not log or persist the raw fields.
 This adapter is not connected to posting or report decisions. It does not
 invent non-HTTP SAPI entries, a trusted country, request time, session history or
 form-field presence. Those facts and the complete server-entry layout still
-need qualification before constructing a scorer request. Existing form structs
-also need to retain absent versus present-empty challenge fields. The source
+need qualification before constructing a scorer request. Public posting, direct reports and legacy categorical reports retain absent
+versus present-empty challenge and response fields through their parsed form
+inputs. Verification still treats missing and empty text alike and obtains
+authority only from the private issuer. Seven executed source cases distinguish
+missing, empty, zero and noop challenge/response values at the timing rule. The source
 sets `_tcs` only in its framed CAPTCHA response; the JSON path does not set it.
 The native JSON CAPTCHA client does not synthesize the cookie.
 

@@ -168,8 +168,8 @@ fn ticket_answer(fields: &Fields) -> Result<Option<protocol::TicketAnswer>, AppE
 #[derive(Default)]
 pub(crate) struct FormInput {
     pub(crate) csrf: String,
-    pub(crate) challenge: String,
-    pub(crate) answer: String,
+    pub(crate) challenge: Option<String>,
+    pub(crate) answer: Option<String>,
     pub(crate) credit: String,
 }
 
@@ -184,6 +184,10 @@ pub(crate) async fn proof(
     scope: Scope,
     input: &FormInput,
 ) -> Result<Option<board_store::WriteChallengeProof>, AppError> {
+    // Presence is retained for request observations. Verification still treats
+    // absent and empty values alike and derives authority only from the issuer.
+    let challenge = input.challenge.as_deref().unwrap_or_default();
+    let answer = input.answer.as_deref().unwrap_or_default();
     if !board_store::posting_challenge::board_policy(&state.pool, &scope.board)
         .await?
         .enabled
@@ -207,14 +211,14 @@ pub(crate) async fn proof(
         ));
     }
     if !matches!(input.credit.as_str(), "" | "1")
-        || input.answer.len() > 64
-        || input.answer.chars().any(char::is_control)
+        || answer.len() > 64
+        || answer.chars().any(char::is_control)
     {
         return Err(invalid());
     }
     if scope.purpose == protocol::Purpose::Report
-        && input.challenge.is_empty()
-        && input.answer.is_empty()
+        && challenge.is_empty()
+        && answer.is_empty()
         && input.credit.is_empty()
     {
         let (key, peer) = state
@@ -239,9 +243,7 @@ pub(crate) async fn proof(
     let context = scope.context(state, session, peer, &input.csrf)?;
     let service = state.verification.as_ref().ok_or_else(unavailable)?;
     let checked = if input.credit == "1" {
-        if scope.purpose == protocol::Purpose::Thread
-            || !input.challenge.is_empty()
-            || !input.answer.is_empty()
+        if scope.purpose == protocol::Purpose::Thread || !challenge.is_empty() || !answer.is_empty()
         {
             return Err(invalid());
         }
@@ -249,10 +251,10 @@ pub(crate) async fn proof(
     } else {
         if board_domain::challenge_secrets::VerificationToken::parse(
             board_domain::challenge_secrets::TokenKind::Challenge,
-            &input.challenge,
+            challenge,
         )
         .is_none()
-            || input.answer.is_empty()
+            || answer.is_empty()
         {
             return Err(AppError(
                 StatusCode::BAD_REQUEST,
@@ -262,8 +264,8 @@ pub(crate) async fn proof(
         service
             .check(&protocol::Answer {
                 context,
-                challenge: input.challenge.clone(),
-                answer: input.answer.clone(),
+                challenge: challenge.to_owned(),
+                answer: answer.to_owned(),
             })
             .await
     }
