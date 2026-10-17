@@ -297,19 +297,17 @@ async fn read_board_snapshot(
         // Only selected posts with a persisted staff proof add a larger format
         // allowance. Ordinary slots retain their former raw-comment ceiling.
         let slots: usize = limits.iter().map(|limit| *limit as usize + 1).sum();
-        let notice_bytes = board_domain::post_notice::MAX_NOTICES
-            * (board_domain::post_notice::MAX_NOTICE_BYTES * 2 + 4);
-        let ordinary_bytes = (board_domain::MAX_COMMENT_BYTES + notice_bytes) * slots;
         let max_replies = limits.iter().copied().max().unwrap_or(0) as usize;
-        let (body_bytes, authorized_posts): (i64,i64) = sqlx::query_as("SELECT coalesce(sum(octet_length(p.comment)+CASE WHEN cardinality(p.staff_notices)=0 THEN 0 ELSE octet_length(p.staff_notices::text) END+coalesce(octet_length(p.wordfilter_payload),0)+coalesce(octet_length(p.wordfilter_search),0)+coalesce(octet_length(p.saved_presentation),0)+coalesce(octet_length(p.saved_presentation_search),0)),0)::bigint,count(*) FILTER (WHERE p.staff_authorized_limits) FROM unnest($2::bigint[],$3::bigint[]) AS selected(id,reply_limit) CROSS JOIN LATERAL ((SELECT comment,staff_notices,wordfilter_payload,wordfilter_search,saved_presentation,saved_presentation_search,staff_authorized_limits FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id=selected.id AND NOT deleted) UNION ALL (SELECT comment,staff_notices,wordfilter_payload,wordfilter_search,saved_presentation,saved_presentation_search,staff_authorized_limits FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id<>selected.id AND NOT deleted ORDER BY id DESC LIMIT selected.reply_limit)) p")
+        let (body_bytes, notice_bytes, authorized_posts): (i64,i64,i64) = sqlx::query_as("SELECT coalesce(sum(octet_length(p.comment)+coalesce(octet_length(p.wordfilter_payload),0)+coalesce(octet_length(p.wordfilter_search),0)+coalesce(octet_length(p.saved_presentation),0)+coalesce(octet_length(p.saved_presentation_search),0)),0)::bigint,coalesce(sum(CASE WHEN cardinality(p.staff_notices)=0 THEN 0 ELSE octet_length(p.staff_notices::text) END),0)::bigint,count(*) FILTER (WHERE p.staff_authorized_limits) FROM unnest($2::bigint[],$3::bigint[]) AS selected(id,reply_limit) CROSS JOIN LATERAL ((SELECT comment,staff_notices,wordfilter_payload,wordfilter_search,saved_presentation,saved_presentation_search,staff_authorized_limits FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id=selected.id AND NOT deleted) UNION ALL (SELECT comment,staff_notices,wordfilter_payload,wordfilter_search,saved_presentation,saved_presentation_search,staff_authorized_limits FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id<>selected.id AND NOT deleted ORDER BY id DESC LIMIT selected.reply_limit)) p")
             .bind(slug).bind(&ids).bind(limits).fetch_one(&mut *tx).await?;
-        let extra = board_domain::WordfilterLimits::Authorized.saved_post_read_bytes()
-            - board_domain::MAX_COMMENT_BYTES;
-        // Keep the former maximum for 1,000 selected threads. A larger staff
-        // slot must not enlarge the overall database-to-process read ceiling.
-        let max_bytes = (ordinary_bytes + authorized_posts as usize * extra)
-            .min(board_domain::MAX_COMMENT_BYTES * 1000 * (max_replies + 1));
-        if body_bytes > max_bytes as i64 {
+        let (body_limit, notice_limit, total_limit) =
+            snapshot_byte_limits(slots, authorized_posts as usize, max_replies);
+        // Notices cannot lend unused space to ordinary comments. Both measured
+        // dimensions must also fit the unchanged overall transfer ceiling.
+        if body_bytes > body_limit as i64
+            || notice_bytes > notice_limit as i64
+            || body_bytes + notice_bytes > total_limit as i64
+        {
             return Err(StoreError::ReadLimit);
         }
         sqlx::query_as("SELECT p.* FROM unnest($2::bigint[],$3::bigint[]) AS selected(id,reply_limit) CROSS JOIN LATERAL ((SELECT * FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id=selected.id AND NOT deleted) UNION ALL (SELECT * FROM content.posts WHERE board=$1 AND thread_id=selected.id AND id<>selected.id AND NOT deleted ORDER BY id DESC LIMIT selected.reply_limit)) p ORDER BY p.thread_id,p.id")
@@ -371,4 +369,53 @@ async fn read_board_snapshot(
         navigation_boards,
         blotter,
     })
+}
+
+// Inputs come from the bounded selected-thread and preview-slot lists.
+fn snapshot_byte_limits(
+    slots: usize,
+    authorized_posts: usize,
+    max_replies: usize,
+) -> (usize, usize, usize) {
+    let ordinary = board_domain::MAX_COMMENT_BYTES * slots;
+    let extra = board_domain::WordfilterLimits::Authorized.saved_post_read_bytes()
+        - board_domain::MAX_COMMENT_BYTES;
+    let overall = board_domain::MAX_COMMENT_BYTES * MAX_BOARD_READ_THREADS * (max_replies + 1);
+    let body = (ordinary + authorized_posts * extra).min(overall);
+    // PostgreSQL array text can escape every byte and adds bounded punctuation.
+    let notices = board_domain::post_notice::MAX_NOTICES
+        * (board_domain::post_notice::MAX_NOTICE_BYTES * 2 + 4)
+        * slots;
+    (body, notices, (body + notices).min(overall))
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::*;
+    #[test]
+    fn notices_have_a_separate_allowance_under_the_original_total_ceiling() {
+        let ordinary = board_domain::MAX_COMMENT_BYTES;
+        let notices = board_domain::post_notice::MAX_NOTICES
+            * (board_domain::post_notice::MAX_NOTICE_BYTES * 2 + 4);
+        assert_eq!(snapshot_byte_limits(0, 0, 0), (0, 0, 0));
+        assert_eq!(
+            snapshot_byte_limits(1, 0, 0),
+            (ordinary, notices, ordinary + notices)
+        );
+        let authorized = board_domain::WordfilterLimits::Authorized.saved_post_read_bytes();
+        assert_eq!(
+            snapshot_byte_limits(1, 1, 0),
+            (authorized, notices, authorized + notices)
+        );
+        for replies in [0, 5] {
+            let slots = MAX_BOARD_READ_THREADS * (replies + 1);
+            let ceiling = ordinary * slots;
+            for staff in [0, slots] {
+                assert_eq!(
+                    snapshot_byte_limits(slots, staff, replies),
+                    (ceiling, notices * slots, ceiling)
+                );
+            }
+        }
+    }
 }

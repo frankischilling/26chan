@@ -119,3 +119,34 @@ Both corrected database tests pass locally:
 
 Formatting and diff checks also pass. These focused results do not replace the
 full hosted run on the changed commit.
+
+## Independent board-read budgets
+
+Board snapshots measure saved comment bodies and notice arrays separately.
+Unused notice capacity cannot enlarge the ordinary 64,000-byte-per-slot body
+allowance. Only selected posts with a persisted staff proof add the existing
+larger body allowance. Notices have their own bounded allowance for PostgreSQL
+array encoding; the combined read still obeys the previous overall ceiling for
+1,000 selected threads and their requested reply slots.
+
+The earlier implementation added notice capacity to the general body budget,
+which admitted an expanded ordinary comment that the existing wordfilter test
+requires to reject. That failure reproduces locally. The corrected four-test
+wordfilter suite passes, including maximum-sized escaped notices on a small
+post, continued rejection of an oversized saved body with and without notices,
+and metadata-only reads that transfer no post bodies. Unit checks preserve the
+same total ceiling for both ordinary and authorized posts.
+
+The homepage migration test now separates the historical 0155/0156 schema from
+the current serving schema. It checks that the current reader rejects the old
+notice-free view, applies the remaining migrations, and compares retained rows
+with only the reviewed CAPTCHA-policy defaults and empty notice array added.
+Historical and current administrator dump/restore checks both pass, including
+current readiness and public projections. The production readiness query is
+unchanged.
+
+After the budget correction, all 422 store tests pass with every feature enabled
+on a fresh owned PostgreSQL 16 database, with no skipped tests. The actual
+migration binary applied the full schema before that run. Store all-target,
+all-feature Clippy also passes with warnings denied. The homepage migration
+script passes separately against its own historical and current databases.
