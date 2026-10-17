@@ -314,6 +314,14 @@ UPDATE public.upgraded_rows SET value=value||jsonb_build_object(
 WHERE relation='post_secrets.posting_history';
 SQL
 fi
+# Warning state starts empty; only its explicit capacity singleton is additive.
+# Keep a literal expected row so unexpected defaults or later writes still fail.
+if [[ -f migrations/0187_dmca_warning_state.sql ]]; then
+ "${admin[@]}" <<'SQL'
+INSERT INTO public.upgraded_rows VALUES('admission.file_effect_capacity',
+ jsonb_build_object('singleton',true,'warning_limit',100000));
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
@@ -377,6 +385,21 @@ DO $$ BEGIN
 END $$;
 SQL
 done
+if [[ -f migrations/0187_dmca_warning_state.sql ]]; then
+ for mutation in \
+  "UPDATE admission.file_effect_capacity SET warning_limit=99999 WHERE singleton;" \
+  "INSERT INTO admission.dmca_warnings VALUES(decode(repeat('18',32),'hex'),'2000-01-01 00:00:00+00');"; do
+  {
+   printf '%s\n' "$mutation"
+   cat "$cluster/assert-retained.sql"
+  } > "$cluster/warning-state-negative.sql"
+  if "${admin[@]}" --single-transaction -f - < "$cluster/warning-state-negative.sql" > "$cluster/warning-state-negative.log" 2>&1; then
+   echo 'File-deletion history guard accepted unrelated warning-state changes.' >&3; exit 1
+  fi
+  grep -q 'File action changed unrelated history, audit or consumed media identity' "$cluster/warning-state-negative.log"
+  "${admin[@]}" -f - < "$cluster/assert-retained.sql"
+ done
+fi
 if [[ -f migrations/0180_automatic_range_metadata.sql ]]; then
  # These rolled-back mutations prove the additive baseline still catches
  # invented comparison evidence and changes to the original actor identity.
