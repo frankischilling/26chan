@@ -274,12 +274,36 @@ pub(crate) async fn proof(
             peer_hash,
             context_hash,
         } => board_store::WriteChallengeProof::from_issuer(&receipt, peer_hash, context_hash)
-            .map(Some)
+            .map(|proof| Some(proof.with_credit_request(credit_request(headers))))
             .ok_or_else(unavailable),
         protocol::AnswerResult::Rejected {} => Err(AppError(
             StatusCode::BAD_REQUEST,
             "Incorrect or expired CAPTCHA. Please try again.",
         )),
+    }
+}
+
+fn credit_request(
+    headers: &HeaderMap,
+) -> board_domain::content_admission::classifiers::CreditRequest<'_> {
+    use board_domain::content_admission::{classifiers::CreditRequest, network::ProviderValue};
+    fn fact<'a>(headers: &'a HeaderMap, name: &str) -> ProviderValue<Option<&'a [u8]>> {
+        let mut values = headers.get_all(name).iter();
+        let first = values.next();
+        if values.next().is_some() {
+            return ProviderValue::Unavailable;
+        }
+        ProviderValue::Available(first.map(|value| value.as_bytes()))
+    }
+    CreditRequest {
+        // Only presence is used for these fields. Duplicate values cannot
+        // make their source `isset` result ambiguous.
+        accept_language: ProviderValue::Available(
+            headers.contains_key("accept-language").then_some(&b""[..]),
+        ),
+        accept: ProviderValue::Available(headers.contains_key("accept").then_some(&b""[..])),
+        user_agent: fact(headers, "user-agent"),
+        referer: fact(headers, "referer"),
     }
 }
 
@@ -404,6 +428,36 @@ async fn request(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn courtesy_credit_gate_uses_actual_header_presence_and_duplicate_uncertainty() {
+        use board_domain::content_admission::{
+            classifiers::withhold_captcha_credit, network::ProviderValue,
+        };
+        let mut headers = axum::http::HeaderMap::new();
+        assert!(matches!(
+            withhold_captcha_credit(super::credit_request(&headers)),
+            ProviderValue::Available(true)
+        ));
+        headers.insert("accept-language", axum::http::HeaderValue::from_static(""));
+        headers.insert("accept", axum::http::HeaderValue::from_static(""));
+        assert!(matches!(
+            withhold_captcha_credit(super::credit_request(&headers)),
+            ProviderValue::Available(false)
+        ));
+        headers.insert("user-agent", axum::http::HeaderValue::from_static("iPhone"));
+        headers.append("accept", axum::http::HeaderValue::from_static("text/html"));
+        assert!(matches!(
+            withhold_captcha_credit(super::credit_request(&headers)),
+            ProviderValue::Available(false)
+        ));
+        headers.remove("accept");
+        headers.append("user-agent", axum::http::HeaderValue::from_static("Mobile"));
+        assert!(matches!(
+            withhold_captcha_credit(super::credit_request(&headers)),
+            ProviderValue::Unavailable
+        ));
+    }
+
     use super::*;
     #[test]
     fn browser_scope_cannot_select_internal_purposes_or_ambiguous_targets() {

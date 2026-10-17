@@ -1,0 +1,3157 @@
+{
+    "source_sha256": "d0037219f34fdc54b85ca696095415209531d5350652dea5ec86e508f75d5207",
+    "function_sha256": "5eb7a455c1fb45f4d3842f79c2b00cfb09d33f4916579ba68c0fb5cd7c0d20ed",
+    "php_version": "8.4.24",
+    "cases": [
+        {
+            "language": null,
+            "accept": null,
+            "ua": null,
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": null,
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": null,
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": null,
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": null,
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iphone",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iphone",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iphone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iphone",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iphone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": null,
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": null,
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": null,
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": null,
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": null,
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iphone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iphone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iphone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iphone",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iphone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": null,
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": null,
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": null,
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": null,
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": null,
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": null,
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": null,
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": null,
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": null,
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": null,
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": null,
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iphone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iphone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iphone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iphone",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iphone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": null,
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": null,
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": null,
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": null,
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": null,
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iphone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iphone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iphone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iphone",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iphone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": null,
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": null,
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": null,
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": null,
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": null,
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "",
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": null,
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": null,
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": null,
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": null,
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": null,
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Android; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "Android; WV)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone",
+            "referer": null,
+            "withhold": true
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone",
+            "referer": "",
+            "withhold": true
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": true
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone",
+            "referer": "https://example.test/thread/1",
+            "withhold": true
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": true
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iphone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iphone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iphone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iphone",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iphone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": null,
+            "ua": "猫; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": null,
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": null,
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": null,
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": null,
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": null,
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Android; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "Android; WV)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iphone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iphone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iphone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iphone",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iphone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "",
+            "ua": "猫; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": null,
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": null,
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": null,
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": null,
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": null,
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Mozilla/5.0",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Android; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "Android; WV)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iphone",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "iPhone\u0000Mobile",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": null,
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": "",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": "https://sys.4chan.org/g/",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": "https://example.test/thread/1",
+            "withhold": false
+        },
+        {
+            "language": "en-US",
+            "accept": "text/html",
+            "ua": "猫; wv)",
+            "referer": "https://example.test/THREAD/1",
+            "withhold": false
+        }
+    ]
+}

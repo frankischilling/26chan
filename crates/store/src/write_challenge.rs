@@ -8,6 +8,7 @@ pub struct WriteChallengeProof {
     receipt_hash: [u8; 32],
     peer_hash: [u8; 32],
     context_hash: [u8; 32],
+    credit_request_eligible: bool,
 }
 
 impl WriteChallengeProof {
@@ -16,7 +17,22 @@ impl WriteChallengeProof {
             receipt_hash: ReceiptToken::parse(receipt)?.storage_hash(),
             peer_hash,
             context_hash,
+            credit_request_eligible: false,
         })
+    }
+
+    /// Request facts only restrict courtesy-credit issuance. The private issuer
+    /// receipt still decides whether the solved challenge is valid.
+    pub fn with_credit_request(
+        mut self,
+        request: board_domain::content_admission::classifiers::CreditRequest<'_>,
+    ) -> Self {
+        use board_domain::content_admission::{classifiers, network::ProviderValue};
+        self.credit_request_eligible = matches!(
+            classifiers::withhold_captcha_credit(request),
+            ProviderValue::Available(false)
+        );
+        self
     }
 
     fn carrier(&self, session: &PostingSession) -> String {
@@ -48,8 +64,9 @@ pub(crate) async fn install(
     };
     // Always override any pooled connection's prior value, including when the
     // caller has no proof. Local scope ends with the enclosing transaction.
-    sqlx::query("SELECT set_config('board.challenge_context',$1,true)")
+    sqlx::query("SELECT set_config('board.challenge_context',$1,true),set_config('board.challenge_credit_request',$2,true)")
         .bind(carrier)
+        .bind(if proof.is_some_and(|p| p.credit_request_eligible) { "eligible" } else { "" })
         .execute(connection)
         .await?;
     Ok(())
@@ -87,6 +104,33 @@ pub(crate) async fn install_report_exemption(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn credit_eligibility_defaults_closed_and_never_changes_receipt_carrier() {
+        use board_domain::content_admission::{
+            classifiers::CreditRequest, network::ProviderValue::Available as A,
+        };
+        let receipt = ReceiptToken::generate().unwrap();
+        let proof = WriteChallengeProof::from_issuer(&receipt.encode(), [1; 32], [2; 32]).unwrap();
+        assert!(!proof.credit_request_eligible);
+        let proof = proof.with_credit_request(CreditRequest {
+            accept_language: A(Some(b"")),
+            accept: A(Some(b"")),
+            user_agent: A(None),
+            referer: A(None),
+        });
+        assert!(proof.credit_request_eligible);
+        let proof = proof.with_credit_request(CreditRequest {
+            accept_language: A(None),
+            accept: A(None),
+            user_agent: A(None),
+            referer: A(None),
+        });
+        assert!(!proof.credit_request_eligible);
+        assert_eq!(proof.receipt_hash, receipt.storage_hash());
+        assert_eq!(proof.peer_hash, [1; 32]);
+        assert_eq!(proof.context_hash, [2; 32]);
+    }
+
     #[test]
     fn proof_transport_accepts_only_receipt_tokens() {
         for prefix in ["", "t1_", "e1_", "c1_"] {

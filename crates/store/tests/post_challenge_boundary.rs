@@ -17,12 +17,19 @@ use sqlx::PgPool;
 
 #[tokio::test]
 async fn public_post_requires_a_receipt_and_grants_credits_only_with_registered_activity() {
-    run_scenario(4, 0, false).await;
-    run_scenario(5, 1, false).await;
-    run_scenario(5, 1, true).await;
+    run_scenario(4, 0, false, Some(true)).await;
+    run_scenario(5, 1, false, Some(true)).await;
+    run_scenario(5, 1, true, Some(true)).await;
+    run_scenario(5, 0, false, Some(false)).await;
+    run_scenario(5, 0, false, None).await;
 }
 
-async fn run_scenario(initial_posts: i16, expected_credits: i16, with_attachment: bool) {
+async fn run_scenario(
+    initial_posts: i16,
+    expected_credits: i16,
+    with_attachment: bool,
+    request_eligible: Option<bool>,
+) {
     let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -192,6 +199,34 @@ async fn run_scenario(initial_posts: i16, expected_credits: i16, with_attachment
                             None
                         } else {
                             WriteChallengeProof::from_issuer(&receipt_text, peer_hash, context_hash)
+                                .map(|proof| {
+                                    use board_domain::content_admission::{
+                                        classifiers::CreditRequest,
+                                        network::ProviderValue::{
+                                            Available as A, Unavailable as U,
+                                        },
+                                    };
+                                    match request_eligible {
+                                        Some(true) => proof.with_credit_request(CreditRequest {
+                                            accept_language: A(Some(b"en")),
+                                            accept: A(Some(b"text/html")),
+                                            user_agent: A(None),
+                                            referer: A(None),
+                                        }),
+                                        Some(false) => proof.with_credit_request(CreditRequest {
+                                            accept_language: A(None),
+                                            accept: A(None),
+                                            user_agent: A(None),
+                                            referer: A(None),
+                                        }),
+                                        None => proof.with_credit_request(CreditRequest {
+                                            accept_language: U,
+                                            accept: U,
+                                            user_agent: U,
+                                            referer: U,
+                                        }),
+                                    }
+                                })
                         },
                     },
                     PostMetadata {
@@ -309,7 +344,7 @@ async fn run_scenario(initial_posts: i16, expected_credits: i16, with_attachment
             assert_eq!(handoffs, 0);
             let remaining:Option<i16>=sqlx::query_scalar("SELECT remaining FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).fetch_optional(&owner).await.unwrap();
             assert_eq!(remaining.unwrap_or(0), expected_credits);
-            if initial_posts == 5 && !with_attachment {
+            if expected_credits > 0 && !with_attachment {
                 let parent: i64 =
                     sqlx::query_scalar("SELECT id FROM content.threads WHERE board=$1 LIMIT 1")
                         .bind(&board)

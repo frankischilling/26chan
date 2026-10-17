@@ -153,11 +153,13 @@ active normalization path does not expand links through RPC.
 
 Additional source checks include fixed subject restrictions, filename proxy
 detection, IP/ASN range bans, known-user and verified-user exceptions,
-browser/request signatures, password/country history, flood checks and optional
-threat scoring. These depend on operator data and anonymous-session/Pass
-state. No private rule rows, whitelist contents, histories or trained scoring
-data are supplied by the public snapshot. Their absence does not authorize
-inventing production lists or treating placeholder decisions as parity.
+browser/request signatures, password/country history and request scoring. Some
+inputs depend on operator data and anonymous-session/Pass state. Deterministic
+request heuristics are present in the source; the flood helper's posting call is
+disabled. No private rule rows, whitelist contents or production histories are
+supplied by the public snapshot. Their absence does not authorize invented lists
+or placeholder decisions. [Request classifiers](admission/request-classifiers.md)
+tracks the active callers and provider gaps.
 
 The image admission function scans bounded portions or the whole upload for
 embedded code/archive signatures and rejects APNG. The rewrite's isolated

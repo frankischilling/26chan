@@ -3,6 +3,7 @@
 use crate::admission_normalization::{NormalizationError, Normalizer};
 use pcre2::bytes::{Regex, RegexBuilder};
 
+pub mod classifiers;
 pub mod files;
 pub mod network;
 
