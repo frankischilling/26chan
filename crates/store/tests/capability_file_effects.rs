@@ -573,3 +573,50 @@ async fn responses(f: &Fixture) {
         );
     }
 }
+
+#[tokio::test]
+async fn expired_upload_after_cookie_wait_rolls_back_the_repeat_ban() {
+    let _serial = TEST.lock().await;
+    let f = Fixture::new("g", "owned-expiry.png").await;
+    let owned = f.clone();
+    let result = tokio::spawn(async move {
+        let actor=Capability::generate().unwrap().storage_hash();
+        let token=Capability::generate().unwrap().storage_hash();
+        owned.tokens.lock().unwrap().push(token.to_vec());
+        let now:i64=sqlx::query_scalar("SELECT floor(extract(epoch FROM clock_timestamp()))::bigint").fetch_one(&owned.owner).await.unwrap();
+        let mut cookie=serde_json::json!({"token":hex(&token),"cookie":{"network":"01".repeat(32),"address":"02".repeat(32),"environment":"03".repeat(32),"minted":true,"now":now}});
+        assert!(owned.finish(&owned.public,&actor,cookie.clone()).await.unwrap().3);
+        cookie["cookie"]["minted"]=serde_json::json!(false);
+        owned.policy(2,false,false).await;
+        owned.clock(Some("UTC")).await;
+        assert_eq!(owned.finish(&owned.public,&actor,serde_json::json!({})).await.unwrap().0,"dmca");
+        let before:serde_json::Value=sqlx::query_scalar("SELECT to_jsonb(w) FROM admission.dmca_warnings w WHERE actor_hash=$1").bind(actor.as_slice()).fetch_one(&owned.owner).await.unwrap();
+        let runtime=sqlx::postgres::PgPoolOptions::new().max_connections(1)
+            .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap()).await.unwrap();
+        let pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&runtime).await.unwrap();
+        let mut blocker=owned.owner.begin().await.unwrap();
+        sqlx::query("SELECT token_hash FROM post_secrets.anonymous_sessions WHERE token_hash=$1 FOR UPDATE").bind(token.as_slice()).execute(&mut *blocker).await.unwrap();
+        sqlx::query("UPDATE media.jobs SET created_at=clock_timestamp()-interval '2 hours'+interval '2 seconds' WHERE id=$1").bind(&owned.job).execute(&owned.owner).await.unwrap();
+        let runner=owned.clone();
+        let task=tokio::spawn(async move { runner.finish(&runtime,&actor,cookie).await });
+        // Observe the actual lock wait, rather than assuming a scheduling delay
+        // means the refusal has reached the cookie refresh.
+        tokio::time::timeout(std::time::Duration::from_secs(1),async {
+            loop {
+                let waiting:bool=sqlx::query_scalar("SELECT cardinality(pg_blocking_pids($1))>0").bind(pid).fetch_one(&owned.owner).await.unwrap();
+                if waiting {break;}
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        }).await.unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(2100)).await;
+        blocker.rollback().await.unwrap();
+        code(task.await.unwrap().unwrap_err(),"P0002");
+        assert_eq!(owned.bans(&actor).await,0);
+        let after:serde_json::Value=sqlx::query_scalar("SELECT to_jsonb(w) FROM admission.dmca_warnings w WHERE actor_hash=$1").bind(actor.as_slice()).fetch_one(&owned.owner).await.unwrap();
+        assert_eq!(before,after);
+        let consumed:i64=sqlx::query_scalar("SELECT count(*) FROM content.post_media WHERE job_id=$1").bind(&owned.job).fetch_one(&owned.owner).await.unwrap();
+        assert_eq!(consumed,0);
+    }).await;
+    f.cleanup().await;
+    result.unwrap();
+}
