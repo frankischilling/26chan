@@ -195,6 +195,16 @@ pub(crate) async fn preflight(connection: &mut PgConnection) -> Result<(), Erasu
     if !ready || !erasure {
         return Err(ErasureError::Schema);
     }
+    // The report-profile seal is granted to the real migrator, not the
+    // restriction owner. Check it before changing role, then pass that result
+    // into the shared query. Neither owner needs the other's private grants.
+    let profile: bool = sqlx::query_scalar("SELECT content.report_profile_ready()")
+        .fetch_one(&mut *connection)
+        .await
+        .map_err(|_| ErasureError::Schema)?;
+    if !profile {
+        return Err(ErasureError::Schema);
+    }
     // Inspect configured public permissions without granting or assuming the
     // public runtime role. The report check also calls restrictions_ready();
     // the migrator has SET-only membership in its owner, not direct EXECUTE.
@@ -204,9 +214,11 @@ pub(crate) async fn preflight(connection: &mut PgConnection) -> Result<(), Erasu
         .await
         .map_err(|_| ErasureError::Schema)?;
     // No SQL or identity text comes from the command line.
-    let report_catalog =
-        crate::report_admission::READINESS_SQL.replace("current_user", "'board_public'::name");
+    let report_catalog = crate::report_admission::READINESS_SQL
+        .replace("current_user", "'board_public'::name")
+        .replace("content.report_profile_ready()", "$1::boolean");
     let reports: bool = sqlx::query_scalar(sqlx::AssertSqlSafe(report_catalog))
+        .bind(profile)
         .fetch_one(&mut *connection)
         .await
         .map_err(|_| ErasureError::Schema)?;
