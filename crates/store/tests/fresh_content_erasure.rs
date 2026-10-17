@@ -895,11 +895,11 @@ async fn whole_deletion_erases_media_metadata_but_preserves_consumed_identities(
             .bind(&f.ids).fetch_all(&f.owner).await.unwrap();
         for (old,new) in before[..3].iter().zip(&after[..3]) {
             let expected=json!({"post_id":old["post_id"],"job_id":old["job_id"],"asset_id":old["asset_id"],"tim":old["tim"],
-                "filename":"[deleted]","bytes":1,"width":1,"height":1,"spoiler":false,"file_deleted":true,"metadata_erased":true,"created_at":"1970-01-01T00:00:00+00:00"});
+                "filename":"[deleted]","bytes":1,"width":1,"height":1,"spoiler":false,"file_deleted":true,"metadata_erased":true,"normalized_md5":null,"created_at":"1970-01-01T00:00:00+00:00"});
             assert_eq!(*new,expected,"every retained field needs a structural purpose");
         }
         assert_eq!(before[3],after[3],"unrelated live attachment is unchanged");
-        for assignment in ["filename='restore.png'","metadata_erased=false","file_deleted=false","job_id=md5('replacement')"] {
+        for assignment in ["filename='restore.png'","metadata_erased=false","file_deleted=false","job_id=md5('replacement')","normalized_md5=decode(repeat('19',16),'hex')"] {
             let error=sqlx::query(sqlx::AssertSqlSafe(format!("UPDATE content.post_media SET {assignment} WHERE post_id=$1")))
                 .bind(f.ids[0]).execute(&f.owner).await.unwrap_err();
             assert_eq!(code(&error),"23514");
