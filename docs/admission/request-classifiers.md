@@ -345,8 +345,9 @@ permits a refreshed session cookie in the refusal response.
 
 The lookup returns observations, so the caller must still apply the locked
 CAPTCHA/staff bypass decision before using them. These bridges are not yet
-called by the posting handler, and diagnostic country-block logs remain a
-separate integration task.
+called by the posting handler. The bounded diagnostic recorder is described in
+[classifier diagnostics](classifier-diagnostics.md); its caller integration
+also remains open.
 
 The late history gate uses trusted edge-field presence independently of numeric
 parsing. Empty and non-numeric values still enter the source history branch;

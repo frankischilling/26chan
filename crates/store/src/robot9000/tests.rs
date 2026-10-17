@@ -112,14 +112,18 @@ async fn country_refusal_and_replayed_originality_share_one_commit() {
             sqlx::query("ROLLBACK TO SAVEPOINT owned_post").execute(&mut *tx).await.unwrap();
             checked.replay(&mut tx).await.unwrap();
             crate::posting_classifiers::record_country_refusal_in_transaction(&mut tx,&b,&session).await.unwrap();
-            // The second connection must see neither uncommitted write.
-            let visible: (i64,i64) = sqlx::query_as("SELECT (SELECT count(*) FROM post_secrets.robot9000_texts WHERE board=$1),(SELECT count(*) FROM post_secrets.classifier_history WHERE token_hash=$2)")
+            use crate::posting_classifiers::diagnostics::{self, Event, Written};
+            use board_domain::content_admission::classifiers::posting::history;
+            let events = [Event::History(history::Event::RecordCountryChange), Event::History(history::Event::LogCountryBlock)];
+            assert_eq!(diagnostics::record(&mut tx,&b,0,&events,Some("US"),None).await.unwrap(),Written::Recorded);
+            // The second connection must see none of the uncommitted effects.
+            let visible: (i64,i64,i64) = sqlx::query_as("SELECT (SELECT count(*) FROM post_secrets.robot9000_texts WHERE board=$1),(SELECT count(*) FROM post_secrets.classifier_history WHERE token_hash=$2),(SELECT count(*) FROM post_secrets.classifier_events WHERE board=$1)")
                 .bind(&b).bind(&t).fetch_one(&o).await.unwrap();
-            assert_eq!(visible,(0,0));
+            assert_eq!(visible,(0,0,0));
             if commit { tx.commit().await.unwrap(); } else { tx.rollback().await.unwrap(); }
-            let saved: (i64,i64) = sqlx::query_as("SELECT (SELECT count(*) FROM post_secrets.robot9000_texts WHERE board=$1),(SELECT count(*) FROM post_secrets.classifier_history WHERE token_hash=$2)")
+            let saved: (i64,i64,i64) = sqlx::query_as("SELECT (SELECT count(*) FROM post_secrets.robot9000_texts WHERE board=$1),(SELECT count(*) FROM post_secrets.classifier_history WHERE token_hash=$2),(SELECT count(*) FROM post_secrets.classifier_events WHERE board=$1)")
                 .bind(&b).bind(&t).fetch_one(&o).await.unwrap();
-            assert_eq!(saved,if commit {(1,1)} else {(0,0)});
+            assert_eq!(saved,if commit {(1,1,2)} else {(0,0,0)});
             let state: (i64,i16,i16) = sqlx::query_as("SELECT activity_at,posts,pending FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
                 .bind(&t).fetch_one(&o).await.unwrap();
             assert_eq!(state,(now.timestamp()-60,0,0));
@@ -127,6 +131,11 @@ async fn country_refusal_and_replayed_originality_share_one_commit() {
         let posts: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&b).fetch_one(&o).await.unwrap();
         assert_eq!(posts,0);
     }).await;
+    sqlx::query("DELETE FROM post_secrets.classifier_events WHERE board=$1")
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
     sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
         .bind(&token)
         .execute(&owner)

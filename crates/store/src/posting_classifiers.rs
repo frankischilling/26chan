@@ -1,5 +1,7 @@
 //! Private late-posting history bridges. The application must select these
 //! after the ordered source checks; this module grants no posting bypass.
+pub mod diagnostics;
+
 use crate::{StoreError, anonymous_session::PostingSession};
 use sqlx::{PgConnection, PgPool, Postgres, Transaction};
 
