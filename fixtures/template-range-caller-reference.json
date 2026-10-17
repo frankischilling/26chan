@@ -1,0 +1,6 @@
+{
+  "source": "admin.php:2961-2965",
+  "sha256": "4415d6684931efb93a9cc044bd69f770bd7bf1dc7b217e6f8cfffa0fe60418eb",
+  "scope": "Selected non-warning/mobile/template-rule branch; appended closing brace excludes unrelated commented and subsequent actions.",
+  "php": "  if (!$warn && $_post_meta && $_post_meta['is_mobile']) { // mobile devices only\n    // global rules only\n    if ($template && strpos($template['rule'], 'global') !== false) {\n      process_auto_rangeban($host, $_post_meta['browser_id'], $row['resto'], $row['no'], $template['no'], 1);\n    }\n  }\n"
+}

@@ -3,6 +3,9 @@ mod support;
 #[path = "staff_post_attachments/templates.rs"]
 mod templates;
 use templates::template_history;
+#[path = "staff_post_attachments/automatic_templates.rs"]
+mod automatic_templates;
+use automatic_templates::automatic_templates;
 #[path = "staff_post_attachments/prior_history.rs"]
 mod prior_history;
 use prior_history::prior_history;
@@ -467,6 +470,10 @@ macro_rules! database_case {
     };
 }
 
+database_case!(
+    template_bans_produce_scoped_automatic_ranges,
+    automatic_templates
+);
 database_case!(
     template_bans_retain_authorized_upload_snapshots,
     template_history

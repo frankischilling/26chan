@@ -3,8 +3,8 @@
 Issue #212 includes automatic mobile-range events created by moderation. The
 domain evaluator and event planner are implemented and tested. Migration 0180
 adds private accepted-post comparison metadata. Migration 0181 adds a bounded
-event store and posting enforcement, currently under qualification. The
-template-qualified moderation producer and ban-request workflow are unfinished.
+event store and posting enforcement. Migration 0204 connects direct template
+bans to the event producer. The ban-request workflow remains unfinished.
 
 ## Decisions covered
 
@@ -103,9 +103,11 @@ keys, even though each role reads its own configuration variables.
 Moderation event creation must read this stored target evidence, never
 browser IDs or prefixes submitted in moderator forms. Posting history stores
 the actual thread ID for an OP, so the target lookup must recover parent zero.
-The current custom-ban API has no template qualifier. Its global-scope flag
-must not activate automatic events; the template workflow still needs work
-under issue #220.
+The custom-ban API has no template qualifier. Its global-scope flag
+does not activate automatic events. Configured templates have a separate
+optional `source_rule`; the direct issuer tests its case-sensitive `global`
+substring, independently of the local/global ban scope. Warnings do not produce
+events. Existing presets retain NULL rule evidence and produce no inferred events.
 The source constructs anonymous state before filtering and reissues its cookie
 on an automatic refusal. Fresh, resumed and idle-reset states can all reach that
 branch. Action registration happens only after post insertion. Cookie issuance
@@ -115,8 +117,9 @@ on refusal is therefore separate from recording a successful action.
 
 The private creator enforces a 100,000-row limit. Issuance removes up to
 1,024 expired rows before checking capacity. A private creator reads retained
-target metadata and deduplicates the strict one-hour scope. It is deliberately
-unwired from the custom-ban endpoint until template authority exists.
+target metadata and deduplicates the strict one-hour scope. The authorized
+template issuer calls it inside the ban transaction after checking the selected
+rule and warning state. The custom-ban endpoint never calls it.
 
 Posting reads at most 129 same-board, parent and keyed-prefix candidates; the
 extra row detects overflow. A known browser further narrows the lookup. Missing
@@ -198,3 +201,32 @@ caller path; a public anonymous ownership context must not be reused for it.
 If the event has expired or disappeared before refresh, or session storage is
 unavailable, the post remains refused and no cookie is emitted. Fresh-session
 capacity failure cannot turn a refusal into a post or register accepted activity.
+
+## Direct template production
+
+The template issuer reads only the stored target comparison pair. OPs map to
+parent zero; replies retain their thread ID. Missing evidence, desktop targets
+and native IPv6 produce no event. A local ban using a global-rule template can
+produce an event, while a global ban with an unrelated or absent rule cannot.
+No moderator form fields can replace the target browser or network token.
+
+The rule column is bounded to 255 bytes and remains private operator
+configuration. The existing catalog seal includes its definition, grants and
+the changed issuer. Event creation and ban issuance share one transaction;
+errors or rollback discard the ban, audit, capacity charge and event together.
+The existing one-hour deduplication and two-hour enforcement windows remain.
+This does not implement the separate two-request hint producer for janitors.
+
+The isolated caller fixture is extracted from the pinned source with
+`scripts/extract-template-range-caller-reference.py SOURCE --check`.
+`scripts/test-template-range-caller-reference.php` executes 42 warning,
+metadata and rule combinations with a recording stub. The 96 existing event
+planner cases cover deduplication boundaries separately.
+
+Local PostgreSQL 16 qualification passes all 23 staff attachment tests, including
+template scope, missing evidence, reply admission, atomic rollback and private
+role denials. The populated 0203-to-0204 upgrade, rollback and dump/restore pass;
+strict store Clippy and the domain suite pass too. An initial local fixture lacked
+the production staff timeout settings; correcting that fixture made both
+lock-timeout regressions pass without changing production settings. Hosted CI
+still needs to qualify the published changes.

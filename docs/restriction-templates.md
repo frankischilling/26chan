@@ -15,7 +15,7 @@ these snapshots. Other admission work remains open under #212.
 
 `restrictions.templates` is private operator configuration. Each row specifies
 its ID, display name, minimum role, enabled state, board/global scope, warning
-or ban duration, public/private reasons, and whether a live file is required.
+or ban duration, public/private reasons, whether a live file is required, and optional `source_rule` evidence.
 Issuance and listing reject configurations with more than 128 rows. Reason and
 duration limits match the existing restriction issuer.
 
@@ -29,7 +29,7 @@ Use the migration/operator account to manage this table under
 `board_restriction_owner`. Runtime credentials cannot write configuration or
 read the table. Do not import a source template containing unimplemented
 post-ban actions and assume those actions will run; this preset path currently
-applies only the restriction itself.
+applies the restriction and its qualified automatic-range event, when configured.
 
 The minimum role further restricts the existing moderator-and-above issuance
 path. Configuring a janitor minimum does not enable direct janitor bans. That
@@ -83,3 +83,16 @@ Snapshot storage is charged with the ban. Failed template permission,
 file-required or capacity checks roll back the base ban, audit and snapshot in
 one transaction. Public status responses and media views do not expose the
 private snapshot fields.
+
+## Automatic-range events
+
+`source_rule` is a private, optional string bounded to 255 bytes. Set it only
+from the intended template rule. A non-warning template whose rule contains the
+case-sensitive substring `global` invokes the mobile-range producer. The ban's
+separate local/global scope is not a substitute for that predicate. Existing
+presets keep NULL evidence after migration and acquire no automatic effect.
+
+The producer uses the stored post's mobile browser comparison and keyed IPv4
+prefix. It receives no caller-supplied network metadata. Ban and event commit
+or roll back together. See [automatic-range policy](admission/automatic-range-policy.md)
+for scope, deduplication and the unfinished janitor-request path.
