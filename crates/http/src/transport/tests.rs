@@ -970,3 +970,6 @@ async fn request_fact_capture_uses_wire_order_and_rejects_ambiguous_fields() {
         finish(server).await;
     }
 }
+
+#[path = "native_profile_tests.rs"]
+mod native_profile_tests;

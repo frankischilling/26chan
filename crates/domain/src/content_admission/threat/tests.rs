@@ -138,3 +138,41 @@ proptest::proptest! {
         }
     }
 }
+
+#[test]
+fn native_origin_requires_evidence_only_when_referer_is_present() {
+    let value = |score: ProviderValue<Score>| match score {
+        A(value) => Some(value.value()),
+        U => None,
+    };
+    assert_eq!(
+        value(score_for_native_origin(A(empty()), U)),
+        result(A(empty()))
+    );
+    assert!(matches!(score_for_native_origin(U, A(true)), U));
+    let fields = [("HTTP_REFERER", b"https://owned.example/g/".as_slice())];
+    let request = Request {
+        server: &fields,
+        ..empty()
+    };
+    assert!(matches!(score_for_native_origin(A(request), U), U));
+    assert_eq!(
+        value(score_for_native_origin(A(request), A(false))),
+        result(A(request))
+    );
+    let A(allowed) = score_for_native_origin(A(request), A(true)) else {
+        panic!("qualified origin");
+    };
+    assert!(allowed.value() < result(A(request)).unwrap());
+    let duplicate = [fields[0], fields[0]];
+    assert!(matches!(
+        score_for_native_origin(
+            A(Request {
+                server: &duplicate,
+                ..empty()
+            }),
+            A(true)
+        ),
+        U
+    ));
+}

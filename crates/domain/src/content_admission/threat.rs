@@ -5,9 +5,10 @@ use super::network::ProviderValue;
 use pcre2::bytes::Regex;
 mod languages;
 
-/// Complete ordered server entries, including non-HTTP entries. Header maps
-/// that discard order cannot qualify this input. Parsed cookies are separate
-/// from HTTP_COOKIE. The caller must establish the country/time provenance.
+/// Complete ordered server entries for the selected profile. Source snapshots
+/// include non-HTTP entries; the explicit native profile defines its own layout.
+/// Header maps that discard order cannot qualify this input. Parsed cookies stay
+/// separate from HTTP_COOKIE. The caller establishes country/time provenance.
 #[derive(Clone, Copy)]
 pub struct Request<'a> {
     pub server: &'a [(&'a str, &'a [u8])],
@@ -122,12 +123,35 @@ pub fn score(request: ProviderValue<Request<'_>>) -> ProviderValue<Score> {
     let ProviderValue::Available(request) = request else {
         return ProviderValue::Unavailable;
     };
-    match calculate(request) {
+    match calculate(request, None) {
         Some(value) if value.is_finite() => ProviderValue::Available(Score(value)),
         _ => ProviderValue::Unavailable,
     }
 }
-fn calculate(r: Request<'_>) -> Option<f64> {
+/// Native deployments compare a present Referer with their configured public
+/// origin. The original source-literal behavior remains in `score` for source
+/// qualification. Unknown needed origin evidence never supplies a low score.
+pub fn score_for_native_origin(
+    request: ProviderValue<Request<'_>>,
+    same_origin: ProviderValue<bool>,
+) -> ProviderValue<Score> {
+    let ProviderValue::Available(request) = request else {
+        return ProviderValue::Unavailable;
+    };
+    let allowed = if get(request.server, "HTTP_REFERER").is_none() {
+        None
+    } else {
+        let ProviderValue::Available(value) = same_origin else {
+            return ProviderValue::Unavailable;
+        };
+        Some(value)
+    };
+    match calculate(request, allowed) {
+        Some(value) if value.is_finite() => ProviderValue::Available(Score(value)),
+        _ => ProviderValue::Unavailable,
+    }
+}
+fn calculate(r: Request<'_>, native_referer: Option<bool>) -> Option<f64> {
     if !valid_entries(r.server)
         || !valid_entries(r.cookies)
         || [r.challenge, r.response, r.country]
@@ -295,7 +319,7 @@ fn calculate(r: Request<'_>) -> Option<f64> {
     if truth(accept) && has(accept, b"text/plain") {
         add.push(0.05);
     }
-    if present("HTTP_REFERER") && !has(referer, b"4chan.org") {
+    if present("HTTP_REFERER") && !native_referer.unwrap_or_else(|| has(referer, b"4chan.org")) {
         add.push(0.1);
     }
     if let Some(platform) = h("HTTP_SEC_CH_UA_PLATFORM")

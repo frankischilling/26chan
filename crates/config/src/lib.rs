@@ -49,6 +49,23 @@ impl Origin {
     pub fn as_string(&self) -> String {
         self.0.origin().ascii_serialization()
     }
+    /// Compare an absolute observed URL with this configured origin. Paths and
+    /// queries do not grant origin authority, nor do user-info or host suffixes.
+    pub fn matches_url(&self, input: &str) -> bool {
+        if input
+            .bytes()
+            .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
+        {
+            return false;
+        }
+        Url::parse(input).is_ok_and(|url| {
+            matches!(url.scheme(), "http" | "https")
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.origin() == self.0.origin()
+        })
+    }
+
     fn loopback(&self) -> bool {
         self.0.host_str().is_some_and(|host| {
             host == "localhost"

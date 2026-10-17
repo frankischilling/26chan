@@ -80,8 +80,8 @@ The isolated extractor executes only the two hash-pinned pure functions on
 cases cover browser/version branches, request mode, header presence and order,
 cookie timing, language boundaries, every country-language
 alternative and combined terms. Arbitrary-byte tests also check finite results
-and bounds. This is domain qualification; posting/reporting integration and
-complete trusted request capture remain open. The older report-threshold model
+and bounds. This is domain qualification; posting/reporting integration remains open.
+The native request profile below defines the replacement server-entry layout. The older report-threshold model
 still provides only its selected positive witnesses.
 
 Regenerate or verify the corpus without loading application code:
@@ -117,10 +117,10 @@ capture off/on, field order, empty cookies, undecoded values, repeated headers
 and name collisions. Captured values have no debug or serialization interface;
 callers must not log or persist the raw fields.
 
-This adapter is not connected to posting or report decisions. It does not
-invent non-HTTP SAPI entries, a trusted country, request time, session history or
-form-field presence. Those facts and the complete server-entry layout still
-need qualification before constructing a scorer request. Public posting, direct reports and legacy categorical reports retain absent
+This capture adapter does not supply country, time, session history or form
+fields. The native profile below combines it with explicitly supplied context;
+application posting and reporting decisions are not connected yet. Public
+posting, direct reports and legacy categorical reports retain absent
 versus present-empty challenge and response fields through their parsed form
 inputs. Verification still treats missing and empty text alike and obtains
 authority only from the private issuer. Seven executed source cases distinguish
@@ -131,6 +131,49 @@ The native JSON CAPTCHA client does not synthesize the cookie.
 ```text
 python3 scripts/extract-flat-cookie-reference.py PHP crates/http/tests/fixtures/flat-cookies.json --check
 ```
+
+## Native request profile
+
+`board_http::request_facts::native_profile` defines the replacement request
+layout. Its server-entry list contains the parser-ordered `HTTP_*` fields, with
+no non-HTTP fields interleaved. Request time is supplied separately. This is an
+explicit infrastructure choice: the source files do not establish the original
+PHP SAPI's server-entry order. Interleaved entries can change its SEC_FETCH
+contiguity and model/platform-distance rules. The profile must not be described
+as a reconstruction of that historical deployment.
+
+Posting uses the source's multipart mode and the actual OP/reply choice, with a
+qualified two-letter country from verified-peer lookup. Reporting uses OP=true,
+multipart=false and no country. Time must come from the server's request-start
+observation. Header values named for geography or request time do not supply
+these facts. Challenge and response retain absent-versus-empty values.
+Unavailable capture, parsed cookies, time or needed country yields no score.
+
+The native Referer check compares a parsed HTTP(S) URL with the configured public
+origin, including its scheme and port. Credentials, foreign hosts and malformed
+values do not match. An absent Referer keeps the source's absence behavior.
+This replaces the source's literal `4chan.org` substring check so a local or
+separately hosted board can use its own origin. The original scoring entry point
+retains the literal rule for source qualification. Neither path rewrites the
+observed header list, and this scoring condition grants no CSRF or session
+authority.
+
+The profile matches 2,797 applicable cases from the independently executed PHP
+corpus: cases with HTTP-only server entries, matching canonical parsed cookies,
+actual caller modes and the same Referer verdict. Other fixture cases are not
+counted as native-profile matches. Separate controls cover unavailable evidence,
+header order, configured-origin differences and unchanged raw fields. Actual TCP
+listener cases exercise capture enabled and disabled, source posting/report
+vectors, repeated fields and synthetic server-owned context with sensitivity
+controls. Those test handlers do not qualify production geography or clock
+wiring. Historical SAPI order and reverse-proxy rewriting remain outside that
+evidence.
+
+A caller must distinguish an explicitly disabled optional classifier from
+missing evidence required by an enabled policy. Missing needed evidence must
+fail closed; it cannot skip rejection or become score zero. An optional credit
+bonus can instead be withheld. The native profile currently produces a bounded
+score only; it has not enabled any posting or report rejection branch.
 
 ## Remaining source behavior
 

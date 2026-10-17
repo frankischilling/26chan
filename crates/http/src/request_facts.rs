@@ -1,5 +1,7 @@
 //! Bounded observations from the actual HTTP/1 parser. These are not a complete
 //! PHP server snapshot, session authority, or a posting/filtering decision.
+pub mod native_profile;
+
 use crate::transport::RequestHeaderOrder;
 use axum::http::HeaderMap;
 use board_domain::content_admission::network::ProviderValue;
