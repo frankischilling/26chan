@@ -882,3 +882,91 @@ async fn parser_header_order_is_opt_in_and_fresh_across_pipelined_requests() {
         finish(server).await;
     }
 }
+
+#[tokio::test]
+async fn request_fact_capture_uses_wire_order_and_rejects_ambiguous_fields() {
+    use board_domain::content_admission::network::ProviderValue::{
+        Available as A, Unavailable as U,
+    };
+    for enabled in [false, true] {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let app = Router::new().route(
+            "/",
+            get(|request: axum::extract::Request| async move {
+                match crate::request_facts::capture(request.headers(), request.extensions().get()) {
+                    U => "unavailable".to_owned(),
+                    A(observed) => {
+                        let names = observed
+                            .http_fields()
+                            .iter()
+                            .map(|(key, _)| key.as_str())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        let cookies = match observed.cookies() {
+                            A(values) => values.len().to_string(),
+                            U => "unknown".into(),
+                        };
+                        format!("{names}|cookies={cookies}")
+                    }
+                }
+            }),
+        );
+        let budget = ConnectionBudget::new(board_config::PublicRequestLimits::default());
+        let budget = if enabled {
+            budget.with_request_header_order()
+        } else {
+            budget
+        };
+        let (stop, stopped) = watch::channel(false);
+        let server = tokio::spawn(HttpListener::Tcp(listener).serve(app, stopped, budget));
+        for (fields, expected) in [
+            (
+                "Accept: text/html\r\nUser-Agent: owned\r\n",
+                "HTTP_HOST,HTTP_ACCEPT,HTTP_USER_AGENT,HTTP_CONNECTION|cookies=0",
+            ),
+            (
+                "User-Agent: owned\r\nAccept: text/html\r\n",
+                "HTTP_HOST,HTTP_USER_AGENT,HTTP_ACCEPT,HTTP_CONNECTION|cookies=0",
+            ),
+            (
+                "Cookie: a=1; b=2\r\n",
+                "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=2",
+            ),
+            (
+                "Cookie:\r\n",
+                "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=0",
+            ),
+            (
+                "Cookie: a=x%20y\r\n",
+                "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=unknown",
+            ),
+            (
+                "User-Agent: owned\r\nUSER-AGENT: repeated\r\n",
+                "unavailable",
+            ),
+            (
+                "User-Agent: owned\r\nUser_Agent: collision\r\n",
+                "unavailable",
+            ),
+            ("Cookie: a=1\r\nCookie: b=2\r\n", "unavailable"),
+        ] {
+            let mut socket = TcpStream::connect(address).await.unwrap();
+            let request =
+                format!("GET / HTTP/1.1\r\nHost: localhost\r\n{fields}Connection: close\r\n\r\n");
+            socket.write_all(request.as_bytes()).await.unwrap();
+            let mut response = String::new();
+            tokio::time::timeout(OUTER, socket.read_to_string(&mut response))
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(response.starts_with("HTTP/1.1 200 OK"), "{response}");
+            assert!(
+                response.ends_with(if enabled { expected } else { "unavailable" }),
+                "{response}"
+            );
+        }
+        stop.send(true).unwrap();
+        finish(server).await;
+    }
+}

@@ -1,0 +1,598 @@
+{
+  "php_version": "8.4.24",
+  "php_int_size": 8,
+  "pcre_version": "10.46 2025-08-27",
+  "sapi": "cli-server",
+  "cases": [
+    {
+      "raw": null,
+      "accepted_subset": true,
+      "source_raw": null,
+      "cookies": []
+    },
+    {
+      "raw": "",
+      "accepted_subset": true,
+      "source_raw": "",
+      "cookies": []
+    },
+    {
+      "raw": "a=",
+      "accepted_subset": true,
+      "source_raw": "a=",
+      "cookies": [
+        [
+          "a",
+          ""
+        ]
+      ]
+    },
+    {
+      "raw": "a=0",
+      "accepted_subset": true,
+      "source_raw": "a=0",
+      "cookies": [
+        [
+          "a",
+          "0"
+        ]
+      ]
+    },
+    {
+      "raw": "a=abc123",
+      "accepted_subset": true,
+      "source_raw": "a=abc123",
+      "cookies": [
+        [
+          "a",
+          "abc123"
+        ]
+      ]
+    },
+    {
+      "raw": "a=x.America/New_York.999.33",
+      "accepted_subset": true,
+      "source_raw": "a=x.America/New_York.999.33",
+      "cookies": [
+        [
+          "a",
+          "x.America/New_York.999.33"
+        ]
+      ]
+    },
+    {
+      "raw": "a=a=b",
+      "accepted_subset": true,
+      "source_raw": "a=a=b",
+      "cookies": [
+        [
+          "a",
+          "a=b"
+        ]
+      ]
+    },
+    {
+      "raw": "a=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "accepted_subset": true,
+      "source_raw": "a=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "cookies": [
+        [
+          "a",
+          "!#$&'()*-./:<=>?@[]^_`{|}~"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=",
+      "accepted_subset": true,
+      "source_raw": "_tcs=",
+      "cookies": [
+        [
+          "_tcs",
+          ""
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=0",
+      "accepted_subset": true,
+      "source_raw": "_tcs=0",
+      "cookies": [
+        [
+          "_tcs",
+          "0"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=abc123",
+      "accepted_subset": true,
+      "source_raw": "_tcs=abc123",
+      "cookies": [
+        [
+          "_tcs",
+          "abc123"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=x.America/New_York.999.33",
+      "accepted_subset": true,
+      "source_raw": "_tcs=x.America/New_York.999.33",
+      "cookies": [
+        [
+          "_tcs",
+          "x.America/New_York.999.33"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=a=b",
+      "accepted_subset": true,
+      "source_raw": "_tcs=a=b",
+      "cookies": [
+        [
+          "_tcs",
+          "a=b"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "accepted_subset": true,
+      "source_raw": "_tcs=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "cookies": [
+        [
+          "_tcs",
+          "!#$&'()*-./:<=>?@[]^_`{|}~"
+        ]
+      ]
+    },
+    {
+      "raw": "cf_clearance=",
+      "accepted_subset": true,
+      "source_raw": "cf_clearance=",
+      "cookies": [
+        [
+          "cf_clearance",
+          ""
+        ]
+      ]
+    },
+    {
+      "raw": "cf_clearance=0",
+      "accepted_subset": true,
+      "source_raw": "cf_clearance=0",
+      "cookies": [
+        [
+          "cf_clearance",
+          "0"
+        ]
+      ]
+    },
+    {
+      "raw": "cf_clearance=abc123",
+      "accepted_subset": true,
+      "source_raw": "cf_clearance=abc123",
+      "cookies": [
+        [
+          "cf_clearance",
+          "abc123"
+        ]
+      ]
+    },
+    {
+      "raw": "cf_clearance=x.America/New_York.999.33",
+      "accepted_subset": true,
+      "source_raw": "cf_clearance=x.America/New_York.999.33",
+      "cookies": [
+        [
+          "cf_clearance",
+          "x.America/New_York.999.33"
+        ]
+      ]
+    },
+    {
+      "raw": "cf_clearance=a=b",
+      "accepted_subset": true,
+      "source_raw": "cf_clearance=a=b",
+      "cookies": [
+        [
+          "cf_clearance",
+          "a=b"
+        ]
+      ]
+    },
+    {
+      "raw": "cf_clearance=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "accepted_subset": true,
+      "source_raw": "cf_clearance=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "cookies": [
+        [
+          "cf_clearance",
+          "!#$&'()*-./:<=>?@[]^_`{|}~"
+        ]
+      ]
+    },
+    {
+      "raw": "__Host-board_session=",
+      "accepted_subset": true,
+      "source_raw": "__Host-board_session=",
+      "cookies": [
+        [
+          "__Host-board_session",
+          ""
+        ]
+      ]
+    },
+    {
+      "raw": "__Host-board_session=0",
+      "accepted_subset": true,
+      "source_raw": "__Host-board_session=0",
+      "cookies": [
+        [
+          "__Host-board_session",
+          "0"
+        ]
+      ]
+    },
+    {
+      "raw": "__Host-board_session=abc123",
+      "accepted_subset": true,
+      "source_raw": "__Host-board_session=abc123",
+      "cookies": [
+        [
+          "__Host-board_session",
+          "abc123"
+        ]
+      ]
+    },
+    {
+      "raw": "__Host-board_session=x.America/New_York.999.33",
+      "accepted_subset": true,
+      "source_raw": "__Host-board_session=x.America/New_York.999.33",
+      "cookies": [
+        [
+          "__Host-board_session",
+          "x.America/New_York.999.33"
+        ]
+      ]
+    },
+    {
+      "raw": "__Host-board_session=a=b",
+      "accepted_subset": true,
+      "source_raw": "__Host-board_session=a=b",
+      "cookies": [
+        [
+          "__Host-board_session",
+          "a=b"
+        ]
+      ]
+    },
+    {
+      "raw": "__Host-board_session=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "accepted_subset": true,
+      "source_raw": "__Host-board_session=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "cookies": [
+        [
+          "__Host-board_session",
+          "!#$&'()*-./:<=>?@[]^_`{|}~"
+        ]
+      ]
+    },
+    {
+      "raw": "Case_123-name=",
+      "accepted_subset": true,
+      "source_raw": "Case_123-name=",
+      "cookies": [
+        [
+          "Case_123-name",
+          ""
+        ]
+      ]
+    },
+    {
+      "raw": "Case_123-name=0",
+      "accepted_subset": true,
+      "source_raw": "Case_123-name=0",
+      "cookies": [
+        [
+          "Case_123-name",
+          "0"
+        ]
+      ]
+    },
+    {
+      "raw": "Case_123-name=abc123",
+      "accepted_subset": true,
+      "source_raw": "Case_123-name=abc123",
+      "cookies": [
+        [
+          "Case_123-name",
+          "abc123"
+        ]
+      ]
+    },
+    {
+      "raw": "Case_123-name=x.America/New_York.999.33",
+      "accepted_subset": true,
+      "source_raw": "Case_123-name=x.America/New_York.999.33",
+      "cookies": [
+        [
+          "Case_123-name",
+          "x.America/New_York.999.33"
+        ]
+      ]
+    },
+    {
+      "raw": "Case_123-name=a=b",
+      "accepted_subset": true,
+      "source_raw": "Case_123-name=a=b",
+      "cookies": [
+        [
+          "Case_123-name",
+          "a=b"
+        ]
+      ]
+    },
+    {
+      "raw": "Case_123-name=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "accepted_subset": true,
+      "source_raw": "Case_123-name=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "cookies": [
+        [
+          "Case_123-name",
+          "!#$&'()*-./:<=>?@[]^_`{|}~"
+        ]
+      ]
+    },
+    {
+      "raw": "a=1; b=2",
+      "accepted_subset": true,
+      "source_raw": "a=1; b=2",
+      "cookies": [
+        [
+          "a",
+          "1"
+        ],
+        [
+          "b",
+          "2"
+        ]
+      ]
+    },
+    {
+      "raw": "a=1;b=2",
+      "accepted_subset": true,
+      "source_raw": "a=1;b=2",
+      "cookies": [
+        [
+          "a",
+          "1"
+        ],
+        [
+          "b",
+          "2"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=x.UTC.999.33; cf_clearance=; __Host-board_session=abc",
+      "accepted_subset": true,
+      "source_raw": "_tcs=x.UTC.999.33; cf_clearance=; __Host-board_session=abc",
+      "cookies": [
+        [
+          "_tcs",
+          "x.UTC.999.33"
+        ],
+        [
+          "cf_clearance",
+          ""
+        ],
+        [
+          "__Host-board_session",
+          "abc"
+        ]
+      ]
+    },
+    {
+      "raw": "a=1; a=2",
+      "accepted_subset": false,
+      "source_raw": "a=1; a=2",
+      "cookies": [
+        [
+          "a",
+          "1"
+        ]
+      ]
+    },
+    {
+      "raw": "a.b=1",
+      "accepted_subset": false,
+      "source_raw": "a.b=1",
+      "cookies": [
+        [
+          "a_b",
+          "1"
+        ]
+      ]
+    },
+    {
+      "raw": "a b=1",
+      "accepted_subset": false,
+      "source_raw": "a b=1",
+      "cookies": [
+        [
+          "a_b",
+          "1"
+        ]
+      ]
+    },
+    {
+      "raw": "a[]=1",
+      "accepted_subset": false,
+      "source_raw": "a[]=1",
+      "cookies": [
+        [
+          "a",
+          [
+            "1"
+          ]
+        ]
+      ]
+    },
+    {
+      "raw": "0=1",
+      "accepted_subset": false,
+      "source_raw": "0=1",
+      "cookies": [
+        [
+          "0",
+          "1"
+        ]
+      ]
+    },
+    {
+      "raw": "a=\"quoted\"",
+      "accepted_subset": false,
+      "source_raw": "a=\"quoted\"",
+      "cookies": [
+        [
+          "a",
+          "\"quoted\""
+        ]
+      ]
+    },
+    {
+      "raw": "a=x+y",
+      "accepted_subset": false,
+      "source_raw": "a=x+y",
+      "cookies": [
+        [
+          "a",
+          "x+y"
+        ]
+      ]
+    },
+    {
+      "raw": "a=x%20y",
+      "accepted_subset": false,
+      "source_raw": "a=x%20y",
+      "cookies": [
+        [
+          "a",
+          "x y"
+        ]
+      ]
+    },
+    {
+      "raw": "a=x,y",
+      "accepted_subset": false,
+      "source_raw": "a=x,y",
+      "cookies": [
+        [
+          "a",
+          "x,y"
+        ]
+      ]
+    },
+    {
+      "raw": "a=x\\y",
+      "accepted_subset": false,
+      "source_raw": "a=x\\y",
+      "cookies": [
+        [
+          "a",
+          "x\\y"
+        ]
+      ]
+    },
+    {
+      "raw": "a=1;",
+      "accepted_subset": false,
+      "source_raw": "a=1;",
+      "cookies": [
+        [
+          "a",
+          "1"
+        ]
+      ]
+    },
+    {
+      "raw": ";a=1",
+      "accepted_subset": false,
+      "source_raw": ";a=1",
+      "cookies": [
+        [
+          "a",
+          "1"
+        ]
+      ]
+    },
+    {
+      "raw": "a=1;  b=2",
+      "accepted_subset": false,
+      "source_raw": "a=1;  b=2",
+      "cookies": [
+        [
+          "a",
+          "1"
+        ],
+        [
+          "b",
+          "2"
+        ]
+      ]
+    },
+    {
+      "raw": "a=1\t",
+      "accepted_subset": false,
+      "source_raw": "a=1\t",
+      "cookies": [
+        [
+          "a",
+          "1\t"
+        ]
+      ]
+    },
+    {
+      "raw": "a",
+      "accepted_subset": false,
+      "source_raw": "a",
+      "cookies": [
+        [
+          "a",
+          ""
+        ]
+      ]
+    },
+    {
+      "raw": "=1",
+      "accepted_subset": false,
+      "source_raw": "=1",
+      "cookies": []
+    },
+    {
+      "raw": "a=1 ",
+      "accepted_subset": false,
+      "source_raw": "a=1 ",
+      "cookies": [
+        [
+          "a",
+          "1 "
+        ]
+      ]
+    },
+    {
+      "raw": "a=%00",
+      "accepted_subset": false,
+      "source_raw": "a=%00",
+      "cookies": [
+        [
+          "a",
+          "\u0000"
+        ]
+      ]
+    }
+  ]
+}

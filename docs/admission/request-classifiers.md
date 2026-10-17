@@ -90,6 +90,45 @@ Regenerate or verify the corpus without loading application code:
 php -n scripts/extract-threat-score-reference.php SOURCE crates/domain/tests/fixtures/threat-score.json --check
 ```
 
+## HTTP observations
+
+`board_http::request_facts` captures CGI-shaped `HTTP_*` fields in the actual
+HTTP/1 parser's order. It checks that the ordered names and current header map
+still describe exactly the same unique fields. Missing parser metadata,
+repeated fields, underscore/hyphen collisions, oversized values and changed
+header membership are unavailable. It never uses `HeaderMap` iteration as a
+wire-order fallback. Names-only metadata cannot detect value-only middleware
+changes; capture must happen before such mutations. Values are observations
+of the current request, not independent proof of original wire values.
+
+Raw Cookie headers remain separate from parsed cookie observations. The
+accepted subset contains canonical flat ASCII name/value pairs, with optional
+single spaces after semicolons. Percent escapes, plus signs, quoted values,
+array or normalized names, duplicates and other unsupported syntax leave the
+parsed-cookie provider unavailable. They do not erase the raw header. Empty
+and absent Cookie headers both yield an empty parsed map but remain distinct
+HTTP observations.
+
+The cookie fixture uses an owned loopback PHP server with no application code.
+Its 53 HTTP cases cover 35 accepted cases and 18 deliberately unsupported forms
+on 64-bit PHP 8.4.24 / PCRE 10.46. This qualifies the chosen subset against that
+SAPI, not every historical deployment. Actual native listener tests cover
+capture off/on, field order, empty cookies, undecoded values, repeated headers
+and name collisions. Captured values have no debug or serialization interface;
+callers must not log or persist the raw fields.
+
+This adapter is not connected to posting or report decisions. It does not
+invent non-HTTP SAPI entries, a trusted country, request time, session history or
+form-field presence. Those facts and the complete server-entry layout still
+need qualification before constructing a scorer request. Existing form structs
+also need to retain absent versus present-empty challenge fields. The source
+sets `_tcs` only in its framed CAPTCHA response; the JSON path does not set it.
+The native JSON CAPTCHA client does not synthesize the cookie.
+
+```text
+python3 scripts/extract-flat-cookie-reference.py PHP crates/http/tests/fixtures/flat-cookies.json --check
+```
+
 ## Remaining source behavior
 
 Posting uses the numeric score in several late refusal branches. Reporting has

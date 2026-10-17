@@ -390,6 +390,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "rustix",
+ "serde_json",
  "tempfile",
  "tokio",
  "tower",

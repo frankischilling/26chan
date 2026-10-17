@@ -7,6 +7,7 @@
 pub mod network_hints;
 mod output;
 pub mod proxy_peer;
+pub mod request_facts;
 pub mod transport;
 
 pub use output::{EncodedResponse, OutputError, ResponseBudget, ResponseWriter};
