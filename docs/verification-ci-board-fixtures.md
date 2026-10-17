@@ -289,3 +289,25 @@ pass as well. Local qualification includes 690 workspace tests, 143 native
 Windows domain tests, 107 JavaScript/DOM checks, 138 public browser cases and
 the separate staff browser flow. These results qualify that checkpoint;
 subsequent staff identity and other feature work needs checks at its own head.
+
+
+## CAPTCHA late-failure constraints
+
+The upload-history guard exposed a fixture conflict in
+[run 39026633391](https://github.com/frankischilling/26chan/actions/runs/39026633391).
+The CAPTCHA boundary test added a check constraint to force attachment failure
+after receipt consumption. That schema change correctly made content authority
+unavailable, so admission stopped with `P196U` before reaching the intended
+`23514` rollback check.
+
+The fixture now verifies readiness before adding its owned constraint, verifies
+that the unsealed change fails readiness, and attests that temporary test schema.
+Removing the constraint must restore the exact original catalog hash. Teardown
+removes both owned fault constraints and restores the original catalog even if
+the test body panics. The anonymous-credit registration fault uses the same
+fixture path.
+
+The late-failure assertions still require receipt retention, post rollback,
+credit restoration and only one concurrent spender. Production functions,
+readiness rules and runtime privileges are unchanged. The corrected local
+scenario passes; exact-head hosted qualification remains required.

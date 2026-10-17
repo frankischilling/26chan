@@ -15,6 +15,93 @@ use board_store::{
 };
 use sqlx::PgPool;
 
+// These deliberate late-failure constraints are fixture-owned schema. Attest
+// their exact temporary shape, and require the original catalog on removal.
+// Without this, admission correctly rejects the DDL before consuming a receipt.
+async fn transfer_catalog(owner: &PgPool) -> Vec<u8> {
+    let mut tx = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_thread_transfer_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let ready: bool = sqlx::query_scalar("SELECT content.text_thread_transfer_ready()")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    assert!(ready, "Fixture starts with intact content authority");
+    let hash = sqlx::query_scalar(
+        "SELECT definition_hash FROM post_secrets.thread_transfer_catalog WHERE singleton",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    tx.rollback().await.unwrap();
+    hash
+}
+async fn qualified_constraint(owner: &PgPool, statements: &[String], restore: Option<&[u8]>) {
+    let mut tx = owner.begin().await.unwrap();
+    if restore.is_none() {
+        sqlx::query("SET LOCAL ROLE board_thread_transfer_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        let ready: bool = sqlx::query_scalar("SELECT content.text_thread_transfer_ready()")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        assert!(
+            ready,
+            "Do not attest pre-existing catalog drift as a fixture change"
+        );
+        sqlx::query("RESET ROLE").execute(&mut *tx).await.unwrap();
+    }
+    for statement in statements {
+        sqlx::query(sqlx::AssertSqlSafe(statement.clone()))
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+    }
+    sqlx::query("SET LOCAL ROLE board_thread_transfer_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let hash: Vec<u8> = sqlx::query_scalar("SELECT post_secrets.transfer_catalog_hash()")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    if let Some(expected) = restore {
+        assert_eq!(
+            hash, expected,
+            "Removing owned fault constraints restores the exact original catalog"
+        );
+    } else {
+        let ready: bool = sqlx::query_scalar("SELECT content.text_thread_transfer_ready()")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        assert!(
+            !ready,
+            "Unattested fault injection must fail the production readiness guard"
+        );
+    }
+    sqlx::query(
+        "UPDATE post_secrets.thread_transfer_catalog SET definition_hash=$1 WHERE singleton",
+    )
+    .bind(&hash)
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+    let ready: bool = sqlx::query_scalar("SELECT content.text_thread_transfer_ready()")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    assert!(
+        ready,
+        "Only the owned temporary schema is attested for the late-failure test"
+    );
+    tx.commit().await.unwrap();
+}
+
 #[tokio::test]
 async fn public_post_requires_a_receipt_and_grants_credits_only_with_registered_activity() {
     run_scenario(4, 0, false, Some(true)).await;
@@ -111,7 +198,9 @@ async fn run_scenario(
         .unwrap();
     let receipt = ReceiptToken::generate().unwrap();
     let receipt_text = receipt.encode();
+    let original_catalog = transfer_catalog(&owner).await;
     let work = {
+        let original_catalog = original_catalog.clone();
         let owner = owner.clone();
         let public = public.clone();
         let verifier = verifier.clone();
@@ -167,7 +256,7 @@ async fn run_scenario(
                     // uploads remain unaffected and teardown removes it on panic.
                     let job = &attachment.as_ref().unwrap().upload.id;
                     assert!(job.len() == 32 && job.bytes().all(|b| b.is_ascii_hexdigit()));
-                    sqlx::query(sqlx::AssertSqlSafe(format!("ALTER TABLE content.post_media ADD CONSTRAINT {board}_late_failure CHECK(job_id<>'{job}')"))).execute(&owner).await.unwrap();
+                    qualified_constraint(&owner,&[format!("ALTER TABLE content.post_media ADD CONSTRAINT {board}_late_failure CHECK(job_id<>'{job}')")],None).await;
                 }
                 let now = chrono::Utc::now();
                 let result = create_post_with_challenge(
@@ -248,12 +337,14 @@ async fn run_scenario(
                         matches!(error,StoreError::Database(ref e) if e.as_database_error().and_then(|d|d.code()).as_deref()==Some("23514")),
                         "{error:?}"
                     );
-                    sqlx::query(sqlx::AssertSqlSafe(format!(
-                        "ALTER TABLE content.post_media DROP CONSTRAINT {board}_late_failure"
-                    )))
-                    .execute(&owner)
-                    .await
-                    .unwrap();
+                    qualified_constraint(
+                        &owner,
+                        &[format!(
+                            "ALTER TABLE content.post_media DROP CONSTRAINT {board}_late_failure"
+                        )],
+                        Some(&original_catalog),
+                    )
+                    .await;
                     let retained:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM verification_private.receipts WHERE token_hash=$1)").bind(receipt.storage_hash().as_slice()).fetch_one(&owner).await.unwrap();
                     assert!(retained, "Late attachment failure must restore the receipt");
                     let posts: i64 =
@@ -385,7 +476,7 @@ async fn run_scenario(
                     .collect();
                 // This owned constraint fails after finish_post_challenge has
                 // spent the credit and before anonymous registration commits.
-                sqlx::query(sqlx::AssertSqlSafe(format!("ALTER TABLE post_secrets.anonymous_posts ADD CONSTRAINT {board}_credit_failure CHECK(token_hash<>decode('{token_hex}','hex')) NOT VALID"))).execute(&owner).await.unwrap();
+                qualified_constraint(&owner,&[format!("ALTER TABLE post_secrets.anonymous_posts ADD CONSTRAINT {board}_credit_failure CHECK(token_hash<>decode('{token_hex}','hex')) NOT VALID")],None).await;
                 let public = &public;
                 let board = board.as_str();
                 let poster_key = &poster_key;
@@ -484,7 +575,7 @@ async fn run_scenario(
                     matches!(failed,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("23514")),
                     "{failed:?}"
                 );
-                sqlx::query(sqlx::AssertSqlSafe(format!("ALTER TABLE post_secrets.anonymous_posts DROP CONSTRAINT {board}_credit_failure"))).execute(&owner).await.unwrap();
+                qualified_constraint(&owner,&[format!("ALTER TABLE post_secrets.anonymous_posts DROP CONSTRAINT {board}_credit_failure")],Some(&original_catalog)).await;
                 let restored:i16=sqlx::query_scalar("SELECT remaining FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).fetch_one(&owner).await.unwrap();
                 assert_eq!(
                     restored, 1,
@@ -523,20 +614,15 @@ async fn run_scenario(
         }
     };
     let outcome = tokio::spawn(work).await;
-    sqlx::query(sqlx::AssertSqlSafe(format!(
+    let mut cleanup = vec![format!(
         "ALTER TABLE post_secrets.anonymous_posts DROP CONSTRAINT IF EXISTS {board}_credit_failure"
-    )))
-    .execute(&owner)
-    .await
-    .unwrap();
+    )];
     if with_attachment {
-        sqlx::query(sqlx::AssertSqlSafe(format!(
+        cleanup.push(format!(
             "ALTER TABLE content.post_media DROP CONSTRAINT IF EXISTS {board}_late_failure"
-        )))
-        .execute(&owner)
-        .await
-        .unwrap();
+        ));
     }
+    qualified_constraint(&owner, &cleanup, Some(&original_catalog)).await;
     let mut tx = support::begin_cleanup_with_sessions(
         &owner,
         std::slice::from_ref(&board),
