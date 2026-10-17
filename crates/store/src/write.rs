@@ -28,6 +28,7 @@ pub struct AnonymousPostingContext {
 }
 
 pub struct ProtectedPostingContext {
+    pub request_facts: Option<crate::posting_classifiers::RequestFacts>,
     pub anonymous: AnonymousPostingContext,
     pub challenge: Option<WriteChallengeProof>,
 }
@@ -201,6 +202,7 @@ pub async fn create_post_with_metadata(
         attachment,
         context,
         PostWriteOptions {
+            request_facts: None,
             hints: None,
             asn_database: None,
             metadata,
@@ -229,6 +231,7 @@ pub async fn create_post_with_anonymous_session(
         attachment,
         context.posting,
         PostWriteOptions {
+            request_facts: None,
             hints: None,
             asn_database: None,
             metadata,
@@ -287,6 +290,7 @@ pub async fn create_protected_post_with_network(
         attachment,
         context.anonymous.posting,
         PostWriteOptions {
+            request_facts: context.request_facts,
             hints,
             asn_database,
             metadata,
@@ -448,6 +452,7 @@ pub async fn create_staff_post_with_network(
         attachment,
         context,
         PostWriteOptions {
+            request_facts: None,
             hints,
             asn_database,
             metadata: PostMetadata {
@@ -569,6 +574,7 @@ pub async fn create_ordinary_staff_post_with_network(
         attachment,
         context,
         PostWriteOptions {
+            request_facts: None,
             hints,
             asn_database,
             metadata,
@@ -605,6 +611,7 @@ pub async fn staff_op_deletion_hash(
 }
 
 struct PostWriteOptions<'a> {
+    request_facts: Option<crate::posting_classifiers::RequestFacts>,
     hints: Option<&'a board_domain::content_admission::network::hints::DerivedHints>,
     asn_database: Option<&'a board_domain::content_admission::network::asn::Database>,
     metadata: PostMetadata<'a>,
@@ -623,6 +630,7 @@ async fn create_post_in_context(
     options: PostWriteOptions<'_>,
 ) -> Result<i64, StoreError> {
     let PostWriteOptions {
+        request_facts,
         hints,
         asn_database,
         metadata,
@@ -774,6 +782,25 @@ async fn create_post_in_context(
             )
             .await?,
         )
+    } else {
+        None
+    };
+    // The row is already locked. Staff proof is validated by its post INSERT
+    // before reaching the late public-only path; a badge alone cannot get there.
+    let late_enabled = if staff.is_none() {
+        sqlx::query_scalar::<_, bool>("SELECT captcha_enabled FROM content.boards WHERE slug=$1")
+            .bind(slug)
+            .fetch_one(&mut *tx)
+            .await?
+    } else {
+        false
+    };
+    let late_activity = admission
+        .as_ref()
+        .map(|snapshot| snapshot.posting_activity());
+    let late_thread: Option<(String, String)> = if late_enabled && parent != 0 {
+        sqlx::query_as("SELECT subject,comment FROM content.posts WHERE board=$1 AND id=$2 AND thread_id=$2 AND NOT deleted")
+            .bind(slug).bind(parent).fetch_optional(&mut *tx).await?
     } else {
         None
     };
@@ -1333,7 +1360,7 @@ async fn create_post_in_context(
     } else {
         None
     };
-    if robot_actor.is_some() {
+    if robot_actor.is_some() || late_enabled {
         sqlx::query("SAVEPOINT robot9000_post")
             .execute(&mut *tx)
             .await?;
@@ -1788,7 +1815,7 @@ async fn create_post_in_context(
             .execute(&mut *tx)
             .await?;
     }
-    if let Some(actor) = robot_actor {
+    let robot_checked = if let Some(actor) = robot_actor {
         let prepared = if wordfiltered.is_some() {
             board_domain::robot9000::prepare(&comment)
         } else {
@@ -1819,6 +1846,68 @@ async fn create_post_in_context(
             tx.commit().await?;
             return Err(StoreError::Robot9000Rejected(message.clone()));
         }
+        Some(checked)
+    } else {
+        None
+    };
+    if late_enabled {
+        use crate::posting_classifiers::{
+            self,
+            plan::{self, Outcome},
+        };
+        let (activity, activity_at) = late_activity.ok_or_else(|| {
+            StoreError::Database(sqlx::Error::Protocol(
+                "Posting activity is unavailable.".into(),
+            ))
+        })?;
+        let decision = plan::evaluate(
+            &mut tx,
+            plan::Context {
+                board: slug,
+                parent,
+                image: attachment.is_some(),
+                actor: activity.as_ref(),
+                activity_at,
+                session: anonymous.as_ref(),
+                posting: context,
+                hints,
+                thread: late_thread.as_ref(),
+                facts: request_facts.as_ref(),
+            },
+        )
+        .await?;
+        if decision.outcome != Outcome::Continue {
+            sqlx::query("ROLLBACK TO SAVEPOINT robot9000_post")
+                .execute(&mut *tx)
+                .await?;
+            if let Some(checked) = robot_checked.as_ref() {
+                checked.replay(&mut tx).await?;
+            }
+            let country_refusal = decision.outcome == Outcome::CountryRange;
+            if country_refusal {
+                posting_classifiers::record_country_refusal_in_transaction(
+                    &mut tx,
+                    slug,
+                    anonymous.as_ref().ok_or(StoreError::AuthorizationChanged)?,
+                )
+                .await?;
+            }
+            plan::record(&mut tx, slug, parent, &decision).await?;
+            let quiet = if decision.outcome == Outcome::Quiet {
+                Some(crate::content_admission::quiet_post(&mut tx, slug, parent).await?)
+            } else {
+                None
+            };
+            tx.commit().await?;
+            return Err(StoreError::PostingClassifierRejected(
+                posting_classifiers::Refusal {
+                    quiet,
+                    image: decision.outcome == Outcome::ImageRange,
+                    cookie_refreshed: country_refusal,
+                },
+            ));
+        }
+        plan::record(&mut tx, slug, parent, &decision).await?;
     }
     if let Some(session) = anonymous {
         anonymous_session::record_post(&mut tx, session, slug, id).await?;

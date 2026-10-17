@@ -207,7 +207,7 @@ async fn run_scenario(
         let board = board.clone();
         async move {
             verifier.ensure_session(&fingerprints, true).await.unwrap();
-            sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=extract(epoch FROM statement_timestamp())::bigint-259260,network_at=extract(epoch FROM statement_timestamp())::bigint-259260,address_at=extract(epoch FROM statement_timestamp())::bigint-120,activity_at=extract(epoch FROM statement_timestamp())::bigint,posts=$2 WHERE token_hash=$1").bind(fingerprints.token.as_slice()).bind(initial_posts).execute(&owner).await.unwrap();
+            sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=extract(epoch FROM statement_timestamp())::bigint-259260,network_at=extract(epoch FROM statement_timestamp())::bigint-259260,environment_at=extract(epoch FROM statement_timestamp())::bigint-259260,address_at=extract(epoch FROM statement_timestamp())::bigint-120,activity_at=extract(epoch FROM statement_timestamp())::bigint,posts=$2 WHERE token_hash=$1").bind(fingerprints.token.as_slice()).bind(initial_posts).execute(&owner).await.unwrap();
             let direct=sqlx::query("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,1,'Anonymous','','Missing proof')").bind(&board).execute(&public).await.unwrap_err();
             assert_eq!(
                 direct.as_database_error().and_then(|e| e.code()).as_deref(),
@@ -272,6 +272,7 @@ async fn run_scenario(
                     },
                     attachment.as_ref(),
                     ProtectedPostingContext {
+                        request_facts: None,
                         anonymous: AnonymousPostingContext {
                             posting: PostingContext {
                                 request_start: now,
@@ -496,6 +497,7 @@ async fn run_scenario(
                         },
                         None,
                         ProtectedPostingContext {
+                            request_facts: None,
                             anonymous: AnonymousPostingContext {
                                 posting: PostingContext {
                                     request_start: now,

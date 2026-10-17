@@ -214,6 +214,7 @@ impl Fixture {
                 hints: self.hints.as_ref(),
                 asn_database: self.asn_database.as_deref(),
                 posting: board_store::ProtectedPostingContext {
+                    request_facts: None,
                     challenge: None,
                     anonymous: board_store::AnonymousPostingContext {
                         posting: PostingContext {

@@ -214,8 +214,8 @@ evidence.
 A caller must distinguish an explicitly disabled optional classifier from
 missing evidence required by an enabled policy. Missing needed evidence must
 fail closed; it cannot skip rejection or become score zero. An optional credit
-bonus can instead be withheld. The native profile currently produces a bounded
-score only; it has not enabled any posting or report rejection branch.
+bonus can instead be withheld. Public posting consumes this native profile in
+its late decision path. The reporting decision caller is still separate work.
 
 ## Late posting decision model
 
@@ -250,8 +250,8 @@ threshold probabilities, not PHP global PRNG seeds or cross-request sequences.
 Thread text, browser-ID, country and timing-cookie providers are checked only
 when reached. Input bounds are stricter than this source prefix; exceeding them
 is an intentional fail-closed case. Draw ranges follow the source. An unavailable needed fact
-returns no decision or partial event list. The result is a plan for a future
-transactional caller, not a persisted refusal. The hardcoded browser-ID condition
+returns no decision or partial event list. The store applies the returned plan
+inside the posting transaction. The hardcoded browser-ID condition
 also needs a qualified provider in the chosen fingerprint namespace; the model
 alone cannot establish equivalence between operator keys and the old deployment.
 
@@ -280,8 +280,9 @@ History results must come from the same private session and the source's strict
 24-hour cutoff. The fixture supplies lookup results, so it does not qualify SQL,
 clock selection, retention, or concurrent event writes. Failed lookups remain
 unavailable rather than inheriting the source's false-on-database-error behavior.
-Runtime integration needs a private event producer and transactional authority
-checks before any refusal or event can be committed.
+The public posting writer uses the country-history bridge below and revalidates
+its authority before committing a refusal. The optional edge producer still
+needs a trusted ingress adapter.
 
 ```text
 php -n -d extension=tokenizer scripts/extract-post-history-reference.php SOURCE crates/domain/tests/fixtures/post-history.json --check
@@ -344,10 +345,9 @@ both effects durable together; rollback removes both. Only a confirmed commit
 permits a refreshed session cookie in the refusal response.
 
 The lookup returns observations, so the caller must still apply the locked
-CAPTCHA/staff bypass decision before using them. These bridges are not yet
-called by the posting handler. The bounded diagnostic recorder is described in
-[classifier diagnostics](classifier-diagnostics.md); its caller integration
-also remains open.
+CAPTCHA/staff bypass decision before using them. The public posting writer now
+uses the country bridge and the bounded recorder described in
+[classifier diagnostics](classifier-diagnostics.md).
 
 The late history gate uses trusted edge-field presence independently of numeric
 parsing. Empty and non-numeric values still enter the source history branch;
@@ -366,29 +366,63 @@ and attachment guards have already run.
 The store keeps the checked board, actor, prepared text and timestamp together.
 After rolling back provisional content, replay uses those exact inputs and must
 return the same decision; otherwise the caller discards the transaction. The
-existing Robot9000 rejection path uses this helper. The late-classifier caller
-still needs to use it for an allowed check when a later refusal discards the
-post. This is separate from refreshing anonymous activity, which an unsuccessful
-post must not advance.
+Robot9000 rejection path and late-classifier refusal path both use this helper.
+A country refusal and its diagnostic events commit with the replayed originality
+state. An unsuccessful post does not advance anonymous posting activity.
 
 Source order: `imgboard.php:6147–6157,6253–6450,6522–6556`; originality writes and
 mute decay: `plugins/robot9000.php:161–222`.
 
+## Public posting integration
+
+The handler captures parser-ordered headers before moving the decoded challenge
+fields. It uses the configured origin, server request time and server-derived
+country, then retains only the qualified score, country and timing-cookie value.
+These facts are bound to the board, parent, canonical peer and exact request
+start. Missing or mismatched evidence stays unavailable; known actors still use
+the source's explicit zero-score branch.
+
+The writer reads CAPTCHA policy under the board lock and uses its pre-post
+anonymous snapshot and frozen activity clock. Replies use the stored OP subject
+and comment, rather than the reply text. The late checks run after the proved
+post/attachment insert and successful Robot9000 check, before anonymous posting
+activity and the final commit. Refusals roll back provisional content and media,
+replay originality state with the same inputs, then commit only the applicable
+country refusal and diagnostics. Quiet responses use the existing fake-success
+number calculation. The backend may leave an unused sequence value after such
+a rollback; allocated numbers are not recycled.
+
+Only a committed country-refusal refresh permits a refreshed anonymous cookie.
+A numeric quiet or image refusal does not refresh that state. This is a backend
+lifecycle safeguard; it does not register a successful post. Receipt and media
+consumption inside the discarded post are rolled back too.
+
+Locked disabled-CAPTCHA policy and independently proved staff posting bypass the
+late path. A solved challenge, selected badge or client cookie cannot grant a
+bypass. Native posting currently has no trusted ingress-score adapter, so that
+channel is explicitly absent; a direct `X-Bot-Score` header cannot activate it.
+
+Store tests cover missing and mismatched evidence, a deterministic high-score
+quiet refusal, a clean acceptance, first/repeated country refusal, disabled
+CAPTCHA, receipt preservation, originality replay, diagnostic order and unchanged
+posting activity on refusal. The receipt-credit fixture seeds an established
+session's environment clock with its backdated creation clock; leaving that
+clock at the current second would legitimately trigger the country predicate.
+
 ## Remaining source behavior
 
-Posting uses the numeric score in several late refusal branches. Reporting has
-its own weighting thresholds. Neither caller is wired to this numeric model.
-
-The separate edge bot-score path requires a trusted ingress score and private
-same-session event history. A public request header cannot supply that authority.
-The source's country-change path also records private session events; current
-anonymous-session fingerprints alone do not represent that event history.
+Reporting has its own numeric weighting and decision thresholds; its caller is
+not wired to this numeric model. Optional trusted-ingress bot scores and their
+private event producer remain open. Validated Pass/local-auth CAPTCHA bypasses
+also need their own native authority; neither is inferred from a cookie or policy
+flag. The old hardcoded browser fingerprint still needs qualification in the
+operator's fingerprint namespace. These gaps prevent claiming complete #212
+parity despite the connected public numeric/country path.
 
 The flood helper's posting call is commented out and the caller assigns zero.
 Activating its dormant rejection branch would change the supplied behavior.
 Disabled sampling and logging branches likewise must not become active filters.
 
 Source evidence is in `lib/postfilter.php:1639–1682,1684–2316,2397–2545` and
-`imgboard.php:4937–4969,6258–6449`. Optional external classifier data, native
-history producers and complete late caller ordering remain open under #212 and
-the related CAPTCHA, session and restriction work.
+`imgboard.php:4937–4969,6258–6449`. The remaining work stays under #212 and the
+related CAPTCHA, session and restriction issues.

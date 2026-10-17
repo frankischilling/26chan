@@ -3,7 +3,8 @@
 Migration 0199 adds a per-attempt diagnostic ledger for the late posting checks.
 It is separate from the two-row-per-session cooldown history. Diagnostic rows
 never authorize a refusal, extend a cooldown or grant permission to post.
-The posting handler is not yet connected to this recorder.
+The public posting writer records these plans before its final commit or its
+state-only refusal commit.
 
 ## Recorded data
 

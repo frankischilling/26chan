@@ -157,6 +157,9 @@ pub(crate) struct Evaluation {
 }
 
 impl Snapshot {
+    pub(crate) fn posting_activity(&self) -> (Option<board_domain::anonymous_session::State>, u64) {
+        (self.activity, self.activity_now)
+    }
     pub(crate) async fn evaluate(mut self, input: Input) -> Result<Evaluation, StoreError> {
         if self.rules.is_empty() {
             let decision = evaluate(Vec::new(), self.actor, &input)?;

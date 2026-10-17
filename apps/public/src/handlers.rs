@@ -126,6 +126,7 @@ fn storage_error_class(error: &StoreError) -> &'static str {
         StoreError::FileRejected(_) => "file_rejected",
         StoreError::AutomaticRangeRejected { .. } => "automatic_range_rejected",
         StoreError::ContentQuiet { .. } => "content_quiet",
+        StoreError::PostingClassifierRejected(_) => "posting_classifier_rejected",
         StoreError::Robot9000Rejected(_) => "robot9000_rejected",
         StoreError::PostingCooldownRejected(_) => "posting_cooldown_rejected",
         _ => "store_other",
@@ -996,6 +997,13 @@ pub struct PostForm {
     #[serde(default, deserialize_with = "crate::posting_form::drawing_field")]
     oe_src: Option<String>,
 }
+struct PostingObservations {
+    hints: board_domain::content_admission::network::hints::DerivedHints,
+    captured: board_domain::content_admission::network::ProviderValue<
+        board_http::request_facts::CapturedRequest,
+    >,
+}
+
 pub async fn post(
     State(state): State<AppState>,
     Path(board): Path<String>,
@@ -1011,6 +1019,8 @@ pub async fn post(
                 order.as_ref().map(|order| &order.0),
                 state.browser_hint_key.as_deref(),
             );
+            let captured =
+                board_http::request_facts::capture(&headers, order.as_ref().map(|order| &order.0));
             match submit_post(
                 state,
                 board,
@@ -1022,7 +1032,7 @@ pub async fn post(
                     peer: peer.0,
                     op_password_proof: None,
                 },
-                hints,
+                PostingObservations { hints, captured },
             )
             .await
             {
@@ -1042,8 +1052,9 @@ async fn submit_post(
     form: PostForm,
     format: crate::posting_response::Format,
     mut context: board_store::PostingContext,
-    hints: board_domain::content_admission::network::hints::DerivedHints,
+    observations: PostingObservations,
 ) -> Result<Response, AppError> {
+    let PostingObservations { hints, captured } = observations;
     // Ordinary cooldown identity must come from verified transport on every
     // real posting route, including development and legacy/multipart requests.
     if context.peer.is_none() || state.poster_id_key.is_none() {
@@ -1112,6 +1123,51 @@ async fn submit_post(
     }
     let session =
         crate::anonymous_session::Session::resolve(&state, &headers, context.peer).await?;
+    use board_domain::content_admission::network::ProviderValue::{
+        Available as A, Unavailable as U,
+    };
+    let country = crate::anonymous_session::country(&state, context.peer)?;
+    let observed = match &captured {
+        A(value) => A(value),
+        U => U,
+    };
+    let scoring_origin = board_config::Origin::parse(&state.origin).map_err(|_| {
+        AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Posting origin is unavailable.",
+        )
+    })?;
+    let score = board_http::request_facts::native_profile::score(
+        observed,
+        &scoring_origin,
+        board_http::request_facts::native_profile::Context {
+            request_time: A(context.request_start.timestamp()),
+            challenge: form.captcha_challenge.as_deref().map(str::as_bytes),
+            response: form.captcha_answer.as_deref().map(str::as_bytes),
+            mode: board_http::request_facts::native_profile::Mode::Posting {
+                is_op: form.resto == 0,
+                country: A(&country),
+            },
+        },
+    );
+    let timing_cookie = match observed {
+        A(captured) => match captured.cookies() {
+            A(cookies) => A(cookies
+                .iter()
+                .find(|(key, _)| key == "_tcs")
+                .map(|(_, value)| value.clone())),
+            U => U,
+        },
+        U => U,
+    };
+    let request_facts = board_store::posting_classifiers::RequestFacts::new(
+        context,
+        form.resto,
+        &board,
+        score,
+        A(country),
+        timing_cookie,
+    );
     let challenge = crate::posting_challenge::proof(
         &state,
         &headers,
@@ -1200,6 +1256,7 @@ async fn submit_post(
             hints: Some(&hints),
             asn_database: state.asn_database.as_deref(),
             posting: board_store::ProtectedPostingContext {
+                request_facts: Some(request_facts),
                 anonymous: board_store::AnonymousPostingContext {
                     posting: context,
                     session: session.posting,
@@ -1297,6 +1354,35 @@ async fn submit_post(
         Err(StoreError::AutomaticRangeRejected { cookie_refreshed }) => {
             let mut response = format.rule_error(board_store::AUTOMATIC_RANGE_REJECTION);
             if cookie_refreshed {
+                session.append(response.headers_mut(), state.production);
+            }
+            return Ok(response);
+        }
+        Err(StoreError::PostingClassifierRejected(refusal)) => {
+            let mut response = if let Some(quiet) = refusal.quiet_post() {
+                let thread = if form.resto == 0 { quiet } else { form.resto };
+                let location = if options.return_to_board {
+                    format!("/{board}/")
+                } else {
+                    format!("/{board}/thread/{thread}#p{quiet}")
+                };
+                let mut response = format.success(form.resto, quiet, &location);
+                crate::post_preferences::append(
+                    response.headers_mut(),
+                    &headers,
+                    if settings.forced_anon {
+                        None
+                    } else {
+                        Some(&post.name)
+                    },
+                    if options.anonymous { "" } else { &form.email },
+                    state.production,
+                );
+                response
+            } else {
+                format.rule_error(refusal.message())
+            };
+            if refusal.cookie_refreshed() {
                 session.append(response.headers_mut(), state.production);
             }
             return Ok(response);

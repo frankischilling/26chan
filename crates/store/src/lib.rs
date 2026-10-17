@@ -94,6 +94,8 @@ pub enum StoreError {
     ContentRejected(String),
     #[error("{0}")]
     FileRejected(FileRefusal),
+    #[error("{0}")]
+    PostingClassifierRejected(posting_classifiers::Refusal),
     #[error("{}", AUTOMATIC_RANGE_REJECTION)]
     AutomaticRangeRejected { cookie_refreshed: bool },
     #[error("Post accepted.")]
