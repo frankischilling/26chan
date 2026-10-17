@@ -277,3 +277,42 @@ admission, refusal cookies and DMCA warning state. Populated rollback/upgrade,
 historical cleanup/restore, file-deletion preservation/restore, strict store
 Clippy and formatting also pass. Hosted checks must still qualify the exact
 pushed head; these results do not complete the file-effect workflow.
+
+## Private file-ban persistence
+
+Migration 0189 adds an owner-only persistence operation and an explicit-timezone
+expiry helper. Public, staff and authentication connections cannot execute them.
+They are not connected to file matching or an HTTP endpoint.
+
+The operation takes the actor lock, exclusive restriction-capacity gate and
+public-board lock in that order. It must run in a fresh effect transaction after
+the posting transaction has rolled back. It uses the database clock, resolves
+only an existing valid anonymous identity, and stores a global file restriction
+with its audit entry and capacity charge in one transaction. Unknown or expired
+tokens leave identity absent. A retained identity remains usable during a
+creation-second or idle reset; the helper never creates one. DMCA-origin requests
+must use the source's three-day duration.
+
+The expiry helper requires a named database timezone. It adds fixed seconds,
+then truncates the resulting local date to midnight. Permanent requests retain
+no expiry; zero-day results become warnings. The non-exempt cases in the
+420-case source fixture check the captured dates, while out-of-range durations
+and unknown timezone settings are rejected. No deployment timezone has been
+selected or inferred for a live caller.
+
+The private operation accepts already-qualified effect facts. It does not prove
+that an actor owns an upload, that a rule is current, or that an exemption does
+not apply. Before exposing any caller, integration must validate those facts,
+recheck the exact attachment and policy, choose the public response, and handle
+uncertain commits without blindly repeating the effect. Capacity contention
+refuses the transaction; it must never turn a rejected file into an accepted
+post. Prior-ban history qualification and live warning/redirect behavior remain
+separate unfinished work.
+
+This private checkpoint passes 55 local database tests. The new cases check
+source-derived expiry dates, capacity refusal without partial effects, real
+runtime-role denial, isolation-level refusal and contention followed by a fresh
+retry. Populated rollback/upgrade and both historical-erasure and file-deletion
+administrator restore checks pass, as do strict store Clippy, formatting and
+five workflow-helper checks. Hosted qualification remains required for the
+changed head before any merge.
