@@ -81,3 +81,13 @@ Issue #220 remains open. Combined post-ban delete, move and archive actions and
 the other outstanding restriction/status workflows still need their own complete
 source-matched integration. The manual endpoint has no combined post action;
 future callers must preserve the source's auto-clear exclusions.
+
+## Browser bundle qualification
+
+The initial notice change made the generated worker 262,310 bytes, above its
+unchanged 262,144-byte budget. The build now also minifies parse5's directly
+called `_insertCharacters` and `_appendCommentNode` methods. The existing
+source checks reject quoted references or use outside parse5. Public exports,
+application properties, parsing checks and the size limit are unchanged.
+The regenerated worker is 262,086 bytes. All generated-file checks and 68
+focused filter, updater, auto-watch, semantic-reply and flag tests pass locally.
