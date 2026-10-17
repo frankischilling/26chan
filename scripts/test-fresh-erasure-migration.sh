@@ -491,6 +491,10 @@ WHERE relation='media.assets';
 UPDATE public.independent_rows SET value=value||jsonb_build_object('metadata_erased',true,
  'filename','[deleted]','bytes',1,'width',1,'height',1,'spoiler',false,'file_deleted',true,'created_at','epoch'::timestamptz)
 WHERE relation='content.post_media' AND (value->>'post_id')::bigint IN(12300001,12300002);
+-- 0194 adds a nullable private digest. Historical associations are not
+-- backfilled, and whole-post erasure must leave that field explicitly NULL.
+UPDATE public.independent_rows SET value=value||jsonb_build_object('normalized_md5',NULL)
+WHERE relation='content.post_media';
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
  THEN RAISE EXCEPTION 'Additive presentation fields rewrote historical content'; END IF;

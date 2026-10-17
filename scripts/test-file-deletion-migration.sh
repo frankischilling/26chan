@@ -285,13 +285,13 @@ PYCAPTCHA
 "${admin[@]}" -f - < "$cluster/captcha-policy-expectation.sql"
 "${admin[@]}" -f - < scripts/report-snapshot-upgrade-expectations.sql
 # Extend the saved baseline only with the reviewed additive retention fields.
-# Neither migration sweeps existing media payloads or moderation snapshots.
+# These migrations do not sweep existing media payloads or moderation snapshots.
 "${admin[@]}" <<'SQL'
 UPDATE public.upgraded_rows SET value=value||jsonb_build_object('snapshot_expires_at',
  CASE WHEN value->>'snapshot_version' IS NOT NULL
  THEN (value->>'created_at')::timestamptz+interval '720 hours' ELSE NULL END)
 WHERE relation='content.moderation_audit';
-UPDATE public.upgraded_rows SET value=value||jsonb_build_object('metadata_erased',false)
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('metadata_erased',false,'normalized_md5',NULL)
 WHERE relation='content.post_media';
 -- Drawing enrollment is additive and false for every historical job.
 UPDATE public.upgraded_rows SET value=value||jsonb_build_object('drawing_publication',false)
