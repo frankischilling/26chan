@@ -316,3 +316,31 @@ retry. Populated rollback/upgrade and both historical-erasure and file-deletion
 administrator restore checks pass, as do strict store Clippy, formatting and
 five workflow-helper checks. Hosted qualification remains required for the
 changed head before any merge.
+
+## Private effect context
+
+Migration 0191 adds three admission-owned functions for a future restriction-owned
+finalizer. They are private cross-owner calls: posting runtimes cannot execute
+them, and the restriction owner gains no direct access to file rules, exemption
+lists, warning rows, or their capacity settings. Posting is not connected to
+these functions yet.
+
+The rule resolver checks the current policy revision under its shared lock and
+reads the board's work-safe setting. It considers at most 128 applicable rules,
+tries the normalized digest first, and permits original-digest fallback only
+when eligible. Overlapping matches fail rather than selecting an arbitrary row.
+It returns the live reasons only to the private restriction owner.
+
+A missing digest on an existing upload is unavailable evidence. It is not the
+same as a request with no upload, which never needs this finalizer. Known
+ineligibility skips original fallback; unknown eligibility matters if the
+original digest matches. The database test compares 2,352 source cases with a
+normalized digest. Six no-file source cases are excluded from this resolver
+comparison; the eventual posting caller still needs a no-file regression test.
+
+The exemption bridge holds the shared policy lock and checks the exact transport
+peer. It does not record a ban or alter a refusal response. The DMCA bridge uses
+database time and records within its caller's transaction, so a failed finalizer
+can roll back warning state with the other effects. Neither bridge replaces
+upload-capability validation, staff authorization, or the actor and restriction
+locks required by that finalizer.
