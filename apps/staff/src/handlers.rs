@@ -1108,6 +1108,30 @@ pub async fn post_message(
         .await
     };
     let result = match result {
+        Err(board_store::StoreError::FileRejected(refusal)) => {
+            use board_domain::content_admission::files::Response as FileResponse;
+            if refusal.response() == FileResponse::Quiet {
+                let post = refusal.quiet_post().ok_or(AppError::Internal)?;
+                return Ok(Redirect::to(&if input.thread > 0 {
+                    format!(
+                        "{}/{}/thread/{}#p{post}",
+                        state.config.public_origin, input.board, input.thread
+                    )
+                } else {
+                    format!("{}/{}/", state.config.public_origin, input.board)
+                }));
+            }
+            if refusal.response() == FileResponse::BanRedirect {
+                return Err(AppError::PostingRedirect {
+                    message: refusal.message().into(),
+                    location: format!(
+                        "{}/banned?board={}",
+                        state.config.public_origin, input.board
+                    ),
+                });
+            }
+            return Err(AppError::Posting(refusal.message().into()));
+        }
         Err(board_store::StoreError::ContentQuiet { post }) => {
             return Ok(Redirect::to(&if input.thread > 0 {
                 format!(

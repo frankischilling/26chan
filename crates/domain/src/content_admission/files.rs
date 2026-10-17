@@ -61,6 +61,13 @@ pub struct Block {
     pub effect: Effect,
 }
 
+/// A matching rule and digest, without a decision about mutable warning state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Match {
+    pub rule: i64,
+    pub digest: Digest,
+}
+
 pub struct Policy {
     rules: Vec<Rule>,
 }
@@ -86,6 +93,25 @@ impl Policy {
     /// Exact blacklist only. The earlier normalized-digest prior-ban check is
     /// separate and has no badge exemption.
     pub fn evaluate(&self, request: Request<'_>) -> Result<Option<Block>, AdmissionError> {
+        self.matching_rule(&request)?
+            .map(|(rule, digest)| block(rule, digest, &request))
+            .transpose()
+    }
+
+    /// Locate a candidate before an atomic effect transaction. This does not
+    /// read or assume DMCA history; the finalizer must resolve that state under
+    /// its own lock and revalidate the live rule and upload before committing.
+    pub fn match_rule(&self, request: Request<'_>) -> Result<Option<Match>, AdmissionError> {
+        Ok(self.matching_rule(&request)?.map(|(rule, digest)| Match {
+            rule: rule.id,
+            digest,
+        }))
+    }
+
+    fn matching_rule<'a>(
+        &'a self,
+        request: &Request<'_>,
+    ) -> Result<Option<(&'a Rule, Digest)>, AdmissionError> {
         if BoardSlug::parse(request.board).is_err() {
             return Err(AdmissionError::InvalidPolicy);
         }
@@ -111,7 +137,7 @@ impl Policy {
             ProviderValue::Unavailable => return Err(AdmissionError::Unavailable),
         };
         if let Some(rule) = unique_match(&candidates, normalized)? {
-            return block(rule, normalized, &request).map(Some);
+            return Ok(Some((rule, normalized)));
         }
         if matches!(request.original_eligible, ProviderValue::Available(false)) {
             return Ok(None);
@@ -128,7 +154,7 @@ impl Policy {
             return Ok(None);
         };
         match request.original_eligible {
-            ProviderValue::Available(true) => block(rule, original, &request).map(Some),
+            ProviderValue::Available(true) => Ok(Some((rule, original))),
             ProviderValue::Available(false) => Ok(None),
             ProviderValue::Unavailable => Err(AdmissionError::Unavailable),
         }

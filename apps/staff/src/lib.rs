@@ -71,6 +71,8 @@ pub enum AppError {
     Form(StatusCode),
     #[error("{0}")]
     Posting(String),
+    #[error("{message}")]
+    PostingRedirect { message: String, location: String },
     #[error("Report group cannot be cleared because report weights are unavailable.")]
     ReportGroupWeights,
     #[error("Report group is already cleared.")]
@@ -108,10 +110,20 @@ impl IntoResponse for AppError {
             Self::Internal => eprintln!("Staff internal refusal"),
             _ => {}
         }
+        let redirect = if let Self::PostingRedirect { location, .. } = &self {
+            match axum::http::HeaderValue::from_str(&format!("3; url={location}")) {
+                Ok(value) => Some(value),
+                Err(_) => return Self::Internal.into_response(),
+            }
+        } else {
+            None
+        };
         let code = match self {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Forbidden | Self::Recent => StatusCode::FORBIDDEN,
-            Self::Invalid | Self::Posting(_) => StatusCode::BAD_REQUEST,
+            Self::Invalid | Self::Posting(_) | Self::PostingRedirect { .. } => {
+                StatusCode::BAD_REQUEST
+            }
             Self::Form(status) => status,
             Self::ReportGroupWeights | Self::ReportGroupAlreadyCleared => StatusCode::CONFLICT,
             Self::ThreadTransfer(ref error) => thread_transfer::error_status(error),
@@ -119,7 +131,11 @@ impl IntoResponse for AppError {
             Self::Capacity => StatusCode::TOO_MANY_REQUESTS,
             _ => StatusCode::SERVICE_UNAVAILABLE,
         };
-        (code, self.to_string()).into_response()
+        let mut response = (code, self.to_string()).into_response();
+        if let Some(redirect) = redirect {
+            response.headers_mut().insert("refresh", redirect);
+        }
+        response
     }
 }
 impl AppState {

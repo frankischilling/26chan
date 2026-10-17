@@ -7,6 +7,7 @@ use std::sync::{Arc, LazyLock};
 
 pub(crate) mod attachment;
 pub(crate) mod automatic;
+pub(crate) mod files;
 mod network;
 pub(crate) mod staff;
 
@@ -238,6 +239,10 @@ fn unavailable(_: impl Sized) -> StoreError {
 }
 
 impl Evaluation {
+    pub(crate) fn revision(&self) -> i64 {
+        self.snapshot.revision
+    }
+
     /// This stage uses the already-locked policy and activity state. Optional
     /// provider-backed rules fail closed until their trusted data is supplied.
     pub(crate) fn network_rejection(

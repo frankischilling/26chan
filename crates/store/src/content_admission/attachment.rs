@@ -14,6 +14,18 @@ pub(crate) struct Target<'a> {
     pub badged: bool,
 }
 
+pub(super) struct FileContext<'a> {
+    pub board: &'a str,
+    pub parent: i64,
+    pub badged: bool,
+    pub job: &'a str,
+    pub capability: &'a str,
+    pub filename: &'a str,
+    pub normalized: Option<&'a str>,
+    pub original: Option<&'a [u8]>,
+    pub eligible: Option<bool>,
+}
+
 pub(crate) struct Preflight<'a> {
     attachment: &'a NewAttachment,
     target: Target<'a>,
@@ -32,6 +44,20 @@ impl<'a> Preflight<'a> {
             target,
             metadata,
         })
+    }
+
+    pub(super) fn file_context(&self) -> FileContext<'_> {
+        FileContext {
+            board: self.target.board,
+            parent: self.target.parent,
+            badged: self.target.badged,
+            job: &self.attachment.upload.id,
+            capability: &self.attachment.upload.capability,
+            filename: &self.metadata.0,
+            normalized: self.metadata.1.as_deref(),
+            original: self.metadata.2.as_deref(),
+            eligible: self.metadata.3,
+        }
     }
 
     pub fn filename(&self) -> &str {

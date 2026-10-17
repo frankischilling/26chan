@@ -1,7 +1,8 @@
 # File-blocking parity
 
-File blocking is unfinished. Trusted publication records the original upload's
-MD5 in a private receipt. Posting rules do not yet enforce those hashes.
+Exact-file rules are connected to public and staff posting. The earlier
+prior-ban upload gate still needs a qualified history provider. Trusted
+publication records the original upload's MD5 in a private receipt.
 Existing SHA-256 integrity checks remain unchanged. MD5 is only a compatibility key for
 matching operator-owned rules; it is not an approval or integrity proof.
 
@@ -86,8 +87,7 @@ format.
 
 Exact matches can reject, issue an automatic ban, or enter the DMCA warning and
 repeat-attempt path. The DMCA path precedes quiet fake-success handling. Those
-side effects, trusted ban identity, attachment locking, and rule selection still
-need implementation and transactional tests. The original query has no ordering
+effects use the capability-scoped finalizer described below. The original query has no ordering
 for overlapping matches, so a new scope priority must not be presented as an
 established source behavior.
 
@@ -104,7 +104,7 @@ processed-source digest. They do not qualify blacklist enforcement.
 
 ## Bounded decision model
 
-The domain model and private rule store are not yet connected to posting. The
+The domain model selects candidates for the private effect finalizer. The
 reference fixture exercises 2,358 exact-file decisions from the pinned checker
 and 600 prior-ban cases. The SQL and effect callbacks use synthetic data; they do
 not run the application or import private lists.
@@ -123,9 +123,8 @@ returns unavailable when that query is needed.
 
 The DMCA branch ignores quiet mode: a first warning records an attempt, while a
 repeat requests a three-day ban and redirect. `/test/` rejection diagnostics
-precede quiet handling for reject-only rules. Requested ban effects are not proof
-of an issued ban: whitelist checks, expiry dates, identity binding, the inclusive
-one-day warning query, and transactional persistence remain caller work. The
+precede quiet handling for reject-only rules. The finalizer separately checks exemptions, expiry dates, identity binding and
+the inclusive one-day warning window before committing a ban. The
 fixture also covers 24 failed DMCA-history queries: the source takes its first-
 warning branch, while Rust returns unavailable without requesting an effect.
 Exact-rule query failure is not part of this corpus. The caller must propagate a
@@ -155,16 +154,13 @@ matches. The domain model still rejects an ambiguous match.
 
 Rule modes are reject, automatic ban, and DMCA warning/repeat. Storage validates
 scopes, digest length, modes, reason sizes, and ban-day bounds. Ban days apply only
-to automatic-ban rules; the DMCA branch has its own fixed repeat duration. These
-stored settings do not issue bans until the posting integration and trusted
-side-effect handling are implemented.
+to automatic-ban rules; the DMCA branch has its own fixed repeat duration. The finalizer rechecks these settings before issuing a ban.
 
 ## Private DMCA warning state
 
-Migration 0187 adds the private warning-state operation needed by the eventual
-file-effect recorder. Runtime roles cannot call it or read its tables. It is not
-connected to posting yet and cannot issue a ban, redirect a response, or claim
-that the file-blacklist workflow is complete.
+Migration 0187 adds the private warning-state operation used by the file-effect
+finalizer. Runtime roles cannot call it directly or read its tables. The helper
+records warning state; its caller decides whether to issue a ban and redirect.
 
 The source's active checker queries `fail_dmca` by exact peer across boards,
 files and rules. A warning in the inclusive preceding day makes the next match
@@ -177,8 +173,8 @@ without a raw address, password, filename or post body. This preserves the
 repeat decision while discarding the older per-attempt audit history. An actor
 lock serializes simultaneous first attempts, including when no row exists.
 The helper requires read-committed isolation and a trusted decision clock within
-30 seconds of database time, checked again after lock waits. The future issuer
-must supply a database-derived timestamp and peer identity; public form fields
+30 seconds of database time, checked again after lock waits. The finalizer
+supplies a database-derived timestamp and server-derived peer identity; public form fields
 and timezone-naive client strings cannot provide them.
 
 Its capacity defaults to 100,000 entries and is bounded at one million. New
@@ -193,9 +189,9 @@ The helper pins UTC for deterministic one-day and seven-day intervals. The
 checked-in source does not declare the production PHP or MySQL session timezone,
 so this is not evidence that the original deployment used UTC. Automatic-ban
 expiry remains separate: the source computes a local-midnight date, and that
-issuer still needs an explicit timezone policy and public status integration.
+issuer requires an explicit operator timezone policy.
 
-The checkpoint passes 37 local database tests, including the new warning-state
+At the 0187 checkpoint, 37 local database tests passed, including the new warning-state
 cases and existing content, staff and refusal-cookie regressions. Tests cover
 the inclusive repeat boundary, unchanged timestamps, actor concurrency, clock
 and role denial, finite capacity and the 256-row cleanup bound. Populated
@@ -241,8 +237,8 @@ file-checker's warning, refusal or redirect behavior.
 
 Migration 0188 extends the existing restriction table so a future file issuer can
 use the same IDs, public status, warning acknowledgement, unban and audit paths.
-It adds no runtime issuer or direct table grant. Live file matching and effect
-recording remain unfinished.
+It adds no runtime issuer or direct table grant. That migration alone did not connect live matching or effect recording.
+Migration 0192 supplies the posting finalizer.
 
 Existing rows retain staff provenance. Staff restrictions still require a
 positive post ID and staff account ID, and cannot carry file-rule metadata.
@@ -266,11 +262,10 @@ acquire that exception through their reason text.
 
 The matched rule digest does not establish a qualifying historical template or
 the upload's normalized digest. Prior-ban upload counts still need their own
-qualified provenance. The eventual issuer must also enforce current rules,
-whitelist behavior, finite capacity, trusted identity, timezone policy and
-transactional attachment revalidation before committing any effect.
+qualified provenance. The 0192 finalizer enforces current rules, exemptions, finite capacity, trusted
+identity, timezone policy and attachment revalidation before committing effects.
 
-Local checks for this storage checkpoint pass 51 database tests, including
+At the 0188 storage checkpoint, 51 local database tests passed, including
 provenance constraints, real public status and acknowledgement, verified Proxy
 controls, existing restriction integration, quota, staff posting, content
 admission, refusal cookies and DMCA warning state. Populated rollback/upgrade,
@@ -282,7 +277,7 @@ pushed head; these results do not complete the file-effect workflow.
 
 Migration 0189 adds an owner-only persistence operation and an explicit-timezone
 expiry helper. Public, staff and authentication connections cannot execute them.
-They are not connected to file matching or an HTTP endpoint.
+Migration 0192 connects them to posting through a capability-scoped finalizer.
 
 The operation takes the actor lock, exclusive restriction-capacity gate and
 public-board lock in that order. It must run in a fresh effect transaction after
@@ -297,19 +292,18 @@ The expiry helper requires a named database timezone. It adds fixed seconds,
 then truncates the resulting local date to midnight. Permanent requests retain
 no expiry; zero-day results become warnings. The non-exempt cases in the
 420-case source fixture check the captured dates, while out-of-range durations
-and unknown timezone settings are rejected. No deployment timezone has been
-selected or inferred for a live caller.
+and unknown timezone settings are rejected. A fresh installation leaves the timezone unset. An operator must select it
+before a non-exempt file rule can issue a ban.
 
 The private operation accepts already-qualified effect facts. It does not prove
 that an actor owns an upload, that a rule is current, or that an exemption does
-not apply. Before exposing any caller, integration must validate those facts,
-recheck the exact attachment and policy, choose the public response, and handle
-uncertain commits without blindly repeating the effect. Capacity contention
+not apply. The 0192 finalizer validates those facts, rechecks the attachment and policy,
+and chooses the public response. The Store does not blindly repeat an uncertain
+commit. Capacity contention
 refuses the transaction; it must never turn a rejected file into an accepted
-post. Prior-ban history qualification and live warning/redirect behavior remain
-separate unfinished work.
+post. Prior-ban history qualification remains unfinished.
 
-This private checkpoint passes 55 local database tests. The new cases check
+At the 0189 private checkpoint, 55 local database tests passed. The new cases check
 source-derived expiry dates, capacity refusal without partial effects, real
 runtime-role denial, isolation-level refusal and contention followed by a fresh
 retry. Populated rollback/upgrade and both historical-erasure and file-deletion
@@ -319,11 +313,10 @@ changed head before any merge.
 
 ## Private effect context
 
-Migration 0191 adds three admission-owned functions for a future restriction-owned
+Migration 0191 adds three admission-owned functions used by the restriction-owned
 finalizer. They are private cross-owner calls: posting runtimes cannot execute
 them, and the restriction owner gains no direct access to file rules, exemption
-lists, warning rows, or their capacity settings. Posting is not connected to
-these functions yet.
+lists, warning rows, or their capacity settings. The finalizer calls them without exposing their private results to posting roles.
 
 The rule resolver checks the current policy revision under its shared lock and
 reads the board's work-safe setting. It considers at most 128 applicable rules,
@@ -336,7 +329,7 @@ same as a request with no upload, which never needs this finalizer. Known
 ineligibility skips original fallback; unknown eligibility matters if the
 original digest matches. The database test compares 2,352 source cases with a
 normalized digest. Six no-file source cases are excluded from this resolver
-comparison; the eventual posting caller still needs a no-file regression test.
+comparison; the resolver comparison alone does not qualify the no-file posting path.
 
 The exemption bridge holds the shared policy lock and checks the exact transport
 peer. It does not record a ban or alter a refusal response. The DMCA bridge uses
@@ -344,3 +337,43 @@ database time and records within its caller's transaction, so a failed finalizer
 can roll back warning state with the other effects. Neither bridge replaces
 upload-capability validation, staff authorization, or the actor and restriction
 locks required by that finalizer.
+
+## Posting finalizer
+
+Migration 0192 adds `content.finalize_file_filter`. The Store checks exact-file
+rules after content and network admission and before tripcode admission. It
+skips this stage when there is no attachment or a trusted selected staff badge.
+An upload's reservation capcode does not grant that posting exemption.
+
+A candidate ends the ordinary posting transaction before starting a fresh
+read-committed effect transaction. The finalizer locks the actor, restriction
+gate, board and policy, then validates the upload capability and metadata again.
+It requires the same rule generation and matched digest. Staff refusals also
+revalidate the session, CSRF, rank and board scope. The actor hash and exact peer
+come from the same verified transport identity; neither is a form field.
+
+A rejected upload remains published and unconsumed. Quiet responses use the
+source's fake post-number queries without creating a post. First DMCA attempts
+record a warning; repeats within the inclusive day request a three-day global
+ban and delayed banned-page response. An exemption suppresses ban persistence
+but preserves the refusal or redirect. Optional anonymous-cookie refresh does
+not register posting activity. The finalizer rechecks upload expiry and staff
+authority after effect work, and failures roll back the transaction. An
+uncertain commit is not automatically retried.
+
+`restrictions.file_clock.timezone` starts as NULL. An operator must set a valid
+database timezone to enable actual automatic-ban issuance. Reject-only rules,
+first DMCA warnings and exempt attempts do not need that setting. Empty or
+PHP-false public reasons use “Posting a blocked file.” This deliberate security
+change keeps the private digest and filename audit out of the public reason.
+
+HTML refusals use the existing banned page and a three-second Refresh header.
+Enhanced posting keeps its JSON error envelope and adds the fixed
+`x-board-posting-redirect: banned` signal. The client accepts it only alongside
+the expected banned error and schedules the same-origin banned page after three
+seconds. This is a response-adapter difference from the source's inline-script
+HTML redirect, including when its caller requested JSON.
+
+This integration does not complete issue #212. Historical template-226/6 counts,
+remaining classifier providers and final caller-order coverage still need
+qualification. File-rule provenance alone cannot supply those historical counts.

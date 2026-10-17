@@ -1147,6 +1147,27 @@ async fn create_post_in_context(
             let cookie_refreshed = hit.record(pool, anonymous).await.unwrap_or(false);
             return Err(StoreError::AutomaticRangeRejected { cookie_refreshed });
         }
+        if let Some(metadata) = &attachment_admission
+            && let Some(file) = crate::content_admission::files::candidate(
+                &mut tx,
+                metadata,
+                board.worksafe,
+                evaluated.revision(),
+            )
+            .await?
+        {
+            metadata.revalidate(&mut tx).await?;
+            // The exclusive restriction writer must never upgrade the shared
+            // posting gate. Discard earlier provisional posting effects first.
+            tx.rollback().await?;
+            let peer = context
+                .peer
+                .ok_or(StoreError::Invalid("Posting identity is unavailable."))?;
+            let refusal = file
+                .record(pool, &posting_actor, peer, anonymous, staff.as_ref())
+                .await?;
+            return Err(StoreError::FileRejected(refusal));
+        }
         if let Some(message) = evaluated.identity_rejection().await? {
             // Later admission failures share the posting transaction. Do not
             // retain a preceding log/autosage hit from an incomplete post.

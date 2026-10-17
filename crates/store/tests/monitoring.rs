@@ -310,6 +310,7 @@ async fn exercise(owner: PgPool, monitor_url: String, fixture: String, capacity:
                 StoreError::PublicDeletionRejected(_) => "PublicDeletionRejected",
                 StoreError::AuthorizationChanged => "AuthorizationChanged",
                 StoreError::ContentRejected(_) => "ContentRejected",
+                StoreError::FileRejected(_) => "FileRejected",
                 StoreError::ContentQuiet { .. } => "ContentQuiet",
                 StoreError::AutomaticRangeRejected { .. } => "AutomaticRangeRejected",
                 StoreError::RandomnessUnavailable => "RandomnessUnavailable",

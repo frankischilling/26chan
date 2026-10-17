@@ -123,6 +123,7 @@ fn storage_error_class(error: &StoreError) -> &'static str {
         StoreError::RandomnessUnavailable => "randomness_unavailable",
         StoreError::ReadLimit => "read_limit",
         StoreError::ContentRejected(_) => "content_rejected",
+        StoreError::FileRejected(_) => "file_rejected",
         StoreError::AutomaticRangeRejected { .. } => "automatic_range_rejected",
         StoreError::ContentQuiet { .. } => "content_quiet",
         StoreError::Robot9000Rejected(_) => "robot9000_rejected",
@@ -1242,6 +1243,56 @@ async fn submit_post(
                 );
             }
             return Ok(format.rule_error(&message));
+        }
+        Err(StoreError::FileRejected(refusal)) => {
+            use board_domain::content_admission::files::Response as FileResponse;
+            let mut response = match refusal.response() {
+                FileResponse::Quiet => {
+                    let quiet = refusal.quiet_post().ok_or(AppError(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "File refusal is unavailable.",
+                    ))?;
+                    let thread = if form.resto == 0 { quiet } else { form.resto };
+                    let location = if options.return_to_board {
+                        format!("/{board}/")
+                    } else {
+                        format!("/{board}/thread/{thread}#p{quiet}")
+                    };
+                    let mut response = format.success(form.resto, quiet, &location);
+                    crate::post_preferences::append(
+                        response.headers_mut(),
+                        &headers,
+                        if settings.forced_anon {
+                            None
+                        } else {
+                            Some(&post.name)
+                        },
+                        if options.anonymous { "" } else { &form.email },
+                        state.production,
+                    );
+                    response
+                }
+                FileResponse::BanRedirect
+                    if matches!(format, crate::posting_response::Format::Html) =>
+                {
+                    crate::restrictions::posting_refusal(&state, &board, false)?
+                }
+                FileResponse::BanRedirect => {
+                    let mut response = format.rule_error(refusal.message());
+                    // Enhanced posting keeps the source's JSON error envelope.
+                    // Only this fixed signal can request the same-origin delay.
+                    response.headers_mut().insert(
+                        "x-board-posting-redirect",
+                        axum::http::HeaderValue::from_static("banned"),
+                    );
+                    response
+                }
+                _ => format.rule_error(refusal.message()),
+            };
+            if refusal.cookie_refreshed() {
+                session.append(response.headers_mut(), state.production);
+            }
+            return Ok(response);
         }
         Err(StoreError::AutomaticRangeRejected { cookie_refreshed }) => {
             let mut response = format.rule_error(board_store::AUTOMATIC_RANGE_REJECTION);

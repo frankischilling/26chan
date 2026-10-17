@@ -9,6 +9,7 @@ import {
   quoteInsertion,
   postingResult,
   sendQuickReply,
+  schedulePostingRedirect,
   uploadQuickReplyFile,
 } from '../../apps/public/client/native-quick-reply-transport.js';
 
@@ -251,4 +252,23 @@ test('upload deadlines and caller cancellation settle even when fetch or respons
     origin: 'https://board.example', board: 'demo', thread: '10', receipt: upload,
     fetcher: async () => uploadResponse({ ...upload, state: 'approved' }),
   })).state, 'approved');
+});
+
+
+test('file refusals allow only the fixed same-origin delayed ban redirect', async () => {
+  const result = await sendQuickReply({ board: 'g', thread: '10', fields: { com: 'Owned' }, origin: 'https://board.example',
+    fetcher: async () => new Response('{"error":"Error: You are banned."}', { headers: { 'content-type': 'application/json', 'x-board-posting-redirect': 'banned' } }) });
+  assert.deepEqual(result, { error: 'Error: You are banned.', redirect: 'banned' });
+  let queued, delay, destination;
+  assert.equal(schedulePostingRedirect(result, 'g', { schedule: (fn, ms) => { queued = fn; delay = ms; }, navigate: path => { destination = path; } }), true);
+  assert.equal(delay, 3000); assert.equal(destination, undefined); queued(); assert.equal(destination, '/banned?board=g');
+  for (const invalid of [{ ...result, redirect: 'https://elsewhere.invalid/' }, { ...result, error: 'Other error' }, { error: result.error }]) {
+    assert.equal(schedulePostingRedirect(invalid, 'g', { schedule: () => assert.fail('unexpected redirect') }), false);
+  }
+  assert.equal(schedulePostingRedirect(result, '../banned', { schedule: () => assert.fail('unexpected board') }), false);
+  for (const [header, body, status] of [['https://elsewhere.invalid/', '{"error":"Error: You are banned."}', 200],
+    ['banned', '{"error":"Unrelated error"}', 200], ['banned', '{"tid":10,"pid":11}', 200], ['banned', '{"error":"Error: You are banned."}', 503]]) {
+    await assert.rejects(sendQuickReply({ board: 'g', thread: '10', fields: { com: 'Owned' }, origin: 'https://board.example',
+      fetcher: async () => new Response(body, { status, headers: { 'content-type': 'application/json', 'x-board-posting-redirect': header } }) }), /Posting response unavailable/);
+  }
 });

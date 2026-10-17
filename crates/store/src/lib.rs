@@ -10,6 +10,7 @@ pub mod site_content;
 pub use blotter::BlotterMessage;
 mod content_admission;
 pub use content_admission::automatic::READINESS_SQL as AUTOMATIC_RANGE_READINESS_SQL;
+pub use content_admission::files::FileRefusal;
 pub mod content_erasure;
 pub mod historical_erasure;
 pub mod homepage;
@@ -90,6 +91,8 @@ pub enum StoreError {
     AuthorizationChanged,
     #[error("{0}")]
     ContentRejected(String),
+    #[error("{0}")]
+    FileRejected(FileRefusal),
     #[error("{}", AUTOMATIC_RANGE_REJECTION)]
     AutomaticRangeRejected { cookie_refreshed: bool },
     #[error("Post accepted.")]

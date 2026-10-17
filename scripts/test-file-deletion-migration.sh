@@ -64,7 +64,8 @@ done
 CREATE FUNCTION public.capture_rows() RETURNS TABLE(relation text,value jsonb)
 LANGUAGE plpgsql AS $$ DECLARE r record; BEGIN
  FOR r IN SELECT n.nspname,c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname IN('content','post_secrets','staff_identity','media','media_intake','deployment','admission','poll_private') AND c.relkind='r' LOOP
+ WHERE (n.nspname IN('content','post_secrets','staff_identity','media','media_intake','deployment','admission','poll_private')
+ OR (n.nspname='restrictions' AND c.relname='file_clock')) AND c.relkind='r' LOOP
   RETURN QUERY EXECUTE format('SELECT %L,to_jsonb(r) FROM %I.%I r',r.nspname||'.'||r.relname,r.nspname,r.relname);
  END LOOP;
 END $$;
@@ -322,6 +323,13 @@ INSERT INTO public.upgraded_rows VALUES('admission.file_effect_capacity',
  jsonb_build_object('singleton',true,'warning_limit',100000));
 SQL
 fi
+# File-ban timezone is deliberately unconfigured on a fresh installation.
+if [[ -f migrations/0192_capability_file_effects.sql ]]; then
+ "${admin[@]}" <<'SQL'
+INSERT INTO public.upgraded_rows VALUES('restrictions.file_clock',
+ jsonb_build_object('singleton',true,'timezone',NULL));
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
@@ -399,6 +407,17 @@ if [[ -f migrations/0187_dmca_warning_state.sql ]]; then
   grep -q 'File action changed unrelated history, audit or consumed media identity' "$cluster/warning-state-negative.log"
   "${admin[@]}" -f - < "$cluster/assert-retained.sql"
  done
+fi
+if [[ -f migrations/0192_capability_file_effects.sql ]]; then
+ {
+  printf "UPDATE restrictions.file_clock SET timezone='UTC' WHERE singleton;\n"
+  cat "$cluster/assert-retained.sql"
+ } > "$cluster/file-clock-negative.sql"
+ if "${admin[@]}" --single-transaction -f - < "$cluster/file-clock-negative.sql" > "$cluster/file-clock-negative.log" 2>&1; then
+  echo 'File-deletion history guard accepted an unrelated timezone change.' >&3; exit 1
+ fi
+ grep -q 'File action changed unrelated history, audit or consumed media identity' "$cluster/file-clock-negative.log"
+ "${admin[@]}" -f - < "$cluster/assert-retained.sql"
 fi
 if [[ -f migrations/0180_automatic_range_metadata.sql ]]; then
  # These rolled-back mutations prove the additive baseline still catches

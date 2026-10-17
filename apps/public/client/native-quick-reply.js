@@ -1,6 +1,6 @@
 import { createPostingCaptcha, mountPostingCaptcha } from '../static/posting-captcha.v1.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
-import { cancelQuickReplyUpload, checkQuickReplyUpload, commentLengthWarning, quoteInsertion, sendQuickReply,
+import { cancelQuickReplyUpload, checkQuickReplyUpload, commentLengthWarning, quoteInsertion, sendQuickReply, schedulePostingRedirect,
   uploadQuickReplyFile, uploadDrawingFile } from './native-quick-reply-transport.js';
 import { mountNativePostForm } from './native-post-form.js';
 import { quickReplyPosition } from './native-quick-reply-position.js';
@@ -359,7 +359,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     try {
       const result = await sendQuickReply({ board, thread: id, fields, signal: controller.signal });
       if (active !== epoch || disabled()) return;
-      if (result.error) { postingAttachment = false; message(result.error); return; }
+      if (result.error) { postingAttachment = false; message(result.error); schedulePostingRedirect(result, board); return; }
       cooldown.success();
       if (sourceApproval()) {
         // Both editors refer to the same one-use approval. Once committed,

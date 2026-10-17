@@ -328,3 +328,33 @@ fn ambiguous_scopes_and_unbounded_configuration_are_refused() {
     invalid.scope = "g,b".into();
     assert!(Policy::compile(vec![invalid]).is_err());
 }
+
+#[test]
+fn candidate_matching_does_not_invent_a_dmca_warning_state() {
+    let policy = Policy::compile(vec![Rule {
+        id: 192,
+        scope: String::new(),
+        digest: [7; 16],
+        active: true,
+        quiet: true,
+        mode: Mode::Dmca,
+    }])
+    .unwrap();
+    let request = || Request {
+        board: "g",
+        worksafe: false,
+        test_board: false,
+        badged: false,
+        normalized: ProviderValue::Available(Some([7; 16])),
+        original: ProviderValue::Unavailable,
+        original_eligible: ProviderValue::Unavailable,
+        prior_dmca: ProviderValue::Unavailable,
+    };
+    let found = policy.match_rule(request()).unwrap().unwrap();
+    assert_eq!(found.rule, 192);
+    assert_eq!(found.digest, [7; 16]);
+    assert!(matches!(
+        policy.evaluate(request()),
+        Err(AdmissionError::Unavailable)
+    ));
+}
