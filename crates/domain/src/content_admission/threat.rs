@@ -151,6 +151,33 @@ pub fn score_for_native_origin(
         _ => ProviderValue::Unavailable,
     }
 }
+/// A finite native-origin observation evaluated with reporting parameters.
+/// The caller still owns capture, request-time and origin provenance.
+#[derive(Clone, Copy)]
+pub struct NativeReportScore(Score);
+impl NativeReportScore {
+    pub fn at_least_point_four(self) -> bool {
+        self.0.value() >= 0.4
+    }
+    pub fn value(self) -> f64 {
+        self.0.value()
+    }
+}
+pub fn score_native_report(
+    request: ProviderValue<Request<'_>>,
+    same_origin: ProviderValue<bool>,
+) -> ProviderValue<NativeReportScore> {
+    let ProviderValue::Available(request) = request else {
+        return ProviderValue::Unavailable;
+    };
+    if !request.is_op || request.multipart || request.country.is_some() {
+        return ProviderValue::Unavailable;
+    }
+    match score_for_native_origin(ProviderValue::Available(request), same_origin) {
+        ProviderValue::Available(score) => ProviderValue::Available(NativeReportScore(score)),
+        ProviderValue::Unavailable => ProviderValue::Unavailable,
+    }
+}
 fn calculate(r: Request<'_>, native_referer: Option<bool>) -> Option<f64> {
     if !valid_entries(r.server)
         || !valid_entries(r.cookies)

@@ -7,6 +7,7 @@ use sqlx::PgConnection;
 use std::net::IpAddr;
 
 pub struct Context<'a> {
+    pub request_facts: Option<&'a super::request::RequestFacts>,
     pub protected: ProtectedReportingContext,
     pub request_start: DateTime<Utc>,
     pub peer: Option<IpAddr>,
@@ -17,6 +18,7 @@ pub struct Context<'a> {
 impl Context<'_> {
     pub(crate) fn unavailable(protected: ProtectedReportingContext) -> Self {
         Self {
+            request_facts: None,
             request_start: protected.session.now,
             protected,
             peer: None,

@@ -1676,6 +1676,7 @@ pub(crate) async fn submit_report(
     headers: &HeaderMap,
     form: ReportSubmission,
 ) -> Result<Response, AppError> {
+    let captured = board_http::request_facts::capture(headers, order);
     let no = match &form {
         ReportSubmission::FreeText { no, .. } | ReportSubmission::Categorical { no, .. } => *no,
     };
@@ -1727,12 +1728,32 @@ pub(crate) async fn submit_report(
     };
     let hints =
         board_http::network_hints::derive(headers, order, state.browser_hint_key.as_deref());
+    use board_domain::content_admission::network::ProviderValue::{
+        Available as A, Unavailable as U,
+    };
+    let observed = match &captured {
+        A(value) => A(value),
+        U => U,
+    };
+    let native_score = match board_config::Origin::parse(&state.origin) {
+        Ok(origin) => board_http::request_facts::native_profile::report_score(
+            observed,
+            &origin,
+            A(start.0.timestamp()),
+            captcha.challenge.as_deref().map(str::as_bytes),
+            captcha.answer.as_deref().map(str::as_bytes),
+        ),
+        Err(_) => U,
+    };
+    let request_facts =
+        board_store::ReportRequestFacts::new(start.0, peer.0, board, no, native_score);
     let protected = board_store::ProtectedReportingContext {
         session: session.posting,
         challenge,
         source_cookies_absent,
     };
     let network = board_store::NetworkReportingContext {
+        request_facts: Some(&request_facts),
         protected,
         request_start: start.0,
         peer: peer.0,

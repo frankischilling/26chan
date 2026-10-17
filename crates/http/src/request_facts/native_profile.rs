@@ -30,6 +30,35 @@ pub fn score(
     origin: &Origin,
     context: Context<'_>,
 ) -> ProviderValue<threat::Score> {
+    with_request(captured, origin, context, threat::score_for_native_origin)
+}
+
+/// Reporting-only observation; callers cannot substitute a posting score.
+pub fn report_score(
+    captured: ProviderValue<&CapturedRequest>,
+    origin: &Origin,
+    request_time: ProviderValue<i64>,
+    challenge: Option<&[u8]>,
+    response: Option<&[u8]>,
+) -> ProviderValue<threat::NativeReportScore> {
+    with_request(
+        captured,
+        origin,
+        Context {
+            request_time,
+            challenge,
+            response,
+            mode: Mode::Reporting,
+        },
+        threat::score_native_report,
+    )
+}
+fn with_request<T>(
+    captured: ProviderValue<&CapturedRequest>,
+    origin: &Origin,
+    context: Context<'_>,
+    evaluate: impl FnOnce(ProviderValue<threat::Request<'_>>, ProviderValue<bool>) -> ProviderValue<T>,
+) -> ProviderValue<T> {
     let ProviderValue::Available(captured) = captured else {
         return ProviderValue::Unavailable;
     };
@@ -66,7 +95,7 @@ pub fn score(
         .is_some_and(|(_, value)| {
             std::str::from_utf8(value).is_ok_and(|url| origin.matches_url(url))
         });
-    threat::score_for_native_origin(
+    evaluate(
         ProviderValue::Available(threat::Request {
             server: &server,
             cookies: &cookies,

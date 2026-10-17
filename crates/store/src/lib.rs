@@ -35,6 +35,7 @@ pub use polls::{
 pub mod post_media;
 pub mod posting_challenge;
 pub mod posting_classifiers;
+pub use report_admission::request::RequestFacts as ReportRequestFacts;
 mod posting_cooldown;
 pub use posting_cooldown::{PostingCooldownReason, PostingCooldownRejection};
 mod public_deletion;

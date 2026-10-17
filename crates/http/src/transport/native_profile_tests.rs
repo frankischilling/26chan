@@ -33,13 +33,21 @@ async fn native_score_uses_actual_parser_facts_and_server_owned_context() {
                     U => U,
                 };
                 let origin = board_config::Origin::parse("https://board.example").unwrap();
-                let mode = if reporting {
-                    Mode::Reporting
-                } else {
-                    Mode::Posting {
-                        is_op: false,
-                        country: A(country),
-                    }
+                if reporting {
+                    return match native_profile::report_score(
+                        borrowed,
+                        &origin,
+                        A(request_time),
+                        None,
+                        None,
+                    ) {
+                        A(value) => value.value().to_string(),
+                        U => "unavailable".into(),
+                    };
+                }
+                let mode = Mode::Posting {
+                    is_op: false,
+                    country: A(country),
                 };
                 match native_profile::score(
                     borrowed,

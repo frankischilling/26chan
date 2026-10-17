@@ -2245,6 +2245,9 @@ pub async fn report_with_network(
     network: crate::NetworkReportingContext<'_>,
 ) -> Result<(), StoreError> {
     let prepared_network = network.prepare(slug, id, identity)?;
+    let threshold = network
+        .request_facts
+        .and_then(|facts| facts.threshold(network.request_start, network.peer, slug, id));
     let context = network.protected;
     let session = context.session;
     validate_report_reason(reason)?;
@@ -2270,8 +2273,10 @@ pub async fn report_with_network(
         session.now.timestamp(),
     )
     .await?;
-    crate::report_admission::admit_with_session_on(&mut tx, slug, id, reason, identity, session)
-        .await?;
+    crate::report_admission::admit_with_session_on(
+        &mut tx, slug, id, reason, identity, session, threshold,
+    )
+    .await?;
     tx.commit().await?;
     Ok(())
 }
@@ -2335,6 +2340,9 @@ pub async fn report_categorical_with_network(
     network: crate::NetworkReportingContext<'_>,
 ) -> Result<(), StoreError> {
     let prepared_network = network.prepare(slug, id, identity)?;
+    let threshold = network
+        .request_facts
+        .and_then(|facts| facts.threshold(network.request_start, network.peer, slug, id));
     let context = network.protected;
     let session = context.session;
     let mut tx = pool.begin().await?;
@@ -2363,10 +2371,10 @@ pub async fn report_categorical_with_network(
         &mut tx,
         slug,
         id,
-        category_id,
-        expected_revision,
+        (category_id, expected_revision),
         identity,
         session,
+        threshold,
     )
     .await?;
     tx.commit().await?;

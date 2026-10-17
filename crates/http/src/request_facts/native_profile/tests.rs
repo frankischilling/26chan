@@ -218,3 +218,34 @@ fn compatible_native_profiles_match_executed_php_cases() {
     }
     assert_eq!(checked, 2797, "Qualified native-profile subset changed");
 }
+
+#[test]
+fn typed_reporting_observation_uses_report_mode_and_preserves_unavailability() {
+    let origin = Origin::parse("https://board.example").unwrap();
+    for fields in [
+        vec![
+            ("user-agent", ""),
+            ("content-type", "application/x-www-form-urlencoded"),
+        ],
+        vec![
+            ("user-agent", "Mozilla/5.0 (Linux) Firefox/111.0"),
+            ("content-type", "application/x-www-form-urlencoded"),
+            ("referer", "https://board.example/g/"),
+        ],
+    ] {
+        let captured = captured(&fields);
+        let A(report) = report_score(A(&captured), &origin, A(1000), None, None) else {
+            panic!("qualified report");
+        };
+        assert_eq!(
+            report.value(),
+            number(score(A(&captured), &origin, context()))
+        );
+        assert_eq!(report.at_least_point_four(), report.value() >= 0.4);
+        assert!(matches!(report_score(U, &origin, A(1000), None, None), U));
+        assert!(matches!(
+            report_score(A(&captured), &origin, U, None, None),
+            U
+        ));
+    }
+}

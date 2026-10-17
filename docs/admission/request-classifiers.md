@@ -1,9 +1,10 @@
 # Request classifiers
 
 Classifier coverage is incomplete. The request-header credit predicate is
-connected to public posting through migration 0193. The edge automation
-predicate and numeric request scorer have qualified domain models but no
-production score providers or enforcement callers.
+connected to public posting through migration 0193. Public posting now applies
+the native numeric and country classifiers. Reporting captures a typed native
+threshold observation without changing weights. Trusted edge automation and
+complete historical behavior still need the inputs described below.
 
 ## Credit eligibility
 
@@ -107,9 +108,10 @@ The isolated extractor executes only the two hash-pinned pure functions on
 cases cover browser/version branches, request mode, header presence and order,
 cookie timing, language boundaries, every country-language
 alternative and combined terms. Arbitrary-byte tests also check finite results
-and bounds. This is domain qualification; posting/reporting integration remains open.
-The native request profile below defines the replacement server-entry layout. The older report-threshold model
-still provides only its selected positive witnesses.
+and bounds. This corpus qualifies the model; the production native profile and
+posting/reporting callers are described below. The native profile defines the
+replacement server-entry layout. The older report-threshold model still provides
+only its selected positive witnesses.
 
 Regenerate or verify the corpus without loading application code:
 
@@ -411,8 +413,10 @@ clock at the current second would legitimately trigger the country predicate.
 
 ## Remaining source behavior
 
-Reporting has its own numeric weighting and decision thresholds; its caller is
-not wired to this numeric model. Optional trusted-ingress bot scores and their
+Reporting now captures a native-profile threshold observation at admission
+(see [report request profiles](report-request-profile.md)). This is not full
+historical PHP scoring or reason parity. Source-equivalent threat, staff and
+history facts are still needed for that claim. Optional trusted-ingress bot scores and their
 private event producer remain open. Validated Pass/local-auth CAPTCHA bypasses
 also need their own native authority; neither is inferred from a cookie or policy
 flag. The old hardcoded browser fingerprint still needs qualification in the

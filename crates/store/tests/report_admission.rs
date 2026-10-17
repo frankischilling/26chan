@@ -1765,6 +1765,7 @@ async fn network_rules_preserve_get_advice_and_quota_precedence_without_partial_
         let identity=actor();
         let capability=f.report_capability();
         let context=|minted| board_store::NetworkReportingContext {
+                request_facts: None,
             protected: board_store::ProtectedReportingContext {
                 session: session(&capability,minted,Utc::now()), challenge:None,source_cookies_absent:false,
             },
@@ -1785,6 +1786,7 @@ async fn network_rules_preserve_get_advice_and_quota_precedence_without_partial_
         sqlx::query("UPDATE admission.network_rules SET range_start=NULL,range_end=NULL,asn=15169 WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
         let other=f.report_capability();
         let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][1],"Missing provider is not an exemption",&actor(),board_store::NetworkReportingContext {
+                request_facts: None,
             protected:board_store::ProtectedReportingContext {session:session(&other,true,Utc::now()),challenge:None,source_cookies_absent:false},
             request_start:Utc::now(),peer:Some("198.51.100.8".parse().unwrap()),asn_database:None,hints:None,
         }).await;
@@ -1807,6 +1809,7 @@ async fn report_waiting_on_policy_generation_observes_committed_rule() {
         let board=f.boards[0].clone(); let post=f.posts[0][0]; let capability=f.report_capability();
         let task=tokio::spawn(async move {
             board_store::report_with_network(&public,&board,post,"Waited network decision",&actor(),board_store::NetworkReportingContext {
+                request_facts: None,
                 protected:board_store::ProtectedReportingContext {session:session(&capability,true,Utc::now()),challenge:None,source_cookies_absent:false},
                 request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
             }).await
@@ -1831,6 +1834,7 @@ async fn policy_update_waits_until_report_transaction_releases_shared_generation
         let board=f.boards[0].clone();let post=f.posts[0][0];let capability=f.report_capability();
         let report=tokio::spawn(async move {
             board_store::report_with_network(&public,&board,post,"Locked network generation",&actor(),board_store::NetworkReportingContext {
+                request_facts: None,
                 protected:board_store::ProtectedReportingContext {session:session(&capability,true,Utc::now()),challenge:None,source_cookies_absent:false},
                 request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
             }).await
@@ -1850,6 +1854,7 @@ async fn policy_update_waits_until_report_transaction_releases_shared_generation
         assert_eq!(f.counts().await,(1,1));
         let capability=f.report_capability();
         let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][1],"New request sees new generation",&actor(),board_store::NetworkReportingContext {
+                request_facts: None,
             protected:board_store::ProtectedReportingContext {session:session(&capability,true,Utc::now()),challenge:None,source_cookies_absent:false},
             request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
         }).await;
@@ -1877,4 +1882,145 @@ async fn staff_private_board_reports_use_trusted_network_inputs_without_badge_ex
         assert!(matches!(board_store::report(&staff,&f.boards[0],f.posts[0][2],"Missing legacy context",&actor()).await,Err(StoreError::Database(_))));
         assert_eq!(f.counts().await,(1,1));
     }).await;
+}
+
+fn profile_score(high: bool) -> board_domain::content_admission::threat::NativeReportScore {
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../domain/tests/fixtures/threat-score.json"
+    ))
+    .unwrap();
+    let name = if high {
+        "navigate-1-0"
+    } else {
+        "ua-7-type-1-mode-0"
+    };
+    let case = corpus["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == name)
+        .unwrap();
+    let entries = |value: &serde_json::Value| -> Vec<(String, Vec<u8>)> {
+        value
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| {
+                (
+                    v[0].as_str().unwrap().to_owned(),
+                    v[1].as_str().unwrap().as_bytes().to_vec(),
+                )
+            })
+            .collect()
+    };
+    let server = entries(&case["server"]);
+    let cookies = entries(&case["cookies"]);
+    let server: Vec<_> = server
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_slice()))
+        .collect();
+    let cookies: Vec<_> = cookies
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_slice()))
+        .collect();
+    let board_domain::content_admission::network::ProviderValue::Available(score) =
+        board_domain::content_admission::threat::score_native_report(
+            board_domain::content_admission::network::ProviderValue::Available(
+                board_domain::content_admission::threat::Request {
+                    server: &server,
+                    cookies: &cookies,
+                    challenge: None,
+                    response: None,
+                    request_time: 1000,
+                    country: None,
+                    is_op: true,
+                    multipart: false,
+                },
+            ),
+            board_domain::content_admission::network::ProviderValue::Available(true),
+        )
+    else {
+        panic!("Qualified score")
+    };
+    assert_eq!(score.value(), if high { 0.75 } else { 0.0 });
+    score
+}
+
+#[tokio::test]
+async fn qualified_report_profiles_preserve_unknown_authority_and_scope() {
+    use board_domain::content_admission::network::ProviderValue;
+    run(|f| async move {
+        for (index, expected) in [Some(false), Some(true), None, None]
+            .into_iter()
+            .enumerate()
+        {
+            let capability = f.report_capability();
+            let now = Utc::now();
+            let peer = Some("198.51.100.7".parse().unwrap());
+            let target = f.posts[0][index];
+            let score = if index == 2 {
+                ProviderValue::Unavailable
+            } else {
+                ProviderValue::Available(profile_score(index == 1))
+            };
+            let facts = board_store::ReportRequestFacts::new(
+                now,
+                peer,
+                &f.boards[0],
+                if index == 3 { target + 1 } else { target },
+                score,
+            );
+            board_store::report_with_network(
+                &f.public,
+                &f.boards[0],
+                target,
+                "Owned native threshold observation",
+                &actor(),
+                board_store::NetworkReportingContext {
+                    request_facts: Some(&facts),
+                    protected: board_store::ProtectedReportingContext {
+                        session: session(&capability, true, now),
+                        challenge: None,
+                        source_cookies_absent: false,
+                    },
+                    request_start: now,
+                    peer,
+                    asn_database: None,
+                    hints: None,
+                },
+            )
+            .await
+            .unwrap();
+            let mut tx = f.owner.begin().await.unwrap();
+            private_role(&mut tx).await;
+            let row: Value = sqlx::query_scalar(
+                "SELECT to_jsonb(e) FROM post_secrets.report_weight_evidence e JOIN content.reports r ON r.id=e.report_id WHERE r.board=$1 AND r.post_id=$2",
+            )
+            .bind(&f.boards[0]).bind(target)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+            assert_eq!(
+                row["evaluator_version"],
+                if expected.is_some() { 2 } else { 1 }
+            );
+            assert_eq!(
+                row["threat_at_least_point_four"],
+                serde_json::to_value(expected).unwrap()
+            );
+            assert_eq!(row["known_or_verified"], false);
+            for field in [
+                "authenticated_janitor_or_higher",
+                "history_filtered",
+                "source_reason",
+                "effective_weight",
+                "numeric_proof",
+            ] {
+                assert!(row[field].is_null(), "{field}: {row}");
+            }
+            tx.rollback().await.unwrap();
+        }
+        assert_eq!(f.counts().await, (4, 4));
+    })
+    .await;
 }

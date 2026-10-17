@@ -551,3 +551,103 @@ async fn actual_runtime_logins_cannot_read_write_or_call_private_evidence_author
         }
     }
 }
+
+#[tokio::test]
+async fn profiled_category_admission_keeps_weight_proofs_and_failure_atomicity() {
+    use board_domain::content_admission::{network::ProviderValue::Available as A, threat};
+    let _serial = TEST.lock().await;
+    for base in [0.5, 1.0] {
+        run_case(Some(base), move |f| async move {
+            let request = session(&f.cap, true);
+            let now = request.now;
+            let address = "198.51.100.7".parse().unwrap();
+            let peer = Some(address);
+            let A(score) = threat::score_native_report(
+                A(threat::Request {
+                    server: &[],
+                    cookies: &[],
+                    challenge: None,
+                    response: None,
+                    request_time: now.timestamp(),
+                    country: None,
+                    is_op: true,
+                    multipart: false,
+                }),
+                A(false),
+            ) else {
+                panic!("complete profile");
+            };
+            let facts = board_store::ReportRequestFacts::new(now, peer, &f.board, f.op, A(score));
+            let identity = support::fresh_key().public_report_rate_identity(address);
+            let context = || board_store::NetworkReportingContext {
+                request_facts: Some(&facts),
+                protected: board_store::ProtectedReportingContext {
+                    session: request,
+                    challenge: None,
+                    source_cookies_absent: false,
+                },
+                request_start: now,
+                peer,
+                asn_database: None,
+                hints: None,
+            };
+            let before = f.snapshot().await;
+            assert!(
+                board_store::report_categorical_with_network(
+                    &f.public,
+                    &f.board,
+                    f.op,
+                    i64::MAX,
+                    f.revision.unwrap(),
+                    &identity,
+                    context()
+                )
+                .await
+                .is_err()
+            );
+            assert_eq!(f.snapshot().await, before);
+            board_store::report_categorical_with_network(
+                &f.public,
+                &f.board,
+                f.op,
+                f.category,
+                f.revision.unwrap(),
+                &identity,
+                context(),
+            )
+            .await
+            .unwrap();
+            let report: i64 =
+                sqlx::query_scalar("SELECT id FROM content.reports WHERE board=$1 AND post_id=$2")
+                    .bind(&f.board)
+                    .bind(f.op)
+                    .fetch_one(&f.owner)
+                    .await
+                    .unwrap();
+            let e = f.evidence(report).await.unwrap();
+            assert_eq!(e["evaluator_version"], 2);
+            assert_eq!(e["threat_at_least_point_four"], score.at_least_point_four());
+            assert_eq!(e["known_or_verified"], false);
+            for field in [
+                "authenticated_janitor_or_higher",
+                "history_filtered",
+                "source_reason",
+            ] {
+                assert!(e[field].is_null());
+            }
+            assert_eq!(
+                e["effective_weight"],
+                if base == 0.5 { json!(0.5) } else { Value::Null }
+            );
+            assert_eq!(
+                e["numeric_proof"],
+                if base == 0.5 {
+                    json!("BaseEqualsFallback")
+                } else {
+                    Value::Null
+                }
+            );
+        })
+        .await;
+    }
+}

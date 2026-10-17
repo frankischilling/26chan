@@ -176,3 +176,49 @@ fn native_origin_requires_evidence_only_when_referer_is_present() {
         U
     ));
 }
+
+#[test]
+fn native_report_threshold_is_inclusive_and_posting_inputs_cannot_mint_it() {
+    assert!(!NativeReportScore(Score(0.399999999)).at_least_point_four());
+    assert!(NativeReportScore(Score(0.4)).at_least_point_four());
+    assert!(NativeReportScore(Score(0.400000001)).at_least_point_four());
+    let request = Request {
+        server: &[],
+        cookies: &[],
+        challenge: None,
+        response: None,
+        request_time: 1000,
+        country: None,
+        is_op: true,
+        multipart: false,
+    };
+    assert!(matches!(
+        score_native_report(
+            ProviderValue::Available(request),
+            ProviderValue::Available(false)
+        ),
+        ProviderValue::Available(_)
+    ));
+    for invalid in [
+        Request {
+            is_op: false,
+            ..request
+        },
+        Request {
+            multipart: true,
+            ..request
+        },
+        Request {
+            country: Some(b"US"),
+            ..request
+        },
+    ] {
+        assert!(matches!(
+            score_native_report(
+                ProviderValue::Available(invalid),
+                ProviderValue::Available(false)
+            ),
+            ProviderValue::Unavailable
+        ));
+    }
+}

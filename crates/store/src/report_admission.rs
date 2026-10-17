@@ -1,6 +1,7 @@
 //! Private, report-bound IP and anonymous-session admission. GET is advisory;
 //! POST atomically inserts the report, membership, and anonymous activity.
 pub(crate) mod network;
+pub(crate) mod request;
 
 use crate::{StoreError, anonymous_session::PostingSession};
 use board_domain::poster_id::PublicReportRateIdentity;
@@ -74,9 +75,10 @@ pub(crate) async fn admit_with_session_on(
     reason: &str,
     identity: &PublicReportRateIdentity,
     session: PostingSession,
+    threshold: Option<bool>,
 ) -> Result<i64, StoreError> {
     let fingerprints = session.fingerprints;
-    sqlx::query_scalar("SELECT content.admit_report($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
+    sqlx::query_scalar("SELECT content.admit_report_profiled($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
         .bind(slug)
         .bind(id)
         .bind(reason)
@@ -87,6 +89,7 @@ pub(crate) async fn admit_with_session_on(
         .bind(fingerprints.environment.as_slice())
         .bind(session.minted)
         .bind(session.now.timestamp())
+        .bind(threshold)
         .fetch_one(connection)
         .await
         .map_err(admission_error)
@@ -98,19 +101,19 @@ pub(crate) async fn admit_categorical_with_session_on(
     connection: &mut PgConnection,
     slug: &str,
     id: i64,
-    category_id: i64,
-    expected_revision: i64,
+    category: (i64, i64),
     identity: &PublicReportRateIdentity,
     session: PostingSession,
+    threshold: Option<bool>,
 ) -> Result<i64, StoreError> {
     let fingerprints = session.fingerprints;
     sqlx::query_scalar(
-        "SELECT content.admit_categorical_report($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+        "SELECT content.admit_categorical_report_profiled($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
     )
     .bind(slug)
     .bind(id)
-    .bind(category_id)
-    .bind(expected_revision)
+    .bind(category.0)
+    .bind(category.1)
     .bind(identity.as_bytes().as_slice())
     .bind(fingerprints.token.as_slice())
     .bind(fingerprints.network.as_slice())
@@ -118,6 +121,7 @@ pub(crate) async fn admit_categorical_with_session_on(
     .bind(fingerprints.environment.as_slice())
     .bind(session.minted)
     .bind(session.now.timestamp())
+    .bind(threshold)
     .fetch_one(connection)
     .await
     .map_err(admission_error)
@@ -203,6 +207,8 @@ AND NOT EXISTS (
         ('content.check_report_admission(text,bigint,bytea,bytea,bigint)','void',true,true,false),
         ('content.admit_report(text,bigint,text,bytea)','bigint',false,true,false),
         ('content.admit_report(text,bigint,text,bytea,bytea,bytea,bytea,bytea,boolean,bigint)','bigint',true,false,false),
+        ('content.admit_report_profiled(text,bigint,text,bytea,bytea,bytea,bytea,bytea,boolean,bigint,boolean)','bigint',true,false,false),
+        ('content.admit_categorical_report_profiled(text,bigint,bigint,bigint,bytea,bytea,bytea,bytea,bytea,boolean,bigint,boolean)','bigint',true,false,false),
         ('content.report_category_form(text,bigint)','jsonb',true,true,true),
         ('content.admit_categorical_report(text,bigint,bigint,bigint,bytea,bytea,bytea,bytea,bytea,boolean,bigint)','bigint',true,false,true),
         ('content.set_report_catalog_active(bigint)','void',false,false,true),
@@ -678,9 +684,9 @@ AND EXISTS (
           WHERE k.conrelid=c.oid AND k.contype IN ('u','x'))
       AND NOT EXISTS (
           SELECT 1 FROM (VALUES
-              ('evaluator_version_check',ARRAY['evaluator_version'],'(evaluator_version=1)'),
+              ('evaluator_version_check',ARRAY['evaluator_version'],'(evaluator_version=ANY(ARRAY[1,2]))'),
               ('authenticated_janitor_or_higher_check',ARRAY['authenticated_janitor_or_higher'],'(authenticated_janitor_or_higherISNULL)'),
-              ('threat_at_least_point_four_check',ARRAY['threat_at_least_point_four'],'(threat_at_least_point_fourISNULL)'),
+              ('threat_at_least_point_four_check',ARRAY['evaluator_version','threat_at_least_point_four'],'(((evaluator_version=1)AND(threat_at_least_point_fourISNULL))OR((evaluator_version=2)AND(threat_at_least_point_fourISNOTNULL)))'),
               ('history_filtered_check',ARRAY['history_filtered'],'(history_filteredISNULL)'),
               ('effective_weight_check',ARRAY['effective_weight'],
                '(effective_weight<>ALL(ARRAY[''Infinity''::doubleprecision,''-Infinity''::doubleprecision,''NaN''::doubleprecision]))'),
@@ -927,4 +933,5 @@ AND NOT EXISTS (
         WHERE n.nspname=required.schema_name AND has_schema_privilege(r.oid,n.oid,'USAGE')
           AND NOT has_schema_privilege(r.oid,n.oid,'CREATE')
     )
-)"#;
+)
+AND content.report_profile_ready()"#;

@@ -341,6 +341,16 @@ DO $$ BEGIN IF post_secrets.classifier_history_ready() IS DISTINCT FROM true THE
  RAISE EXCEPTION 'Classifier history catalog is unavailable'; END IF; END $$;
 SQL
 fi
+# Report-profile evidence is not backfilled. Only its private catalog row is new.
+if [[ -f migrations/0200_report_request_profile.sql ]]; then
+ "${admin[@]}" <<'SQL'
+INSERT INTO public.upgraded_rows VALUES('post_secrets.report_profile_catalog',
+ jsonb_build_object('singleton',true,'definition_hash',
+  '\x'||encode(post_secrets.report_profile_catalog_hash(),'hex')));
+DO $$ BEGIN IF content.report_profile_ready() IS DISTINCT FROM true THEN
+ RAISE EXCEPTION 'Report profile catalog is unavailable'; END IF; END $$;
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)

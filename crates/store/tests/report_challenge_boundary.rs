@@ -182,6 +182,7 @@ async fn scenario(categorical: bool, credit: bool) {
                     },
                 };
                 let network = NetworkReportingContext {
+                    request_facts: None,
                     protected,
                     request_start: chrono::Utc::now(),
                     peer: Some(peer),
