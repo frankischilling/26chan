@@ -2,7 +2,8 @@
 
 Classifier coverage is incomplete. The request-header credit predicate is
 connected to public posting through migration 0193. The edge automation
-predicate has a qualified domain model but no trusted runtime score provider.
+predicate and numeric request scorer have qualified domain models but no
+production score providers or enforcement callers.
 
 ## Credit eligibility
 
@@ -20,10 +21,11 @@ success. The similarly named CAPTCHA difficulty checks have a separate caller
 and belong to the CAPTCHA workflow.
 
 The extractor runs the pinned pure function on PHP 8.4.24 over 450 synthetic
-requests, with a
-fresh static cache for each case. It never loads the application, database or
-RPC files. Cases distinguish absent and empty headers, marker case, embedded
-NUL bytes and non-ASCII user agents. The public caller derives facts from the posting request. Accept and language
+requests, with a fresh static cache for each case. It never loads the
+application, database or RPC files. Cases distinguish absent and empty headers, marker case, embedded
+NUL bytes and non-ASCII user agents.
+
+The public caller derives facts from the posting request. Accept and language
 use presence alone; repeated values still prove presence. Repeated user-agent
 or referer values are unavailable when their contents matter. Required unknowns
 withhold courtesy credits without rejecting a valid solved-CAPTCHA post.
@@ -50,13 +52,48 @@ when the edge score is absent, even if a cache marker exists. A definite low
 score does not need a cache lookup, while missing required evidence remains
 unavailable. No client-supplied header has been wired as a trusted score.
 
+## Numeric request score
+
+`content_admission::threat` evaluates the source's deterministic numeric rules
+against a qualified request snapshot. It takes the complete ordered server
+entries, parsed cookies, challenge/response values, request time, country and
+posting/reporting mode. A normal unordered HTTP header map cannot establish
+this snapshot. The caller must qualify transport order and trusted country/time
+facts before supplying it; client headers cannot assert that provenance.
+
+The domain model preserves byte matching, empty-versus-absent fields, PHP's
+falsey `"0"`, browser version branches, cookie timing, all 224 country-language
+mappings and ordered multiplication. The Linux platform branch retains the
+source's regex-error comparison; an ordinary non-match adds no penalty. Server
+entry order includes non-HTTP entries for the separated-header and model-distance
+checks. Parsed cookies and the raw Cookie header remain independent facts.
+
+Snapshots are bounded to 256 unique entries per map, 128-byte ASCII keys,
+4,096-byte values and 65,536 total key/value bytes per map. Duplicate keys,
+oversized inputs and unavailable provenance produce no score. Time subtraction
+accepts finite decimal/exponent strings with surrounding ASCII whitespace;
+unqualified or unsupported numeric inputs remain unavailable. Request time is
+bounded to the exact integer range of a double. No score means unknown, not zero.
+
+The isolated extractor executes only the two hash-pinned pure functions on
+64-bit PHP 8.4.24 with PCRE 10.46. It rejects other engine versions. Its 4,517
+cases cover browser/version branches, request mode, header presence and order,
+cookie timing, language boundaries, every country-language
+alternative and combined terms. Arbitrary-byte tests also check finite results
+and bounds. This is domain qualification; posting/reporting integration and
+complete trusted request capture remain open. The older report-threshold model
+still provides only its selected positive witnesses.
+
+Regenerate or verify the corpus without loading application code:
+
+```text
+php -n scripts/extract-threat-score-reference.php SOURCE crates/domain/tests/fixtures/threat-score.json --check
+```
+
 ## Remaining source behavior
 
-The source threat score is a deterministic heuristic. Its function contains
-header, cookie, timing and country-language rules; it does not call a trained
-model. Posting uses it in several late refusal branches. Reporting has its own
-weighting thresholds. The existing report-threshold witness proves only selected
-positive cases and is not a complete scorer or a wired production provider.
+Posting uses the numeric score in several late refusal branches. Reporting has
+its own weighting thresholds. Neither caller is wired to this numeric model.
 
 The separate edge bot-score path requires a trusted ingress score and private
 same-session event history. A public request header cannot supply that authority.

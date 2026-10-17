@@ -6,6 +6,7 @@ use pcre2::bytes::{Regex, RegexBuilder};
 pub mod classifiers;
 pub mod files;
 pub mod network;
+pub mod threat;
 
 pub const MAX_RULES: usize = 128;
 pub const MAX_PATTERN_BYTES: usize = 2_048;

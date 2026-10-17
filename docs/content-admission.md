@@ -172,7 +172,7 @@ remaining automatic-range producers and classifier interfaces. The
 integration with scoped providers. [File blocking](admission/file-blocking.md)
 records exact-file enforcement and the separate history-provenance gap.
 [Request classifiers](admission/request-classifiers.md) covers the CAPTCHA-credit
-gate and the unwired edge-score predicate. Missing private data is not invented
+gate, numeric domain scorer and unwired edge-score predicate. Missing private data is not invented
 or counted as passing behavior. Current-head hosted checks remain required.
 
 ```text
