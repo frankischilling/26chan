@@ -564,7 +564,7 @@ for mutation in "staff_notices=ARRAY['Invented notice']" "name='Changed historic
  if {
   printf "BEGIN; SELECT slug FROM content.boards WHERE slug='erasure' FOR UPDATE;\n"
   printf 'UPDATE content.posts SET %s WHERE id=12300020;\n' "$mutation"
-  printf 'UPDATE content.threads SET deleted=true WHERE id=12300001;\n'
+  printf 'SET LOCAL ROLE board_public; UPDATE content.threads SET deleted=true WHERE id=12300001; RESET ROLE;\n'
   cat "$cluster/assert-erased.sql"
   printf 'ROLLBACK;\n'
  } | "${admin[@]}" > "$cluster/preservation-control.log" 2>&1; then
