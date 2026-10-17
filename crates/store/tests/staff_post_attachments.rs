@@ -111,6 +111,15 @@ impl Fixture {
     }
 
     async fn approved(&self, filename: &str, spoiler: bool) -> NewAttachment {
+        Box::pin(self.approved_with_variants(filename, spoiler, None)).await
+    }
+
+    async fn approved_with_variants(
+        &self,
+        filename: &str,
+        spoiler: bool,
+        variants: Option<&board_store::media_assets::OutputVariants>,
+    ) -> NewAttachment {
         let upload = self.intake.reserve(filename).await.unwrap();
         self.jobs.lock().unwrap().push(upload.id.clone());
         self.intake
@@ -134,7 +143,7 @@ impl Fixture {
         let lease = claim.lease_token.unwrap();
         let output = self
             .queue
-            .prepare_output(
+            .prepare_output_with_variants(
                 &upload.id,
                 &lease,
                 &OutputMetadata {
@@ -143,6 +152,7 @@ impl Fixture {
                     width: 10,
                     height: 20,
                 },
+                variants,
             )
             .await
             .unwrap();
@@ -455,7 +465,21 @@ async fn successful_modes(f: &Fixture) {
                 continue;
             }
             for empty in [false, true] {
-                let a = f.approved("<owned & file>.png", true).await;
+                let a = f
+                    .approved_with_variants(
+                        "<owned & file>.png",
+                        true,
+                        Some(&board_store::media_assets::OutputVariants {
+                            md5: "37".repeat(16),
+                            thumbnail: OutputMetadata {
+                                sha256: "b".repeat(64),
+                                bytes: 40,
+                                width: 5,
+                                height: 10,
+                            },
+                        }),
+                    )
+                    .await;
                 let mut input = post();
                 if empty {
                     input.comment.clear();
@@ -464,6 +488,18 @@ async fn successful_modes(f: &Fixture) {
                     .write(0, Some(&a), ordinary, &input, ip, Utc::now())
                     .await
                     .unwrap();
+                let retained: Option<Vec<u8>> = sqlx::query_scalar(
+                    "SELECT normalized_md5 FROM content.post_media WHERE post_id=$1",
+                )
+                .bind(id)
+                .fetch_one(&f.owner)
+                .await
+                .unwrap();
+                assert_eq!(
+                    retained,
+                    Some(vec![0x37; 16]),
+                    "Both staff receipt modes retain approved normalized identity"
+                );
                 let saved = attachment(&f.public, id).await.unwrap().unwrap();
                 assert_eq!(saved.filename, "<owned & file>.png");
                 assert!(saved.spoiler);

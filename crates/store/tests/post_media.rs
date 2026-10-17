@@ -1,4 +1,6 @@
 #![cfg(feature = "database-tests")]
+#[path = "post_media/retained_digest.rs"]
+mod retained_digest;
 mod support;
 
 use board_store::{
@@ -73,6 +75,14 @@ impl Fixture {
     }
 
     async fn approve(&self, a: &NewAttachment) -> String {
+        Box::pin(self.approve_with_variants(a, None)).await
+    }
+
+    async fn approve_with_variants(
+        &self,
+        a: &NewAttachment,
+        variants: Option<&board_store::media_assets::OutputVariants>,
+    ) -> String {
         self.intake
             .begin_upload(&a.upload.id, &a.upload.capability)
             .await
@@ -113,7 +123,7 @@ impl Fixture {
         );
         let output = self
             .queue
-            .prepare_output(
+            .prepare_output_with_variants(
                 &claim.id,
                 &token,
                 &OutputMetadata {
@@ -122,6 +132,7 @@ impl Fixture {
                     width: 10,
                     height: 20,
                 },
+                variants,
             )
             .await
             .unwrap();
@@ -495,6 +506,7 @@ async fn exercise(f: &Fixture) {
             'content.attachment_upload_filename(text,text)'::regprocedure,
             'content.attachment_upload_filter_metadata(text,text,text,bigint,boolean,boolean)'::regprocedure,
             'content.file_effect_upload_metadata(text,text,text,bigint,boolean)'::regprocedure,
+            'content.retain_attachment_digest()'::regprocedure,
             'content.sync_image_spoiler()'::regprocedure,
             'content.stamp_drawing_annotation()'::regprocedure,
             'content.set_post_image_spoiler(text,bigint,boolean)'::regprocedure,
@@ -941,6 +953,10 @@ async fn exercise(f: &Fixture) {
         "Failed OP attachment rolled back the new thread"
     );
     exercise_waits_and_moderation(f).await;
+    let owned = f.clone();
+    tokio::spawn(async move { retained_digest::exercise(&owned).await })
+        .await
+        .unwrap();
     tail_counts(f).await;
     posting_times(f).await;
     image_admission_flags(f).await;

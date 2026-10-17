@@ -45,6 +45,28 @@ Public posting, staff, intake, and media-reader roles cannot read the table.
 Posting roles have a separate capability-scoped metadata function; it is not an
 HTTP endpoint and does not add fields to public media views.
 
+## Retained attachment identity
+
+Migration 0194 records the approved normalized MD5 privately on each new
+attachment. Both public and staff attachment commits use the same trigger. It
+reads the exact approved asset linked to the consumed job; submitted fields and
+original-input receipts cannot supply the value. A legacy approval without a
+normalized manifest remains unknown, and the migration leaves existing
+attachments unchanged.
+
+File-only deletion preserves this snapshot after the asset and its files are
+collected. Whole-post content erasure clears it. The existing public and staff
+media views still hide deleted media; neither exposes the retained column.
+Runtime roles cannot read or replace it. The content catalog covers its schema,
+trigger and function definition.
+
+This supplies attachment provenance for a later template-based ban writer.
+It does not populate historical bans or connect the prior-ban admission gate.
+The original file-only deletion retains the post MD5, which a later staff ban
+copies into its own history (`imgboard.php:2610–2663`,
+`admin.php:2733–2747,2889`). Missing old normalized digests cannot be recovered
+from an original-input hash.
+
 ## Posting preflight
 
 Before content-rule evaluation, every attachment passes a read-only preflight under
