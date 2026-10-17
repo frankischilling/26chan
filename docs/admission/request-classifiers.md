@@ -269,7 +269,7 @@ existing cooldown takes precedence over the automation predicate. Verified or
 unverified actors with fewer than 20 posts, including pending post activity.
 An existing country-change event takes precedence over a new environment change.
 
-The isolated source harness exercises 6,208 cases around the one-day age and
+The isolated source harness exercises 12,416 cases around the one-day age and
 20-post boundaries, verified actors, new users, bypasses, absent and zero-valued
 edge fields, and both histories. Tests compare refusal and event order. Providers
 that the source never reaches are deliberately unavailable in the Rust replay.
@@ -342,6 +342,12 @@ response. The lookup returns observations, so the caller must still apply the
 locked CAPTCHA/staff bypass decision before using them. These bridges are not
 yet called by the posting handler, and diagnostic country-block logs remain a
 separate integration task.
+
+The late history gate uses trusted edge-field presence independently of numeric
+parsing. Empty and non-numeric values still enter the source history branch;
+only confirmed absence skips it. The executed corpus includes both forms. This
+does not grant authority to a public request header or qualify numeric coercion
+inside the separate automation predicate.
 
 ## Remaining source behavior
 

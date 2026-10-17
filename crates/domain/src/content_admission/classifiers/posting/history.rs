@@ -9,8 +9,10 @@ pub struct Request<'a> {
     /// Server-decoded snapshot resumed at exactly activity_at.
     pub actor: ProviderValue<Option<&'a State>>,
     pub activity_at: u64,
-    /// None is confirmed absence of the trusted edge field, not a lookup error.
-    pub edge_score: ProviderValue<Option<i64>>,
+    /// Qualified presence of the trusted edge field, independent of its value.
+    /// An empty or non-numeric value is still present. A public header cannot
+    /// establish this fact; provider failure is Unavailable.
+    pub edge_present: ProviderValue<bool>,
     /// Same-session block_bm_bot event strictly newer than the 24-hour cutoff.
     pub edge_history: ProviderValue<bool>,
     /// Qualified result of the existing likely_automated predicate.
@@ -59,10 +61,7 @@ pub fn evaluate(request: Request<'_>) -> Result<Decision, AdmissionError> {
     };
     // The source's preceding flood call is disabled and assigns zero.
     if !actor.is_known_or_verified(request.activity_at, 1440, 0) {
-        let present = match request.edge_score {
-            A(value) => value.is_some(),
-            U => return Err(AdmissionError::Unavailable),
-        };
+        let present = fact(request.edge_present)?;
         if present {
             if fact(request.edge_history)? {
                 return Ok(reject(Event::LogEdgeCooldown, None));

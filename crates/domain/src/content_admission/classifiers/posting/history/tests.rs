@@ -20,7 +20,7 @@ fn ordered_history_matches_executed_source() {
     assert_eq!(fixture["php_version"], "8.4.24");
     let now = fixture["now"].as_u64().unwrap();
     let cases = fixture["cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 6208);
+    assert_eq!(cases.len(), 12416);
     for (index, c) in cases.iter().enumerate() {
         let state = (!c["actor"].is_null()).then(|| {
             let a = &c["actor"];
@@ -46,7 +46,7 @@ fn ordered_history_matches_executed_source() {
             captcha_bypass: c["bypass"].as_bool().unwrap(),
             actor: A(state.as_ref()),
             activity_at: now,
-            edge_score: A(c["edge"].as_i64()),
+            edge_present: A(!c["edge"].is_null()),
             edge_history: fact("edgeHistory", "edge_history"),
             automated: fact("automated", "automated"),
             country_history: fact("countryHistory", "country_history"),
@@ -82,7 +82,7 @@ fn request(actor: Option<&State>) -> Request<'_> {
         captcha_bypass: false,
         actor: A(actor),
         activity_at: 1000,
-        edge_score: U,
+        edge_present: U,
         edge_history: U,
         automated: U,
         country_history: U,
@@ -96,14 +96,14 @@ fn missing_needed_history_does_not_become_a_negative_lookup() {
         Err(AdmissionError::Unavailable)
     );
     let mut input = request(Some(&actor));
-    input.edge_score = A(None);
+    input.edge_present = A(false);
     assert_eq!(evaluate(input), Err(AdmissionError::Unavailable));
     let mut input = request(Some(&actor));
-    input.edge_score = A(Some(0));
+    input.edge_present = A(true);
     input.country_history = A(false);
     assert_eq!(evaluate(input), Err(AdmissionError::Unavailable));
     let mut input = request(Some(&actor));
-    input.edge_score = A(Some(29));
+    input.edge_present = A(true);
     input.edge_history = A(false);
     assert_eq!(evaluate(input), Err(AdmissionError::Unavailable));
     assert!(!evaluate(request(None)).unwrap().rejected);

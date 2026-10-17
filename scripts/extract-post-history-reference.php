@@ -81,7 +81,7 @@ foreach([0,1,86399,86400] as $age) foreach([0,19,20] as $posts) foreach([0,1] as
  foreach([0,1] as $verified) foreach([false,true] as $changed) {
  $actors[]=['age'=>$age,'posts'=>$posts,'pending'=>$pending,'verified'=>$verified,'changed'=>$changed];
 }
-foreach($actors as $actor) foreach([null,0,29,99] as $edge) foreach([false,true] as $edgeHistory)
+foreach($actors as $actor) foreach([null,0,29,99,"","not-numeric","0","29"] as $edge) foreach([false,true] as $edgeHistory)
  foreach([false,true] as $automated) foreach([false,true] as $countryHistory) foreach([false,true] as $bypass) {
  $state=null;
  if($actor!==null) {
@@ -98,7 +98,7 @@ foreach($actors as $actor) foreach([null,0,29,99] as $edge) foreach([false,true]
 }
 $result=['source_sha256'=>$sourceHash,'prefix_sha256'=>$prefixHash,'actor_sha256'=>$userHash,'php_version'=>PHP_VERSION,'now'=>$now,'cases'=>$cases];
 $json=json_encode($result,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n";
-if(count($cases)!==6208 || strlen($json)>12*1024*1024) {throw new RuntimeException('Bounded corpus exceeded.');}
+if(count($cases)!==12416 || strlen($json)>12*1024*1024) {throw new RuntimeException('Bounded corpus exceeded.');}
 if($argc===4) {if(file_get_contents($argv[2])!==$json){throw new RuntimeException('Reference differs.');}}
 else {file_put_contents($argv[2],$json);}
 echo count($cases)." isolated late-post history cases.\n";
