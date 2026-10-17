@@ -579,6 +579,8 @@ jobs:
         run: sudo bash scripts/test-retained-upload-migration.sh
       - name: Qualify configured ban template upgrade
         run: sudo bash scripts/test-ban-template-migration.sh
+      - name: Qualify prior-ban upload history upgrade
+        run: sudo bash scripts/test-prior-upload-migration.sh
       - name: Upgrade existing content for attachment-only posts
         run: sudo bash scripts/test-attachment-only-migration.sh
       - name: Upgrade existing threads from migration 0008

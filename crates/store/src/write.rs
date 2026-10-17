@@ -1055,6 +1055,17 @@ async fn create_post_in_context(
     } else {
         None
     };
+    // Source checks retained template-ban history for every upload, including
+    // badged staff, before content filters can record or commit other effects.
+    if let Some(metadata) = &attachment_admission
+        && metadata.prior_banned(&mut tx).await?
+    {
+        metadata.revalidate(&mut tx).await?;
+        if let Some(authority) = &staff {
+            crate::content_admission::staff::revalidate_refusal(&mut tx, authority, slug).await?;
+        }
+        return Err(StoreError::ContentRejected("Error: Upload failed.".into()));
+    }
     // Only public display text and an already-derived legacy hash enter the
     // source hook. Suppressed or modern secure-trip secrets never do.
     let admission_name = match &identity.trip {

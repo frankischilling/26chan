@@ -3,6 +3,9 @@ mod support;
 #[path = "staff_post_attachments/templates.rs"]
 mod templates;
 use templates::template_history;
+#[path = "staff_post_attachments/prior_history.rs"]
+mod prior_history;
+use prior_history::prior_history;
 
 use board_domain::{capcode::Capcode, poster_id::PosterIdKey};
 use board_store::{
@@ -466,6 +469,10 @@ macro_rules! database_case {
 database_case!(
     template_bans_retain_authorized_upload_snapshots,
     template_history
+);
+database_case!(
+    prior_upload_history_uses_retained_template_events,
+    prior_history
 );
 
 database_case!(

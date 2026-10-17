@@ -1,8 +1,8 @@
 # File-blocking parity
 
-Exact-file rules are connected to public and staff posting. The earlier
-prior-ban upload gate still needs a qualified history provider. Trusted
-publication records the original upload's MD5 in a private receipt.
+Exact-file rules and the earlier prior-ban upload gate are connected to public
+and staff posting. Trusted publication records the original upload's MD5 in a
+private receipt.
 Existing SHA-256 integrity checks remain unchanged. MD5 is only a compatibility key for
 matching operator-owned rules; it is not an approval or integrity proof.
 
@@ -62,7 +62,8 @@ trigger and function definition.
 
 The [configured template writer](../restriction-templates.md) copies this
 provenance into a separate moderation-history snapshot when issuing a ban.
-It does not populate historical bans or connect the prior-ban admission gate.
+It does not populate historical bans. Migration 0196 connects the admission
+gate to snapshots recorded by that writer.
 The original file-only deletion retains the post MD5, which a later staff ban
 copies into its own history (`imgboard.php:2610–2663`,
 `admin.php:2733–2747,2889`). Missing old normalized digests cannot be recovered
@@ -138,7 +139,9 @@ definite normalized match. Unknown original eligibility matters only when the
 available original digest matches a candidate rule. Badge exemption belongs to
 the exact checker, not the earlier prior-ban gate.
 
-The prior-ban gate skips `/b/` and known absence of a digest. It blocks at three
+The source-only prior-ban model skips `/b/` and a known absent digest. The
+posting integration distinguishes a missing legacy digest from no upload, as
+described below. The model blocks at three
 matching historical template-226 records, also counting template 6 on work-safe
 boards. These are history counts, not only active bans. Of the 600 source cases,
 100 demonstrate the source's failed-query allow behavior; the Rust model instead
@@ -324,7 +327,7 @@ not apply. The 0192 finalizer validates those facts, rechecks the attachment and
 and chooses the public response. The Store does not blindly repeat an uncertain
 commit. Capacity contention
 refuses the transaction; it must never turn a rejected file into an accepted
-post. Prior-ban history qualification remains unfinished.
+post. The prior-ban history gate is described below.
 
 At the 0189 private checkpoint, 55 local database tests passed. The new cases check
 source-derived expiry dates, capacity refusal without partial effects, real
@@ -406,6 +409,60 @@ one-second observation timeout. Releasing the row before expiry instead gives
 a normal banned result and fails the test's required expiry error. Neither
 control claims to establish the exact scheduling of the original CI failure.
 
-This integration does not complete issue #212. Historical template-226/6 counts,
-remaining classifier providers and final caller-order coverage still need
-qualification. File-rule provenance alone cannot supply those historical counts.
+This integration does not complete issue #212. Remaining classifier providers
+and final caller-order coverage still need qualification. File-rule provenance
+alone cannot supply historical template counts.
+
+
+## Prior-ban upload gate
+
+Migration 0196 checks retained template history after upload preflight and before
+content-rule evaluation. It runs for ordinary and badged staff posts as well as
+public posts. Requests without an upload and uploads to `/b/` skip this gate.
+The later exact-file filter retains its separate badge exemption.
+
+Three matching retained template-226 events reject an upload. On work-safe
+boards, template-6 events contribute to the same threshold. Board work-safety
+comes from database configuration, not the request. The source query counts
+across boards, including expired bans, warnings and retired restrictions. It
+counts repeated bans of one post separately. There is no live-post join or
+active-ban filter (`lib/postfilter.php:2364–2395`).
+
+The match key is the processed upload's normalized MD5. Each event carries the
+explicit known, unknown or absent observation recorded at template issuance.
+An absent observation cannot match. Unknown evidence never becomes zero:
+
+- Three known matching events establish rejection even if other events are unknown.
+- Fewer than three possible matches establish allowance.
+- If unknown evidence can change the result, admission is unavailable.
+
+For an upload whose own normalized digest is unknown, all known or unknown
+relevant file events are possible matches. An empty relevant history can still
+establish allowance. Each count stops at three, using a private indexed query.
+Old native bans have no selected-template provenance and are excluded. This is
+not an import of the original site's private moderation database; no such
+history was supplied. File-rule IDs, reason text and original-input digests
+cannot manufacture template history.
+
+The runtime API validates the exact upload capability and returns only a
+boolean or unavailable result. Private counts and retained digests stay inside
+the database. Posting holds a shared restriction gate through its transaction;
+concurrent template issuance must retry rather than change its decision in the
+middle of a post. A trigger rechecks the captured digest when the attachment is
+inserted, including direct database attachment writers. Both attachment writers
+hold a relation lock against trigger changes while checking catalog readiness
+and inserting. Changed guard definitions or disabled triggers therefore stop
+attachment insertion. Updates used for deletion and
+erasure do not run the insertion-only history check.
+
+A history rejection uses “Error: Upload failed.” and leaves the upload
+unconsumed. It creates no ban, hit, quiet-post effect or content-filter log.
+Unavailable evidence fails closed. Removing a genuine moderation record removes
+its contribution; unban, expiry and content deletion do not.
+
+Local qualification compares 3,712 bounded SQL decisions with the Rust model.
+The staff attachment suite covers repeated, retired, expired, cross-board and
+unknown observations, badged posts, no-file requests, work-safe selection,
+concurrent issuance, direct attachment calls and effect rollback. Populated
+upgrade checks preserve old history and capacity, verify rollback, and reject
+catalog drift. Exact-head hosted CI remains required before merge.

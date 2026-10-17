@@ -8,7 +8,8 @@ production reasons and permission levels.
 
 This covers preset issuance and its upload-history snapshot. Optional post-ban
 actions, the janitor request workflow and the rest of issue #220 remain open.
-The prior-ban upload admission caller is also still pending under #212.
+The [prior-ban upload gate](admission/file-blocking.md#prior-ban-upload-gate) uses
+these snapshots. Other admission work remains open under #212.
 
 ## Configuration
 

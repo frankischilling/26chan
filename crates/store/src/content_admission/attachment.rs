@@ -60,6 +60,30 @@ impl<'a> Preflight<'a> {
         }
     }
 
+    /// A capability-bound decision, with no private history rows or digests
+    /// returned to the runtime role. Badge identity does not exempt this gate.
+    pub async fn prior_banned(&self, connection: &mut PgConnection) -> Result<bool, StoreError> {
+        if self.target.board == "b" {
+            return Ok(false);
+        }
+        let blocked: Option<bool> =
+            sqlx::query_scalar("SELECT content.prior_upload_banned($1,$2,$3,$4,$5,$6)")
+                .bind(&self.attachment.upload.id)
+                .bind(&self.attachment.upload.capability)
+                .bind(self.target.board)
+                .bind(self.target.parent)
+                .bind(self.target.authorized)
+                .bind(self.target.badged)
+                .fetch_one(connection)
+                .await
+                .map_err(post_media::scoped_error)?;
+        blocked.ok_or_else(|| {
+            StoreError::Database(sqlx::Error::Protocol(
+                "Upload history is unavailable.".into(),
+            ))
+        })
+    }
+
     pub fn filename(&self) -> &str {
         &self.metadata.0
     }

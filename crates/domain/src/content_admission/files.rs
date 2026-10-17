@@ -3,6 +3,8 @@
 use super::{AdmissionError, network::ProviderValue};
 use crate::BoardSlug;
 
+pub mod history;
+
 pub const MAX_FILE_RULES: usize = 128;
 pub type Digest = [u8; 16];
 

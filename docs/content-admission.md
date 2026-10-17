@@ -166,11 +166,11 @@ name preparation, ordinary staff filtering and the `/test/` exception. The
 fortune transformations; the [PCRE2 wrapper record](third-party/pcre2.md) covers
 `D` and PHP 8 `X` semantics. Their qualification is recorded separately.
 
-Issue #212 still includes final caller ordering, prior-ban upload history,
-remaining automatic-range producers and classifier interfaces. The
+Issue #212 still includes final caller-order coverage, remaining automatic-range
+producers and classifier interfaces. The
 [network evaluator](admission/network-policy.md) has posting and reporting
 integration with scoped providers. [File blocking](admission/file-blocking.md)
-records exact-file enforcement and the separate history-provenance gap.
+records exact-file enforcement and the earlier retained-template history gate.
 [Request classifiers](admission/request-classifiers.md) covers the CAPTCHA-credit
 gate, numeric domain scorer and unwired edge-score predicate. Missing private data is not invented
 or counted as passing behavior. Current-head hosted checks remain required.
