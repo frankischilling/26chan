@@ -317,6 +317,32 @@ checks rollback, retained session state, predecessor drift, role-specific defaul
 privileges and a full dump/restore
 with populated private history.
 
+### Country refusal bridge
+
+Migration 0198 adds a public-runtime lookup bridge and a country-refusal issuer.
+The issuer locks the public board and requires CAPTCHA to be enabled. It then
+locks an established anonymous session, resumes the server-derived fingerprints,
+and checks the source predicate: unverified, fewer than 20 posts including the
+pending POST bit, and either active country history or an environment timestamp
+matching the same frozen request second on a non-new session. A fresh session
+cannot manufacture a country refusal. Unjustified attempts raise and roll back
+the provisional refresh.
+
+An older request cannot overwrite newer committed session clocks or fingerprints.
+That fail-closed rule is an intentional backend concurrency safeguard. Event
+timestamps still come from the database, and an active event is not extended.
+The issuer does not accept a client-selected event kind or trusted-edge score.
+Its seal covers the consumed session tables, resume helper, board RLS policies,
+wrapper definitions, schema permissions and private-owner role posture.
+
+The store recorder owns a fresh transaction and returns success only after
+commit. A posting caller must first discard its provisional post transaction;
+only successful recording permits a refreshed session cookie in the refusal
+response. The lookup returns observations, so the caller must still apply the
+locked CAPTCHA/staff bypass decision before using them. These bridges are not
+yet called by the posting handler, and diagnostic country-block logs remain a
+separate integration task.
+
 ## Remaining source behavior
 
 Posting uses the numeric score in several late refusal branches. Reporting has
