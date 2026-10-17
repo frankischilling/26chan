@@ -335,12 +335,17 @@ The issuer does not accept a client-selected event kind or trusted-edge score.
 Its seal covers the consumed session tables, resume helper, board RLS policies,
 wrapper definitions, schema permissions and private-owner role posture.
 
-The store recorder owns a fresh transaction and returns success only after
-commit. A posting caller must first discard its provisional post transaction;
-only successful recording permits a refreshed session cookie in the refusal
-response. The lookup returns observations, so the caller must still apply the
-locked CAPTCHA/staff bypass decision before using them. These bridges are not
-yet called by the posting handler, and diagnostic country-block logs remain a
+The public store recorder owns a fresh transaction and returns success only
+after commit. Its caller must first discard any provisional post transaction.
+The store also has an internal form for a retained posting transaction: after
+rolling back provisional content and replaying earlier originality effects, it
+records the country refusal without committing. The enclosing commit makes
+both effects durable together; rollback removes both. Only a confirmed commit
+permits a refreshed session cookie in the refusal response.
+
+The lookup returns observations, so the caller must still apply the locked
+CAPTCHA/staff bypass decision before using them. These bridges are not yet
+called by the posting handler, and diagnostic country-block logs remain a
 separate integration task.
 
 The late history gate uses trusted edge-field presence independently of numeric

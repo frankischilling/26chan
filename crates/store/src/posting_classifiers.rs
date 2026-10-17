@@ -1,7 +1,7 @@
 //! Private late-posting history bridges. The application must select these
 //! after the ordered source checks; this module grants no posting bypass.
 use crate::{StoreError, anonymous_session::PostingSession};
-use sqlx::{PgConnection, PgPool};
+use sqlx::{PgConnection, PgPool, Postgres, Transaction};
 
 #[derive(sqlx::FromRow)]
 pub struct History {
@@ -50,6 +50,21 @@ pub async fn record_country_refusal(
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    record_country_refusal_in_transaction(&mut tx, board, session).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+/// The posting writer may retain its locked transaction after rolling back all
+/// provisional content and replaying earlier state-only effects. This helper
+/// revalidates the country refusal in that transaction without committing it.
+/// Any failure must discard the transaction; only the final commit authorizes
+/// a refreshed refusal cookie.
+pub(crate) async fn record_country_refusal_in_transaction(
+    tx: &mut Transaction<'_, Postgres>,
+    board: &str,
+    session: &PostingSession,
+) -> Result<(), StoreError> {
     let fingerprints = session.fingerprints;
     let authorized: bool = sqlx::query_scalar(
         "SELECT content.record_country_classifier_refusal($1,$2,$3,$4,$5,$6,$7)",
@@ -61,12 +76,11 @@ pub async fn record_country_refusal(
     .bind(fingerprints.environment.as_slice())
     .bind(session.minted)
     .bind(session.now.timestamp())
-    .fetch_one(&mut *tx)
+    .fetch_one(&mut **tx)
     .await
     .map_err(mapped)?;
     if !authorized {
         return Err(StoreError::AuthorizationChanged);
     }
-    tx.commit().await?;
     Ok(())
 }
