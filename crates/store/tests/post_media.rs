@@ -17,6 +17,7 @@ use support::{create_post, create_post_with_attachment};
 // Keep independent cases apart; their intentional concurrent operations remain.
 static QUEUE_TEST: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
+#[derive(Clone)]
 struct Fixture {
     admin: PgPool,
     public: PgPool,
@@ -493,6 +494,7 @@ async fn exercise(f: &Fixture) {
             'content.require_attachment_for_empty_post()'::regprocedure,
             'content.attachment_upload_filename(text,text)'::regprocedure,
             'content.attachment_upload_filter_metadata(text,text,text,bigint,boolean,boolean)'::regprocedure,
+            'content.file_effect_upload_metadata(text,text,text,bigint,boolean)'::regprocedure,
             'content.sync_image_spoiler()'::regprocedure,
             'content.stamp_drawing_annotation()'::regprocedure,
             'content.set_post_image_spoiler(text,bigint,boolean)'::regprocedure,
@@ -528,6 +530,7 @@ async fn exercise(f: &Fixture) {
         metadata_grants,
         "Only posting roles may use the scoped metadata reader"
     );
+    Box::pin(qualify_file_effect_metadata_grants(f)).await;
     let policy_helper_private: bool = sqlx::query_scalar(
         "SELECT count(*)=3 AND bool_and(NOT p.prosecdef
             AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee<>p.proowner)
@@ -582,6 +585,7 @@ async fn exercise(f: &Fixture) {
             .unwrap();
         assert_eq!(actual, expected);
         for sql in [
+            "SELECT * FROM content.file_effect_upload_metadata('','','g',0,false)",
             "SELECT content.lock_staff_attachment_receipt('',0,repeat('0',32),decode(repeat('0',64),'hex'))",
             "SELECT content.consume_staff_attachment_receipt(0,'',0,repeat('0',32),decode(repeat('0',64),'hex'),false,true)",
         ] {
@@ -2504,7 +2508,12 @@ async fn exercise_waits_and_moderation(f: &Fixture) {
     file_deletion_rechecks_archive_after_post_lock(f, &staff).await;
     staff.close().await;
     cancellation(f).await;
-    retention(f).await;
+    // Poll the full posting/retention subcase independently of the surrounding
+    // concurrency future, while preserving sequential queue ownership.
+    let owned = f.clone();
+    tokio::spawn(async move { retention(&owned).await })
+        .await
+        .unwrap();
 }
 
 // The blocker owns only the reply tuple. The file action must already hold
@@ -3074,4 +3083,40 @@ async fn staff_upload_controls(f: &Fixture, staff: &PgPool, auth: &PgPool) {
         .execute(&f.admin)
         .await
         .unwrap();
+}
+
+async fn qualify_file_effect_metadata_grants(f: &Fixture) {
+    // This bridge belongs to the attachment owner but is callable only by the
+    // private refusal finalizer owner. It adds no public metadata entry point.
+    const FILE_EFFECT_GRANTS: &str = "SELECT has_function_privilege('board_restriction_owner',p.oid,'EXECUTE')
+        AND NOT EXISTS(SELECT 1 FROM aclexplode(p.proacl) a WHERE a.is_grantable
+          OR (a.grantee<>p.proowner AND a.grantee<>'board_restriction_owner'::regrole))
+        FROM pg_proc p WHERE p.oid='content.file_effect_upload_metadata(text,text,text,bigint,boolean)'::regprocedure";
+    let file_effect_private: bool = sqlx::query_scalar(FILE_EFFECT_GRANTS)
+        .fetch_one(&f.admin)
+        .await
+        .unwrap();
+    assert!(
+        file_effect_private,
+        "Only the private finalizer owner may use file-effect metadata"
+    );
+    for mutation in [
+        "GRANT EXECUTE ON FUNCTION content.file_effect_upload_metadata(text,text,text,bigint,boolean) TO PUBLIC",
+        "GRANT EXECUTE ON FUNCTION content.file_effect_upload_metadata(text,text,text,bigint,boolean) TO board_public",
+        "GRANT EXECUTE ON FUNCTION content.file_effect_upload_metadata(text,text,text,bigint,boolean) TO board_restriction_owner WITH GRANT OPTION",
+        "REVOKE EXECUTE ON FUNCTION content.file_effect_upload_metadata(text,text,text,bigint,boolean) FROM board_restriction_owner",
+    ] {
+        let mut tx = f.admin.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_attachment_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query(mutation).execute(&mut *tx).await.unwrap();
+        let accepted: bool = sqlx::query_scalar(FILE_EFFECT_GRANTS)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        assert!(!accepted, "File metadata grant guard accepted {mutation}");
+        tx.rollback().await.unwrap();
+    }
 }
