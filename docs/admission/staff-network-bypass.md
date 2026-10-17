@@ -102,3 +102,28 @@ lacked its monitor connection setting; supplying that owned test role allowed
 the existing role-denial checks to run unchanged. Strict all-target/all-feature
 store Clippy, formatting and diff checks pass. Fresh full CI remains required
 for the corrected head; the earlier failed run does not qualify it.
+
+## Authority for terminal filter effects
+
+Rejected and quiet posts return before the accepted-post proof issuer runs.
+Those paths revalidate staff authority in the posting transaction, after
+attachment revalidation and before committing filter effects. The guard checks
+session and CSRF hashes, credential ownership, expiry, idle timeout, recent
+authentication, rank, revocation, and board scope. The test board also requires
+a moderator-or-higher rank and the developer flag.
+
+Shared account and session locks and a credential key-share lock protect that
+authority until commit. Routine non-key credential counter updates remain
+possible. Locks use NOWAIT because the posting transaction already holds content
+locks; contention fails closed instead of introducing an inverse wait against
+revocation. Invalid or busy authority rolls back the pending effects.
+
+This guard is limited to terminal refusals. It neither issues an accepted-post
+intent nor advances session activity. Only the staff runtime can execute it;
+the private function owner receives the column update privilege needed for
+credential locking, while the runtime receives no credential table access.
+The migration preserves existing accounts, credentials, sessions, and intents.
+
+A future file-filter effect writer must likewise revalidate authority at its
+commit boundary. The early, nonlocking network-bypass check is insufficient for
+that purpose.

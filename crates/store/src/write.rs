@@ -1100,6 +1100,10 @@ async fn create_post_in_context(
             if let Some(metadata) = &attachment_admission {
                 metadata.revalidate(&mut tx).await?;
             }
+            if let Some(authority) = &staff {
+                crate::content_admission::staff::revalidate_refusal(&mut tx, authority, slug)
+                    .await?;
+            }
             tx.commit().await?;
             return Err(StoreError::ContentRejected(message));
         }
@@ -1110,6 +1114,10 @@ async fn create_post_in_context(
             let post = crate::content_admission::quiet_post(&mut tx, slug, parent).await?;
             if let Some(metadata) = &attachment_admission {
                 metadata.revalidate(&mut tx).await?;
+            }
+            if let Some(authority) = &staff {
+                crate::content_admission::staff::revalidate_refusal(&mut tx, authority, slug)
+                    .await?;
             }
             tx.commit().await?;
             return Err(StoreError::ContentQuiet { post });

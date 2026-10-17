@@ -38,3 +38,32 @@ pub(crate) async fn network_bypass(
     }
     Ok(true)
 }
+
+/// Terminal refusal paths have no later accepted-post issuer. Hold current
+/// authority through their effect commit without issuing a post intent.
+pub(crate) async fn revalidate_refusal(
+    connection: &mut sqlx::PgConnection,
+    authority: &StaffPostAuthority<'_>,
+    board: &str,
+) -> Result<(), StoreError> {
+    sqlx::query("SELECT content.revalidate_staff_refusal($1,$2,$3,$4)")
+        .bind(authority.session_hash)
+        .bind(authority.csrf_hash)
+        .bind(authority.idle_seconds)
+        .bind(board)
+        .execute(connection)
+        .await
+        .map_err(|error| {
+            if error
+                .as_database_error()
+                .and_then(|error| error.code())
+                .as_deref()
+                == Some("28000")
+            {
+                StoreError::AuthorizationChanged
+            } else {
+                StoreError::Database(error)
+            }
+        })?;
+    Ok(())
+}

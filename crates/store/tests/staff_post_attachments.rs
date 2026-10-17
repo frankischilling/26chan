@@ -374,6 +374,7 @@ impl Fixture {
             "DELETE FROM content.threads WHERE board=$1",
             "DELETE FROM post_secrets.posting_thread_actions WHERE board=$1",
             "DELETE FROM admission.network_rules WHERE boards=$1",
+            "DELETE FROM admission.rules WHERE board=$1",
             "DELETE FROM admission.logs WHERE board=$1",
             "DELETE FROM admission.hits WHERE board=$1",
             "DELETE FROM admission.bans WHERE board=$1",
@@ -2321,4 +2322,56 @@ async fn wait_for_policy_blocker(owner: &PgPool, blocker: i32) {
         );
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
+}
+
+database_case!(
+    authenticated_staff_refusal_and_quiet_paths_preserve_uploads,
+    terminal_staff_filters
+);
+async fn terminal_staff_filters(f: &Fixture) {
+    let rule: i64 = sqlx::query_scalar(
+        "INSERT INTO admission.rules(board,pattern) VALUES($1,'synthetic') RETURNING id",
+    )
+    .bind(&f.board)
+    .fetch_one(&f.owner)
+    .await
+    .unwrap();
+    let mut ip = 210;
+    for role in ["janitor", "moderator", "manager", "admin"] {
+        f.role(role).await;
+        for quiet in [false, true] {
+            sqlx::query("UPDATE admission.rules SET quiet=$2 WHERE id=$1")
+                .bind(rule)
+                .bind(quiet)
+                .execute(&f.owner)
+                .await
+                .unwrap();
+            let upload = f.approved("owned.png", false).await;
+            let before = f.counts().await;
+            let result = f
+                .write(0, Some(&upload), true, &post(), ip, Utc::now())
+                .await;
+            if quiet {
+                assert!(matches!(result, Err(StoreError::ContentQuiet { .. })));
+            } else {
+                assert!(matches!(result, Err(StoreError::ContentRejected(_))));
+            }
+            assert_eq!(f.counts().await, before);
+            assert!(f.receipt(&upload).await);
+            ip += 1;
+        }
+    }
+    let hits: i64 = sqlx::query_scalar("SELECT count(*) FROM admission.hits WHERE rule_id=$1")
+        .bind(rule)
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+    assert_eq!(hits, 8);
+    let intents: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM post_secrets.staff_post_intents WHERE board=$1")
+            .bind(&f.board)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+    assert_eq!(intents, 0);
 }
