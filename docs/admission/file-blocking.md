@@ -203,3 +203,36 @@ rollback/upgrade, historical cleanup/restore, strict all-target/all-feature stor
 Clippy, formatting and five workflow-helper tests pass. Hosted qualification of
 this checkpoint is still required. These checks do not qualify live file-rule
 enforcement or ban issuance.
+## Automatic-ban dates and identity
+
+The isolated issuer fixture executes the pinned `auto_ban_poster` function in
+420 synthetic cases. SQL, reverse DNS and the clock are replaced by local
+callbacks. It covers permanent, zero-day and finite requests, whitelist
+suppression, optional identity forwarding, midnight, leap day, year rollover and
+US daylight-saving transitions. UTC, New York and Tokyo are explicit test
+settings; none is presented as the original deployment's timezone.
+
+The issuer adds whole multiples of 86,400 seconds, formats the resulting local
+date, then stores midnight. It does not add calendar days or preserve the time
+of day. A request of -1 stores the permanent zero-date sentinel. Other negative
+requests clamp to zero in the source; native file-rule configuration rejects
+those out-of-range inputs.
+
+The insert omits `active` and `now`. The supplied schema defaults them to active
+and the database clock. With aligned PHP/database timestamps, a zero-day request
+therefore becomes a warning: the posting checker tests whether expiry is at or
+before the start before testing ordinary expiry. Equality also warns. A warning
+stays a warning on later requests until acknowledged or retired. A database start
+before that expiry would instead give the ordinary finite-ban/expiry behavior;
+clock and timezone alignment cannot be assumed for an unknown deployment.
+
+The Rust regression feeds the captured dates into the separately qualified ban
+policy. It checks warning precedence, permanent bans and finite expiry, including
+which rows may be retired. It does not implement or qualify a native issuer.
+
+The source forwards the supplied UserPwd and Pass values into its insert. All
+fixture values are synthetic. The native writer must bind only a legitimately
+resolved server-side identity, or leave it absent; it must never persist the raw
+credential or invent a user identity to satisfy a foreign key. Whitelist
+suppression applies to the ban insert and does not by itself suppress the
+file-checker's warning, refusal or redirect behavior.
