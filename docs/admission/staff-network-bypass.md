@@ -85,5 +85,20 @@ passing the range stage. Its owned fixture now explicitly disables CAPTCHA, as
 the other isolated network fixtures do; runtime challenge enforcement is
 unchanged. The complete test rerun passes.
 
-Hosted qualification of this changed checkpoint is pending. Earlier CI results
-do not qualify it.
+## CI rejection-order correction
+
+Full CI on `6c1bda48` caught an older quota-test expectation: it required the
+private-board `P0002` refusal even when staff credentials were invalid. The new
+authentication preflight rejects those credentials first. The assertion now
+requires `AuthorizationChanged` for invalid credentials and `P0002` for a valid
+identity using the ordinary writer on a private board. Both cases still require
+an unchanged state snapshot. Runtime authorization and visibility checks were
+not changed to satisfy the test.
+
+The old assertion reproduces locally. The corrected run passes all ten quota
+cases and 37 related database cases, including warning state, content rules,
+staff attachments and refusal cookies. The local all-role fixture initially
+lacked its monitor connection setting; supplying that owned test role allowed
+the existing role-denial checks to run unchanged. Strict all-target/all-feature
+store Clippy, formatting and diff checks pass. Fresh full CI remains required
+for the corrected head; the earlier failed run does not qualify it.
