@@ -15,9 +15,13 @@ upgrade_db="imageboard_classifier_diagnostics_$(date +%s)_$RANDOM"
 [[ $upgrade_db =~ ^imageboard_classifier_diagnostics_[0-9]+_[0-9]+$ ]] || exit 1
 created=0
 restore_created=0
+retention_configured=0
 restore_db="${upgrade_db}_restore"
 dump_file="$cluster/classifier-diagnostics-$RANDOM.dump"
 cleanup() {
+  if [[ $retention_configured = 1 ]]; then
+    "${admin[@]}" -c "ALTER ROLE board_moderation_retention NOLOGIN PASSWORD NULL"
+  fi
   if [[ $restore_created = 1 ]]; then
     "${admin[@]}" -v restore_db="$restore_db" <<'SQL'
 DROP DATABASE :"restore_db";
@@ -38,7 +42,17 @@ REVOKE ALL ON DATABASE :"upgrade_db" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"upgrade_db" TO board_migrator,board_public,board_moderation_retention;
 SQL
 created=1
-"${admin[@]}" -c 'ALTER ROLE board_moderation_retention LOGIN'
+# This disposable cluster starts with an unconfigured retention service role.
+# Give the worker its own credential; replacing only the username in the
+# migration URL would accidentally reuse the migration account's password.
+[[ $("${admin[@]}" -At -c "SELECT NOT rolcanlogin AND rolpassword IS NULL FROM pg_authid WHERE rolname='board_moderation_retention'") = t ]] || {
+  echo 'Retention role is already configured; refusing to replace credentials.' >&2; exit 1;
+}
+retention_password=$(openssl rand -hex 24)
+retention_configured=1
+"${admin[@]}" -v retention_password="$retention_password" <<'SQL'
+ALTER ROLE board_moderation_retention LOGIN PASSWORD :'retention_password';
+SQL
 upgrade_url="${MIGRATION_DATABASE_URL%/imageboard}/$upgrade_db"
 db=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 --dbname="$upgrade_url")
 [[ -f migrations/0199_classifier_diagnostics.sql ]] || exit 1
@@ -76,7 +90,7 @@ CREATE TABLE public.owned_diagnostics_before AS
  SELECT jsonb_agg(to_jsonb(e) ORDER BY id) AS rows FROM post_secrets.classifier_events e;
 SQL
 "${db[@]}" -f scripts/test-classifier-diagnostics-upgrade.sql
-retention_url="${upgrade_url/board_migrator/board_moderation_retention}"
+retention_url="postgres://board_moderation_retention:$retention_password@127.0.0.1:55432/$upgrade_db"
 "${db[@]}" <<'SQL'
 INSERT INTO post_secrets.classifier_events(created_at,kind,board,thread_id)
  SELECT floor(extract(epoch FROM clock_timestamp()))::bigint-691200,'log_mask_changed','owned',0
