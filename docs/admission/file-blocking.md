@@ -374,6 +374,15 @@ the expected banned error and schedules the same-origin banned page after three
 seconds. This is a response-adapter difference from the source's inline-script
 HTML redirect, including when its caller requested JSON.
 
+The upload-expiry concurrency fixture observes the exact anonymous-cookie row
+blocker and PostgreSQL wall-clock expiry before releasing the row. It drains
+the SQL task before assertions and cleanup, including observation failures.
+Only its disposable test session gets longer wait limits; production roles and
+functions are unchanged. A controlled late start reproduces the former
+one-second observation timeout. Releasing the row before expiry instead gives
+a normal banned result and fails the test's required expiry error. Neither
+control claims to establish the exact scheduling of the original CI failure.
+
 This integration does not complete issue #212. Historical template-226/6 counts,
 remaining classifier providers and final caller-order coverage still need
 qualification. File-rule provenance alone cannot supply those historical counts.

@@ -591,26 +591,51 @@ async fn expired_upload_after_cookie_wait_rolls_back_the_repeat_ban() {
         owned.clock(Some("UTC")).await;
         assert_eq!(owned.finish(&owned.public,&actor,serde_json::json!({})).await.unwrap().0,"dmca");
         let before:serde_json::Value=sqlx::query_scalar("SELECT to_jsonb(w) FROM admission.dmca_warnings w WHERE actor_hash=$1").bind(actor.as_slice()).fetch_one(&owned.owner).await.unwrap();
-        let runtime=sqlx::postgres::PgPoolOptions::new().max_connections(1)
+        let runtime = sqlx::postgres::PgPoolOptions::new().max_connections(1)
             .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap()).await.unwrap();
-        let pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&runtime).await.unwrap();
-        let mut blocker=owned.owner.begin().await.unwrap();
-        sqlx::query("SELECT token_hash FROM post_secrets.anonymous_sessions WHERE token_hash=$1 FOR UPDATE").bind(token.as_slice()).execute(&mut *blocker).await.unwrap();
-        sqlx::query("UPDATE media.jobs SET created_at=clock_timestamp()-interval '2 hours'+interval '2 seconds' WHERE id=$1").bind(&owned.job).execute(&owned.owner).await.unwrap();
-        let runner=owned.clone();
-        let task=tokio::spawn(async move { runner.finish(&runtime,&actor,cookie).await });
-        // Observe the actual lock wait, rather than assuming a scheduling delay
-        // means the refusal has reached the cookie refresh.
-        tokio::time::timeout(std::time::Duration::from_secs(1),async {
+        // Only this disposable test session waits beyond the normal role
+        // limits. Production roles/functions keep their original timeouts.
+        sqlx::raw_sql("SET lock_timeout='20s'; SET statement_timeout='30s'")
+            .execute(&runtime).await.unwrap();
+        let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&runtime).await.unwrap();
+        let mut blocker = owned.owner.begin().await.unwrap();
+        sqlx::query("SELECT token_hash FROM post_secrets.anonymous_sessions WHERE token_hash=$1 FOR UPDATE")
+            .bind(token.as_slice()).execute(&mut *blocker).await.unwrap();
+        let blocker_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *blocker).await.unwrap();
+        sqlx::query("UPDATE media.jobs SET created_at=clock_timestamp()-interval '2 hours'+interval '10 seconds' WHERE id=$1")
+            .bind(&owned.job).execute(&owned.owner).await.unwrap();
+        let runner = owned.clone();
+        let task = tokio::spawn(async move {
+            // This regression delay would fail the former one-second observer.
+            // The original hosted failure had no deliberate delay.
+            tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+            let result = runner.finish(&runtime, &actor, cookie).await;
+            runtime.close().await;
+            result
+        });
+        // Prove this exact row owner blocks the finalizer after its initial
+        // upload check, then observe PostgreSQL's actual expiry boundary.
+        // Retain errors until the blocker is released and the task is drained:
+        // an assertion must never detach a writer into the next fixture.
+        let observed = tokio::time::timeout(std::time::Duration::from_secs(15), async {
             loop {
-                let waiting:bool=sqlx::query_scalar("SELECT cardinality(pg_blocking_pids($1))>0").bind(pid).fetch_one(&owned.owner).await.unwrap();
-                if waiting {break;}
-                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                let expired_while_blocked: bool = sqlx::query_scalar(
+                    "SELECT $2=ANY(pg_blocking_pids($1)) AND EXISTS(SELECT 1 FROM pg_locks WHERE pid=$1 AND NOT granted AND locktype='transactionid') AND clock_timestamp()>=(SELECT created_at+interval '2 hours' FROM media.jobs WHERE id=$3)")
+                    .bind(pid).bind(blocker_pid).bind(&owned.job)
+                    .fetch_one(&owned.owner).await?;
+                if expired_while_blocked { return Ok::<_, sqlx::Error>(true); }
+                if task.is_finished() { return Ok(false); }
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
             }
-        }).await.unwrap();
-        tokio::time::sleep(std::time::Duration::from_millis(2100)).await;
-        blocker.rollback().await.unwrap();
-        code(task.await.unwrap().unwrap_err(),"P0002");
+        }).await;
+        let released = blocker.rollback().await;
+        let completed = task.await;
+        released.unwrap();
+        let observed = observed.expect("expiry observer exceeded its bounded wait").unwrap();
+        assert!(observed, "finalizer finished before the observed cookie wait and upload expiry");
+        code(completed.unwrap().unwrap_err(), "P0002");
         assert_eq!(owned.bans(&actor).await,0);
         let after:serde_json::Value=sqlx::query_scalar("SELECT to_jsonb(w) FROM admission.dmca_warnings w WHERE actor_hash=$1").bind(actor.as_slice()).fetch_one(&owned.owner).await.unwrap();
         assert_eq!(before,after);
