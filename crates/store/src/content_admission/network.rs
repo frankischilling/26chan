@@ -25,14 +25,18 @@ struct Row {
 /// Caller already holds the shared policy generation and locked board row.
 /// The scoped definer exposes at most the bounded rule count plus one sentinel.
 pub(super) struct Snapshot {
-    pub policy: Policy,
+    pub policy: Option<Policy>,
 }
 
 pub(super) async fn snapshot(
     connection: &mut PgConnection,
     board: &str,
     now: i64,
+    staff_bypass: bool,
 ) -> Result<Snapshot, StoreError> {
+    if staff_bypass {
+        return Ok(Snapshot { policy: None });
+    }
     let rows: Vec<Row> = sqlx::query_as("SELECT * FROM content.network_admission_rules($1,$2)")
         .bind(board)
         .bind(now)
@@ -77,6 +81,6 @@ pub(super) async fn snapshot(
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
     Ok(Snapshot {
-        policy: Policy::compile(rules).map_err(unavailable)?,
+        policy: Some(Policy::compile(rules).map_err(unavailable)?),
     })
 }

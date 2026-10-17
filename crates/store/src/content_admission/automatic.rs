@@ -138,6 +138,9 @@ impl super::Evaluation {
         key: &PosterIdKey,
     ) -> Result<Option<Hit>, StoreError> {
         use board_domain::content_admission::network::automatic::{Event, Policy, Request};
+        if self.snapshot.network.policy.is_none() {
+            return Ok(None);
+        }
         let peer = self
             .snapshot
             .peer

@@ -8,6 +8,13 @@ use std::sync::{Arc, LazyLock};
 pub(crate) mod attachment;
 pub(crate) mod automatic;
 mod network;
+pub(crate) mod staff;
+
+pub(crate) struct NetworkContext {
+    pub asn: board_domain::content_admission::network::ProviderValue<Option<u32>>,
+    pub hints: board_domain::content_admission::network::hints::DerivedHints,
+    pub staff_bypass: bool,
+}
 
 static WORK: LazyLock<Arc<tokio::sync::Semaphore>> =
     LazyLock::new(|| Arc::new(tokio::sync::Semaphore::new(2)));
@@ -64,8 +71,7 @@ pub(crate) async fn begin(
     peer: Option<IpAddr>,
     session: Option<anonymous_session::PostingSession>,
     request_at: i64,
-    asn: board_domain::content_admission::network::ProviderValue<Option<u32>>,
-    hints: board_domain::content_admission::network::hints::DerivedHints,
+    network_context: NetworkContext,
 ) -> Result<Snapshot, StoreError> {
     let peer = peer.map(|peer| peer.to_canonical().to_string());
     let (revision, banned): (i64, bool) =
@@ -116,9 +122,10 @@ pub(crate) async fn begin(
         .bind(board)
         .fetch_all(&mut *connection)
         .await?;
-    let network = network::snapshot(connection, board, request_at).await?;
+    let network =
+        network::snapshot(connection, board, request_at, network_context.staff_bypass).await?;
     Ok(Snapshot {
-        hints,
+        hints: network_context.hints,
         revision,
         peer,
         actor,
@@ -127,7 +134,7 @@ pub(crate) async fn begin(
         network,
         now,
         activity_now,
-        asn,
+        asn: network_context.asn,
     })
 }
 
@@ -239,6 +246,9 @@ impl Evaluation {
         has_image: bool,
     ) -> Result<Option<String>, StoreError> {
         use board_domain::content_admission::network::{Leniency, Request};
+        let Some(policy) = &self.snapshot.network.policy else {
+            return Ok(None);
+        };
         let peer = self
             .snapshot
             .peer
@@ -250,10 +260,7 @@ impl Evaluation {
             Some(IpAddr::V4(address)) => Some(address),
             _ => None,
         };
-        let matched = self
-            .snapshot
-            .network
-            .policy
+        let matched = policy
             .evaluate(Request {
                 now: self.snapshot.now,
                 activity_now: Some(self.snapshot.activity_now),

@@ -630,6 +630,12 @@ async fn create_post_in_context(
         anonymous,
         challenge,
     } = options;
+    // The source posting entry point hides /test/ from unauthenticated users.
+    // Its authenticated moderator/developer gate is checked by the auth read
+    // below, independently of the selected capcode.
+    if slug == "test" && staff.is_none() {
+        return Err(StoreError::NotFound);
+    }
     if staff.is_some() && attachment.is_none() && metadata.spoiler {
         return Err(StoreError::Invalid("Invalid staff posting metadata."));
     }
@@ -687,6 +693,13 @@ async fn create_post_in_context(
             Err(_) => board_domain::content_admission::network::ProviderValue::Unavailable,
         },
         _ => board_domain::content_admission::network::ProviderValue::Unavailable,
+    };
+    let staff_network_bypass = if (ordinary || slug == "test")
+        && let Some(authority) = &staff
+    {
+        crate::content_admission::staff::network_bypass(authority, slug).await?
+    } else {
+        false
     };
     let mut tx = pool.begin().await?;
     // The decision must see the preceding actor's commit after waiting on its
@@ -753,8 +766,11 @@ async fn create_post_in_context(
                 context.peer,
                 anonymous,
                 context.request_start.timestamp(),
-                asn,
-                hints.cloned().unwrap_or_default(),
+                crate::content_admission::NetworkContext {
+                    asn,
+                    hints: hints.cloned().unwrap_or_default(),
+                    staff_bypass: staff_network_bypass,
+                },
             )
             .await?,
         )

@@ -56,7 +56,7 @@ impl Fixture {
             .await
             .unwrap();
         let board = format!("a{}", &seed[..9]);
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,max_authorized_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,user_ids,comment_spoiler_cleanup) VALUES($1,'Owned staff media','Synthetic',2000,4000,100,100,100,10,100,0,0,0,100,true,true)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,max_authorized_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,user_ids,comment_spoiler_cleanup) VALUES(false,$1,'Owned staff media','Synthetic',2000,4000,100,100,100,10,100,0,0,0,100,true,true)")
             .bind(&board).execute(&owner).await.unwrap();
         let account = sqlx::query_scalar("INSERT INTO staff_identity.accounts(role,flags) VALUES('moderator',ARRAY['capcode','capcodename','developer']) RETURNING id")
             .fetch_one(&owner).await.unwrap();
@@ -173,6 +173,57 @@ impl Fixture {
     ) -> Result<i64, StoreError> {
         self.write_with_options(parent, a, ordinary, input, ip, at, "")
             .await
+    }
+
+    async fn write_public(
+        &self,
+        parent: i64,
+        attachment: Option<&NewAttachment>,
+        input: &NewPost,
+        ip: u8,
+        at: DateTime<Utc>,
+    ) -> Result<i64, StoreError> {
+        let capability = board_domain::anonymous_session::Capability::generate().unwrap();
+        let peer = Some(self.peer_override.unwrap_or_else(|| peer(ip)));
+        let key = PosterIdKey::parse(&self.key).unwrap();
+        board_store::create_protected_post_with_network(
+            &self.public,
+            &self.board,
+            parent,
+            input,
+            attachment,
+            board_store::NetworkPostingContext {
+                hints: self.hints.as_ref(),
+                asn_database: self.asn_database.as_deref(),
+                posting: board_store::ProtectedPostingContext {
+                    challenge: None,
+                    anonymous: board_store::AnonymousPostingContext {
+                        posting: PostingContext {
+                            request_start: at,
+                            peer,
+                            op_password_proof: None,
+                        },
+                        session: board_store::anonymous_session::PostingSession {
+                            fingerprints: capability.fingerprints(peer, *b"XX"),
+                            minted: true,
+                            now: at,
+                        },
+                    },
+                },
+            },
+            PostMetadata {
+                drawing: None,
+                keys: PostIdentityKeys {
+                    tripcode: None,
+                    poster_id: Some(&key),
+                },
+                country_database: None,
+                flag: "",
+                options: "",
+                spoiler: false,
+            },
+        )
+        .await
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1626,7 +1677,7 @@ async fn generated_staff_content(f: &Fixture) {
 }
 
 database_case!(
-    ordinary_staff_obeys_locked_network_policy,
+    verified_staff_bypasses_network_rules,
     ordinary_staff_network
 );
 async fn ordinary_staff_network(f: &Fixture) {
@@ -1637,80 +1688,129 @@ async fn ordinary_staff_network(f: &Fixture) {
     .execute(&f.owner)
     .await
     .unwrap();
-    let before = f.counts().await;
-    for (index, role) in ["moderator", "manager", "admin", "janitor"]
-        .into_iter()
-        .enumerate()
-    {
+    let reference: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/staff-network-bypass-reference.json")).unwrap();
+    let cases = reference["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 16);
+    for (index, case) in cases.iter().enumerate() {
+        assert_eq!(case["valid"], true);
+        assert_eq!(case["range_bypass"], true);
+        assert_eq!(case["network_blocked"], false);
+        let role = match case["role"].as_str().unwrap() {
+            "mod" => "moderator",
+            other => other,
+        };
         f.role(role).await;
-        let result = f
-            .write(0, None, true, &post(), 200 + index as u8, Utc::now())
-            .await;
-        assert!(
-            matches!(result, Err(StoreError::ContentRejected(message)) if message.starts_with("Posting from your IP range"))
-        );
-        assert_eq!(f.counts().await, before);
+        f.write(0, None, true, &post(), 180 + index as u8, Utc::now())
+            .await
+            .unwrap();
     }
     f.role("moderator").await;
-    // Badged staff preserve the source exemption on an ordinary public board.
-    let id = f
-        .write(0, None, false, &post(), 210, Utc::now())
-        .await
-        .unwrap();
-    assert!(
-        board_store::find_post(&f.public, &f.board, id)
-            .await
-            .unwrap()
-            .capcode
-            .is_some()
-    );
-    assert_eq!(f.counts().await.3, 0);
-    sqlx::query("UPDATE admission.network_rules SET range_start=NULL,range_end=NULL,asn=15169 WHERE boards=$1")
-        .bind(&f.board).execute(&f.owner).await.unwrap();
-    let mut with_asn = f.clone();
-    with_asn.asn_database = Some(Arc::new(
-        board_domain::content_admission::network::asn::Database::from_bytes(
-            include_bytes!("../../domain/tests/fixtures/GeoLite2-ASN-Test.mmdb").to_vec(),
-        )
-        .unwrap(),
-    ));
-    with_asn.peer_override = Some("1.0.0.1".parse().unwrap());
     let before = f.counts().await;
     assert!(
-        matches!(with_asn.write(0,None,true,&post(),211,Utc::now()).await,
+        matches!(f.write_public(0,None,&post(),209,Utc::now()).await,
         Err(StoreError::ContentRejected(message)) if message.starts_with("Posting from your IP range"))
     );
     assert_eq!(f.counts().await, before);
-    with_asn
-        .write(0, None, false, &post(), 212, Utc::now())
-        .await
-        .unwrap();
-    // Only this owned rule is added to the existing synthetic /test/ board.
-    // A badged /test/ post must hit the same provider; no content may be saved.
-    let rule: i64 = sqlx::query_scalar(
-        "INSERT INTO admission.network_rules(boards,asn) VALUES('test',15169) RETURNING id",
-    )
-    .fetch_one(&f.owner)
-    .await
-    .unwrap();
-    with_asn.board = "test".into();
-    let before = with_asn.counts().await;
-    let result = with_asn
-        .write(0, None, false, &post(), 213, Utc::now())
-        .await;
-    let after = with_asn.counts().await;
-    sqlx::query("DELETE FROM admission.network_rules WHERE id=$1")
-        .bind(rule)
+    for (index, invalid) in [
+        "csrf", "session", "role", "scope", "expired", "revoked", "stale",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut denied = f.clone();
+        match invalid {
+            "csrf" => denied.csrf = vec![0; 32],
+            "session" => denied.session = vec![0; 32],
+            "role" => {
+                denied.auth = f.public.clone();
+            }
+            "scope" => {
+                sqlx::query("UPDATE staff_identity.accounts SET deny_boards=ARRAY[$2] WHERE id=$1")
+                    .bind(f.account)
+                    .bind(&f.board)
+                    .execute(&f.owner)
+                    .await
+                    .unwrap();
+            }
+            "expired" => {
+                sqlx::query("UPDATE staff_identity.sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=$1")
+                .bind(&f.session).execute(&f.owner).await.unwrap();
+            }
+            "revoked" => {
+                sqlx::query(
+                    "UPDATE staff_identity.accounts SET revoked_at=clock_timestamp() WHERE id=$1",
+                )
+                .bind(f.account)
+                .execute(&f.owner)
+                .await
+                .unwrap();
+            }
+            "stale" => {
+                sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '11 minutes' WHERE token_hash=$1")
+                .bind(&f.session).execute(&f.owner).await.unwrap();
+            }
+            _ => unreachable!(),
+        }
+        let result = denied
+            .write(0, None, true, &post(), 210 + index as u8, Utc::now())
+            .await;
+        assert!(
+            matches!(
+                result,
+                Err(StoreError::AuthorizationChanged | StoreError::Database(_))
+            ),
+            "{invalid} must not confer bypass"
+        );
+        assert_eq!(f.counts().await, before);
+        sqlx::query(
+            "UPDATE staff_identity.accounts SET revoked_at=NULL,deny_boards='{}' WHERE id=$1",
+        )
+        .bind(f.account)
         .execute(&f.owner)
         .await
         .unwrap();
-    assert!(
-        matches!(result,Err(StoreError::ContentRejected(message)) if message.starts_with("Posting from your IP range"))
-    );
-    assert_eq!(after, before);
+        sqlx::query("UPDATE staff_identity.sessions SET expires_at=clock_timestamp()+interval '1 hour',authenticated_at=clock_timestamp() WHERE token_hash=$1")
+            .bind(&f.session).execute(&f.owner).await.unwrap();
+    }
+    // Revocation after the early bypass read must still prevent acceptance at
+    // the independent posting-proof boundary after the board lock wait.
+    let mut held = f.owner.begin().await.unwrap();
+    sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+        .bind(&f.board)
+        .execute(&mut *held)
+        .await
+        .unwrap();
+    let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *held)
+        .await
+        .unwrap();
+    let pending = f.clone();
+    let writer =
+        tokio::spawn(async move { pending.write(0, None, true, &post(), 219, Utc::now()).await });
+    wait_for_policy_blocker(&f.owner, blocker).await;
+    sqlx::query("UPDATE staff_identity.accounts SET revoked_at=clock_timestamp() WHERE id=$1")
+        .bind(f.account)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    held.commit().await.unwrap();
+    assert!(matches!(
+        writer.await.unwrap(),
+        Err(StoreError::AuthorizationChanged | StoreError::Database(_))
+    ));
+    assert_eq!(f.counts().await, before);
+    sqlx::query("UPDATE staff_identity.accounts SET revoked_at=NULL WHERE id=$1")
+        .bind(f.account)
+        .execute(&f.owner)
+        .await
+        .unwrap();
 }
 
-database_case!(staff_hint_policy_preserves_capcode_scope, staff_hint_scope);
+database_case!(
+    staff_network_bypass_precedes_hint_providers,
+    staff_hint_scope
+);
 async fn staff_hint_scope(f: &Fixture) {
     use board_domain::content_admission::network::hints::{
         BrowserHeaders, BrowserKey, DerivedHints,
@@ -1729,8 +1829,20 @@ async fn staff_hint_scope(f: &Fixture) {
         .bind(&f.board).execute(&f.owner).await.unwrap();
     let before = f.counts().await;
     let result = hinted.write(0, None, true, &post(), 214, Utc::now()).await;
-    assert!(matches!(result, Err(StoreError::ContentRejected(_))));
-    assert_eq!(f.counts().await, before);
+    result.unwrap();
+    assert_eq!(f.counts().await.0, before.0 + 1);
+    let mut unknown = hinted.clone();
+    unknown.hints = None;
+    unknown
+        .write(0, None, true, &post(), 217, Utc::now())
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO admission.network_rules(boards,asn) SELECT $1,15169 FROM generate_series(1,129)")
+        .bind(&f.board).execute(&f.owner).await.unwrap();
+    unknown
+        .write(0, None, true, &post(), 218, Utc::now())
+        .await
+        .unwrap();
     hinted
         .write(0, None, false, &post(), 215, Utc::now())
         .await
@@ -1739,6 +1851,21 @@ async fn staff_hint_scope(f: &Fixture) {
         .fetch_one(&f.owner).await.unwrap();
     hinted.board = "test".into();
     let before = hinted.counts().await;
+    assert!(matches!(
+        hinted.write_public(0, None, &post(), 242, Utc::now()).await,
+        Err(StoreError::NotFound)
+    ));
+    for (role, developer) in [("janitor", true), ("moderator", false), ("admin", false)] {
+        sqlx::query("UPDATE staff_identity.accounts SET role=$2,flags=CASE WHEN $3 THEN ARRAY['developer'] ELSE ARRAY[]::text[] END WHERE id=$1")
+            .bind(f.account).bind(role).bind(developer).execute(&f.owner).await.unwrap();
+        assert!(matches!(
+            hinted.write(0, None, true, &post(), 243, Utc::now()).await,
+            Err(StoreError::AuthorizationChanged)
+        ));
+        assert_eq!(hinted.counts().await, before);
+    }
+    sqlx::query("UPDATE staff_identity.accounts SET role='moderator',flags=ARRAY['capcode','capcodename','developer'] WHERE id=$1")
+        .bind(f.account).execute(&f.owner).await.unwrap();
     let result = hinted.write(0, None, false, &post(), 216, Utc::now()).await;
     let after = hinted.counts().await;
     sqlx::query("DELETE FROM admission.network_rules WHERE id=$1")
@@ -1746,8 +1873,8 @@ async fn staff_hint_scope(f: &Fixture) {
         .execute(&f.owner)
         .await
         .unwrap();
-    assert!(matches!(result, Err(StoreError::ContentRejected(_))));
-    assert_eq!(after, before);
+    result.unwrap();
+    assert_eq!(after.0, before.0 + 1);
 }
 
 database_case!(
@@ -1929,17 +2056,30 @@ async fn automatic_range_refusal(f: &Fixture) {
     }
     tx.commit().await.unwrap();
     assert_eq!(automatic_stats(f).await, (1, 0));
+    // Source authentication bypasses the entire network function before its
+    // browser/provider reads, even for unbadged staff with unknown hints.
+    mobile
+        .write(0, None, true, &post(), 240, Utc::now())
+        .await
+        .unwrap();
+    let mut staff_unknown = mobile.clone();
+    staff_unknown.hints = None;
+    staff_unknown
+        .write(0, None, true, &post(), 241, Utc::now())
+        .await
+        .unwrap();
+    assert_eq!(automatic_stats(f).await, (1, 0));
     let rule: i64 = sqlx::query_scalar("INSERT INTO admission.rules(board,pattern,log) VALUES($1,'Synthetic attachment body',true) RETURNING id")
         .bind(&f.board).fetch_one(&f.owner).await.unwrap();
     let attachment = f.approved("automatic.png", false).await;
     let before = f.counts().await;
     let rejected = mobile
-        .write(0, Some(&attachment), true, &post(), 223, Utc::now())
+        .write_public(0, Some(&attachment), &post(), 223, Utc::now())
         .await;
     assert!(matches!(
         rejected,
         Err(StoreError::AutomaticRangeRejected {
-            cookie_refreshed: false
+            cookie_refreshed: true
         })
     ));
     assert_eq!(f.counts().await, before);
@@ -1959,7 +2099,7 @@ async fn automatic_range_refusal(f: &Fixture) {
     .unwrap();
     assert!(matches!(
         mobile
-            .write(0, Some(&attachment), true, &post(), 230, Utc::now())
+            .write_public(0, Some(&attachment), &post(), 230, Utc::now())
             .await,
         Err(StoreError::NotFound)
     ));
@@ -1975,7 +2115,7 @@ async fn automatic_range_refusal(f: &Fixture) {
     .execute(&f.owner)
     .await
     .unwrap();
-    let rejected = mobile.write(0, None, true, &post(), 224, Utc::now()).await;
+    let rejected = mobile.write_public(0, None, &post(), 224, Utc::now()).await;
     assert!(
         matches!(rejected, Err(StoreError::ContentRejected(message)) if message.contains("permanently blocked"))
     );
@@ -1991,7 +2131,7 @@ async fn automatic_range_refusal(f: &Fixture) {
         .unwrap();
     // A reply has a positive parent; this event is only for parent zero.
     mobile
-        .write(target, None, true, &post(), 225, Utc::now())
+        .write_public(target, None, &post(), 225, Utc::now())
         .await
         .unwrap();
     // Badged normal-board posts retain the source filter-scope exemption.
@@ -2017,16 +2157,18 @@ async fn automatic_range_refusal(f: &Fixture) {
         "Deleting the target must not erase its active event"
     );
     assert!(matches!(
-        mobile.write(0, None, true, &post(), 229, Utc::now()).await,
+        mobile.write_public(0, None, &post(), 229, Utc::now()).await,
         Err(StoreError::AutomaticRangeRejected {
-            cookie_refreshed: false
+            cookie_refreshed: true
         })
     ));
     assert_eq!(automatic_stats(f).await, (1, 2));
     let mut unknown = mobile.clone();
     unknown.hints = None;
     assert!(matches!(
-        unknown.write(0, None, true, &post(), 227, Utc::now()).await,
+        unknown
+            .write_public(0, None, &post(), 227, Utc::now())
+            .await,
         Err(StoreError::Database(_))
     ));
     assert_eq!(automatic_stats(f).await, (1, 2));
@@ -2040,7 +2182,7 @@ async fn automatic_range_refusal(f: &Fixture) {
         .bind(&f.board).execute(&mut *tx).await.unwrap();
     tx.commit().await.unwrap();
     mobile
-        .write(0, None, true, &post(), 228, Utc::now())
+        .write_public(0, None, &post(), 228, Utc::now())
         .await
         .unwrap();
     assert_eq!(automatic_stats(f).await, (1, 2));
@@ -2148,7 +2290,7 @@ async fn automatic_policy_locks(f: &Fixture) {
         .await
         .unwrap();
     let writer =
-        tokio::spawn(async move { mobile.write(0, None, true, &post(), 232, Utc::now()).await });
+        tokio::spawn(async move { mobile.write_public(0, None, &post(), 232, Utc::now()).await });
     wait_for_policy_blocker(&f.owner, blocker).await;
     assert!(!writer.is_finished());
     held.commit().await.unwrap();
@@ -2159,7 +2301,7 @@ async fn automatic_policy_locks(f: &Fixture) {
     assert!(matches!(
         result,
         Err(StoreError::AutomaticRangeRejected {
-            cookie_refreshed: false
+            cookie_refreshed: true
         })
     ));
     assert_eq!(automatic_stats(f).await, (1, 1));

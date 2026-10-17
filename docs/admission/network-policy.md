@@ -1,12 +1,13 @@
 # Source network policy
 
 Network admission is under development for issue #212. IPv4 range rules now
-run in the posting transaction, including ordinary staff posts. Migration 0178
-adds private operator-owned rules and a scoped reader; it installs no rules.
+run in the public posting transaction. Verified staff use the source
+[authenticated bypass](staff-network-bypass.md), including unbadged posts.
+Migration 0178 adds private operator-owned rules and a scoped reader; it installs no rules.
 The offline ASN provider and bounded browser/request hints are wired into
 public and staff posting. [Report admission](report-network-policy.md) now has
-a transaction-local implementation under qualification. Automatic range bans
-and trusted bypass behavior remain unfinished.
+a transaction-local implementation under qualification. Automatic-range event
+production and trusted Pass/local-auth bypass behavior remain unfinished.
 
 ## Covered decisions
 
@@ -78,10 +79,10 @@ fail closed only when the corresponding ordered stage is applicable; expired,
 out-of-scope or report-only rules do not require posting providers.
 [Browser and request hints](network-hints.md) use bounded server-side derivation
 and a fresh operator-managed key. Source embedded constants and private
-production lists must not be copied. Bypass eligibility and the mobile
-automatic-range stage still need runtime integration. The
-[automatic-range decision model](automatic-range-policy.md) has source-derived
-fixtures, but does not yet create or enforce events in the application.
+production lists must not be copied. The
+[automatic-range stage](automatic-range-policy.md) now enforces private events;
+its qualified template/ban-request producers remain unfinished. Staff bypass
+authority is checked separately from cosmetic badges and hint values.
 
 The source posting caller uses PHP `ip2long` truthiness to skip IPv6 and
 `0.0.0.0`. This implementation deliberately closes that bypass: configured ASN
@@ -92,9 +93,10 @@ security difference, not a claim that the source applies IPv6 range rules.
 Policy updates share the existing admission generation and transaction locks.
 Database cases cover content/network precedence, rollback, source OP/image
 scope, expiry, unavailable providers, runtime-role denial and updates waiting on
-the shared generation. Ordinary moderator, manager, admin and janitor posts
-cannot bypass a range rule; badged staff retain their existing normal-board
-exemption. Full provider and report qualification remain necessary.
+the shared generation. Authenticated moderator, manager, admin and janitor posts
+bypass network rules after the store checks current session, CSRF, credential,
+role and board scope. The later posting proof still governs acceptance.
+Content rules and fixed identity checks retain their separate ordering.
 
 Current error text distinguishes files, threads and all posts, temporary versus
 permanent blocks, and known/verified leniency. Source error links and the Pass
@@ -110,7 +112,9 @@ with warnings denied.
 Fourteen content-admission, one randomizer and fifteen staff-attachment database
 tests pass. The new cases check fixed identity precedence, content-rule
 short-circuiting, network rejection rollback, shared-generation contention,
-ordinary staff scope and unavailable-provider handling.
+the then-assumed ordinary staff scope and unavailable-provider handling. The
+staff expectations were later corrected after tracing the earlier authentication
+bypass; see [staff network bypass](staff-network-bypass.md).
 
 The actual public HTTP test passes its existing content/generated matrices and
 eight network rejection cases across both posting routes, form encodings and
@@ -134,7 +138,8 @@ checkpoint runs do not establish the result for a changed tree.
 The expanded actual HTTP test passes matching and mapped IPv4, canonical IPv6,
 a different ASN, a successful no-record result, an absent provider and continued
 evaluation of a later range rule. All 30 database cases pass with ASN coverage
-for ordinary staff and the badged `/test/` exception. The staff loader unit also
+under the earlier staff-scope assumption, since corrected by the authenticated
+bypass. The staff loader unit also
 passes valid, missing, relative, directory and malformed database cases.
 Store, public and staff Clippy pass with all targets/features and warnings
 denied. The configuration role-isolation tests pass, and 12 actual-binary

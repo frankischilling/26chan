@@ -123,7 +123,8 @@ extra row detects overflow. A known browser further narrows the lookup. Missing
 browser hints require a scoped lookup so an applicable event cannot be bypassed
 by making that provider unavailable. Desktop and native IPv6 requests skip the
 mobile IPv4 stage. Enforcement follows configured network rules and precedes
-fixed identity checks, within the existing ordinary/test-board filter scope.
+fixed identity checks. The earlier [authenticated staff bypass](staff-network-bypass.md)
+skips the entire network function, including this stage, on ordinary and test boards.
 
 Event writes serialize with posting's shared policy lock. Database tests
 observe contention in both directions and verify that a waiting post sees a
@@ -136,9 +137,10 @@ The supplied source has no later reader for those hit records, but the counter
 does not preserve its seven-day per-attempt audit history.
 
 Active events survive target deletion. Tests also cover earlier content-log
-rollback, configured-rule precedence, OP/reply scope, badged-staff exemption,
+rollback, configured-rule precedence, OP/reply scope, authenticated-staff exemption,
 missing hints and expiry. Actual HTTP checks reject mobile posts through both
-routes without registering their newly minted anonymous sessions. Database
+routes without registering accepted activity. The refusal-cookie path below can
+store newly minted sessions. Database
 lookup failures fail closed, an intentional security difference from the source.
 
 The catalog check initially failed after dump/restore because it interpreted
@@ -162,10 +164,11 @@ expected rows now add only those reviewed keys. Both invented comparison data
 and a changed original actor still fail the guard. The full file-deletion
 upgrade, repeat-action, rollback and restore sequence passes locally.
 
-The application has no live ban-request backend yet. Trusted Pass, local-auth
-and janitor bypass authority also remain unfinished. Cosmetic badges and
-browser hints cannot substitute for those permissions. The source thread-ban
-path does not create these events, so it must not acquire that side effect.
+The application has no live ban-request backend yet. Trusted Pass and local-auth
+bypass authority remain unfinished. Authenticated janitor-or-higher staff now
+use a separate verified bypass. Cosmetic badges and browser hints cannot
+substitute for those permissions. The source thread-ban path does not create
+these events, so it must not acquire that side effect.
 
 ## Refusal cookie state
 
@@ -187,10 +190,10 @@ in a separate transaction. A savepoint isolates cookie-storage failure so it
 cannot erase the independent hit. The public response sets the anonymous cookie
 only after a confirmed commit, with the existing HttpOnly, SameSite, production
 Secure and no-store protections. A typed refusal outcome prevents unrelated
-network errors with similar text from refreshing a cookie. Staff calls without
-an anonymous context retain the refusal and hit without issuing that cookie.
-Supplying verified, route-owned anonymous context for ordinary staff posting
-remains unfinished; this is a remaining caller-parity gap.
+network errors with similar text from refreshing a cookie. Source-authenticated
+staff bypass network-range checks before this branch, including on `/test/`.
+Their accepted-post activity/cookie behavior remains a separate unfinished
+caller path; a public anonymous ownership context must not be reused for it.
 
 If the event has expired or disappeared before refresh, or session storage is
 unavailable, the post remains refused and no cookie is emitted. Fresh-session
