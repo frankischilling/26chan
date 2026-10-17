@@ -1120,10 +1120,8 @@ async fn create_post_in_context(
             tx.rollback().await?;
             // Counter failure cannot turn a definite admission refusal into
             // acceptance. The recorder independently rechecks the live event.
-            let _ = hit.record(pool).await;
-            return Err(StoreError::ContentRejected(
-                crate::content_admission::automatic::REJECTION.into(),
-            ));
+            let cookie_refreshed = hit.record(pool, anonymous).await.unwrap_or(false);
+            return Err(StoreError::AutomaticRangeRejected { cookie_refreshed });
         }
         if let Some(message) = evaluated.identity_rejection().await? {
             // Later admission failures share the posting transaction. Do not

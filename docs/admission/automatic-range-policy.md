@@ -106,9 +106,10 @@ the actual thread ID for an OP, so the target lookup must recover parent zero.
 The current custom-ban API has no template qualifier. Its global-scope flag
 must not activate automatic events; the template workflow still needs work
 under issue #220.
-The source also renews an existing anonymous cookie on automatic refusal.
-That response and server-session lifetime path still need implementation;
-the current rejection leaves anonymous state unchanged.
+The source constructs anonymous state before filtering and reissues its cookie
+on an automatic refusal. Fresh, resumed and idle-reset states can all reach that
+branch. Action registration happens only after post insertion. Cookie issuance
+on refusal is therefore separate from recording a successful action.
 
 ## Event storage and enforcement
 
@@ -165,3 +166,32 @@ The application has no live ban-request backend yet. Trusted Pass, local-auth
 and janitor bypass authority also remain unfinished. Cosmetic badges and
 browser hints cannot substitute for those permissions. The source thread-ban
 path does not create these events, so it must not acquire that side effect.
+
+## Refusal cookie state
+
+Migration 0186 adds a private resume-only operation. It creates fresh zero-action
+state or resumes an existing capability, including fingerprint changes and the
+inclusive seven-day idle reset. It never increments action counts, fills the
+pending-action buffer, updates the last accepted activity, or creates post/report
+memberships. Existing state gets a one-year expiry; expired state cannot be
+revived, including after a row-lock wait.
+
+The public wrapper requires a live matching range event and a read-committed
+transaction. The private operation accepts no counter or verification values.
+Its definition and execution grants participate in the restriction seal. New
+sessions use the existing finite capacity policy and bounded expired-row cleanup.
+The existing opaque capability protocol replaces the original cookie codec.
+
+After the posting transaction rolls back, hit recording and cookie storage run
+in a separate transaction. A savepoint isolates cookie-storage failure so it
+cannot erase the independent hit. The public response sets the anonymous cookie
+only after a confirmed commit, with the existing HttpOnly, SameSite, production
+Secure and no-store protections. A typed refusal outcome prevents unrelated
+network errors with similar text from refreshing a cookie. Staff calls without
+an anonymous context retain the refusal and hit without issuing that cookie.
+Supplying verified, route-owned anonymous context for ordinary staff posting
+remains unfinished; this is a remaining caller-parity gap.
+
+If the event has expired or disappeared before refresh, or session storage is
+unavailable, the post remains refused and no cookie is emitted. Fresh-session
+capacity failure cannot turn a refusal into a post or register accepted activity.

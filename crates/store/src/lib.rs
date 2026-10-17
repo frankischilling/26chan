@@ -72,6 +72,8 @@ use std::time::Duration;
 pub use thread_statistics::{ThreadStatistics, thread_statistics};
 pub use write::*;
 
+pub use content_admission::automatic::REJECTION as AUTOMATIC_RANGE_REJECTION;
+
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
     #[error("Not found.")]
@@ -88,6 +90,8 @@ pub enum StoreError {
     AuthorizationChanged,
     #[error("{0}")]
     ContentRejected(String),
+    #[error("{}", AUTOMATIC_RANGE_REJECTION)]
+    AutomaticRangeRejected { cookie_refreshed: bool },
     #[error("Post accepted.")]
     ContentQuiet { post: i64 },
     #[error("Database unavailable.")]

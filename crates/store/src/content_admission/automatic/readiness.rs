@@ -4,7 +4,9 @@ WITH required(schema_name,function_name,owner_name,arguments,result_type,returns
  ('content','lock_automatic_range_policy','board_admission_owner','16'::oidvector,'void',false,true,ARRAY['board_restriction_owner']::text[]),
  ('restrictions','record_automatic_range','board_restriction_owner','25 20 20'::oidvector,'void',false,false,ARRAY[]::text[]),
  ('content','automatic_range_events','board_restriction_owner','25 20 17 25'::oidvector,'record',true,true,ARRAY['board_public','board_staff']::text[]),
- ('content','record_automatic_range_hit','board_restriction_owner','20 25 20 17 25'::oidvector,'void',false,true,ARRAY['board_public','board_staff']::text[])
+ ('content','record_automatic_range_hit','board_restriction_owner','20 25 20 17 25'::oidvector,'void',false,true,ARRAY['board_public','board_staff']::text[]),
+ ('content','refresh_automatic_range_cookie','board_restriction_owner','20 25 20 17 25 17 17 17 17 16 20'::oidvector,'boolean',false,true,ARRAY['board_public','board_staff']::text[]),
+ ('post_secrets','resume_anonymous_refusal','board_anonymous_owner','17 17 17 17 16 20'::oidvector,'void',false,true,ARRAY['board_restriction_owner']::text[])
 ), runtime AS (
  SELECT oid,rolname FROM pg_catalog.pg_roles WHERE rolname IN
  ('board_public','board_staff','board_auth','board_migrator','board_media','board_media_read','board_media_intake','board_monitor')

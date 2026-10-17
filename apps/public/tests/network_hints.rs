@@ -15,6 +15,7 @@ use tokio::{
 // Independent selected-source vectors in fixtures/network-hints-reference.json.
 const BROWSER: &str = "030393b9b";
 const REQUEST: &str = "6dd64fdb";
+static POLICY_TEST: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 async fn counts(owner: &PgPool, board: &str) -> (i64, i64) {
     sqlx::query_as("SELECT (SELECT count(*) FROM content.posts WHERE board=$1),(SELECT count(*) FROM content.threads WHERE board=$1)")
@@ -29,6 +30,26 @@ async fn request(
     reversed: bool,
     duplicate: bool,
 ) -> (u16, serde_json::Value) {
+    let (status, json, cookies) =
+        request_details(address, board, route, ua, reversed, duplicate, None).await;
+    if json["error"].is_string() {
+        assert!(
+            cookies.is_empty(),
+            "Other network refusals do not issue anonymous cookies"
+        );
+    }
+    (status, json)
+}
+
+async fn request_details(
+    address: SocketAddr,
+    board: &str,
+    route: &str,
+    ua: &str,
+    reversed: bool,
+    duplicate: bool,
+    cookie: Option<&str>,
+) -> (u16, serde_json::Value, Vec<String>) {
     let origin = format!("http://{address}");
     let body =
         "mode=regist&resto=0&name=Anonymous&sub=&com=Owned+request+hint+matrix&pwd=owned-password";
@@ -42,8 +63,11 @@ async fn request(
     } else {
         ""
     };
+    let cookie = cookie
+        .map(|value| format!("Cookie: {value}\r\n"))
+        .unwrap_or_default();
     let wire = format!(
-        "POST /{board}/{route} HTTP/1.1\r\nHost: {address}\r\nOrigin: {origin}\r\nUser-Agent: {ua}\r\nAccept: application/json\r\nReferer: {origin}/{board}/\r\nAccept-Language: en\r\n{fetch}{extra}X-Board-Header-Order: sec-fetch-site,sec-fetch-mode,sec-fetch-dest\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        "POST /{board}/{route} HTTP/1.1\r\nHost: {address}\r\nOrigin: {origin}\r\nUser-Agent: {ua}\r\nAccept: application/json\r\nReferer: {origin}/{board}/\r\nAccept-Language: en\r\n{fetch}{extra}{cookie}X-Board-Header-Order: sec-fetch-site,sec-fetch-mode,sec-fetch-dest\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
     );
     let mut stream = TcpStream::connect(address).await.unwrap();
@@ -63,7 +87,21 @@ async fn request(
         .expect("Owned complete HTTP response");
     let status = head.split_whitespace().nth(1).unwrap().parse().unwrap();
     let json = serde_json::from_str(body).expect("Owned JSON response body");
-    (status, json)
+    let cookies = head
+        .lines()
+        .filter_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case("set-cookie")
+                .then(|| value.trim().to_owned())
+        })
+        .collect::<Vec<_>>();
+    if !cookies.is_empty() {
+        assert!(
+            head.to_ascii_lowercase()
+                .contains("cache-control: no-store")
+        );
+    }
+    (status, json, cookies)
 }
 
 async fn exercise(owner: PgPool, public: PgPool, board: String) {
@@ -188,19 +226,63 @@ async fn exercise(owner: PgPool, public: PgPool, board: String) {
                 let sessions: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.anonymous_sessions")
                     .fetch_one(&task_owner).await.unwrap();
                 for route in ["post", "imgboard.php"] {
-                    let (status, json) = request(address, &task_board, route, "Android/1", false, false).await;
+                    let (status, json, cookies) = request_details(address, &task_board, route, "Android/1", false, false, None).await;
                     assert_eq!(status, 200);
                     assert!(json["error"].as_str().unwrap().contains("temporarily blocked"));
                     assert_eq!(counts(&task_owner, &task_board).await, before);
+                    assert_eq!(cookies.len(), 1);
+                    for attribute in ["Path=/", "Max-Age=31536000", "HttpOnly", "SameSite=Strict"] {
+                        assert!(cookies[0].contains(attribute));
+                    }
+                    let cookie = cookies[0].split(';').next().unwrap().to_owned();
+                    let capability = board_domain::anonymous_session::Capability::parse(cookie.strip_prefix("board-anon=").unwrap()).unwrap();
+                    let token = capability.storage_hash();
+                    let state: serde_json::Value = sqlx::query_scalar("SELECT to_jsonb(s)-'expires_at' FROM post_secrets.anonymous_sessions s WHERE token_hash=$1")
+                        .bind(token.as_slice()).fetch_one(&task_owner).await.unwrap();
+                    for field in ["activity_at","action_at","posts","images","threads","reports","pending","change_score","verified_level"] {
+                        assert_eq!(state[field], 0, "Refusal must not register {field}");
+                    }
+                    sqlx::query("UPDATE post_secrets.anonymous_sessions SET expires_at=floor(extract(epoch FROM clock_timestamp()))::bigint+60 WHERE token_hash=$1")
+                        .bind(token.as_slice()).execute(&task_owner).await.unwrap();
+                    let (status, json, refreshed) = request_details(address, &task_board, route, "Android/1", false, false, Some(&cookie)).await;
+                    assert_eq!(status,200);
+                    assert!(json["error"].as_str().unwrap().contains("temporarily blocked"));
+                    assert_eq!(refreshed.len(),1);
+                    assert_eq!(refreshed[0].split(';').next().unwrap(),cookie);
+                    let (same, lifetime): (bool,bool) = sqlx::query_as("SELECT to_jsonb(s)-'expires_at'=$2,expires_at>floor(extract(epoch FROM clock_timestamp()))::bigint+31535900 FROM post_secrets.anonymous_sessions s WHERE token_hash=$1")
+                        .bind(token.as_slice()).bind(&state).fetch_one(&task_owner).await.unwrap();
+                    assert!(same && lifetime);
+                    // The source's constructor resets idle state before this
+                    // refusal, then serializes it without accepted activity.
+                    sqlx::query("UPDATE post_secrets.anonymous_sessions SET created_at=floor(extract(epoch FROM clock_timestamp()))::bigint-604801,network_at=created_at,address_at=created_at,environment_at=created_at,activity_at=0,action_at=0,verified_level=1,posts=3,images=2,threads=1,reports=4,pending=9,change_score=10 WHERE token_hash=$1")
+                        .bind(token.as_slice()).execute(&task_owner).await.unwrap();
+                    let (status,json,reset)=request_details(address,&task_board,route,"Android/1",false,false,Some(&cookie)).await;
+                    assert_eq!(status,200);
+                    assert!(json["error"].as_str().unwrap().contains("temporarily blocked"));
+                    assert_eq!(reset.len(),1);
+                    assert_eq!(reset[0].split(';').next().unwrap(),cookie);
+                    let reset:bool=sqlx::query_scalar("SELECT created_at>floor(extract(epoch FROM clock_timestamp()))::bigint-30 AND network_at=created_at AND address_at=created_at AND environment_at=created_at AND action_at=created_at AND activity_at=0 AND verified_level=0 AND posts=0 AND images=0 AND threads=0 AND reports=0 AND pending=0 AND change_score=0 FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+                        .bind(token.as_slice()).fetch_one(&task_owner).await.unwrap();
+                    assert!(reset);
                 }
                 let after_sessions: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.anonymous_sessions")
                     .fetch_one(&task_owner).await.unwrap();
-                assert_eq!(after_sessions, sessions, "Automatic refusal cannot register a minted session");
+                assert_eq!(after_sessions, sessions+2, "Refusal stores fresh zero-action state on each route");
+                let limit:i32=sqlx::query_scalar("SELECT session_limit FROM post_secrets.anonymous_policy").fetch_one(&task_owner).await.unwrap();
+                sqlx::query("UPDATE post_secrets.anonymous_policy SET session_limit=1").execute(&task_owner).await.unwrap();
+                let failed_cookie=request_details(address,&task_board,"post","Android/1",false,false,None).await;
+                sqlx::query("UPDATE post_secrets.anonymous_policy SET session_limit=$1").bind(limit).execute(&task_owner).await.unwrap();
+                assert_eq!(failed_cookie.0,200);
+                assert!(failed_cookie.1["error"].as_str().unwrap().contains("temporarily blocked"));
+                assert!(failed_cookie.2.is_empty());
+                let final_sessions:i64=sqlx::query_scalar("SELECT count(*) FROM post_secrets.anonymous_sessions").fetch_one(&task_owner).await.unwrap();
+                assert_eq!(final_sessions,after_sessions);
+                assert_eq!(counts(&task_owner,&task_board).await,before);
                 let mut tx = task_owner.begin().await.unwrap();
                 sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *tx).await.unwrap();
                 let hits: i64 = sqlx::query_scalar("SELECT sum(hit_count)::bigint FROM restrictions.automatic_ranges WHERE board=$1")
                     .bind(&task_board).fetch_one(&mut *tx).await.unwrap();
-                assert_eq!(hits, 2);
+                assert_eq!(hits, 7, "Cookie failure must preserve the independent refusal hit");
                 sqlx::query("SELECT content.lock_automatic_range_policy(true)").execute(&mut *tx).await.unwrap();
                 sqlx::query("DELETE FROM restrictions.automatic_ranges WHERE board=$1")
                     .bind(&task_board).execute(&mut *tx).await.unwrap();
@@ -225,6 +307,7 @@ async fn exercise(owner: PgPool, public: PgPool, board: String) {
 
 #[tokio::test]
 async fn parser_owned_network_hints_drive_both_posting_routes_without_header_claims() {
+    let _guard = POLICY_TEST.lock().await;
     let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -284,6 +367,7 @@ async fn report_request(address: SocketAddr, path: &str, body: Option<&str>) -> 
 
 #[tokio::test]
 async fn report_routes_keep_get_advice_and_apply_parser_hints_before_commit() {
+    let _guard = POLICY_TEST.lock().await;
     assert!(std::env::var("BOARD_TEST_CLUSTER").is_ok_and(|path| {
         path.strip_prefix("/tmp/board-postgres.")
             .is_some_and(|tag| tag.len() == 8 && tag.bytes().all(|b| b.is_ascii_alphanumeric()))

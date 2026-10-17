@@ -1131,6 +1131,9 @@ pub async fn post_message(
         board_store::StoreError::PostingCooldownRejected(rejection) => {
             AppError::Posting(rejection.source_message())
         }
+        board_store::StoreError::AutomaticRangeRejected { .. } => {
+            AppError::Posting(board_store::AUTOMATIC_RANGE_REJECTION.into())
+        }
         board_store::StoreError::Database(error) => AppError::Database(error),
         _ => AppError::Internal,
     })?;

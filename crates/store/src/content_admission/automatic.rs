@@ -64,7 +64,7 @@ struct EventRow {
     observed_at: i64,
 }
 
-pub(crate) const REJECTION: &str = "Posting from your IP range has been temporarily blocked due to abuse. Please verify your e-mail address or try again later.";
+pub const REJECTION: &str = "Posting from your IP range has been temporarily blocked due to abuse. Please verify your e-mail address or try again later.";
 
 /// Private match receipt, never formatted, serialized or returned to a client.
 /// Its recorder rechecks the scoped live event after posting rollback.
@@ -77,7 +77,11 @@ pub(crate) struct Hit {
 }
 
 impl Hit {
-    pub(crate) async fn record(&self, pool: &sqlx::PgPool) -> Result<(), StoreError> {
+    pub(crate) async fn record(
+        &self,
+        pool: &sqlx::PgPool,
+        session: Option<crate::anonymous_session::PostingSession>,
+    ) -> Result<bool, StoreError> {
         let mut tx = pool.begin().await?;
         sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
             .execute(&mut *tx)
@@ -90,8 +94,40 @@ impl Hit {
             .bind(&self.browser)
             .execute(&mut *tx)
             .await?;
+        // Cookie storage failure must not erase the independent refusal hit.
+        // A cookie is emitted only after the outer transaction commits.
+        let refreshed =
+            if let Some(session) = session {
+                sqlx::query("SAVEPOINT automatic_range_cookie")
+                    .execute(&mut *tx)
+                    .await?;
+                let fingerprints = session.fingerprints;
+                let result = sqlx::query_scalar::<_, bool>(
+                "SELECT content.refresh_automatic_range_cookie($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)"
+            ).bind(self.id).bind(&self.board).bind(self.parent)
+                .bind(self.prefix.as_slice()).bind(&self.browser)
+                .bind(fingerprints.token.as_slice()).bind(fingerprints.network.as_slice())
+                .bind(fingerprints.address.as_slice()).bind(fingerprints.environment.as_slice())
+                .bind(session.minted).bind(session.now.timestamp())
+                .fetch_one(&mut *tx).await;
+                let refreshed = match result {
+                    Ok(value) => value,
+                    Err(_) => {
+                        sqlx::query("ROLLBACK TO SAVEPOINT automatic_range_cookie")
+                            .execute(&mut *tx)
+                            .await?;
+                        false
+                    }
+                };
+                sqlx::query("RELEASE SAVEPOINT automatic_range_cookie")
+                    .execute(&mut *tx)
+                    .await?;
+                refreshed
+            } else {
+                false
+            };
         tx.commit().await?;
-        Ok(())
+        Ok(refreshed)
     }
 }
 

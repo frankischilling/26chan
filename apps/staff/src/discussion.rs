@@ -84,7 +84,8 @@ fn store_error(error: StoreError) -> AppError {
         StoreError::ContentRejected(message) => AppError::Posting(message),
         StoreError::Robot9000Rejected(_)
         | StoreError::PublicDeletionRejected(_)
-        | StoreError::ContentQuiet { .. } => AppError::Internal,
+        | StoreError::ContentQuiet { .. }
+        | StoreError::AutomaticRangeRejected { .. } => AppError::Internal,
     }
 }
 

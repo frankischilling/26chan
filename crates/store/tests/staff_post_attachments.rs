@@ -1936,9 +1936,12 @@ async fn automatic_range_refusal(f: &Fixture) {
     let rejected = mobile
         .write(0, Some(&attachment), true, &post(), 223, Utc::now())
         .await;
-    assert!(
-        matches!(rejected, Err(StoreError::ContentRejected(message)) if message.contains("temporarily blocked"))
-    );
+    assert!(matches!(
+        rejected,
+        Err(StoreError::AutomaticRangeRejected {
+            cookie_refreshed: false
+        })
+    ));
     assert_eq!(f.counts().await, before);
     assert_eq!(automatic_stats(f).await, (1, 1));
     let effects: i64 = sqlx::query_scalar("SELECT (SELECT count(*) FROM admission.logs WHERE rule_id=$1)+(SELECT count(*) FROM admission.hits WHERE rule_id=$1)")
@@ -2015,7 +2018,9 @@ async fn automatic_range_refusal(f: &Fixture) {
     );
     assert!(matches!(
         mobile.write(0, None, true, &post(), 229, Utc::now()).await,
-        Err(StoreError::ContentRejected(_))
+        Err(StoreError::AutomaticRangeRejected {
+            cookie_refreshed: false
+        })
     ));
     assert_eq!(automatic_stats(f).await, (1, 2));
     let mut unknown = mobile.clone();
@@ -2151,7 +2156,12 @@ async fn automatic_policy_locks(f: &Fixture) {
         .await
         .unwrap()
         .unwrap();
-    assert!(matches!(result, Err(StoreError::ContentRejected(_))));
+    assert!(matches!(
+        result,
+        Err(StoreError::AutomaticRangeRejected {
+            cookie_refreshed: false
+        })
+    ));
     assert_eq!(automatic_stats(f).await, (1, 1));
 }
 

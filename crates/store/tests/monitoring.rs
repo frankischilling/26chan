@@ -311,6 +311,7 @@ async fn exercise(owner: PgPool, monitor_url: String, fixture: String, capacity:
                 StoreError::AuthorizationChanged => "AuthorizationChanged",
                 StoreError::ContentRejected(_) => "ContentRejected",
                 StoreError::ContentQuiet { .. } => "ContentQuiet",
+                StoreError::AutomaticRangeRejected { .. } => "AutomaticRangeRejected",
                 StoreError::RandomnessUnavailable => "RandomnessUnavailable",
                 StoreError::ReadLimit => "ReadLimit",
                 StoreError::Robot9000Rejected(_) => "Robot9000Rejected",

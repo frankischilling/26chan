@@ -123,6 +123,7 @@ fn storage_error_class(error: &StoreError) -> &'static str {
         StoreError::RandomnessUnavailable => "randomness_unavailable",
         StoreError::ReadLimit => "read_limit",
         StoreError::ContentRejected(_) => "content_rejected",
+        StoreError::AutomaticRangeRejected { .. } => "automatic_range_rejected",
         StoreError::ContentQuiet { .. } => "content_quiet",
         StoreError::Robot9000Rejected(_) => "robot9000_rejected",
         StoreError::PostingCooldownRejected(_) => "posting_cooldown_rejected",
@@ -1241,6 +1242,13 @@ async fn submit_post(
                 );
             }
             return Ok(format.rule_error(&message));
+        }
+        Err(StoreError::AutomaticRangeRejected { cookie_refreshed }) => {
+            let mut response = format.rule_error(board_store::AUTOMATIC_RANGE_REJECTION);
+            if cookie_refreshed {
+                session.append(response.headers_mut(), state.production);
+            }
+            return Ok(response);
         }
         Err(StoreError::ContentQuiet { post: quiet }) => {
             let thread = if form.resto == 0 { quiet } else { form.resto };
