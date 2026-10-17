@@ -48,7 +48,9 @@ fn raw_cookie_and_parsed_cookie_facts_remain_independent() {
     assert_eq!(cookies[1], ("cf_clearance".into(), vec![]));
     headers.insert("cookie", "_tcs=x%2EUTC".parse().unwrap());
     let observed = capture_ordered(&headers, &["cookie"]).unwrap();
-    assert!(matches!(observed.cookies(), U));
+    assert!(
+        matches!(observed.cookies(), A(values) if values == [("_tcs".into(), b"x.UTC".to_vec())])
+    );
     assert_eq!(observed.http_fields()[0].1, b"_tcs=x%2EUTC");
 }
 #[test]
@@ -60,8 +62,9 @@ fn ambiguous_or_noncanonical_cookies_are_unavailable() {
         "a[]=1",
         "0=1",
         "a=\"quoted\"",
-        "a=x+y",
-        "a=x%20y",
+        "a=%",
+        "a=%2",
+        "a=%zz",
         "a=x,y",
         "a=x\\y",
         "a=1;",
@@ -99,19 +102,26 @@ fn accepted_cookie_subset_matches_actual_php_http_parsing() {
     assert_eq!(fixture["pcre_version"], "10.46 2025-08-27");
     assert_eq!(fixture["sapi"], "cli-server");
     let cases = fixture["cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 53);
+    assert_eq!(cases.len(), 109);
     for case in cases {
         let raw = case["raw"].as_str().map(str::as_bytes);
         let parsed = flat_cookies(raw);
         if case["accepted_subset"] == true {
-            let expected: Vec<_> = case["cookies"]
+            let expected: Vec<_> = case["cookie_hex"]
                 .as_array()
                 .unwrap()
                 .iter()
                 .map(|v| {
                     (
                         v[0].as_str().unwrap().to_owned(),
-                        v[1].as_str().unwrap().as_bytes().to_vec(),
+                        v[1].as_str()
+                            .unwrap()
+                            .as_bytes()
+                            .chunks_exact(2)
+                            .map(|pair| {
+                                u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap()
+                            })
+                            .collect(),
                     )
                 })
                 .collect();

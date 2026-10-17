@@ -47,7 +47,7 @@ fn unavailable_facts_do_not_produce_a_low_score() {
         };
         assert!(matches!(score(A(&clean), &origin, input), U));
     }
-    let bad = captured(&[("cookie", "_tcs=x%2eUTC")]);
+    let bad = captured(&[("cookie", "_tcs=x%2GUTC")]);
     assert!(matches!(score(A(&bad), &origin, context()), U));
     let mut input = context();
     input.request_time = A(i64::MAX);

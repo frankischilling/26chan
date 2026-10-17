@@ -129,20 +129,35 @@ changes; capture must happen before such mutations. Values are observations
 of the current request, not independent proof of original wire values.
 
 Raw Cookie headers remain separate from parsed cookie observations. The
-accepted subset contains canonical flat ASCII name/value pairs, with optional
-single spaces after semicolons. Percent escapes, plus signs, quoted values,
-array or normalized names, duplicates and other unsupported syntax leave the
-parsed-cookie provider unavailable. They do not erase the raw header. Empty
+accepted subset contains flat ASCII names and bounded byte values, with optional
+single spaces after semicolons. It decodes valid percent escapes once and retains
+literal plus signs, matching PHP cookie parsing rather than form decoding.
+Mixed digit-leading names such as `4chan_name` are supported. Quoted values,
+array or normalized names, all-numeric names, duplicates, malformed escapes and
+other unsupported syntax leave the parsed-cookie provider unavailable. They do
+not erase the raw header. Empty
 and absent Cookie headers both yield an empty parsed map but remain distinct
 HTTP observations.
 
 The cookie fixture uses an owned loopback PHP server with no application code.
-Its 53 HTTP cases cover 35 accepted cases and 18 deliberately unsupported forms
+Its 109 HTTP cases cover 91 accepted cases and 18 deliberately unsupported forms
 on 64-bit PHP 8.4.24 / PCRE 10.46. This qualifies the chosen subset against that
 SAPI, not every historical deployment. Actual native listener tests cover
-capture off/on, field order, empty cookies, undecoded values, repeated headers
+capture off/on, field order, empty and encoded cookies, repeated headers
 and name collisions. Captured values have no debug or serialization interface;
 callers must not log or persist the raw fields.
+
+The PHP fixture qualifies the cookie helper's raw input subset. Native HTTP
+parsing trims trailing field whitespace before capture; for example, a wire
+`Cookie: a=1 ` becomes the current header value `a=1`. A TCP control covers that
+normalization. It differs from the PHP probe's retained trailing space and is
+not evidence of historical SAPI wire-value equivalence.
+
+The supported values include the application's percent-encoded name and options
+preferences, UTF-8, literal plus, encoded delimiters, NUL and arbitrary escaped
+bytes. Fixture values use hex so invalid UTF-8 does not disappear during JSON
+serialization. Bounds apply before copying or decoding. These observations still
+confer no session or posting authority.
 
 This capture adapter does not supply country, time, session history or form
 fields. The native profile below combines it with explicitly supplied context;

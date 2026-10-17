@@ -26,13 +26,13 @@ if not args.output.parent.is_dir() or args.output.resolve() == php:
 probe = '''<?php
 header('Content-Type: application/json');
 $entries=[];
-foreach ($_COOKIE as $name=>$value) { $entries[]=[(string)$name,$value]; }
+foreach ($_COOKIE as $name=>$value) { $entries[]=[(string)$name,is_string($value)?bin2hex($value):null]; }
 echo json_encode(['php_version'=>PHP_VERSION,'php_int_size'=>PHP_INT_SIZE,
 'pcre_version'=>PCRE_VERSION,'sapi'=>PHP_SAPI,'raw'=>$_SERVER['HTTP_COOKIE']??null,
-'cookies'=>$entries], JSON_THROW_ON_ERROR);
+'cookie_hex'=>$entries], JSON_THROW_ON_ERROR);
 '''
 cases = [(None, True), ("", True)]
-for name in ["a", "_tcs", "cf_clearance", "__Host-board_session", "Case_123-name"]:
+for name in ["a", "_tcs", "cf_clearance", "__Host-board_session", "Case_123-name", "4chan_name", "options"]:
     for value in ["", "0", "abc123", "x.America/New_York.999.33", "a=b", "!#$&'()*-./:<=>?@[]^_`{|}~"]:
         cases.append((name + "=" + value, True))
 cases.extend([
@@ -40,9 +40,17 @@ cases.extend([
     ("_tcs=x.UTC.999.33; cf_clearance=; __Host-board_session=abc", True),
 ])
 for value in ["a=1; a=2", "a.b=1", "a b=1", "a[]=1", "0=1", 'a="quoted"',
-              "a=x+y", "a=x%20y", "a=x,y", "a=x\\y", "a=1;", ";a=1",
-              "a=1;  b=2", "a=1\t", "a", "=1", "a=1 ", "a=%00"]:
+              "a=x,y", "a=x\\y", "a=1;", ";a=1",
+              "a=1;  b=2", "a=1\t", "a", "=1", "a=1 ", "a=%", "a=%2", "a=%zz"]:
     cases.append((value, False))
+for value in ["x+y", "x%20y", "%00", "%FF", "%C3%A9", "%E5%90%8D%20%2B%20%3Cuser%3E",
+              "%25", "%2520", "%3B", "%3D", "%22", "%5C", "%7f", "%0D%0A"]:
+    for name in ["4chan_name", "options", "_tcs"]:
+        cases.append((name + "=" + value, True))
+cases.extend([
+    ("4chan_name=Owned%20Name; options=sage%20nonoko; _tcs=x.UTC.999.33", True),
+    ("_tcs=x%2eAmerica%2fBogota%2e999%2e33", True),
+])
 results = []
 with tempfile.TemporaryDirectory(prefix="board-cookie-qualification-") as root:
     path = pathlib.Path(root)
@@ -76,7 +84,7 @@ with tempfile.TemporaryDirectory(prefix="board-cookie-qualification-") as root:
                     raise RuntimeError("Cookie reference runtime differs.")
                 if data["raw"] != raw:
                     raise RuntimeError("The PHP HTTP parser changed the synthetic Cookie header.")
-                results.append({"raw": raw, "accepted_subset": accepted, "source_raw": data["raw"], "cookies": data["cookies"]})
+                results.append({"raw": raw, "accepted_subset": accepted, "source_raw": data["raw"], "cookie_hex": data["cookie_hex"]})
             finally:
                 connection.close()
     finally:

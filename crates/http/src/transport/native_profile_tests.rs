@@ -99,7 +99,7 @@ async fn native_score_uses_actual_parser_facts_and_server_owned_context() {
             for (extra, valid) in [
                 ("", true),
                 ("User-Agent: duplicate\r\n", false),
-                ("Cookie: _tcs=x%2eUTC\r\n", false),
+                ("Cookie: _tcs=x%2GUTC\r\n", false),
             ] {
                 let mut socket = TcpStream::connect(address).await.unwrap();
                 socket.write_all(format!("GET /{mode} HTTP/1.1\r\nHost: localhost\r\n{fields}{extra}Connection: close\r\n\r\n").as_bytes()).await.unwrap();

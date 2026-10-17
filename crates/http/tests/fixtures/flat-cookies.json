@@ -8,19 +8,19 @@
       "raw": null,
       "accepted_subset": true,
       "source_raw": null,
-      "cookies": []
+      "cookie_hex": []
     },
     {
       "raw": "",
       "accepted_subset": true,
       "source_raw": "",
-      "cookies": []
+      "cookie_hex": []
     },
     {
       "raw": "a=",
       "accepted_subset": true,
       "source_raw": "a=",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
           ""
@@ -31,10 +31,10 @@
       "raw": "a=0",
       "accepted_subset": true,
       "source_raw": "a=0",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "0"
+          "30"
         ]
       ]
     },
@@ -42,10 +42,10 @@
       "raw": "a=abc123",
       "accepted_subset": true,
       "source_raw": "a=abc123",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "abc123"
+          "616263313233"
         ]
       ]
     },
@@ -53,10 +53,10 @@
       "raw": "a=x.America/New_York.999.33",
       "accepted_subset": true,
       "source_raw": "a=x.America/New_York.999.33",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "x.America/New_York.999.33"
+          "782e416d65726963612f4e65775f596f726b2e3939392e3333"
         ]
       ]
     },
@@ -64,10 +64,10 @@
       "raw": "a=a=b",
       "accepted_subset": true,
       "source_raw": "a=a=b",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "a=b"
+          "613d62"
         ]
       ]
     },
@@ -75,10 +75,10 @@
       "raw": "a=!#$&'()*-./:<=>?@[]^_`{|}~",
       "accepted_subset": true,
       "source_raw": "a=!#$&'()*-./:<=>?@[]^_`{|}~",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "!#$&'()*-./:<=>?@[]^_`{|}~"
+          "212324262728292a2d2e2f3a3c3d3e3f405b5d5e5f607b7c7d7e"
         ]
       ]
     },
@@ -86,7 +86,7 @@
       "raw": "_tcs=",
       "accepted_subset": true,
       "source_raw": "_tcs=",
-      "cookies": [
+      "cookie_hex": [
         [
           "_tcs",
           ""
@@ -97,10 +97,10 @@
       "raw": "_tcs=0",
       "accepted_subset": true,
       "source_raw": "_tcs=0",
-      "cookies": [
+      "cookie_hex": [
         [
           "_tcs",
-          "0"
+          "30"
         ]
       ]
     },
@@ -108,10 +108,10 @@
       "raw": "_tcs=abc123",
       "accepted_subset": true,
       "source_raw": "_tcs=abc123",
-      "cookies": [
+      "cookie_hex": [
         [
           "_tcs",
-          "abc123"
+          "616263313233"
         ]
       ]
     },
@@ -119,10 +119,10 @@
       "raw": "_tcs=x.America/New_York.999.33",
       "accepted_subset": true,
       "source_raw": "_tcs=x.America/New_York.999.33",
-      "cookies": [
+      "cookie_hex": [
         [
           "_tcs",
-          "x.America/New_York.999.33"
+          "782e416d65726963612f4e65775f596f726b2e3939392e3333"
         ]
       ]
     },
@@ -130,10 +130,10 @@
       "raw": "_tcs=a=b",
       "accepted_subset": true,
       "source_raw": "_tcs=a=b",
-      "cookies": [
+      "cookie_hex": [
         [
           "_tcs",
-          "a=b"
+          "613d62"
         ]
       ]
     },
@@ -141,10 +141,10 @@
       "raw": "_tcs=!#$&'()*-./:<=>?@[]^_`{|}~",
       "accepted_subset": true,
       "source_raw": "_tcs=!#$&'()*-./:<=>?@[]^_`{|}~",
-      "cookies": [
+      "cookie_hex": [
         [
           "_tcs",
-          "!#$&'()*-./:<=>?@[]^_`{|}~"
+          "212324262728292a2d2e2f3a3c3d3e3f405b5d5e5f607b7c7d7e"
         ]
       ]
     },
@@ -152,7 +152,7 @@
       "raw": "cf_clearance=",
       "accepted_subset": true,
       "source_raw": "cf_clearance=",
-      "cookies": [
+      "cookie_hex": [
         [
           "cf_clearance",
           ""
@@ -163,10 +163,10 @@
       "raw": "cf_clearance=0",
       "accepted_subset": true,
       "source_raw": "cf_clearance=0",
-      "cookies": [
+      "cookie_hex": [
         [
           "cf_clearance",
-          "0"
+          "30"
         ]
       ]
     },
@@ -174,10 +174,10 @@
       "raw": "cf_clearance=abc123",
       "accepted_subset": true,
       "source_raw": "cf_clearance=abc123",
-      "cookies": [
+      "cookie_hex": [
         [
           "cf_clearance",
-          "abc123"
+          "616263313233"
         ]
       ]
     },
@@ -185,10 +185,10 @@
       "raw": "cf_clearance=x.America/New_York.999.33",
       "accepted_subset": true,
       "source_raw": "cf_clearance=x.America/New_York.999.33",
-      "cookies": [
+      "cookie_hex": [
         [
           "cf_clearance",
-          "x.America/New_York.999.33"
+          "782e416d65726963612f4e65775f596f726b2e3939392e3333"
         ]
       ]
     },
@@ -196,10 +196,10 @@
       "raw": "cf_clearance=a=b",
       "accepted_subset": true,
       "source_raw": "cf_clearance=a=b",
-      "cookies": [
+      "cookie_hex": [
         [
           "cf_clearance",
-          "a=b"
+          "613d62"
         ]
       ]
     },
@@ -207,10 +207,10 @@
       "raw": "cf_clearance=!#$&'()*-./:<=>?@[]^_`{|}~",
       "accepted_subset": true,
       "source_raw": "cf_clearance=!#$&'()*-./:<=>?@[]^_`{|}~",
-      "cookies": [
+      "cookie_hex": [
         [
           "cf_clearance",
-          "!#$&'()*-./:<=>?@[]^_`{|}~"
+          "212324262728292a2d2e2f3a3c3d3e3f405b5d5e5f607b7c7d7e"
         ]
       ]
     },
@@ -218,7 +218,7 @@
       "raw": "__Host-board_session=",
       "accepted_subset": true,
       "source_raw": "__Host-board_session=",
-      "cookies": [
+      "cookie_hex": [
         [
           "__Host-board_session",
           ""
@@ -229,10 +229,10 @@
       "raw": "__Host-board_session=0",
       "accepted_subset": true,
       "source_raw": "__Host-board_session=0",
-      "cookies": [
+      "cookie_hex": [
         [
           "__Host-board_session",
-          "0"
+          "30"
         ]
       ]
     },
@@ -240,10 +240,10 @@
       "raw": "__Host-board_session=abc123",
       "accepted_subset": true,
       "source_raw": "__Host-board_session=abc123",
-      "cookies": [
+      "cookie_hex": [
         [
           "__Host-board_session",
-          "abc123"
+          "616263313233"
         ]
       ]
     },
@@ -251,10 +251,10 @@
       "raw": "__Host-board_session=x.America/New_York.999.33",
       "accepted_subset": true,
       "source_raw": "__Host-board_session=x.America/New_York.999.33",
-      "cookies": [
+      "cookie_hex": [
         [
           "__Host-board_session",
-          "x.America/New_York.999.33"
+          "782e416d65726963612f4e65775f596f726b2e3939392e3333"
         ]
       ]
     },
@@ -262,10 +262,10 @@
       "raw": "__Host-board_session=a=b",
       "accepted_subset": true,
       "source_raw": "__Host-board_session=a=b",
-      "cookies": [
+      "cookie_hex": [
         [
           "__Host-board_session",
-          "a=b"
+          "613d62"
         ]
       ]
     },
@@ -273,10 +273,10 @@
       "raw": "__Host-board_session=!#$&'()*-./:<=>?@[]^_`{|}~",
       "accepted_subset": true,
       "source_raw": "__Host-board_session=!#$&'()*-./:<=>?@[]^_`{|}~",
-      "cookies": [
+      "cookie_hex": [
         [
           "__Host-board_session",
-          "!#$&'()*-./:<=>?@[]^_`{|}~"
+          "212324262728292a2d2e2f3a3c3d3e3f405b5d5e5f607b7c7d7e"
         ]
       ]
     },
@@ -284,7 +284,7 @@
       "raw": "Case_123-name=",
       "accepted_subset": true,
       "source_raw": "Case_123-name=",
-      "cookies": [
+      "cookie_hex": [
         [
           "Case_123-name",
           ""
@@ -295,10 +295,10 @@
       "raw": "Case_123-name=0",
       "accepted_subset": true,
       "source_raw": "Case_123-name=0",
-      "cookies": [
+      "cookie_hex": [
         [
           "Case_123-name",
-          "0"
+          "30"
         ]
       ]
     },
@@ -306,10 +306,10 @@
       "raw": "Case_123-name=abc123",
       "accepted_subset": true,
       "source_raw": "Case_123-name=abc123",
-      "cookies": [
+      "cookie_hex": [
         [
           "Case_123-name",
-          "abc123"
+          "616263313233"
         ]
       ]
     },
@@ -317,10 +317,10 @@
       "raw": "Case_123-name=x.America/New_York.999.33",
       "accepted_subset": true,
       "source_raw": "Case_123-name=x.America/New_York.999.33",
-      "cookies": [
+      "cookie_hex": [
         [
           "Case_123-name",
-          "x.America/New_York.999.33"
+          "782e416d65726963612f4e65775f596f726b2e3939392e3333"
         ]
       ]
     },
@@ -328,10 +328,10 @@
       "raw": "Case_123-name=a=b",
       "accepted_subset": true,
       "source_raw": "Case_123-name=a=b",
-      "cookies": [
+      "cookie_hex": [
         [
           "Case_123-name",
-          "a=b"
+          "613d62"
         ]
       ]
     },
@@ -339,10 +339,142 @@
       "raw": "Case_123-name=!#$&'()*-./:<=>?@[]^_`{|}~",
       "accepted_subset": true,
       "source_raw": "Case_123-name=!#$&'()*-./:<=>?@[]^_`{|}~",
-      "cookies": [
+      "cookie_hex": [
         [
           "Case_123-name",
-          "!#$&'()*-./:<=>?@[]^_`{|}~"
+          "212324262728292a2d2e2f3a3c3d3e3f405b5d5e5f607b7c7d7e"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          ""
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=0",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=0",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "30"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=abc123",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=abc123",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "616263313233"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=x.America/New_York.999.33",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=x.America/New_York.999.33",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "782e416d65726963612f4e65775f596f726b2e3939392e3333"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=a=b",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=a=b",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "613d62"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "212324262728292a2d2e2f3a3c3d3e3f405b5d5e5f607b7c7d7e"
+        ]
+      ]
+    },
+    {
+      "raw": "options=",
+      "accepted_subset": true,
+      "source_raw": "options=",
+      "cookie_hex": [
+        [
+          "options",
+          ""
+        ]
+      ]
+    },
+    {
+      "raw": "options=0",
+      "accepted_subset": true,
+      "source_raw": "options=0",
+      "cookie_hex": [
+        [
+          "options",
+          "30"
+        ]
+      ]
+    },
+    {
+      "raw": "options=abc123",
+      "accepted_subset": true,
+      "source_raw": "options=abc123",
+      "cookie_hex": [
+        [
+          "options",
+          "616263313233"
+        ]
+      ]
+    },
+    {
+      "raw": "options=x.America/New_York.999.33",
+      "accepted_subset": true,
+      "source_raw": "options=x.America/New_York.999.33",
+      "cookie_hex": [
+        [
+          "options",
+          "782e416d65726963612f4e65775f596f726b2e3939392e3333"
+        ]
+      ]
+    },
+    {
+      "raw": "options=a=b",
+      "accepted_subset": true,
+      "source_raw": "options=a=b",
+      "cookie_hex": [
+        [
+          "options",
+          "613d62"
+        ]
+      ]
+    },
+    {
+      "raw": "options=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "accepted_subset": true,
+      "source_raw": "options=!#$&'()*-./:<=>?@[]^_`{|}~",
+      "cookie_hex": [
+        [
+          "options",
+          "212324262728292a2d2e2f3a3c3d3e3f405b5d5e5f607b7c7d7e"
         ]
       ]
     },
@@ -350,14 +482,14 @@
       "raw": "a=1; b=2",
       "accepted_subset": true,
       "source_raw": "a=1; b=2",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "1"
+          "31"
         ],
         [
           "b",
-          "2"
+          "32"
         ]
       ]
     },
@@ -365,14 +497,14 @@
       "raw": "a=1;b=2",
       "accepted_subset": true,
       "source_raw": "a=1;b=2",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "1"
+          "31"
         ],
         [
           "b",
-          "2"
+          "32"
         ]
       ]
     },
@@ -380,10 +512,10 @@
       "raw": "_tcs=x.UTC.999.33; cf_clearance=; __Host-board_session=abc",
       "accepted_subset": true,
       "source_raw": "_tcs=x.UTC.999.33; cf_clearance=; __Host-board_session=abc",
-      "cookies": [
+      "cookie_hex": [
         [
           "_tcs",
-          "x.UTC.999.33"
+          "782e5554432e3939392e3333"
         ],
         [
           "cf_clearance",
@@ -391,7 +523,7 @@
         ],
         [
           "__Host-board_session",
-          "abc"
+          "616263"
         ]
       ]
     },
@@ -399,10 +531,10 @@
       "raw": "a=1; a=2",
       "accepted_subset": false,
       "source_raw": "a=1; a=2",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "1"
+          "31"
         ]
       ]
     },
@@ -410,10 +542,10 @@
       "raw": "a.b=1",
       "accepted_subset": false,
       "source_raw": "a.b=1",
-      "cookies": [
+      "cookie_hex": [
         [
           "a_b",
-          "1"
+          "31"
         ]
       ]
     },
@@ -421,10 +553,10 @@
       "raw": "a b=1",
       "accepted_subset": false,
       "source_raw": "a b=1",
-      "cookies": [
+      "cookie_hex": [
         [
           "a_b",
-          "1"
+          "31"
         ]
       ]
     },
@@ -432,12 +564,10 @@
       "raw": "a[]=1",
       "accepted_subset": false,
       "source_raw": "a[]=1",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          [
-            "1"
-          ]
+          null
         ]
       ]
     },
@@ -445,10 +575,10 @@
       "raw": "0=1",
       "accepted_subset": false,
       "source_raw": "0=1",
-      "cookies": [
+      "cookie_hex": [
         [
           "0",
-          "1"
+          "31"
         ]
       ]
     },
@@ -456,32 +586,10 @@
       "raw": "a=\"quoted\"",
       "accepted_subset": false,
       "source_raw": "a=\"quoted\"",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "\"quoted\""
-        ]
-      ]
-    },
-    {
-      "raw": "a=x+y",
-      "accepted_subset": false,
-      "source_raw": "a=x+y",
-      "cookies": [
-        [
-          "a",
-          "x+y"
-        ]
-      ]
-    },
-    {
-      "raw": "a=x%20y",
-      "accepted_subset": false,
-      "source_raw": "a=x%20y",
-      "cookies": [
-        [
-          "a",
-          "x y"
+          "2271756f74656422"
         ]
       ]
     },
@@ -489,10 +597,10 @@
       "raw": "a=x,y",
       "accepted_subset": false,
       "source_raw": "a=x,y",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "x,y"
+          "782c79"
         ]
       ]
     },
@@ -500,10 +608,10 @@
       "raw": "a=x\\y",
       "accepted_subset": false,
       "source_raw": "a=x\\y",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "x\\y"
+          "785c79"
         ]
       ]
     },
@@ -511,10 +619,10 @@
       "raw": "a=1;",
       "accepted_subset": false,
       "source_raw": "a=1;",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "1"
+          "31"
         ]
       ]
     },
@@ -522,10 +630,10 @@
       "raw": ";a=1",
       "accepted_subset": false,
       "source_raw": ";a=1",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "1"
+          "31"
         ]
       ]
     },
@@ -533,14 +641,14 @@
       "raw": "a=1;  b=2",
       "accepted_subset": false,
       "source_raw": "a=1;  b=2",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "1"
+          "31"
         ],
         [
           "b",
-          "2"
+          "32"
         ]
       ]
     },
@@ -548,10 +656,10 @@
       "raw": "a=1\t",
       "accepted_subset": false,
       "source_raw": "a=1\t",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "1\t"
+          "3109"
         ]
       ]
     },
@@ -559,7 +667,7 @@
       "raw": "a",
       "accepted_subset": false,
       "source_raw": "a",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
           ""
@@ -570,27 +678,541 @@
       "raw": "=1",
       "accepted_subset": false,
       "source_raw": "=1",
-      "cookies": []
+      "cookie_hex": []
     },
     {
       "raw": "a=1 ",
       "accepted_subset": false,
       "source_raw": "a=1 ",
-      "cookies": [
+      "cookie_hex": [
         [
           "a",
-          "1 "
+          "3120"
         ]
       ]
     },
     {
-      "raw": "a=%00",
+      "raw": "a=%",
       "accepted_subset": false,
-      "source_raw": "a=%00",
-      "cookies": [
+      "source_raw": "a=%",
+      "cookie_hex": [
         [
           "a",
-          "\u0000"
+          "25"
+        ]
+      ]
+    },
+    {
+      "raw": "a=%2",
+      "accepted_subset": false,
+      "source_raw": "a=%2",
+      "cookie_hex": [
+        [
+          "a",
+          "2532"
+        ]
+      ]
+    },
+    {
+      "raw": "a=%zz",
+      "accepted_subset": false,
+      "source_raw": "a=%zz",
+      "cookie_hex": [
+        [
+          "a",
+          "257a7a"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=x+y",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=x+y",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "782b79"
+        ]
+      ]
+    },
+    {
+      "raw": "options=x+y",
+      "accepted_subset": true,
+      "source_raw": "options=x+y",
+      "cookie_hex": [
+        [
+          "options",
+          "782b79"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=x+y",
+      "accepted_subset": true,
+      "source_raw": "_tcs=x+y",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "782b79"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=x%20y",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=x%20y",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "782079"
+        ]
+      ]
+    },
+    {
+      "raw": "options=x%20y",
+      "accepted_subset": true,
+      "source_raw": "options=x%20y",
+      "cookie_hex": [
+        [
+          "options",
+          "782079"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=x%20y",
+      "accepted_subset": true,
+      "source_raw": "_tcs=x%20y",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "782079"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=%00",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=%00",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "00"
+        ]
+      ]
+    },
+    {
+      "raw": "options=%00",
+      "accepted_subset": true,
+      "source_raw": "options=%00",
+      "cookie_hex": [
+        [
+          "options",
+          "00"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=%00",
+      "accepted_subset": true,
+      "source_raw": "_tcs=%00",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "00"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=%FF",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=%FF",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "ff"
+        ]
+      ]
+    },
+    {
+      "raw": "options=%FF",
+      "accepted_subset": true,
+      "source_raw": "options=%FF",
+      "cookie_hex": [
+        [
+          "options",
+          "ff"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=%FF",
+      "accepted_subset": true,
+      "source_raw": "_tcs=%FF",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "ff"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=%C3%A9",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=%C3%A9",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "c3a9"
+        ]
+      ]
+    },
+    {
+      "raw": "options=%C3%A9",
+      "accepted_subset": true,
+      "source_raw": "options=%C3%A9",
+      "cookie_hex": [
+        [
+          "options",
+          "c3a9"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=%C3%A9",
+      "accepted_subset": true,
+      "source_raw": "_tcs=%C3%A9",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "c3a9"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=%E5%90%8D%20%2B%20%3Cuser%3E",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=%E5%90%8D%20%2B%20%3Cuser%3E",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "e5908d202b203c757365723e"
+        ]
+      ]
+    },
+    {
+      "raw": "options=%E5%90%8D%20%2B%20%3Cuser%3E",
+      "accepted_subset": true,
+      "source_raw": "options=%E5%90%8D%20%2B%20%3Cuser%3E",
+      "cookie_hex": [
+        [
+          "options",
+          "e5908d202b203c757365723e"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=%E5%90%8D%20%2B%20%3Cuser%3E",
+      "accepted_subset": true,
+      "source_raw": "_tcs=%E5%90%8D%20%2B%20%3Cuser%3E",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "e5908d202b203c757365723e"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=%25",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=%25",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "25"
+        ]
+      ]
+    },
+    {
+      "raw": "options=%25",
+      "accepted_subset": true,
+      "source_raw": "options=%25",
+      "cookie_hex": [
+        [
+          "options",
+          "25"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=%25",
+      "accepted_subset": true,
+      "source_raw": "_tcs=%25",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "25"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=%2520",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=%2520",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "253230"
+        ]
+      ]
+    },
+    {
+      "raw": "options=%2520",
+      "accepted_subset": true,
+      "source_raw": "options=%2520",
+      "cookie_hex": [
+        [
+          "options",
+          "253230"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=%2520",
+      "accepted_subset": true,
+      "source_raw": "_tcs=%2520",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "253230"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=%3B",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=%3B",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "3b"
+        ]
+      ]
+    },
+    {
+      "raw": "options=%3B",
+      "accepted_subset": true,
+      "source_raw": "options=%3B",
+      "cookie_hex": [
+        [
+          "options",
+          "3b"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=%3B",
+      "accepted_subset": true,
+      "source_raw": "_tcs=%3B",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "3b"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=%3D",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=%3D",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "3d"
+        ]
+      ]
+    },
+    {
+      "raw": "options=%3D",
+      "accepted_subset": true,
+      "source_raw": "options=%3D",
+      "cookie_hex": [
+        [
+          "options",
+          "3d"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=%3D",
+      "accepted_subset": true,
+      "source_raw": "_tcs=%3D",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "3d"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=%22",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=%22",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "22"
+        ]
+      ]
+    },
+    {
+      "raw": "options=%22",
+      "accepted_subset": true,
+      "source_raw": "options=%22",
+      "cookie_hex": [
+        [
+          "options",
+          "22"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=%22",
+      "accepted_subset": true,
+      "source_raw": "_tcs=%22",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "22"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=%5C",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=%5C",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "5c"
+        ]
+      ]
+    },
+    {
+      "raw": "options=%5C",
+      "accepted_subset": true,
+      "source_raw": "options=%5C",
+      "cookie_hex": [
+        [
+          "options",
+          "5c"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=%5C",
+      "accepted_subset": true,
+      "source_raw": "_tcs=%5C",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "5c"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=%7f",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=%7f",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "7f"
+        ]
+      ]
+    },
+    {
+      "raw": "options=%7f",
+      "accepted_subset": true,
+      "source_raw": "options=%7f",
+      "cookie_hex": [
+        [
+          "options",
+          "7f"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=%7f",
+      "accepted_subset": true,
+      "source_raw": "_tcs=%7f",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "7f"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=%0D%0A",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=%0D%0A",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "0d0a"
+        ]
+      ]
+    },
+    {
+      "raw": "options=%0D%0A",
+      "accepted_subset": true,
+      "source_raw": "options=%0D%0A",
+      "cookie_hex": [
+        [
+          "options",
+          "0d0a"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=%0D%0A",
+      "accepted_subset": true,
+      "source_raw": "_tcs=%0D%0A",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "0d0a"
+        ]
+      ]
+    },
+    {
+      "raw": "4chan_name=Owned%20Name; options=sage%20nonoko; _tcs=x.UTC.999.33",
+      "accepted_subset": true,
+      "source_raw": "4chan_name=Owned%20Name; options=sage%20nonoko; _tcs=x.UTC.999.33",
+      "cookie_hex": [
+        [
+          "4chan_name",
+          "4f776e6564204e616d65"
+        ],
+        [
+          "options",
+          "73616765206e6f6e6f6b6f"
+        ],
+        [
+          "_tcs",
+          "782e5554432e3939392e3333"
+        ]
+      ]
+    },
+    {
+      "raw": "_tcs=x%2eAmerica%2fBogota%2e999%2e33",
+      "accepted_subset": true,
+      "source_raw": "_tcs=x%2eAmerica%2fBogota%2e999%2e33",
+      "cookie_hex": [
+        [
+          "_tcs",
+          "782e416d65726963612f426f676f74612e3939392e3333"
         ]
       ]
     }

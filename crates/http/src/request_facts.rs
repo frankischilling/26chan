@@ -84,8 +84,8 @@ fn capture_ordered(headers: &HeaderMap, names: &[&str]) -> Option<CapturedReques
     })
 }
 
-// Only canonical flat ASCII cookie pairs. PHP decoding/name normalization,
-// arrays, duplicate handling and quoted values are outside this subset.
+// Flat ASCII cookie names and PHP raw-URL-decoded byte values. Name
+// normalization, arrays, duplicate handling and quoted values remain unavailable.
 fn flat_cookies(raw: Option<&[u8]>) -> Option<Vec<(String, Vec<u8>)>> {
     let Some(raw) = raw else {
         return Some(Vec::new());
@@ -105,13 +105,14 @@ fn flat_cookies(raw: Option<&[u8]>) -> Option<Vec<(String, Vec<u8>)>> {
         if name.is_empty()
             || name.len() > 128
             || result.len() == 256
-            || !(name[0].is_ascii_alphabetic() || name[0] == b'_')
+            || !(name[0].is_ascii_alphanumeric() || name[0] == b'_')
+            || name.iter().all(u8::is_ascii_digit)
             || !name
                 .iter()
                 .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
-            || !value.iter().all(|b| {
-                matches!(b, 0x21..=0x7e) && !matches!(b, b'"' | b',' | b';' | b'\\' | b'%' | b'+')
-            })
+            || !value
+                .iter()
+                .all(|b| matches!(b, 0x21..=0x7e) && !matches!(b, b'"' | b',' | b';' | b'\\'))
         {
             return None;
         }
@@ -119,9 +120,34 @@ fn flat_cookies(raw: Option<&[u8]>) -> Option<Vec<(String, Vec<u8>)>> {
         if result.iter().any(|(prior, _)| prior == name) {
             return None;
         }
-        result.push((name.into(), value.to_vec()));
+        result.push((name.into(), decode_cookie_value(value)?));
     }
     Some(result)
+}
+
+fn decode_cookie_value(value: &[u8]) -> Option<Vec<u8>> {
+    fn hex(byte: u8) -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            b'A'..=b'F' => Some(byte - b'A' + 10),
+            _ => None,
+        }
+    }
+    let mut decoded = Vec::with_capacity(value.len());
+    let mut at = 0;
+    while at < value.len() {
+        if value[at] == b'%' {
+            decoded.push(hex(*value.get(at + 1)?)? * 16 + hex(*value.get(at + 2)?)?);
+            at += 3;
+        } else {
+            // PHP cookie parsing preserves literal plus; form decoding would
+            // incorrectly replace it with a space. Decode percent escapes once.
+            decoded.push(value[at]);
+            at += 1;
+        }
+    }
+    Some(decoded)
 }
 
 #[cfg(test)]

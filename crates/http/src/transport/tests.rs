@@ -939,6 +939,19 @@ async fn request_fact_capture_uses_wire_order_and_rejects_ambiguous_fields() {
             ),
             (
                 "Cookie: a=x%20y\r\n",
+                "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=1",
+            ),
+            (
+                // Native HTTP parsing trims trailing field OWS before capture.
+                "Cookie: a=1 \t\r\n",
+                "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=1",
+            ),
+            (
+                "Cookie: 4chan_name=Owned%20Name; options=sage%20nonoko\r\n",
+                "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=2",
+            ),
+            (
+                "Cookie: a=x%2Gy\r\n",
                 "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=unknown",
             ),
             (
