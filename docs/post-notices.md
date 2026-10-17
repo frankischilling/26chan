@@ -91,3 +91,12 @@ source checks reject quoted references or use outside parse5. Public exports,
 application properties, parsing checks and the size limit are unchanged.
 The regenerated worker is 262,086 bytes. All generated-file checks and 68
 focused filter, updater, auto-watch, semantic-reply and flag tests pass locally.
+
+The subsequent media/operations run found a historical erasure fixture that
+still expected pre-notice post rows. Its saved rows now gain only the empty
+notice array introduced by migration 0203. The test also seeds a live notice,
+requires deletion to erase it, and rejects restoring it on a tombstone.
+Controls confirm that invented notices and changes to older historical fields
+still fail preservation. The failure reproduces before the fixture correction;
+the complete local upgrade/erasure/restore sequence passes afterward. Runtime
+erasure code and permissions are unchanged.
