@@ -127,3 +127,11 @@ The migration preserves existing accounts, credentials, sessions, and intents.
 A future file-filter effect writer must likewise revalidate authority at its
 commit boundary. The early, nonlocking network-bypass check is insufficient for
 that purpose.
+
+The bootstrap permission check allows only the credential `id` update privilege
+needed for this lock. The earlier assertion rejected every credential update
+privilege and stopped hosted bootstrap after migration 0190. Fresh bootstrap and
+the populated upgrade now check the narrower contract. Eight rolled-back grant
+changes verify that missing lock authority, extra private-owner access, and
+credential access by the staff runtime are still rejected. These checks change
+no application grants.

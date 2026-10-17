@@ -285,7 +285,10 @@ BEGIN
      OR has_schema_privilege('board_staff_post_owner','deployment','USAGE')
      OR has_schema_privilege('board_staff_post_owner','media','USAGE')
      OR has_table_privilege('board_staff_post_owner','content.posts','INSERT,UPDATE,DELETE')
-     OR has_any_column_privilege('board_staff_post_owner','staff_identity.credentials','INSERT,UPDATE')
+     OR has_any_column_privilege('board_staff_post_owner','staff_identity.credentials','INSERT')
+     OR NOT has_column_privilege('board_staff_post_owner','staff_identity.credentials','id','UPDATE')
+     OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='staff_identity' AND c.table_name='credentials'
+          AND c.column_name<>'id' AND has_column_privilege('board_staff_post_owner','staff_identity.credentials',c.column_name,'UPDATE'))
      OR has_table_privilege('board_staff_post_owner','staff_identity.credentials','DELETE,TRUNCATE,TRIGGER')
      OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='staff_identity' AND c.table_name='credentials'
           AND c.column_name NOT IN ('id','account_id') AND has_column_privilege('board_staff_post_owner','staff_identity.credentials',c.column_name,'SELECT'))
@@ -561,6 +564,7 @@ RESET ROLE;
 SET ROLE board_monitor;
 SELECT capacity, receiving, queued, processing FROM monitoring.media_queue;
 SQL
+"${db[@]}" -d bootstrap_test -f scripts/test-staff-refusal-credential-grants.sql
 # Exercise the same catalog-only contract used by staff startup.
 attachment_ready_sql=$(python3 - <<'PYREADY'
 from pathlib import Path

@@ -23,3 +23,5 @@ SET ROLE board_thread_transfer_owner;
 DO $$ BEGIN IF content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
  RAISE EXCEPTION 'Staff refusal migration changed transfer readiness'; END IF; END $$;
 RESET ROLE;
+
+\ir test-staff-refusal-credential-grants.sql
