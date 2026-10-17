@@ -349,6 +349,25 @@ only confirmed absence skips it. The executed corpus includes both forms. This
 does not grant authority to a public request header or qualify numeric coercion
 inside the separate automation predicate.
 
+### Originality state before a late refusal
+
+The source runs Robot9000 before the late classifiers and before inserting the
+post. A successful originality check can save a text digest or decay an expired
+mute. Those effects survive a later quiet or range refusal. The native writer
+currently performs the check after provisional content writes so that posting
+and attachment guards have already run.
+
+The store keeps the checked board, actor, prepared text and timestamp together.
+After rolling back provisional content, replay uses those exact inputs and must
+return the same decision; otherwise the caller discards the transaction. The
+existing Robot9000 rejection path uses this helper. The late-classifier caller
+still needs to use it for an allowed check when a later refusal discards the
+post. This is separate from refreshing anonymous activity, which an unsuccessful
+post must not advance.
+
+Source order: `imgboard.php:6147–6157,6253–6450,6522–6556`; originality writes and
+mute decay: `plugins/robot9000.php:161–222`.
+
 ## Remaining source behavior
 
 Posting uses the numeric score in several late refusal branches. Reporting has

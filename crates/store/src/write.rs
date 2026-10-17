@@ -1807,18 +1807,15 @@ async fn create_post_in_context(
         let now = Utc::now()
             .with_nanosecond(0)
             .ok_or(StoreError::Invalid("Invalid posting timestamp."))?;
-        let decision = crate::robot9000::check(&mut tx, slug, &actor, &prepared, now).await?;
-        if let crate::robot9000::Decision::Reject(message) = &decision {
+        let checked =
+            crate::robot9000::Checked::evaluate(&mut tx, slug, actor, prepared, now).await?;
+        if let crate::robot9000::Decision::Reject(message) = checked.decision() {
             sqlx::query("ROLLBACK TO SAVEPOINT robot9000_post")
                 .execute(&mut *tx)
                 .await?;
             // The pre-savepoint board lock prevents another writer changing
             // the decision between rollback and the state-only commit.
-            if crate::robot9000::check(&mut tx, slug, &actor, &prepared, now).await? != decision {
-                return Err(StoreError::Database(sqlx::Error::Protocol(
-                    "Robot9000 decision changed under the board lock.".into(),
-                )));
-            }
+            checked.replay(&mut tx).await?;
             tx.commit().await?;
             return Err(StoreError::Robot9000Rejected(message.clone()));
         }
