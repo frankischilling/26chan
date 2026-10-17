@@ -100,3 +100,22 @@ Controls confirm that invented notices and changes to older historical fields
 still fail preservation. The failure reproduces before the fixture correction;
 the complete local upgrade/erasure/restore sequence passes afterward. Runtime
 erasure code and permissions are unchanged.
+
+The broader restriction catalog also covers triggers attached to threads. The
+autoarchive rollback test's deliberate fault trigger therefore caused an earlier
+`P134R` readiness refusal instead of reaching its intended `ZX001` archive failure.
+The local diagnostic reproduced that distinction. The test now verifies intact
+readiness, installs its owned trigger transactionally, confirms that the changed
+schema invalidates the old integrity record, and records only that temporary
+test schema. Removing the trigger must restore the original catalog hash exactly.
+The OP-bump concurrency witness uses the same test-only procedure. Production
+catalog definitions and runtime permissions are unchanged.
+
+Both corrected database tests pass locally:
+
+    cargo test -p board-store --all-features --locked --test autoarchive -- --nocapture
+    cargo test -p board-public --all-features --locked --test op_bumps -- --nocapture
+    cargo clippy -p board-store -p board-public --all-targets --all-features --locked -- -D warnings
+
+Formatting and diff checks also pass. These focused results do not replace the
+full hosted run on the changed commit.

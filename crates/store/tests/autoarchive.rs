@@ -1,4 +1,6 @@
 #![cfg(feature = "database-tests")]
+#[path = "../../../tests/helpers/restriction_catalog.rs"]
+mod restriction_catalog;
 mod support;
 use board_store::{NewPost, StoreError};
 use sqlx::PgPool;
@@ -75,14 +77,11 @@ async fn automatic_archive_threshold_and_preserved_reply() {
         let rollback_op = support::create_post(&p,&b,0,&post()).await.unwrap();
         assert!(b.len()==10 && b.bytes().all(|byte|byte.is_ascii_lowercase() || byte.is_ascii_digit()));
         let function = format!("content.autoarchive_fault_{b}");
-        sqlx::query(sqlx::AssertSqlSafe(format!("CREATE FUNCTION {function}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Owned archive failure' USING ERRCODE='ZX001'; END $$")))
-            .execute(&o).await.unwrap();
-        sqlx::query(sqlx::AssertSqlSafe(format!("CREATE TRIGGER autoarchive_fault_{b} BEFORE UPDATE OF archived_at ON content.threads FOR EACH ROW WHEN(NEW.board='{b}' AND OLD.archived_at IS NULL AND NEW.archived_at IS NOT NULL) EXECUTE FUNCTION {function}()")))
-            .execute(&o).await.unwrap();
+        let original_catalog = restriction_catalog::snapshot(&o).await;
+        restriction_catalog::apply(&o, &format!("CREATE FUNCTION {function}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Owned archive failure' USING ERRCODE='ZX001'; END $$; CREATE TRIGGER autoarchive_fault_{b} BEFORE UPDATE OF archived_at ON content.threads FOR EACH ROW WHEN(NEW.board='{b}' AND OLD.archived_at IS NULL AND NEW.archived_at IS NOT NULL) EXECUTE FUNCTION {function}();"), None).await;
         let failed = support::create_post(&p,&b,rollback_op,&post()).await;
-        sqlx::query(sqlx::AssertSqlSafe(format!("DROP TRIGGER autoarchive_fault_{b} ON content.threads"))).execute(&o).await.unwrap();
-        sqlx::query(sqlx::AssertSqlSafe(format!("DROP FUNCTION {function}()"))).execute(&o).await.unwrap();
-        assert!(matches!(failed,Err(StoreError::Database(ref error)) if error.as_database_error().and_then(|e| e.code()).as_deref()==Some("ZX001")));
+        restriction_catalog::apply(&o, &format!("DROP TRIGGER autoarchive_fault_{b} ON content.threads; DROP FUNCTION {function}();"), Some(&original_catalog)).await;
+        assert!(matches!(failed,Err(StoreError::Database(ref error)) if error.as_database_error().and_then(|e| e.code()).as_deref()==Some("ZX001")), "Unexpected owned fault result: {failed:?}");
         let unchanged=board_store::thread_snapshot(&p,&b,rollback_op).await.unwrap();
         assert_eq!(unchanged.posts.len(),1);
         assert!(unchanged.thread.archived_at.is_none());

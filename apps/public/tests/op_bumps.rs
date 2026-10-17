@@ -2,6 +2,8 @@
 
 #[path = "support/posting.rs"]
 mod posting_fixture;
+#[path = "../../../tests/helpers/restriction_catalog.rs"]
+mod restriction_catalog;
 use axum::{body::Body, extract::ConnectInfo, http::Request};
 use board_store::{NewPost, PostingContext, StoreError};
 use chrono::{DateTime, Utc};
@@ -327,7 +329,7 @@ impl Fixture {
         // Only this generated hexadecimal suffix and a typed integer enter DDL.
         assert_eq!(self.slug.len(), 10);
         assert!(self.slug.bytes().all(|byte| byte.is_ascii_hexdigit()));
-        sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE TABLE post_secrets.op_audit_{}(bumped_at timestamptz NOT NULL); CREATE FUNCTION post_secrets.op_audit_{}() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$ BEGIN INSERT INTO post_secrets.op_audit_{} VALUES(NEW.bumped_at); RETURN NEW; END $$; REVOKE ALL ON FUNCTION post_secrets.op_audit_{}() FROM PUBLIC; CREATE TRIGGER op_audit_{} AFTER UPDATE OF bumped_at ON content.threads FOR EACH ROW WHEN (NEW.id={} AND NEW.bumped_at IS DISTINCT FROM OLD.bumped_at) EXECUTE FUNCTION post_secrets.op_audit_{}();", self.slug,self.slug,self.slug,self.slug,self.slug,id,self.slug))).execute(&self.owner).await.unwrap();
+        restriction_catalog::apply(&self.owner, &format!("CREATE TABLE post_secrets.op_audit_{}(bumped_at timestamptz NOT NULL); CREATE FUNCTION post_secrets.op_audit_{}() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$ BEGIN INSERT INTO post_secrets.op_audit_{} VALUES(NEW.bumped_at); RETURN NEW; END $$; REVOKE ALL ON FUNCTION post_secrets.op_audit_{}() FROM PUBLIC; CREATE TRIGGER op_audit_{} AFTER UPDATE OF bumped_at ON content.threads FOR EACH ROW WHEN (NEW.id={} AND NEW.bumped_at IS DISTINCT FROM OLD.bumped_at) EXECUTE FUNCTION post_secrets.op_audit_{}();", self.slug,self.slug,self.slug,self.slug,self.slug,id,self.slug), None).await;
         sqlx::query("UPDATE content.threads SET bumped_at='2001-01-01T00:00:00Z' WHERE id=$1")
             .bind(id)
             .execute(&self.owner)
@@ -414,6 +416,7 @@ async fn source_op_peer_intervals_are_private_atomic_and_deletion_aware() {
     OsRng.fill_bytes(&mut random);
     let slug: String = random.iter().map(|b| format!("{b:02x}")).collect();
     sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page) VALUES(false,0,0,0,$1,'OP rules','Owned synthetic fixture',1000,1000,1000,10,10)").bind(&slug).execute(&owner).await.unwrap();
+    let original_catalog = restriction_catalog::snapshot(&owner).await;
     let f = Fixture {
         owner: owner.clone(),
         public: public.clone(),
@@ -423,7 +426,7 @@ async fn source_op_peer_intervals_are_private_atomic_and_deletion_aware() {
     public.close().await;
     assert_eq!(slug.len(), 10);
     assert!(slug.bytes().all(|byte| byte.is_ascii_hexdigit()));
-    sqlx::raw_sql(sqlx::AssertSqlSafe(format!("DROP TRIGGER IF EXISTS op_audit_{slug} ON content.threads; DROP FUNCTION IF EXISTS post_secrets.op_audit_{slug}(); DROP TABLE IF EXISTS post_secrets.op_audit_{slug};"))).execute(&owner).await.unwrap();
+    restriction_catalog::apply(&owner, &format!("DROP TRIGGER IF EXISTS op_audit_{slug} ON content.threads; DROP FUNCTION IF EXISTS post_secrets.op_audit_{slug}(); DROP TABLE IF EXISTS post_secrets.op_audit_{slug};"), Some(&original_catalog)).await;
     sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)").bind(&slug).execute(&owner).await.unwrap();
     for query in [
         "DELETE FROM content.posts WHERE board=$1",
