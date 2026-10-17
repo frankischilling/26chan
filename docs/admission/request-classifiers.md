@@ -241,6 +241,34 @@ alone cannot establish equivalence between operator keys and the old deployment.
 php -n -d extension=tokenizer scripts/extract-late-post-reference.php SOURCE crates/domain/tests/fixtures/late-post.json --check
 ```
 
+## Late history checks
+
+The separate history model covers the following edge and country checks in
+`imgboard.php:6394–6449`. It retains the source's disabled flood call. A trusted
+edge field must be present before checking the same-session bot cooldown; an
+existing cooldown takes precedence over the automation predicate. Verified or
+24-hour-known actors skip that edge stage. Country checks still apply to
+unverified actors with fewer than 20 posts, including pending post activity.
+An existing country-change event takes precedence over a new environment change.
+
+The isolated source harness exercises 6,208 cases around the one-day age and
+20-post boundaries, verified actors, new users, bypasses, absent and zero-valued
+edge fields, and both histories. Tests compare refusal and event order. Providers
+that the source never reaches are deliberately unavailable in the Rust replay.
+The returned events distinguish private history writes from diagnostic log
+entries; neither is persisted by this pure model.
+
+History results must come from the same private session and the source's strict
+24-hour cutoff. The fixture supplies lookup results, so it does not qualify SQL,
+clock selection, retention, or concurrent event writes. Failed lookups remain
+unavailable rather than inheriting the source's false-on-database-error behavior.
+Runtime integration needs a private event producer and transactional authority
+checks before any refusal or event can be committed.
+
+```text
+php -n -d extension=tokenizer scripts/extract-post-history-reference.php SOURCE crates/domain/tests/fixtures/post-history.json --check
+```
+
 ## Remaining source behavior
 
 Posting uses the numeric score in several late refusal branches. Reporting has

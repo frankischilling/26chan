@@ -1,5 +1,6 @@
 //! Ordered late posting checks before the optional edge/history classifiers.
 //! Facts are server-qualified; this module neither authenticates nor persists.
+pub mod history;
 use crate::content_admission::{AdmissionError, network::ProviderValue, threat::Score};
 use crate::{BoardSlug, anonymous_session::State};
 use ProviderValue::{Available as A, Unavailable as U};
