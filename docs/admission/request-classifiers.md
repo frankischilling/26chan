@@ -44,6 +44,33 @@ receipts, existing balances and anonymous sessions through rollback and upgrade;
 the migration pins the predecessor owner, path, grants and body. The upgrade
 exercise checks path, grant and body changes.
 
+### Numeric score and courtesy credits
+
+The source's additional `<0.15` check does not require a new score provider for
+courtesy credits. Each granting tier requires `isUserKnown` for at least three
+days. On the same state and clock, that implies the six-hour
+`isUserKnownOrVerified(360)` check. The posting caller leaves its score at zero
+for those users, so every otherwise eligible grant already satisfies the
+numeric condition.
+
+This depends on call order. The source grants credits before
+`updatePostActivity`; the native writer calls `finish_post_challenge` before
+advancing anonymous activity. Both use the pre-post session state. Idle reset
+clears eligibility rather than creating it. Verification alone and six-hour
+knownness alone do not authorize a credit.
+
+Boundary tests exercise all credit tiers, pending activity, churn, verification
+and resumed state. A separate database test compares 1,260 actual private credit
+profiles with domain results and requires every positive profile to satisfy the
+six-hour predicate. The separate header predicate, issuer permission, board
+policy, post-count requirements and receipt rules remain in force. No score is
+fabricated or persisted, and this implication does not exempt unknown users
+from later posting classifiers.
+
+Source: `imgboard.php:6251–6259,6571–6586`, `lib/captcha.php:155–197` and
+`lib/userpwd.php:487–547`. Changing a credit tier, known-user predicate or the
+state/clock ordering requires requalifying this implication.
+
 ## Optional automation evidence
 
 The domain automation predicate matches 429 source score/cache/user-agent cases.
