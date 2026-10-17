@@ -236,3 +236,44 @@ resolved server-side identity, or leave it absent; it must never persist the raw
 credential or invent a user identity to satisfy a foreign key. Whitelist
 suppression applies to the ban insert and does not by itself suppress the
 file-checker's warning, refusal or redirect behavior.
+
+## Private restriction provenance
+
+Migration 0188 extends the existing restriction table so a future file issuer can
+use the same IDs, public status, warning acknowledgement, unban and audit paths.
+It adds no runtime issuer or direct table grant. Live file matching and effect
+recording remain unfinished.
+
+Existing rows retain staff provenance. Staff restrictions still require a
+positive post ID and staff account ID, and cannot carry file-rule metadata.
+File and DMCA provenance instead require a positive historical rule ID and its
+16-byte matched digest, with no post or staff account. These records describe a
+rejected attempt, so creating a fictitious post or staff account would be wrong.
+Rule IDs are retained without a foreign key to the editable operator rule table;
+they are historical evidence, not proof that the rule is still authorized.
+
+Staff warnings still require equal start and end timestamps. An automatic
+warning may end before its start, preserving the source's midnight behavior.
+Ordinary finite restrictions must end after their start. Both kinds use the
+existing actor-bound warning acknowledgement and audit record. Only the public
+reason is returned by status; private reasons stay in private storage.
+
+Posting policy derives automatic provenance from the stored origin. Its
+case-sensitive `Proxy` exception for verified users examines both public and
+private reason text, as the source does. It applies only to address matches;
+a matching retained automatic identity is checked first. Staff rows cannot
+acquire that exception through their reason text.
+
+The matched rule digest does not establish a qualifying historical template or
+the upload's normalized digest. Prior-ban upload counts still need their own
+qualified provenance. The eventual issuer must also enforce current rules,
+whitelist behavior, finite capacity, trusted identity, timezone policy and
+transactional attachment revalidation before committing any effect.
+
+Local checks for this storage checkpoint pass 51 database tests, including
+provenance constraints, real public status and acknowledgement, verified Proxy
+controls, existing restriction integration, quota, staff posting, content
+admission, refusal cookies and DMCA warning state. Populated rollback/upgrade,
+historical cleanup/restore, file-deletion preservation/restore, strict store
+Clippy and formatting also pass. Hosted checks must still qualify the exact
+pushed head; these results do not complete the file-effect workflow.
