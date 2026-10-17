@@ -158,3 +158,48 @@ scopes, digest length, modes, reason sizes, and ban-day bounds. Ban days apply o
 to automatic-ban rules; the DMCA branch has its own fixed repeat duration. These
 stored settings do not issue bans until the posting integration and trusted
 side-effect handling are implemented.
+
+## Private DMCA warning state
+
+Migration 0187 adds the private warning-state operation needed by the eventual
+file-effect recorder. Runtime roles cannot call it or read its tables. It is not
+connected to posting yet and cannot issue a ban, redirect a response, or claim
+that the file-blacklist workflow is complete.
+
+The source's active checker queries `fail_dmca` by exact peer across boards,
+files and rules. A warning in the inclusive preceding day makes the next match
+request a three-day global ban. Repeats do not extend the warning timestamp.
+Top-level `admin.php` deletes `user_actions` older than seven days. No other
+consumer of these DMCA rows was found in the supplied source.
+
+The replacement retains one timestamp per server-derived exact-peer hash,
+without a raw address, password, filename or post body. This preserves the
+repeat decision while discarding the older per-attempt audit history. An actor
+lock serializes simultaneous first attempts, including when no row exists.
+The helper requires read-committed isolation and a trusted decision clock within
+30 seconds of database time, checked again after lock waits. The future issuer
+must supply a database-derived timestamp and peer identity; public form fields
+and timezone-naive client strings cannot provide them.
+
+Its capacity defaults to 100,000 entries and is bounded at one million. New
+entries lock the capacity row and prune at most 256 unlocked warnings strictly
+older than seven days. Existing repeats leave their timestamp unchanged, even
+at capacity. A missing capacity policy or exhausted capacity refuses a new
+entry without partial writes. Lowering the limit below existing usage can
+require operator cleanup before new entries fit. Operator capacity is separate
+from the existing content-rule limits.
+
+The helper pins UTC for deterministic one-day and seven-day intervals. The
+checked-in source does not declare the production PHP or MySQL session timezone,
+so this is not evidence that the original deployment used UTC. Automatic-ban
+expiry remains separate: the source computes a local-midnight date, and that
+issuer still needs an explicit timezone policy and public status integration.
+
+The checkpoint passes 37 local database tests, including the new warning-state
+cases and existing content, staff and refusal-cookie regressions. Tests cover
+the inclusive repeat boundary, unchanged timestamps, actor concurrency, clock
+and role denial, finite capacity and the 256-row cleanup bound. Populated
+rollback/upgrade, historical cleanup/restore, strict all-target/all-feature store
+Clippy, formatting and five workflow-helper tests pass. Hosted qualification of
+this checkpoint is still required. These checks do not qualify live file-rule
+enforcement or ban issuance.
