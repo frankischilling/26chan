@@ -58,6 +58,9 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct AppState {
+    posting_browser_compat_key: Option<
+        Arc<board_domain::content_admission::classifiers::posting::browser::CompatibilityKey>,
+    >,
     browser_hint_key: Option<Arc<board_domain::content_admission::network::hints::BrowserKey>>,
     asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
     pool: PgPool,
@@ -175,6 +178,28 @@ pub fn observed_routers_with_network(
     asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
     browser_hint_key: Option<Arc<board_domain::content_admission::network::hints::BrowserKey>>,
 ) -> (board_observe::Metrics, Router, Router) {
+    observed_routers_with_classifiers(
+        pool,
+        api_enabled,
+        options,
+        verification,
+        asn_database,
+        browser_hint_key,
+        None,
+    )
+}
+
+pub fn observed_routers_with_classifiers(
+    pool: PgPool,
+    api_enabled: bool,
+    options: PublicRouterOptions,
+    verification: Option<board_config::PublicVerificationSettings>,
+    asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
+    browser_hint_key: Option<Arc<board_domain::content_admission::network::hints::BrowserKey>>,
+    posting_browser_compat_key: Option<
+        Arc<board_domain::content_admission::classifiers::posting::browser::CompatibilityKey>,
+    >,
+) -> (board_observe::Metrics, Router, Router) {
     use board_observe::{Listener, Metrics, Pool, PoolSample};
     let mut metrics = Metrics::new();
     let observed_pool = pool.clone();
@@ -185,8 +210,14 @@ pub fn observed_routers_with_network(
             max: observed_pool.options().get_max_connections(),
         })
         .expect("one pool registered before sharing metrics");
-    let (public, api) =
-        routers_with_network(pool, options, verification, asn_database, browser_hint_key);
+    let (public, api) = routers_with_classifiers(
+        pool,
+        options,
+        verification,
+        asn_database,
+        browser_hint_key,
+        posting_browser_compat_key,
+    );
     let public = metrics.layer(public, Listener::Public);
     let api = if api_enabled {
         metrics.layer(api, Listener::Api)
@@ -267,6 +298,26 @@ pub fn routers_with_network(
     asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
     browser_hint_key: Option<Arc<board_domain::content_admission::network::hints::BrowserKey>>,
 ) -> (Router, Router) {
+    routers_with_classifiers(
+        pool,
+        options,
+        verification,
+        asn_database,
+        browser_hint_key,
+        None,
+    )
+}
+
+pub fn routers_with_classifiers(
+    pool: PgPool,
+    options: PublicRouterOptions,
+    verification: Option<board_config::PublicVerificationSettings>,
+    asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
+    browser_hint_key: Option<Arc<board_domain::content_admission::network::hints::BrowserKey>>,
+    posting_browser_compat_key: Option<
+        Arc<board_domain::content_admission::classifiers::posting::browser::CompatibilityKey>,
+    >,
+) -> (Router, Router) {
     let PublicRouterOptions {
         origin,
         production,
@@ -282,6 +333,7 @@ pub fn routers_with_network(
         "Production media is not qualified"
     );
     let state = AppState {
+        posting_browser_compat_key,
         browser_hint_key,
         asn_database,
         tripcode_key,

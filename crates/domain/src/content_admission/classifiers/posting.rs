@@ -1,5 +1,6 @@
 //! Ordered late posting checks before the optional edge/history classifiers.
 //! Facts are server-qualified; this module neither authenticates nor persists.
+pub mod browser;
 pub mod history;
 mod random;
 use crate::content_admission::{AdmissionError, network::ProviderValue, threat::Score};
@@ -36,7 +37,7 @@ pub struct Request<'a> {
     pub activity_at: u64,
     pub score: NumericScore,
     pub thread: ProviderValue<Thread<'a>>,
-    pub browser_id: ProviderValue<Option<&'a str>>,
+    pub bag_match: ProviderValue<browser::Match>,
     pub country: ProviderValue<&'a [u8]>,
     pub timing_cookie: ProviderValue<Option<&'a [u8]>>,
 }
@@ -168,14 +169,11 @@ pub fn evaluate(
             }
         }
         if !known && request.board == "vg" && contains(thread(&request)?.subject, b"/bag/") {
-            let id = match request.browser_id {
-                A(value) => value,
+            let matched = match request.bag_match {
+                A(value) => value.matched(),
                 U => return Err(AdmissionError::Unavailable),
             };
-            if id.is_some_and(|value| value.len() > 64) {
-                return Err(AdmissionError::InvalidPolicy);
-            }
-            if id == Some("04d2237a2") {
+            if matched {
                 return end(Event::Bag, Outcome::ImageRangeRejected);
             }
         }

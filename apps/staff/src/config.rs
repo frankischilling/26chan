@@ -171,6 +171,7 @@ impl Config {
             "COUNTRY_DATABASE",
             "ASN_DATABASE",
             "BROWSER_HINT_KEY",
+            "POSTING_BROWSER_COMPAT_KEY",
             "PUBLIC_PROXY_SOCKET",
             "PUBLIC_PROXY_UID",
         ] {

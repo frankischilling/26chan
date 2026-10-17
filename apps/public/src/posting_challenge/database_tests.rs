@@ -103,6 +103,7 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
     let state = AppState {
         asn_database: None,
         browser_hint_key: None,
+        posting_browser_compat_key: None,
         pool: public.clone(),
         origin: "http://127.0.0.1:3000".into(),
         production: false,

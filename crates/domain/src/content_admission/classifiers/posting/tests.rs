@@ -44,7 +44,7 @@ fn request<'a>(actor: Option<&'a State>) -> Request<'a> {
         activity_at: 10_000_000,
         score: NumericScore(A(0.0)),
         thread: U,
-        browser_id: U,
+        bag_match: U,
         country: U,
         timing_cookie: U,
     }
@@ -100,7 +100,9 @@ fn ordered_prefix_matches_executed_source_cases() {
                 subject: c["subject"].as_str().unwrap().as_bytes(),
                 comment: c["comment"].as_str().unwrap().as_bytes(),
             }),
-            browser_id: A(c["browser"].as_str()),
+            bag_match: A(browser::Match::fixture(
+                c["browser"].as_str() == Some("04d2237a2"),
+            )),
             country: A(c["country"].as_str().unwrap().as_bytes()),
             timing_cookie: A(c["cookie"].as_str().map(str::as_bytes)),
         };

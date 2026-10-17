@@ -10,6 +10,8 @@ pub struct RequestFacts {
     peer: Option<IpAddr>,
     parent: i64,
     board: String,
+    pub(super) bag_match:
+        ProviderValue<board_domain::content_admission::classifiers::posting::browser::Match>,
     pub(super) score: ProviderValue<Score>,
     pub(super) country: ProviderValue<[u8; 2]>,
     pub(super) timing_cookie: ProviderValue<Option<Vec<u8>>>,
@@ -28,10 +30,20 @@ impl RequestFacts {
             peer: context.peer.map(|peer| peer.to_canonical()),
             parent,
             board: board.into(),
+            bag_match: ProviderValue::Unavailable,
             score,
             country,
             timing_cookie,
         }
+    }
+    pub fn with_browser_match(
+        mut self,
+        matched: ProviderValue<
+            board_domain::content_admission::classifiers::posting::browser::Match,
+        >,
+    ) -> Self {
+        self.bag_match = matched;
+        self
     }
     pub(super) fn matches(&self, context: PostingContext, board: &str, parent: i64) -> bool {
         self.request_start == context.request_start

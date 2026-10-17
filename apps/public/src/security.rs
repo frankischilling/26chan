@@ -666,6 +666,7 @@ pub(crate) fn math_fixture_response(
     let state = AppState {
         asn_database: None,
         browser_hint_key: None,
+        posting_browser_compat_key: None,
         pool: sqlx::postgres::PgPoolOptions::new()
             .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
             .map_err(|error| error.to_string())?,
@@ -737,6 +738,7 @@ mod tests {
         let mut state = AppState {
             asn_database: None,
             browser_hint_key: None,
+            posting_browser_compat_key: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -823,6 +825,7 @@ mod tests {
         let state = AppState {
             asn_database: None,
             browser_hint_key: None,
+            posting_browser_compat_key: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -930,6 +933,7 @@ mod tests {
         let state = AppState {
             asn_database: None,
             browser_hint_key: None,
+            posting_browser_compat_key: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -998,6 +1002,7 @@ mod tests {
             let state = AppState {
                 asn_database: None,
                 browser_hint_key: None,
+                posting_browser_compat_key: None,
                 pool: sqlx::postgres::PgPoolOptions::new()
                     .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                     .unwrap(),
@@ -1157,6 +1162,7 @@ mod tests {
         let state = AppState {
             asn_database: None,
             browser_hint_key: None,
+            posting_browser_compat_key: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -1239,6 +1245,7 @@ mod tests {
             let state = AppState {
                 asn_database: None,
                 browser_hint_key: None,
+                posting_browser_compat_key: None,
                 pool: sqlx::postgres::PgPoolOptions::new()
                     .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                     .unwrap(),
@@ -1287,6 +1294,7 @@ mod tests {
         let state = AppState {
             asn_database: None,
             browser_hint_key: None,
+            posting_browser_compat_key: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -1386,6 +1394,7 @@ mod tests {
         let state = AppState {
             asn_database: None,
             browser_hint_key: None,
+            posting_browser_compat_key: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -1480,6 +1489,7 @@ mod tests {
         let state = AppState {
             asn_database: None,
             browser_hint_key: None,
+            posting_browser_compat_key: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:unused@127.0.0.1:1/absent")
                 .unwrap(),
@@ -1530,6 +1540,7 @@ mod verification_policy_tests {
         let state = AppState {
             asn_database: None,
             browser_hint_key: None,
+            posting_browser_compat_key: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
                 .unwrap(),
@@ -1593,6 +1604,7 @@ mod verification_policy_tests {
         let state = AppState {
             asn_database: None,
             browser_hint_key: None,
+            posting_browser_compat_key: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
                 .unwrap(),

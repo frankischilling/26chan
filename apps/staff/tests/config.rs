@@ -25,6 +25,7 @@ fn staff_rejects_inherited_unrelated_credentials_and_identity_sources() {
         "COUNTRY_DATABASE",
         "ASN_DATABASE",
         "BROWSER_HINT_KEY",
+        "POSTING_BROWSER_COMPAT_KEY",
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_board-staff"))
             .env_clear()

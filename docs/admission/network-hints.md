@@ -16,7 +16,8 @@ marker. Header values are processed as bytes, without Unicode replacement or
 silent truncation.
 
 A new operator key supplies the legacy HMAC-SHA1 calculation. The source's
-embedded deployment key is never reused. Public uses `BROWSER_HINT_KEY`; staff
+embedded deployment key is never used for these operator identities or stored
+hints. Public uses `BROWSER_HINT_KEY`; staff
 uses `STAFF_BROWSER_HINT_KEY`. Each service rejects the other service's setting.
 Key parsing requires a 32-byte key represented by 64 hexadecimal digits and
 rejects an all-zero key. Errors do not echo the key. User agent and model inputs are bounded at 4,096 and 1,024 bytes, respectively.
@@ -88,3 +89,32 @@ it does not claim that every proxy or PHP SAPI produces the same input order.
 
 The remaining network-admission work is tracked in #212. These fixtures do not
 establish full feature or deployment parity.
+
+## Historical thread-specific browser rule
+
+The `/vg/` image-reply rule for `/bag/` has its own historical hash namespace.
+Comparing its fixed token with a new operator-keyed browser ID is invalid. That
+rule now accepts only a transient match from a separate compatibility adapter.
+It never reads the general browser-ID provider.
+
+`POSTING_BROWSER_COMPAT_KEY` is an optional public-service setting containing the
+hex encoding of the original compatibility material's exact bytes. It is not a
+new random `BROWSER_HINT_KEY`, and it must not be used for authentication or
+persisted browser identities. A hex-looking original string must itself be
+encoded as bytes; do not silently interpret it as a binary key first. The parser
+requires the reference profile’s 64 bytes (128 hexadecimal digits), rejects
+malformed input without echoing it, and the staff
+service rejects this public-only setting. No reference key is shipped in source,
+fixtures, example configuration or logs.
+
+The adapter shares the source-qualified normalization algorithm, but returns only
+a match boolean. Key material and the temporary identifier stay out of request
+facts, database rows and diagnostic events. Missing or ambiguous required inputs
+remain unavailable when this rule is reached. The original missing/empty/`0`
+user-agent branch has a fixed nonmatching result before key lookup, so it does
+not need the optional key. Other thread rules retain their source ordering.
+
+The 1,168 synthetic-key source vectors qualify the algorithm and matching
+operation, including synthetic positive targets. They do not contain a real
+user-agent preimage for the original fixed target. Full positive-target parity
+therefore remains unqualified; configuring a different key cannot establish it.

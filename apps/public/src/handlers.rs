@@ -1167,7 +1167,11 @@ async fn submit_post(
         score,
         A(country),
         timing_cookie,
-    );
+    )
+    .with_browser_match(board_http::network_hints::posting_browser_match(
+        &headers,
+        state.posting_browser_compat_key.as_deref(),
+    ));
     let challenge = crate::posting_challenge::proof(
         &state,
         &headers,

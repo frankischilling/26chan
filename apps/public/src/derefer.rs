@@ -197,6 +197,7 @@ mod tests {
             let state = AppState {
                 asn_database: None,
                 browser_hint_key: None,
+                posting_browser_compat_key: None,
                 pool: sqlx::postgres::PgPoolOptions::new()
                     .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
                     .unwrap(),
@@ -226,6 +227,7 @@ mod tests {
         let state = || AppState {
             asn_database: None,
             browser_hint_key: None,
+            posting_browser_compat_key: None,
             pool: sqlx::postgres::PgPoolOptions::new()
                 .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
                 .unwrap(),

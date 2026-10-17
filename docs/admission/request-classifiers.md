@@ -249,13 +249,14 @@ fortunes, driven by system entropy. It accepts only the two source ranges and
 returns unavailable on entropy failure or invalid output. It preserves uniform
 threshold probabilities, not PHP global PRNG seeds or cross-request sequences.
 
-Thread text, browser-ID, country and timing-cookie providers are checked only
+Thread text, compatibility-browser match, country and timing-cookie providers are checked only
 when reached. Input bounds are stricter than this source prefix; exceeding them
 is an intentional fail-closed case. Draw ranges follow the source. An unavailable needed fact
 returns no decision or partial event list. The store applies the returned plan
-inside the posting transaction. The hardcoded browser-ID condition
-also needs a qualified provider in the chosen fingerprint namespace; the model
-alone cannot establish equivalence between operator keys and the old deployment.
+inside the posting transaction. The hardcoded browser condition uses a separate
+[compatibility adapter](network-hints.md#historical-thread-specific-browser-rule).
+Operator-keyed browser IDs cannot supply its match. Its positive original target
+still needs a qualifying request vector.
 
 ```text
 php -n -d extension=tokenizer scripts/extract-late-post-reference.php SOURCE crates/domain/tests/fixtures/late-post.json --check
@@ -419,8 +420,8 @@ historical PHP scoring or reason parity. Source-equivalent threat, staff and
 history facts are still needed for that claim. Optional trusted-ingress bot scores and their
 private event producer remain open. Validated Pass/local-auth CAPTCHA bypasses
 also need their own native authority; neither is inferred from a cookie or policy
-flag. The old hardcoded browser fingerprint still needs qualification in the
-operator's fingerprint namespace. These gaps prevent claiming complete #212
+flag. The historical browser rule now has a separate compatibility-key adapter, but
+its original positive target still lacks a qualifying request vector. These gaps prevent claiming complete #212
 parity despite the connected public numeric/country path.
 
 The flood helper's posting call is commented out and the caller assigns zero.

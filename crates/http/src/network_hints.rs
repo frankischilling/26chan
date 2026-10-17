@@ -8,6 +8,13 @@ pub fn derive(
     order: Option<&RequestHeaderOrder>,
     key: Option<&BrowserKey>,
 ) -> DerivedHints {
+    let browser = browser_headers(headers);
+    let names: Option<Vec<_>> =
+        order.map(|order| order.names().map(|name| name.as_str()).collect());
+    DerivedHints::derive(key, browser, names.as_deref())
+}
+
+fn browser_headers(headers: &HeaderMap) -> Option<BrowserHeaders<'_>> {
     let mut values = [None; 4];
     let mut ambiguous = false;
     for (name, value) in headers {
@@ -24,15 +31,43 @@ pub fn derive(
     }
     // Duplicate browser-value fields have SAPI-specific joining rules. Refuse
     // that provider rather than choosing an arbitrary HeaderMap value/order.
-    let browser = (!ambiguous).then_some(BrowserHeaders {
+    (!ambiguous).then_some(BrowserHeaders {
         user_agent: values[0],
         mobile: values[1],
         model: values[2],
         fetch_mode: values[3],
-    });
-    let names: Option<Vec<_>> =
-        order.map(|order| order.names().map(|name| name.as_str()).collect());
-    DerivedHints::derive(key, browser, names.as_deref())
+    })
+}
+
+/// Separate namespace used only for the historical thread-specific classifier.
+pub fn posting_browser_match(
+    headers: &HeaderMap,
+    key: Option<&board_domain::content_admission::classifiers::posting::browser::CompatibilityKey>,
+) -> board_domain::content_admission::network::ProviderValue<
+    board_domain::content_admission::classifiers::posting::browser::Match,
+> {
+    // The source falsey-UA result precedes all other browser fields and the key.
+    let mut user_agent = None;
+    for (name, value) in headers {
+        if name.as_str().replace('_', "-") == "user-agent"
+            && user_agent.replace(value.as_bytes()).is_some()
+        {
+            return board_domain::content_admission::network::ProviderValue::Unavailable;
+        }
+    }
+    if user_agent.is_none_or(|ua| ua.is_empty() || ua == b"0") {
+        return board_domain::content_admission::classifiers::posting::browser::classify(
+            None,
+            Some(BrowserHeaders {
+                user_agent,
+                ..Default::default()
+            }),
+        );
+    }
+    board_domain::content_admission::classifiers::posting::browser::classify(
+        key,
+        browser_headers(headers),
+    )
 }
 
 #[cfg(test)]
@@ -64,5 +99,39 @@ mod tests {
             derive(&headers, None, Some(&key)).signatures().browser_id,
             ProviderValue::Unavailable
         ));
+    }
+
+    #[test]
+    fn rule_only_browser_observations_do_not_use_the_operator_hint_key() {
+        use board_domain::content_admission::{
+            classifiers::posting::browser::CompatibilityKey,
+            network::ProviderValue::{Available as A, Unavailable as U},
+        };
+        let operator = BrowserKey::parse(&"11".repeat(32)).unwrap();
+        let compat = CompatibilityKey::parse(&"22".repeat(64)).unwrap();
+        let mut headers = HeaderMap::new();
+        assert!(matches!(posting_browser_match(&headers, None), A(_)));
+        headers.append("sec-ch-ua-mobile", "?0".parse().unwrap());
+        headers.append("sec-ch-ua-mobile", "?1".parse().unwrap());
+        assert!(matches!(posting_browser_match(&headers, None), A(_)));
+        headers.remove("sec-ch-ua-mobile");
+        headers.insert("user-agent", "Firefox/123".parse().unwrap());
+        assert!(matches!(
+            derive(&headers, None, Some(&operator))
+                .signatures()
+                .browser_id,
+            A(Some(_))
+        ));
+        assert!(matches!(posting_browser_match(&headers, None), U));
+        assert!(matches!(
+            posting_browser_match(&headers, Some(&compat)),
+            A(_)
+        ));
+        headers.append("user-agent", "Repeated/2".parse().unwrap());
+        assert!(matches!(posting_browser_match(&headers, Some(&compat)), U));
+        headers.remove("user-agent");
+        headers.insert("user-agent", "Firefox/123".parse().unwrap());
+        headers.insert("user_agent", "Alias/1".parse().unwrap());
+        assert!(matches!(posting_browser_match(&headers, Some(&compat)), U));
     }
 }

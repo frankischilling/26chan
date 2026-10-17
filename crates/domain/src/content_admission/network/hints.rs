@@ -86,6 +86,13 @@ fn contains(value: &[u8], needle: &[u8]) -> bool {
 }
 
 pub fn browser_id(key: Option<&BrowserKey>, headers: BrowserHeaders<'_>) -> Result<String, Error> {
+    browser_id_material(key.map(|key| key.0.as_slice()), headers)
+}
+
+pub(crate) fn browser_id_material(
+    key: Option<&[u8]>,
+    headers: BrowserHeaders<'_>,
+) -> Result<String, Error> {
     bounded(headers.user_agent, MAX_USER_AGENT_BYTES)?;
     let ua = headers.user_agent.unwrap_or_default();
     // PHP falsey strings include exactly "0". This branch precedes key use.
@@ -140,7 +147,7 @@ pub fn browser_id(key: Option<&BrowserKey>, headers: BrowserHeaders<'_>) -> Resu
     }
     // Deliberate legacy comparison fingerprint, never a security MAC verifier.
     let signature = hmac::sign(
-        &hmac::Key::new(hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY, &key.0),
+        &hmac::Key::new(hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY, key),
         &clean,
     );
     let mut result = if mobile { "1" } else { "0" }.to_owned();

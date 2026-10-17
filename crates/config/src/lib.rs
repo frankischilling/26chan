@@ -132,6 +132,11 @@ pub fn validate_origins(
 
 #[derive(Clone)]
 pub struct Settings {
+    pub posting_browser_compat_key: Option<
+        std::sync::Arc<
+            board_domain::content_admission::classifiers::posting::browser::CompatibilityKey,
+        >,
+    >,
     pub browser_hint_key:
         Option<std::sync::Arc<board_domain::content_admission::network::hints::BrowserKey>>,
     pub asn_database:
@@ -294,6 +299,11 @@ impl Settings {
         };
         let database_url =
             env::var("DATABASE_URL").map_err(|_| ConfigError("DATABASE_URL is required."))?;
+        let posting_browser_compat_key = match env::var("POSTING_BROWSER_COMPAT_KEY") {
+            Err(env::VarError::NotPresent)=>None,
+            Err(_)=>return Err(ConfigError("Invalid POSTING_BROWSER_COMPAT_KEY.")),
+            Ok(value)=>Some(std::sync::Arc::new(board_domain::content_admission::classifiers::posting::browser::CompatibilityKey::parse(&value).map_err(|error|ConfigError(error.0))?)),
+        };
         let browser_hint_key = match env::var("BROWSER_HINT_KEY") {
             Err(env::VarError::NotPresent) => None,
             Err(_) => return Err(ConfigError("Invalid BROWSER_HINT_KEY.")),
@@ -393,6 +403,7 @@ impl Settings {
             country_database,
             asn_database,
             browser_hint_key,
+            posting_browser_compat_key,
         })
     }
 }

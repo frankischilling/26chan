@@ -1870,7 +1870,6 @@ async fn create_post_in_context(
                 activity_at,
                 session: anonymous.as_ref(),
                 posting: context,
-                hints,
                 thread: late_thread.as_ref(),
                 facts: request_facts.as_ref(),
             },

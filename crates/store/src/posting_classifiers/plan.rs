@@ -3,11 +3,7 @@ use crate::{PostingContext, StoreError, anonymous_session::PostingSession};
 use ProviderValue::{Available as A, Unavailable as U};
 use board_domain::{
     anonymous_session::State,
-    content_admission::{
-        classifiers::posting,
-        network::{ProviderValue, hints::DerivedHints},
-        threat::Score,
-    },
+    content_admission::{classifiers::posting, network::ProviderValue, threat::Score},
 };
 use sqlx::{Postgres, Transaction};
 
@@ -19,7 +15,6 @@ pub(crate) struct Context<'a> {
     pub activity_at: u64,
     pub session: Option<&'a PostingSession>,
     pub posting: PostingContext,
-    pub hints: Option<&'a DerivedHints>,
     pub thread: Option<&'a (String, String)>,
     pub facts: Option<&'a RequestFacts>,
 }
@@ -79,10 +74,7 @@ pub(crate) async fn evaluate(
                     })
                 })
                 .unwrap_or(U),
-            browser_id: context
-                .hints
-                .map(|hints| hints.signatures().browser_id)
-                .unwrap_or(U),
+            bag_match: facts.map(|facts| facts.bag_match).unwrap_or(U),
             country: country_bytes,
             timing_cookie,
         },
