@@ -47,10 +47,14 @@ checks precede creation. An asynchronous template selection ignores the warning
 checkbox; a zero-day template still creates a warning request. An explicit
 warning checkbox requires the template's `can_warn` permission.
 
-Creation captures the post and removes it before returning success. The native
-implementation must commit capture, deletion and request creation together.
-Failure must leave the post and moderation history unchanged. Captured identity,
-normalized file evidence and presentation must survive ordinary deletion without
+Creation captures the post and starts a deletion RPC before inserting the
+request. The supplied wrapper explicitly does not wait for deletion errors, so
+successful insertion does not prove the post was removed. The native writer
+must commit capture, authorized deletion and request creation together. This
+transactional change prevents partial moderation effects. A target that cannot
+be deleted under the current staff permissions must fail without creating a
+request. Captured identity, normalized file evidence and presentation must
+survive ordinary deletion without
 becoming public fields.
 
 Cross-board janitor access uses the ceiling of retained report weights, with a
@@ -118,9 +122,16 @@ delete-all call is commented out in the supplied source. No such effect should
 be inferred from a template label.
 
 The source request-range caller reads `$row['email']` after capturing the post in
-`$post`. The full caller needs independent qualification before wiring a request
-event producer. The direct template-ban range producer already in main does not
-establish the behavior of this separate caller.
+`$post`. The complete isolated caller now runs against 97 cases covering warning
+selection, asynchronous templates, mobile metadata and local/global rules. The
+unchanged caller produces no range events. A negative control changes only that
+variable to `$post` and produces one mobile global-rule event, confirming that
+the fixture can observe the branch. The native request writer must not silently
+add that event. The direct template-ban producer in main is a separate caller.
+
+These cases use synthetic post and template records, intercepted SQL and a
+delete-dispatch recorder. They establish caller decisions, not SQL correctness,
+successful deletion, retained media or authenticated access.
 
 The decision fixtures do not qualify any of these persistence, authority, media
 or UI requirements. Issue #223 remains open.
@@ -128,7 +139,7 @@ or UI requirements. Issue #223 remains open.
 ## Local verification
 
 The source extractor and PHP oracle checks pass. The full domain suite passes
-348 tests, including the 2,016-case review comparison, with no ignored tests.
+349 tests, including the 2,016-case review comparison and 97-case request caller, with no ignored tests.
 All-target, all-feature domain Clippy passes with warnings denied. These are
 local model checks; hosted qualification and integration tests are still needed.
 

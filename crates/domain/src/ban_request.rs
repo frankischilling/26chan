@@ -129,6 +129,50 @@ mod tests {
     use super::*;
 
     #[test]
+    fn warning_requests_match_the_complete_isolated_source_caller() {
+        let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!(
+            "../tests/fixtures/janitor-request-caller.json"
+        ))
+        .unwrap();
+        assert_eq!(cases.len(), 97);
+        for (index, case) in cases.iter().enumerate() {
+            let input = &case["input"];
+            let expected = &case["expected"];
+            let result = request_warning(
+                input["template_warning"].as_bool().unwrap(),
+                input["can_warn"].as_bool().unwrap(),
+                input["warning"].as_bool().unwrap(),
+                input["async"].as_bool().unwrap(),
+            );
+            if expected["error"].is_null() {
+                assert_eq!(
+                    result,
+                    Ok(expected["warning_request"].as_bool().unwrap()),
+                    "case {index}"
+                );
+                assert_eq!(expected["requests"], 1, "case {index}");
+                assert_eq!(
+                    expected["delete_calls"].as_array().unwrap().len(),
+                    1,
+                    "case {index}"
+                );
+                assert_eq!(expected["undefined_row"], true, "case {index}");
+            } else {
+                assert_eq!(result, Err(Error::WarningNotPermitted), "case {index}");
+                assert_eq!(expected["requests"], 0, "case {index}");
+                assert!(
+                    expected["delete_calls"].as_array().unwrap().is_empty(),
+                    "case {index}"
+                );
+            }
+            assert!(
+                expected["range_calls"].as_array().unwrap().is_empty(),
+                "case {index}"
+            );
+        }
+    }
+
+    #[test]
     fn review_matches_isolated_source_decisions() {
         let cases: Vec<serde_json::Value> =
             serde_json::from_str(include_str!("../tests/fixtures/ban-request-review.json"))

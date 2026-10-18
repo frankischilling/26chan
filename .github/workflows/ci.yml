@@ -73,7 +73,9 @@ jobs:
       - name: Qualify automatic-range template caller
         run: php -n scripts/test-template-range-caller-reference.php
       - name: Qualify isolated ban-request review decisions
-        run: php -n scripts/test-ban-request-review-reference.php
+        run: |
+          php -n scripts/test-ban-request-review-reference.php
+          php -n scripts/test-janitor-request-caller.php
       - name: Verify source staff queue assets
         run: |
           python3 scripts/build-staff-queue-assets.py --check
