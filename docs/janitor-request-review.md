@@ -336,9 +336,12 @@ its driver passes syntax checks locally. PR #296 passed all four real-browser
 viewport/script combinations and the opaque-origin refusal control.
 
 Queue and creation-form pixels and the source's full client-side interactions
-remain unqualified. Autocomplete, quick-amend shortcuts, in-place refresh,
-keyboard controls and private retained media still need work. These functional
-pages do not close issue #223 or establish full staff frontend parity.
+remain unqualified. The native filter, delayed review controls, Undo, keyboard
+navigation and in-place refresh are described in [queue controls](janitor-queue-controls.md),
+including their verification status and safety differences. Autocomplete,
+quick-amend shortcuts, private retained media and the remaining source controls
+still need work. These pages do not close issue #223 or establish full staff
+frontend parity.
 
 ## First integrated browser run
 

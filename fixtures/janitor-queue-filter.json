@@ -1,0 +1,5 @@
+{
+  "source": "reports/js/d8d9b0cdc33f3418/banrequests.js",
+  "sha256": "1f727c3e93e6c824e24b6140e652e5a4e4cf2748a8802c4fabdf3ac055ac220d",
+  "functions": "BR.applySearch = function(str) {\n  if (str === undefined || str === '') {\n    BR.clearSearch();\n    return;\n  }\n  \n  str = str.toLowerCase();\n  \n  $.id('reset-btn').classList.remove('hidden');\n  \n  let fields = ['post-name', 'post-content', 'ban-request-template'];\n  \n  let nodes = $.cls('ban-request');\n  \n  nodeloop: for (let br of nodes) {\n    br.classList.remove('hidden');\n    \n    for (let f of fields) {\n      let el = $.cls(f, br)[0];\n      \n      if (!el) {\n        continue;\n      }\n      \n      if (el.textContent.toLowerCase().indexOf(str) !== -1) {\n        continue nodeloop;\n      }\n    }\n    \n    br.classList.add('hidden');\n  }\n};\n\nBR.clearSearch = function() {\n  let nodes = $.cls('ban-request');\n  \n  $.id('reset-btn').classList.add('hidden');\n  \n  for (let br of nodes) {\n    br.classList.remove('hidden');\n  }\n};"
+}

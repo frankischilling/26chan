@@ -116,6 +116,12 @@ pub async fn javascript() -> impl IntoResponse {
         include_str!("../static/staff.js"),
     )
 }
+pub async fn request_queue_javascript() -> impl IntoResponse {
+    (
+        [("content-type", "text/javascript; charset=utf-8")],
+        include_str!("../static/request-queue.js"),
+    )
+}
 pub async fn post_limits_javascript() -> impl IntoResponse {
     (
         [("content-type", "text/javascript; charset=utf-8")],

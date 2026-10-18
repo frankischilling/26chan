@@ -215,6 +215,7 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
                     .current_dir(concat!(env!("CARGO_MANIFEST_DIR"),"/../.."))
                     .arg("tests/browser/janitor-requests.mjs").kill_on_drop(true);
                 if let Some(path)=std::env::var_os("PLAYWRIGHT_BROWSERS_PATH") { command.env("PLAYWRIGHT_BROWSERS_PATH",path); }
+                if let Some(path)=std::env::var_os("CHROMIUM_EXECUTABLE_PATH") { command.env("CHROMIUM_EXECUTABLE_PATH",path); }
                 let result=tokio::time::timeout(Duration::from_secs(120),command.output()).await;
                 server.abort(); let _=server.await;
                 let output=result.expect("janitor browser deadline").unwrap();
