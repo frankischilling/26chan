@@ -277,3 +277,13 @@ disposable database. It then verifies the deferred rollback, removes the test
 trigger and restores both original seals. Fresh/populated cleanup, unchanged
 independent records, role/drift refusals and restore pass locally through
 migration 0209. Production permissions and readiness checks are unchanged.
+
+The same branch run also failed an immediate viewport-width assertion in the
+public upload browser. It did not report the viewport or overflowing element.
+The helper now waits up to one second for the unchanged no-overflow condition
+after a resize and reports element geometry if it still fails. A browser
+negative control deliberately creates overflow, requires rejection and restores
+the page. Sixteen helper/verification-runner tests pass locally, including a
+delayed-layout model and controls that reject persistent or incorrectly ignored
+overflow. The real browser control still requires hosted qualification; no CSS
+change or relaxed width threshold was made.

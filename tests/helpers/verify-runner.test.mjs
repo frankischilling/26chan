@@ -54,7 +54,7 @@ timeout 300s npm run test:math
 npm run test:math
 python3 scripts/check-windows-test-exits.py
 npm run test:settings-categories
-node --test tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs
+node --test tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs tests/helpers/viewport-fit.test.mjs
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
