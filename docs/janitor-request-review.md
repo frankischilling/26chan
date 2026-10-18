@@ -262,3 +262,18 @@ Review currently requires an explicitly configured `none` blacklist policy and
 a supported retained-post policy. Image blacklisting, private media retention,
 queue presentation, review HTTP adapters and statistics readers still need
 integration. These SQL checks do not qualify those missing paths.
+
+## Historical cleanup qualification
+
+The first branch CI run on `6d9e8f88` failed in the historical-erasure fixture.
+Migration 0206 also fingerprints report triggers in the restriction catalog.
+The fixture attested its deferred-failure trigger only in the report-profile
+catalog, so the stronger preflight correctly stopped before its intended commit
+rollback test.
+
+The failure was reproduced locally with the actual cleanup binary. The fixture
+now proves rejection by each catalog before attesting both inside its owned
+disposable database. It then verifies the deferred rollback, removes the test
+trigger and restores both original seals. Fresh/populated cleanup, unchanged
+independent records, role/drift refusals and restore pass locally through
+migration 0209. Production permissions and readiness checks are unchanged.
