@@ -2,6 +2,7 @@
 pub mod admission_normalization;
 pub mod anonymous_session;
 pub mod ban;
+pub mod ban_request;
 pub mod board_flags;
 pub mod capcode;
 pub mod challenge_policy;

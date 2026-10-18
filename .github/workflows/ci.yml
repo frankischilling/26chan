@@ -72,6 +72,8 @@ jobs:
         run: python3 scripts/extract-video-reference.py --php-oracle
       - name: Qualify automatic-range template caller
         run: php -n scripts/test-template-range-caller-reference.php
+      - name: Qualify isolated ban-request review decisions
+        run: php -n scripts/test-ban-request-review-reference.php
       - name: Start disposable database and migrate
         run: |
           python3 scripts/test-dev-db-env.py
