@@ -156,6 +156,8 @@ Both defects were corrected before these checks passed.
 All 56 staff unit tests and strict all-target, all-feature staff Clippy pass.
 The complete-page browser fixture compares actual staff HTTP output with the
 independent source view at desktop/mobile widths, with JavaScript enabled and
-disabled. Its local launch was blocked before navigation by the execution
+disabled. It also checks unread counts, the strict read boundary, an empty page,
+Previous navigation and reloads against four independently rendered source
+states. Its local launch was blocked before navigation by the execution
 environment's socket restriction, so no local pixel-parity result is claimed.
 The fixture is required in hosted Linux CI.

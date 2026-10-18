@@ -25,11 +25,25 @@ class StaffMessageReference {
         return ob_get_clean();
     }
 }
-$rendered = (new StaffMessageReference())->render($view);
+$scenarios = [];
+foreach (['unread'=>false, 'mixed'=>1700000001, 'read'=>2000000000, 'empty'=>false] as $name=>$seen) {
+    $page = new StaffMessageReference();
+    $page->ts = $seen;
+    if ($name === 'empty') {
+        $page->messages = [];
+        $page->offset = 25;
+    }
+    $scenarios[$name] = $page->render($view);
+}
+$rendered = $scenarios['unread'];
 $path = __DIR__.'/../fixtures/staff-messages-reference.html';
 if (in_array('--write', $argv, true)) {
     file_put_contents($path, $rendered);
 } elseif (file_get_contents($path) !== $rendered) {
     throw new RuntimeException('Source staff-message reference differs.');
 }
-echo "Source staff-message reference matches.\n";
+$casesPath = __DIR__.'/../fixtures/staff-messages-pages.json';
+$encoded = json_encode($scenarios, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
+if (in_array('--write', $argv, true)) file_put_contents($casesPath, $encoded);
+elseif (file_get_contents($casesPath) !== $encoded) throw new RuntimeException('Source staff-message page states differ.');
+echo "Source staff-message references match four read/navigation states.\n";
