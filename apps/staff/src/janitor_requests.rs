@@ -15,7 +15,10 @@ pub(crate) const READY_SQL: &str = r#"
 SELECT NOT EXISTS (
  SELECT 1 FROM (VALUES
   ('staff_identity','janitor_request_form','bytea, bytea, integer, text, bigint','jsonb','board_auth'),
-  ('content','create_janitor_request','bytea, bytea, integer, text, bigint, bigint, boolean, boolean','bigint','board_staff')
+  ('content','create_janitor_request','bytea, bytea, integer, text, bigint, bigint, boolean, boolean','bigint','board_staff'),
+  ('content','review_janitor_request','bytea, bytea, integer, bigint, boolean, bigint, integer, boolean, text, text','jsonb','board_staff'),
+  ('staff_identity','janitor_request_queue','bytea, bytea, integer, text, integer','jsonb','board_auth'),
+  ('staff_identity','janitor_request_statistics','bytea, bytea, integer, integer','jsonb','board_auth')
  ) required(namespace,name,arguments,result_type,reader)
  WHERE NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
   WHERE n.nspname=required.namespace AND p.proname=required.name
@@ -91,7 +94,7 @@ fn validate(board: &str, target: i64) -> Result<(), AppError> {
     }
     Ok(())
 }
-fn database(error: sqlx::Error) -> AppError {
+pub(crate) fn database(error: sqlx::Error) -> AppError {
     match error
         .as_database_error()
         .and_then(|error| error.code())

@@ -3,7 +3,8 @@
 Issue #223 covers request creation, moderator review, staff messages and review
 statistics. PR #295 merged the decision model and staff-message reader after all 18 PR
 checks and the separate dependency advisory run passed. The authenticated request store and creation form are implemented locally.
-The request queue and moderator review endpoints are not yet connected.
+The request queue, ordinary review endpoints and own-account statistics are
+implemented locally; their full hosted qualification is pending.
 
 ## Review decisions
 
@@ -72,7 +73,7 @@ Staff messages use 25-row pages, newest ID first, with a one-row sentinel.
 Visibility depends on message board scope and staff rank. The source applies
 visibility after pagination; unread counts use creation time. Review history is
 pruned after six calendar months, separately from cumulative approval/denial
-counts. The review-history reader remains to be implemented.
+counts. The own-account reader exposes retained history separately from those totals.
 
 ## Staff-message reader
 
@@ -111,13 +112,13 @@ unavailable; no replacement artwork is invented.
 
 ## Remaining integration
 
-The private writer must revalidate current account, credential, session, CSRF,
-board access and recent authentication before committing. Conflicting reviewers
-must not issue two restrictions or count one request twice. Source salts and
-client-supplied unlock claims are not authority.
+The private writers revalidate current account, credential, session, CSRF,
+board access and recent authentication before committing. Competing-reviewer
+tests verify one restriction and one counted outcome per request. Source salts
+and client-supplied unlock claims are not authority.
 
-The review path also needs amendment reasons, retained file policy, exact
-restriction issuance and source-qualified blacklist effects. Its optional
+The review path implements amendment reasons and ordinary restriction issuance.
+Private file retention and source-qualified blacklist effects remain unfinished. Its optional
 delete-all call is commented out in the supplied source. No such effect should
 be inferred from a template label.
 
@@ -189,8 +190,8 @@ The source applies the ceiling after its OP multiplier. With currently qualified
 weights of exactly 0.5, an OP first reaches the unlock threshold at 2,399 reports;
 a reply reaches it at 2,999. The owned PostgreSQL exercise checks both boundaries,
 unknown weights, group clearing, reporter retirement, invalid targets, runtime
-denial, grant/definition drift, rollback and populated restore. These local
-checks pass; the new foundation has not yet run through hosted CI.
+denial, grant/definition drift, rollback and populated restore. These checks pass locally and in the first branch CI run. That run failed in
+other qualification steps, described below; the complete branch is not qualified.
 
 ## Atomic request storage
 
@@ -214,7 +215,8 @@ authentication, revocation, removed credentials, sticky protection, real
 weight-qualified cross-board requests, two competing staff connections and
 populated restore. The first concurrency fixture used a sleep equal to the
 statement timeout; it now stays below that deadline without increasing runtime
-limits. Queue/review operations and private file retention remain unimplemented. Hosted qualification of this storage batch is still pending.
+limits. Queue/review operations are now connected to the application; private
+file retention remains unimplemented. Full hosted qualification is pending.
 
 ## Request creation form
 
@@ -259,9 +261,9 @@ whole review. Identity uses immutable native account IDs instead of request
 cookies or a mutable username.
 
 Review currently requires an explicitly configured `none` blacklist policy and
-a supported retained-post policy. Image blacklisting, private media retention,
-queue presentation, review HTTP adapters and statistics readers still need
-integration. These SQL checks do not qualify those missing paths.
+a supported retained-post policy. Image blacklisting and private media retention
+still need implementation. The queue, HTTP adapters and statistics readers have
+separate local qualification below.
 
 ## Historical cleanup qualification
 
@@ -276,7 +278,7 @@ now proves rejection by each catalog before attesting both inside its owned
 disposable database. It then verifies the deferred rollback, removes the test
 trigger and restores both original seals. Fresh/populated cleanup, unchanged
 independent records, role/drift refusals and restore pass locally through
-migration 0209. Production permissions and readiness checks are unchanged.
+migration 0210. Production permissions and readiness checks are unchanged.
 
 The same branch run also failed an immediate viewport-width assertion in the
 public upload browser. It did not report the viewport or overflowing element.
@@ -287,3 +289,50 @@ the page. Sixteen helper/verification-runner tests pass locally, including a
 delayed-layout model and controls that reject persistent or incorrectly ignored
 overflow. The real browser control still requires hosted qualification; no CSS
 change or relaxed width threshold was made.
+
+## Protected queue and statistics
+
+Migration 0210 provides 25-row moderator queue pages with a one-row sentinel and
+a 16 MiB capture budget. It preserves the source's all-board exclusion of
+`/test/`, explicit board selection and reversed priority subset for `global1`,
+`hm6` and `s6`. Stable IDs resolve otherwise unspecified timestamp ties. Readers
+return only authorized boards and omit raw addresses, password/equality values
+and normalized private digests.
+
+The queue uses the original report-queue stylesheet and table classes. Saved
+comments reuse the report snapshot decoder, including frozen formatting, rather
+than treating captured strings as trusted HTML. The shared decoder now accepts
+all six already-supported approved formats, including WebM and MP4, while
+request previews keep removed public media unavailable. Its format control also
+rejects unknown formats.
+
+`/ban-requests/review` rechecks live moderator authority for ordinary approval,
+denial and amendments. Blank optional length/scope fields use the source
+defaults; warning amendments start with an explicit zero-day value so changing
+a reason does not silently turn a warning into a ban. Repeated denial is
+idempotent; repeated acceptance fails after the first review.
+
+`/ban-requests/statistics` shows only the current account's totals, pending
+requests and retained authored/reviewed outcomes. The supplied snapshot contains
+statistics writers but no corresponding reader UI; this own-account view is a
+native replacement contract, not a claimed copy of an unavailable page.
+
+Local SQL tests pass both source ordering modes, test-board selection, disjoint
+25/1 pagination, role boundaries, oversized-page refusal, scoped statistics and
+populated restore. Accepted bans and warnings also reach the real public
+posting-restriction evaluator. The actual HTTP test passes creation, saved
+preview rendering, approval, denial, repeated actions, statistics, expiry and
+revocation, including the warning-default UI assertion. All 59 staff unit tests,
+strict Clippy and the current staff-message HTTP regression pass.
+
+The hosted browser fixture exercises actual form creation, captured queue rows,
+denial, Back navigation and cumulative statistics at desktop/mobile sizes with
+scripts enabled and disabled. It receives only a synthetic session and target
+IDs, never database credentials. Its twelve screenshots are functional evidence;
+they do not compare these pages against source pixels. The fixture compiles and
+its driver passes syntax checks locally; real browser execution remains pending.
+
+Queue and creation-form pixels and the source's full client-side interactions
+remain unqualified. Autocomplete, quick-amend shortcuts, in-place refresh,
+keyboard controls and private retained media still need work. These functional
+pages do not close issue #223 or establish full staff frontend parity.

@@ -67,6 +67,10 @@ DO $$ BEGIN IF to_regprocedure('staff_identity.janitor_request_form(bytea,bytea,
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0208_janitor_request_form.sql
 if [[ ${RUN_RUST_TESTS:-0} = 1 ]]; then
+    for migration in migrations/*.sql; do
+        [[ $(basename "$migration") > 0208_janitor_request_form.sql ]] || continue
+        "${migrator[@]}" --single-transaction -f - < "$migration" >/dev/null
+    done
     MIGRATION_DATABASE_URL=postgres://board_migrator@127.0.0.1:55449/request_store \
     AUTH_DATABASE_URL=postgres://board_auth@127.0.0.1:55449/request_store \
     STAFF_DATABASE_URL=postgres://board_staff@127.0.0.1:55449/request_store \

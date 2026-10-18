@@ -14,6 +14,7 @@ mod report_post_snapshot;
 pub mod report_queue;
 mod report_queue_query;
 mod reporter_clear;
+mod request_review;
 mod restrictions;
 mod robot9000_cleanup;
 mod self_deletion;
@@ -198,6 +199,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
         .route("/messages", get(staff_messages::show))
+        .route("/ban-requests", get(request_review::queue))
+        .route("/ban-requests/review", post(request_review::review))
+        .route("/ban-requests/statistics", get(request_review::statistics))
         .route(
             "/ban-request",
             get(janitor_requests::form).post(janitor_requests::submit),

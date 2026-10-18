@@ -35,7 +35,7 @@ psql=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 55450 -U postgres)
 "${psql[@]}" -d postgres <<'SQL'
 CREATE DATABASE request_review OWNER board_migrator;
 REVOKE ALL ON DATABASE request_review FROM PUBLIC;
-GRANT CONNECT ON DATABASE request_review TO board_migrator,board_auth,board_staff;
+GRANT CONNECT ON DATABASE request_review TO board_migrator,board_auth,board_staff,board_public;
 ALTER ROLE board_auth LOGIN;
 ALTER ROLE board_staff LOGIN;
 ALTER ROLE board_auth SET lock_timeout='2s';
@@ -55,6 +55,13 @@ DO $$ BEGIN IF to_regclass('restrictions.request_reviews') IS NOT NULL
  RAISE EXCEPTION 'Request review rollback changed authority'; END IF; END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0209_janitor_request_review.sql
+"${migrator[@]}" -c BEGIN -f migrations/0210_janitor_request_readers.sql -c ROLLBACK
+"${psql[@]}" -d request_review <<'SQL'
+DO $$ BEGIN IF to_regprocedure('staff_identity.janitor_request_queue(bytea,bytea,integer,text,integer)') IS NOT NULL
+ OR content.restrictions_ready() IS DISTINCT FROM true THEN
+ RAISE EXCEPTION 'Request reader rollback changed authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0210_janitor_request_readers.sql
 python3 scripts/ban-request-review-sql.py > "$cluster/source.sql"
 "${psql[@]}" -d request_review -f "$cluster/source.sql"
 "${psql[@]}" -d request_review -f scripts/test-janitor-request-store.sql
@@ -80,6 +87,14 @@ fi
 grep -q '55P03' "$cluster/second-review.log" || { cat "$cluster/second-review.log"; exit 1; }
 wait "$first" || { cat "$cluster/first-review.log"; exit 1; }
 [[ $("${psql[@]}" -U board_staff -d request_review -Atc "SELECT content.review_janitor_request(decode(repeat('55',32),'hex'),decode(repeat('77',32),'hex'),600,$request,false,NULL,NULL,NULL,NULL,NULL)->>'changed'") = false ]] || exit 1
+"${psql[@]}" -U board_public -d request_review <<'SQL'
+DO $$ BEGIN
+ IF content.evaluate_posting_restrictions(decode(repeat('11',32),'hex'),NULL,'rqown',floor(extract(epoch FROM clock_timestamp()))::bigint)<>'banned'
+  OR content.evaluate_posting_restrictions(decode(repeat('11',32),'hex'),NULL,'rqother',floor(extract(epoch FROM clock_timestamp()))::bigint)<>'warned' THEN
+  RAISE EXCEPTION 'Accepted requests did not enter actual posting restriction evaluation'; END IF;
+END $$;
+SQL
+"${psql[@]}" -d request_review -f scripts/test-janitor-request-readers.sql
 "$pg_bin/pg_dump" -h 127.0.0.1 -p 55450 -U postgres -d request_review --format=custom -f "$cluster/owned.dump"
 "${psql[@]}" -d postgres -c 'CREATE DATABASE review_restored OWNER board_migrator'
 "$pg_bin/pg_restore" -h 127.0.0.1 -p 55450 -U postgres -d review_restored --exit-on-error "$cluster/owned.dump"
