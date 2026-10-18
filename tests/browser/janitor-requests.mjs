@@ -49,7 +49,25 @@ try {
         await expect(row).toContainText('Owned HTTP request body');
         await expect(row.getByRole('button', { name: /^Deny/ })).toBeVisible();
         await page.screenshot({ fullPage: true, path: path.join(output, `${prefix}-queue.png`) });
-        await row.getByRole('button', { name: /^Deny/ }).click();
+        if (index === 0) {
+          // Reproduce the incompatible source policy without weakening the POST guard.
+          await page.evaluate(() => document.querySelector('meta[name="referrer"]').content = 'no-referrer');
+          const [refused] = await Promise.all([
+            page.waitForResponse(response => response.url() === `${origin}/ban-requests/review` && response.request().method() === 'POST'),
+            row.getByRole('button', { name: /^Deny/ }).click(),
+          ]);
+          assert.equal(await refused.request().headerValue('origin'), 'null');
+          assert.equal(refused.status(), 403, 'opaque-origin form must remain forbidden');
+          await page.goto(`${origin}/ban-requests?board=${input.board}`, { waitUntil: 'networkidle' });
+          await expect(row).toContainText('Owned HTTP request body');
+        }
+        const [reviewResponse] = await Promise.all([
+          page.waitForResponse(response => response.url() === `${origin}/ban-requests/review` && response.request().method() === 'POST'),
+          row.getByRole('button', { name: /^Deny/ }).click(),
+        ]);
+        assert.equal(await reviewResponse.request().headerValue('origin'), origin,
+          'native form must retain its same-origin proof');
+        assert.equal(reviewResponse.status(), 200, 'authorized review form must succeed');
         await expect(page.locator('#content')).toContainText('Request denied. 1 pending request(s) cleared.');
         await page.screenshot({ fullPage: true, path: path.join(output, `${prefix}-review.png`) });
         await page.goBack({ waitUntil: 'networkidle' });

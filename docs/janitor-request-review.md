@@ -353,3 +353,13 @@ verification script's installation step. Head `99742d64` stopped before browser
 launch because `@playwright/test` was absent. The early step now installs the
 locked npm dependencies and Chromium explicitly before loading database
 environment files. The existing full verification script remains unchanged.
+
+Head `31db0083` reached real request creation and queue rendering, then rejected
+the native review form with `Request forbidden`. The queue inherited the source
+`never` referrer policy, which suppresses the origin proof required by the native
+POST guard. Its policy is now `same-origin`; cross-origin referrers remain
+suppressed. The guard still rejects missing, null and foreign origins, and the
+browser fixture checks the actual review request's Origin and response status.
+A negative control restores `no-referrer` on the synthetic page and requires
+an opaque-origin refusal with the request still pending before the valid retry.
+This security compatibility change still requires a fresh hosted browser pass.

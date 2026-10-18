@@ -1,5 +1,5 @@
 {% import "formatting.html" as fmt %}
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="never"><title>Ban Requests</title><link rel="stylesheet" href="/reportqueue.css"><link rel="shortcut icon" href="/staff-assets/favicon-team.ico"></head><body class="page-ban-requests">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="referrer" content="same-origin"><title>Ban Requests</title><link rel="stylesheet" href="/reportqueue.css"><link rel="shortcut icon" href="/staff-assets/favicon-team.ico"></head><body class="page-ban-requests">
 <header><h1 id="title">Ban Requests</h1></header>
 <div id="menu"><a class="button button-light" href="/ban-requests?board={{ board }}&amp;offset={{ offset }}">Refresh</a> <a class="button button-light" href="/reports">RQ</a> <a class="button button-light" href="/ban-requests/statistics">My statistics</a>
 <ul id="board-menu"><li><a href="/ban-requests">All</a></li>{% for count in counts %}<li class="board-slug"><a href="/ban-requests?board={{ count.board }}">{{ count.board }} ({{ count.count }})</a></li>{% endfor %}</ul></div>

@@ -152,6 +152,7 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
             assert_eq!(response.status(),StatusCode::OK);
             let html=String::from_utf8(to_bytes(response.into_body(),4*1024*1024).await.unwrap().to_vec()).unwrap();
             assert!(html.contains("Owned HTTP request body"));
+            assert!(html.contains("name=\"referrer\" content=\"same-origin\""));
             assert!(html.contains(&format!("No.{}",posts[0])));
             let warning_marker=format!("id=\"ban-request-{}\"",request_ids[1]);
             let warning_row=html.split(&warning_marker).nth(1).unwrap().split("</tr>").next().unwrap();
@@ -159,6 +160,12 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
             assert!(!html.contains("<script>Owned subject</script>"));
             assert!(!html.contains(&actor));
             assert_eq!(app.clone().oneshot(get("/ban-requests?board=outside",&cookie)).await.unwrap().status(),StatusCode::FORBIDDEN);
+            for origin in [None, Some("null"), Some("https://outside.invalid")] {
+                let mut denied=review(request_ids[0],"accept");
+                denied.headers_mut().remove("origin");
+                if let Some(origin)=origin { denied.headers_mut().insert("origin",origin.parse().unwrap()); }
+                assert_eq!(app.clone().oneshot(denied).await.unwrap().status(),StatusCode::FORBIDDEN);
+            }
             let response=app.clone().oneshot(review(request_ids[0],"accept")).await.unwrap();
             assert_eq!(response.status(),StatusCode::OK);
             let accepted:serde_json::Value=serde_json::from_slice(&to_bytes(response.into_body(),4096).await.unwrap()).unwrap();
