@@ -191,3 +191,28 @@ a reply reaches it at 2,999. The owned PostgreSQL exercise checks both boundarie
 unknown weights, group clearing, reporter retirement, invalid targets, runtime
 denial, grant/definition drift, rollback and populated restore. These local
 checks pass; the new foundation has not yet run through hosted CI.
+
+## Atomic request storage
+
+Migration 0207 adds a private request store and a session-bound writer. It
+captures the target's identity, normalized upload evidence and presentation
+before deleting the post in the same transaction. OP requests delete the thread
+only when the caller may do so; sticky OPs require an administrator. The writer
+rechecks account, credential, session, CSRF and recent authentication before
+returning. Actor, capacity, board and content locks serialize competing writes.
+
+Requests have a separate 64 MiB default capacity and a 10,000-row default limit.
+A snapshot may occupy at most 32 MiB. OP deletion refuses threads with more than
+10,000 live posts. Missing template retention configuration fails without an
+effect. The `everything` policy also fails until private file retention is
+implemented; it must not silently degrade to JSON-only capture.
+
+The owned PostgreSQL exercise passes request capture before erasure, async
+warning selection, zero-day warnings, role and required-file checks, incorrect
+CSRF, unsupported retention, quota rollback, outer transaction rollback, stale
+authentication, revocation, removed credentials, sticky protection, real
+weight-qualified cross-board requests, two competing staff connections and
+populated restore. The first concurrency fixture used a sleep equal to the
+statement timeout; it now stays below that deadline without increasing runtime
+limits. HTTP adapters, queue/review operations and private file retention remain
+unimplemented. Hosted qualification of this storage batch is still pending.
