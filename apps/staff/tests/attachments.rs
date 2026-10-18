@@ -150,12 +150,21 @@ impl Fixture {
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.headers()["cache-control"], "private, no-store");
-        assert!(
-            response.headers()["content-security-policy"]
-                .to_str()
-                .unwrap()
-                .ends_with("img-src http://127.0.0.1:3002")
+        let policy = response.headers()["content-security-policy"]
+            .to_str()
+            .unwrap();
+        let origin = self.state.config.origin.trim_end_matches('/');
+        assert_eq!(
+            policy
+                .split("; ")
+                .find(|part| part.starts_with("img-src "))
+                .unwrap(),
+            format!(
+                "img-src {origin}/staff-assets/select-arrow.png {origin}/staff-assets/select-arrow-light.png {origin}/staff-assets/favicon-team.ico http://127.0.0.1:3002"
+            )
         );
+        assert!(!policy.contains("img-src 'self'"));
+        assert!(!policy.contains("data:"));
         String::from_utf8(
             response
                 .into_body()

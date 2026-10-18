@@ -94,8 +94,9 @@ pub async fn security_headers(State(state): Shared, request: Request, next: Next
             .headers_mut()
             .insert(key, HeaderValue::from_static(value));
     }
+    let origin = state.config.origin.trim_end_matches('/');
     let policy = format!(
-        "default-src 'none'; script-src 'self'; style-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; connect-src 'self'; img-src {}",
+        "default-src 'none'; script-src 'self'; style-src 'self'; font-src {origin}/staff-assets/reportqueue.woff2; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; connect-src 'self'; img-src {origin}/staff-assets/select-arrow.png {origin}/staff-assets/select-arrow-light.png {origin}/staff-assets/favicon-team.ico {}",
         state.config.media_origin
     );
     let Ok(policy) = HeaderValue::from_str(&policy) else {
@@ -455,7 +456,7 @@ pub async fn comment_css() -> impl IntoResponse {
         ),
     )
 }
-fn set_cookie(
+pub(crate) fn set_cookie(
     response: &mut Response,
     state: &AppState,
     name: &str,

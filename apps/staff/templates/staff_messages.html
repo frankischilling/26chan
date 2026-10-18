@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="never">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Messages</title>
+  <link rel="stylesheet" href="/reportqueue.css">
+  <link rel="shortcut icon" href="/staff-assets/favicon-team.ico" type="image/x-icon">
+</head>
+<body>
+<header><h1 id="title">Messages</h1></header>
+<div id="menu"><a href="/reports" class="button button-light">Reports</a></div>
+<div id="content">
+<table class="items-table">
+<thead><tr><th>Created on</th><th>Boards</th><th class="col-msg">Message</th></tr></thead>
+<tbody>
+{% for message in messages %}
+<tr id="message-{{ message.id }}"{% if message.read_divider %} class="item-read"{% endif %}>
+  <td class="col-date">{{ message.created_at }}</td>
+  <td class="col-boards">{{ message.boards }}</td>
+  <td class="col-msg">{% for line in message.lines %}{{ line }}{% if !loop.last %}<br>{% endif %}{% endfor %}</td>
+</tr>
+{% endfor %}
+</tbody>
+<tfoot><tr><td colspan="3" class="page-nav">{% if previous_offset != offset %}<a href="/messages?offset={{ previous_offset }}">&laquo; Previous</a>{% endif %}{% if next_offset != 0 %}<a href="/messages?offset={{ next_offset }}">Next &raquo;</a>{% endif %}</td></tr></tfoot>
+</table>
+</div>
+</body>
+</html>

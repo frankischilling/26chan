@@ -72,6 +72,14 @@ jobs:
         run: python3 scripts/extract-video-reference.py --php-oracle
       - name: Qualify automatic-range template caller
         run: php -n scripts/test-template-range-caller-reference.php
+      - name: Qualify isolated ban-request review decisions
+        run: |
+          php -n scripts/test-ban-request-review-reference.php
+          php -n scripts/test-janitor-request-caller.php
+      - name: Verify source staff queue assets
+        run: |
+          python3 scripts/build-staff-queue-assets.py --check
+          php -n scripts/render-staff-message-reference.php
       - name: Start disposable database and migrate
         run: |
           python3 scripts/test-dev-db-env.py
@@ -108,6 +116,11 @@ jobs:
           source .local/monitor.env
           source .local/staff.env
           bash scripts/verify.sh rust
+      - name: Compare complete staff-message pages with the source view
+        run: |
+          source .local/database.env
+          source .local/staff.env
+          RUN_STAFF_MESSAGE_BROWSER=1 cargo test -p board-staff --features database-tests --test messages --locked -- --nocapture
       - name: Retain synthetic Linux browser failure evidence
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -598,6 +611,8 @@ jobs:
           sudo bash scripts/test-report-auto-clear-migration.sh
           sudo bash scripts/test-post-notices-migration.sh
           sudo bash scripts/test-template-automatic-ranges-migration.sh
+      - name: Qualify staff message visibility and restored authority
+        run: sudo bash scripts/test-staff-messages-migration.sh
       - name: Upgrade existing content for attachment-only posts
         run: sudo bash scripts/test-attachment-only-migration.sh
       - name: Upgrade existing threads from migration 0008

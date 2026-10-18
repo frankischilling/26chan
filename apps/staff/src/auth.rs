@@ -277,6 +277,12 @@ pub async fn check_identity(pool: &PgPool, expected: &str) -> Result<(), AppErro
     if authority {
         return Err(AppError::Forbidden);
     }
+    if !sqlx::query_scalar::<_, bool>(crate::staff_messages::READY_SQL)
+        .fetch_one(pool)
+        .await?
+    {
+        return Err(AppError::Forbidden);
+    }
     let cross: bool = sqlx::query_scalar("SELECT CASE WHEN current_user='board_auth' THEN has_schema_privilege(current_user,'content','USAGE') ELSE has_schema_privilege(current_user,'staff_identity','USAGE') END").fetch_one(pool).await?;
     if cross {
         return Err(AppError::Forbidden);

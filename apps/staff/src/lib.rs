@@ -16,6 +16,7 @@ mod reporter_clear;
 mod restrictions;
 mod robot9000_cleanup;
 mod self_deletion;
+mod staff_messages;
 pub mod store;
 mod thread_options;
 mod thread_transfer;
@@ -195,6 +196,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/comment-markup.css", get(handlers::comment_css))
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
+        .route("/messages", get(staff_messages::show))
+        .route("/messages/count", get(staff_messages::count))
+        .route("/reportqueue.css", get(staff_messages::stylesheet))
+        .route("/staff-assets/{asset}", get(staff_messages::asset))
         .route(
             "/robot9000-cleanup",
             get(robot9000_cleanup::show)
