@@ -336,3 +336,14 @@ Queue and creation-form pixels and the source's full client-side interactions
 remain unqualified. Autocomplete, quick-amend shortcuts, in-place refresh,
 keyboard controls and private retained media still need work. These functional
 pages do not close issue #223 or establish full staff frontend parity.
+
+## First integrated browser run
+
+Head `1d236a2d` passed the complete Rust/database/upload step, all Linux public
+browser suites, Windows visuals, media/operations, native replay, monitoring and
+dependency advisories. The new janitor browser stopped at its first template
+selector: the accessibility snapshot contained a combobox named `Template`, but
+the exact wrapping-label selector did not match. The driver now selects that
+combobox by its accessible role and name. The workflow runs this focused browser
+exercise before the longer Rust suite so failures produce evidence sooner.
+Fresh hosted qualification is required before merging.

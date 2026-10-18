@@ -36,8 +36,8 @@ try {
         const prefix = `${size}-${javaScriptEnabled ? 'js' : 'no-js'}`;
         const response = await page.goto(`${origin}/ban-request?board=${input.board}&target=${input.posts[index]}`, { waitUntil: 'networkidle' });
         assert.equal(response.status(), 200);
-        await expect(page.getByLabel('Template', { exact: true })).toBeVisible();
-        await page.getByLabel('Template', { exact: true }).selectOption(String(input.template));
+        await expect(page.getByRole('combobox', { name: 'Template', exact: true })).toBeVisible();
+        await page.getByRole('combobox', { name: 'Template', exact: true }).selectOption(String(input.template));
         await page.screenshot({ fullPage: true, path: path.join(output, `${prefix}-form.png`) });
         await page.getByRole('button', { name: 'Submit request', exact: true }).click();
         await expect(page.locator('#content')).toContainText('is waiting for moderator review');

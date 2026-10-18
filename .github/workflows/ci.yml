@@ -107,6 +107,13 @@ jobs:
         run: |
           source .local/database.env
           cargo test -p board-public --lib --test proxy_https --all-features --locked
+      - name: Exercise janitor request and review forms in real browsers
+        run: |
+          set -a
+          source .local/database.env
+          source .local/staff.env
+          set +a
+          RUN_JANITOR_BROWSER=1 cargo test -p board-staff --features database-tests --test janitor_requests --locked -- --nocapture
       - name: Rust, database permissions, concurrency, and browser-backed uploads
         run: |
           source .local/database.env
@@ -121,13 +128,6 @@ jobs:
           source .local/database.env
           source .local/staff.env
           RUN_STAFF_MESSAGE_BROWSER=1 cargo test -p board-staff --features database-tests --test messages --locked -- --nocapture
-      - name: Exercise janitor request and review forms in real browsers
-        run: |
-          set -a
-          source .local/database.env
-          source .local/staff.env
-          set +a
-          RUN_JANITOR_BROWSER=1 cargo test -p board-staff --features database-tests --test janitor_requests --locked -- --nocapture
       - name: Retain synthetic Linux browser failure evidence
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
