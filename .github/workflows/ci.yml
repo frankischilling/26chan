@@ -76,6 +76,7 @@ jobs:
         run: |
           php -n scripts/test-ban-request-review-reference.php
           php -n scripts/test-janitor-request-caller.php
+          php -n scripts/test-janitor-file-effects.php
       - name: Verify source staff queue assets
         run: |
           python3 scripts/build-staff-queue-assets.py --check
