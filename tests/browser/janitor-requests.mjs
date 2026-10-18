@@ -63,6 +63,7 @@ try {
           ]);
           assert.equal(await refused.request().headerValue('origin'), 'null');
           assert.equal(refused.status(), 403, 'opaque-origin form must remain forbidden');
+          await page.waitForURL(`${origin}/ban-requests/review`, { waitUntil: 'domcontentloaded' });
           await page.goto(`${origin}/ban-requests?board=${input.board}`, { waitUntil: 'networkidle' });
           await expect(row).toContainText('Owned HTTP request body');
         }
