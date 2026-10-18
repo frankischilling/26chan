@@ -1,8 +1,8 @@
 # Janitor requests and moderator review
 
 Issue #223 covers request creation, moderator review, staff messages and review
-statistics. Work is on `feature/janitor-review-parity`. The decision model and
-staff-message reader are implemented. The authenticated ban-request store,
+statistics. PR #295 merged the decision model and staff-message reader after all 18 PR
+checks and the separate dependency advisory run passed. The authenticated ban-request store,
 request queue and review endpoints are not yet connected.
 
 ## Review decisions
@@ -101,7 +101,7 @@ Operator text is escaped and line breaks are preserved. The source's arbitrary
 HTML and external image embedding are not copied; trusted private image
 presentation still needs a native path. Dates currently use UTC with the source
 `m/d/y H:i` format. The supplied reader does not establish its deployment's PHP
-timezone. Full rendered-page comparisons remain outstanding.
+timezone. Hosted full-page comparisons passed on the merged PR head.
 
 [The asset record](staff-queue-assets.json) pins the original stylesheet, arrow
 images and favicon. The embedded font is served from a fixed same-origin path,
@@ -161,3 +161,33 @@ Previous navigation and reloads against four independently rendered source
 states. Its local launch was blocked before navigation by the execution
 environment's socket restriction, so no local pixel-parity result is claimed.
 The fixture is required in hosted Linux CI.
+
+## Hosted qualification
+
+PR #295 passed all checks on `900d33a12ff229082d9161e2a490a76947d80ba4`
+and merged as `22eb5e9d9462b30dd6afb01e420e5bcbf4bc2f3e`.
+[Build run 39094770320](https://github.com/frankischilling/26chan/actions/runs/39094770320)
+includes 24 exact full-page comparisons: desktop/mobile, scripts on/off,
+unread/mixed/read markers, an empty page, Previous navigation and reloads.
+The local browser restriction did not affect hosted qualification.
+
+## Request-authority foundation
+
+Migration 0206 adds request-only template settings without inventing source
+operator records. Warning requests default to disallowed; the retained-post
+policy stays NULL until an operator explicitly configures it. No request writer
+or runtime cross-board access is installed by this migration.
+
+The private unlock predicate locks the target board and uses only retained,
+known report weights. Group-cleared reports still count; reporter-retired rows
+do not. It rejects stale transaction snapshots and groups over 10,000 reports.
+Missing weights deny the unlock even when the known subtotal exceeds the
+threshold. Runtime roles cannot call the predicate or read the evidence table.
+The restriction catalog checks the helper definition, grants and dependencies.
+
+The source applies the ceiling after its OP multiplier. With currently qualified
+weights of exactly 0.5, an OP first reaches the unlock threshold at 2,399 reports;
+a reply reaches it at 2,999. The owned PostgreSQL exercise checks both boundaries,
+unknown weights, group clearing, reporter retirement, invalid targets, runtime
+denial, grant/definition drift, rollback and populated restore. These local
+checks pass; the new foundation has not yet run through hosted CI.
