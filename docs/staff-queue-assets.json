@@ -1,0 +1,14 @@
+{
+  "source": "reports/css/reportqueue.css",
+  "sha256": "f547b21681c2063cc8c92734b2e8c298f31d9c8c3667543864a7d19f988b67ae",
+  "changes": [
+    "Normalize CRLF to LF.",
+    "Move embedded WOFF2 bytes to a fixed same-origin asset.",
+    "Use fixed same-origin image URLs. The unavailable minileaf.gif remains an explicitly missing asset."
+  ],
+  "assets": {
+    "select-arrow.png": "bd243a1051f3c7b3a4390bcc3c52e1a4649899c9b6a1b1efdc74725a6d42d875",
+    "select-arrow-light.png": "6dbe422f108c329c06523291d110db99086e13ae66097eaab4877b470beacd85",
+    "favicon-team.ico": "55299a2a77c8d5f9c502668c5d3b51d1d378cebbb1f6db781e0b157ead0dfc7c"
+  }
+}

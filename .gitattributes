@@ -10,3 +10,9 @@ tests/fixtures/polls/source-* -text
 # Their original bytes are checked by SHA-256 in render-poll-reference.php.
 tests/fixtures/polls/source-*.tpl.php whitespace=cr-at-eol
 tests/fixtures/polls/source-polls.js whitespace=-blank-at-eol
+# Staff reference digests include the supplied CRLF and stylesheet spacing.
+fixtures/staff-reportqueue-source.css -text whitespace=-blank-at-eol
+fixtures/staff-messages-source.php -text whitespace=cr-at-eol
+fixtures/staff-messages-reference.html -text whitespace=cr-at-eol
+apps/staff/static/reportqueue.v1.css whitespace=-blank-at-eol
+apps/staff/static/reportqueue.woff2 binary

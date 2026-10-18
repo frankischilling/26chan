@@ -1,9 +1,9 @@
 # Janitor requests and moderator review
 
 Issue #223 covers request creation, moderator review, staff messages and review
-statistics. Work is on `feature/janitor-review-parity`. The decision model below
-is implemented; the authenticated request store, queue and review endpoints are
-not yet connected.
+statistics. Work is on `feature/janitor-review-parity`. The decision model and
+staff-message reader are implemented. The authenticated ban-request store,
+request queue and review endpoints are not yet connected.
 
 ## Review decisions
 
@@ -68,7 +68,42 @@ Staff messages use 25-row pages, newest ID first, with a one-row sentinel.
 Visibility depends on message board scope and staff rank. The source applies
 visibility after pagination; unread counts use creation time. Review history is
 pruned after six calendar months, separately from cumulative approval/denial
-counts. These readers and their access tests remain to be implemented.
+counts. The review-history reader remains to be implemented.
+
+## Staff-message reader
+
+Migration 0205 adds an empty, private operator message table and a session-bound
+reader. `/messages` renders the source table structure with the supplied report
+queue stylesheet; `/messages/count` returns an unread count without moving the
+read marker. The browser marker is a bounded decimal timestamp, separate from
+the authentication-cookie parser. Duplicate or malformed markers reset it to zero.
+It grants no access. Reading a page updates a host-only, HttpOnly, SameSite=Strict
+cookie; production also requires Secure.
+
+The database checks the live account, credential, session and CSRF proof both
+before reading and before returning. Janitors see global messages and messages
+matching an allowed board; moderator-and-above ranks see all messages, as in the
+source. Runtime roles cannot read or write the table directly. The authentication
+role can execute only the scoped reader, and startup checks require that split.
+The existing restriction catalog detects definition and grant changes.
+
+Messages are limited to 16,384 bytes and 128 board entries. Reads reject an
+operator inventory larger than 10,000 messages. Pages preserve the source's
+select-before-filter behavior, including removal of the last visible item when
+the raw page has a sentinel. The read divider appears only before the first
+message strictly older than the previous marker.
+
+Operator text is escaped and line breaks are preserved. The source's arbitrary
+HTML and external image embedding are not copied; trusted private image
+presentation still needs a native path. Dates currently use UTC with the source
+`m/d/y H:i` format. The supplied reader does not establish its deployment's PHP
+timezone. Full rendered-page comparisons remain outstanding.
+
+[The asset record](staff-queue-assets.json) pins the original stylesheet, arrow
+images and favicon. The embedded font is served from a fixed same-origin path,
+with unchanged bytes. CSP permits only those specific local images/font and the
+existing media origin. The stylesheet's unused `minileaf.gif` reference remains
+unavailable; no replacement artwork is invented.
 
 ## Remaining integration
 
@@ -96,3 +131,20 @@ The source extractor and PHP oracle checks pass. The full domain suite passes
 348 tests, including the 2,016-case review comparison, with no ignored tests.
 All-target, all-feature domain Clippy passes with warnings denied. These are
 local model checks; hosted qualification and integration tests are still needed.
+
+The owned PostgreSQL 16 message exercise also passes migration rollback,
+preserved configuration, source pagination, board visibility, real auth-role
+reads, wrong-session/CSRF rejection, private-table denial, revoked-account
+rejection, grant-drift detection and populated dump/restore. The actual router
+test passes escaped output, unread cookies/counts, moderator visibility, expired
+sessions, removed credentials, strict query fields and fixed asset routes.
+The first local run caught an ambiguous SQL variable; the first parser test
+caught reuse of the fixed-length authentication-cookie parser for a timestamp.
+Both defects were corrected before these checks passed.
+
+All 56 staff unit tests and strict all-target, all-feature staff Clippy pass.
+The complete-page browser fixture compares actual staff HTTP output with the
+independent source view at desktop/mobile widths, with JavaScript enabled and
+disabled. Its local launch was blocked before navigation by the execution
+environment's socket restriction, so no local pixel-parity result is claimed.
+The fixture is required in hosted Linux CI.
