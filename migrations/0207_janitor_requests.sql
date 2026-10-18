@@ -56,7 +56,10 @@ CREATE TABLE restrictions.requests (
  charged_bytes bigint NOT NULL CHECK(charged_bytes BETWEEN 1024 AND 33555456),
  UNIQUE(board,post_id),
  CHECK((upload_observation='known')=(normalized_upload_md5 IS NOT NULL)),
- CHECK(payload->>'board'=board AND (payload->>'post_id')::bigint=post_id
+ CHECK(payload ?& ARRAY['board','post_id','thread_id']
+  AND jsonb_typeof(payload->'board')='string' AND jsonb_typeof(payload->'post_id')='number'
+  AND jsonb_typeof(payload->'thread_id')='number'
+  AND payload->>'board'=board AND (payload->>'post_id')::bigint=post_id
   AND (payload->>'thread_id')::bigint=thread_id),
  CHECK(charged_bytes=octet_length(payload::text)+1024)
 );

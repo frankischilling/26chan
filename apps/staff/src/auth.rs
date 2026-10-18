@@ -350,5 +350,11 @@ pub async fn check_identity(pool: &PgPool, expected: &str) -> Result<(), AppErro
     {
         return Err(AppError::Forbidden);
     }
+    if !sqlx::query_scalar::<_, bool>(crate::janitor_requests::READY_SQL)
+        .fetch_one(pool)
+        .await?
+    {
+        return Err(AppError::Forbidden);
+    }
     Ok(())
 }

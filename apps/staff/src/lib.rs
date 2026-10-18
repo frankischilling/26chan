@@ -6,6 +6,7 @@ pub mod cleared_report_queue;
 pub mod config;
 mod discussion;
 mod handlers;
+mod janitor_requests;
 mod latest;
 mod posting_password;
 mod report_group_clear;
@@ -197,6 +198,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/readyz", get(handlers::ready))
         .route("/reports", get(handlers::queue))
         .route("/messages", get(staff_messages::show))
+        .route(
+            "/ban-request",
+            get(janitor_requests::form).post(janitor_requests::submit),
+        )
         .route("/messages/count", get(staff_messages::count))
         .route("/reportqueue.css", get(staff_messages::stylesheet))
         .route("/staff-assets/{asset}", get(staff_messages::asset))

@@ -59,6 +59,19 @@ DO $$ BEGIN
 END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0207_janitor_requests.sql
+"${migrator[@]}" -c BEGIN -f migrations/0208_janitor_request_form.sql -c ROLLBACK
+"${psql[@]}" -d request_store <<'SQL'
+DO $$ BEGIN IF to_regprocedure('staff_identity.janitor_request_form(bytea,bytea,integer,text,bigint)') IS NOT NULL
+ OR content.restrictions_ready() IS DISTINCT FROM true THEN
+ RAISE EXCEPTION 'Request form rollback changed request authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0208_janitor_request_form.sql
+if [[ ${RUN_RUST_TESTS:-0} = 1 ]]; then
+    MIGRATION_DATABASE_URL=postgres://board_migrator@127.0.0.1:55449/request_store \
+    AUTH_DATABASE_URL=postgres://board_auth@127.0.0.1:55449/request_store \
+    STAFF_DATABASE_URL=postgres://board_staff@127.0.0.1:55449/request_store \
+        cargo test -p board-staff --features database-tests --test janitor_requests --locked
+fi
 "${psql[@]}" -d request_store -f scripts/test-janitor-request-store.sql
 # Two actual staff connections contend for one target. The second cannot
 # create another request while the first transaction retains its actor lock.

@@ -42,6 +42,7 @@
 {% if r.undead %}{% call action(csrf,r.board,r.thread_id,"unundead","Disable Undead") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"undead","Enable Undead") %}{% endcall %}{% endif %}
 {% endif %}
 {% call action(csrf,r.board,r.post_id,"remove-post","Remove post") %}{% endcall %}
+{% if r.board != "j" && !r.archived %}<p><a href="/ban-request?board={{ r.board }}&amp;target={{ r.post_id }}">Request a ban or warning</a></p>{% endif %}
 {% call action(csrf,r.board,r.thread_id,"remove-thread","Remove thread") %}{% endcall %}
 {% endif %}
 <p>Resolve or dismiss changes only selected report {{ r.id }}, not the whole group.</p>

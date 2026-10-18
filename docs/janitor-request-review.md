@@ -2,8 +2,8 @@
 
 Issue #223 covers request creation, moderator review, staff messages and review
 statistics. PR #295 merged the decision model and staff-message reader after all 18 PR
-checks and the separate dependency advisory run passed. The authenticated ban-request store,
-request queue and review endpoints are not yet connected.
+checks and the separate dependency advisory run passed. The authenticated request store and creation form are implemented locally.
+The request queue and moderator review endpoints are not yet connected.
 
 ## Review decisions
 
@@ -214,5 +214,24 @@ authentication, revocation, removed credentials, sticky protection, real
 weight-qualified cross-board requests, two competing staff connections and
 populated restore. The first concurrency fixture used a sleep equal to the
 statement timeout; it now stays below that deadline without increasing runtime
-limits. HTTP adapters, queue/review operations and private file retention remain
-unimplemented. Hosted qualification of this storage batch is still pending.
+limits. Queue/review operations and private file retention remain unimplemented. Hosted qualification of this storage batch is still pending.
+
+## Request creation form
+
+Migration 0208 exposes a bounded form reader to the authentication role.
+`/ban-request` renders scoped template choices and a related-request count; its
+POST handler delegates to the atomic writer. Async `by_tpl` submissions may omit
+`template` and ignore the warning checkbox, matching the source caller. A zero
+`by_tpl` value falls back to the ordinary template path.
+
+The actual router tests pass normal form reads, escaping, origin and CSRF
+rejection, unknown-field rejection, async requests, zero-day warnings, repeated
+submissions, related counts, expired sessions and revoked accounts. All 57 staff
+unit tests and strict all-target/all-feature Clippy pass. The staff-message HTTP
+exercise also passes with the current schema. The historical message upgrade
+checks still pin migration 0205 before applying later migrations for optional
+current-application tests.
+
+The new creation form is functional; its layout has not been compared with the
+original popup. The staff-message page's earlier pixel result does not qualify
+this form. Full hosted checks of the current application changes remain pending.
