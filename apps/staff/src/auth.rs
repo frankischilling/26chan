@@ -333,8 +333,12 @@ pub async fn check_identity(pool: &PgPool, expected: &str) -> Result<(), AppErro
     {
         return Err(AppError::Forbidden);
     }
+    if expected == "board_auth" && !sqlx::query_scalar::<_, bool>("SELECT coalesce(has_function_privilege(current_user,to_regprocedure('staff_identity.restriction_templates(bytea,bytea,integer,text)'),'EXECUTE'),false)")
+        .fetch_one(pool).await? {
+        return Err(AppError::Forbidden);
+    }
     if expected == "board_staff"
-        && !sqlx::query_scalar::<_, bool>("SELECT content.restrictions_ready()")
+        && !sqlx::query_scalar::<_, bool>("SELECT content.restrictions_ready() AND coalesce(has_function_privilege(current_user,to_regprocedure('content.issue_post_template_restriction(bytea,bytea,integer,text,bigint,bigint)'),'EXECUTE'),false)")
             .fetch_one(pool)
             .await?
     {

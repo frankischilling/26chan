@@ -64,7 +64,8 @@ done
 CREATE FUNCTION public.capture_rows() RETURNS TABLE(relation text,value jsonb)
 LANGUAGE plpgsql AS $$ DECLARE r record; BEGIN
  FOR r IN SELECT n.nspname,c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname IN('content','post_secrets','staff_identity','media','media_intake','deployment','admission','poll_private') AND c.relkind='r' LOOP
+ WHERE (n.nspname IN('content','post_secrets','staff_identity','media','media_intake','deployment','admission','poll_private')
+ OR (n.nspname='restrictions' AND c.relname='file_clock')) AND c.relkind='r' LOOP
   RETURN QUERY EXECUTE format('SELECT %L,to_jsonb(r) FROM %I.%I r',r.nspname||'.'||r.relname,r.nspname,r.relname);
  END LOOP;
 END $$;
@@ -284,13 +285,13 @@ PYCAPTCHA
 "${admin[@]}" -f - < "$cluster/captcha-policy-expectation.sql"
 "${admin[@]}" -f - < scripts/report-snapshot-upgrade-expectations.sql
 # Extend the saved baseline only with the reviewed additive retention fields.
-# Neither migration sweeps existing media payloads or moderation snapshots.
+# These migrations do not sweep existing media payloads or moderation snapshots.
 "${admin[@]}" <<'SQL'
 UPDATE public.upgraded_rows SET value=value||jsonb_build_object('snapshot_expires_at',
  CASE WHEN value->>'snapshot_version' IS NOT NULL
  THEN (value->>'created_at')::timestamptz+interval '720 hours' ELSE NULL END)
 WHERE relation='content.moderation_audit';
-UPDATE public.upgraded_rows SET value=value||jsonb_build_object('metadata_erased',false)
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('metadata_erased',false,'normalized_md5',NULL)
 WHERE relation='content.post_media';
 -- Drawing enrollment is additive and false for every historical job.
 UPDATE public.upgraded_rows SET value=value||jsonb_build_object('drawing_publication',false)
@@ -305,6 +306,65 @@ INSERT INTO public.upgraded_rows VALUES(
  jsonb_build_object('singleton',true,'definition_hash',
   '\x'||encode(post_secrets.moderation_retention_catalog_hash(),'hex')));
 SQL
+# The new private fields are NULL for historical rows. Extend only those
+# expected keys; recapturing whole rows would hide unrelated identity changes.
+if [[ -f migrations/0180_automatic_range_metadata.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object(
+ 'automatic_browser',NULL,'automatic_prefix',NULL)
+WHERE relation='post_secrets.posting_history';
+SQL
+fi
+# Warning state starts empty; only its explicit capacity singleton is additive.
+# Keep a literal expected row so unexpected defaults or later writes still fail.
+if [[ -f migrations/0187_dmca_warning_state.sql ]]; then
+ "${admin[@]}" <<'SQL'
+INSERT INTO public.upgraded_rows VALUES('admission.file_effect_capacity',
+ jsonb_build_object('singleton',true,'warning_limit',100000));
+SQL
+fi
+# File-ban timezone is deliberately unconfigured on a fresh installation.
+if [[ -f migrations/0192_capability_file_effects.sql ]]; then
+ "${admin[@]}" <<'SQL'
+INSERT INTO public.upgraded_rows VALUES('restrictions.file_clock',
+ jsonb_build_object('singleton',true,'timezone',NULL));
+SQL
+fi
+# The private classifier projection starts empty. Only its attested catalog
+# singleton is additive; do not recapture unrelated rows or ignore this schema.
+if [[ -f migrations/0197_private_classifier_history.sql ]]; then
+ "${admin[@]}" <<'SQL'
+INSERT INTO public.upgraded_rows VALUES('post_secrets.classifier_history_catalog',
+ jsonb_build_object('singleton',true,'definition_hash',
+  '\x'||encode(post_secrets.classifier_history_catalog_hash(),'hex')));
+DO $$ BEGIN IF post_secrets.classifier_history_ready() IS DISTINCT FROM true THEN
+ RAISE EXCEPTION 'Classifier history catalog is unavailable'; END IF; END $$;
+SQL
+fi
+# Report-profile evidence is not backfilled. Only its private catalog row is new.
+if [[ -f migrations/0200_report_request_profile.sql ]]; then
+ "${admin[@]}" <<'SQL'
+INSERT INTO public.upgraded_rows VALUES('post_secrets.report_profile_catalog',
+ jsonb_build_object('singleton',true,'definition_hash',
+  '\x'||encode(post_secrets.report_profile_catalog_hash(),'hex')));
+DO $$ BEGIN IF content.report_profile_ready() IS DISTINCT FROM true THEN
+ RAISE EXCEPTION 'Report profile catalog is unavailable'; END IF; END $$;
+SQL
+fi
+# Automatic clear metadata starts NULL; preserve the historical row baseline.
+if [[ -f migrations/0202_automatic_report_clear.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('auto_cleared_at',NULL)
+WHERE relation='content.reports';
+SQL
+fi
+# Ordered notices are additive and must not backfill historical post content.
+if [[ -f migrations/0203_staff_post_notices.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('staff_notices','[]'::jsonb)
+WHERE relation='content.posts';
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
@@ -368,6 +428,49 @@ DO $$ BEGIN
 END $$;
 SQL
 done
+if [[ -f migrations/0187_dmca_warning_state.sql ]]; then
+ for mutation in \
+  "UPDATE admission.file_effect_capacity SET warning_limit=99999 WHERE singleton;" \
+  "INSERT INTO admission.dmca_warnings VALUES(decode(repeat('18',32),'hex'),'2000-01-01 00:00:00+00');"; do
+  {
+   printf '%s\n' "$mutation"
+   cat "$cluster/assert-retained.sql"
+  } > "$cluster/warning-state-negative.sql"
+  if "${admin[@]}" --single-transaction -f - < "$cluster/warning-state-negative.sql" > "$cluster/warning-state-negative.log" 2>&1; then
+   echo 'File-deletion history guard accepted unrelated warning-state changes.' >&3; exit 1
+  fi
+  grep -q 'File action changed unrelated history, audit or consumed media identity' "$cluster/warning-state-negative.log"
+  "${admin[@]}" -f - < "$cluster/assert-retained.sql"
+ done
+fi
+if [[ -f migrations/0192_capability_file_effects.sql ]]; then
+ {
+  printf "UPDATE restrictions.file_clock SET timezone='UTC' WHERE singleton;\n"
+  cat "$cluster/assert-retained.sql"
+ } > "$cluster/file-clock-negative.sql"
+ if "${admin[@]}" --single-transaction -f - < "$cluster/file-clock-negative.sql" > "$cluster/file-clock-negative.log" 2>&1; then
+  echo 'File-deletion history guard accepted an unrelated timezone change.' >&3; exit 1
+ fi
+ grep -q 'File action changed unrelated history, audit or consumed media identity' "$cluster/file-clock-negative.log"
+ "${admin[@]}" -f - < "$cluster/assert-retained.sql"
+fi
+if [[ -f migrations/0180_automatic_range_metadata.sql ]]; then
+ # These rolled-back mutations prove the additive baseline still catches
+ # invented comparison evidence and changes to the original actor identity.
+ for mutation in \
+  "automatic_browser='1deadbeef',automatic_prefix=decode(repeat('22',32),'hex')" \
+  "actor_hash=decode(repeat('ff',32),'hex')"; do
+  {
+   printf 'UPDATE post_secrets.posting_history SET %s WHERE post_id=13000001;\n' "$mutation"
+   cat "$cluster/assert-retained.sql"
+  } > "$cluster/metadata-negative.sql"
+  if "${admin[@]}" --single-transaction -f - < "$cluster/metadata-negative.sql" > "$cluster/metadata-negative.log" 2>&1; then
+   echo 'File-deletion history guard accepted a private identity mutation.' >&3; exit 1
+  fi
+  grep -q 'File action changed unrelated history, audit or consumed media identity' "$cluster/metadata-negative.log"
+  "${admin[@]}" -f - < "$cluster/assert-retained.sql"
+ done
+fi
 # The administrative wrapper removes every report state and its private
 # cascades for exactly target 2. Rollback must restore the entire transaction.
 "${admin[@]}" <<'SQL'

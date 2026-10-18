@@ -192,6 +192,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
         archive_expires_at: None,
     };
     let mut posts = vec![PostView::new(Post {
+        staff_notices: Vec::new(),
         image_spoiler: false,
         comment_format: 0,
         staff_authorized_limits: false,
@@ -225,6 +226,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
     posts[0] = PostView::new(Post { comment: "Share your latest paper project.\n>start with a single sheet\n[spoiler]Mine is another crane.[/spoiler]".into(), ..posts[0].post.clone() });
     if !catalog {
         posts.push(PostView::new(Post {
+            staff_notices: Vec::new(),
             image_spoiler: false,
             comment_format: 0,
             staff_authorized_limits: false,
@@ -259,6 +261,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
     if markup {
         // Prepared synthetic comments, each with its own posting-time policy.
         posts[0] = PostView::new(Post {
+            staff_notices: Vec::new(),
             image_spoiler: false,
             comment_format: 9,
             staff_authorized_limits: false,
@@ -268,6 +271,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             ..posts[0].post.clone()
         });
         posts[1] = PostView::new(Post {
+            staff_notices: Vec::new(),
             image_spoiler: false,
             comment_format: 10,
             staff_authorized_limits: false,
@@ -277,6 +281,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             ..posts[1].post.clone()
         });
         posts.push(PostView::new(Post {
+            staff_notices: Vec::new(),
             id: 1_000_003,
             image_spoiler: false,
             comment_format: 12,
@@ -287,6 +292,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             ..posts[1].post.clone()
         }));
         posts.push(PostView::new(Post {
+            staff_notices: Vec::new(),
             id: 1_000_004,
             image_spoiler: false,
             comment_format: 24,
@@ -394,6 +400,7 @@ fn archive_page(empty: bool) -> String {
             let lines = board_domain::parse_post_comment(comment, 9);
             let subject = board_domain::source_html_entities(&subject);
             let prepared = archive::prepare(archive::Input {
+                notices: &[],
                 subject: &subject,
                 lines: &lines,
                 board: "arc",
@@ -441,6 +448,7 @@ fn archived_thread() -> String {
     };
     let posts = vec![
         PostView::new(Post {
+            staff_notices: Vec::new(),
             image_spoiler: false,
             comment_format: 0,
             staff_authorized_limits: false,
@@ -470,6 +478,7 @@ fn archived_thread() -> String {
                 attachment: None,
         }),
         PostView::new(Post {
+            staff_notices: Vec::new(),
             image_spoiler: false,
             comment_format: 0,
             staff_authorized_limits: false,
@@ -564,6 +573,7 @@ async fn main() -> std::io::Result<()> {
     .render()
     .unwrap();
     let _ = views::Comment {
+        staff_notices: &[],
         lines: &[],
         board: "demo",
         dice_result: None,

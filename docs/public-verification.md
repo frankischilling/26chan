@@ -28,6 +28,12 @@ the preceding count. The primary Twister answer normalization folds its
 confusable glyphs before hashing.
 
 Browser activity stays per browser, as it does in the signed UserPwd cookie.
+Session creation and email rotation store elapsed whole seconds, matching the
+public request clock. Migration 0201 replaces rounding casts with `floor`; it
+does not rewrite retained sessions or relax the stale-request guard. Tests time
+issuance in the second half of a second and check the saved timestamps against
+the database clock before and after the call.
+
 Email identity and deletion ownership can be shared across verified browsers.
 The verification transition preserves an unverified browser's resumed activity,
 resets an already-verified browser's activity, and rotates the browser capability.

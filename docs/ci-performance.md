@@ -8,8 +8,9 @@ order because guest provisioning, dispatch, intake, and monitoring share fixture
 within that job.
 
 The `rust-and-postgres` check requires `rust-and-browser`, both `browser-suites`
-matrix entries, and `media-and-operations` to succeed. Failed, cancelled, or skipped
-lanes fail the aggregate. On Windows, `visual-windows-core` and all eight
+matrix entries, `media-and-operations`, and `http-parser-qualification` to
+succeed. Failed or skipped dependencies cannot produce a passing aggregate;
+cancelling the workflow also cancels its aggregate checks. On Windows, `visual-windows-core` and all eight
 `visual-windows-themes` shards start independently; `visual-windows` requires both
 results. The core job still collects its independent screenshot suites after
 another qualification fails, provided browser installation and fixture
@@ -80,3 +81,24 @@ Compare complete successful runs using workflow duration, every lane's duration,
 and cache hit/save logs. Record cold and warm caches separately. The short
 aggregate checks do not measure the workload, and failed or skipped tests do not
 count as a speed improvement.
+
+## Superseded runs
+
+The Linux and Windows aggregate jobs use `!cancelled()` so they still report
+failed dependencies but stop when a run is cancelled. Their shell checks still
+require every dependency to return `success`, including parser qualification.
+Previously, `always()` let aggregate jobs remain queued after cancellation and
+hold the workflow concurrency slot. This was observed on runs 38949300838 and
+38951445059 while newer builds waited.
+
+GitHub documents both the [cancellation behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-cancellation)
+and the [recommended status expression](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions).
+Existing runs retain the workflow definition they started with. When ordinary
+cancellation cannot stop an obsolete run, the documented force-cancel endpoint
+can release it without deleting its logs. A queued or cancelled run is never a
+passing qualification result.
+
+The Windows workflow-helper test originally expected the old `always()` condition
+and three Linux dependencies. It now checks the cancellation-aware condition,
+all four dependency results, and both success/failure scheduling paths. Its
+eight tests pass locally, including omitted-comparison and wrong-child controls.

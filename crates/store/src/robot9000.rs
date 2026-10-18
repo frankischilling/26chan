@@ -9,6 +9,55 @@ pub(crate) enum Decision {
     Reject(String),
 }
 
+/// An evaluated check keeps its exact inputs for replay after the caller rolls
+/// back provisional content. The caller must retain the board lock throughout.
+/// In particular, replay must not observe a later clock or re-normalized text.
+pub(crate) struct Checked {
+    board: String,
+    actor: [u8; 32],
+    prepared: Prepared,
+    now: DateTime<Utc>,
+    decision: Decision,
+}
+impl Checked {
+    pub(crate) async fn evaluate(
+        tx: &mut Transaction<'_, Postgres>,
+        board: &str,
+        actor: [u8; 32],
+        prepared: Prepared,
+        now: DateTime<Utc>,
+    ) -> Result<Self, StoreError> {
+        let decision = check(tx, board, &actor, &prepared, now).await?;
+        Ok(Self {
+            board: board.into(),
+            actor,
+            prepared,
+            now,
+            decision,
+        })
+    }
+
+    pub(crate) fn decision(&self) -> &Decision {
+        &self.decision
+    }
+
+    /// Call only after rolling back the savepoint preceding this check. Both
+    /// allowed originality state and rejected mute state need this replay when
+    /// their provisional post is discarded. A changed decision returns an error;
+    /// the caller must discard the transaction.
+    pub(crate) async fn replay(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+    ) -> Result<(), StoreError> {
+        if check(tx, &self.board, &self.actor, &self.prepared, self.now).await? != self.decision {
+            return Err(StoreError::Database(sqlx::Error::Protocol(
+                "Robot9000 decision changed under the board lock.".into(),
+            )));
+        }
+        Ok(())
+    }
+}
+
 #[derive(sqlx::FromRow)]
 struct ResultRow {
     kind: String,
@@ -17,7 +66,7 @@ struct ResultRow {
     until_time: Option<DateTime<Utc>>,
 }
 
-pub(crate) async fn check(
+async fn check(
     tx: &mut Transaction<'_, Postgres>,
     board: &str,
     actor: &[u8; 32],
@@ -63,3 +112,6 @@ pub(crate) async fn check(
     };
     Ok(Decision::Reject(violation_message(row.seconds, &reason)))
 }
+
+#[cfg(all(test, feature = "database-tests"))]
+mod tests;

@@ -13,6 +13,7 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 pub struct InputSnapshot {
     bytes: Box<[u8]>,
     raw_sha256: [u8; 32],
+    raw_md5: [u8; 16],
 }
 
 impl InputSnapshot {
@@ -62,7 +63,14 @@ impl InputSnapshot {
             return Err(MediaError::InputLengthMismatch);
         }
         let raw_sha256 = Sha256::digest(&bytes).into();
-        Ok(Self { bytes, raw_sha256 })
+        // Legacy blacklist comparison only. SHA-256 remains the integrity
+        // identity; both digests describe exactly the bytes sent for decoding.
+        let raw_md5 = <md5::Md5 as md5::Digest>::digest(&bytes).into();
+        Ok(Self {
+            bytes,
+            raw_sha256,
+            raw_md5,
+        })
     }
 
     pub fn bytes(&self) -> &[u8] {
@@ -71,6 +79,12 @@ impl InputSnapshot {
 
     pub fn raw_sha256(&self) -> &[u8; 32] {
         &self.raw_sha256
+    }
+
+    /// Compatibility fingerprint of the untouched input, never an approval
+    /// proof and never a substitute for the processed/source-profile digest.
+    pub fn raw_md5(&self) -> &[u8; 16] {
+        &self.raw_md5
     }
 }
 
@@ -470,11 +484,43 @@ mod snapshot_tests {
             .unwrap();
         assert_eq!(snapshot.bytes(), b"abc");
         assert_eq!(
+            snapshot.raw_md5(),
+            &[
+                0x90, 0x01, 0x50, 0x98, 0x3c, 0xd2, 0x4f, 0xb0, 0xd6, 0x96, 0x3f, 0x7d, 0x28, 0xe1,
+                0x7f, 0x72,
+            ]
+        );
+        assert_eq!(
             snapshot.raw_sha256(),
             &[
                 0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae,
                 0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61,
                 0xf2, 0x00, 0x15, 0xad,
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn retained_input_digests_do_not_reopen_a_changed_path() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("owned-input");
+        std::fs::write(&path, b"abc").unwrap();
+        let first = InputSnapshot::read(File::open(&path).unwrap(), 3)
+            .await
+            .unwrap();
+        std::fs::write(&path, b"xyz").unwrap();
+        let second = InputSnapshot::read(File::open(&path).unwrap(), 3)
+            .await
+            .unwrap();
+        assert_eq!(first.bytes(), b"abc");
+        assert_eq!(second.bytes(), b"xyz");
+        assert_ne!(first.raw_md5(), second.raw_md5());
+        assert_ne!(first.raw_sha256(), second.raw_sha256());
+        assert_eq!(
+            first.raw_md5(),
+            &[
+                0x90, 0x01, 0x50, 0x98, 0x3c, 0xd2, 0x4f, 0xb0, 0xd6, 0x96, 0x3f, 0x7d, 0x28, 0xe1,
+                0x7f, 0x72,
             ]
         );
     }

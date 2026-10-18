@@ -33,6 +33,7 @@ pub fn page() -> String {
             archive_expires_at: None,
         },
         posts: vec![views::PostView::new(Post {
+            staff_notices: Vec::new(),
             image_spoiler: false,
             comment_format: 0,
             staff_authorized_limits: false,

@@ -5,6 +5,8 @@ use url::Url;
 
 #[derive(Clone)]
 pub struct Config {
+    pub browser_hint_key: Option<Arc<board_domain::content_admission::network::hints::BrowserKey>>,
+    pub asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
     pub media: Option<board_intake_client::IntakeClient>,
     pub origin: String,
     pub public_origin: String,
@@ -55,6 +57,17 @@ pub fn parse_staff_poster_id_key(
                 })
         })
         .transpose()
+}
+
+pub fn load_staff_asn_database(
+    path: Option<&std::path::Path>,
+) -> Result<Option<Arc<board_domain::content_admission::network::asn::Database>>, &'static str> {
+    path.map(|path| {
+        board_domain::content_admission::network::asn::Database::load(path)
+            .map(Arc::new)
+            .map_err(|_| "Invalid STAFF_ASN_DATABASE")
+    })
+    .transpose()
 }
 
 pub fn load_staff_country_database(
@@ -156,6 +169,9 @@ impl Config {
             "TRIPCODE_KEY",
             "POSTER_ID_KEY",
             "COUNTRY_DATABASE",
+            "ASN_DATABASE",
+            "BROWSER_HINT_KEY",
+            "POSTING_BROWSER_COMPAT_KEY",
             "PUBLIC_PROXY_SOCKET",
             "PUBLIC_PROXY_UID",
         ] {
@@ -216,6 +232,19 @@ impl Config {
             Err(std::env::VarError::NotPresent) => None,
             Err(std::env::VarError::NotUnicode(_)) => return Err("Invalid STAFF_POSTER_ID_KEY"),
         };
+        let browser_hint_key = match std::env::var("STAFF_BROWSER_HINT_KEY") {
+            Err(std::env::VarError::NotPresent) => None,
+            Err(_) => return Err("Invalid STAFF_BROWSER_HINT_KEY"),
+            Ok(value) => Some(Arc::new(
+                board_domain::content_admission::network::hints::BrowserKey::parse(&value)
+                    .map_err(|_| "Invalid STAFF_BROWSER_HINT_KEY")?,
+            )),
+        };
+        let asn_database = load_staff_asn_database(
+            std::env::var_os("STAFF_ASN_DATABASE")
+                .as_deref()
+                .map(std::path::Path::new),
+        )?;
         let country_database = load_staff_country_database(
             std::env::var_os("STAFF_COUNTRY_DATABASE")
                 .as_deref()
@@ -271,6 +300,8 @@ impl Config {
             tripcode_key,
             poster_id_key,
             country_database,
+            asn_database,
+            browser_hint_key,
             proxy,
         })
     }
@@ -326,6 +357,39 @@ mod tests {
                 "STAFF_POSTER_ID_KEY must contain 64 hexadecimal digits and cannot be all zeroes"
             );
         }
+    }
+
+    #[test]
+    fn staff_asn_data_uses_the_bounded_verified_operator_loader() {
+        assert!(load_staff_asn_database(None).unwrap().is_none());
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("owned-asn.mmdb");
+        std::fs::write(
+            &path,
+            include_bytes!("../../../crates/domain/tests/fixtures/GeoLite2-ASN-Test.mmdb"),
+        )
+        .unwrap();
+        let database = load_staff_asn_database(Some(&path)).unwrap().unwrap();
+        assert_eq!(
+            database.lookup("1.0.0.1".parse().unwrap()).unwrap(),
+            Some(15169)
+        );
+        assert_eq!(database.lookup("192.0.2.1".parse().unwrap()).unwrap(), None);
+        for invalid in [
+            std::path::PathBuf::from("relative.mmdb"),
+            directory.path().to_owned(),
+            directory.path().join("missing.mmdb"),
+        ] {
+            assert_eq!(
+                load_staff_asn_database(Some(&invalid)).err().unwrap(),
+                "Invalid STAFF_ASN_DATABASE"
+            );
+        }
+        std::fs::write(&path, b"invalid database").unwrap();
+        assert_eq!(
+            load_staff_asn_database(Some(&path)).err().unwrap(),
+            "Invalid STAFF_ASN_DATABASE"
+        );
     }
 
     #[test]

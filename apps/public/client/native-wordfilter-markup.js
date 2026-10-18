@@ -1,6 +1,8 @@
 // Test's two saved choices alter only these generated markup literals. Keep
 // their finite inert recipes separate from the surrounding post grammar.
 const recipes = new Map();
+const generatedRecipes = new Set();
+const generatedKey = (tag, attrs) => JSON.stringify([tag, Object.entries(attrs).sort(([a], [b]) => a.localeCompare(b))]);
 const tags = new Set(['span', 'sp4n', 'pre', 'pr3', 's']);
 const ordinaryTags = new Set(['SPAN', 'B', 'S', 'SMALL', 'PRE', 'BR', 'WBR', 'A']);
 
@@ -13,6 +15,21 @@ function transform(literal, first, second) {
 }
 for (let first = 0; first < 6; first++) {
   for (let second = 0; second < 6; second++) {
+    const generatedTag = transform('span', first, second);
+    if (!generatedTag.startsWith('5')) {
+      for (let index = 0; index < 13; index++) {
+        const attribute = transform('class', first, second);
+        const value = transform('fortune', first, second);
+        const attrs = { [attribute]: value };
+        if ([first, second].every(choice => choice === 0 || choice === 2)) {
+          const changedA = [first, second].includes(0) && [1, 4, 5, 6, 8].includes(index);
+          const color = `fortune-${changedA ? 'a-' : ''}${index}`;
+          if (attribute === 'class') attrs.class += ` ${color}`;
+          else attrs.class = color;
+        }
+        generatedRecipes.add(generatedKey(generatedTag, attrs));
+      }
+    }
     for (const [tag, class_] of [['s', null], ['pre', 'prettyprint'], ['span', 'sjis'],
       ['span', 'mu-s'], ['span', 'mu-i'], ['span', 'mu-r'], ['span', 'mu-g'], ['span', 'mu-b']]) {
       const name = transform(tag, first, second);
@@ -29,6 +46,8 @@ export function isWordfilterMarkupTag(tag) { return tags.has(tag); }
 export function isWordfilterMarkup(tag, attrs) {
   if (!tags.has(tag) || !attrs || typeof attrs !== 'object' || Array.isArray(attrs)) return false;
   const keys = Object.keys(attrs);
+  if (keys.length <= 2 && keys.every(key => typeof attrs[key] === 'string')
+    && generatedRecipes.has(generatedKey(tag, attrs))) return true;
   if (keys.length > 1 || (keys.length === 1 && typeof attrs[keys[0]] !== 'string')) return false;
   return recipes.has(JSON.stringify([tag, keys[0] ?? '', keys.length ? attrs[keys[0]] : '']));
 }

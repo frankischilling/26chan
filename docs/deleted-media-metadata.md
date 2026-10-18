@@ -20,7 +20,9 @@ transaction failure rolls back post and attachment erasure together.
 ## Existing tombstones
 
 The migration does not sweep existing metadata. With writers and schema changes
-stopped, run the migration operator's bounded preview:
+stopped, apply all migrations shipped with the cleanup binary, then run its
+bounded preview. Migration 0143 alone does not satisfy the current report and
+restriction readiness checks:
 
 ```sh
 board-deletion-cleanup preview-media example
@@ -47,4 +49,8 @@ need their own retention policy; these operations are not secure disk erasure.
 
 Tests cover transactional erasure, file-only preservation, unchanged identities,
 irreversibility, bounded historical receipts, permission refusals, catalog drift
-and administrator dump/restore.
+and administrator dump/restore. The upgrade fixture also verifies that the
+current binary refuses the intermediate 0143 schema without changing media,
+then accepts the fully migrated schema with the same retained metadata. A
+changed report-network helper also prevents preview until its original authority
+is restored.

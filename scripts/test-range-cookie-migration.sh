@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+[[ $(id -u) = 0 ]] || { echo 'Run against the owned disposable development cluster.' >&2; exit 1; }
+source .local/database.env
+cluster=$(cat .local/cluster-path)
+[[ $cluster =~ ^/tmp/board-postgres\.[[:alnum:]]+$ && -d $cluster ]] || exit 1
+pg_bin=/usr/lib/postgresql/16/bin
+admin=(runuser -u postgres -- "$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h /tmp -p 55432 -d postgres)
+actual=$("${admin[@]}" -At -c 'SHOW data_directory')
+[[ $actual = "$cluster" ]] || { echo 'Unexpected database cluster.' >&2; exit 1; }
+upgrade_db="imageboard_range_cookie_$(date +%s)_$RANDOM"
+[[ $upgrade_db =~ ^imageboard_range_cookie_[0-9]+_[0-9]+$ ]] || exit 1
+created=0
+cleanup() {
+  if [[ $created = 1 ]]; then
+    "${admin[@]}" -v upgrade_db="$upgrade_db" <<'SQL'
+DROP DATABASE :"upgrade_db";
+SQL
+    created=0
+  fi
+}
+trap cleanup EXIT
+"${admin[@]}" -v upgrade_db="$upgrade_db" <<'SQL'
+CREATE DATABASE :"upgrade_db" OWNER board_migrator TEMPLATE template0 ENCODING 'UTF8';
+REVOKE ALL ON DATABASE :"upgrade_db" FROM PUBLIC;
+GRANT CONNECT ON DATABASE :"upgrade_db" TO board_migrator,board_public;
+SQL
+created=1
+upgrade_url="${MIGRATION_DATABASE_URL%/imageboard}/$upgrade_db"
+db=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 --dbname="$upgrade_url")
+[[ -f migrations/0186_automatic_range_cookie.sql ]] || exit 1
+for migration in migrations/*.sql; do
+  [[ $migration != migrations/0186_automatic_range_cookie.sql ]] || break
+  "${db[@]}" --single-transaction -f "$migration"
+done
+"${db[@]}" -f fixtures/demo.sql
+"${db[@]}" -f scripts/test-range-cookie-predecessor.sql
+"${db[@]}" -c BEGIN -f migrations/0186_automatic_range_cookie.sql -c ROLLBACK
+"${db[@]}" -c "DO \$\$ BEGIN IF to_regprocedure('content.refresh_automatic_range_cookie(bigint,text,bigint,bytea,text,bytea,bytea,bytea,bytea,boolean,bigint)') IS NOT NULL OR to_regprocedure('post_secrets.resume_anonymous_refusal(bytea,bytea,bytea,bytea,boolean,bigint)') IS NOT NULL THEN RAISE EXCEPTION 'Range-cookie rollback left an object.'; END IF; END \$\$"
+"${db[@]}" --single-transaction -f migrations/0186_automatic_range_cookie.sql
+"${db[@]}" -f scripts/test-range-cookie-upgrade.sql
+printf 'Range-cookie upgrade preserves admission state and scoped authority.\n'

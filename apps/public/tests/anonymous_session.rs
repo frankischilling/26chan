@@ -17,6 +17,10 @@ fn fixture_key() -> std::sync::Arc<board_domain::poster_id::PosterIdKey> {
     std::sync::Arc::new(board_domain::poster_id::PosterIdKey::parse(&encoded).unwrap())
 }
 
+// File-effect refusals take the exclusive restriction gate; keep this owned
+// database suite isolated from concurrent successful-post transactions.
+static TEST: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 const ORIGIN: &str = "http://127.0.0.1:3000";
 
 fn form(
@@ -161,6 +165,7 @@ async fn cleanup(owner: &PgPool, board: &str) {
 
 #[tokio::test]
 async fn automatic_cookie_owns_posts_across_forms_and_tabs_without_public_identity_leaks() {
+    let _guard = TEST.lock().await;
     let (owner, public, board, key) = fixture().await;
     let (a, p, b) = (owner.clone(), public.clone(), board.clone());
     let outcome = tokio::spawn(async move {
@@ -215,6 +220,7 @@ async fn automatic_cookie_owns_posts_across_forms_and_tabs_without_public_identi
 
 #[tokio::test]
 async fn malformed_reset_and_expired_cookies_cannot_choose_or_recover_an_identity() {
+    let _guard = TEST.lock().await;
     let (owner, public, board, key) = fixture().await;
     let (a, p, b) = (owner.clone(), public.clone(), board.clone());
     let outcome = tokio::spawn(async move {
@@ -352,6 +358,7 @@ async fn malformed_reset_and_expired_cookies_cannot_choose_or_recover_an_identit
 
 #[tokio::test]
 async fn report_activity_is_private_and_only_successful_reports_receive_cookies() {
+    let _guard = TEST.lock().await;
     let (owner, public, board, key) = fixture().await;
     let (a, p, b) = (owner.clone(), public.clone(), board.clone());
     let outcome = tokio::spawn(async move {
@@ -413,6 +420,7 @@ async fn report_activity_is_private_and_only_successful_reports_receive_cookies(
 
 #[tokio::test]
 async fn public_deletion_resumes_the_cookie_with_the_current_transport_peer() {
+    let _guard = TEST.lock().await;
     let (owner, public, board, key) = fixture().await;
     sqlx::query("UPDATE content.boards SET deletion_known_min_seconds=60,deletion_unknown_min_seconds=600 WHERE slug=$1")
         .bind(&board).execute(&owner).await.unwrap();
@@ -549,4 +557,229 @@ fn fixture_routers(
         },
     );
     (web.layer(transport.clone()), api.layer(transport))
+}
+
+async fn file_refusal_upload(_board: &str) -> (String, String) {
+    use board_store::{
+        media::MediaQueue,
+        media_assets::{
+            InputComponent, InputReceipt, MediaFormat, OutputMetadata, OutputVariants,
+            SourceProfile, SourceProvenance, StillOutput,
+        },
+        media_intake::IntakeStore,
+    };
+    let filename = "owned.png";
+    let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let queue = MediaQueue::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let upload = intake.reserve(filename).await.unwrap();
+    intake
+        .begin_upload(&upload.id, &upload.capability)
+        .await
+        .unwrap();
+    intake
+        .finish_upload(&upload.id, &upload.capability, 100)
+        .await
+        .unwrap();
+    let job = queue.claim().await.unwrap().unwrap();
+    assert_eq!(job.id, upload.id);
+    let lease = job.lease_token.as_deref().unwrap();
+    let output = StillOutput {
+        format: MediaFormat::Png,
+        primary: OutputMetadata {
+            sha256: "a".repeat(64),
+            bytes: 100,
+            width: 200,
+            height: 100,
+        },
+        variants: OutputVariants {
+            md5: "07".repeat(16),
+            thumbnail: OutputMetadata {
+                sha256: "b".repeat(64),
+                bytes: 50,
+                width: 100,
+                height: 50,
+            },
+        },
+        mobile: None,
+        source: SourceProvenance {
+            input_sha256: "d".repeat(64),
+            input_bytes: 100,
+            profile: SourceProfile::StillV6,
+            retained_bytes: 100,
+            md5: [7; 16],
+        },
+    };
+    let asset = queue
+        .prepare_output_with_variants(&job.id, lease, &output.primary, Some(&output.variants))
+        .await
+        .unwrap();
+    let receipt = InputReceipt {
+        component: InputComponent::Upload,
+        sha256: "d".repeat(64),
+        bytes: 100,
+        md5: [8; 16],
+    };
+    queue
+        .record_input_receipt(&job.id, lease, &asset.id, &receipt)
+        .await
+        .unwrap();
+    queue
+        .approve_output_with_input(&job.id, lease, &asset.id, &receipt)
+        .await
+        .unwrap();
+
+    (upload.id, upload.capability)
+}
+
+#[tokio::test]
+async fn exact_file_refusals_use_the_real_public_posting_route() {
+    let _guard = TEST.lock().await;
+    let (owner, public, marker, key) = fixture().await;
+    cleanup(&owner, &marker).await;
+    let board = "g".to_owned();
+    let saved: (bool,i32,i32,i32) = sqlx::query_as("SELECT captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards WHERE slug=$1").bind(&board).fetch_one(&owner).await.unwrap();
+    let peer = fixture_peer();
+    let actor = *key.public_posting_rate_identity(peer.ip()).as_bytes();
+    let (job, capability) = file_refusal_upload(&board).await;
+    let rule: i64 = sqlx::query_scalar("INSERT INTO admission.file_rules(board,digest,mode,public_reason,description) VALUES($1,decode(repeat('07',16),'hex'),0,'Owned public reason','Owned complaint') RETURNING id")
+        .bind(&board).fetch_one(&owner).await.unwrap();
+    let mut tx = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let clock: Option<String> =
+        sqlx::query_scalar("SELECT timezone FROM restrictions.file_clock WHERE singleton")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    sqlx::query("UPDATE restrictions.file_clock SET timezone='UTC' WHERE singleton")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    let (a, b, j, c) = (
+        owner.clone(),
+        board.clone(),
+        job.clone(),
+        capability.clone(),
+    );
+    let owned_marker = marker.clone();
+    let outcome=tokio::spawn(async move {
+        sqlx::query("UPDATE content.boards SET captcha_enabled=false,posting_reply_seconds=0,posting_image_seconds=0,posting_thread_seconds=0 WHERE slug=$1").bind(&b).execute(&a).await.unwrap();
+        let media=board_config::PublicMediaSettings::development("127.0.0.1:1", &"a".repeat(64), "http://localhost:3002").unwrap();
+        let (app,_)=fixture_routers(public,ORIGIN.into(),false,Some(media),board_config::PublicRequestLimits::default(),key);
+        let app=app.layer(axum::middleware::from_fn(move |mut request: axum::extract::Request, next: axum::middleware::Next| async move { request.extensions_mut().insert(axum::extract::ConnectInfo(peer)); next.run(request).await }));
+        // A matching file policy must not touch a post with no attachment.
+        let (_,cookie,_)=posted(&app,&format!("/{b}/post"),&[("com","Owned no-file post"),("sub",owned_marker.as_str())],None,false).await;
+        let baseline_posts:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&b).fetch_one(&a).await.unwrap();
+        let warnings:i64=sqlx::query_scalar("SELECT count(*) FROM admission.dmca_warnings WHERE actor_hash=$1").bind(actor.as_slice()).fetch_one(&a).await.unwrap();
+        assert_eq!(warnings,0);
+        let fields=[("sub",owned_marker.as_str()),("com","Owned blocked file"),("upload_id",j.as_str()),("upload_capability",c.as_str())];
+        for (step,(mode,quiet)) in [(0,false),(0,true),(1,true),(2,false),(2,false)].into_iter().enumerate() {
+            sqlx::query("UPDATE admission.file_rules SET mode=$2,quiet=$3,ban_days=0 WHERE id=$1").bind(rule).bind(mode as i16).bind(quiet).execute(&a).await.unwrap();
+            let response=app.clone().oneshot(form(&format!("/{b}/post"),&fields,Some(&cookie),false)).await.unwrap();
+            let (parts,body)=response.into_parts();
+            let bytes=to_bytes(body,65536).await.unwrap();
+            assert_eq!(parts.status,StatusCode::OK,"{}",String::from_utf8_lossy(&bytes));
+            let result:serde_json::Value=serde_json::from_slice(&bytes).unwrap();
+            if quiet {
+                let expected:i64=sqlx::query_scalar("SELECT coalesce(max(thread_id),0) FROM content.posts WHERE board=$1 AND id<>thread_id AND NOT deleted").bind(&b).fetch_one(&a).await.unwrap();
+                assert_eq!(result["pid"],expected,"{result}");
+            } else if mode==0 {
+                assert_eq!(result["error"],"Error: Upload failed.","{result}");
+            } else {
+                if step==3 { assert!(result["error"].as_str().unwrap().contains("copyright infringement"),"{result}"); }
+                else { assert_eq!(result["error"],board_store::restrictions::BANNED,"{result}"); }
+            }
+            if result["error"]==board_store::restrictions::BANNED {
+                assert_eq!(parts.headers["x-board-posting-redirect"],"banned");
+            } else { assert!(!parts.headers.contains_key("x-board-posting-redirect")); }
+            let state:String=sqlx::query_scalar("SELECT state::text FROM media.jobs WHERE id=$1").bind(&j).fetch_one(&a).await.unwrap();
+            assert_eq!(state,"published");
+            let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1 AND subject=$2").bind(&b).bind(&owned_marker).fetch_one(&a).await.unwrap();
+            assert_eq!(count,1);
+            let total:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&b).fetch_one(&a).await.unwrap();
+            assert_eq!(total,baseline_posts);
+            let consumed:i64=sqlx::query_scalar("SELECT count(*) FROM content.post_media WHERE job_id=$1").bind(&j).fetch_one(&a).await.unwrap();
+            assert_eq!(consumed,0);
+            assert_eq!(anonymous_cookie(&parts.headers).as_deref(),Some(cookie.as_str()));
+
+            if quiet {
+                let mut tx=a.begin().await.unwrap();
+                sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *tx).await.unwrap();
+                sqlx::query("SELECT restrictions.gate(true)").execute(&mut *tx).await.unwrap();
+                sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes-coalesce((SELECT sum(charged_bytes) FROM restrictions.bans WHERE actor_hash=$1),0) WHERE singleton").bind(actor.as_slice()).execute(&mut *tx).await.unwrap();
+                sqlx::query("DELETE FROM restrictions.audit WHERE ban_id IN(SELECT id FROM restrictions.bans WHERE actor_hash=$1)").bind(actor.as_slice()).execute(&mut *tx).await.unwrap();
+                sqlx::query("DELETE FROM restrictions.bans WHERE actor_hash=$1").bind(actor.as_slice()).execute(&mut *tx).await.unwrap();
+                tx.commit().await.unwrap();
+            }
+
+        }
+    }).await;
+    let mut tx = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("SELECT restrictions.gate(true)")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes-coalesce((SELECT sum(charged_bytes) FROM restrictions.bans WHERE actor_hash=$1),0) WHERE singleton").bind(actor.as_slice()).execute(&mut *tx).await.unwrap();
+    sqlx::query("DELETE FROM restrictions.audit WHERE ban_id IN(SELECT id FROM restrictions.bans WHERE actor_hash=$1)").bind(actor.as_slice()).execute(&mut *tx).await.unwrap();
+    sqlx::query("DELETE FROM restrictions.bans WHERE actor_hash=$1")
+        .bind(actor.as_slice())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE restrictions.file_clock SET timezone=$1 WHERE singleton")
+        .bind(clock)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    sqlx::query("DELETE FROM admission.dmca_warnings WHERE actor_hash=$1")
+        .bind(actor.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM admission.file_rules WHERE id=$1")
+        .bind(rule)
+        .execute(&owner)
+        .await
+        .unwrap();
+    for query in [
+        "DELETE FROM media.assets WHERE job_id=$1",
+        "DELETE FROM media_intake.handles WHERE job_id=$1",
+        "DELETE FROM media.jobs WHERE id=$1",
+    ] {
+        sqlx::query(query).bind(&job).execute(&owner).await.unwrap();
+    }
+    let tokens: Vec<Vec<u8>>=sqlx::query_scalar("SELECT a.token_hash FROM post_secrets.anonymous_posts a JOIN content.posts p ON p.id=a.post_id WHERE p.board=$1 AND p.subject=$2").bind(&board).bind(&marker).fetch_all(&owner).await.unwrap();
+    sqlx::query("DELETE FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1 AND subject=$2)").bind(&board).bind(&marker).execute(&owner).await.unwrap();
+    let ids: Vec<i64> =
+        sqlx::query_scalar("DELETE FROM content.posts WHERE board=$1 AND subject=$2 RETURNING id")
+            .bind(&board)
+            .bind(&marker)
+            .fetch_all(&owner)
+            .await
+            .unwrap();
+    sqlx::query("DELETE FROM content.threads WHERE board=$1 AND id=ANY($2)")
+        .bind(&board)
+        .bind(&ids)
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=ANY($1)")
+        .bind(&tokens)
+        .execute(&owner)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE content.boards SET captcha_enabled=$2,posting_reply_seconds=$3,posting_image_seconds=$4,posting_thread_seconds=$5 WHERE slug=$1").bind(&board).bind(saved.0).bind(saved.1).bind(saved.2).bind(saved.3).execute(&owner).await.unwrap();
+    outcome.unwrap();
 }

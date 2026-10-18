@@ -112,6 +112,7 @@ impl Fixture {
         for board in &self.boards {
             support::cleanup_posting(&self.owner, board).await;
             for query in [
+                "DELETE FROM admission.network_rules WHERE boards=$1",
                 "DELETE FROM content.reports WHERE board=$1",
                 "DELETE FROM content.moderation_audit WHERE board=$1",
                 "DELETE FROM content.post_media WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",
@@ -1754,4 +1755,486 @@ async fn whole_report_cleanup_does_not_grant_runtime_report_delete_authority() {
         staff.close().await;
     })
     .await;
+}
+
+#[tokio::test]
+async fn network_rules_preserve_get_advice_and_quota_precedence_without_partial_reports() {
+    run(|f| async move {
+        let rule: i64=sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end,reports_only) VALUES($1,0,4294967295,true) RETURNING id")
+            .bind(&f.boards[0]).fetch_one(&f.owner).await.unwrap();
+        let identity=actor();
+        let capability=f.report_capability();
+        let context=|minted| board_store::NetworkReportingContext {
+                request_facts: None,
+            protected: board_store::ProtectedReportingContext {
+                session: session(&capability,minted,Utc::now()), challenge:None,source_cookies_absent:false,
+            },
+            request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
+        };
+        board_store::report_admission::check_with_session(&f.public,&f.boards[0],f.posts[0][0],&identity,None,Utc::now().timestamp()).await.unwrap();
+        let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][0],"Owned network refusal",&identity,context(true)).await;
+        assert!(matches!(result,Err(StoreError::Invalid("Reporting from this IP range has been blocked due to abuse."))));
+        assert_eq!(f.counts().await,(0,0));
+        assert!(board_store::anonymous_session::snapshot(&f.public,&capability.storage_hash()).await.unwrap().is_none());
+        sqlx::query("UPDATE admission.network_rules SET ops_only=true WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
+        board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][0],"Posting-only policy is irrelevant",&identity,context(true)).await.unwrap();
+        assert_eq!(f.counts().await,(1,1));
+        sqlx::query("UPDATE admission.network_rules SET ops_only=false WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
+        let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][0],"Duplicate precedes network block",&identity,context(false)).await;
+        assert_eq!(result.unwrap_err().to_string(),DUPLICATE);
+        assert_eq!(f.counts().await,(1,1));
+        sqlx::query("UPDATE admission.network_rules SET range_start=NULL,range_end=NULL,asn=15169 WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
+        let other=f.report_capability();
+        let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][1],"Missing provider is not an exemption",&actor(),board_store::NetworkReportingContext {
+                request_facts: None,
+            protected:board_store::ProtectedReportingContext {session:session(&other,true,Utc::now()),challenge:None,source_cookies_absent:false},
+            request_start:Utc::now(),peer:Some("198.51.100.8".parse().unwrap()),asn_database:None,hints:None,
+        }).await;
+        assert!(matches!(result,Err(StoreError::Database(_))));
+        assert_eq!(f.counts().await,(1,1));
+        assert!(board_store::anonymous_session::snapshot(&f.public,&other.storage_hash()).await.unwrap().is_none());
+    }).await;
+}
+
+#[tokio::test]
+async fn report_waiting_on_policy_generation_observes_committed_rule() {
+    run(|f| async move {
+        let public=sqlx::postgres::PgPoolOptions::new().max_connections(1)
+            .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap()).await.unwrap();
+        let waiter:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&public).await.unwrap();
+        let mut policy=f.owner.begin().await.unwrap();
+        let blocker:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *policy).await.unwrap();
+        sqlx::query("INSERT INTO admission.network_rules(boards,range_start,range_end,reports_only) VALUES($1,0,4294967295,true)")
+            .bind(&f.boards[0]).execute(&mut *policy).await.unwrap();
+        let board=f.boards[0].clone(); let post=f.posts[0][0]; let capability=f.report_capability();
+        let task=tokio::spawn(async move {
+            board_store::report_with_network(&public,&board,post,"Waited network decision",&actor(),board_store::NetworkReportingContext {
+                request_facts: None,
+                protected:board_store::ProtectedReportingContext {session:session(&capability,true,Utc::now()),challenge:None,source_cookies_absent:false},
+                request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
+            }).await
+        });
+        wait_for_row_blocker(&f.owner,waiter,blocker).await;
+        policy.commit().await.unwrap();
+        assert!(matches!(task.await.unwrap(),Err(StoreError::Invalid("Reporting from this IP range has been blocked due to abuse."))));
+        assert_eq!(f.counts().await,(0,0));
+    }).await;
+}
+
+#[tokio::test]
+async fn policy_update_waits_until_report_transaction_releases_shared_generation() {
+    run(|f| async move {
+        let public=sqlx::postgres::PgPoolOptions::new().max_connections(1)
+            .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap()).await.unwrap();
+        let report_pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&public).await.unwrap();
+        let mut gate=f.owner.begin().await.unwrap();
+        let gate_pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *gate).await.unwrap();
+        private_role(&mut gate).await;
+        sqlx::query("SELECT singleton FROM post_secrets.report_admission_gate WHERE singleton FOR UPDATE").execute(&mut *gate).await.unwrap();
+        let board=f.boards[0].clone();let post=f.posts[0][0];let capability=f.report_capability();
+        let report=tokio::spawn(async move {
+            board_store::report_with_network(&public,&board,post,"Locked network generation",&actor(),board_store::NetworkReportingContext {
+                request_facts: None,
+                protected:board_store::ProtectedReportingContext {session:session(&capability,true,Utc::now()),challenge:None,source_cookies_absent:false},
+                request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
+            }).await
+        });
+        wait_for_row_blocker(&f.owner,report_pid,gate_pid).await;
+        let updater=sqlx::postgres::PgPoolOptions::new().max_connections(1)
+            .connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap()).await.unwrap();
+        let update_pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&updater).await.unwrap();
+        let board=f.boards[0].clone();
+        let update=tokio::spawn(async move {
+            sqlx::query("INSERT INTO admission.network_rules(boards,range_start,range_end,reports_only) VALUES($1,0,4294967295,true)")
+                .bind(board).execute(&updater).await
+        });
+        wait_for_row_blocker(&f.owner,update_pid,report_pid).await;
+        gate.rollback().await.unwrap();
+        report.await.unwrap().unwrap(); update.await.unwrap().unwrap();
+        assert_eq!(f.counts().await,(1,1));
+        let capability=f.report_capability();
+        let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][1],"New request sees new generation",&actor(),board_store::NetworkReportingContext {
+                request_facts: None,
+            protected:board_store::ProtectedReportingContext {session:session(&capability,true,Utc::now()),challenge:None,source_cookies_absent:false},
+            request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
+        }).await;
+        assert!(matches!(result,Err(StoreError::Invalid("Reporting from this IP range has been blocked due to abuse."))));
+        assert_eq!(f.counts().await,(1,1));
+    }).await;
+}
+
+#[tokio::test]
+async fn staff_private_board_reports_use_trusted_network_inputs_without_badge_exemption() {
+    run(|f| async move {
+        sqlx::query("UPDATE content.boards SET staff_only=true WHERE slug=$1")
+            .bind(&f.boards[0]).execute(&f.owner).await.unwrap();
+        let rule:i64=sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end,reports_only) VALUES($1,3405803776,3405804031,true) RETURNING id")
+            .bind(&f.boards[0]).fetch_one(&f.owner).await.unwrap();
+        let staff=PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap()).await.unwrap();
+        let source=|| board_store::ReportNetworkSource {
+            request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
+        };
+        board_store::report_with_network_source(&staff,&f.boards[0],f.posts[0][0],"Unmatched private-board rule",&actor(),source()).await.unwrap();
+        assert_eq!(f.counts().await,(1,1));
+        sqlx::query("UPDATE admission.network_rules SET range_start=0,range_end=4294967295 WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
+        let result=board_store::report_with_network_source(&staff,&f.boards[0],f.posts[0][1],"Staff is still subject to range policy",&actor(),source()).await;
+        assert!(matches!(&result,Err(StoreError::Invalid("Reporting from this IP range has been blocked due to abuse."))), "{result:?}");
+        assert!(matches!(board_store::report(&staff,&f.boards[0],f.posts[0][2],"Missing legacy context",&actor()).await,Err(StoreError::Database(_))));
+        assert_eq!(f.counts().await,(1,1));
+    }).await;
+}
+
+fn profile_score(high: bool) -> board_domain::content_admission::threat::NativeReportScore {
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../domain/tests/fixtures/threat-score.json"
+    ))
+    .unwrap();
+    let name = if high {
+        "navigate-1-0"
+    } else {
+        "ua-7-type-1-mode-0"
+    };
+    let case = corpus["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == name)
+        .unwrap();
+    let entries = |value: &serde_json::Value| -> Vec<(String, Vec<u8>)> {
+        value
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| {
+                (
+                    v[0].as_str().unwrap().to_owned(),
+                    v[1].as_str().unwrap().as_bytes().to_vec(),
+                )
+            })
+            .collect()
+    };
+    let server = entries(&case["server"]);
+    let cookies = entries(&case["cookies"]);
+    let server: Vec<_> = server
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_slice()))
+        .collect();
+    let cookies: Vec<_> = cookies
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_slice()))
+        .collect();
+    let board_domain::content_admission::network::ProviderValue::Available(score) =
+        board_domain::content_admission::threat::score_native_report(
+            board_domain::content_admission::network::ProviderValue::Available(
+                board_domain::content_admission::threat::Request {
+                    server: &server,
+                    cookies: &cookies,
+                    challenge: None,
+                    response: None,
+                    request_time: 1000,
+                    country: None,
+                    is_op: true,
+                    multipart: false,
+                },
+            ),
+            board_domain::content_admission::network::ProviderValue::Available(true),
+        )
+    else {
+        panic!("Qualified score")
+    };
+    assert_eq!(score.value(), if high { 0.75 } else { 0.0 });
+    score
+}
+
+#[tokio::test]
+async fn qualified_report_profiles_preserve_unknown_authority_and_scope() {
+    use board_domain::content_admission::network::ProviderValue;
+    run(|f| async move {
+        for (index, expected) in [Some(false), Some(true), None, None]
+            .into_iter()
+            .enumerate()
+        {
+            let capability = f.report_capability();
+            let now = Utc::now();
+            let peer = Some("198.51.100.7".parse().unwrap());
+            let target = f.posts[0][index];
+            let score = if index == 2 {
+                ProviderValue::Unavailable
+            } else {
+                ProviderValue::Available(profile_score(index == 1))
+            };
+            let facts = board_store::ReportRequestFacts::new(
+                now,
+                peer,
+                &f.boards[0],
+                if index == 3 { target + 1 } else { target },
+                score,
+            );
+            board_store::report_with_network(
+                &f.public,
+                &f.boards[0],
+                target,
+                "Owned native threshold observation",
+                &actor(),
+                board_store::NetworkReportingContext {
+                    request_facts: Some(&facts),
+                    protected: board_store::ProtectedReportingContext {
+                        session: session(&capability, true, now),
+                        challenge: None,
+                        source_cookies_absent: false,
+                    },
+                    request_start: now,
+                    peer,
+                    asn_database: None,
+                    hints: None,
+                },
+            )
+            .await
+            .unwrap();
+            let mut tx = f.owner.begin().await.unwrap();
+            private_role(&mut tx).await;
+            let row: Value = sqlx::query_scalar(
+                "SELECT to_jsonb(e) FROM post_secrets.report_weight_evidence e JOIN content.reports r ON r.id=e.report_id WHERE r.board=$1 AND r.post_id=$2",
+            )
+            .bind(&f.boards[0]).bind(target)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+            assert_eq!(
+                row["evaluator_version"],
+                if expected.is_some() { 2 } else { 1 }
+            );
+            assert_eq!(
+                row["threat_at_least_point_four"],
+                serde_json::to_value(expected).unwrap()
+            );
+            assert_eq!(row["known_or_verified"], false);
+            for field in [
+                "authenticated_janitor_or_higher",
+                "history_filtered",
+                "source_reason",
+                "effective_weight",
+                "numeric_proof",
+            ] {
+                assert!(row[field].is_null(), "{field}: {row}");
+            }
+            tx.rollback().await.unwrap();
+        }
+        assert_eq!(f.counts().await, (4, 4));
+    })
+    .await;
+}
+
+async fn auto_clear(f: &Fixture, target: usize, commit: bool) -> i64 {
+    let mut tx = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let count = sqlx::query_scalar("SELECT post_secrets.auto_clear_post_reports($1,$2)")
+        .bind(&f.boards[0])
+        .bind(f.posts[0][target])
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    if commit {
+        tx.commit().await.unwrap();
+    } else {
+        tx.rollback().await.unwrap();
+    }
+    count
+}
+async fn challenge_history(f: &Fixture) -> String {
+    let mut tx = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let value=sqlx::query_scalar("SELECT md5(coalesce(jsonb_agg(to_jsonb(h) ORDER BY actor_hash),'[]')::text) FROM verification_private.report_history h")
+        .fetch_one(&mut *tx).await.unwrap();
+    tx.rollback().await.unwrap();
+    value
+}
+#[tokio::test]
+async fn source_auto_clear_is_unweighted_atomic_and_does_not_record_clear_credits() {
+    run(|f|async move {
+        let first=f.admit(0,0,&actor()).await.unwrap();
+        let other=f.admit(0,1,&actor()).await.unwrap();
+        let before=f.file_action_snapshot().await;
+        let history=challenge_history(&f).await;
+        assert_eq!(auto_clear(&f,0,false).await,1);
+        assert_eq!(f.file_action_snapshot().await,before);
+        assert_eq!(auto_clear(&f,0,true).await,1);
+        assert_eq!(challenge_history(&f).await,history);
+        let row:(Option<i64>,Option<bool>,bool)=sqlx::query_as("SELECT group_cleared_by,group_clear_inherited,auto_cleared_at IS NOT NULL FROM content.reports WHERE id=$1")
+            .bind(first).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(row,(None,None,true));
+        let unaffected:Option<i64>=sqlx::query_scalar("SELECT group_cleared_by FROM content.reports WHERE id=$1")
+            .bind(other).fetch_one(&f.owner).await.unwrap();assert_eq!(unaffected,None);
+        let mut tx=f.owner.begin().await.unwrap();private_role(&mut tx).await;
+        let weight:Option<f64>=sqlx::query_scalar("SELECT effective_weight FROM post_secrets.report_weight_evidence WHERE report_id=$1")
+            .bind(first).fetch_one(&mut *tx).await.unwrap();assert_eq!(weight,None);tx.rollback().await.unwrap();
+        let later_actor=actor();
+        let later=f.admit(0,0,&later_actor).await.unwrap();
+        let inherited:(Option<i64>,Option<bool>,bool)=sqlx::query_as("SELECT group_cleared_by,group_clear_inherited,auto_cleared_at IS NOT NULL FROM content.reports WHERE id=$1")
+            .bind(later).fetch_one(&f.owner).await.unwrap();assert_eq!(inherited,(None,None,true));
+        assert_ne!(challenge_history(&f).await,history,"Later inherited clear must record its own history");
+        let mut tx=f.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *tx).await.unwrap();
+        let inherited_event:bool=sqlx::query_scalar("SELECT last_cleared_at IS NOT NULL FROM verification_private.report_history WHERE actor_hash=$1")
+            .bind(later_actor.as_bytes()).fetch_one(&mut *tx).await.unwrap();
+        assert!(inherited_event,"Automatic inheritance omitted source clear event");
+        tx.rollback().await.unwrap();
+        let history=challenge_history(&f).await;
+        assert_eq!(auto_clear(&f,0,true).await,2);
+        assert_eq!(challenge_history(&f).await,history);
+        let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.reports WHERE board=$1 AND post_id=$2 AND auto_cleared_at IS NOT NULL AND group_cleared_by IS NULL AND group_clear_inherited IS NULL")
+            .bind(&f.boards[0]).bind(f.posts[0][0]).fetch_one(&f.owner).await.unwrap();assert_eq!(count,2);
+        assert_eq!(auto_clear(&f,2,true).await,0);
+        assert_eq!(f.counts().await,(3,3));
+    }).await;
+}
+#[tokio::test]
+async fn automatic_clear_has_no_runtime_entry_point_and_rejects_catalog_drift() {
+    run(|f|async move {
+        for variable in ["TEST_PUBLIC_DATABASE_URL","STAFF_DATABASE_URL","AUTH_DATABASE_URL"] {
+            let pool=PgPool::connect(&std::env::var(variable).unwrap()).await.unwrap();
+            let error=sqlx::query("SELECT post_secrets.auto_clear_post_reports($1,$2)").bind(&f.boards[0]).bind(f.posts[0][0]).execute(&pool).await.unwrap_err();
+            assert_eq!(code(&error),"42501");pool.close().await;
+        }
+        let mut tx=f.owner.begin().await.unwrap();private_role(&mut tx).await;
+        sqlx::query("GRANT EXECUTE ON FUNCTION post_secrets.auto_clear_post_reports(text,bigint) TO board_public").execute(&mut *tx).await.unwrap();
+        let ready:bool=sqlx::query_scalar("SELECT content.report_profile_ready()").fetch_one(&mut *tx).await.unwrap();assert!(!ready);
+        sqlx::query("RESET ROLE").execute(&mut *tx).await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *tx).await.unwrap();
+        let error=sqlx::query("SELECT post_secrets.auto_clear_post_reports($1,$2)").bind(&f.boards[0]).bind(f.posts[0][0]).execute(&mut *tx).await.unwrap_err();
+        assert_eq!(code(&error),"P201U");tx.rollback().await.unwrap();
+    }).await;
+}
+
+#[tokio::test]
+async fn automatic_clear_refuses_conflicting_board_locks_and_stronger_isolation() {
+    run(|f| async move {
+        f.admit(0, 0, &actor()).await.unwrap();
+        let before = f.file_action_snapshot().await;
+        let mut holder = f.owner.begin().await.unwrap();
+        sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR SHARE")
+            .bind(&f.boards[0])
+            .execute(&mut *holder)
+            .await
+            .unwrap();
+        let mut tx = f.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            sqlx::query("SELECT post_secrets.auto_clear_post_reports($1,$2)")
+                .bind(&f.boards[0])
+                .bind(f.posts[0][0])
+                .execute(&mut *tx),
+        )
+        .await
+        .unwrap()
+        .unwrap_err();
+        assert_eq!(code(&error), "55P03");
+        tx.rollback().await.unwrap();
+        holder.rollback().await.unwrap();
+        assert_eq!(f.file_action_snapshot().await, before);
+        for isolation in [
+            "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ",
+            "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE",
+        ] {
+            let mut tx = f.owner.begin().await.unwrap();
+            sqlx::query(isolation).execute(&mut *tx).await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_restriction_owner")
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            let error = sqlx::query("SELECT post_secrets.auto_clear_post_reports($1,$2)")
+                .bind(&f.boards[0])
+                .bind(f.posts[0][0])
+                .execute(&mut *tx)
+                .await
+                .unwrap_err();
+            assert_eq!(code(&error), "22023");
+            tx.rollback().await.unwrap();
+        }
+        assert_eq!(f.file_action_snapshot().await, before);
+        assert_eq!(auto_clear(&f, 0, true).await, 1);
+    })
+    .await;
+}
+#[tokio::test]
+async fn automatic_clear_accepts_its_exact_bound_and_refuses_one_more_without_partial_updates() {
+    run(|f|async move {
+        sqlx::query("INSERT INTO content.reports(board,post_id,reason) SELECT $1,$2,'Owned automatic-clear bound' FROM generate_series(1,10000)")
+            .bind(&f.boards[0]).bind(f.posts[0][0]).execute(&f.owner).await.unwrap();
+        assert_eq!(auto_clear(&f,0,true).await,10000);
+        let before:chrono::DateTime<Utc>=sqlx::query_scalar("SELECT min(auto_cleared_at) FROM content.reports WHERE board=$1 AND post_id=$2")
+            .bind(&f.boards[0]).bind(f.posts[0][0]).fetch_one(&f.owner).await.unwrap();
+        sqlx::query("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Owned over-bound report')")
+            .bind(&f.boards[0]).bind(f.posts[0][0]).execute(&f.owner).await.unwrap();
+        let mut tx=f.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *tx).await.unwrap();
+        let error=sqlx::query("SELECT post_secrets.auto_clear_post_reports($1,$2)").bind(&f.boards[0]).bind(f.posts[0][0]).execute(&mut *tx).await.unwrap_err();
+        assert_eq!(code(&error),"54000");tx.rollback().await.unwrap();
+        let counts:(i64,i64,i64)=sqlx::query_as("SELECT count(*),count(*) FILTER(WHERE auto_cleared_at=$3),count(*) FILTER(WHERE auto_cleared_at IS NULL) FROM content.reports WHERE board=$1 AND post_id=$2")
+            .bind(&f.boards[0]).bind(f.posts[0][0]).bind(before).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(counts,(10001,10000,1));
+        assert!(!f.group_exists(0,0).await);
+        sqlx::query("DELETE FROM content.reports WHERE board=$1 AND post_id=$2").bind(&f.boards[0]).bind(f.posts[0][0]).execute(&f.owner).await.unwrap();
+    }).await;
+}
+
+#[tokio::test]
+async fn automatic_clear_preserves_manual_attribution_and_inherits_retained_legacy_evidence() {
+    run(|f| async move {
+        for target in 0..2 {
+            let first = if target == 0 {
+                f.admit(0, target, &actor()).await.unwrap()
+            } else {
+                sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Owned legacy attribution') RETURNING id")
+                    .bind(&f.boards[0]).bind(f.posts[0][target]).fetch_one(&f.owner).await.unwrap()
+            };
+            let mut tx = f.owner.begin().await.unwrap();
+            private_role(&mut tx).await;
+            sqlx::query("UPDATE content.reports SET group_cleared_at=to_timestamp(1600000000),group_cleared_by=7123,group_clear_inherited=false WHERE id=$1")
+                .bind(first).execute(&mut *tx).await.unwrap();
+            sqlx::query("UPDATE post_secrets.report_group SET cleared_at=to_timestamp(1600000000),cleared_by=7123 WHERE board=$1 AND post_id=$2")
+                .bind(&f.boards[0]).bind(f.posts[0][target]).execute(&mut *tx).await.unwrap();
+            tx.commit().await.unwrap();
+            let before:serde_json::Value=sqlx::query_scalar("SELECT to_jsonb(r)-'auto_cleared_at' FROM content.reports r WHERE id=$1")
+                .bind(first).fetch_one(&f.owner).await.unwrap();
+            assert_eq!(auto_clear(&f,target,true).await,1);
+            let after:serde_json::Value=sqlx::query_scalar("SELECT to_jsonb(r)-'auto_cleared_at' FROM content.reports r WHERE id=$1")
+                .bind(first).fetch_one(&f.owner).await.unwrap();
+            assert_eq!(before,after,"Automatic clear rewrote manual provenance");
+            if target == 1 { assert!(!f.group_exists(0,target).await); }
+            let later=f.admit(0,target,&actor()).await.unwrap();
+            let inherited:(i64,i64,bool,bool)=sqlx::query_as("SELECT group_cleared_by,extract(epoch FROM group_cleared_at)::bigint,group_clear_inherited,auto_cleared_at IS NOT NULL FROM content.reports WHERE id=$1")
+                .bind(later).fetch_one(&f.owner).await.unwrap();
+            assert_eq!(inherited,(7123,1600000000,true,true));
+            let history=challenge_history(&f).await;
+            let staff=PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap()).await.unwrap();
+            let cleared:i64=sqlx::query_scalar("SELECT content.clear_report_group($1,$2,9999)")
+                .bind(&f.boards[0]).bind(f.posts[0][target]).fetch_one(&staff).await.unwrap();
+            assert_eq!(cleared,0);
+            staff.close().await;
+            assert_eq!(challenge_history(&f).await,history);
+        }
+        // Source reporter purge deletes these rows. Native retained audit must
+        // not confer inherited clear state on a later new group lifetime.
+        let retired:i64=sqlx::query_scalar("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Owned retired legacy') RETURNING id")
+            .bind(&f.boards[0]).bind(f.posts[0][2]).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(auto_clear(&f,2,true).await,1);
+        sqlx::query("UPDATE content.reports SET reporter_cleared_at=clock_timestamp() WHERE id=$1")
+            .bind(retired).execute(&f.owner).await.unwrap();
+        assert_eq!(auto_clear(&f,2,true).await,0);
+        let later=f.admit(0,2,&actor()).await.unwrap();
+        let open:bool=sqlx::query_scalar("SELECT auto_cleared_at IS NULL AND group_cleared_at IS NULL FROM content.reports WHERE id=$1")
+            .bind(later).fetch_one(&f.owner).await.unwrap();
+        assert!(open);
+    }).await;
 }

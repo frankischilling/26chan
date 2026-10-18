@@ -138,21 +138,21 @@ DO $$
 BEGIN
   -- Compare the historical row shape, excluding only known additive columns.
   -- New metadata must independently retain its absent or zero default.
-  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler','drawing_time_seconds','drawing_source_post_id','content_erased','file_deleted','saved_presentation','saved_presentation_search'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
-     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler','drawing_time_seconds','drawing_source_post_id','content_erased','file_deleted','saved_presentation','saved_presentation_search'] FROM content.posts p)
+  IF EXISTS (SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler','drawing_time_seconds','drawing_source_post_id','content_erased','file_deleted','saved_presentation','saved_presentation_search','staff_notices'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p)
+     OR EXISTS (SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler','drawing_time_seconds','drawing_source_post_id','content_erased','file_deleted','saved_presentation','saved_presentation_search','staff_notices'] FROM content.posts p)
      OR EXISTS (SELECT to_jsonb(t)-ARRAY['sticky_rank','content_erased'] FROM content.threads t EXCEPT SELECT to_jsonb(t) FROM public.owned_count_threads_before t)
      OR EXISTS (SELECT to_jsonb(t) FROM public.owned_count_threads_before t EXCEPT SELECT to_jsonb(t)-ARRAY['sticky_rank','content_erased'] FROM content.threads t)
-     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR board_flag_type IS DISTINCT FROM 'pol' OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR staff_authorized_limits OR image_spoiler OR drawing_time_seconds IS NOT NULL OR drawing_source_post_id IS NOT NULL OR content_erased IS DISTINCT FROM false OR file_deleted IS DISTINCT FROM false OR saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
+     OR EXISTS (SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR board_flag_type IS DISTINCT FROM 'pol' OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR staff_authorized_limits OR image_spoiler OR drawing_time_seconds IS NOT NULL OR drawing_source_post_id IS NOT NULL OR content_erased IS DISTINCT FROM false OR file_deleted IS DISTINCT FROM false OR saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL OR staff_notices IS DISTINCT FROM '{}'::text[])
      OR EXISTS (SELECT 1 FROM content.threads WHERE sticky_rank IS DISTINCT FROM 0 OR content_erased IS DISTINCT FROM false)
      OR EXISTS (SELECT 1 FROM post_secrets.poster_contexts)
      OR content.unique_posters('countold',8800001) IS NOT NULL THEN
     RAISE NOTICE 'Historical upgrade diagnostics: %', (
       SELECT jsonb_build_object(
-        'posts_forward_changed', EXISTS(SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler','drawing_time_seconds','drawing_source_post_id','content_erased','file_deleted','saved_presentation','saved_presentation_search'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p),
-        'posts_reverse_changed', EXISTS(SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler','drawing_time_seconds','drawing_source_post_id','content_erased','file_deleted','saved_presentation','saved_presentation_search'] FROM content.posts p),
+        'posts_forward_changed', EXISTS(SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler','drawing_time_seconds','drawing_source_post_id','content_erased','file_deleted','saved_presentation','saved_presentation_search','staff_notices'] FROM content.posts p EXCEPT SELECT to_jsonb(p) FROM public.owned_count_posts_before p),
+        'posts_reverse_changed', EXISTS(SELECT to_jsonb(p) FROM public.owned_count_posts_before p EXCEPT SELECT to_jsonb(p)-ARRAY['country','country_name','board_flag','board_flag_type','flag_name','capcode','dice_result','fortune_text','fortune_color','wordfilter_payload','wordfilter_search','staff_authorized_limits','json_op_poster_id','image_spoiler','drawing_time_seconds','drawing_source_post_id','content_erased','file_deleted','saved_presentation','saved_presentation_search','staff_notices'] FROM content.posts p),
         'threads_forward_changed', EXISTS(SELECT to_jsonb(t)-ARRAY['sticky_rank','content_erased'] FROM content.threads t EXCEPT SELECT to_jsonb(t) FROM public.owned_count_threads_before t),
         'threads_reverse_changed', EXISTS(SELECT to_jsonb(t) FROM public.owned_count_threads_before t EXCEPT SELECT to_jsonb(t)-ARRAY['sticky_rank','content_erased'] FROM content.threads t),
-        'new_metadata_present', EXISTS(SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR board_flag_type IS DISTINCT FROM 'pol' OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR staff_authorized_limits OR image_spoiler OR drawing_time_seconds IS NOT NULL OR drawing_source_post_id IS NOT NULL OR content_erased IS DISTINCT FROM false OR file_deleted IS DISTINCT FROM false OR saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL),
+        'new_metadata_present', EXISTS(SELECT 1 FROM content.posts WHERE country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR board_flag_type IS DISTINCT FROM 'pol' OR flag_name IS NOT NULL OR capcode IS NOT NULL OR dice_result IS NOT NULL OR fortune_text IS NOT NULL OR fortune_color IS NOT NULL OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR json_op_poster_id IS NOT NULL OR staff_authorized_limits OR image_spoiler OR drawing_time_seconds IS NOT NULL OR drawing_source_post_id IS NOT NULL OR content_erased IS DISTINCT FROM false OR file_deleted IS DISTINCT FROM false OR saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL OR staff_notices IS DISTINCT FROM '{}'::text[]),
         'historical_thread_metadata_changed', EXISTS(SELECT 1 FROM content.threads WHERE sticky_rank IS DISTINCT FROM 0 OR content_erased IS DISTINCT FROM false),
         'poster_context_present', EXISTS(SELECT 1 FROM post_secrets.poster_contexts),
         'historical_count_known', content.unique_posters('countold',8800001) IS NOT NULL
@@ -187,14 +187,20 @@ BEGIN
      OR has_any_column_privilege('board_admission_owner','content.threads','SELECT,INSERT,UPDATE,REFERENCES')
      OR has_table_privilege('board_admission_owner','admission.rules','INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
      OR has_table_privilege('board_admission_owner','admission.logs','UPDATE,DELETE,TRUNCATE,TRIGGER')
+     OR has_table_privilege('board_admission_owner','admission.network_rules','INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+     OR NOT has_column_privilege('board_admission_owner','content.boards','worksafe','SELECT')
+     OR NOT has_table_privilege('board_admission_owner','admission.network_rules','SELECT')
      OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='content' AND c.table_name='boards'
-          AND c.column_name NOT IN ('slug','staff_only') AND has_column_privilege('board_admission_owner','content.boards',c.column_name,'SELECT')) THEN
+          AND c.column_name NOT IN ('slug','staff_only','worksafe') AND has_column_privilege('board_admission_owner','content.boards',c.column_name,'SELECT')) THEN
     RAISE EXCEPTION 'Content admission function owner exceeds required authority';
   END IF;
   IF EXISTS (SELECT 1 FROM unnest(ARRAY['board_public','board_staff','board_auth','board_media',
        'board_media_read','board_media_intake','board_monitor']) runtime(name)
        WHERE has_schema_privilege(name,'admission','USAGE')
           OR has_any_column_privilege(name,'admission.rules','SELECT,INSERT,UPDATE,REFERENCES')
+          OR has_any_column_privilege(name,'admission.network_rules','SELECT,INSERT,UPDATE,REFERENCES')
+          OR has_table_privilege(name,'admission.network_rules','DELETE,TRUNCATE,TRIGGER')
+          OR has_function_privilege(name,'admission.stamp_network_update()','EXECUTE')
           OR has_any_column_privilege(name,'admission.hits','SELECT,INSERT,UPDATE,REFERENCES')
           OR has_any_column_privilege(name,'admission.logs','SELECT,INSERT,UPDATE,REFERENCES')
           OR has_any_column_privilege(name,'admission.bans','SELECT,INSERT,UPDATE,REFERENCES')
@@ -202,15 +208,18 @@ BEGIN
           OR (name NOT IN ('board_public','board_staff') AND EXISTS(
               SELECT 1 FROM (VALUES('content.lock_content_admission(text,text)'),
                   ('content.content_admission_rules(text)'),
+              ('content.network_admission_rules(text,bigint)'),
                   ('content.record_content_admission(text,text,bigint,bigint,text,bigint,text,text,text,text)')) helper(signature)
               WHERE has_function_privilege(name,signature,'EXECUTE'))))
      OR EXISTS(SELECT 1 FROM unnest(ARRAY['board_public','board_staff']) runtime(name)
           CROSS JOIN (VALUES('content.lock_content_admission(text,text)'),
               ('content.content_admission_rules(text)'),
+              ('content.network_admission_rules(text,bigint)'),
               ('content.record_content_admission(text,text,bigint,bigint,text,bigint,text,text,text,text)')) helper(signature)
           WHERE NOT has_function_privilege(name,signature,'EXECUTE'))
      OR has_function_privilege('board_public','content.stamp_content_autosage()','EXECUTE')
      OR has_function_privilege('board_staff','content.stamp_content_autosage()','EXECUTE')
+     OR EXISTS(SELECT 1 FROM admission.network_rules)
      OR EXISTS(SELECT 1 FROM admission.rules)
      OR EXISTS(SELECT 1 FROM admission.hits)
      OR EXISTS(SELECT 1 FROM admission.logs)
@@ -276,7 +285,10 @@ BEGIN
      OR has_schema_privilege('board_staff_post_owner','deployment','USAGE')
      OR has_schema_privilege('board_staff_post_owner','media','USAGE')
      OR has_table_privilege('board_staff_post_owner','content.posts','INSERT,UPDATE,DELETE')
-     OR has_any_column_privilege('board_staff_post_owner','staff_identity.credentials','INSERT,UPDATE')
+     OR has_any_column_privilege('board_staff_post_owner','staff_identity.credentials','INSERT')
+     OR NOT has_column_privilege('board_staff_post_owner','staff_identity.credentials','id','UPDATE')
+     OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='staff_identity' AND c.table_name='credentials'
+          AND c.column_name<>'id' AND has_column_privilege('board_staff_post_owner','staff_identity.credentials',c.column_name,'UPDATE'))
      OR has_table_privilege('board_staff_post_owner','staff_identity.credentials','DELETE,TRUNCATE,TRIGGER')
      OR EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema='staff_identity' AND c.table_name='credentials'
           AND c.column_name NOT IN ('id','account_id') AND has_column_privilege('board_staff_post_owner','staff_identity.credentials',c.column_name,'SELECT'))
@@ -552,6 +564,7 @@ RESET ROLE;
 SET ROLE board_monitor;
 SELECT capacity, receiving, queued, processing FROM monitoring.media_queue;
 SQL
+"${db[@]}" -d bootstrap_test -f scripts/test-staff-refusal-credential-grants.sql
 # Exercise the same catalog-only contract used by staff startup.
 attachment_ready_sql=$(python3 - <<'PYREADY'
 from pathlib import Path

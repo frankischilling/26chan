@@ -1,11 +1,13 @@
 //! HTTP transport owns connections, their deadlines and kernel peer identity.
 use axum::extract::ConnectInfo;
+pub use hyper::ext::RequestHeaderOrder;
 use std::{io, net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, watch};
 
 /// Clone this budget to share admission between public and JSON API listeners.
 #[derive(Clone)]
 pub struct ConnectionBudget {
+    capture_header_order: bool,
     admission: Arc<Semaphore>,
     header_timeout: Duration,
     connection_timeout: Duration,
@@ -16,11 +18,18 @@ impl ConnectionBudget {
     pub fn new(limits: board_config::PublicRequestLimits) -> Self {
         let connection_timeout = limits.connection_timeout();
         Self {
+            capture_header_order: false,
             admission: Arc::new(Semaphore::new(limits.connections())),
             header_timeout: limits.header_timeout(),
             connection_timeout,
             retirement_window: limits.handler_timeout().min(connection_timeout / 8),
         }
+    }
+    /// Opt in to bounded parser-owned header order for abuse-policy hints.
+    /// Other listeners retain the default without per-request order storage.
+    pub fn with_request_header_order(mut self) -> Self {
+        self.capture_header_order = true;
+        self
     }
 }
 
@@ -86,6 +95,7 @@ impl HttpListener {
                     };
                     let deadline = tokio::time::Instant::now() + budget.connection_timeout;
                     let timing = ConnectionTiming {
+                        capture_header_order: budget.capture_header_order,
                         header_timeout: budget.header_timeout,
                         retirement: deadline - budget.retirement_window,
                         deadline,
@@ -147,6 +157,7 @@ enum Accepted {
 
 #[derive(Clone, Copy)]
 struct ConnectionTiming {
+    capture_header_order: bool,
     header_timeout: Duration,
     retirement: tokio::time::Instant,
     deadline: tokio::time::Instant,
@@ -192,7 +203,8 @@ async fn serve_connection<I, P>(
     let mut builder = hyper::server::conn::http1::Builder::new();
     builder
         .timer(hyper_util::rt::TokioTimer::new())
-        .header_read_timeout(timing.header_timeout);
+        .header_read_timeout(timing.header_timeout)
+        .capture_request_header_order(timing.capture_header_order);
     let connection = builder.serve_connection(hyper_util::rt::TokioIo::new(stream), service);
     tokio::pin!(connection);
     let exchange = async {

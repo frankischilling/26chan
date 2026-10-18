@@ -1,6 +1,6 @@
 import { createDrawingUpload, drawingDimensions } from './native-drawing-core.js';
 import { createDrawingPainter } from './native-drawing-painter.js';
-import { sendDrawingPost, uploadDrawingFile, uploadTarget } from './native-quick-reply-transport.js';
+import { schedulePostingRedirect, sendDrawingPost, uploadDrawingFile, uploadTarget } from './native-quick-reply-transport.js';
 
 // The media server, not a post's filename or any user-supplied link, chooses
 // the URL. JPEG uploads also appear here as approved, normalized .png output.
@@ -231,7 +231,7 @@ export function mountNativeDrawing({ board, source, uploadForm }) {
       try {
         const result = await sendDrawingPost({ board, thread: target, fields, signal: postController.signal });
         if (dead || epoch !== postEpoch) return;
-        if (result.error) { if (status) status.textContent = result.error; return; }
+        if (result.error) { if (status) status.textContent = result.error; schedulePostingRedirect(result, board); return; }
         transfer.retire(); ordinary.reset();
         location.assign(`/${board}/thread/${result.thread}#p${result.post}`);
       } catch (failure) {

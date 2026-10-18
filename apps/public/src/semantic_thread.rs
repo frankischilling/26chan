@@ -71,7 +71,7 @@ pub(crate) fn stored_comment(post: &PostView) -> String {
         &post.post.board,
         post.post.comment_format,
     );
-    if let Some(dice) = &post.post.dice_result {
+    if let Some(dice) = post.post.separate_dice_result() {
         comment = format!(
             "<b>{}<br><br></b>{comment}",
             board_domain::source_html_entities(dice)
@@ -79,9 +79,8 @@ pub(crate) fn stored_comment(post: &PostView) -> String {
     }
     if let Some((text, color)) = post
         .post
-        .fortune_text
-        .as_deref()
-        .zip(post.post.fortune_color.as_deref())
+        .separate_fortune_text()
+        .zip(post.post.separate_fortune_color())
     {
         comment.push_str(&format!(
             "<span class=\"fortune\" style=\"color:{}\"><br><br><b>Your fortune: {}</b></span>",
@@ -91,6 +90,13 @@ pub(crate) fn stored_comment(post: &PostView) -> String {
     }
     if let Some(drawing) = post.drawing_annotation() {
         comment.push_str(&drawing.stored_html());
+    }
+    for text in &post.post.staff_notices {
+        // The persisted array is bounded by its database contract; text remains
+        // escaped even in this data-only source-shaped representation.
+        if let Ok(notice) = board_domain::post_notice::Notice::from_saved(text) {
+            comment.push_str(&notice.source_html());
+        }
     }
     comment
 }

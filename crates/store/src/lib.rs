@@ -9,6 +9,8 @@ mod board_snapshot;
 pub mod site_content;
 pub use blotter::BlotterMessage;
 mod content_admission;
+pub use content_admission::automatic::READINESS_SQL as AUTOMATIC_RANGE_READINESS_SQL;
+pub use content_admission::files::FileRefusal;
 pub mod content_erasure;
 pub mod historical_erasure;
 pub mod homepage;
@@ -32,6 +34,8 @@ pub use polls::{
 };
 pub mod post_media;
 pub mod posting_challenge;
+pub mod posting_classifiers;
+pub use report_admission::request::RequestFacts as ReportRequestFacts;
 mod posting_cooldown;
 pub use posting_cooldown::{PostingCooldownReason, PostingCooldownRejection};
 mod public_deletion;
@@ -43,6 +47,9 @@ pub mod quote_targets;
 mod read;
 pub use quote_targets::{MAX_QUOTE_TARGETS, QuoteTargets};
 pub mod report_admission;
+pub use report_admission::network::{
+    Context as NetworkReportingContext, Source as ReportNetworkSource,
+};
 pub mod report_catalog;
 pub mod report_categories;
 pub mod report_challenge;
@@ -68,6 +75,8 @@ use std::time::Duration;
 pub use thread_statistics::{ThreadStatistics, thread_statistics};
 pub use write::*;
 
+pub use content_admission::automatic::REJECTION as AUTOMATIC_RANGE_REJECTION;
+
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
     #[error("Not found.")]
@@ -84,6 +93,12 @@ pub enum StoreError {
     AuthorizationChanged,
     #[error("{0}")]
     ContentRejected(String),
+    #[error("{0}")]
+    FileRejected(FileRefusal),
+    #[error("{0}")]
+    PostingClassifierRejected(posting_classifiers::Refusal),
+    #[error("{}", AUTOMATIC_RANGE_REJECTION)]
+    AutomaticRangeRejected { cookie_refreshed: bool },
     #[error("Post accepted.")]
     ContentQuiet { post: i64 },
     #[error("Database unavailable.")]
@@ -333,6 +348,8 @@ pub struct Post {
     pub subject: String,
     pub image_spoiler: bool,
     pub comment: String,
+    /// Ordered staff annotations; never reparsed as user comment markup.
+    pub staff_notices: Vec<String>,
     /// Source Oekaki metadata is generated after accepted image insertion.
     /// It does not prove that the submitted pixels came from this source.
     pub drawing_time_seconds: Option<i32>,
@@ -353,6 +370,31 @@ pub struct Post {
 }
 
 impl Post {
+    pub fn has_generated_comment(&self) -> bool {
+        board_domain::formatting::generated_content_format(self.comment_format)
+    }
+    pub fn separate_dice_result(&self) -> Option<&str> {
+        if self.has_generated_comment() {
+            None
+        } else {
+            self.dice_result.as_deref()
+        }
+    }
+    pub fn separate_fortune_text(&self) -> Option<&str> {
+        if self.has_generated_comment() {
+            None
+        } else {
+            self.fortune_text.as_deref()
+        }
+    }
+    pub fn separate_fortune_color(&self) -> Option<&str> {
+        if self.has_generated_comment() {
+            None
+        } else {
+            self.fortune_color.as_deref()
+        }
+    }
+
     /// Historical attachment flags remain effective without a data backfill.
     pub fn file_deleted(&self) -> bool {
         self.file_deleted || self.attachment.as_ref().is_some_and(|a| a.file_deleted)
@@ -434,6 +476,13 @@ pub async fn connect_public(url: &str) -> Result<PgPool, StoreError> {
     .fetch_one(&pool)
     .await?;
     if !ready {
+        pool.close().await;
+        return Err(StoreError::UnsafeRole);
+    }
+    let automatic_ranges: bool = sqlx::query_scalar(AUTOMATIC_RANGE_READINESS_SQL)
+        .fetch_one(&pool)
+        .await?;
+    if !automatic_ranges {
         pool.close().await;
         return Err(StoreError::UnsafeRole);
     }

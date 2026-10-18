@@ -650,6 +650,7 @@ pub(crate) mod tests {
         let posts = [id, id + 1]
             .into_iter()
             .map(|no| Post {
+                staff_notices: Vec::new(),
                 image_spoiler: false,
                 comment_format: 0,
                 staff_authorized_limits: false,
@@ -797,6 +798,7 @@ pub(crate) mod tests {
                 snapshot.post.comment_format = format;
                 snapshot.post.comment = "[spoiler]<b>first</b>\nsecond[/spoiler]".into();
                 let expected = crate::views::Comment {
+                    staff_notices: &[],
                     lines: &board_domain::parse_post_comment(&snapshot.post.comment, format),
                     board: "test",
                     dice_result: None,
@@ -1108,6 +1110,7 @@ pub(crate) mod tests {
             snapshot.posts[1].comment_format = format;
             snapshot.posts[1].comment = "[spoiler]<b>first</b>\nsecond[/spoiler]".into();
             let expected = crate::views::Comment {
+                staff_notices: &[],
                 lines: &board_domain::parse_post_comment(&snapshot.posts[1].comment, format),
                 board: "test",
                 dice_result: None,

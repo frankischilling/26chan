@@ -143,6 +143,7 @@ impl<W: Write> Write for XmlText<'_, W> {
 #[derive(Template)]
 #[template(path = "rss_description.html")]
 struct Description<'a> {
+    source_generated: bool,
     lines: &'a [Line],
     board: &'a str,
     origin: &'a str,
@@ -153,6 +154,7 @@ struct Description<'a> {
     fortune: Option<&'a str>,
     color: Option<&'a str>,
     drawing: Option<crate::views::DrawingAnnotation>,
+    notices: &'a [String],
 }
 
 // lib/rss.php emits saved comment HTML without calling the page's post-number
@@ -188,16 +190,15 @@ fn write_feed(
         let lines = saved_comment_lines(post.formatted_lines());
         let mut stored =
             crate::catalog::teaser::stored_comment(&lines, &post.board, post.comment_format);
-        if let Some(dice) = &post.dice_result {
+        if let Some(dice) = post.separate_dice_result() {
             stored = format!(
                 "<b>{}<br><br></b>{stored}",
                 board_domain::source_html_entities(dice)
             );
         }
         if let Some((text, color)) = post
-            .fortune_text
-            .as_deref()
-            .zip(post.fortune_color.as_deref())
+            .separate_fortune_text()
+            .zip(post.separate_fortune_color())
         {
             stored.push_str(&format!(
                 "<span class=\"fortune\" style=\"color:{}\"><br><br><b>Your fortune: {}</b></span>",
@@ -208,6 +209,15 @@ fn write_feed(
         let drawing = crate::views::drawing_annotation(post);
         if let Some(drawing) = drawing {
             stored.push_str(&drawing.stored_html());
+        }
+        board_domain::post_notice::validate_saved(&post.staff_notices)
+            .map_err(|_| std::fmt::Error)?;
+        for text in &post.staff_notices {
+            stored.push_str(
+                &board_domain::post_notice::Notice::from_saved(text)
+                    .map_err(|_| std::fmt::Error)?
+                    .source_html(),
+            );
         }
         let title = item_title(post, &stored, board.forced_anon);
         let link = format!("{origin}/{}/thread/{}", board.slug, post.id);
@@ -256,16 +266,18 @@ fn write_feed(
         };
         writer.write_str("<description>")?;
         Description {
+            source_generated: post.has_generated_comment(),
             lines: &lines,
             board: &post.board,
             origin,
             source,
             thumbnail,
             spoilers: stored.contains("[spoiler"),
-            dice: post.dice_result.as_deref(),
-            fortune: post.fortune_text.as_deref(),
-            color: post.fortune_color.as_deref(),
+            dice: post.separate_dice_result(),
+            fortune: post.separate_fortune_text(),
+            color: post.separate_fortune_color(),
             drawing,
+            notices: &post.staff_notices,
         }
         .render_into(&mut XmlText(writer))?;
         writer.write_str("</description></item>")?;
@@ -324,6 +336,42 @@ mod tests {
     }
 
     #[test]
+    fn feed_notices_follow_drawing_and_remain_escaped_and_ordered() {
+        let notices = vec![
+            "<script>first</script>".into(),
+            "second".into(),
+            "second".into(),
+        ];
+        let description = Description {
+            source_generated: false,
+            lines: &[],
+            board: "test",
+            origin: "https://boards.example",
+            source: String::new(),
+            thumbnail: String::new(),
+            spoilers: false,
+            dice: None,
+            fortune: None,
+            color: None,
+            drawing: None,
+            notices: &notices,
+        };
+        let html = description.render().unwrap();
+        assert!(!html.contains("<script>"));
+        assert!(html.contains("&#60;script&#62;first&#60;/script&#62;"));
+        assert_eq!(html.matches("(second)").count(), 2);
+        assert!(html.find("first").unwrap() < html.find("second").unwrap());
+        let hidden = Description {
+            spoilers: true,
+            ..description
+        }
+        .render()
+        .unwrap();
+        assert!(hidden.contains("(Spoilers)"));
+        assert!(!hidden.contains("first") && !hidden.contains("second"));
+    }
+
+    #[test]
     fn feed_descriptions_keep_links_usable_outside_the_board_origin() {
         let lines = saved_comment_lines(board_domain::parse_post_comment_on_board(
             ">>12 >>>/g/34 >>>/g/catalog >>>/g/rules/3 https://www.4chan.org/faq <script>",
@@ -331,6 +379,7 @@ mod tests {
             "test",
         ));
         let description = Description {
+            source_generated: false,
             lines: &lines,
             board: "test",
             origin: "https://boards.example",
@@ -341,6 +390,7 @@ mod tests {
             fortune: None,
             color: None,
             drawing: None,
+            notices: &[],
         }
         .render()
         .unwrap();
@@ -385,6 +435,7 @@ mod tests {
             );
             let lines = saved_comment_lines(parsed);
             let description = Description {
+                source_generated: false,
                 lines: &lines,
                 board: "test",
                 origin: "https://boards.example",
@@ -395,6 +446,7 @@ mod tests {
                 fortune: None,
                 color: None,
                 drawing: None,
+                notices: &[],
             }
             .render()
             .unwrap();
@@ -414,6 +466,7 @@ mod tests {
     fn feed_descriptions_render_retained_randomizers_and_escape_their_text() {
         let lines = board_domain::parse_post_comment_on_board("ordinary comment", 104, "b");
         let description = Description {
+            source_generated: false,
             lines: &lines,
             board: "b",
             origin: "https://boards.example",
@@ -424,6 +477,7 @@ mod tests {
             fortune: Some("<script> & fortune"),
             color: Some("#7fec11"),
             drawing: None,
+            notices: &[],
         }
         .render()
         .unwrap();
@@ -442,6 +496,7 @@ mod tests {
         let mut drawing = crate::views::DrawingAnnotation::from_saved(Some(90), None).unwrap();
         drawing.replay_tim = Some(123);
         let description = Description {
+            source_generated: false,
             lines: &[],
             board: "i",
             origin: "https://boards.example",
@@ -452,6 +507,7 @@ mod tests {
             fortune: None,
             color: None,
             drawing: Some(drawing),
+            notices: &[],
         }
         .render()
         .unwrap();

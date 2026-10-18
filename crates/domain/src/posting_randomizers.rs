@@ -25,6 +25,10 @@ const FORTUNE_COLORS: [&str; 13] = [
     "#2a56fb", "#0893e1", "#00cbb0", "#16f174", "#43fd3b",
 ];
 
+pub(crate) fn fortune_palette_color(index: u8) -> Option<&'static str> {
+    FORTUNE_COLORS.get(usize::from(index)).copied()
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DiceRequest {
     pub count: u8,
@@ -243,7 +247,7 @@ pub fn generate(request: &Request) -> Result<Outcome, GenerationError> {
     generate_with(request, |upper| random_below(&random, upper))
 }
 
-fn random_below(random: &dyn SecureRandom, upper: u32) -> Result<u32, GenerationError> {
+pub(crate) fn random_below(random: &dyn SecureRandom, upper: u32) -> Result<u32, GenerationError> {
     if upper == 0 {
         return Err(GenerationError::InvalidRequest);
     }
@@ -320,6 +324,29 @@ fn generate_with(
             Ok(Outcome::Dice(text))
         }
     }
+}
+
+/// Fixed source markup used by admission before user markup and wordfilters.
+/// Caller-constructed outcomes must pass the same finite validation as generated
+/// outcomes; this never grants rendering authority to arbitrary strings.
+pub(crate) fn source_wrappers(
+    outcome: Option<&Outcome>,
+) -> Result<(String, String), ValidationError> {
+    let Some(outcome) = outcome else {
+        return Ok((String::new(), String::new()));
+    };
+    if !valid_outcome(outcome) {
+        return Err(ValidationError("Invalid generated posting result."));
+    }
+    Ok(match outcome {
+        Outcome::Dice(text) => (format!("<b>{text}<br><br></b>"), String::new()),
+        Outcome::Fortune { text, color } => (
+            String::new(),
+            format!(
+                "<span class=\"fortune\" style=\"color:{color}\"><br><br><b>Your fortune: {text}</b></span>"
+            ),
+        ),
+    })
 }
 
 /// Public Outcome variants are constructible by callers. Validate the complete

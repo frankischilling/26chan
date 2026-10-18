@@ -109,6 +109,7 @@ mod tests {
     use super::*;
     fn post(comment: String, format: i16) -> Post {
         Post {
+            staff_notices: Vec::new(),
             id: 1,
             board: "g".into(),
             thread_id: 1,

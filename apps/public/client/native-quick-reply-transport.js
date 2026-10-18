@@ -244,6 +244,13 @@ function parsePostingResult(text, thread, allowNew) {
   return { thread: thread === '0' ? match[2] : thread, post: match[2] };
 }
 
+// A server-owned token, never a response-supplied URL or executable markup.
+export function schedulePostingRedirect(result, board, { navigate = path => location.assign(path), schedule = setTimeout } = {}) {
+  if (!/^[a-z0-9]{1,10}$/.test(board) || result?.redirect !== 'banned' || result.error !== 'Error: You are banned.') return false;
+  schedule(() => navigate(`/banned?board=${board}`), 3000);
+  return true;
+}
+
 export function sendQuickReply(options) { return sendPost(options, false); }
 export function sendDrawingPost(options) { return sendPost(options, true); }
 
@@ -300,6 +307,11 @@ async function sendPost({ board, thread, fields, signal, origin = location.origi
       text += decoder.decode();
       const result = parsePostingResult(text, thread, allowNew);
       if (response.status !== 200 && !result.error) throw new Error('Invalid posting status.');
+      const redirect = response.headers.get('x-board-posting-redirect');
+      if (redirect !== null) {
+        if (redirect !== 'banned' || response.status !== 200 || result.error !== 'Error: You are banned.') throw new Error('Invalid posting redirect.');
+        return { ...result, redirect: 'banned' };
+      }
       return result;
     })()]);
   } catch {

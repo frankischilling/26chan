@@ -345,3 +345,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "challenge_policy/credit_score_tests.rs"]
+mod credit_score_tests;

@@ -145,6 +145,7 @@ mod tests {
             (Some("<script>alert(1)</script>xxxxxxxx"), true, true, false),
         ] {
             let mut report = Report {
+                staff_notices: Vec::new(),
                 id: 1,
                 board: "test".into(),
                 post_id: 1,
@@ -226,6 +227,7 @@ mod tests {
     #[test]
     fn preview_escapes_untrusted_text_with_typed_formatting() {
         let report = Report {
+            staff_notices: Vec::new(),
             id: 1,
             board: "test".into(),
             post_id: 1,
@@ -331,6 +333,7 @@ mod tests {
             (Some(5_184_001), None, ""),
         ] {
             let preview = Preview::from(Report {
+                staff_notices: Vec::new(),
                 id: 1,
                 board: "i".into(),
                 post_id: 1,
@@ -414,6 +417,7 @@ mod tests {
             (1, "rule", "😀".repeat(1024)),
         ] {
             let report = Report {
+                staff_notices: Vec::new(),
                 id: 1,
                 board: "test".into(),
                 post_id: 1,
@@ -529,6 +533,7 @@ mod tests {
             0, 8, 9, 15, 24, 31, 40, 47, 56, 63, 104, 105, 111, 120, 127, 232, 239, 248, 255,
         ] {
             let preview = Preview::from(Report {
+                staff_notices: Vec::new(),
                 id: 1,
                 board: "test".into(),
                 post_id: 1,
@@ -604,6 +609,7 @@ mod tests {
         for format in [0, 40] {
             let comment = "😀".repeat(board_domain::MAX_COMMENT_CHARS);
             let report = Report {
+                staff_notices: Vec::new(),
                 id: 1,
                 board: "test".into(),
                 post_id: 1,
@@ -692,6 +698,7 @@ mod tests {
         .unwrap();
         for corrupt in [false, true] {
             let mut report = Report {
+                staff_notices: Vec::new(),
                 id: 1,
                 board: "test".into(),
                 post_id: 1,

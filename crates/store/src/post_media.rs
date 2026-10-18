@@ -117,6 +117,7 @@ pub async fn delete_attachment<'e>(
 
 pub(crate) fn scoped_error(error: sqlx::Error) -> StoreError {
     match error.as_database_error().and_then(|e| e.code()).as_deref() {
+        Some("P196B") => StoreError::ContentRejected("Error: Upload failed.".into()),
         Some("P0002") => StoreError::NotFound,
         Some("P0001") => StoreError::Conflict(
             "Attachment is unavailable, already used, or the image limit was reached.",

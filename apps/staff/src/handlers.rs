@@ -378,6 +378,12 @@ pub async fn ready(State(state): Shared) -> Result<&'static str, AppError> {
     if !automatic_admission {
         return Err(AppError::Internal);
     }
+    if !sqlx::query_scalar::<_, bool>(board_store::AUTOMATIC_RANGE_READINESS_SQL)
+        .fetch_one(&state.staff)
+        .await?
+    {
+        return Err(AppError::Internal);
+    }
     let report_admission: bool = sqlx::query_scalar(REPORT_ADMISSION_READY_SQL)
         .fetch_one(&state.staff)
         .await?;
@@ -921,12 +927,18 @@ pub struct StaffMessage {
 pub async fn post_message(
     State(state): Shared,
     headers: HeaderMap,
+    order: Option<Extension<board_http::transport::RequestHeaderOrder>>,
     Extension(start): Extension<StaffRequestStart>,
     Extension(peer): Extension<StaffRequestPeer>,
     input: Result<Form<StaffMessage>, axum::extract::rejection::FormRejection>,
 ) -> Result<Redirect, AppError> {
     let Form(input) = input.map_err(|error| AppError::Form(error.status()))?;
     let request_start = start.0;
+    let hints = board_http::network_hints::derive(
+        &headers,
+        order.as_ref().map(|order| &order.0),
+        state.config.browser_hint_key.as_deref(),
+    );
     auth::origin(&headers, &state.config.origin)?;
     let session = auth::session(&state, &headers).await?;
     if !session.at_least(crate::access::Level::Janitor)
@@ -1038,7 +1050,7 @@ pub async fn post_message(
         };
         let (hash, proof) = crate::posting_password::prepare(input.password, op_hash).await?;
         post.deletion_hash = hash;
-        board_store::create_ordinary_staff_post_with_attachment(
+        board_store::create_ordinary_staff_post_with_network(
             &state.staff,
             &input.board,
             input.thread,
@@ -1046,10 +1058,14 @@ pub async fn post_message(
                 post: &post,
                 attachment: attachment.as_ref(),
             },
-            board_store::PostingContext {
-                request_start,
-                peer: peer.ip(),
-                op_password_proof: proof,
+            board_store::NetworkPostingContext {
+                hints: Some(&hints),
+                asn_database: state.config.asn_database.as_deref(),
+                posting: board_store::PostingContext {
+                    request_start,
+                    peer: peer.ip(),
+                    op_password_proof: proof,
+                },
             },
             board_store::PostMetadata {
                 spoiler: input.spoiler,
@@ -1066,7 +1082,7 @@ pub async fn post_message(
         )
         .await
     } else {
-        board_store::create_staff_post_with_attachment_and_context_and_keys(
+        board_store::create_staff_post_with_network(
             &state.staff,
             &input.board,
             input.thread,
@@ -1074,10 +1090,14 @@ pub async fn post_message(
                 post: &post,
                 attachment: attachment.as_ref(),
             },
-            board_store::PostingContext {
-                request_start,
-                peer: peer.ip(),
-                op_password_proof: None,
+            board_store::NetworkPostingContext {
+                hints: Some(&hints),
+                asn_database: state.config.asn_database.as_deref(),
+                posting: board_store::PostingContext {
+                    request_start,
+                    peer: peer.ip(),
+                    op_password_proof: None,
+                },
             },
             board_store::PostIdentityKeys {
                 tripcode: state.config.tripcode_key.as_deref(),
@@ -1088,6 +1108,30 @@ pub async fn post_message(
         .await
     };
     let result = match result {
+        Err(board_store::StoreError::FileRejected(refusal)) => {
+            use board_domain::content_admission::files::Response as FileResponse;
+            if refusal.response() == FileResponse::Quiet {
+                let post = refusal.quiet_post().ok_or(AppError::Internal)?;
+                return Ok(Redirect::to(&if input.thread > 0 {
+                    format!(
+                        "{}/{}/thread/{}#p{post}",
+                        state.config.public_origin, input.board, input.thread
+                    )
+                } else {
+                    format!("{}/{}/", state.config.public_origin, input.board)
+                }));
+            }
+            if refusal.response() == FileResponse::BanRedirect {
+                return Err(AppError::PostingRedirect {
+                    message: refusal.message().into(),
+                    location: format!(
+                        "{}/banned?board={}",
+                        state.config.public_origin, input.board
+                    ),
+                });
+            }
+            return Err(AppError::Posting(refusal.message().into()));
+        }
         Err(board_store::StoreError::ContentQuiet { post }) => {
             return Ok(Redirect::to(&if input.thread > 0 {
                 format!(
@@ -1110,6 +1154,9 @@ pub async fn post_message(
         | board_store::StoreError::Robot9000Rejected(message) => AppError::Posting(message),
         board_store::StoreError::PostingCooldownRejected(rejection) => {
             AppError::Posting(rejection.source_message())
+        }
+        board_store::StoreError::AutomaticRangeRejected { .. } => {
+            AppError::Posting(board_store::AUTOMATIC_RANGE_REJECTION.into())
         }
         board_store::StoreError::Database(error) => AppError::Database(error),
         _ => AppError::Internal,

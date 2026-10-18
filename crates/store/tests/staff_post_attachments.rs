@@ -1,5 +1,14 @@
 #![cfg(feature = "database-tests")]
 mod support;
+#[path = "staff_post_attachments/templates.rs"]
+mod templates;
+use templates::template_history;
+#[path = "staff_post_attachments/automatic_templates.rs"]
+mod automatic_templates;
+use automatic_templates::automatic_templates;
+#[path = "staff_post_attachments/prior_history.rs"]
+mod prior_history;
+use prior_history::prior_history;
 
 use board_domain::{capcode::Capcode, poster_id::PosterIdKey};
 use board_store::{
@@ -24,6 +33,9 @@ static TEST: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[derive(Clone)]
 struct Fixture {
+    asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
+    peer_override: Option<IpAddr>,
+    hints: Option<board_domain::content_admission::network::hints::DerivedHints>,
     owner: PgPool,
     staff: PgPool,
     auth: PgPool,
@@ -37,6 +49,7 @@ struct Fixture {
     key: String,
     jobs: Arc<Mutex<Vec<String>>>,
     extra_boards: Arc<Mutex<Vec<String>>>,
+    templates: Arc<Mutex<Vec<i64>>>,
 }
 
 async fn pool(name: &str) -> PgPool {
@@ -53,7 +66,7 @@ impl Fixture {
             .await
             .unwrap();
         let board = format!("a{}", &seed[..9]);
-        sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,max_authorized_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,user_ids,comment_spoiler_cleanup) VALUES($1,'Owned staff media','Synthetic',2000,4000,100,100,100,10,100,0,0,0,100,true,true)")
+        sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,max_authorized_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,user_ids,comment_spoiler_cleanup) VALUES(false,$1,'Owned staff media','Synthetic',2000,4000,100,100,100,10,100,0,0,0,100,true,true)")
             .bind(&board).execute(&owner).await.unwrap();
         let account = sqlx::query_scalar("INSERT INTO staff_identity.accounts(role,flags) VALUES('moderator',ARRAY['capcode','capcodename','developer']) RETURNING id")
             .fetch_one(&owner).await.unwrap();
@@ -101,10 +114,23 @@ impl Fixture {
                 .unwrap(),
             jobs: Arc::new(Mutex::new(Vec::new())),
             extra_boards: Arc::new(Mutex::new(Vec::new())),
+            templates: Arc::new(Mutex::new(Vec::new())),
+            asn_database: None,
+            peer_override: None,
+            hints: None,
         }
     }
 
     async fn approved(&self, filename: &str, spoiler: bool) -> NewAttachment {
+        Box::pin(self.approved_with_variants(filename, spoiler, None)).await
+    }
+
+    async fn approved_with_variants(
+        &self,
+        filename: &str,
+        spoiler: bool,
+        variants: Option<&board_store::media_assets::OutputVariants>,
+    ) -> NewAttachment {
         let upload = self.intake.reserve(filename).await.unwrap();
         self.jobs.lock().unwrap().push(upload.id.clone());
         self.intake
@@ -128,7 +154,7 @@ impl Fixture {
         let lease = claim.lease_token.unwrap();
         let output = self
             .queue
-            .prepare_output(
+            .prepare_output_with_variants(
                 &upload.id,
                 &lease,
                 &OutputMetadata {
@@ -137,6 +163,7 @@ impl Fixture {
                     width: 10,
                     height: 20,
                 },
+                variants,
             )
             .await
             .unwrap();
@@ -167,6 +194,58 @@ impl Fixture {
     ) -> Result<i64, StoreError> {
         self.write_with_options(parent, a, ordinary, input, ip, at, "")
             .await
+    }
+
+    async fn write_public(
+        &self,
+        parent: i64,
+        attachment: Option<&NewAttachment>,
+        input: &NewPost,
+        ip: u8,
+        at: DateTime<Utc>,
+    ) -> Result<i64, StoreError> {
+        let capability = board_domain::anonymous_session::Capability::generate().unwrap();
+        let peer = Some(self.peer_override.unwrap_or_else(|| peer(ip)));
+        let key = PosterIdKey::parse(&self.key).unwrap();
+        board_store::create_protected_post_with_network(
+            &self.public,
+            &self.board,
+            parent,
+            input,
+            attachment,
+            board_store::NetworkPostingContext {
+                hints: self.hints.as_ref(),
+                asn_database: self.asn_database.as_deref(),
+                posting: board_store::ProtectedPostingContext {
+                    request_facts: None,
+                    challenge: None,
+                    anonymous: board_store::AnonymousPostingContext {
+                        posting: PostingContext {
+                            request_start: at,
+                            peer,
+                            op_password_proof: None,
+                        },
+                        session: board_store::anonymous_session::PostingSession {
+                            fingerprints: capability.fingerprints(peer, *b"XX"),
+                            minted: true,
+                            now: at,
+                        },
+                    },
+                },
+            },
+            PostMetadata {
+                drawing: None,
+                keys: PostIdentityKeys {
+                    tripcode: None,
+                    poster_id: Some(&key),
+                },
+                country_database: None,
+                flag: "",
+                options: "",
+                spoiler: false,
+            },
+        )
+        .await
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -215,11 +294,11 @@ impl Fixture {
         };
         let context = PostingContext {
             request_start: at,
-            peer: Some(peer(ip)),
+            peer: Some(self.peer_override.unwrap_or_else(|| peer(ip))),
             op_password_proof: None,
         };
         if ordinary {
-            board_store::create_ordinary_staff_post_with_attachment(
+            board_store::create_ordinary_staff_post_with_network(
                 &self.staff,
                 &self.board,
                 parent,
@@ -227,7 +306,11 @@ impl Fixture {
                     post: input,
                     attachment: a,
                 },
-                context,
+                board_store::NetworkPostingContext {
+                    hints: self.hints.as_ref(),
+                    posting: context,
+                    asn_database: self.asn_database.as_deref(),
+                },
                 PostMetadata {
                     drawing: None,
                     keys,
@@ -240,7 +323,7 @@ impl Fixture {
             )
             .await
         } else {
-            board_store::create_staff_post_with_attachment_and_context_and_keys(
+            board_store::create_staff_post_with_network(
                 &self.staff,
                 &self.board,
                 parent,
@@ -248,7 +331,11 @@ impl Fixture {
                     post: input,
                     attachment: a,
                 },
-                context,
+                board_store::NetworkPostingContext {
+                    hints: self.hints.as_ref(),
+                    posting: context,
+                    asn_database: self.asn_database.as_deref(),
+                },
                 keys,
                 authority,
             )
@@ -269,6 +356,41 @@ impl Fixture {
     async fn cleanup(&self) {
         let mut boards = vec![self.board.clone()];
         boards.extend(self.extra_boards.lock().unwrap().iter().cloned());
+        // Remove only this fixture's restrictions before taking content locks.
+        let mut tx = self.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("SELECT singleton FROM restrictions.capacity WHERE singleton FOR UPDATE")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("SELECT content.lock_automatic_range_policy(true)")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM restrictions.automatic_ranges WHERE board=ANY($1)")
+            .bind(&boards)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes-coalesce((SELECT sum(charged_bytes) FROM restrictions.bans WHERE board=ANY($1)),0) WHERE singleton")
+            .bind(&boards).execute(&mut *tx).await.unwrap();
+        sqlx::query("DELETE FROM restrictions.audit WHERE ban_id IN(SELECT id FROM restrictions.bans WHERE board=ANY($1))")
+            .bind(&boards).execute(&mut *tx).await.unwrap();
+        sqlx::query("DELETE FROM restrictions.bans WHERE board=ANY($1)")
+            .bind(&boards)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        let templates = self.templates.lock().unwrap().clone();
+        sqlx::query("DELETE FROM restrictions.templates WHERE id=ANY($1)")
+            .bind(&templates)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
         let mut tx = support::begin_cleanup(&self.owner, &boards).await;
         for sql in [
             "DELETE FROM content.moderation_audit WHERE board=$1",
@@ -279,6 +401,8 @@ impl Fixture {
             "DELETE FROM content.posts WHERE board=$1",
             "DELETE FROM content.threads WHERE board=$1",
             "DELETE FROM post_secrets.posting_thread_actions WHERE board=$1",
+            "DELETE FROM admission.network_rules WHERE boards=$1",
+            "DELETE FROM admission.rules WHERE board=$1",
             "DELETE FROM admission.logs WHERE board=$1",
             "DELETE FROM admission.hits WHERE board=$1",
             "DELETE FROM admission.bans WHERE board=$1",
@@ -347,6 +471,19 @@ macro_rules! database_case {
 }
 
 database_case!(
+    template_bans_produce_scoped_automatic_ranges,
+    automatic_templates
+);
+database_case!(
+    template_bans_retain_authorized_upload_snapshots,
+    template_history
+);
+database_case!(
+    prior_upload_history_uses_retained_template_events,
+    prior_history
+);
+
+database_case!(
     source_and_ordinary_receipts_are_atomic_one_use_and_capture_identity,
     successful_modes
 );
@@ -359,7 +496,21 @@ async fn successful_modes(f: &Fixture) {
                 continue;
             }
             for empty in [false, true] {
-                let a = f.approved("<owned & file>.png", true).await;
+                let a = f
+                    .approved_with_variants(
+                        "<owned & file>.png",
+                        true,
+                        Some(&board_store::media_assets::OutputVariants {
+                            md5: "37".repeat(16),
+                            thumbnail: OutputMetadata {
+                                sha256: "b".repeat(64),
+                                bytes: 40,
+                                width: 5,
+                                height: 10,
+                            },
+                        }),
+                    )
+                    .await;
                 let mut input = post();
                 if empty {
                     input.comment.clear();
@@ -368,6 +519,18 @@ async fn successful_modes(f: &Fixture) {
                     .write(0, Some(&a), ordinary, &input, ip, Utc::now())
                     .await
                     .unwrap();
+                let retained: Option<Vec<u8>> = sqlx::query_scalar(
+                    "SELECT normalized_md5 FROM content.post_media WHERE post_id=$1",
+                )
+                .bind(id)
+                .fetch_one(&f.owner)
+                .await
+                .unwrap();
+                assert_eq!(
+                    retained,
+                    Some(vec![0x37; 16]),
+                    "Both staff receipt modes retain approved normalized identity"
+                );
                 let saved = attachment(&f.public, id).await.unwrap().unwrap();
                 assert_eq!(saved.filename, "<owned & file>.png");
                 assert!(saved.spoiler);
@@ -1525,4 +1688,757 @@ async fn missing_ordinary_identity(f: &Fixture) {
     ));
     assert_eq!(f.counts().await, before);
     assert!(f.receipt(&a).await);
+}
+
+database_case!(
+    generated_staff_content_keeps_exact_payload_and_limit_authority,
+    generated_staff_content
+);
+async fn generated_staff_content(f: &Fixture) {
+    sqlx::query("UPDATE content.boards SET dice_roll=true,fortune_trip=true WHERE slug=$1")
+        .bind(&f.board)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    let mut ip = 1;
+    for role in ["moderator", "manager", "admin", "janitor"] {
+        f.role(role).await;
+        for (enabled, profile) in [(false, 0), (true, 0), (true, 4)] {
+            sqlx::query("UPDATE content.boards SET word_filter_enabled=$2,word_filter_profile=$3 WHERE slug=$1")
+                .bind(&f.board).bind(enabled).bind(profile as i16).execute(&f.owner).await.unwrap();
+            for options in ["dice+1d1", "fortune"] {
+                let mut input = post();
+                input.comment.clear();
+                input.subject.clear();
+                let id = f
+                    .write_with_options(0, None, true, &input, ip, Utc::now(), options)
+                    .await
+                    .unwrap();
+                ip += 1;
+                let saved = board_store::find_post(&f.public, &f.board, id)
+                    .await
+                    .unwrap();
+                assert!(saved.has_generated_comment());
+                assert_eq!(saved.staff_authorized_limits, role != "janitor");
+                assert!(saved.capcode.is_none());
+                let bytes = saved.wordfilter_payload.as_deref().unwrap();
+                assert_eq!(
+                    &bytes[..4],
+                    if role == "janitor" { b"WF03" } else { b"WF04" }
+                );
+                let prepared =
+                    board_domain::wordfiltered_comment::PreparedComment::decode(bytes).unwrap();
+                assert!(prepared.has_generated_content());
+                assert_eq!(prepared.rolls().is_some(), enabled && profile == 4);
+                let lines = saved.formatted_lines();
+                assert_eq!(
+                    board_domain::filtered_formatting::source_projection(&lines),
+                    saved.comment
+                );
+                assert_eq!(saved.separate_dice_result(), None);
+                assert_eq!(saved.separate_fortune_text(), None);
+                assert_eq!(saved.separate_fortune_color(), None);
+            }
+        }
+    }
+    assert_eq!(f.counts().await.3, 0, "No completed proof remains");
+}
+
+database_case!(
+    verified_staff_bypasses_network_rules,
+    ordinary_staff_network
+);
+async fn ordinary_staff_network(f: &Fixture) {
+    sqlx::query(
+        "INSERT INTO admission.network_rules(boards,range_start,range_end) VALUES($1,0,4294967295)",
+    )
+    .bind(&f.board)
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    let reference: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/staff-network-bypass-reference.json")).unwrap();
+    let cases = reference["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 16);
+    for (index, case) in cases.iter().enumerate() {
+        assert_eq!(case["valid"], true);
+        assert_eq!(case["range_bypass"], true);
+        assert_eq!(case["network_blocked"], false);
+        let role = match case["role"].as_str().unwrap() {
+            "mod" => "moderator",
+            other => other,
+        };
+        f.role(role).await;
+        f.write(0, None, true, &post(), 180 + index as u8, Utc::now())
+            .await
+            .unwrap();
+    }
+    f.role("moderator").await;
+    let before = f.counts().await;
+    assert!(
+        matches!(f.write_public(0,None,&post(),209,Utc::now()).await,
+        Err(StoreError::ContentRejected(message)) if message.starts_with("Posting from your IP range"))
+    );
+    assert_eq!(f.counts().await, before);
+    for (index, invalid) in [
+        "csrf", "session", "role", "scope", "expired", "revoked", "stale",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut denied = f.clone();
+        match invalid {
+            "csrf" => denied.csrf = vec![0; 32],
+            "session" => denied.session = vec![0; 32],
+            "role" => {
+                denied.auth = f.public.clone();
+            }
+            "scope" => {
+                sqlx::query("UPDATE staff_identity.accounts SET deny_boards=ARRAY[$2] WHERE id=$1")
+                    .bind(f.account)
+                    .bind(&f.board)
+                    .execute(&f.owner)
+                    .await
+                    .unwrap();
+            }
+            "expired" => {
+                sqlx::query("UPDATE staff_identity.sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE token_hash=$1")
+                .bind(&f.session).execute(&f.owner).await.unwrap();
+            }
+            "revoked" => {
+                sqlx::query(
+                    "UPDATE staff_identity.accounts SET revoked_at=clock_timestamp() WHERE id=$1",
+                )
+                .bind(f.account)
+                .execute(&f.owner)
+                .await
+                .unwrap();
+            }
+            "stale" => {
+                sqlx::query("UPDATE staff_identity.sessions SET authenticated_at=clock_timestamp()-interval '11 minutes' WHERE token_hash=$1")
+                .bind(&f.session).execute(&f.owner).await.unwrap();
+            }
+            _ => unreachable!(),
+        }
+        let result = denied
+            .write(0, None, true, &post(), 210 + index as u8, Utc::now())
+            .await;
+        assert!(
+            matches!(
+                result,
+                Err(StoreError::AuthorizationChanged | StoreError::Database(_))
+            ),
+            "{invalid} must not confer bypass"
+        );
+        assert_eq!(f.counts().await, before);
+        sqlx::query(
+            "UPDATE staff_identity.accounts SET revoked_at=NULL,deny_boards='{}' WHERE id=$1",
+        )
+        .bind(f.account)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+        sqlx::query("UPDATE staff_identity.sessions SET expires_at=clock_timestamp()+interval '1 hour',authenticated_at=clock_timestamp() WHERE token_hash=$1")
+            .bind(&f.session).execute(&f.owner).await.unwrap();
+    }
+    // Revocation after the early bypass read must still prevent acceptance at
+    // the independent posting-proof boundary after the board lock wait.
+    let mut held = f.owner.begin().await.unwrap();
+    sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+        .bind(&f.board)
+        .execute(&mut *held)
+        .await
+        .unwrap();
+    let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *held)
+        .await
+        .unwrap();
+    let pending = f.clone();
+    let writer =
+        tokio::spawn(async move { pending.write(0, None, true, &post(), 219, Utc::now()).await });
+    wait_for_policy_blocker(&f.owner, blocker).await;
+    sqlx::query("UPDATE staff_identity.accounts SET revoked_at=clock_timestamp() WHERE id=$1")
+        .bind(f.account)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    held.commit().await.unwrap();
+    assert!(matches!(
+        writer.await.unwrap(),
+        Err(StoreError::AuthorizationChanged | StoreError::Database(_))
+    ));
+    assert_eq!(f.counts().await, before);
+    sqlx::query("UPDATE staff_identity.accounts SET revoked_at=NULL WHERE id=$1")
+        .bind(f.account)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+}
+
+database_case!(
+    staff_network_bypass_precedes_hint_providers,
+    staff_hint_scope
+);
+async fn staff_hint_scope(f: &Fixture) {
+    use board_domain::content_admission::network::hints::{
+        BrowserHeaders, BrowserKey, DerivedHints,
+    };
+    let key = BrowserKey::parse(&"11".repeat(32)).unwrap();
+    let mut hinted = f.clone();
+    hinted.hints = Some(DerivedHints::derive(
+        Some(&key),
+        Some(BrowserHeaders {
+            user_agent: Some(b"Firefox/123.4"),
+            ..Default::default()
+        }),
+        None,
+    ));
+    sqlx::query("INSERT INTO admission.network_rules(boards,range_start,range_end,signatures) VALUES($1,0,4294967295,'030393b9b')")
+        .bind(&f.board).execute(&f.owner).await.unwrap();
+    let before = f.counts().await;
+    let result = hinted.write(0, None, true, &post(), 214, Utc::now()).await;
+    result.unwrap();
+    assert_eq!(f.counts().await.0, before.0 + 1);
+    let mut unknown = hinted.clone();
+    unknown.hints = None;
+    unknown
+        .write(0, None, true, &post(), 217, Utc::now())
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO admission.network_rules(boards,asn) SELECT $1,15169 FROM generate_series(1,129)")
+        .bind(&f.board).execute(&f.owner).await.unwrap();
+    unknown
+        .write(0, None, true, &post(), 218, Utc::now())
+        .await
+        .unwrap();
+    hinted
+        .write(0, None, false, &post(), 215, Utc::now())
+        .await
+        .unwrap();
+    let rule: i64 = sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end,signatures) VALUES('test',0,4294967295,'030393b9b') RETURNING id")
+        .fetch_one(&f.owner).await.unwrap();
+    hinted.board = "test".into();
+    let before = hinted.counts().await;
+    assert!(matches!(
+        hinted.write_public(0, None, &post(), 242, Utc::now()).await,
+        Err(StoreError::NotFound)
+    ));
+    for (role, developer) in [("janitor", true), ("moderator", false), ("admin", false)] {
+        sqlx::query("UPDATE staff_identity.accounts SET role=$2,flags=CASE WHEN $3 THEN ARRAY['developer'] ELSE ARRAY[]::text[] END WHERE id=$1")
+            .bind(f.account).bind(role).bind(developer).execute(&f.owner).await.unwrap();
+        assert!(matches!(
+            hinted.write(0, None, true, &post(), 243, Utc::now()).await,
+            Err(StoreError::AuthorizationChanged)
+        ));
+        assert_eq!(hinted.counts().await, before);
+    }
+    sqlx::query("UPDATE staff_identity.accounts SET role='moderator',flags=ARRAY['capcode','capcodename','developer'] WHERE id=$1")
+        .bind(f.account).execute(&f.owner).await.unwrap();
+    let result = hinted.write(0, None, false, &post(), 216, Utc::now()).await;
+    let after = hinted.counts().await;
+    sqlx::query("DELETE FROM admission.network_rules WHERE id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    result.unwrap();
+    assert_eq!(after.0, before.0 + 1);
+}
+
+database_case!(
+    accepted_mobile_metadata_is_private_and_independent_of_badge,
+    automatic_metadata
+);
+async fn automatic_metadata(f: &Fixture) {
+    use board_domain::content_admission::network::{
+        ProviderValue,
+        hints::{BrowserHeaders, BrowserKey, DerivedHints},
+    };
+    let browser_key = BrowserKey::parse(&"11".repeat(32)).unwrap();
+    let mut mobile = f.clone();
+    mobile.peer_override = Some("192.0.2.17".parse().unwrap());
+    mobile.hints = Some(DerivedHints::derive(
+        Some(&browser_key),
+        Some(BrowserHeaders {
+            user_agent: Some(b"Android/1"),
+            ..Default::default()
+        }),
+        None,
+    ));
+    let ProviderValue::Available(Some(browser)) =
+        mobile.hints.as_ref().unwrap().signatures().browser_id
+    else {
+        panic!("owned browser derivation failed");
+    };
+    let key = PosterIdKey::parse(&f.key).unwrap();
+    let prefix = key
+        .automatic_range_prefix(mobile.peer_override.unwrap())
+        .unwrap();
+    let op = mobile
+        .write(0, None, false, &post(), 217, Utc::now())
+        .await
+        .unwrap();
+    mobile.peer_override = Some("192.0.2.18".parse().unwrap());
+    for (id, parent) in [
+        (op, 0),
+        (
+            mobile
+                .write(op, None, true, &post(), 218, Utc::now())
+                .await
+                .unwrap(),
+            op,
+        ),
+    ] {
+        let saved: (String, Vec<u8>, i64) = sqlx::query_as("SELECT automatic_browser,automatic_prefix,CASE WHEN post_id=thread_id THEN 0 ELSE thread_id END FROM post_secrets.posting_history WHERE post_id=$1")
+            .bind(id).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(saved.0, browser);
+        assert_eq!(saved.1, prefix.as_bytes());
+        assert_eq!(saved.2, parent);
+    }
+    let mut absent = mobile.clone();
+    absent.hints = None;
+    absent.peer_override = Some("192.0.2.19".parse().unwrap());
+    let unknown = absent
+        .write(op, None, false, &post(), 219, Utc::now())
+        .await
+        .unwrap();
+    absent.hints = Some(DerivedHints::derive(
+        Some(&browser_key),
+        Some(BrowserHeaders {
+            user_agent: Some(b"Firefox/123.4"),
+            ..Default::default()
+        }),
+        None,
+    ));
+    absent.peer_override = Some("192.0.2.20".parse().unwrap());
+    let desktop = absent
+        .write(op, None, false, &post(), 220, Utc::now())
+        .await
+        .unwrap();
+    absent.hints = mobile.hints.clone();
+    absent.peer_override = Some("2001:db8::17".parse().unwrap());
+    let ipv6 = absent
+        .write(op, None, false, &post(), 221, Utc::now())
+        .await
+        .unwrap();
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.posting_history WHERE post_id=ANY($1) AND automatic_browser IS NULL AND automatic_prefix IS NULL")
+        .bind([unknown, desktop, ipv6].as_slice()).fetch_one(&f.owner).await.unwrap();
+    assert_eq!(count, 3);
+    for runtime in [&f.public, &f.staff] {
+        assert!(sqlx::query("SELECT automatic_browser,automatic_prefix FROM post_secrets.posting_history WHERE post_id=$1")
+            .bind(op).fetch_all(runtime).await.is_err());
+    }
+    let visible: serde_json::Value =
+        sqlx::query_scalar("SELECT to_jsonb(p) FROM content.posts p WHERE id=$1")
+            .bind(op)
+            .fetch_one(&f.public)
+            .await
+            .unwrap();
+    assert!(
+        !visible
+            .as_object()
+            .unwrap()
+            .contains_key("automatic_browser")
+    );
+    assert!(
+        !visible
+            .as_object()
+            .unwrap()
+            .contains_key("automatic_prefix")
+    );
+}
+
+database_case!(
+    automatic_range_refusal_rolls_back_post_effects_and_records_only_hit,
+    automatic_range_refusal
+);
+async fn automatic_range_refusal(f: &Fixture) {
+    use board_domain::content_admission::network::hints::{
+        BrowserHeaders, BrowserKey, DerivedHints,
+    };
+    for pool in [&f.public, &f.staff] {
+        assert!(
+            sqlx::query_scalar::<_, bool>(board_store::AUTOMATIC_RANGE_READINESS_SQL)
+                .fetch_one(pool)
+                .await
+                .unwrap()
+        );
+    }
+    for mutation in [
+        "ALTER FUNCTION content.automatic_range_events(text,bigint,bytea,text) SECURITY INVOKER",
+        "REVOKE EXECUTE ON FUNCTION content.automatic_range_events(text,bigint,bytea,text) FROM board_public",
+        "GRANT SELECT ON restrictions.automatic_ranges TO board_public",
+        "GRANT USAGE ON SEQUENCE restrictions.automatic_ranges_id_seq TO board_staff",
+    ] {
+        let mut tx = f.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::raw_sql(mutation).execute(&mut *tx).await.unwrap();
+        // Inspect public permissions under the existing owner without granting
+        // runtime role membership or committing schema changes.
+        let query = board_store::AUTOMATIC_RANGE_READINESS_SQL
+            .replace("current_user", "'board_public'::name");
+        let ready: bool = sqlx::query_scalar(sqlx::AssertSqlSafe(query))
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        assert!(!ready, "Automatic readiness accepted an authority mutation");
+        tx.rollback().await.unwrap();
+    }
+    let key = BrowserKey::parse(&"11".repeat(32)).unwrap();
+    let mut mobile = f.clone();
+    mobile.hints = Some(DerivedHints::derive(
+        Some(&key),
+        Some(BrowserHeaders {
+            user_agent: Some(b"Android/1"),
+            ..Default::default()
+        }),
+        None,
+    ));
+    let target = mobile
+        .write(0, None, false, &post(), 222, Utc::now())
+        .await
+        .unwrap();
+    // A custom global ban is not a source global-rule template. Its existing
+    // public issuer must not acquire the automatic producer as a side effect.
+    let ban: i64 = sqlx::query_scalar("SELECT content.issue_post_restriction($1,$2,900,$3,$4,true,false,60,'Owned custom ban','Synthetic')")
+        .bind(&f.session).bind(&f.csrf).bind(&f.board).bind(target).fetch_one(&f.staff).await.unwrap();
+    assert_eq!(automatic_stats(f).await, (0, 0));
+    // Owned private fixture exercises the future qualified producer seam.
+    // It does not pretend the custom-ban endpoint provides template authority.
+    let mut tx = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    for _ in 0..2 {
+        sqlx::query("SELECT restrictions.record_automatic_range($1,$2,$3)")
+            .bind(&f.board)
+            .bind(target)
+            .bind(ban)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+    }
+    tx.commit().await.unwrap();
+    assert_eq!(automatic_stats(f).await, (1, 0));
+    // Source authentication bypasses the entire network function before its
+    // browser/provider reads, even for unbadged staff with unknown hints.
+    mobile
+        .write(0, None, true, &post(), 240, Utc::now())
+        .await
+        .unwrap();
+    let mut staff_unknown = mobile.clone();
+    staff_unknown.hints = None;
+    staff_unknown
+        .write(0, None, true, &post(), 241, Utc::now())
+        .await
+        .unwrap();
+    assert_eq!(automatic_stats(f).await, (1, 0));
+    let rule: i64 = sqlx::query_scalar("INSERT INTO admission.rules(board,pattern,log) VALUES($1,'Synthetic attachment body',true) RETURNING id")
+        .bind(&f.board).fetch_one(&f.owner).await.unwrap();
+    let attachment = f.approved("automatic.png", false).await;
+    let before = f.counts().await;
+    let rejected = mobile
+        .write_public(0, Some(&attachment), &post(), 223, Utc::now())
+        .await;
+    assert!(matches!(
+        rejected,
+        Err(StoreError::AutomaticRangeRejected {
+            cookie_refreshed: true
+        })
+    ));
+    assert_eq!(f.counts().await, before);
+    assert_eq!(automatic_stats(f).await, (1, 1));
+    let effects: i64 = sqlx::query_scalar("SELECT (SELECT count(*) FROM admission.logs WHERE rule_id=$1)+(SELECT count(*) FROM admission.hits WHERE rule_id=$1)")
+        .bind(rule).fetch_one(&f.owner).await.unwrap();
+    assert_eq!(
+        effects, 0,
+        "Only the separate automatic hit may survive rejection"
+    );
+    sqlx::query(
+        "UPDATE media.jobs SET created_at=clock_timestamp()-interval '2 hours' WHERE id=$1",
+    )
+    .bind(&attachment.upload.id)
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    assert!(matches!(
+        mobile
+            .write_public(0, Some(&attachment), &post(), 230, Utc::now())
+            .await,
+        Err(StoreError::NotFound)
+    ));
+    assert_eq!(
+        automatic_stats(f).await,
+        (1, 1),
+        "An expired upload cannot add an automatic hit"
+    );
+    sqlx::query(
+        "INSERT INTO admission.network_rules(boards,range_start,range_end) VALUES($1,0,4294967295)",
+    )
+    .bind(&f.board)
+    .execute(&f.owner)
+    .await
+    .unwrap();
+    let rejected = mobile.write_public(0, None, &post(), 224, Utc::now()).await;
+    assert!(
+        matches!(rejected, Err(StoreError::ContentRejected(message)) if message.contains("permanently blocked"))
+    );
+    assert_eq!(
+        automatic_stats(f).await,
+        (1, 1),
+        "Configured network rule short-circuits automatic range stage"
+    );
+    sqlx::query("DELETE FROM admission.network_rules WHERE boards=$1")
+        .bind(&f.board)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    // A reply has a positive parent; this event is only for parent zero.
+    mobile
+        .write_public(target, None, &post(), 225, Utc::now())
+        .await
+        .unwrap();
+    // Badged normal-board posts retain the source filter-scope exemption.
+    mobile
+        .write(0, None, false, &post(), 226, Utc::now())
+        .await
+        .unwrap();
+    assert_eq!(automatic_stats(f).await, (1, 1));
+    board_store::delete_post(&f.staff, &f.board, target)
+        .await
+        .unwrap();
+    let history_gone: bool = sqlx::query_scalar(
+        "SELECT NOT EXISTS(SELECT 1 FROM post_secrets.posting_history WHERE post_id=$1)",
+    )
+    .bind(target)
+    .fetch_one(&f.owner)
+    .await
+    .unwrap();
+    assert!(history_gone);
+    assert_eq!(
+        automatic_stats(f).await,
+        (1, 1),
+        "Deleting the target must not erase its active event"
+    );
+    assert!(matches!(
+        mobile.write_public(0, None, &post(), 229, Utc::now()).await,
+        Err(StoreError::AutomaticRangeRejected {
+            cookie_refreshed: true
+        })
+    ));
+    assert_eq!(automatic_stats(f).await, (1, 2));
+    let mut unknown = mobile.clone();
+    unknown.hints = None;
+    assert!(matches!(
+        unknown
+            .write_public(0, None, &post(), 227, Utc::now())
+            .await,
+        Err(StoreError::Database(_))
+    ));
+    assert_eq!(automatic_stats(f).await, (1, 2));
+    // Expiry uses the database clock, independently of request/session age.
+    let mut tx = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE restrictions.automatic_ranges SET created_at=floor(extract(epoch FROM clock_timestamp()))::bigint-7200 WHERE board=$1")
+        .bind(&f.board).execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    mobile
+        .write_public(0, None, &post(), 228, Utc::now())
+        .await
+        .unwrap();
+    assert_eq!(automatic_stats(f).await, (1, 2));
+    sqlx::query("DELETE FROM admission.rules WHERE id=$1")
+        .bind(rule)
+        .execute(&f.owner)
+        .await
+        .unwrap();
+}
+
+async fn automatic_stats(f: &Fixture) -> (i64, i64) {
+    let mut tx = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let stats = sqlx::query_as("SELECT count(*),coalesce(sum(hit_count),0)::bigint FROM restrictions.automatic_ranges WHERE board=$1")
+        .bind(&f.board).fetch_one(&mut *tx).await.unwrap();
+    tx.rollback().await.unwrap();
+    stats
+}
+
+database_case!(
+    automatic_event_policy_serializes_both_directions,
+    automatic_policy_locks
+);
+async fn automatic_policy_locks(f: &Fixture) {
+    use board_domain::content_admission::network::hints::{
+        BrowserHeaders, BrowserKey, DerivedHints,
+    };
+    let key = BrowserKey::parse(&"11".repeat(32)).unwrap();
+    let mut mobile = f.clone();
+    mobile.hints = Some(DerivedHints::derive(
+        Some(&key),
+        Some(BrowserHeaders {
+            user_agent: Some(b"Android/1"),
+            ..Default::default()
+        }),
+        None,
+    ));
+    let target = mobile
+        .write(0, None, false, &post(), 230, Utc::now())
+        .await
+        .unwrap();
+    let mut held = f.public.begin().await.unwrap();
+    sqlx::query("SELECT * FROM content.lock_content_admission($1,'192.0.2.231')")
+        .bind(&f.board)
+        .fetch_all(&mut *held)
+        .await
+        .unwrap();
+    let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *held)
+        .await
+        .unwrap();
+    let owner = f.owner.clone();
+    let board = f.board.clone();
+    let writer = tokio::spawn(async move {
+        let mut tx = owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("SELECT restrictions.record_automatic_range($1,$2,1)")
+            .bind(&board)
+            .bind(target)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+    });
+    wait_for_policy_blocker(&f.owner, blocker).await;
+    assert!(!writer.is_finished());
+    held.commit().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(5), writer)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(automatic_stats(f).await, (1, 0));
+    // Publish an expired event, then hold its reactivation uncommitted. A post
+    // waiting on the generation must see the committed reactivation afterward.
+    let mut held = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *held)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE restrictions.automatic_ranges SET created_at=1 WHERE board=$1")
+        .bind(&f.board)
+        .execute(&mut *held)
+        .await
+        .unwrap();
+    held.commit().await.unwrap();
+    let mut held = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *held)
+        .await
+        .unwrap();
+    sqlx::query("SELECT content.lock_automatic_range_policy(true)")
+        .execute(&mut *held)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE restrictions.automatic_ranges SET created_at=floor(extract(epoch FROM clock_timestamp()))::bigint WHERE board=$1")
+        .bind(&f.board).execute(&mut *held).await.unwrap();
+    let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut *held)
+        .await
+        .unwrap();
+    let writer =
+        tokio::spawn(async move { mobile.write_public(0, None, &post(), 232, Utc::now()).await });
+    wait_for_policy_blocker(&f.owner, blocker).await;
+    assert!(!writer.is_finished());
+    held.commit().await.unwrap();
+    let result = tokio::time::timeout(Duration::from_secs(5), writer)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(
+        result,
+        Err(StoreError::AutomaticRangeRejected {
+            cookie_refreshed: true
+        })
+    ));
+    assert_eq!(automatic_stats(f).await, (1, 1));
+}
+
+async fn wait_for_policy_blocker(owner: &PgPool, blocker: i32) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        let blocked: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_stat_activity a WHERE a.datname=current_database() AND $1=ANY(pg_blocking_pids(a.pid)))")
+            .bind(blocker).fetch_one(owner).await.unwrap();
+        if blocked {
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "Expected generation wait was not observed"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+database_case!(
+    authenticated_staff_refusal_and_quiet_paths_preserve_uploads,
+    terminal_staff_filters
+);
+async fn terminal_staff_filters(f: &Fixture) {
+    let rule: i64 = sqlx::query_scalar(
+        "INSERT INTO admission.rules(board,pattern) VALUES($1,'synthetic') RETURNING id",
+    )
+    .bind(&f.board)
+    .fetch_one(&f.owner)
+    .await
+    .unwrap();
+    let mut ip = 210;
+    for role in ["janitor", "moderator", "manager", "admin"] {
+        f.role(role).await;
+        for quiet in [false, true] {
+            sqlx::query("UPDATE admission.rules SET quiet=$2 WHERE id=$1")
+                .bind(rule)
+                .bind(quiet)
+                .execute(&f.owner)
+                .await
+                .unwrap();
+            let upload = f.approved("owned.png", false).await;
+            let before = f.counts().await;
+            let result = f
+                .write(0, Some(&upload), true, &post(), ip, Utc::now())
+                .await;
+            if quiet {
+                assert!(matches!(result, Err(StoreError::ContentQuiet { .. })));
+            } else {
+                assert!(matches!(result, Err(StoreError::ContentRejected(_))));
+            }
+            assert_eq!(f.counts().await, before);
+            assert!(f.receipt(&upload).await);
+            ip += 1;
+        }
+    }
+    let hits: i64 = sqlx::query_scalar("SELECT count(*) FROM admission.hits WHERE rule_id=$1")
+        .bind(rule)
+        .fetch_one(&f.owner)
+        .await
+        .unwrap();
+    assert_eq!(hits, 8);
+    let intents: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM post_secrets.staff_post_intents WHERE board=$1")
+            .bind(&f.board)
+            .fetch_one(&f.owner)
+            .await
+            .unwrap();
+    assert_eq!(intents, 0);
 }

@@ -2,6 +2,8 @@
 //!
 //! Callers must hold their publication storage lock throughout every reservation,
 //! approval, and output-cleanup operation, including the associated file changes.
+mod input_receipt;
+pub use input_receipt::{InputComponent, InputReceipt};
 mod still;
 pub use still::StillOutput;
 
@@ -143,7 +145,8 @@ impl SourceProfile {
     }
 }
 
-/// Private source identity measured from the sealed upload, not normalized output.
+/// Private source-profile identity. Its MD5 describes profile-processed bytes,
+/// not necessarily the untouched upload; see `InputReceipt` for raw identity.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SourceProvenance {
     pub input_sha256: String,
@@ -327,6 +330,27 @@ impl MediaQueue {
         let token = lease.job.lease_token.as_deref().ok_or_else(unavailable)?;
         sqlx::query_as("SELECT id,sha256,bytes,width,height,output_format FROM media.approve_drawing_output($1,$2,$3)")
             .bind(&lease.job.id).bind(token).bind(asset).fetch_one(&self.pool).await.map_err(StoreError::Database)
+    }
+
+    pub async fn approve_drawing_output_with_input(
+        &self,
+        lease: DrawingLease,
+        asset: &str,
+        input: &InputReceipt,
+    ) -> Result<Asset, StoreError> {
+        validate_hex(asset, 32)?;
+        if input.component != InputComponent::PairedImage {
+            return Err(unavailable());
+        }
+        let token = lease.job.lease_token.as_deref().ok_or_else(unavailable)?;
+        let mut tx = self.pool.begin().await?;
+        input
+            .require_on(&mut tx, &lease.job.id, token, asset)
+            .await?;
+        let approved = sqlx::query_as("SELECT id,sha256,bytes,width,height,output_format FROM media.approve_drawing_output($1,$2,$3)")
+            .bind(&lease.job.id).bind(token).bind(asset).fetch_one(&mut *tx).await?;
+        tx.commit().await?;
+        Ok(approved)
     }
 
     pub async fn fail_drawing(
@@ -550,6 +574,28 @@ impl MediaQueue {
         token: &str,
         output_id: &str,
     ) -> Result<Asset, StoreError> {
+        self.approve_output_checked(job_id, token, output_id, None)
+            .await
+    }
+
+    pub async fn approve_output_with_input(
+        &self,
+        job_id: &str,
+        token: &str,
+        output_id: &str,
+        input: &InputReceipt,
+    ) -> Result<Asset, StoreError> {
+        self.approve_output_checked(job_id, token, output_id, Some(input))
+            .await
+    }
+
+    async fn approve_output_checked(
+        &self,
+        job_id: &str,
+        token: &str,
+        output_id: &str,
+        input: Option<&InputReceipt>,
+    ) -> Result<Asset, StoreError> {
         validate_hex(job_id, 32)?;
         validate_hex(token, 32)?;
         validate_hex(output_id, 32)?;
@@ -564,6 +610,12 @@ impl MediaQueue {
         }
         let reserved: Reservation = sqlx::query_as("SELECT id, sha256, bytes, width, height, output_format, state FROM media.assets WHERE id = $3 AND job_id = $1 AND lease_token = $2 FOR UPDATE")
             .bind(job_id).bind(token).bind(output_id).fetch_optional(&mut *tx).await?.ok_or_else(unavailable)?;
+        if let Some(input) = input {
+            if input.component != InputComponent::Upload {
+                return Err(unavailable());
+            }
+            input.require_on(&mut tx, job_id, token, output_id).await?;
+        }
         if reserved.state == "approved" {
             tx.commit().await?;
             return Ok(reserved.asset);

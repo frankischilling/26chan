@@ -3,6 +3,11 @@
 use crate::admission_normalization::{NormalizationError, Normalizer};
 use pcre2::bytes::{Regex, RegexBuilder};
 
+pub mod classifiers;
+pub mod files;
+pub mod network;
+pub mod threat;
+
 pub const MAX_RULES: usize = 128;
 pub const MAX_PATTERN_BYTES: usize = 2_048;
 pub const MAX_MATCH_CALLS: usize = 1_024;
@@ -343,6 +348,9 @@ impl BoundedRegex {
                 b'i' => {
                     builder.caseless(true);
                 }
+                b'D' => {
+                    builder.dollar_endonly(true);
+                }
                 b'm' => {
                     builder.multi_line(true);
                 }
@@ -360,8 +368,8 @@ impl BoundedRegex {
                     anchored = true;
                 }
                 b'U' | b'J' | b'n' => inline.push(char::from(modifier)),
-                // Study is only an optimization hint, not matching semantics.
-                b'S' | b' ' | b'\n' | b'\r' | b'\t' => {}
+                // Study is only an optimization hint. PHP 8 ignores uppercase X.
+                b'S' | b'X' | b' ' | b'\n' | b'\r' | b'\t' => {}
                 _ => return Err(AdmissionError::InvalidPolicy),
             }
         }

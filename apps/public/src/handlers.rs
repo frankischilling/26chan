@@ -123,7 +123,10 @@ fn storage_error_class(error: &StoreError) -> &'static str {
         StoreError::RandomnessUnavailable => "randomness_unavailable",
         StoreError::ReadLimit => "read_limit",
         StoreError::ContentRejected(_) => "content_rejected",
+        StoreError::FileRejected(_) => "file_rejected",
+        StoreError::AutomaticRangeRejected { .. } => "automatic_range_rejected",
         StoreError::ContentQuiet { .. } => "content_quiet",
+        StoreError::PostingClassifierRejected(_) => "posting_classifier_rejected",
         StoreError::Robot9000Rejected(_) => "robot9000_rejected",
         StoreError::PostingCooldownRejected(_) => "posting_cooldown_rejected",
         _ => "store_other",
@@ -381,6 +384,16 @@ pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppErr
         return Err(AppError(
             StatusCode::SERVICE_UNAVAILABLE,
             "Public automatic admission is unavailable.",
+        ));
+    }
+    if !sqlx::query_scalar::<_, bool>(board_store::AUTOMATIC_RANGE_READINESS_SQL)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(StoreError::from)?
+    {
+        return Err(AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Public automatic range admission is unavailable.",
         ));
     }
     let sticky_retirement: bool = sqlx::query_scalar(board_store::sticky_retention::READINESS_SQL)
@@ -941,9 +954,9 @@ pub struct PostForm {
     #[serde(default, rename = "captcha-csrf")]
     captcha_csrf: String,
     #[serde(default, rename = "t-challenge")]
-    captcha_challenge: String,
+    captcha_challenge: Option<String>,
     #[serde(default, rename = "t-response")]
-    captcha_answer: String,
+    captcha_answer: Option<String>,
     #[serde(default, rename = "captcha-credit")]
     captcha_credit: String,
     #[serde(default)]
@@ -984,17 +997,30 @@ pub struct PostForm {
     #[serde(default, deserialize_with = "crate::posting_form::drawing_field")]
     oe_src: Option<String>,
 }
+struct PostingObservations {
+    hints: board_domain::content_admission::network::hints::DerivedHints,
+    captured: board_domain::content_admission::network::ProviderValue<
+        board_http::request_facts::CapturedRequest,
+    >,
+}
+
 pub async fn post(
     State(state): State<AppState>,
     Path(board): Path<String>,
-    axum::Extension(start): axum::Extension<crate::security::RequestStart>,
-    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
+    (axum::Extension(start), axum::Extension(peer), order): crate::security::PostingTransport,
     headers: HeaderMap,
     form: Result<crate::posting_form::PostingForm, crate::posting_form::Rejection>,
 ) -> Response {
     let format = crate::posting_response::Format::from_headers(&headers);
     let response = match form {
         Ok(crate::posting_form::PostingForm(form)) => {
+            let hints = board_http::network_hints::derive(
+                &headers,
+                order.as_ref().map(|order| &order.0),
+                state.browser_hint_key.as_deref(),
+            );
+            let captured =
+                board_http::request_facts::capture(&headers, order.as_ref().map(|order| &order.0));
             match submit_post(
                 state,
                 board,
@@ -1006,6 +1032,7 @@ pub async fn post(
                     peer: peer.0,
                     op_password_proof: None,
                 },
+                PostingObservations { hints, captured },
             )
             .await
             {
@@ -1025,7 +1052,9 @@ async fn submit_post(
     form: PostForm,
     format: crate::posting_response::Format,
     mut context: board_store::PostingContext,
+    observations: PostingObservations,
 ) -> Result<Response, AppError> {
+    let PostingObservations { hints, captured } = observations;
     // Ordinary cooldown identity must come from verified transport on every
     // real posting route, including development and legacy/multipart requests.
     if context.peer.is_none() || state.poster_id_key.is_none() {
@@ -1094,6 +1123,55 @@ async fn submit_post(
     }
     let session =
         crate::anonymous_session::Session::resolve(&state, &headers, context.peer).await?;
+    use board_domain::content_admission::network::ProviderValue::{
+        Available as A, Unavailable as U,
+    };
+    let country = crate::anonymous_session::country(&state, context.peer)?;
+    let observed = match &captured {
+        A(value) => A(value),
+        U => U,
+    };
+    let scoring_origin = board_config::Origin::parse(&state.origin).map_err(|_| {
+        AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Posting origin is unavailable.",
+        )
+    })?;
+    let score = board_http::request_facts::native_profile::score(
+        observed,
+        &scoring_origin,
+        board_http::request_facts::native_profile::Context {
+            request_time: A(context.request_start.timestamp()),
+            challenge: form.captcha_challenge.as_deref().map(str::as_bytes),
+            response: form.captcha_answer.as_deref().map(str::as_bytes),
+            mode: board_http::request_facts::native_profile::Mode::Posting {
+                is_op: form.resto == 0,
+                country: A(&country),
+            },
+        },
+    );
+    let timing_cookie = match observed {
+        A(captured) => match captured.cookies() {
+            A(cookies) => A(cookies
+                .iter()
+                .find(|(key, _)| key == "_tcs")
+                .map(|(_, value)| value.clone())),
+            U => U,
+        },
+        U => U,
+    };
+    let request_facts = board_store::posting_classifiers::RequestFacts::new(
+        context,
+        form.resto,
+        &board,
+        score,
+        A(country),
+        timing_cookie,
+    )
+    .with_browser_match(board_http::network_hints::posting_browser_match(
+        &headers,
+        state.posting_browser_compat_key.as_deref(),
+    ));
     let challenge = crate::posting_challenge::proof(
         &state,
         &headers,
@@ -1172,18 +1250,23 @@ async fn submit_post(
         deletion_hash: hash,
         sage: options.sage,
     };
-    let id = board_store::create_post_with_challenge(
+    let id = board_store::create_protected_post_with_network(
         &state.pool,
         &board,
         form.resto,
         &post,
         attachment.as_ref(),
-        board_store::ProtectedPostingContext {
-            anonymous: board_store::AnonymousPostingContext {
-                posting: context,
-                session: session.posting,
+        board_store::NetworkPostingContext {
+            hints: Some(&hints),
+            asn_database: state.asn_database.as_deref(),
+            posting: board_store::ProtectedPostingContext {
+                request_facts: Some(request_facts),
+                anonymous: board_store::AnonymousPostingContext {
+                    posting: context,
+                    session: session.posting,
+                },
+                challenge,
             },
-            challenge,
         },
         board_store::PostMetadata {
             spoiler: form.spoiler,
@@ -1221,6 +1304,92 @@ async fn submit_post(
                 );
             }
             return Ok(format.rule_error(&message));
+        }
+        Err(StoreError::FileRejected(refusal)) => {
+            use board_domain::content_admission::files::Response as FileResponse;
+            let mut response = match refusal.response() {
+                FileResponse::Quiet => {
+                    let quiet = refusal.quiet_post().ok_or(AppError(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "File refusal is unavailable.",
+                    ))?;
+                    let thread = if form.resto == 0 { quiet } else { form.resto };
+                    let location = if options.return_to_board {
+                        format!("/{board}/")
+                    } else {
+                        format!("/{board}/thread/{thread}#p{quiet}")
+                    };
+                    let mut response = format.success(form.resto, quiet, &location);
+                    crate::post_preferences::append(
+                        response.headers_mut(),
+                        &headers,
+                        if settings.forced_anon {
+                            None
+                        } else {
+                            Some(&post.name)
+                        },
+                        if options.anonymous { "" } else { &form.email },
+                        state.production,
+                    );
+                    response
+                }
+                FileResponse::BanRedirect
+                    if matches!(format, crate::posting_response::Format::Html) =>
+                {
+                    crate::restrictions::posting_refusal(&state, &board, false)?
+                }
+                FileResponse::BanRedirect => {
+                    let mut response = format.rule_error(refusal.message());
+                    // Enhanced posting keeps the source's JSON error envelope.
+                    // Only this fixed signal can request the same-origin delay.
+                    response.headers_mut().insert(
+                        "x-board-posting-redirect",
+                        axum::http::HeaderValue::from_static("banned"),
+                    );
+                    response
+                }
+                _ => format.rule_error(refusal.message()),
+            };
+            if refusal.cookie_refreshed() {
+                session.append(response.headers_mut(), state.production);
+            }
+            return Ok(response);
+        }
+        Err(StoreError::AutomaticRangeRejected { cookie_refreshed }) => {
+            let mut response = format.rule_error(board_store::AUTOMATIC_RANGE_REJECTION);
+            if cookie_refreshed {
+                session.append(response.headers_mut(), state.production);
+            }
+            return Ok(response);
+        }
+        Err(StoreError::PostingClassifierRejected(refusal)) => {
+            let mut response = if let Some(quiet) = refusal.quiet_post() {
+                let thread = if form.resto == 0 { quiet } else { form.resto };
+                let location = if options.return_to_board {
+                    format!("/{board}/")
+                } else {
+                    format!("/{board}/thread/{thread}#p{quiet}")
+                };
+                let mut response = format.success(form.resto, quiet, &location);
+                crate::post_preferences::append(
+                    response.headers_mut(),
+                    &headers,
+                    if settings.forced_anon {
+                        None
+                    } else {
+                        Some(&post.name)
+                    },
+                    if options.anonymous { "" } else { &form.email },
+                    state.production,
+                );
+                response
+            } else {
+                format.rule_error(refusal.message())
+            };
+            if refusal.cookie_refreshed() {
+                session.append(response.headers_mut(), state.production);
+            }
+            return Ok(response);
         }
         Err(StoreError::ContentQuiet { post: quiet }) => {
             let thread = if form.resto == 0 { quiet } else { form.resto };
@@ -1428,9 +1597,9 @@ pub struct ReportForm {
     #[serde(default, rename = "captcha-csrf")]
     captcha_csrf: String,
     #[serde(default, rename = "t-challenge")]
-    captcha_challenge: String,
+    captcha_challenge: Option<String>,
     #[serde(default, rename = "t-response")]
-    captcha_answer: String,
+    captcha_answer: Option<String>,
     #[serde(default, rename = "captcha-credit")]
     captcha_credit: String,
     #[serde(deserialize_with = "canonical_report_id")]
@@ -1461,7 +1630,7 @@ pub(crate) enum ReportSubmission {
 pub async fn report(
     State(state): State<AppState>,
     Path(board): Path<String>,
-    axum::Extension(peer): axum::Extension<crate::security::RequestPeer>,
+    (axum::Extension(start), axum::Extension(peer), order): crate::security::PostingTransport,
     headers: HeaderMap,
     form: Result<Form<ReportForm>, axum::extract::rejection::FormRejection>,
 ) -> Result<Response, AppError> {
@@ -1485,6 +1654,8 @@ pub async fn report(
         &state,
         &board,
         peer,
+        start,
+        order.as_ref().map(|order| &order.0),
         &headers,
         ReportSubmission::FreeText {
             no: form.no,
@@ -1504,9 +1675,12 @@ pub(crate) async fn submit_report(
     state: &AppState,
     board: &str,
     peer: crate::security::RequestPeer,
+    start: crate::security::RequestStart,
+    order: Option<&board_http::transport::RequestHeaderOrder>,
     headers: &HeaderMap,
     form: ReportSubmission,
 ) -> Result<Response, AppError> {
+    let captured = board_http::request_facts::capture(headers, order);
     let no = match &form {
         ReportSubmission::FreeText { no, .. } | ReportSubmission::Categorical { no, .. } => *no,
     };
@@ -1556,39 +1730,61 @@ pub(crate) async fn submit_report(
         Ok(absent) => absent,
         Err(error) => return Ok(fail(error)),
     };
+    let hints =
+        board_http::network_hints::derive(headers, order, state.browser_hint_key.as_deref());
+    use board_domain::content_admission::network::ProviderValue::{
+        Available as A, Unavailable as U,
+    };
+    let observed = match &captured {
+        A(value) => A(value),
+        U => U,
+    };
+    let native_score = match board_config::Origin::parse(&state.origin) {
+        Ok(origin) => board_http::request_facts::native_profile::report_score(
+            observed,
+            &origin,
+            A(start.0.timestamp()),
+            captcha.challenge.as_deref().map(str::as_bytes),
+            captcha.answer.as_deref().map(str::as_bytes),
+        ),
+        Err(_) => U,
+    };
+    let request_facts =
+        board_store::ReportRequestFacts::new(start.0, peer.0, board, no, native_score);
     let protected = board_store::ProtectedReportingContext {
         session: session.posting,
         challenge,
         source_cookies_absent,
+    };
+    let network = board_store::NetworkReportingContext {
+        request_facts: Some(&request_facts),
+        protected,
+        request_start: start.0,
+        peer: peer.0,
+        asn_database: state.asn_database.as_deref(),
+        hints: Some(&hints),
     };
     // Reserve and render the bounded response before committing. An exhausted
     // output budget must never make a saved report appear to have failed.
     let mut response = crate::legacy_report::success(state, &target)?;
     let result = match form {
         ReportSubmission::FreeText { reason, .. } => {
-            board_store::report_with_challenge(
-                &state.pool,
-                board,
-                no,
-                &reason,
-                &identity,
-                protected,
-            )
-            .await
+            board_store::report_with_network(&state.pool, board, no, &reason, &identity, network)
+                .await
         }
         ReportSubmission::Categorical {
             category_id,
             expected_revision,
             ..
         } => {
-            board_store::report_categorical_with_challenge(
+            board_store::report_categorical_with_network(
                 &state.pool,
                 board,
                 no,
                 category_id,
                 expected_revision,
                 &identity,
-                protected,
+                network,
             )
             .await
         }
@@ -2125,3 +2321,6 @@ mod storage_diagnostic_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod request_observations;

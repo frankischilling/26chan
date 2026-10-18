@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/domain", "crates/config", "crates/store", "crates/media", "crates/media-dispatch", "crates/http", "crates/intake-client", "crates/verification-client", "crates/observe", "apps/public", "apps/verification", "apps/verification-mailer", "apps/media-admin", "apps/staff", "apps/media-guest", "apps/media-http", "apps/media-intake", "apps/monitor", "apps/resource-monitor", "apps/maintenance-monitor"]
+exclude = ["vendor/pcre2", "vendor/hyper"]
 resolver = "3"
 
 [workspace.package]
@@ -32,3 +33,6 @@ unsafe_code = "forbid"
 [profile.release]
 lto = "thin"
 strip = "debuginfo"
+
+[patch.crates-io]
+hyper = { path = "vendor/hyper" }

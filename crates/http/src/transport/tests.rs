@@ -831,3 +831,158 @@ async fn stop_drains_a_released_handler_but_the_original_deadline_bounds_a_stall
         .expect("server returned an I/O error");
     permits(&budget, 2).await;
 }
+
+#[tokio::test]
+async fn parser_header_order_is_opt_in_and_fresh_across_pipelined_requests() {
+    for capture in [false, true] {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let app = Router::new().route(
+            "/",
+            get(|request: axum::extract::Request| async move {
+                request
+                    .extensions()
+                    .get::<super::RequestHeaderOrder>()
+                    .map(|order| {
+                        order
+                            .names()
+                            .map(|name| name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    })
+                    .unwrap_or_else(|| "missing".into())
+            }),
+        );
+        let budget = ConnectionBudget::new(board_config::PublicRequestLimits::default());
+        let budget = if capture {
+            budget.with_request_header_order()
+        } else {
+            budget
+        };
+        let (stop, stopped) = watch::channel(false);
+        let server = tokio::spawn(HttpListener::Tcp(listener).serve(app, stopped, budget));
+        let mut socket = TcpStream::connect(address).await.unwrap();
+        socket.write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-Mode: cors\r\nSEC-FETCH-SITE: same-origin\r\nSec-Fetch-Dest: empty\r\n\r\nGET / HTTP/1.1\r\nHost: localhost\r\nSec-Fetch-Dest: empty\r\nSec-Fetch-Mode: cors\r\nSec-Fetch-Site: same-origin\r\nConnection: close\r\n\r\n").await.unwrap();
+        let mut bytes = Vec::new();
+        tokio::time::timeout(OUTER, socket.read_to_end(&mut bytes))
+            .await
+            .unwrap()
+            .unwrap();
+        let response = String::from_utf8(bytes).unwrap();
+        assert_eq!(response.matches("HTTP/1.1 200 OK").count(), 2);
+        if capture {
+            let first = "host,sec-fetch-site,sec-fetch-mode,sec-fetch-site,sec-fetch-dest";
+            let second = "host,sec-fetch-dest,sec-fetch-mode,sec-fetch-site,connection";
+            assert!(response.find(first).unwrap() < response.find(second).unwrap());
+            assert!(!response.contains("missing"));
+        } else {
+            assert_eq!(response.matches("missing").count(), 2);
+        }
+        stop.send(true).unwrap();
+        finish(server).await;
+    }
+}
+
+#[tokio::test]
+async fn request_fact_capture_uses_wire_order_and_rejects_ambiguous_fields() {
+    use board_domain::content_admission::network::ProviderValue::{
+        Available as A, Unavailable as U,
+    };
+    for enabled in [false, true] {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let app = Router::new().route(
+            "/",
+            get(|request: axum::extract::Request| async move {
+                match crate::request_facts::capture(request.headers(), request.extensions().get()) {
+                    U => "unavailable".to_owned(),
+                    A(observed) => {
+                        let names = observed
+                            .http_fields()
+                            .iter()
+                            .map(|(key, _)| key.as_str())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        let cookies = match observed.cookies() {
+                            A(values) => values.len().to_string(),
+                            U => "unknown".into(),
+                        };
+                        format!("{names}|cookies={cookies}")
+                    }
+                }
+            }),
+        );
+        let budget = ConnectionBudget::new(board_config::PublicRequestLimits::default());
+        let budget = if enabled {
+            budget.with_request_header_order()
+        } else {
+            budget
+        };
+        let (stop, stopped) = watch::channel(false);
+        let server = tokio::spawn(HttpListener::Tcp(listener).serve(app, stopped, budget));
+        for (fields, expected) in [
+            (
+                "Accept: text/html\r\nUser-Agent: owned\r\n",
+                "HTTP_HOST,HTTP_ACCEPT,HTTP_USER_AGENT,HTTP_CONNECTION|cookies=0",
+            ),
+            (
+                "User-Agent: owned\r\nAccept: text/html\r\n",
+                "HTTP_HOST,HTTP_USER_AGENT,HTTP_ACCEPT,HTTP_CONNECTION|cookies=0",
+            ),
+            (
+                "Cookie: a=1; b=2\r\n",
+                "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=2",
+            ),
+            (
+                "Cookie:\r\n",
+                "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=0",
+            ),
+            (
+                "Cookie: a=x%20y\r\n",
+                "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=1",
+            ),
+            (
+                // Native HTTP parsing trims trailing field OWS before capture.
+                "Cookie: a=1 \t\r\n",
+                "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=1",
+            ),
+            (
+                "Cookie: 4chan_name=Owned%20Name; options=sage%20nonoko\r\n",
+                "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=2",
+            ),
+            (
+                "Cookie: a=x%2Gy\r\n",
+                "HTTP_HOST,HTTP_COOKIE,HTTP_CONNECTION|cookies=unknown",
+            ),
+            (
+                "User-Agent: owned\r\nUSER-AGENT: repeated\r\n",
+                "unavailable",
+            ),
+            (
+                "User-Agent: owned\r\nUser_Agent: collision\r\n",
+                "unavailable",
+            ),
+            ("Cookie: a=1\r\nCookie: b=2\r\n", "unavailable"),
+        ] {
+            let mut socket = TcpStream::connect(address).await.unwrap();
+            let request =
+                format!("GET / HTTP/1.1\r\nHost: localhost\r\n{fields}Connection: close\r\n\r\n");
+            socket.write_all(request.as_bytes()).await.unwrap();
+            let mut response = String::new();
+            tokio::time::timeout(OUTER, socket.read_to_string(&mut response))
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(response.starts_with("HTTP/1.1 200 OK"), "{response}");
+            assert!(
+                response.ends_with(if enabled { expected } else { "unavailable" }),
+                "{response}"
+            );
+        }
+        stop.send(true).unwrap();
+        finish(server).await;
+    }
+}
+
+#[path = "native_profile_tests.rs"]
+mod native_profile_tests;

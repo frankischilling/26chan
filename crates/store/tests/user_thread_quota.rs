@@ -646,12 +646,13 @@ async fn private_boards_and_badges_do_not_bypass_quota_or_authentication() {
             Err(StoreError::AuthorizationChanged)
         ));
         assert_eq!(f.snapshot().await, before);
-        // Private discussion uses the dedicated staff writer. Ordinary staff
-        // admission retains the existing public-board visibility boundary,
-        // regardless of whether the later staff proof would be valid.
+        // Invalid staff credentials fail at the network-bypass auth preflight.
+        // A valid identity still cannot reach private discussion through the
+        // ordinary writer; that path retains its public-board visibility gate.
         for valid in [false, true] {
             match f.write(0, 0, peer(70), now + 10, true, valid).await {
-                Err(StoreError::Database(error)) => assert_eq!(
+                Err(StoreError::AuthorizationChanged) if !valid => {}
+                Err(StoreError::Database(error)) if valid => assert_eq!(
                     error.as_database_error().unwrap().code().as_deref(),
                     Some("P0002")
                 ),

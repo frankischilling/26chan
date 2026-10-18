@@ -5,14 +5,32 @@ use sqlx::PgConnection;
 use std::net::IpAddr;
 use std::sync::{Arc, LazyLock};
 
+pub(crate) mod attachment;
+pub(crate) mod automatic;
+pub(crate) mod files;
+mod network;
+pub(crate) mod staff;
+
+pub(crate) struct NetworkContext {
+    pub asn: board_domain::content_admission::network::ProviderValue<Option<u32>>,
+    pub hints: board_domain::content_admission::network::hints::DerivedHints,
+    pub staff_bypass: bool,
+}
+
 static WORK: LazyLock<Arc<tokio::sync::Semaphore>> =
     LazyLock::new(|| Arc::new(tokio::sync::Semaphore::new(2)));
 
 pub(crate) struct Snapshot {
+    hints: board_domain::content_admission::network::hints::DerivedHints,
     revision: i64,
     peer: Option<String>,
     actor: Actor,
     rules: Vec<Rule>,
+    activity: Option<board_domain::anonymous_session::State>,
+    network: network::Snapshot,
+    now: u64,
+    activity_now: u64,
+    asn: board_domain::content_admission::network::ProviderValue<Option<u32>>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -53,6 +71,8 @@ pub(crate) async fn begin(
     board: &str,
     peer: Option<IpAddr>,
     session: Option<anonymous_session::PostingSession>,
+    request_at: i64,
+    network_context: NetworkContext,
 ) -> Result<Snapshot, StoreError> {
     let peer = peer.map(|peer| peer.to_canonical().to_string());
     let (revision, banned): (i64, bool) =
@@ -66,36 +86,56 @@ pub(crate) async fn begin(
             "You are banned from posting.".into(),
         ));
     }
-    let actor = if let Some(session) = session {
+    let now = u64::try_from(request_at).map_err(unavailable)?;
+    let activity_now = session
+        .map(|session| session.now.timestamp())
+        .unwrap_or(request_at)
+        .try_into()
+        .map_err(unavailable)?;
+    let activity = if let Some(session) = session {
+        let session_now = session.now.timestamp().try_into().map_err(unavailable)?;
         match anonymous_session::locked_snapshot(&mut *connection, &session.fingerprints.token)
             .await?
         {
             Some(snapshot) if !session.minted => {
-                let now = session
-                    .now
-                    .timestamp()
-                    .try_into()
-                    .map_err(|_| StoreError::Invalid("Invalid anonymous activity context."))?;
-                Actor::from_state(&snapshot.for_request(now, &session.fingerprints), now)
+                Some(snapshot.for_request(session_now, &session.fingerprints))
             }
-            None if session.minted => Actor {
-                session_present: true,
-                ..Actor::default()
-            },
+            None if session.minted => {
+                Some(board_domain::anonymous_session::State::new(session_now))
+            }
             _ => return Err(StoreError::AuthorizationChanged),
         }
     } else {
-        Actor::default()
+        None
+    };
+    let actor = match (activity.as_ref(), session) {
+        (Some(_), Some(session)) if session.minted => Actor {
+            session_present: true,
+            ..Actor::default()
+        },
+        (Some(state), Some(session)) => Actor::from_state(
+            state,
+            session.now.timestamp().try_into().map_err(unavailable)?,
+        ),
+        _ => Actor::default(),
     };
     let rows: Vec<RuleRow> = sqlx::query_as("SELECT * FROM content.content_admission_rules($1)")
         .bind(board)
-        .fetch_all(connection)
+        .fetch_all(&mut *connection)
         .await?;
+    let network =
+        network::snapshot(connection, board, request_at, network_context.staff_bypass).await?;
     Ok(Snapshot {
+        hints: network_context.hints,
         revision,
         peer,
         actor,
         rules: rows.into_iter().map(Into::into).collect(),
+        activity,
+        network,
+        now,
+        activity_now,
+        asn: network_context.asn,
     })
 }
 
@@ -114,18 +154,19 @@ pub(crate) struct Evaluation {
     snapshot: Snapshot,
     input: Input,
     pub decision: Decision,
-    trip_rejection: Option<TripRejection>,
 }
 
 impl Snapshot {
+    pub(crate) fn posting_activity(&self) -> (Option<board_domain::anonymous_session::State>, u64) {
+        (self.activity, self.activity_now)
+    }
     pub(crate) async fn evaluate(mut self, input: Input) -> Result<Evaluation, StoreError> {
-        if self.rules.is_empty() && input.name.is_ascii() {
-            let (decision, trip_rejection) = evaluate(Vec::new(), self.actor, &input)?;
+        if self.rules.is_empty() {
+            let decision = evaluate(Vec::new(), self.actor, &input)?;
             return Ok(Evaluation {
                 snapshot: self,
                 input,
                 decision,
-                trip_rejection,
             });
         }
         let permit = WORK
@@ -136,12 +177,11 @@ impl Snapshot {
         let actor = self.actor;
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
-            let (decision, trip_rejection) = evaluate(rules, actor, &input)?;
+            let decision = evaluate(rules, actor, &input)?;
             Ok(Evaluation {
                 snapshot: self,
                 input,
                 decision,
-                trip_rejection,
             })
         })
         .await
@@ -175,11 +215,7 @@ pub(crate) async fn evaluate_staff_identity(
     .map_err(|_| unavailable(()))?
 }
 
-fn evaluate(
-    rules: Vec<Rule>,
-    actor: Actor,
-    input: &Input,
-) -> Result<(Decision, Option<TripRejection>), StoreError> {
+fn evaluate(rules: Vec<Rule>, actor: Actor, input: &Input) -> Result<Decision, StoreError> {
     let decision = Policy::compile(rules)
         .map_err(unavailable)?
         .evaluate(
@@ -194,16 +230,7 @@ fn evaluate(
             actor,
         )
         .map_err(unavailable)?;
-    let trip_rejection = if matches!(
-        decision,
-        Decision::Allow | Decision::Log { .. } | Decision::Autosage { .. }
-    ) {
-        name_trip_admission::evaluate(&input.name, &input.legacy_trip, input.moderator)
-            .map_err(unavailable)?
-    } else {
-        None
-    };
-    Ok((decision, trip_rejection))
+    Ok(decision)
 }
 
 fn unavailable(_: impl Sized) -> StoreError {
@@ -215,8 +242,83 @@ fn unavailable(_: impl Sized) -> StoreError {
 }
 
 impl Evaluation {
-    pub(crate) fn trip_rejection(&self) -> Option<&'static str> {
-        self.trip_rejection.map(TripRejection::message)
+    pub(crate) fn revision(&self) -> i64 {
+        self.snapshot.revision
+    }
+
+    /// This stage uses the already-locked policy and activity state. Optional
+    /// provider-backed rules fail closed until their trusted data is supplied.
+    pub(crate) fn network_rejection(
+        &self,
+        work_safe: bool,
+        has_image: bool,
+    ) -> Result<Option<String>, StoreError> {
+        use board_domain::content_admission::network::{Leniency, Request};
+        let Some(policy) = &self.snapshot.network.policy else {
+            return Ok(None);
+        };
+        let peer = self
+            .snapshot
+            .peer
+            .as_deref()
+            .map(str::parse::<IpAddr>)
+            .transpose()
+            .map_err(unavailable)?;
+        let address = match peer {
+            Some(IpAddr::V4(address)) => Some(address),
+            _ => None,
+        };
+        let matched = policy
+            .evaluate(Request {
+                now: self.snapshot.now,
+                activity_now: Some(self.snapshot.activity_now),
+                address,
+                asn: self.snapshot.asn,
+                board: Some(&self.input.board),
+                work_safe,
+                op: self.input.parent == 0,
+                image: has_image,
+                report: false,
+                signatures: self.snapshot.hints.signatures(),
+                actor: self.snapshot.activity.as_ref(),
+            })
+            .map_err(unavailable)?;
+        Ok(matched.map(|rule| {
+            let subject = if rule.images_only {
+                "Uploading files"
+            } else if rule.ops_only {
+                "Posting threads"
+            } else {
+                "Posting"
+            };
+            let duration = if rule.expires_at != 0 || rule.leniency != Leniency::None {
+                "temporarily"
+            } else {
+                "permanently"
+            };
+            let followup = match rule.leniency {
+                Leniency::None => "",
+                Leniency::KnownOrVerified => {
+                    " Please verify your e-mail address or try again later."
+                }
+                Leniency::Known => " Please try again in a while.",
+                Leniency::Verified => " Please verify your e-mail address to continue.",
+            };
+            format!(
+                "{subject} from your IP range has been {duration} blocked due to abuse.{followup}"
+            )
+        }))
+    }
+
+    /// Fixed identity admission runs after the preceding configured stages.
+    /// Keep its native normalization bounded independently of content matching.
+    pub(crate) async fn identity_rejection(&self) -> Result<Option<&'static str>, StoreError> {
+        evaluate_staff_identity(
+            self.input.name.clone(),
+            self.input.legacy_trip.clone(),
+            self.input.moderator,
+        )
+        .await
     }
 
     pub(crate) fn autosage_proof(&self) -> Option<(i64, i64)> {

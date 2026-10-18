@@ -68,6 +68,8 @@ impl Fixture {
         let origin = Url::parse("http://localhost:3001").unwrap();
         let state = Arc::new(AppState {
             config: Config {
+                asn_database: None,
+                browser_hint_key: None,
                 media: None,
                 proxy: None,
                 poster_id_key: None,

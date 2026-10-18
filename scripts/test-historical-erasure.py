@@ -89,6 +89,13 @@ UPDATE post_secrets.report_snapshot_capacity SET used_bytes=(SELECT sum(charged_
 COMMIT;""")
 
 baseline = rows()
+# The operator must use its existing SET-only owner membership for the report
+# restriction seal. Do not broaden the migrator's direct function grants.
+assert sql("SELECT has_function_privilege('board_migrator','content.restrictions_ready()','EXECUTE')") == "f"
+sql("SELECT content.restrictions_ready()", role="board_migrator", ok=False)
+assert sql("SELECT has_function_privilege('board_restriction_owner','content.report_profile_ready()','EXECUTE')") == "f"
+assert sql("SELECT content.report_profile_ready()", role="board_migrator") == "t"
+sql("BEGIN; SET LOCAL ROLE board_restriction_owner; SELECT content.report_profile_ready()", role="board_migrator", ok=False)
 first = preview()
 assert rows() == baseline, "Preview changed persisted rows"
 assert len(first["report_ids"]) == 64 and len(first["post_ids"]) == 64 and first["thread_ids"] == []
@@ -165,12 +172,16 @@ assert rows() == changed
 
 # Independent catalog defects fail before any report or content removal.
 for change, restore in (
+    ("ALTER FUNCTION content.report_profile_ready() SECURITY INVOKER",
+     "ALTER FUNCTION content.report_profile_ready() SECURITY DEFINER"),
     ("ALTER FUNCTION post_secrets.guard_post_erasure() SECURITY INVOKER",
      "ALTER FUNCTION post_secrets.guard_post_erasure() SECURITY DEFINER"),
     ("ALTER FUNCTION post_secrets.guard_thread_erasure() SET search_path=public",
      "ALTER FUNCTION post_secrets.guard_thread_erasure() SET search_path=pg_catalog,pg_temp"),
     ("ALTER TABLE post_secrets.report_post_snapshots DISABLE TRIGGER release_report_snapshot",
      "ALTER TABLE post_secrets.report_post_snapshots ENABLE TRIGGER release_report_snapshot"),
+    ("ALTER FUNCTION content.lock_report_network_policy() SECURITY INVOKER",
+     "ALTER FUNCTION content.lock_report_network_policy() SECURITY DEFINER"),
 ):
     sql(change)
     drift = rows()
@@ -185,16 +196,27 @@ assert rows() == changed
 sql("DROP TABLE public.unreviewed_report_child")
 
 # A deferred failure runs at commit after report cascades and post erasure.
-# The extra trigger is outside the sealed content/authority catalog; it is
-# synthetic test infrastructure, never installed by the migration or operator.
+# The report-profile seal now covers every report trigger. First prove that
+# this owned test trigger is rejected as drift. Then attest only this disposable
+# fixture so the same sentinel can exercise the later rollback boundary.
+profile_seal = sql("SELECT encode(definition_hash,'hex') FROM post_secrets.report_profile_catalog WHERE singleton")
 sql("""CREATE FUNCTION public.refuse_owned_erasure_commit() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN IF OLD.id=31010003 THEN RAISE EXCEPTION 'Owned rollback sentinel'; END IF; RETURN OLD; END $$;
 CREATE CONSTRAINT TRIGGER owned_erasure_failure AFTER DELETE ON content.reports
 DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.refuse_owned_erasure_commit();""")
 error = apply(first, ok=False)
+assert "schema or visibility is unavailable" in error, error
+assert rows() == changed, "Unattested test trigger changed persisted rows"
+sql("UPDATE post_secrets.report_profile_catalog SET definition_hash=post_secrets.report_profile_catalog_hash() WHERE singleton")
+assert sql("SELECT content.report_profile_ready()", role="board_migrator") == "t"
+instrumented = rows()
+error = apply(first, ok=False)
 assert "Cannot confirm historical cleanup" in error, error
-assert rows() == changed, "Deferred failure did not roll back payload and report cascades"
+assert rows() == instrumented, "Deferred failure did not roll back payload and report cascades"
 sql("DROP TRIGGER owned_erasure_failure ON content.reports; DROP FUNCTION public.refuse_owned_erasure_commit()")
+assert re.fullmatch(r"[0-9a-f]{64}", profile_seal)
+sql("UPDATE post_secrets.report_profile_catalog SET definition_hash=decode('" + profile_seal + "','hex') WHERE singleton")
+assert sql("SELECT content.report_profile_ready()", role="board_migrator") == "t"
 assert rows() == changed
 
 # Independent staff history, shared sessions and another board stay byte-exact.

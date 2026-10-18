@@ -50,24 +50,31 @@ The result has private fields and exposes a 16-byte binary MD5, retained byte
 count and `PngV1` profile. MD5 is legacy comparison data, not an integrity or
 authorization check. The scanner returns no source bytes.
 
-## JPEG and GIF remain unavailable
+## Retained still and GIF profiles
 
-JPEG and GIF signatures produce explicit unavailable errors. There is no
-fallback to a raw-upload hash or encoder-output hash. The supplied source
-uses `jpegtran -copy none` for configured JPEG stripping and conditional
-`gifsicle` inspection/rewriting for GIFs. Exact tool versions, builds and
-source-processed sample outputs are still missing. Until that provenance and
-byte-level fixtures are available, neither transformation has a compatible
-digest implementation. Existing JPEG and single-frame GIF decoder support
-does not supply this evidence.
+The PNG v1 scanner itself still rejects JPEG and GIF signatures. Later media
+pipelines have separate typed profiles: `StillV6` records the host-measured MD5
+of retained PNG/JPEG bytes, and `GifV7` records retained GIF bytes. The coordinator
+binds these results to the immutable input SHA-256 and length; the store checks
+that the retained-file MD5 agrees with the output metadata. See
+[still-image parity](source-still-image-parity.md) and
+[GIF parity](source-gif-parity.md) for their processing contracts and evidence.
+
+These profiles are not interchangeable with `PngV1`. A source-normalized lookup
+must use the digest of the corresponding processed-file contract. A raw-upload
+lookup needs a separate digest of the original immutable input: neither
+`source_md5` nor input SHA-256 supplies that original MD5. The original-input MD5
+is not currently retained. MD5 remains legacy lookup data, never authorization
+or an integrity guarantee.
 
 ## Storage and recovery
 
-Migration 0112 adds an optional, complete five-field tuple: input SHA-256,
+Migration 0112 introduced an optional, complete five-field tuple: input SHA-256,
 input length, source profile, retained length and source MD5. Partial tuples
 are invalid. A new tuple requires a live processing job with the same lease
-and input length. Existing receipts remain NULL, as do manual publication and
-unsupported JPEG/GIF provenance. No digest is inferred from encoded output.
+and input length. At that checkpoint existing receipts, manual publication and
+unsupported JPEG/GIF provenance remained NULL. Later typed retained-file profiles extend
+this contract; they do not retroactively infer provenance for historical rows.
 Tuple values cannot be changed or backfilled, including by the migration
 identity through ordinary DML. The migration adds no grants or read fields.
 

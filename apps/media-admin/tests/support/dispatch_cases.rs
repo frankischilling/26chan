@@ -360,6 +360,29 @@ pub async fn exercise(queue: &MediaQueue, admin: &sqlx::PgPool, ids: &Mutex<Vec<
                 let id = id.trim();
                 assert!(id.parse::<board_media::ObjectId>().is_ok());
                 assert_ne!(id, job.id);
+                let original: (String, i64, String, String) = sqlx::query_as(
+                    "SELECT sha256,bytes,encode(md5,'hex'),component FROM media.input_receipts WHERE asset_id=$1"
+                ).bind(id).fetch_one(admin).await.unwrap();
+                let (sha, length, md5) = if case == "jpeg" {
+                    (
+                        "34f6c0e239e3ad0c26d108528f8d11ef5cdba4997234bf7bdbd132285a43fe0d",
+                        27,
+                        "c9447eae54ed0db5b4c6c22345cfdea8",
+                    )
+                } else if gif {
+                    (
+                        "be1150c3b74e94fbc0560b478a271a6d2cf9bff88d61ec63c36e8b6810c861bb",
+                        31,
+                        "d2e9d9380db95f4d03ce419fb39cfb1f",
+                    )
+                } else {
+                    (
+                        "f482035298dcdf31dca1ce576adea047626ddb9deff6c5bfce3cf1ea68b15357",
+                        103,
+                        "bba97d5f7c82799c74d28aa19762459b",
+                    )
+                };
+                assert_eq!(original, (sha.into(), length, md5.into(), "upload".into()));
                 let source: SourceProvenanceRow =
                     sqlx::query_as("SELECT source_input_sha256,source_input_bytes,source_profile,source_retained_bytes,source_md5 FROM media.assets WHERE id=$1")
                         .bind(id).fetch_one(admin).await.unwrap();

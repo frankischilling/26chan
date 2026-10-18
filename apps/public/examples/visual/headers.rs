@@ -21,6 +21,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
     for (index, capcode) in capcodes.into_iter().enumerate() {
         let id = 1_001_001 + index as i64 * 10;
         let post = Post {
+            staff_notices: Vec::new(),
             image_spoiler: false,
             comment_format: 0,
             staff_authorized_limits: false,
@@ -52,6 +53,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
             attachment: None,
         };
         let reply = Post {
+            staff_notices: Vec::new(),
             id: id + 1,
             subject: String::new(),
             ..post.clone()

@@ -70,7 +70,10 @@ Country comes from the configured trusted database and actual transport peer.
 Headers, public names, tripcodes and poster IDs cannot supply this authority.
 
 Cacheable board pages and JSON never mint cookies or include private activity.
-Successful actions that refresh the cookie use `no-store`. JavaScript can read
+Successful actions and the automatic-range refusal response that refresh the
+cookie use `no-store`. A range refusal may store fresh, resumed or idle-reset
+state without registering an action; see [range policy](admission/automatic-range-policy.md).
+JavaScript can read
 the bounded display preferences and consume its existing display receipts;
 it cannot read the anonymous capability.
 

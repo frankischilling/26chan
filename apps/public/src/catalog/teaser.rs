@@ -25,7 +25,7 @@ impl From<&board_store::Board> for Policy {
 impl Policy {
     pub fn for_post(board: &board_store::Board, format: i16) -> Self {
         Self {
-            source_links: matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255),
+            source_links: matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255 | 488..=495 | 504..=511),
             ..board.into()
         }
     }
@@ -50,7 +50,7 @@ pub(crate) fn stored_comment(lines: &[Line], board: &str, format: i16) -> String
         result.push_str(&serialize(
             &line.tokens,
             board,
-            matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255),
+            matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255 | 488..=495 | 504..=511),
         ));
         if line.green {
             result.push_str("</span>");
@@ -70,6 +70,18 @@ pub fn prepare_with_metadata(
     dice: Option<&str>,
     fortune: Option<(&str, &str)>,
     drawing: Option<&crate::views::DrawingAnnotation>,
+) -> Prepared {
+    prepare_with_notices(lines, board, policy, dice, fortune, drawing, &[])
+}
+
+pub fn prepare_with_notices(
+    lines: &[Line],
+    board: &str,
+    policy: Policy,
+    dice: Option<&str>,
+    fortune: Option<(&str, &str)>,
+    drawing: Option<&crate::views::DrawingAnnotation>,
+    notices: &[String],
 ) -> Prepared {
     let mut tokens = Vec::new();
     let mut previous_break = false;
@@ -127,6 +139,14 @@ pub fn prepare_with_metadata(
     if let Some(drawing) = drawing {
         tokens.extend(drawing.tokens(separator));
     }
+    for notice in notices {
+        tokens.extend([
+            Token::Text(format!(" {separator}")),
+            Token::GeneratedNotice(true),
+            Token::Text(format!("({notice})")),
+            Token::GeneratedNotice(false),
+        ]);
+    }
     if policy.sjis {
         tokens = replace_sjis(tokens);
     }
@@ -159,6 +179,7 @@ fn closes_span(token: &Token) -> bool {
                 Tag::Sjis | Tag::Bold | Tag::Italic | Tag::Red | Tag::Green | Tag::Blue
             )
     ) || matches!(token, Token::FilteredDelimiter(delimiter) if delimiter.closes_span())
+        || matches!(token, Token::FilteredGenerated(delimiter) if delimiter.closes_span())
 }
 
 pub(crate) fn replace_sjis(tokens: Vec<Token>) -> Vec<Token> {
@@ -209,7 +230,7 @@ pub(crate) fn strip(tokens: Vec<Token>) -> Vec<Token> {
                     Token::CloseMarkup(Tag::Spoiler)
                 });
             }
-            Token::FilteredDelimiter(_) => {}
+            Token::FilteredDelimiter(_) | Token::FilteredGenerated(_) => {}
             Token::Spoiler(text) | Token::Link(text) => result.push(Token::Text(text)),
             Token::WrappedLink(_, parts) | Token::ServerLink(_, parts) => {
                 for part in parts {
@@ -227,7 +248,10 @@ pub(crate) fn strip(tokens: Vec<Token>) -> Vec<Token> {
             | Token::CloseMarkup(_)
             | Token::OpenQuote
             | Token::CloseQuote => {}
-            Token::GeneratedBold(_) | Token::GeneratedSmall(_) | Token::GeneratedFortune(_, _) => {}
+            Token::GeneratedBold(_)
+            | Token::GeneratedSmall(_)
+            | Token::GeneratedFortune(_, _)
+            | Token::GeneratedNotice(_) => {}
         }
     }
     result
@@ -345,6 +369,7 @@ pub(crate) fn serialize(tokens: &[Token], board: &str, source_links: bool) -> St
             Token::OpenMarkup(tag) => result.push_str(markup(*tag, true)),
             Token::CloseMarkup(tag) => result.push_str(markup(*tag, false)),
             Token::FilteredDelimiter(delimiter) => result.push_str(&delimiter.source_projection()),
+            Token::FilteredGenerated(delimiter) => result.push_str(&delimiter.source_projection()),
             Token::ChangedEntity(entity) => result.push_str(entity.spelling()),
             Token::OpenQuote => result.push_str("<span class=\"quote\">"),
             Token::CloseQuote => result.push_str("</span>"),
@@ -352,6 +377,7 @@ pub(crate) fn serialize(tokens: &[Token], board: &str, source_links: bool) -> St
             Token::GeneratedSmall(open) => result.push_str(if *open { "<small>" } else { "</small>" }),
             Token::GeneratedFortune(true, color) => result.push_str(&format!("<span class=\"fortune\" style=\"color:{color}\">")),
             Token::GeneratedFortune(false, _) => result.push_str("</span>"),
+            Token::GeneratedNotice(open) => result.push_str(if *open { "<strong style=\"color: red;\">" } else { "</strong>" }),
         }
     }
     result
@@ -423,6 +449,45 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn notices_keep_order_and_literal_text_in_catalog_projections() {
+        let notices = vec!["<b>first</b>".into(), "again".into(), "again".into()];
+        let plain = prepare_with_notices(&[], "g", Policy::default(), None, None, None, &notices);
+        assert_eq!(
+            plain.serialized,
+            "  (&lt;b&gt;first&lt;/b&gt;)  (again)  (again)"
+        );
+        let short = prepare_with_notices(
+            &[],
+            "b",
+            Policy {
+                truncate: true,
+                ..Default::default()
+            },
+            None,
+            None,
+            None,
+            &notices,
+        );
+        assert_eq!(
+            short.serialized,
+            "  <strong style=\"color: red;\">(&lt;b&gt;first&lt;/b&gt;)</strong>  <strong style=\"color: red;\">(again)</strong>  <strong style=\"color: red;\">(again)</strong>"
+        );
+        let long = prepare_with_notices(
+            &[],
+            "b",
+            Policy {
+                truncate: true,
+                ..Default::default()
+            },
+            None,
+            None,
+            None,
+            &["x".repeat(400)],
+        );
+        assert_eq!(long.serialized, format!("  ({}…", "x".repeat(297)));
     }
 
     #[test]

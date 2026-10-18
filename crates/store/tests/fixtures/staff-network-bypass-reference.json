@@ -1,0 +1,153 @@
+{
+    "source_sha256": {
+        "lib/auth.php": "98138062957155f859c6c2650613117290feeb386c6deb3a1097f5b62cbb6019",
+        "lib/postfilter.php": "d0037219f34fdc54b85ca696095415209531d5350652dea5ec86e508f75d5207"
+    },
+    "scope": "Authenticated staff early return only; local authority is synthetic and is not inferred from a network address. Pass validation is not executed.",
+    "cases": [
+        {
+            "role": "janitor",
+            "captcha": false,
+            "local_auth": false,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "janitor",
+            "captcha": false,
+            "local_auth": true,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "janitor",
+            "captcha": true,
+            "local_auth": false,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "janitor",
+            "captcha": true,
+            "local_auth": true,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "mod",
+            "captcha": false,
+            "local_auth": false,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "mod",
+            "captcha": false,
+            "local_auth": true,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "mod",
+            "captcha": true,
+            "local_auth": false,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "mod",
+            "captcha": true,
+            "local_auth": true,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "manager",
+            "captcha": false,
+            "local_auth": false,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "manager",
+            "captcha": false,
+            "local_auth": true,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "manager",
+            "captcha": true,
+            "local_auth": false,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "manager",
+            "captcha": true,
+            "local_auth": true,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "admin",
+            "captcha": false,
+            "local_auth": false,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "admin",
+            "captcha": false,
+            "local_auth": true,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "admin",
+            "captcha": true,
+            "local_auth": false,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        },
+        {
+            "role": "admin",
+            "captcha": true,
+            "local_auth": true,
+            "valid": true,
+            "captcha_bypass": true,
+            "range_bypass": true,
+            "network_blocked": false
+        }
+    ]
+}

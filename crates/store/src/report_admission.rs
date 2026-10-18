@@ -1,5 +1,8 @@
 //! Private, report-bound IP and anonymous-session admission. GET is advisory;
 //! POST atomically inserts the report, membership, and anonymous activity.
+pub(crate) mod network;
+pub(crate) mod request;
+
 use crate::{StoreError, anonymous_session::PostingSession};
 use board_domain::poster_id::PublicReportRateIdentity;
 use sqlx::{PgConnection, PgPool};
@@ -72,9 +75,10 @@ pub(crate) async fn admit_with_session_on(
     reason: &str,
     identity: &PublicReportRateIdentity,
     session: PostingSession,
+    threshold: Option<bool>,
 ) -> Result<i64, StoreError> {
     let fingerprints = session.fingerprints;
-    sqlx::query_scalar("SELECT content.admit_report($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
+    sqlx::query_scalar("SELECT content.admit_report_profiled($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
         .bind(slug)
         .bind(id)
         .bind(reason)
@@ -85,6 +89,7 @@ pub(crate) async fn admit_with_session_on(
         .bind(fingerprints.environment.as_slice())
         .bind(session.minted)
         .bind(session.now.timestamp())
+        .bind(threshold)
         .fetch_one(connection)
         .await
         .map_err(admission_error)
@@ -96,19 +101,19 @@ pub(crate) async fn admit_categorical_with_session_on(
     connection: &mut PgConnection,
     slug: &str,
     id: i64,
-    category_id: i64,
-    expected_revision: i64,
+    category: (i64, i64),
     identity: &PublicReportRateIdentity,
     session: PostingSession,
+    threshold: Option<bool>,
 ) -> Result<i64, StoreError> {
     let fingerprints = session.fingerprints;
     sqlx::query_scalar(
-        "SELECT content.admit_categorical_report($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+        "SELECT content.admit_categorical_report_profiled($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
     )
     .bind(slug)
     .bind(id)
-    .bind(category_id)
-    .bind(expected_revision)
+    .bind(category.0)
+    .bind(category.1)
     .bind(identity.as_bytes().as_slice())
     .bind(fingerprints.token.as_slice())
     .bind(fingerprints.network.as_slice())
@@ -116,6 +121,7 @@ pub(crate) async fn admit_categorical_with_session_on(
     .bind(fingerprints.environment.as_slice())
     .bind(session.minted)
     .bind(session.now.timestamp())
+    .bind(threshold)
     .fetch_one(connection)
     .await
     .map_err(admission_error)
@@ -124,6 +130,16 @@ pub(crate) async fn admit_categorical_with_session_on(
 pub(crate) fn admission_error(error: sqlx::Error) -> StoreError {
     if let Some(database) = error.as_database_error() {
         match database.code().as_deref() {
+            Some("P179B") => {
+                return StoreError::Invalid(
+                    "Reporting from this IP range has been blocked due to abuse.",
+                );
+            }
+            Some("P0179") => {
+                return StoreError::Database(sqlx::Error::Protocol(
+                    "Report network policy is unavailable.".into(),
+                ));
+            }
             Some("P135B") => return StoreError::Invalid(crate::restrictions::REPORT_BANNED),
             Some("P0002") => return StoreError::NotFound,
             Some("28000") => return StoreError::AuthorizationChanged,
@@ -191,6 +207,8 @@ AND NOT EXISTS (
         ('content.check_report_admission(text,bigint,bytea,bytea,bigint)','void',true,true,false),
         ('content.admit_report(text,bigint,text,bytea)','bigint',false,true,false),
         ('content.admit_report(text,bigint,text,bytea,bytea,bytea,bytea,bytea,boolean,bigint)','bigint',true,false,false),
+        ('content.admit_report_profiled(text,bigint,text,bytea,bytea,bytea,bytea,bytea,boolean,bigint,boolean)','bigint',true,false,false),
+        ('content.admit_categorical_report_profiled(text,bigint,bigint,bigint,bytea,bytea,bytea,bytea,bytea,boolean,bigint,boolean)','bigint',true,false,false),
         ('content.report_category_form(text,bigint)','jsonb',true,true,true),
         ('content.admit_categorical_report(text,bigint,bigint,bigint,bytea,bytea,bytea,bytea,bytea,boolean,bigint)','bigint',true,false,true),
         ('content.set_report_catalog_active(bigint)','void',false,false,true),
@@ -511,6 +529,7 @@ AND NOT EXISTS (
         ('reports','reporter_cleared_at','SELECT'),('reports','reporter_cleared_at','UPDATE'),
         ('reports','board','SELECT'),('reports','post_id','SELECT'),
         ('reports','group_cleared_at','SELECT'),('reports','group_cleared_at','UPDATE'),
+        ('reports','auto_cleared_at','SELECT'),('reports','auto_cleared_at','UPDATE'),
         ('reports','group_cleared_by','SELECT'),('reports','group_cleared_by','UPDATE'),
         ('reports','group_clear_inherited','SELECT'),('reports','group_clear_inherited','UPDATE'),
         ('boards','worksafe','SELECT'),('post_media','post_id','SELECT'),
@@ -666,9 +685,9 @@ AND EXISTS (
           WHERE k.conrelid=c.oid AND k.contype IN ('u','x'))
       AND NOT EXISTS (
           SELECT 1 FROM (VALUES
-              ('evaluator_version_check',ARRAY['evaluator_version'],'(evaluator_version=1)'),
+              ('evaluator_version_check',ARRAY['evaluator_version'],'(evaluator_version=ANY(ARRAY[1,2]))'),
               ('authenticated_janitor_or_higher_check',ARRAY['authenticated_janitor_or_higher'],'(authenticated_janitor_or_higherISNULL)'),
-              ('threat_at_least_point_four_check',ARRAY['threat_at_least_point_four'],'(threat_at_least_point_fourISNULL)'),
+              ('threat_at_least_point_four_check',ARRAY['evaluator_version','threat_at_least_point_four'],'(((evaluator_version=1)AND(threat_at_least_point_fourISNULL))OR((evaluator_version=2)AND(threat_at_least_point_fourISNOTNULL)))'),
               ('history_filtered_check',ARRAY['history_filtered'],'(history_filteredISNULL)'),
               ('effective_weight_check',ARRAY['effective_weight'],
                '(effective_weight<>ALL(ARRAY[''Infinity''::doubleprecision,''-Infinity''::doubleprecision,''NaN''::doubleprecision]))'),
@@ -776,9 +795,30 @@ AND EXISTS (
       AND lower(translate(pg_catalog.pg_get_expr(i.indpred,i.indrelid),' ()',''))
           ='group_cleared_atisnotnullandreporter_cleared_atisnull'
 )
+AND EXISTS (
+    SELECT 1 FROM relations c
+    JOIN pg_catalog.pg_index i ON i.indrelid=c.oid
+    JOIN pg_catalog.pg_class index_relation ON index_relation.oid=i.indexrelid
+    JOIN pg_catalog.pg_am method ON method.oid=index_relation.relam
+    WHERE c.nspname='content' AND c.relname='reports'
+      AND index_relation.relname='reports_auto_clear_history'
+      AND index_relation.relnamespace=(SELECT oid FROM pg_catalog.pg_namespace WHERE nspname='content')
+      AND index_relation.relkind='i' AND index_relation.relpersistence='p'
+      AND index_relation.relowner=c.relowner AND method.amname='btree'
+      AND NOT i.indisprimary AND NOT i.indisunique AND NOT i.indisexclusion
+      AND i.indisvalid AND i.indisready AND i.indislive AND i.indimmediate
+      AND i.indnkeyatts=2 AND i.indnatts=2 AND i.indexprs IS NULL
+      AND i.indkey[0]=(SELECT a.attnum FROM pg_catalog.pg_attribute a
+          WHERE a.attrelid=c.oid AND a.attname='board' AND a.attnum>0 AND NOT a.attisdropped)
+      AND i.indkey[1]=(SELECT a.attnum FROM pg_catalog.pg_attribute a
+          WHERE a.attrelid=c.oid AND a.attname='id' AND a.attnum>0 AND NOT a.attisdropped)
+      AND i.indoption::text='0 3'
+      AND lower(translate(pg_catalog.pg_get_expr(i.indpred,i.indrelid),' ()',''))
+          ='auto_cleared_atisnotnullandreporter_cleared_atisnull'
+)
 AND NOT EXISTS (
     SELECT 1 FROM (VALUES ('reports','reporter_cleared_at','timestamptz'),
-        ('reports','group_cleared_at','timestamptz'),
+        ('reports','group_cleared_at','timestamptz'),('reports','auto_cleared_at','timestamptz'),
         ('reports','group_cleared_by','int8'),('reports','group_clear_inherited','bool'),
         ('moderation_audit','reporter_clear_count','int8'),
         ('moderation_audit','group_clear_count','int8')) AS required(table_name,column_name,type_name)
@@ -812,12 +852,12 @@ AND EXISTS (
       AND NOT has_table_privilege(r.oid,c.oid,'UPDATE,TRUNCATE')
       AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
           WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
-            AND a.attname NOT IN ('reporter_cleared_at','group_cleared_at','group_cleared_by','group_clear_inherited')
+            AND a.attname NOT IN ('reporter_cleared_at','group_cleared_at','group_cleared_by','group_clear_inherited','auto_cleared_at')
             AND has_column_privilege(r.oid,c.oid,a.attnum,'UPDATE'))
       AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute column_acl
           CROSS JOIN LATERAL pg_catalog.aclexplode(column_acl.attacl) a
           WHERE column_acl.attrelid=c.oid
-            AND column_acl.attname IN ('reporter_cleared_at','group_cleared_at','group_cleared_by','group_clear_inherited')
+            AND column_acl.attname IN ('reporter_cleared_at','group_cleared_at','group_cleared_by','group_clear_inherited','auto_cleared_at')
             AND (a.is_grantable OR a.grantee<>r.oid OR a.privilege_type NOT IN ('SELECT','UPDATE')))
 )
 AND NOT EXISTS (
@@ -839,6 +879,40 @@ AND NOT EXISTS (
                   AND a.attnum>0 AND NOT a.attisdropped ORDER BY names.ordinal)
           AND lower(translate(replace(replace(pg_catalog.pg_get_expr(k.conbin,k.conrelid),
               '::text',''),'::bigint',''),' ()',''))=required.expression
+    )
+)
+-- Network helpers remain private to their owner and the report boundary.
+-- The restriction seal includes their definitions and ACLs, as well as callers.
+AND content.restrictions_ready()
+AND NOT EXISTS (
+    SELECT 1 FROM (VALUES
+        ('content','lock_report_network_policy','board_admission_owner',''::oidvector,'void',false,'plpgsql'),
+        ('content','report_network_rules','board_admission_owner','25 20 16'::oidvector,'record',true,'sql'),
+        ('post_secrets','report_network_activity','board_anonymous_owner','17 17 17 17 16 20'::oidvector,'record',true,'plpgsql'),
+        ('post_secrets','assert_report_network','board_report_admission_owner','25 20 17 17 17 17 17 16 20'::oidvector,'void',false,'plpgsql')
+    ) AS required(schema_name,function_name,owner_name,input_types,result_type,returns_set,language_name)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+        JOIN pg_catalog.pg_roles o ON o.oid=p.proowner
+        JOIN pg_catalog.pg_language l ON l.oid=p.prolang
+        CROSS JOIN owner_role report_owner
+        WHERE n.nspname=required.schema_name AND p.proname=required.function_name
+          AND o.rolname=required.owner_name AND p.proargtypes=required.input_types
+          AND NOT (o.rolcanlogin OR o.rolsuper OR o.rolcreatedb OR o.rolcreaterole OR o.rolreplication OR o.rolbypassrls)
+          AND p.prokind='f' AND p.prosecdef AND p.provolatile='v'
+          AND p.proretset=required.returns_set AND p.prorettype=to_regtype(required.result_type)
+          AND l.lanname=required.language_name AND p.pronargdefaults=0 AND p.provariadic=0
+          AND NOT p.proisstrict AND NOT p.proleakproof AND p.proparallel='u'
+          AND cardinality(p.proconfig)=1
+          AND replace(p.proconfig[1],' ','')='search_path=pg_catalog,pg_temp'
+          AND NOT has_schema_privilege(o.oid,n.oid,'CREATE')
+          AND has_function_privilege(report_owner.oid,p.oid,'EXECUTE')
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles runtime
+              WHERE runtime.rolname IN ('board_public','board_staff','board_auth','board_migrator','board_media','board_media_read','board_media_intake')
+                AND has_function_privilege(runtime.oid,p.oid,'EXECUTE'))
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+              WHERE a.is_grantable OR a.grantee NOT IN (o.oid,report_owner.oid))
     )
 )
 -- Pre-report observation is an anonymous-owner boundary, callable only by the
@@ -881,4 +955,23 @@ AND NOT EXISTS (
         WHERE n.nspname=required.schema_name AND has_schema_privilege(r.oid,n.oid,'USAGE')
           AND NOT has_schema_privilege(r.oid,n.oid,'CREATE')
     )
+)
+AND content.report_profile_ready()
+AND content.post_notices_ready()
+AND EXISTS (
+ SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ JOIN pg_language l ON l.oid=p.prolang
+ WHERE n.nspname='post_secrets' AND p.proname='auto_clear_post_reports'
+  AND p.proowner='board_report_admission_owner'::regrole AND p.proargtypes='25 20'::oidvector
+  AND p.prorettype='pg_catalog.int8'::regtype AND p.prokind='f' AND p.prosecdef
+  AND p.provolatile='v' AND NOT p.proretset AND NOT p.proisstrict AND NOT p.proleakproof
+  AND p.proparallel='u' AND l.lanname='plpgsql' AND p.pronargdefaults=0 AND p.provariadic=0
+  AND cardinality(p.proconfig)=1 AND replace(p.proconfig[1],' ','')='search_path=pg_catalog,pg_temp'
+  AND has_function_privilege('board_restriction_owner',p.oid,'EXECUTE')
+  AND has_schema_privilege('board_restriction_owner','post_secrets','USAGE')
+  AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname IN('board_public','board_staff','board_auth','board_migrator',
+   'board_media','board_media_read','board_media_intake','board_monitor','board_verifier','board_mailer','board_moderation_retention')
+   AND has_function_privilege(r.oid,p.oid,'EXECUTE'))
+  AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+   WHERE a.is_grantable OR a.grantee NOT IN(p.proowner,'board_restriction_owner'::regrole))
 )"#;

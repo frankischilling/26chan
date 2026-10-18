@@ -2,7 +2,7 @@
 {% macro report(r, moderator) %}
 <article id="report-{{ r.id }}"><h3>Report {{ r.id }}: post {{ r.post_id }}</h3>
 <p>Original report disposition: {{ r.state }}</p>
-<p>{% if moderator %}{% if let Some(actor) = r.group_cleared_by %}Originating clear account: {{ actor }}; {% endif %}{% endif %}originating clear time: {{ r.group_cleared_at }}; inherited clear: {{ r.group_clear_inherited }}.</p>
+<p>{% if moderator %}{% if let Some(actor) = r.group_cleared_by %}Originating clear account: {{ actor }}; {% endif %}{% endif %}{% if let Some(at) = r.group_cleared_at %}originating clear time: {{ at }}; {% endif %}inherited clear: {{ r.group_clear_inherited }}.{% if moderator %}{% if let Some(at) = r.auto_cleared_at %} Automatic clear time: {{ at }}.{% endif %}{% endif %}</p>
 {% if moderator %}{% if let Some(category) = r.category_id %}<p>Category: {{ category }}</p>{% endif %}{% if let Some(reason) = r.reason %}<p>Reason: {{ reason }}</p>{% endif %}{% endif %}
 </article>
 {% endmacro %}
@@ -16,6 +16,7 @@
 {% if has_more %}<p class="cleared-groups-truncated">More cleared post groups are retained; showing the newest 100 groups.</p>{% endif %}
 {% for group in groups %}
 <section id="cleared-report-group-{{ group.post_id }}"><h2>/{{ board }}/ post {{ group.post_id }}</h2>
+{% if moderator %}{% if group.automatic_clear %}<p>Auto-clear</p>{% endif %}{% endif %}
 <p>Selected report ID: {{ group.representative.id }}.</p>
 {% call report(group.representative, moderator) %}{% endcall %}
 {% if let Some(preview) = group.preview %}{% call postview::post(preview, media_origin) %}{% endcall %}{% else %}<p class="report-snapshot-missing">No report-time post snapshot is retained for this report.</p>{% endif %}

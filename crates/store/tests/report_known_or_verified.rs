@@ -78,6 +78,39 @@ async fn known(
     result
 }
 
+async fn network_profile(
+    c: &mut PgConnection,
+    token: &[u8; 32],
+    minted: bool,
+    at: u64,
+    changes: Changes,
+) -> (i64, i64, i32, i32, i32, bool) {
+    sqlx::query("SET LOCAL ROLE board_report_admission_owner")
+        .execute(&mut *c)
+        .await
+        .unwrap();
+    let result =
+        sqlx::query_as("SELECT * FROM post_secrets.report_network_activity($1,$2,$3,$4,$5,$6)")
+            .bind(token.as_slice())
+            .bind(if changes.network { [31; 32] } else { NETWORK }.to_vec())
+            .bind(if changes.address { [32; 32] } else { ADDRESS }.to_vec())
+            .bind(
+                if changes.environment {
+                    [33; 32]
+                } else {
+                    ENVIRONMENT
+                }
+                .to_vec(),
+            )
+            .bind(minted)
+            .bind(at as i64)
+            .fetch_one(&mut *c)
+            .await
+            .unwrap();
+    sqlx::query("RESET ROLE").execute(c).await.unwrap();
+    result
+}
+
 #[tokio::test]
 async fn pure_helper_matches_resumed_rust_state_at_age_count_idle_and_change_boundaries() {
     let owner = login("MIGRATION_DATABASE_URL", "board_migrator").await;
@@ -197,6 +230,18 @@ async fn pure_helper_matches_resumed_rust_state_at_age_count_idle_and_change_bou
             known(&mut tx, &token, false, at, changes).await,
             resumed.is_known_or_verified(at, 60, 0),
             "{label}"
+        );
+        assert_eq!(
+            network_profile(&mut tx, &token, false, at, changes).await,
+            (
+                resumed.created_at as i64,
+                resumed.network_at as i64,
+                i32::from(resumed.change_score),
+                i32::from(resumed.post_count()),
+                i32::from(resumed.report_count()),
+                resumed.verified_level > 0
+            ),
+            "report network projection: {label}"
         );
         assert_eq!(
             snapshot(&mut tx, &token).await,

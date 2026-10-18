@@ -106,6 +106,9 @@ async fn public_form_to_private_queue_and_browser_rotation_round_trip() {
         axum::serve(listener, service).await.unwrap();
     });
     let state = AppState {
+        asn_database: None,
+        browser_hint_key: None,
+        posting_browser_compat_key: None,
         pool: public.clone(),
         origin: "http://127.0.0.1:3000".into(),
         production: false,

@@ -28,8 +28,17 @@ pub struct AnonymousPostingContext {
 }
 
 pub struct ProtectedPostingContext {
+    pub request_facts: Option<crate::posting_classifiers::RequestFacts>,
     pub anonymous: AnonymousPostingContext,
     pub challenge: Option<WriteChallengeProof>,
+}
+
+/// Server-owned providers are resolved against this posting context's trusted
+/// peer. A caller cannot substitute a pre-resolved ASN or a public header.
+pub struct NetworkPostingContext<'a, C> {
+    pub hints: Option<&'a board_domain::content_admission::network::hints::DerivedHints>,
+    pub posting: C,
+    pub asn_database: Option<&'a board_domain::content_admission::network::asn::Database>,
 }
 
 pub async fn create_post(
@@ -193,6 +202,9 @@ pub async fn create_post_with_metadata(
         attachment,
         context,
         PostWriteOptions {
+            request_facts: None,
+            hints: None,
+            asn_database: None,
             metadata,
             staff: None,
             anonymous: None,
@@ -219,6 +231,9 @@ pub async fn create_post_with_anonymous_session(
         attachment,
         context.posting,
         PostWriteOptions {
+            request_facts: None,
+            hints: None,
+            asn_database: None,
             metadata,
             staff: None,
             anonymous: Some(context.session),
@@ -237,6 +252,36 @@ pub async fn create_post_with_challenge(
     context: ProtectedPostingContext,
     metadata: PostMetadata<'_>,
 ) -> Result<i64, StoreError> {
+    create_protected_post_with_network(
+        pool,
+        slug,
+        parent,
+        post,
+        attachment,
+        NetworkPostingContext {
+            hints: None,
+            posting: context,
+            asn_database: None,
+        },
+        metadata,
+    )
+    .await
+}
+
+pub async fn create_protected_post_with_network(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: NetworkPostingContext<'_, ProtectedPostingContext>,
+    metadata: PostMetadata<'_>,
+) -> Result<i64, StoreError> {
+    let NetworkPostingContext {
+        hints,
+        posting: context,
+        asn_database,
+    } = context;
     create_post_in_context(
         pool,
         slug,
@@ -245,6 +290,9 @@ pub async fn create_post_with_challenge(
         attachment,
         context.anonymous.posting,
         PostWriteOptions {
+            request_facts: context.request_facts,
+            hints,
+            asn_database,
             metadata,
             staff: None,
             anonymous: Some(context.anonymous.session),
@@ -351,6 +399,36 @@ pub async fn create_staff_post_with_attachment_and_context_and_keys(
     keys: PostIdentityKeys<'_>,
     authority: StaffPostAuthority<'_>,
 ) -> Result<i64, StoreError> {
+    create_staff_post_with_network(
+        pool,
+        slug,
+        parent,
+        content,
+        NetworkPostingContext {
+            hints: None,
+            posting: context,
+            asn_database: None,
+        },
+        keys,
+        authority,
+    )
+    .await
+}
+
+pub async fn create_staff_post_with_network(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    content: StaffPostContent<'_>,
+    context: NetworkPostingContext<'_, PostingContext>,
+    keys: PostIdentityKeys<'_>,
+    authority: StaffPostAuthority<'_>,
+) -> Result<i64, StoreError> {
+    let NetworkPostingContext {
+        hints,
+        posting: context,
+        asn_database,
+    } = context;
     let StaffPostContent { post, attachment } = content;
     if attachment.is_some() && authority.identity.is_none() {
         return Err(StoreError::Invalid("Source staff identity is required."));
@@ -374,6 +452,9 @@ pub async fn create_staff_post_with_attachment_and_context_and_keys(
         attachment,
         context,
         PostWriteOptions {
+            request_facts: None,
+            hints,
+            asn_database,
             metadata: PostMetadata {
                 spoiler: false,
                 keys,
@@ -438,6 +519,36 @@ pub async fn create_ordinary_staff_post_with_attachment(
     metadata: PostMetadata<'_>,
     authority: StaffPostAuthority<'_>,
 ) -> Result<i64, StoreError> {
+    create_ordinary_staff_post_with_network(
+        pool,
+        slug,
+        parent,
+        content,
+        NetworkPostingContext {
+            hints: None,
+            posting: context,
+            asn_database: None,
+        },
+        metadata,
+        authority,
+    )
+    .await
+}
+
+pub async fn create_ordinary_staff_post_with_network(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    content: StaffPostContent<'_>,
+    context: NetworkPostingContext<'_, PostingContext>,
+    metadata: PostMetadata<'_>,
+    authority: StaffPostAuthority<'_>,
+) -> Result<i64, StoreError> {
+    let NetworkPostingContext {
+        hints,
+        posting: context,
+        asn_database,
+    } = context;
     let StaffPostContent { post, attachment } = content;
     if authority
         .identity
@@ -463,6 +574,9 @@ pub async fn create_ordinary_staff_post_with_attachment(
         attachment,
         context,
         PostWriteOptions {
+            request_facts: None,
+            hints,
+            asn_database,
             metadata,
             staff: Some(authority),
             anonymous: None,
@@ -497,6 +611,9 @@ pub async fn staff_op_deletion_hash(
 }
 
 struct PostWriteOptions<'a> {
+    request_facts: Option<crate::posting_classifiers::RequestFacts>,
+    hints: Option<&'a board_domain::content_admission::network::hints::DerivedHints>,
+    asn_database: Option<&'a board_domain::content_admission::network::asn::Database>,
     metadata: PostMetadata<'a>,
     staff: Option<StaffPostAuthority<'a>>,
     anonymous: Option<anonymous_session::PostingSession>,
@@ -513,11 +630,20 @@ async fn create_post_in_context(
     options: PostWriteOptions<'_>,
 ) -> Result<i64, StoreError> {
     let PostWriteOptions {
+        request_facts,
+        hints,
+        asn_database,
         metadata,
         staff,
         anonymous,
         challenge,
     } = options;
+    // The source posting entry point hides /test/ from unauthenticated users.
+    // Its authenticated moderator/developer gate is checked by the auth read
+    // below, independently of the selected capcode.
+    if slug == "test" && staff.is_none() {
+        return Err(StoreError::NotFound);
+    }
     if staff.is_some() && attachment.is_none() && metadata.spoiler {
         return Err(StoreError::Invalid("Invalid staff posting metadata."));
     }
@@ -566,6 +692,22 @@ async fn create_post_in_context(
             ))
         })?;
         key.public_posting_rate_identity(peer)
+    };
+    // Preserve unavailable versus successful no-record results. Policy decides
+    // whether this provider is needed, after earlier admission stages run.
+    let asn = match (asn_database, context.peer) {
+        (Some(database), Some(peer)) => match database.lookup(peer.to_canonical()) {
+            Ok(value) => board_domain::content_admission::network::ProviderValue::Available(value),
+            Err(_) => board_domain::content_admission::network::ProviderValue::Unavailable,
+        },
+        _ => board_domain::content_admission::network::ProviderValue::Unavailable,
+    };
+    let staff_network_bypass = if (ordinary || slug == "test")
+        && let Some(authority) = &staff
+    {
+        crate::content_admission::staff::network_bypass(authority, slug).await?
+    } else {
+        false
     };
     let mut tx = pool.begin().await?;
     // The decision must see the preceding actor's commit after waiting on its
@@ -625,7 +767,40 @@ async fn create_post_in_context(
     // Source filters ordinary staff posts too; cosmetic badges do not confer
     // public identity or bypass authority on an unbadged post.
     let admission = if ordinary || slug == "test" {
-        Some(crate::content_admission::begin(&mut tx, slug, context.peer, anonymous).await?)
+        Some(
+            crate::content_admission::begin(
+                &mut tx,
+                slug,
+                context.peer,
+                anonymous,
+                context.request_start.timestamp(),
+                crate::content_admission::NetworkContext {
+                    asn,
+                    hints: hints.cloned().unwrap_or_default(),
+                    staff_bypass: staff_network_bypass,
+                },
+            )
+            .await?,
+        )
+    } else {
+        None
+    };
+    // The row is already locked. Staff proof is validated by its post INSERT
+    // before reaching the late public-only path; a badge alone cannot get there.
+    let late_enabled = if staff.is_none() {
+        sqlx::query_scalar::<_, bool>("SELECT captcha_enabled FROM content.boards WHERE slug=$1")
+            .bind(slug)
+            .fetch_one(&mut *tx)
+            .await?
+    } else {
+        false
+    };
+    let late_activity = admission
+        .as_ref()
+        .map(|snapshot| snapshot.posting_activity());
+    let late_thread: Option<(String, String)> = if late_enabled && parent != 0 {
+        sqlx::query_as("SELECT subject,comment FROM content.posts WHERE board=$1 AND id=$2 AND thread_id=$2 AND NOT deleted")
+            .bind(slug).bind(parent).fetch_optional(&mut *tx).await?
     } else {
         None
     };
@@ -640,19 +815,19 @@ async fn create_post_in_context(
             .map_err(|_| StoreError::RandomnessUnavailable)
     })
     .transpose()?;
-    let (dice_result, fortune_text, fortune_color) = match special {
+    let (dice_result, fortune_text, fortune_color) = match &special {
         Some(board_domain::posting_randomizers::Outcome::Dice(result)) => {
-            (Some(result), None, None)
+            (Some(result.as_str()), None, None)
         }
         Some(board_domain::posting_randomizers::Outcome::Fortune { text, color }) => {
-            (None, Some(text), Some(color))
+            (None, Some(*text), Some(color.as_str()))
         }
         None => (None, None, None),
     };
     sqlx::query("SELECT set_config('board.dice_result',$1,true),set_config('board.fortune_text',$2,true),set_config('board.fortune_color',$3,true)")
-        .bind(dice_result.as_deref().unwrap_or(""))
+        .bind(dice_result.unwrap_or(""))
         .bind(fortune_text.unwrap_or(""))
-        .bind(fortune_color.as_deref().unwrap_or(""))
+        .bind(fortune_color.unwrap_or(""))
         .execute(&mut *tx)
         .await?;
     board.check_attachment_allowed(parent, attachment.is_some())?;
@@ -885,6 +1060,39 @@ async fn create_post_in_context(
         )
         .await?;
     }
+    // Validate the exact attachment before any filter can commit effects. This
+    // also covers badged staff; only the later exact-file rule is badge-exempt.
+    let attachment_admission = if let Some(attachment) = attachment {
+        Some(
+            crate::content_admission::attachment::Preflight::begin(
+                &mut tx,
+                attachment,
+                crate::content_admission::attachment::Target {
+                    board: slug,
+                    parent,
+                    authorized: authorized_staff,
+                    badged: staff
+                        .as_ref()
+                        .and_then(|authority| authority.identity)
+                        .is_some_and(|identity| identity.capcode.is_some()),
+                },
+            )
+            .await?,
+        )
+    } else {
+        None
+    };
+    // Source checks retained template-ban history for every upload, including
+    // badged staff, before content filters can record or commit other effects.
+    if let Some(metadata) = &attachment_admission
+        && metadata.prior_banned(&mut tx).await?
+    {
+        metadata.revalidate(&mut tx).await?;
+        if let Some(authority) = &staff {
+            crate::content_admission::staff::revalidate_refusal(&mut tx, authority, slug).await?;
+        }
+        return Err(StoreError::ContentRejected("Error: Upload failed.".into()));
+    }
     // Only public display text and an already-derived legacy hash enter the
     // source hook. Suppressed or modern secure-trip secrets never do.
     let admission_name = match &identity.trip {
@@ -905,16 +1113,10 @@ async fn create_post_in_context(
     });
     let mut autosage_proof = None;
     if let Some(admission) = admission {
-        let filename = if let Some(attachment) = attachment {
-            sqlx::query_scalar("SELECT content.attachment_upload_filename($1,$2)")
-                .bind(&attachment.upload.id)
-                .bind(&attachment.upload.capability)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(post_media::scoped_error)?
-        } else {
-            String::new()
-        };
+        let filename = attachment_admission
+            .as_ref()
+            .map(|metadata| metadata.filename().to_owned())
+            .unwrap_or_default();
         let evaluated = admission
             .evaluate(crate::content_admission::Input {
                 board: slug.into(),
@@ -925,12 +1127,21 @@ async fn create_post_in_context(
                 legacy_trip,
                 moderator: authorized_staff,
                 subject: board_domain::source_html_entities(content.subject()),
-                comment: board_domain::source_html_entities(content.comment()),
+                comment: content
+                    .admission_comment(special.as_ref())
+                    .map_err(|error| StoreError::Invalid(error.0))?,
                 filename,
             })
             .await?;
         evaluated.record(&mut tx).await?;
         if let Some(message) = evaluated.rejection() {
+            if let Some(metadata) = &attachment_admission {
+                metadata.revalidate(&mut tx).await?;
+            }
+            if let Some(authority) = &staff {
+                crate::content_admission::staff::revalidate_refusal(&mut tx, authority, slug)
+                    .await?;
+            }
             tx.commit().await?;
             return Err(StoreError::ContentRejected(message));
         }
@@ -939,11 +1150,63 @@ async fn create_post_in_context(
             board_domain::content_admission::Decision::Reject { quiet: true, .. }
         ) {
             let post = crate::content_admission::quiet_post(&mut tx, slug, parent).await?;
+            if let Some(metadata) = &attachment_admission {
+                metadata.revalidate(&mut tx).await?;
+            }
+            if let Some(authority) = &staff {
+                crate::content_admission::staff::revalidate_refusal(&mut tx, authority, slug)
+                    .await?;
+            }
             tx.commit().await?;
             return Err(StoreError::ContentQuiet { post });
         }
         autosage_proof = evaluated.autosage_proof();
-        if let Some(message) = evaluated.trip_rejection() {
+        if let Some(message) = evaluated.network_rejection(board.worksafe, attachment.is_some())? {
+            return Err(StoreError::ContentRejected(message));
+        }
+        if let Some(hit) = evaluated
+            .automatic_rejection(
+                &mut tx,
+                keys.poster_id
+                    .ok_or(StoreError::Invalid("Posting identity is unavailable."))?,
+            )
+            .await?
+        {
+            // Validate the attempted attachment at the refusal decision too;
+            // expired capabilities must not produce a new derivative hit.
+            if let Some(metadata) = &attachment_admission {
+                metadata.revalidate(&mut tx).await?;
+            }
+            // Preserve only the derivative hit. Earlier filter logs, autosage,
+            // challenge state and other posting effects must all roll back.
+            tx.rollback().await?;
+            // Counter failure cannot turn a definite admission refusal into
+            // acceptance. The recorder independently rechecks the live event.
+            let cookie_refreshed = hit.record(pool, anonymous).await.unwrap_or(false);
+            return Err(StoreError::AutomaticRangeRejected { cookie_refreshed });
+        }
+        if let Some(metadata) = &attachment_admission
+            && let Some(file) = crate::content_admission::files::candidate(
+                &mut tx,
+                metadata,
+                board.worksafe,
+                evaluated.revision(),
+            )
+            .await?
+        {
+            metadata.revalidate(&mut tx).await?;
+            // The exclusive restriction writer must never upgrade the shared
+            // posting gate. Discard earlier provisional posting effects first.
+            tx.rollback().await?;
+            let peer = context
+                .peer
+                .ok_or(StoreError::Invalid("Posting identity is unavailable."))?;
+            let refusal = file
+                .record(pool, &posting_actor, peer, anonymous, staff.as_ref())
+                .await?;
+            return Err(StoreError::FileRejected(refusal));
+        }
+        if let Some(message) = evaluated.identity_rejection().await? {
             // Later admission failures share the posting transaction. Do not
             // retain a preceding log/autosage hit from an incomplete post.
             return Err(StoreError::ContentRejected(message.into()));
@@ -958,38 +1221,52 @@ async fn create_post_in_context(
         return Err(StoreError::ContentRejected(message.into()));
     }
     let board_domain::PreparedPostContent { comment, subject } = content
-        .finish()
+        .finish_with_randomizer(special.as_ref())
         .map_err(|error| StoreError::Invalid(error.0))?;
-    let mut wordfiltered = if board.word_filter_enabled {
+    let mut wordfiltered = if board.word_filter_enabled || special.is_some() {
         use board_domain::wordfilter::{LeetRolls, Profile};
-        let profile = match board.word_filter_profile {
-            0 => Profile::Global,
-            1 => Profile::Basic,
-            2 => Profile::Asp,
-            3 => Profile::Video,
-            4 => Profile::Test,
-            _ => return Err(StoreError::Invalid("Wordfilter policy is unavailable.")),
+        let profile = if board.word_filter_enabled {
+            Some(match board.word_filter_profile {
+                0 => Profile::Global,
+                1 => Profile::Basic,
+                2 => Profile::Asp,
+                3 => Profile::Video,
+                4 => Profile::Test,
+                _ => return Err(StoreError::Invalid("Wordfilter policy is unavailable.")),
+            })
+        } else {
+            None
         };
-        let rolls = if profile == Profile::Test {
+        let rolls = if profile == Some(Profile::Test) {
             Some(LeetRolls::generate().map_err(|_| StoreError::RandomnessUnavailable)?)
         } else {
             None
         };
-        Some(
-            board_domain::wordfiltered_comment::prepare_with_limits(
+        let markup = board_domain::comment_markup::MarkupPolicy {
+            spoilers: board.comment_spoiler_cleanup,
+            code: board.comment_code_spacing,
+            sjis: board.comment_sjis_spacing,
+            op: op_markup,
+        };
+        let prepared = if let Some(outcome) = &special {
+            board_domain::wordfiltered_comment::prepare_with_randomizer(
                 &comment,
-                board_domain::comment_markup::MarkupPolicy {
-                    spoilers: board.comment_spoiler_cleanup,
-                    code: board.comment_code_spacing,
-                    sjis: board.comment_sjis_spacing,
-                    op: op_markup,
-                },
+                markup,
                 profile,
                 rolls,
                 post_limits,
+                outcome,
             )
-            .map_err(|error| StoreError::Invalid(error.0))?,
-        )
+        } else {
+            board_domain::wordfiltered_comment::prepare_with_limits(
+                &comment,
+                markup,
+                profile.expect("enabled board wordfilter"),
+                rolls,
+                post_limits,
+            )
+        };
+        Some(prepared.map_err(|error| StoreError::Invalid(error.0))?)
     } else {
         None
     };
@@ -1001,9 +1278,17 @@ async fn create_post_in_context(
         .map(board_domain::wordfiltered_comment::PreparedComment::encode)
         .transpose()
         .map_err(|error| StoreError::Invalid(error.0))?;
-    let formatted = wordfiltered
-        .as_ref()
-        .map(|prepared| board_domain::filtered_formatting::lines_for_post(prepared, slug, 232));
+    let formatted = wordfiltered.as_ref().map(|prepared| {
+        board_domain::filtered_formatting::lines_for_post(
+            prepared,
+            slug,
+            if prepared.has_generated_content() {
+                488
+            } else {
+                232
+            },
+        )
+    });
     let wordfilter_search = formatted
         .as_ref()
         .map(|lines| board_domain::formatting::plain_text(lines));
@@ -1075,7 +1360,7 @@ async fn create_post_in_context(
     } else {
         None
     };
-    if robot_actor.is_some() {
+    if robot_actor.is_some() || late_enabled {
         sqlx::query("SAVEPOINT robot9000_post")
             .execute(&mut *tx)
             .await?;
@@ -1449,6 +1734,24 @@ async fn create_post_in_context(
     // The insert-only trigger registers history inside the post savepoint.
     // A Robot9000 rejection rolls it back together with the post and actions.
     crate::posting_cooldown::set_insert_actor(&mut tx, &posting_actor).await?;
+    // Source capture also includes badged staff, independently of filter scope.
+    // Both inputs were required when deriving posting_actor above.
+    crate::content_admission::automatic::install_metadata(
+        &mut tx,
+        crate::content_admission::automatic::Capture {
+            board: slug,
+            parent,
+            actor: &posting_actor,
+            key: keys
+                .poster_id
+                .ok_or(StoreError::Invalid("Posting identity is unavailable."))?,
+            peer: context
+                .peer
+                .ok_or(StoreError::Invalid("Posting identity is unavailable."))?,
+            hints,
+        },
+    )
+    .await?;
     if let Some(attachment) = attachment.filter(|_| staff.is_none()) {
         sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
             .bind(id)
@@ -1512,7 +1815,7 @@ async fn create_post_in_context(
             .execute(&mut *tx)
             .await?;
     }
-    if let Some(actor) = robot_actor {
+    let robot_checked = if let Some(actor) = robot_actor {
         let prepared = if wordfiltered.is_some() {
             board_domain::robot9000::prepare(&comment)
         } else {
@@ -1531,21 +1834,79 @@ async fn create_post_in_context(
         let now = Utc::now()
             .with_nanosecond(0)
             .ok_or(StoreError::Invalid("Invalid posting timestamp."))?;
-        let decision = crate::robot9000::check(&mut tx, slug, &actor, &prepared, now).await?;
-        if let crate::robot9000::Decision::Reject(message) = &decision {
+        let checked =
+            crate::robot9000::Checked::evaluate(&mut tx, slug, actor, prepared, now).await?;
+        if let crate::robot9000::Decision::Reject(message) = checked.decision() {
             sqlx::query("ROLLBACK TO SAVEPOINT robot9000_post")
                 .execute(&mut *tx)
                 .await?;
             // The pre-savepoint board lock prevents another writer changing
             // the decision between rollback and the state-only commit.
-            if crate::robot9000::check(&mut tx, slug, &actor, &prepared, now).await? != decision {
-                return Err(StoreError::Database(sqlx::Error::Protocol(
-                    "Robot9000 decision changed under the board lock.".into(),
-                )));
-            }
+            checked.replay(&mut tx).await?;
             tx.commit().await?;
             return Err(StoreError::Robot9000Rejected(message.clone()));
         }
+        Some(checked)
+    } else {
+        None
+    };
+    if late_enabled {
+        use crate::posting_classifiers::{
+            self,
+            plan::{self, Outcome},
+        };
+        let (activity, activity_at) = late_activity.ok_or_else(|| {
+            StoreError::Database(sqlx::Error::Protocol(
+                "Posting activity is unavailable.".into(),
+            ))
+        })?;
+        let decision = plan::evaluate(
+            &mut tx,
+            plan::Context {
+                board: slug,
+                parent,
+                image: attachment.is_some(),
+                actor: activity.as_ref(),
+                activity_at,
+                session: anonymous.as_ref(),
+                posting: context,
+                thread: late_thread.as_ref(),
+                facts: request_facts.as_ref(),
+            },
+        )
+        .await?;
+        if decision.outcome != Outcome::Continue {
+            sqlx::query("ROLLBACK TO SAVEPOINT robot9000_post")
+                .execute(&mut *tx)
+                .await?;
+            if let Some(checked) = robot_checked.as_ref() {
+                checked.replay(&mut tx).await?;
+            }
+            let country_refusal = decision.outcome == Outcome::CountryRange;
+            if country_refusal {
+                posting_classifiers::record_country_refusal_in_transaction(
+                    &mut tx,
+                    slug,
+                    anonymous.as_ref().ok_or(StoreError::AuthorizationChanged)?,
+                )
+                .await?;
+            }
+            plan::record(&mut tx, slug, parent, &decision).await?;
+            let quiet = if decision.outcome == Outcome::Quiet {
+                Some(crate::content_admission::quiet_post(&mut tx, slug, parent).await?)
+            } else {
+                None
+            };
+            tx.commit().await?;
+            return Err(StoreError::PostingClassifierRejected(
+                posting_classifiers::Refusal {
+                    quiet,
+                    image: decision.outcome == Outcome::ImageRange,
+                    cookie_refreshed: country_refusal,
+                },
+            ));
+        }
+        plan::record(&mut tx, slug, parent, &decision).await?;
     }
     if let Some(session) = anonymous {
         anonymous_session::record_post(&mut tx, session, slug, id).await?;
@@ -1783,11 +2144,32 @@ pub async fn report(
     reason: &str,
     identity: &board_domain::poster_id::PublicReportRateIdentity,
 ) -> Result<(), StoreError> {
+    report_with_network_source(
+        pool,
+        slug,
+        id,
+        reason,
+        identity,
+        crate::ReportNetworkSource::unavailable(),
+    )
+    .await
+}
+
+pub async fn report_with_network_source(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    reason: &str,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+    source: crate::ReportNetworkSource<'_>,
+) -> Result<(), StoreError> {
+    let prepared_network = source.prepare(slug, id, identity)?;
     validate_report_reason(reason)?;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::report_admission::network::install(&mut tx, &prepared_network).await?;
     crate::write_challenge::install_report_epoch(&mut tx, identity).await?;
     crate::restrictions::prepare_report(
         &mut tx,
@@ -1842,12 +2224,37 @@ pub async fn report_with_challenge(
     identity: &board_domain::poster_id::PublicReportRateIdentity,
     context: ProtectedReportingContext,
 ) -> Result<(), StoreError> {
+    report_with_network(
+        pool,
+        slug,
+        id,
+        reason,
+        identity,
+        crate::NetworkReportingContext::unavailable(context),
+    )
+    .await
+}
+
+pub async fn report_with_network(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    reason: &str,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+    network: crate::NetworkReportingContext<'_>,
+) -> Result<(), StoreError> {
+    let prepared_network = network.prepare(slug, id, identity)?;
+    let threshold = network
+        .request_facts
+        .and_then(|facts| facts.threshold(network.request_start, network.peer, slug, id));
+    let context = network.protected;
     let session = context.session;
     validate_report_reason(reason)?;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::report_admission::network::install(&mut tx, &prepared_network).await?;
     crate::write_challenge::install(&mut tx, context.challenge.as_ref(), Some(&session)).await?;
     crate::write_challenge::install_report_exemption(
         &mut tx,
@@ -1865,8 +2272,10 @@ pub async fn report_with_challenge(
         session.now.timestamp(),
     )
     .await?;
-    crate::report_admission::admit_with_session_on(&mut tx, slug, id, reason, identity, session)
-        .await?;
+    crate::report_admission::admit_with_session_on(
+        &mut tx, slug, id, reason, identity, session, threshold,
+    )
+    .await?;
     tx.commit().await?;
     Ok(())
 }
@@ -1908,11 +2317,38 @@ pub async fn report_categorical_with_challenge(
     identity: &board_domain::poster_id::PublicReportRateIdentity,
     context: ProtectedReportingContext,
 ) -> Result<(), StoreError> {
+    report_categorical_with_network(
+        pool,
+        slug,
+        id,
+        category_id,
+        expected_revision,
+        identity,
+        crate::NetworkReportingContext::unavailable(context),
+    )
+    .await
+}
+
+pub async fn report_categorical_with_network(
+    pool: &PgPool,
+    slug: &str,
+    id: i64,
+    category_id: i64,
+    expected_revision: i64,
+    identity: &board_domain::poster_id::PublicReportRateIdentity,
+    network: crate::NetworkReportingContext<'_>,
+) -> Result<(), StoreError> {
+    let prepared_network = network.prepare(slug, id, identity)?;
+    let threshold = network
+        .request_facts
+        .and_then(|facts| facts.threshold(network.request_start, network.peer, slug, id));
+    let context = network.protected;
     let session = context.session;
     let mut tx = pool.begin().await?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
         .execute(&mut *tx)
         .await?;
+    crate::report_admission::network::install(&mut tx, &prepared_network).await?;
     crate::write_challenge::install(&mut tx, context.challenge.as_ref(), Some(&session)).await?;
     crate::write_challenge::install_report_exemption(
         &mut tx,
@@ -1934,10 +2370,10 @@ pub async fn report_categorical_with_challenge(
         &mut tx,
         slug,
         id,
-        category_id,
-        expected_revision,
+        (category_id, expected_revision),
         identity,
         session,
+        threshold,
     )
     .await?;
     tx.commit().await?;

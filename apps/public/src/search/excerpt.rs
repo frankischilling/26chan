@@ -10,6 +10,9 @@ fn close(open: &Token) -> Option<Token> {
         Token::FilteredDelimiter(delimiter) if delimiter.valid_element() && delimiter.opening() => {
             Some(Token::FilteredDelimiter(delimiter.closing()))
         }
+        Token::FilteredGenerated(delimiter) if delimiter.valid_element() && delimiter.opening() => {
+            Some(Token::FilteredGenerated(delimiter.closing()))
+        }
         Token::GeneratedBold(true) => Some(Token::GeneratedBold(false)),
         Token::GeneratedSmall(true) => Some(Token::GeneratedSmall(false)),
         Token::GeneratedFortune(true, color) => Some(Token::GeneratedFortune(false, color.clone())),

@@ -311,6 +311,18 @@ async fn drawing_sql_snapshot_and_mtls_publish_only_complete_checked_pairs() {
             assert_eq!(source.2, "png-v1");
             assert_eq!(source.3, 73);
             assert_eq!(source.4, hex("b4e7464f29bcc44451c570504d61030b"));
+            let original: (String, i64, String, String) = sqlx::query_as(
+                "SELECT sha256,bytes,encode(md5,'hex'),component FROM media.input_receipts WHERE asset_id=$1"
+            ).bind(&asset.id).fetch_one(&admin).await.unwrap();
+            assert_eq!(
+                original,
+                (
+                    "f482035298dcdf31dca1ce576adea047626ddb9deff6c5bfce3cf1ea68b15357".into(),
+                    103,
+                    "bba97d5f7c82799c74d28aa19762459b".into(),
+                    "paired-image".into()
+                )
+            );
             let replay: Option<(String, i64)> =
                 sqlx::query_as("SELECT sha256,bytes FROM media.replay_assets WHERE asset_id=$1")
                     .bind(&asset.id)

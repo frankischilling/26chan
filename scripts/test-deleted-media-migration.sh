@@ -57,6 +57,28 @@ SQL
 "${migrator[@]}" --single-transaction -f migrations/0143_deleted_media_metadata.sql
 [[ $("${migrator[@]}" -Atc "SELECT count(*) FROM content.post_media WHERE filename='owned-private.png' AND NOT metadata_erased") = 71 ]]
 export MIGRATION_DATABASE_URL="postgresql://board_migrator@localhost/media_erasure?host=$cluster"
+# The current operator checks the current report and restriction catalog too.
+# Prove that the historical intermediate schema is refused before upgrading it.
+metadata_snapshot="SELECT encode(sha256(convert_to(jsonb_agg(jsonb_build_array(post_id,job_id,asset_id,filename,bytes,width,height,spoiler,created_at,file_deleted,metadata_erased) ORDER BY post_id)::text,'UTF8')),'hex') FROM content.post_media"
+before_metadata=$("${migrator[@]}" -Atc "$metadata_snapshot")
+if "$binary" preview-media merase > "$cluster/incomplete.json" 2> "$cluster/incomplete.stderr"; then
+ echo 'Current cleanup accepted an incomplete historical schema.' >&3; exit 1
+fi
+grep -Fxq 'Historical cleanup schema or visibility is unavailable.' "$cluster/incomplete.stderr"
+[[ $("${migrator[@]}" -Atc "$metadata_snapshot") = "$before_metadata" ]]
+for migration in migrations/*.sql; do
+ [[ $(basename "$migration") > 0143_deleted_media_metadata.sql ]] || continue
+ "${migrator[@]}" --single-transaction -f "$migration"
+done
+[[ $("${migrator[@]}" -Atc "$metadata_snapshot") = "$before_metadata" ]]
+# A current-schema report helper still participates in media cleanup readiness.
+"${migrator[@]}" -c 'BEGIN; SET LOCAL ROLE board_admission_owner; ALTER FUNCTION content.report_network_rules(text,bigint,boolean) SECURITY INVOKER; COMMIT;'
+if "$binary" preview-media merase > "$cluster/drift.json" 2> "$cluster/drift.stderr"; then
+ echo 'Media cleanup accepted report-network helper drift.' >&3; exit 1
+fi
+grep -Fxq 'Historical cleanup schema or visibility is unavailable.' "$cluster/drift.stderr"
+[[ $("${migrator[@]}" -Atc "$metadata_snapshot") = "$before_metadata" ]]
+"${migrator[@]}" -c 'BEGIN; SET LOCAL ROLE board_admission_owner; ALTER FUNCTION content.report_network_rules(text,bigint,boolean) SECURITY DEFINER; COMMIT;'
 "$binary" preview-media merase > "$cluster/preview.json"
 receipt=$(python3 - "$cluster/preview.json" <<'PY'
 import json,sys

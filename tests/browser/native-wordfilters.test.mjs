@@ -54,3 +54,46 @@ test('filtered recipes cannot add attributes, classes, resource loads or header 
   assert.equal(isWordfilterMarkup('pr3', { cl4ss: 'pr3ttyprint', onload: 'bad()' }), false);
   assert.equal(isWordfilterMarkup('pr3', { cl4ss: ['pr3ttyprint'] }), false);
 });
+
+test('generated fortune recipes preserve finite CSS colors for every saved Test choice', () => {
+  const colors = ['7fec11', 'bac200', 'e7890c', 'fd4d32', 'f51c6a', 'd302a7', '9d05da', '6023f8', '2a56fb', '0893e1', '00cbb0', '16f174', '43fd3b'];
+  const css = readFileSync(new URL('../../assets/comment-markup.css', import.meta.url), 'utf8');
+  const change = (text, choices) => {
+    for (const choice of new Set(choices)) {
+      text = choice === 5 ? text.replace(/([^gl])[tT]/g, '$17')
+        : text.replace([/a/gi, /e/gi, /i/gi, /o/gi, /s/gi][choice], ['4', '3', '1', '0', '5'][choice]);
+    }
+    return text;
+  };
+  for (let first = 0; first < 6; first++) for (let second = 0; second < 6; second++) {
+    const choices = [first, second], tag = change('span', choices);
+    for (let index = 0; index < colors.length; index++) {
+      const attribute = change('class', choices);
+      const attrs = { [attribute]: change('fortune', choices) };
+      if (choices.includes(4)) {
+        assert.equal(isWordfilterMarkup(tag, attrs), false);
+        continue;
+      }
+      if (choices.every(choice => choice === 0 || choice === 2)) {
+        const color = change(colors[index], choices);
+        const class_ = `fortune-${color === colors[index] ? '' : 'a-'}${index}`;
+        assert.ok(css.includes(`.${class_} { color: #${color}; }`));
+        if (attribute === 'class') attrs.class += ` ${class_}`;
+        else attrs.class = class_;
+      }
+      assert.equal(isWordfilterMarkup(tag, attrs), true, JSON.stringify({ choices, index, tag, attrs }));
+      const html = article(`<${tag}${Object.entries(attrs).map(([key, value]) => ` ${key}="${value}"`).join('')}>fortune</${tag}>`);
+      assert.equal(updater(html).status, 'ok');
+      assert.equal(preview(html).status, 'ok');
+      assert.equal(isWordfilterMarkup(tag, { ...attrs, style: `color:#${colors[index]}` }), false);
+      assert.equal(isWordfilterMarkup(tag, { ...attrs, id: 'm100' }), false);
+    }
+  }
+  for (const inside of ['<sp4n cl4ss="fortune" class="fortune-a-2">unknown palette</sp4n>',
+    '<sp4n class="fortune-a-1">missing source attributes</sp4n>',
+    '<span class="fortune fortune-a-1">wrong source element</span>',
+    '<sp4n cl4ss="fortune" class="fortune-a-1" style="color:#b4c200">inline style</sp4n>']) {
+    assert.equal(updater(article(inside)).status, 'invalid-snapshot');
+    assert.equal(preview(article(inside)).status, 'invalid-preview');
+  }
+});

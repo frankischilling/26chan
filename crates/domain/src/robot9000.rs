@@ -115,9 +115,11 @@ pub fn prepare_post(
                 Token::ChangedEntity(entity) => source.push_str(entity.spelling()),
                 Token::OpenQuote => source.push_str("<span class=\"quote\">"),
                 Token::CloseQuote => source.push_str("</span>"),
-                Token::GeneratedBold(_)
+                Token::FilteredGenerated(_)
+                | Token::GeneratedBold(_)
                 | Token::GeneratedSmall(_)
-                | Token::GeneratedFortune(_, _) => {
+                | Token::GeneratedFortune(_, _)
+                | Token::GeneratedNotice(_) => {
                     return Err("Invalid Robot9000 comment projection.");
                 }
             }

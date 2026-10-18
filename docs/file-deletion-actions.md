@@ -77,3 +77,10 @@ passed with local toolchain adapters; their SQL assertions were unchanged. Rust
 formatting and strict Clippy passed for every target and feature in the store,
 public and staff packages. Hosted CI, including native environments, must still
 pass on the exact PR head before merge.
+
+The full-schema preservation fixture includes migration 0187's explicit warning
+capacity singleton (`warning_limit = 100000`). Its warning table must remain
+empty during file deletion. The baseline adds only that known row; it does not
+recapture live tables. Rolled-back controls change the capacity and insert a
+synthetic warning, and both must fail the retained-state assertion. This corrects
+the earlier fixture omission without permitting unrelated state changes.

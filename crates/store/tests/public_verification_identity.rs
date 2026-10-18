@@ -133,7 +133,27 @@ async fn verification_preserves_unverified_activity_and_resets_previously_verifi
                 assert!(sqlx::query_scalar::<_,bool>("SELECT used_at IS NULL FROM verification_private.email_requests WHERE token_hash=$1").bind(token_hash.as_slice()).fetch_one(&owner).await.unwrap());
                 continue;
             }
-            assert_eq!(verifier.accept_email(&EmailAcceptance {token_hash:&token_hash,peer_hash:peer,country:"US",receipt_hash:&receipt,previous:old,replacement:new}).await.unwrap(),"verified");
+            if index == 0 {
+                assert_eq!(verifier.accept_email(&EmailAcceptance {token_hash:&token_hash,peer_hash:peer,country:"US",receipt_hash:&receipt,previous:old,replacement:new}).await.unwrap(),"verified");
+            } else {
+                // Qualify both reset paths in the second half of a second.
+                // Capture the database clock around the real issuer, without
+                // changing clocks, weakening stale-request guards, or sleeping
+                // between a committed write and its observation.
+                let raw = PgPool::connect(&std::env::var("TEST_VERIFICATION_DATABASE_URL").unwrap()).await.unwrap();
+                let (status,before,after):(String,i64,i64)=sqlx::query_as("WITH waited AS MATERIALIZED (SELECT pg_sleep(mod(1.65-mod(extract(epoch FROM clock_timestamp()),1),1)::double precision)), started AS MATERIALIZED (SELECT floor(extract(epoch FROM clock_timestamp()))::bigint AS before FROM waited), issued AS MATERIALIZED (SELECT before,content.verification_accept_email($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) AS status FROM started) SELECT status,before,floor(extract(epoch FROM clock_timestamp()))::bigint AS after FROM issued")
+                    .bind(token_hash.as_slice()).bind(peer.as_slice()).bind("US").bind(receipt.as_slice())
+                    .bind(old.token.as_slice()).bind(old.network.as_slice()).bind(old.address.as_slice()).bind(old.environment.as_slice())
+                    .bind(new.token.as_slice()).bind(new.network.as_slice()).bind(new.address.as_slice()).bind(new.environment.as_slice())
+                    .fetch_one(&raw).await.unwrap();
+                assert_eq!(status,"verified");
+                let times:(i64,i64,i64,i64)=sqlx::query_as("SELECT created_at,network_at,address_at,environment_at FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+                    .bind(new.token.as_slice()).fetch_one(&owner).await.unwrap();
+                for at in [times.0,times.1,times.2,times.3] {
+                    assert!((before..=after).contains(&at),"Rotated session escaped issuance interval: {before} <= {at} <= {after}; idle={idle}");
+                }
+                raw.close().await;
+            }
             let state=verifier.session(&new.token).await.unwrap().unwrap().for_request(chrono::Utc::now().timestamp().try_into().unwrap(),new);
             assert_eq!(state.verified_level,1);
             if index==0 {

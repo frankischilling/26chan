@@ -181,29 +181,30 @@ async fn scenario(categorical: bool, credit: bool) {
                         None
                     },
                 };
+                let network = NetworkReportingContext {
+                    request_facts: None,
+                    protected,
+                    request_start: chrono::Utc::now(),
+                    peer: Some(peer),
+                    asn_database: None,
+                    hints: None,
+                };
                 match revision {
                     Some(revision) => {
-                        report_categorical_with_challenge(
+                        report_categorical_with_network(
                             public,
                             board,
                             target,
                             1,
                             if stale { revision + 1 } else { revision },
                             actor,
-                            protected,
+                            network,
                         )
                         .await
                     }
                     None => {
-                        report_with_challenge(
-                            public,
-                            board,
-                            target,
-                            "Owned report",
-                            actor,
-                            protected,
-                        )
-                        .await
+                        report_with_network(public, board, target, "Owned report", actor, network)
+                            .await
                     }
                 }
             };
@@ -220,6 +221,28 @@ async fn scenario(categorical: bool, credit: bool) {
                     ))
                 ));
             }
+            let rule:i64=sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end,reports_only) VALUES($1,0,4294967295,true) RETURNING id")
+                .bind(board).fetch_one(&owner).await.unwrap();
+            assert!(matches!(
+                submit(true, false).await,
+                Err(StoreError::Invalid(
+                    "Reporting from this IP range has been blocked due to abuse."
+                ))
+            ));
+            assert!(
+                sqlx::query_scalar::<_, bool>(
+                    "SELECT EXISTS(SELECT 1 FROM verification_private.receipts WHERE token_hash=$1)"
+                )
+                .bind(receipt_hash.as_slice())
+                .fetch_one(&owner)
+                .await
+                .unwrap()
+            );
+            sqlx::query("DELETE FROM admission.network_rules WHERE id=$1")
+                .bind(rule)
+                .execute(&owner)
+                .await
+                .unwrap();
             assert!(board.starts_with("rc") && board[2..].bytes().all(|b| b.is_ascii_hexdigit()));
             let token_hex: String = fingerprints
                 .token
@@ -421,6 +444,11 @@ async fn scenario(categorical: bool, credit: bool) {
         }
     };
     let outcome = tokio::spawn(work).await;
+    sqlx::query("DELETE FROM admission.network_rules WHERE boards=$1")
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
     sqlx::query(sqlx::AssertSqlSafe(format!(
         "ALTER TABLE post_secrets.anonymous_reports DROP CONSTRAINT IF EXISTS {board}_late_report"
     )))

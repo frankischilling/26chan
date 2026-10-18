@@ -41,7 +41,30 @@ impl PostContentInput {
         &self.comment
     }
 
+    /// The content hook sees generated wrappers before user markup is expanded.
+    /// This comparison/log value must never be treated as trusted display HTML.
+    pub fn admission_comment(
+        &self,
+        randomizer: Option<&crate::posting_randomizers::Outcome>,
+    ) -> Result<String, ValidationError> {
+        let (prefix, suffix) = crate::posting_randomizers::source_wrappers(randomizer)?;
+        Ok(format!(
+            "{prefix}{}{suffix}",
+            crate::source_html_entities(&self.comment)
+        ))
+    }
+
     pub fn finish(self) -> Result<PreparedPostContent, ValidationError> {
+        self.finish_with_randomizer(None)
+    }
+
+    /// Reuse the already generated, board-authorized result. Generated markup
+    /// counts as nonblank source content; required-subject/raw checks ran earlier.
+    pub fn finish_with_randomizer(
+        self,
+        randomizer: Option<&crate::posting_randomizers::Outcome>,
+    ) -> Result<PreparedPostContent, ValidationError> {
+        crate::posting_randomizers::source_wrappers(randomizer)?;
         let Self {
             subject,
             comment,
@@ -50,7 +73,15 @@ impl PostContentInput {
             kind,
             limits,
         } = self;
-        final_admission(subject, comment, has_attachment, markup, kind, limits)
+        final_admission(
+            subject,
+            comment,
+            has_attachment,
+            markup,
+            kind,
+            limits,
+            randomizer.is_some(),
+        )
     }
 }
 
@@ -144,18 +175,20 @@ fn final_admission(
     markup: crate::comment_markup::MarkupPolicy,
     kind: PostKind,
     limits: PostLimits,
+    generated_content: bool,
 ) -> Result<PreparedPostContent, ValidationError> {
-    let blank = parse_markup_with_limits(&comment, markup, limits)
-        .iter()
-        .all(|token| match token {
-            MarkupToken::Break => true,
-            MarkupToken::Text(text) => text
-                .chars()
-                .all(|ch| matches!(ch, ' ' | '\t' | '\n' | '\r' | '\u{b}' | '\u{c}')),
-            // The source blank regexp ignores only ASCII whitespace and <br>.
-            // Even an empty generated code/SJIS element counts as content.
-            MarkupToken::Open(_) | MarkupToken::Close(_) => false,
-        });
+    let blank = !generated_content
+        && parse_markup_with_limits(&comment, markup, limits)
+            .iter()
+            .all(|token| match token {
+                MarkupToken::Break => true,
+                MarkupToken::Text(text) => text
+                    .chars()
+                    .all(|ch| matches!(ch, ' ' | '\t' | '\n' | '\r' | '\u{b}' | '\u{c}')),
+                // The source blank regexp ignores only ASCII whitespace and <br>.
+                // Even an empty generated code/SJIS element counts as content.
+                MarkupToken::Open(_) | MarkupToken::Close(_) => false,
+            });
     if blank {
         match kind {
             PostKind::Thread {

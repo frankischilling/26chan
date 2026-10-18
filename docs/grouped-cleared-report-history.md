@@ -2,7 +2,7 @@
 
 The cleared-history page groups retained reports by board and post. It requires
 one authorized board through `/reports/cleared?board=...`. Each group contains
-reports with an originating group-clear marker and no reporter-clear marker.
+reports with a manual or automatic clear marker and no reporter-clear marker.
 Report disposition is independent of clearing, so open, resolved and dismissed
 records can appear together.
 
@@ -18,6 +18,10 @@ The newest eligible report ID represents a group. Groups are ordered by that ID
 descending. Grouping happens before the 100-group limit; a lightweight 101st group
 detects overflow. This order and bound are explicit choices, not a reconstruction
 of the source's unspecified representative selection or 3000-group cap.
+
+Automatic clearing preserves earlier manual attribution and has a separate
+timestamp. Moderators see `Auto-clear` on the group and can inspect that timestamp.
+Janitor projections omit both.
 
 The selected report keeps its own disposition, originating clear time and
 inherited-clear flag. These fields describe that report, not every member of the

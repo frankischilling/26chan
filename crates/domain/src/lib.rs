@@ -39,6 +39,7 @@ pub mod op_bump;
 mod post_content;
 mod post_limits;
 pub use post_limits::{MAX_AUTHORIZED_COMMENT_CHARS, MAX_AUTHORIZED_FIELD_BYTES, PostLimits};
+pub mod post_notice;
 pub mod post_quote;
 pub mod server_link;
 pub mod static_quote;

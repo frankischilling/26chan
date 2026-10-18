@@ -1,0 +1,11 @@
+[Unit]
+Description=Run bounded classifier diagnostic expiry every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=1s
+Unit=classifier-retention.service
+
+[Install]
+WantedBy=timers.target

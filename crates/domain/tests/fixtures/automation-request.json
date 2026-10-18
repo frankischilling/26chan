@@ -1,0 +1,2581 @@
+{
+    "source_sha256": "d0037219f34fdc54b85ca696095415209531d5350652dea5ec86e508f75d5207",
+    "function_sha256": "96e82ef37f2a3f2903cd20f2eb2065dfd704792336e51640f25a6a82deb378b7",
+    "php_version": "8.4.24",
+    "cases": [
+        {
+            "score": null,
+            "ua": null,
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": null,
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": null,
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "Mozilla/5.0",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "Mozilla/5.0",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "Mozilla/5.0",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "Android; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "Android; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "Android; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "Android; WV)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "Android; WV)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "Android; WV)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPhone",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPhone",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPhone",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPhone Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPhone Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPhone Mobile",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPhone Safari",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPhone Safari",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPhone Safari",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPad",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPad Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPad Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPad Mobile",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "ipad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "ipad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "ipad",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPhone\u0000Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPhone\u0000Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "iPhone\u0000Mobile",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "猫; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "猫; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": null,
+            "ua": "猫; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": null,
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": null,
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": null,
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": -1,
+            "ua": "",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": -1,
+            "ua": "Mozilla/5.0",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "Mozilla/5.0",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "Mozilla/5.0",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": -1,
+            "ua": "Android; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "Android; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "Android; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "Android; WV)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "Android; WV)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "Android; WV)",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": -1,
+            "ua": "iPhone",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPhone",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPhone",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPhone Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPhone Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPhone Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": -1,
+            "ua": "iPhone Safari",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPhone Safari",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPhone Safari",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": -1,
+            "ua": "iPad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPad",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPad Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPad Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPad Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": -1,
+            "ua": "ipad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "ipad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "ipad",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": -1,
+            "ua": "iPhone\u0000Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPhone\u0000Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "iPhone\u0000Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": -1,
+            "ua": "猫; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "猫; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": -1,
+            "ua": "猫; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": null,
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": null,
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": null,
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 0,
+            "ua": "",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 0,
+            "ua": "Mozilla/5.0",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "Mozilla/5.0",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "Mozilla/5.0",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 0,
+            "ua": "Android; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "Android; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "Android; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "Android; WV)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "Android; WV)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "Android; WV)",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 0,
+            "ua": "iPhone",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPhone",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPhone",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPhone Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPhone Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPhone Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 0,
+            "ua": "iPhone Safari",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPhone Safari",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPhone Safari",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 0,
+            "ua": "iPad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPad",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPad Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPad Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPad Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 0,
+            "ua": "ipad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "ipad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "ipad",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 0,
+            "ua": "iPhone\u0000Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPhone\u0000Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "iPhone\u0000Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 0,
+            "ua": "猫; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "猫; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 0,
+            "ua": "猫; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 1,
+            "ua": null,
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": null,
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": null,
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "Mozilla/5.0",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "Mozilla/5.0",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "Mozilla/5.0",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "Android; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 1,
+            "ua": "Android; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 1,
+            "ua": "Android; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 1,
+            "ua": "Android; WV)",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "Android; WV)",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "Android; WV)",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "iPhone",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 1,
+            "ua": "iPhone",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 1,
+            "ua": "iPhone",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 1,
+            "ua": "iPhone Mobile",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "iPhone Mobile",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "iPhone Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "iPhone Safari",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "iPhone Safari",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "iPhone Safari",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "iPad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 1,
+            "ua": "iPad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 1,
+            "ua": "iPad",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 1,
+            "ua": "iPad Mobile",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "iPad Mobile",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "iPad Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "ipad",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "ipad",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "ipad",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "iPhone\u0000Mobile",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "iPhone\u0000Mobile",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "iPhone\u0000Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 1,
+            "ua": "猫; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 1,
+            "ua": "猫; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 1,
+            "ua": "猫; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 2,
+            "ua": null,
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": null,
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": null,
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "Mozilla/5.0",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "Mozilla/5.0",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "Mozilla/5.0",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "Android; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2,
+            "ua": "Android; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2,
+            "ua": "Android; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 2,
+            "ua": "Android; WV)",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "Android; WV)",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "Android; WV)",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "iPhone",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2,
+            "ua": "iPhone",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2,
+            "ua": "iPhone",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 2,
+            "ua": "iPhone Mobile",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "iPhone Mobile",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "iPhone Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "iPhone Safari",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "iPhone Safari",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "iPhone Safari",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "iPad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2,
+            "ua": "iPad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2,
+            "ua": "iPad",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 2,
+            "ua": "iPad Mobile",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "iPad Mobile",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "iPad Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "ipad",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "ipad",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "ipad",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "iPhone\u0000Mobile",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "iPhone\u0000Mobile",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "iPhone\u0000Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2,
+            "ua": "猫; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2,
+            "ua": "猫; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2,
+            "ua": "猫; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 28,
+            "ua": null,
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": null,
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": null,
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "Mozilla/5.0",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "Mozilla/5.0",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "Mozilla/5.0",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "Android; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 28,
+            "ua": "Android; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 28,
+            "ua": "Android; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 28,
+            "ua": "Android; WV)",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "Android; WV)",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "Android; WV)",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "iPhone",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 28,
+            "ua": "iPhone",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 28,
+            "ua": "iPhone",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 28,
+            "ua": "iPhone Mobile",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "iPhone Mobile",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "iPhone Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "iPhone Safari",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "iPhone Safari",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "iPhone Safari",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "iPad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 28,
+            "ua": "iPad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 28,
+            "ua": "iPad",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 28,
+            "ua": "iPad Mobile",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "iPad Mobile",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "iPad Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "ipad",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "ipad",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "ipad",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "iPhone\u0000Mobile",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "iPhone\u0000Mobile",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "iPhone\u0000Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 28,
+            "ua": "猫; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 28,
+            "ua": "猫; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 28,
+            "ua": "猫; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 29,
+            "ua": null,
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": null,
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": null,
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "Mozilla/5.0",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "Mozilla/5.0",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "Mozilla/5.0",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "Android; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 29,
+            "ua": "Android; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 29,
+            "ua": "Android; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 29,
+            "ua": "Android; WV)",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "Android; WV)",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "Android; WV)",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "iPhone",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 29,
+            "ua": "iPhone",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 29,
+            "ua": "iPhone",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 29,
+            "ua": "iPhone Mobile",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "iPhone Mobile",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "iPhone Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "iPhone Safari",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "iPhone Safari",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "iPhone Safari",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "iPad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 29,
+            "ua": "iPad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 29,
+            "ua": "iPad",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 29,
+            "ua": "iPad Mobile",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "iPad Mobile",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "iPad Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "ipad",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "ipad",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "ipad",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "iPhone\u0000Mobile",
+            "cached": null,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "iPhone\u0000Mobile",
+            "cached": false,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "iPhone\u0000Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 29,
+            "ua": "猫; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 29,
+            "ua": "猫; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 29,
+            "ua": "猫; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": null,
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": null,
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": null,
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 30,
+            "ua": "",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 30,
+            "ua": "Mozilla/5.0",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "Mozilla/5.0",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "Mozilla/5.0",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 30,
+            "ua": "Android; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "Android; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "Android; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "Android; WV)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "Android; WV)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "Android; WV)",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 30,
+            "ua": "iPhone",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPhone",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPhone",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPhone Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPhone Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPhone Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 30,
+            "ua": "iPhone Safari",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPhone Safari",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPhone Safari",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 30,
+            "ua": "iPad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPad",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPad Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPad Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPad Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 30,
+            "ua": "ipad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "ipad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "ipad",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 30,
+            "ua": "iPhone\u0000Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPhone\u0000Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "iPhone\u0000Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 30,
+            "ua": "猫; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "猫; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 30,
+            "ua": "猫; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": null,
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": null,
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": null,
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 80,
+            "ua": "",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 80,
+            "ua": "Mozilla/5.0",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "Mozilla/5.0",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "Mozilla/5.0",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 80,
+            "ua": "Android; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "Android; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "Android; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "Android; WV)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "Android; WV)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "Android; WV)",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 80,
+            "ua": "iPhone",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPhone",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPhone",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPhone Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPhone Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPhone Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 80,
+            "ua": "iPhone Safari",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPhone Safari",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPhone Safari",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 80,
+            "ua": "iPad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPad",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPad Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPad Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPad Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 80,
+            "ua": "ipad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "ipad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "ipad",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 80,
+            "ua": "iPhone\u0000Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPhone\u0000Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "iPhone\u0000Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 80,
+            "ua": "猫; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "猫; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 80,
+            "ua": "猫; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": null,
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": null,
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": null,
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 100,
+            "ua": "",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 100,
+            "ua": "Mozilla/5.0",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "Mozilla/5.0",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "Mozilla/5.0",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 100,
+            "ua": "Android; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "Android; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "Android; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "Android; WV)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "Android; WV)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "Android; WV)",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 100,
+            "ua": "iPhone",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPhone",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPhone",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPhone Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPhone Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPhone Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 100,
+            "ua": "iPhone Safari",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPhone Safari",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPhone Safari",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 100,
+            "ua": "iPad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPad",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPad Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPad Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPad Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 100,
+            "ua": "ipad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "ipad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "ipad",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 100,
+            "ua": "iPhone\u0000Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPhone\u0000Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "iPhone\u0000Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 100,
+            "ua": "猫; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "猫; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 100,
+            "ua": "猫; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": null,
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": null,
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": null,
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2147483647,
+            "ua": "",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2147483647,
+            "ua": "Mozilla/5.0",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "Mozilla/5.0",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "Mozilla/5.0",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2147483647,
+            "ua": "Android; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "Android; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "Android; wv)",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "Android; WV)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "Android; WV)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "Android; WV)",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPhone",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPhone",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPhone",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPhone Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPhone Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPhone Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPhone Safari",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPhone Safari",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPhone Safari",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPad",
+            "cached": true,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPad Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPad Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPad Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2147483647,
+            "ua": "ipad",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "ipad",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "ipad",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPhone\u0000Mobile",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPhone\u0000Mobile",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "iPhone\u0000Mobile",
+            "cached": true,
+            "automated": true
+        },
+        {
+            "score": 2147483647,
+            "ua": "猫; wv)",
+            "cached": null,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "猫; wv)",
+            "cached": false,
+            "automated": false
+        },
+        {
+            "score": 2147483647,
+            "ua": "猫; wv)",
+            "cached": true,
+            "automated": false
+        }
+    ]
+}

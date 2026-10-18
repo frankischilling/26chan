@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use sqlx::{Connection, PgConnection};
 
 const LIMIT: i64 = 64;
-const POST_GUARD: &str = "44ccfbb1cbd5dcae569bf3057a065fd4126d767f9a72823913dc5e6d7ff0ed28";
+const POST_GUARD: &str = "011547b9575a05f12b6154884bdef7624bfa241caf6e88910b978ce588d9e3b6";
 const THREAD_GUARD: &str = "01aff94037bf0af55a594fe13916bbe6255bcf2925d5b7f1bbfe91aaa977b63b";
 
 #[derive(Debug, thiserror::Error)]
@@ -195,13 +195,35 @@ pub(crate) async fn preflight(connection: &mut PgConnection) -> Result<(), Erasu
     if !ready || !erasure {
         return Err(ErasureError::Schema);
     }
-    // This constant contains catalog inspection only. Inspect the configured
-    // public permissions without granting or assuming the public runtime role.
-    // No SQL or identity text comes from the command line.
-    let report_catalog =
-        crate::report_admission::READINESS_SQL.replace("current_user", "'board_public'::name");
-    let reports: bool = sqlx::query_scalar(sqlx::AssertSqlSafe(report_catalog))
+    // The report-profile seal is granted to the real migrator, not the
+    // restriction owner. Check it before changing role, then pass that result
+    // into the shared query. Neither owner needs the other's private grants.
+    let profile: bool = sqlx::query_scalar("SELECT content.report_profile_ready()")
         .fetch_one(&mut *connection)
+        .await
+        .map_err(|_| ErasureError::Schema)?;
+    if !profile {
+        return Err(ErasureError::Schema);
+    }
+    // Inspect configured public permissions without granting or assuming the
+    // public runtime role. The report check also calls restrictions_ready();
+    // the migrator has SET-only membership in its owner, not direct EXECUTE.
+    // Reuse that existing owner solely for this sealed readiness check.
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *connection)
+        .await
+        .map_err(|_| ErasureError::Schema)?;
+    // No SQL or identity text comes from the command line.
+    let report_catalog = crate::report_admission::READINESS_SQL
+        .replace("current_user", "'board_public'::name")
+        .replace("content.report_profile_ready()", "$1::boolean");
+    let reports: bool = sqlx::query_scalar(sqlx::AssertSqlSafe(report_catalog))
+        .bind(profile)
+        .fetch_one(&mut *connection)
+        .await
+        .map_err(|_| ErasureError::Schema)?;
+    sqlx::query("RESET ROLE")
+        .execute(&mut *connection)
         .await
         .map_err(|_| ErasureError::Schema)?;
     if !reports {

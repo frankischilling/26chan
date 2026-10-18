@@ -87,6 +87,8 @@ impl Fixture {
         let origin = Url::parse("http://localhost:3001").unwrap();
         let state = Arc::new(AppState {
             config: Config {
+                asn_database: None,
+                browser_hint_key: None,
                 proxy: None,
                 poster_id_key: Some(Arc::new(
                     board_domain::poster_id::PosterIdKey::parse(
@@ -230,6 +232,37 @@ impl Fixture {
                     width: 10,
                     height: 20,
                 },
+            )
+            .await
+            .unwrap();
+        queue.approve_output(id, &lease, &asset.id).await.unwrap();
+    }
+    async fn approve_file_rule(&self, id: &str) {
+        let queue = MediaQueue::connect(&std::env::var("MEDIA_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        let job = queue.claim().await.unwrap().expect("owned queued upload");
+        assert_eq!(job.id, id, "requires isolated disposable media queue");
+        let lease = job.lease_token.unwrap();
+        let asset = queue
+            .prepare_output_with_variants(
+                id,
+                &lease,
+                &OutputMetadata {
+                    sha256: "c".repeat(64),
+                    bytes: 123,
+                    width: 10,
+                    height: 20,
+                },
+                Some(&OutputVariants {
+                    md5: "07".repeat(16),
+                    thumbnail: OutputMetadata {
+                        sha256: "d".repeat(64),
+                        bytes: 50,
+                        width: 5,
+                        height: 10,
+                    },
+                }),
             )
             .await
             .unwrap();
@@ -1267,6 +1300,124 @@ async fn source_board_upload_binds_the_selected_metadata_policy_before_processin
         assert_eq!(case.jobs().await, count);
     })
     .await;
+    Arc::try_unwrap(fixture).ok().unwrap().cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn exact_file_rule_rejects_ordinary_staff_but_selected_badge_skips_it() {
+    let _serial = SERIAL.lock().await;
+    let fixture = Arc::new(Fixture::new().await);
+    let rule:i64=sqlx::query_scalar("INSERT INTO admission.file_rules(board,digest,mode) VALUES($1,decode(repeat('07',16),'hex'),0) RETURNING id").bind(&fixture.board).fetch_one(&fixture.owner).await.unwrap();
+    let case = fixture.clone();
+    let result=tokio::spawn(async move {
+        let (id,cap)=case.upload().await;
+        case.approve_file_rule(&id).await;
+        let ordinary=format!("{}&name=Owned&subject=Owned&comment=Owned+file+refusal&badge=none&password=owned-upload-password",case.form(&id,&cap));
+        let response=case.send_form("/post",ordinary).await;
+        let page=html(response,StatusCode::BAD_REQUEST).await;
+        assert!(page.contains("Error: Upload failed."),"{page}");
+        let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&case.board).fetch_one(&case.owner).await.unwrap();
+        assert_eq!(count,0);
+        assert_eq!(case.intake.status(&id,&cap).await.unwrap().state,"published");
+        let consumed:i64=sqlx::query_scalar("SELECT count(*) FROM content.post_media WHERE job_id=$1").bind(&id).fetch_one(&case.owner).await.unwrap();
+        assert_eq!(consumed,0);
+        // The selected post badge, not the receipt's original upload choice,
+        // controls the exact-file exemption for this ordinary PNG receipt.
+        let badged=format!("{}&name=Owned&subject=Owned&comment=Owned+badged+file&badge=mod",case.form(&id,&cap));
+        let response=case.send_form("/post",badged).await;
+        assert_eq!(response.status(),StatusCode::SEE_OTHER);
+        let saved:Option<String>=sqlx::query_scalar("SELECT p.capcode FROM content.posts p JOIN content.post_media m ON m.post_id=p.id WHERE p.board=$1 AND m.job_id=$2").bind(&case.board).bind(&id).fetch_one(&case.owner).await.unwrap();
+        assert_eq!(saved.as_deref(),Some("mod"));
+    }).await;
+    sqlx::query("DELETE FROM admission.file_rules WHERE id=$1")
+        .bind(rule)
+        .execute(&fixture.owner)
+        .await
+        .unwrap();
+    Arc::try_unwrap(fixture).ok().unwrap().cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
+async fn ordinary_staff_file_dmca_repeat_returns_a_fixed_delayed_redirect() {
+    let _serial = SERIAL.lock().await;
+    let fixture = Arc::new(Fixture::new().await);
+    let actor = *fixture
+        .state
+        .config
+        .poster_id_key
+        .as_ref()
+        .unwrap()
+        .public_posting_rate_identity("192.0.2.77".parse().unwrap())
+        .as_bytes();
+    let rule:i64=sqlx::query_scalar("INSERT INTO admission.file_rules(board,digest,mode) VALUES($1,decode(repeat('07',16),'hex'),2) RETURNING id").bind(&fixture.board).fetch_one(&fixture.owner).await.unwrap();
+    let mut tx = fixture.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let clock: Option<String> =
+        sqlx::query_scalar("SELECT timezone FROM restrictions.file_clock WHERE singleton")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    tx.commit().await.unwrap();
+    let case = fixture.clone();
+    let result=tokio::spawn(async move {
+        let mut tx=case.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *tx).await.unwrap();
+        sqlx::query("UPDATE restrictions.file_clock SET timezone='UTC' WHERE singleton").execute(&mut *tx).await.unwrap();
+        tx.commit().await.unwrap();
+        let (id,cap)=case.upload().await;
+        case.approve_file_rule(&id).await;
+        let form=format!("{}&name=Owned&subject=Owned&comment=Owned+DMCA+refusal&badge=none&password=owned-upload-password",case.form(&id,&cap));
+        for repeat in [false,true] {
+            let response=case.send_form("/post",form.clone()).await;
+            assert_eq!(response.status(),StatusCode::BAD_REQUEST);
+            assert!(!response.headers().contains_key("set-cookie"));
+            if repeat {
+                assert_eq!(response.headers()["refresh"],format!("3; url=http://127.0.0.1:3000/banned?board={}",case.board));
+            } else { assert!(!response.headers().contains_key("refresh")); }
+            let body=String::from_utf8(to_bytes(response.into_body(),262_144).await.unwrap().to_vec()).unwrap();
+            assert!(body.contains(if repeat { board_store::restrictions::BANNED } else { "copyright infringement" }),"{body}");
+            assert_eq!(case.intake.status(&id,&cap).await.unwrap().state,"published");
+            let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&case.board).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(count,0);
+        }
+    }).await;
+    let mut tx = fixture.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("SELECT restrictions.gate(true)")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes-coalesce((SELECT sum(charged_bytes) FROM restrictions.bans WHERE actor_hash=$1),0) WHERE singleton").bind(actor.as_slice()).execute(&mut *tx).await.unwrap();
+    sqlx::query("DELETE FROM restrictions.audit WHERE ban_id IN(SELECT id FROM restrictions.bans WHERE actor_hash=$1)").bind(actor.as_slice()).execute(&mut *tx).await.unwrap();
+    sqlx::query("DELETE FROM restrictions.bans WHERE actor_hash=$1")
+        .bind(actor.as_slice())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE restrictions.file_clock SET timezone=$1 WHERE singleton")
+        .bind(clock)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    sqlx::query("DELETE FROM admission.dmca_warnings WHERE actor_hash=$1")
+        .bind(actor.as_slice())
+        .execute(&fixture.owner)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM admission.file_rules WHERE id=$1")
+        .bind(rule)
+        .execute(&fixture.owner)
+        .await
+        .unwrap();
     Arc::try_unwrap(fixture).ok().unwrap().cleanup().await;
     result.unwrap();
 }

@@ -10,12 +10,13 @@ const HELP: &str = "Usage: board-deletion-cleanup preview <board>
        board-deletion-cleanup preview-media <board>
        board-deletion-cleanup apply-media <board> --confirm-permanent-erasure <receipt> --writers-stopped
 
-The media commands require migration 0143 and handle at most 64 attachment rows
+The media commands handle at most 64 attachment rows
 whose posts are already erased. They clear descriptive metadata and preserve
 consumed post/job/asset/media identities. They never change live or file-only posts.
 
-Requires MIGRATION_DATABASE_URL with the actual board_migrator login and
-migration 0141. Stop application writers and schema changes before cleanup.
+Requires MIGRATION_DATABASE_URL with the actual board_migrator login and all
+migrations shipped with this build, including the post/media erasure migrations.
+Stop application writers and schema changes before cleanup.
 Preview changes no rows. Review its database, board, IDs and receipt before apply.
 Apply recomputes that selection under the board lock; a changed preview refuses.
 Each invocation handles at most 64 reports, 64 posts and 64 empty thread records.

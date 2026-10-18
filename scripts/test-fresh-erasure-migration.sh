@@ -476,6 +476,10 @@ done
 UPDATE public.unrelated_rows SET value=value||jsonb_build_object('file_deleted',false,
  'saved_presentation',NULL,'saved_presentation_search',NULL)
 WHERE relation='content.posts';
+-- 0203 adds empty notices to historical posts. Preserve every earlier field;
+-- an invented notice on an unrelated post must still fail the row comparison.
+UPDATE public.unrelated_rows SET value=value||jsonb_build_object('staff_notices','[]'::jsonb)
+WHERE relation='content.posts';
 -- Extend the saved audit shape only with the reviewed 30-day deadline.
 UPDATE public.independent_rows SET value=value||jsonb_build_object('snapshot_expires_at',
  CASE WHEN value->>'snapshot_version' IS NOT NULL THEN (value->>'created_at')::timestamptz+interval '720 hours' ELSE NULL END)
@@ -491,16 +495,28 @@ WHERE relation='media.assets';
 UPDATE public.independent_rows SET value=value||jsonb_build_object('metadata_erased',true,
  'filename','[deleted]','bytes',1,'width',1,'height',1,'spoiler',false,'file_deleted',true,'created_at','epoch'::timestamptz)
 WHERE relation='content.post_media' AND (value->>'post_id')::bigint IN(12300001,12300002);
+-- 0194 adds a nullable private digest. Historical associations are not
+-- backfilled, and whole-post erasure must leave that field explicitly NULL.
+UPDATE public.independent_rows SET value=value||jsonb_build_object('normalized_md5',NULL)
+WHERE relation='content.post_media';
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
  THEN RAISE EXCEPTION 'Additive presentation fields rewrote historical content'; END IF;
 END $$;
 SQL
+# Exercise a real notice payload rather than only its empty migration default.
+"${admin[@]}" <<'SQL'
+BEGIN;
+SELECT slug FROM content.boards WHERE slug='erasure' FOR UPDATE;
+UPDATE content.posts SET staff_notices=ARRAY['Owned notice before erasure']
+ WHERE thread_id=12300001 AND NOT deleted;
+COMMIT;
+SQL
 cat > "$cluster/assert-erased.sql" <<'SQL'
 DO $$ DECLARE relation_name text; BEGIN
  IF (SELECT count(*) FROM content.posts WHERE thread_id=12300001)<>3
  OR EXISTS(SELECT 1 FROM content.posts WHERE thread_id=12300001 AND
-  (NOT deleted OR NOT content_erased OR file_deleted OR name<>'' OR subject<>'' OR comment<>''
+  (NOT deleted OR NOT content_erased OR file_deleted OR name<>'' OR subject<>'' OR comment<>'' OR staff_notices<>'{}'::text[]
    OR trip IS NOT NULL OR poster_id IS NOT NULL OR json_op_poster_id IS NOT NULL OR capcode IS NOT NULL
    OR country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL
    OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR dice_result IS NOT NULL
@@ -542,6 +558,20 @@ SELECT c.conrelid::regclass::text,c.conname,pg_get_constraintdef(c.oid,true) FRO
 SELECT table_schema,table_name,column_name,grantor,grantee,privilege_type,is_grantable FROM information_schema.column_privileges WHERE table_schema IN('content','post_secrets','staff_identity','poll_private') ORDER BY 1,2,3,4,5,6,7;
 SELECT n.nspname,c.relname,c.relkind,pg_get_userbyid(c.relowner),CASE WHEN c.relkind IN('r','p','v','m','f','S') THEN public.normalized_acl(CASE WHEN c.relkind='S' THEN 's' ELSE 'r' END::"char",c.relowner,c.relacl) ELSE to_jsonb(c.relacl::text) END,c.relrowsecurity,c.relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN('content','post_secrets','staff_identity','poll_private') ORDER BY 1,2;
 SQL
+# Compare all historical fields, including the additive empty notice value.
+# Neither an invented notice nor an altered older field may pass preservation.
+for mutation in "staff_notices=ARRAY['Invented notice']" "name='Changed historical name'"; do
+ if {
+  printf "BEGIN; SELECT slug FROM content.boards WHERE slug='erasure' FOR UPDATE;\n"
+  printf 'UPDATE content.posts SET %s WHERE id=12300020;\n' "$mutation"
+  printf 'SET LOCAL ROLE board_public; UPDATE content.threads SET deleted=true WHERE id=12300001; RESET ROLE;\n'
+  cat "$cluster/assert-erased.sql"
+  printf 'ROLLBACK;\n'
+ } | "${admin[@]}" > "$cluster/preservation-control.log" 2>&1; then
+  echo 'Historical preservation accepted changed content.' >&3; exit 1
+ fi
+ grep -Fq 'Deletion changed independent evidence or unrelated historical content' "$cluster/preservation-control.log"
+done
 for phase in live restored; do
  database=fresh_erasure_upgrade
  if [[ $phase = restored ]]; then
@@ -614,6 +644,7 @@ DO $$ DECLARE command text; BEGIN
  'UPDATE content.posts SET deleted=false WHERE id=12300003',
  'UPDATE content.posts SET content_erased=false WHERE id=12300003',
  'UPDATE content.posts SET file_deleted=true WHERE id=12300003',
+ 'UPDATE content.posts SET staff_notices=ARRAY[''Restored notice''] WHERE id=12300003',
  'UPDATE content.posts SET drawing_time_seconds=119 WHERE id=12300003',
  'UPDATE content.posts SET drawing_time_seconds=119,drawing_source_post_id=12300020 WHERE id=12300003',
  'UPDATE content.threads SET deleted=false WHERE id=12300001',

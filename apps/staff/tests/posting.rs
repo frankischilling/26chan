@@ -456,6 +456,47 @@ async fn ordinary_request(
 }
 
 #[tokio::test]
+async fn authenticated_staff_network_bypass_keeps_http_and_ownership_boundaries() {
+    let _posting_capacity = POSTING_CASES.lock().await;
+    let fixture = ordinary_fixture().await;
+    sqlx::query(
+        "INSERT INTO admission.network_rules(boards,range_start,range_end) VALUES($1,0,4294967295)",
+    )
+    .bind(&fixture.board)
+    .execute(&fixture.owner)
+    .await
+    .unwrap();
+    let case = fixture.clone();
+    let result=tokio::spawn(async move {
+        for role in ["janitor","moderator","manager","admin"] {
+            elapse_staff_timer(&case,&case.board,"81.2.69.142".parse().unwrap()).await;
+            sqlx::query("UPDATE staff_identity.accounts SET role=$2,flags='{}' WHERE id=$1")
+                .bind(case.account).bind(role).execute(&case.owner).await.unwrap();
+            let response=ordinary_request(&case,ordinary_form(&case,0,"","",&format!("Owned range bypass {role}")),Some("81.2.69.142")).await;
+            assert_eq!(response.status(),StatusCode::SEE_OTHER);
+            assert_eq!(response.headers()["cache-control"],"private, no-store");
+            assert!(!response.headers().get_all("set-cookie").iter().any(|value| value.to_str().unwrap().contains("board-anon=")));
+            assert_eq!(case.latest().await.2,None);
+        }
+        let memberships:i64=sqlx::query_scalar("SELECT count(*) FROM post_secrets.anonymous_posts a JOIN content.posts p ON p.id=a.post_id WHERE p.board=$1")
+            .bind(&case.board).fetch_one(&case.owner).await.unwrap();
+        assert_eq!(memberships,0,"Network bypass must not add anonymous deletion ownership");
+        let before:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&case.board).fetch_one(&case.owner).await.unwrap();
+        let form=ordinary_form(&case,0,"","","Invalid CSRF cannot bypass").replace(&case.csrf,"invalid");
+        assert_eq!(ordinary_request(&case,form,Some("81.2.69.142")).await.status(),StatusCode::FORBIDDEN);
+        let after:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&case.board).fetch_one(&case.owner).await.unwrap();
+        assert_eq!(after,before);
+    }).await;
+    sqlx::query("DELETE FROM admission.network_rules WHERE boards=$1")
+        .bind(&fixture.board)
+        .execute(&fixture.owner)
+        .await
+        .unwrap();
+    fixture.cleanup().await;
+    result.unwrap();
+}
+
+#[tokio::test]
 async fn ordinary_staff_ranks_persist_public_identity_flags_op_membership_and_deletion() {
     let _posting_capacity = POSTING_CASES.lock().await;
     let fixture = ordinary_fixture().await;
@@ -716,6 +757,8 @@ impl Fixture {
         let origin = Url::parse("http://localhost:3001").unwrap();
         let state = Arc::new(AppState {
             config: Config {
+                asn_database: None,
+                browser_hint_key: None,
                 media: None,
                 proxy: None,
                 poster_id_key: Some(posting_fixture::key(&board)),

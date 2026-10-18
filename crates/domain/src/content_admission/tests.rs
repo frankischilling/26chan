@@ -277,6 +277,91 @@ fn regex_flags_delimiters_backreferences_and_anchoring_are_active() {
 }
 
 #[test]
+fn recorded_php_modifier_counts_match() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("../../tests/fixtures/regex-modifiers.json")).unwrap();
+    assert_eq!(fixture["version"], 1);
+    let cases = fixture["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 21);
+    for case in cases {
+        let pattern = case["pattern"].as_str().unwrap();
+        let text = case["text"].as_str().unwrap();
+        let regex = BoundedRegex::compile(pattern);
+        let Some(count) = case["count"].as_u64() else {
+            assert!(
+                matches!(regex, Err(AdmissionError::InvalidPolicy)),
+                "{pattern}"
+            );
+            continue;
+        };
+        let regex = regex.unwrap();
+        if count > 0 {
+            assert!(
+                regex
+                    .matches(text, count as usize, &mut MAX_MATCH_CALLS.clone())
+                    .unwrap(),
+                "{pattern}"
+            );
+        }
+        assert!(
+            !regex
+                .matches(text, count as usize + 1, &mut MAX_MATCH_CALLS.clone())
+                .unwrap(),
+            "{pattern}"
+        );
+    }
+}
+
+#[test]
+fn dollar_endonly_respects_multiline_scopes_and_x_is_a_php8_noop() {
+    for (pattern, text, expected) in [
+        (r"/^abc$/", "abc\n", true),
+        (r"/^abc$/D", "abc\n", false),
+        (r"/^abc$/D", "abc", true),
+        (r"/abc$/D", "abc\nx", false),
+        (r"/abc$/mD", "abc\nx", true),
+        (r"/(?m:abc$)/D", "abc\nx", true),
+        (r"/(?-m:abc$)/mD", "abc\n", false),
+        (r"/abc\Z/D", "abc\n", true),
+        (r"/abc\$/D", "abc$", true),
+        (r"/[$]/D", "$", true),
+        (r"/\Qabc$\E/D", "abc$", true),
+        (r"/abc$/DX", "abc\n", false),
+        (r"/\d+/", "123", true),
+        (r"/\d+/X", "123", true),
+        (r"/a b/X", "ab", false),
+        (r"/a b/xX", "ab", true),
+    ] {
+        let regex = BoundedRegex::compile(pattern).unwrap();
+        assert_eq!(
+            regex
+                .matches(text, 1, &mut MAX_MATCH_CALLS.clone())
+                .unwrap(),
+            expected,
+            "{pattern} {text:?}"
+        );
+    }
+    for pattern in [r"/\q/", r"/\q/X"] {
+        assert!(matches!(
+            BoundedRegex::compile(pattern),
+            Err(AdmissionError::InvalidPolicy)
+        ));
+    }
+    // The retry regex shares the same D option after a zero-width match.
+    let regex = BoundedRegex::compile(r"/|abc$/D").unwrap();
+    assert!(
+        regex
+            .matches("abc", 3, &mut MAX_MATCH_CALLS.clone())
+            .unwrap()
+    );
+    assert!(
+        !regex
+            .matches("abc\n", 6, &mut MAX_MATCH_CALLS.clone())
+            .unwrap()
+    );
+}
+
+#[test]
 fn resource_limits_reject_bounded_workloads_and_cannot_be_raised_by_rules() {
     let workload = format!("{}!", "a".repeat(100));
     for pattern in [

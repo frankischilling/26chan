@@ -60,6 +60,16 @@ async fn board_reads_bound_saved_expansion_and_only_count_selected_post_slots() 
         assert!(matches!(board_store::board_snapshot(&p, &b, All, Some(0)).await, Err(StoreError::ReadLimit)));
         assert_eq!(board_store::board_snapshot(&p, &b, All, Some(5)).await.unwrap().threads[0].posts[0].id, large);
         let small = support::create_post(&p, &b, 0, &post("owned small thread")).await.unwrap();
+        // Empty notice capacity must not enlarge the comment budget, and
+        // actual maximum-sized escaped notices must have their own allowance.
+        let notices = vec!["\\\"".repeat(2048); board_domain::post_notice::MAX_NOTICES];
+        sqlx::query("UPDATE content.posts SET staff_notices=$2 WHERE id=$1")
+            .bind(small).bind(&notices).execute(&a).await.unwrap();
+        let noticed = board_store::board_snapshot(&p, &b, Page(1), Some(0)).await.unwrap();
+        assert_eq!(noticed.threads[0].posts[0].staff_notices, notices);
+        sqlx::query("UPDATE content.posts SET staff_notices=ARRAY['Owned notice'] WHERE id=$1")
+            .bind(large).execute(&a).await.unwrap();
+        assert!(matches!(board_store::board_snapshot(&p, &b, Page(2), Some(0)).await, Err(StoreError::ReadLimit)));
         let before = counts(&a, &b).await;
         assert_eq!(board_store::board_snapshot(&p, &b, Page(1), Some(0)).await.unwrap().threads[0].posts[0].id, small);
         assert!(matches!(board_store::board_page_snapshot(&p, &b, Page(2), Some(0)).await, Err(StoreError::ReadLimit)));

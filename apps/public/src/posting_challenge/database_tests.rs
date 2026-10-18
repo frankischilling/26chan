@@ -101,6 +101,9 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
         axum::serve(listener, app).await.unwrap();
     });
     let state = AppState {
+        asn_database: None,
+        browser_hint_key: None,
+        posting_browser_compat_key: None,
         pool: public.clone(),
         origin: "http://127.0.0.1:3000".into(),
         production: false,
@@ -134,7 +137,7 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
         let forged=request(State(state.clone()),Extension(RequestPeer(Some(peer))),headers.clone(),encoded(&[("action","init"),("board",&board),("purpose","thread"),("target","0"),("peer","192.0.2.1")])).await;assert_eq!(forged.err().unwrap().0,StatusCode::BAD_REQUEST);
         let ordinary_token=result["challenge"]["token"].as_str().unwrap();
         let ordinary_answer=key.challenge_answer(&challenge,6).unwrap();
-        let input=FormInput{csrf:nonce.into(),challenge:ordinary_token.into(),answer:ordinary_answer.as_str().into(),credit:String::new()};
+        let input=FormInput{csrf:nonce.into(),challenge:Some(ordinary_token.into()),answer:Some(ordinary_answer.as_str().into()),credit:String::new()};
         let wrong_scope=proof(&state,&headers,&session,Some(peer),Scope{board:board.clone(),target,purpose:protocol::Purpose::Report},&input).await;
         assert_eq!(wrong_scope.err().unwrap().0,StatusCode::BAD_REQUEST);
         let accepted=proof(&state,&headers,&session,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread},&input).await.unwrap();
@@ -149,7 +152,7 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
             let (captcha,context)=page::prepare(&state,&headers,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread}).await;
             assert!(captcha.enabled && captcha.classic && !captcha.image.is_empty());assert_eq!(captcha.noscript_only,noscript_only);
             let token=VerificationToken::parse(TokenKind::Challenge,&captcha.token).unwrap();let answer=key.challenge_answer(&token,6).unwrap();
-            let input=FormInput{csrf:captcha.csrf.clone(),challenge:captcha.token.clone(),answer:answer.as_str().into(),credit:String::new()};
+            let input=FormInput{csrf:captcha.csrf.clone(),challenge:Some(captcha.token.clone()),answer:Some(answer.as_str().into()),credit:String::new()};
             let html=ClassicForm{captcha}.render().unwrap();assert!(html.contains("data:image/png;base64,"));assert!(html.contains("name=\"t-response\""));assert!(!html.contains("<script"));assert_eq!(html.contains("id=\"t-load\""),!noscript_only);
             let response=page::finish((StatusCode::OK,"").into_response(),&context);let classic_headers=cookies(&response);
             let classic_session=Session::resolve(&state,&classic_headers,Some(peer)).await.unwrap();
@@ -180,6 +183,11 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
         let empty_proof=FormInput{csrf:nonce.into(),..FormInput::default()};
         let current=Session::resolve(&state,&headers,Some(peer)).await.unwrap();
         assert!(proof(&state,&headers,&current,Some(peer),Scope{board:board.clone(),target:target.parse().unwrap(),purpose:protocol::Purpose::Report},&empty_proof).await.unwrap().is_none());
+        let blank_proof=FormInput{csrf:nonce.into(),challenge:Some(String::new()),answer:Some(String::new()),credit:String::new()};
+        assert!(proof(&state,&headers,&current,Some(peer),Scope{board:board.clone(),target:target.parse().unwrap(),purpose:protocol::Purpose::Report},&blank_proof).await.unwrap().is_none());
+        for input in [&empty_proof,&blank_proof] {
+            assert_eq!(proof(&state,&headers,&current,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread},input).await.err().unwrap().0,StatusCode::BAD_REQUEST);
+        }
         let mut opted_out=headers.clone();opted_out.append(header::COOKIE,"pass_enabled=".parse().unwrap());
         sqlx::query("UPDATE verification_private.peers SET refresh_after=clock_timestamp()-interval '1 second' WHERE peer_hash=$1").bind(peer_hash.as_slice()).execute(&owner).await.unwrap();
         let response=request(State(state.clone()),Extension(RequestPeer(Some(peer))),opted_out,encoded(&[("action","challenge"),("board",&board),("purpose","report"),("target",&target),("csrf",nonce)])).await.unwrap();let result=decoded(response).await;assert_eq!(result["report_exempt"],false);assert_ne!(result["challenge"]["state"],"disabled");

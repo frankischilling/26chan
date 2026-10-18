@@ -19,6 +19,7 @@ pub struct ClearedReportQueuePage {
 }
 
 pub struct ClearedReportGroup {
+    pub automatic_clear: bool,
     pub post_id: i64,
     pub representative: ClearedReport,
     pub moderator_summary: Option<ModeratorClearedReportSummary>,
@@ -36,6 +37,7 @@ pub struct ModeratorClearedReportSummary {
 
 #[derive(sqlx::FromRow)]
 struct SelectedGroup {
+    automatic_clear: bool,
     post_id: i64,
     representative_id: i64,
 }
@@ -57,9 +59,9 @@ struct CategoryRow {
 // The newest eligible report represents its group. This deterministic order
 // makes no claim about the source's unresolved weighted priority.
 const SELECT_GROUPS: &str = r#"
-    SELECT post_id,max(id) AS representative_id
+    SELECT post_id,max(id) AS representative_id,CASE WHEN $2::boolean THEN bool_or(auto_cleared_at IS NOT NULL) ELSE false END AS automatic_clear
     FROM content.reports
-    WHERE board=$1 AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL
+    WHERE board=$1 AND (group_cleared_at IS NOT NULL OR auto_cleared_at IS NOT NULL) AND reporter_cleared_at IS NULL
     GROUP BY post_id
     ORDER BY representative_id DESC,post_id
     LIMIT 101
@@ -70,19 +72,19 @@ const SELECT_GROUPS: &str = r#"
 const SELECT_REPRESENTATIVES: &str = r#"
     SELECT id,post_id,CASE WHEN $3::boolean THEN reason ELSE NULL::text END AS reason,
            CASE WHEN $3::boolean THEN category_id ELSE NULL::bigint END AS category_id,
-           state,group_cleared_at,
+           state,group_cleared_at,CASE WHEN $3::boolean THEN auto_cleared_at ELSE NULL::timestamptz END AS auto_cleared_at,
            CASE WHEN $3::boolean THEN group_cleared_by ELSE NULL::bigint END AS group_cleared_by,
-           group_clear_inherited
+           coalesce(group_clear_inherited,false) AS group_clear_inherited
     FROM content.reports
     WHERE board=$1 AND id=ANY($2::bigint[])
-      AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL
+      AND (group_cleared_at IS NOT NULL OR auto_cleared_at IS NOT NULL) AND reporter_cleared_at IS NULL
 "#;
 
 const SELECT_COUNTS: &str = r#"
     SELECT post_id,count(*) AS report_count
     FROM content.reports
     WHERE board=$1 AND post_id=ANY($2)
-      AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL
+      AND (group_cleared_at IS NOT NULL OR auto_cleared_at IS NOT NULL) AND reporter_cleared_at IS NULL
     GROUP BY post_id
 "#;
 
@@ -90,11 +92,11 @@ const SELECT_COUNTS: &str = r#"
 // sixteenth additional record is a sentinel and is never returned to rendering.
 const SELECT_ADDITIONAL_MEMBERS: &str = r#"
     WITH retained AS MATERIALIZED (
-        SELECT id,post_id,reason,category_id,state,group_cleared_at,
-               group_cleared_by,group_clear_inherited
+        SELECT id,post_id,reason,category_id,state,group_cleared_at,auto_cleared_at,
+               group_cleared_by,coalesce(group_clear_inherited,false) AS group_clear_inherited
         FROM content.reports
         WHERE board=$1 AND post_id=ANY($2::bigint[])
-          AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL
+          AND (group_cleared_at IS NOT NULL OR auto_cleared_at IS NOT NULL) AND reporter_cleared_at IS NULL
     ), ranked AS (
         SELECT r.*,row_number() OVER (
             PARTITION BY r.post_id ORDER BY r.id DESC
@@ -103,8 +105,8 @@ const SELECT_ADDITIONAL_MEMBERS: &str = r#"
         JOIN unnest($2::bigint[],$3::bigint[]) AS g(post_id,representative_id)
           ON r.post_id=g.post_id AND r.id<g.representative_id
     )
-    SELECT id,post_id,reason,category_id,state,group_cleared_at,
-           group_cleared_by,group_clear_inherited
+    SELECT id,post_id,reason,category_id,state,group_cleared_at,auto_cleared_at,
+           group_cleared_by,coalesce(group_clear_inherited,false) AS group_clear_inherited
     FROM ranked WHERE member_rank<=16
     ORDER BY post_id,id DESC
 "#;
@@ -119,7 +121,7 @@ const SELECT_CATEGORIES: &str = r#"
                category_kind AS kind,reason AS title
         FROM content.reports
         WHERE board=$1 AND post_id=ANY($2::bigint[])
-          AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL
+          AND (group_cleared_at IS NOT NULL OR auto_cleared_at IS NOT NULL) AND reporter_cleared_at IS NULL
           AND category_id IS NOT NULL
     ), categories AS (
         SELECT DISTINCT post_id,revision,id,kind,title FROM retained
@@ -183,6 +185,7 @@ async fn load_inner(
     crate::report_post_snapshot::ensure_ready(&mut tx).await?;
     let mut selected: Vec<SelectedGroup> = sqlx::query_as(SELECT_GROUPS)
         .bind(board)
+        .bind(moderator)
         .fetch_all(&mut *tx)
         .await?;
     let has_more = selected.len() > MAX_GROUPS;
@@ -283,6 +286,7 @@ async fn load_inner(
             None
         };
         groups.push(ClearedReportGroup {
+            automatic_clear: group.automatic_clear,
             post_id: group.post_id,
             representative,
             moderator_summary,

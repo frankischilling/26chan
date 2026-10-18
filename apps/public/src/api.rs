@@ -185,11 +185,12 @@ fn post_json(
 ) -> Result<Value, AppError> {
     let post = PostView::resolved(post, quotes.targets, quotes.current_thread);
     let comment = Comment {
+        staff_notices: &post.post.staff_notices,
         lines: &post.lines,
         board: &board.slug,
-        dice_result: post.post.dice_result.as_deref(),
-        fortune_text: post.post.fortune_text.as_deref(),
-        fortune_color: post.post.fortune_color.as_deref(),
+        dice_result: post.post.separate_dice_result(),
+        fortune_text: post.post.separate_fortune_text(),
+        fortune_color: post.post.separate_fortune_color(),
         drawing: post.drawing_annotation(),
     }
     .render_json(post.post.comment_format)?;
@@ -633,6 +634,7 @@ mod poster_id_projection_tests {
             let archived = case["archived"].as_bool().unwrap();
             let saved = row["expected"].as_str().map(str::to_owned);
             let post = board_store::Post {
+                staff_notices: Vec::new(),
                 id: if op { 42 } else { 43 },
                 board: "test".into(),
                 thread_id: 42,

@@ -868,3 +868,80 @@ async fn bounded_history_capacity_and_private_board_nonexposure() {
     assert_eq!(code(&denied), "42501");
     f.cleanup().await;
 }
+
+#[tokio::test]
+async fn automatic_metadata_context_is_bound_and_consumed_once() {
+    let _guard = TEST.lock().await;
+    let f = Fixture::new().await;
+    let actor: String = f.actor.iter().map(|byte| format!("{byte:02x}")).collect();
+    let valid = serde_json::json!({
+        "board": f.boards[0], "parent": "0", "actor": actor,
+        "browser": "1deadbeef", "prefix": "12".repeat(32),
+    });
+    let mut invalid = vec!["null".into(), "[]".into(), "{".into(), "x".repeat(513)];
+    for (field, value) in [
+        ("board", f.boards[1].clone()),
+        ("parent", "1".into()),
+        ("actor", "00".repeat(32)),
+        ("browser", "0deadbeef".into()),
+        ("prefix", "12".repeat(31)),
+    ] {
+        let mut input = valid.clone();
+        input[field] = value.into();
+        invalid.push(input.to_string());
+    }
+    let mut missing = valid.clone();
+    missing.as_object_mut().unwrap().remove("browser");
+    invalid.push(missing.to_string());
+    for input in invalid {
+        let mut tx = f.public.begin().await.unwrap();
+        lock(&mut tx, &f.actor, true).await.unwrap();
+        set_actor(&mut tx, &f.actor).await.unwrap();
+        let id: i64 =
+            sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
+                .bind(&f.boards[0])
+                .fetch_one(&mut *tx)
+                .await
+                .unwrap();
+        sqlx::query("SELECT set_config('board.automatic_range_metadata',$1,true)")
+            .bind(input)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        let error = sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Anonymous','Owned metadata','Owned fixture')")
+            .bind(id).bind(&f.boards[0]).execute(&mut *tx).await.unwrap_err();
+        assert_eq!(code(&error), "P0180");
+        tx.rollback().await.unwrap();
+    }
+    let mut tx = f.public.begin().await.unwrap();
+    lock(&mut tx, &f.actor, true).await.unwrap();
+    set_actor(&mut tx, &f.actor).await.unwrap();
+    let op: i64 = sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
+        .bind(&f.boards[0])
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("SELECT set_config('board.automatic_range_metadata',$1,true)")
+        .bind(valid.to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Anonymous','Owned metadata','Owned fixture')")
+        .bind(op).bind(&f.boards[0]).execute(&mut *tx).await.unwrap();
+    let consumed: String =
+        sqlx::query_scalar("SELECT current_setting('board.automatic_range_metadata')")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    assert!(consumed.is_empty());
+    let reply: i64 = sqlx::query_scalar("INSERT INTO content.posts(board,thread_id,name,subject,comment) VALUES($1,$2,'Anonymous','','Owned second fixture') RETURNING id")
+        .bind(&f.boards[0]).bind(op).fetch_one(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let saved: (String, Vec<u8>) = sqlx::query_as("SELECT automatic_browser,automatic_prefix FROM post_secrets.posting_history WHERE post_id=$1")
+        .bind(op).fetch_one(&f.owner).await.unwrap();
+    assert_eq!(saved, ("1deadbeef".into(), vec![0x12; 32]));
+    let second: bool = sqlx::query_scalar("SELECT automatic_browser IS NULL AND automatic_prefix IS NULL FROM post_secrets.posting_history WHERE post_id=$1")
+        .bind(reply).fetch_one(&f.owner).await.unwrap();
+    assert!(second, "A second insert cannot reuse consumed metadata");
+    f.cleanup().await;
+}

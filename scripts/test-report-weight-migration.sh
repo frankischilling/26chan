@@ -211,6 +211,30 @@ SQL
   [[ $migration > migrations/0102_report_weight_evidence.sql ]] || continue
   "${migrator[@]}" --single-transaction -f - < "$migration"
  done
+ # 0200 deliberately extends exactly two checks for new native observations.
+ # Preserve every historical evidence row and every other schema expectation.
+ if [[ -f migrations/0200_report_request_profile.sql ]]; then
+  "${admin[@]}" <<'SQL'
+CREATE TEMP TABLE owned_expected_report_profile (
+ evaluator_version smallint,
+ threat_at_least_point_four boolean,
+ CONSTRAINT report_weight_evidence_evaluator_version_check CHECK(evaluator_version IN(1,2)),
+ CONSTRAINT report_weight_evidence_threat_at_least_point_four_check CHECK(
+  (evaluator_version=1 AND threat_at_least_point_four IS NULL)
+  OR (evaluator_version=2 AND threat_at_least_point_four IS NOT NULL))
+);
+DO $$ DECLARE changed integer; BEGIN
+ UPDATE public.before_current_weight_schema expected
+ SET value=jsonb_build_array('c',true,false,false,pg_get_constraintdef(k.oid))
+ FROM pg_constraint k
+ WHERE k.conrelid='pg_temp.owned_expected_report_profile'::regclass
+  AND expected.kind='constraint' AND expected.name=k.conname;
+ GET DIAGNOSTICS changed=ROW_COUNT;
+ IF changed<>2 THEN RAISE EXCEPTION 'Missing predecessor report-profile checks'; END IF;
+END $$;
+DROP TABLE owned_expected_report_profile;
+SQL
+ fi
  "${admin[@]}" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(TABLE public.before_current_evidence EXCEPT ALL TABLE post_secrets.report_weight_evidence)

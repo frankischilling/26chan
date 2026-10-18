@@ -96,6 +96,8 @@ async fn still_context_is_bound_through_transport_approval_and_retained_identity
                 let files=ApprovedFiles::open(root.join("objects")).unwrap();
                 assert_eq!(files.read_still(asset.id.parse().unwrap(),&asset.sha256,asset.bytes as u64,StillFormat::Jpeg).unwrap(),input);
                 let profile:String=sqlx::query_scalar("SELECT source_profile FROM media.assets WHERE id=$1").bind(&asset.id).fetch_one(&owner).await.unwrap();assert_eq!(profile,"still-v6");
+                let original:(String,i64,String,String)=sqlx::query_as("SELECT sha256,bytes,encode(md5,'hex'),component FROM media.input_receipts WHERE asset_id=$1").bind(&asset.id).fetch_one(&owner).await.unwrap();
+                assert_eq!(original,("201e57bb8f1737c3c940e0a29508dba8a2273e44fb83aaf5af5bda37b8678449".into(),32,"a54cc8e5e5474a7c00fcb0ee01d717c8".into(),"upload".into()));
             } else {
                 assert!(result.is_err());
                 let count:i64=sqlx::query_scalar("SELECT count(*) FROM media.assets WHERE job_id=$1 AND state='approved'").bind(&upload.id).fetch_one(&owner).await.unwrap();assert_eq!(count,0);

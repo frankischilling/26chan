@@ -25,6 +25,7 @@ pub struct Input<'a> {
     pub dice: Option<&'a str>,
     pub fortune: Option<(&'a str, &'a str)>,
     pub drawing: Option<&'a crate::views::DrawingAnnotation>,
+    pub notices: &'a [String],
 }
 
 pub fn prepare(input: Input<'_>) -> Prepared {
@@ -37,9 +38,11 @@ pub fn prepare(input: Input<'_>) -> Prepared {
         dice,
         fortune,
         drawing,
+        notices,
     } = input;
     let subject = subject.strip_prefix("SPOILER<>").unwrap_or(subject);
-    let source_links = matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255);
+    let source_links =
+        matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255 | 488..=495 | 504..=511);
     let mut tokens = Vec::new();
     if let Some(dice) = dice {
         tokens.extend([
@@ -89,6 +92,14 @@ pub fn prepare(input: Input<'_>) -> Prepared {
     }
     if let Some(drawing) = drawing {
         tokens.extend(drawing.tokens(" "));
+    }
+    for notice in notices {
+        tokens.extend([
+            Token::Text("  ".into()),
+            Token::GeneratedNotice(true),
+            Token::Text(format!("({notice})")),
+            Token::GeneratedNotice(false),
+        ]);
     }
     // Source !empty() also excludes the string "0".
     if !subject.is_empty() && subject != "0" {
@@ -197,16 +208,26 @@ pub(crate) fn row(
     );
     let subject = board_domain::source_html_entities(&entry.subject);
     let mut comment = teaser::stored_comment(&lines, &board.slug, entry.comment_format);
-    if let Some(dice) = &entry.dice_result {
+    let separate = !board_domain::formatting::generated_content_format(entry.comment_format);
+    let dice = if separate {
+        entry.dice_result.as_deref()
+    } else {
+        None
+    };
+    if let Some(dice) = dice {
         comment = format!(
             "<b>{}<br><br></b>{comment}",
             board_domain::source_html_entities(dice)
         );
     }
-    let fortune = entry
-        .fortune_text
-        .as_deref()
-        .zip(entry.fortune_color.as_deref());
+    let fortune = if separate {
+        entry
+            .fortune_text
+            .as_deref()
+            .zip(entry.fortune_color.as_deref())
+    } else {
+        None
+    };
     if let Some((text, color)) = fortune {
         comment.push_str(&format!(
             "<span class=\"fortune\" style=\"color:{}\"><br><br><b>Your fortune: {}</b></span>",
@@ -226,6 +247,18 @@ pub(crate) fn row(
     if let Some(drawing) = &drawing {
         comment.push_str(&drawing.stored_html());
     }
+    for text in &entry.staff_notices {
+        comment.push_str(
+            &board_domain::post_notice::Notice::from_saved(text)
+                .map_err(|_| {
+                    AppError(
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        "Post notices are unavailable.",
+                    )
+                })?
+                .source_html(),
+        );
+    }
     let context = board_domain::semantic_context::generate(&subject, &comment, board.staff_only)
         .map_err(|_| {
             AppError(
@@ -235,13 +268,14 @@ pub(crate) fn row(
         })?;
     let href = crate::semantic_thread::href(&board.slug, entry.id, &context);
     let prepared = prepare(Input {
+        notices: &entry.staff_notices,
         subject: &subject,
         lines: &lines,
         board: &board.slug,
         format: entry.comment_format,
         // Source's preview switch is current; saved parser authority is not.
         sjis: board.comment_sjis_spacing,
-        dice: entry.dice_result.as_deref(),
+        dice,
         fortune,
         drawing: drawing.as_ref(),
     });
@@ -259,6 +293,7 @@ mod tests {
     fn excerpt(subject: &str, comment: &str, format: i16, sjis: bool) -> String {
         let lines = board_domain::parse_post_comment(comment, format);
         prepare(Input {
+            notices: &[],
             subject,
             lines: &lines,
             board: "g",
@@ -334,6 +369,7 @@ mod tests {
     fn saved_randomizers_participate_in_archive_length_check() {
         let lines = board_domain::parse_post_comment("body", 9);
         let prepared = prepare(Input {
+            notices: &[],
             subject: "",
             lines: &lines,
             board: "g",
@@ -345,6 +381,7 @@ mod tests {
         });
         assert_eq!(prepared.serialized, "<b>Rolled 3 (1d6) </b>body");
         let prepared = prepare(Input {
+            notices: &[],
             subject: "",
             lines: &lines,
             board: "g",
@@ -364,6 +401,7 @@ mod tests {
         drawing.replay_tim = Some(123);
         let lines = board_domain::parse_comment("body");
         let prepared = prepare(Input {
+            notices: &[],
             subject: "",
             lines: &lines,
             board: "i",
@@ -385,6 +423,7 @@ mod tests {
         let drawing = crate::views::DrawingAnnotation::from_saved(Some(90), Some(42)).unwrap();
         let lines = board_domain::parse_comment("body");
         let prepared = prepare(Input {
+            notices: &[],
             subject: "",
             lines: &lines,
             board: "i",

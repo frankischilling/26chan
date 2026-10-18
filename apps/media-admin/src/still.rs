@@ -107,6 +107,9 @@ async fn publish(
     };
     let guard = store.try_lock()?;
     let asset = queue.prepare_still_output(job_id, token, &manifest).await?;
+    queue
+        .record_input_receipt(job_id, token, &asset.id, &input_receipt(snapshot))
+        .await?;
     let id = asset.id.parse()?;
     let primary = guard.install_still(id, output)?;
     if primary.sha256 != asset.sha256
@@ -128,5 +131,7 @@ async fn publish(
             if receipt.sha256 == expected.sha256 && receipt.bytes == expected.bytes as u64 => {}
         _ => return Err("mobile image receipt mismatch".into()),
     }
-    Ok(queue.approve_output(job_id, token, &asset.id).await?)
+    Ok(queue
+        .approve_output_with_input(job_id, token, &asset.id, &input_receipt(snapshot))
+        .await?)
 }

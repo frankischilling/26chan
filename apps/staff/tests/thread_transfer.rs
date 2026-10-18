@@ -81,6 +81,8 @@ impl Fixture {
             .bind(auth::hash(&token)).bind(auth::hash(&csrf)).bind(account).bind(&credential).execute(&owner).await.unwrap();
         let state = Arc::new(AppState {
             config: Config {
+                asn_database: None,
+                browser_hint_key: None,
                 media: None,
                 proxy: None,
                 poster_id_key: None,
@@ -319,6 +321,9 @@ async fn transfer_http_freezes_history_erases_source_and_reconciles_repeated_pos
         for id in [f.op, f.reply] {
             sqlx::query("INSERT INTO content.reports(board,post_id,reason) VALUES($1,$2,'Owned transfer report')").bind(&f.boards[0]).bind(id).execute(&f.owner).await.unwrap();
         }
+        let notices=vec!["OwnedNoticeNeedle <script>literal</script>".to_owned(),"Second notice".to_owned(),"Second notice".to_owned()];
+        sqlx::query("UPDATE content.posts SET staff_notices=$2 WHERE id=ANY($1)")
+            .bind(vec![f.op,f.reply]).bind(&notices).execute(&f.owner).await.unwrap();
         let source: Vec<Value> = sqlx::query_scalar::<_, String>("SELECT to_jsonb(p)::text FROM content.posts p WHERE board=$1 ORDER BY id")
             .bind(&f.boards[0]).fetch_all(&f.owner).await.unwrap().into_iter().map(|s| serde_json::from_str(&s).unwrap()).collect();
         let start: chrono::DateTime<chrono::Utc> = sqlx::query_scalar("SELECT clock_timestamp()").fetch_one(&f.owner).await.unwrap();
@@ -332,7 +337,7 @@ async fn transfer_http_freezes_history_erases_source_and_reconciles_repeated_pos
         let new_reply = destination[1]["id"].as_i64().unwrap();
         assert!(new_op > f.reply && new_reply > new_op);
         for (old, new) in source.iter().zip(&destination) {
-            for field in ["name", "trip", "subject", "capcode", "created_at", "file_deleted", "comment_format", "staff_authorized_limits", "country", "country_name"] {
+            for field in ["name", "trip", "subject", "capcode", "created_at", "file_deleted", "comment_format", "staff_authorized_limits", "country", "country_name", "staff_notices"] {
                 assert_eq!(new[field], old[field], "historical {field}");
             }
             assert_eq!(new["thread_id"], new_op);
@@ -361,7 +366,7 @@ async fn transfer_http_freezes_history_erases_source_and_reconciles_repeated_pos
             let time = chrono::DateTime::parse_from_rfc3339(thread[field].as_str().unwrap()).unwrap().with_timezone(&chrono::Utc);
             assert!(time >= start, "fresh {field}");
         }
-        let erased: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1 AND deleted AND content_erased AND name='' AND subject='' AND comment='' AND trip IS NULL AND capcode IS NULL AND saved_presentation IS NULL AND saved_presentation_search IS NULL AND wordfilter_payload IS NULL AND wordfilter_search IS NULL AND created_at='epoch'::timestamptz")
+        let erased: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1 AND deleted AND content_erased AND staff_notices='{}'::text[] AND name='' AND subject='' AND comment='' AND trip IS NULL AND capcode IS NULL AND saved_presentation IS NULL AND saved_presentation_search IS NULL AND wordfilter_payload IS NULL AND wordfilter_search IS NULL AND created_at='epoch'::timestamptz")
             .bind(&f.boards[0]).fetch_one(&f.owner).await.unwrap();
         assert_eq!(erased, 2);
         let source_thread_erased: bool = sqlx::query_scalar("SELECT deleted AND content_erased AND reply_count=0 AND NOT closed AND NOT sticky AND modified_at='epoch'::timestamptz FROM content.threads WHERE id=$1")
@@ -404,6 +409,9 @@ async fn transfer_http_freezes_history_erases_source_and_reconciles_repeated_pos
         assert_eq!(captured_status, StatusCode::OK, "{captured_html}");
         assert!(captured_html.contains(&format!("Post captured when report {captured_report} was admitted")));
         assert!(captured_html.contains("TransferNeedle"));
+        assert!(captured_html.contains("OwnedNoticeNeedle"));
+        assert!(captured_html.contains("class=\"post-notice\""));
+        assert!(!captured_html.contains("<script>literal</script>"));
         assert!(!captured_html.contains("&amp;gt;&amp;gt;"), "Typed quote presentation must not be escaped a second time");
         // A later destructive move must qualify existing FP rather than parse
         // its projection as raw text, and erase both frozen storage columns.

@@ -21,6 +21,7 @@ pub struct Report {
     pub flag_name: Option<String>,
     pub subject: String,
     pub comment: String,
+    pub staff_notices: Vec<String>,
     pub drawing_time_seconds: Option<i32>,
     pub drawing_source_post_id: Option<i64>,
     pub comment_format: i16,
@@ -339,8 +340,8 @@ pub(crate) async fn prepare_moderation(
                 }
             })?;
     } else if matches!(action, "resolve" | "dismiss") {
-        let thread: i64 = sqlx::query_scalar("SELECT p.thread_id FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board WHERE r.board=$1 AND r.id=$2 AND NOT p.deleted AND NOT t.deleted AND r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL FOR UPDATE OF r").bind(board).bind(target).fetch_optional(&mut *tx).await?.ok_or(AppError::NotFound)?;
-        sqlx::query("UPDATE content.reports SET state=$3 WHERE board=$1 AND id=$2 AND reporter_cleared_at IS NULL AND group_cleared_at IS NULL")
+        let thread: i64 = sqlx::query_scalar("SELECT p.thread_id FROM content.reports r JOIN content.posts p ON p.id=r.post_id AND p.board=r.board JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board WHERE r.board=$1 AND r.id=$2 AND NOT p.deleted AND NOT t.deleted AND r.reporter_cleared_at IS NULL AND r.group_cleared_at IS NULL AND r.auto_cleared_at IS NULL FOR UPDATE OF r").bind(board).bind(target).fetch_optional(&mut *tx).await?.ok_or(AppError::NotFound)?;
+        sqlx::query("UPDATE content.reports SET state=$3 WHERE board=$1 AND id=$2 AND reporter_cleared_at IS NULL AND group_cleared_at IS NULL AND auto_cleared_at IS NULL")
             .bind(board)
             .bind(target)
             .bind(if action == "resolve" {
@@ -474,7 +475,8 @@ pub struct ClearedReport {
     pub reason: Option<String>,
     pub category_id: Option<i64>,
     pub state: String,
-    pub group_cleared_at: chrono::DateTime<chrono::Utc>,
+    pub group_cleared_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub auto_cleared_at: Option<chrono::DateTime<chrono::Utc>>,
     pub group_cleared_by: Option<i64>,
     pub group_clear_inherited: bool,
 }
@@ -488,7 +490,7 @@ pub async fn cleared_reports(
         return Err(AppError::Forbidden);
     }
     // Redact before materializing a Janitor row, including the actor identity.
-    Ok(sqlx::query_as("SELECT id,post_id,CASE WHEN $2 THEN reason ELSE NULL::text END AS reason,CASE WHEN $2 THEN category_id ELSE NULL::bigint END AS category_id,state,group_cleared_at,CASE WHEN $2 THEN group_cleared_by ELSE NULL::bigint END AS group_cleared_by,group_clear_inherited FROM content.reports WHERE board=$1 AND group_cleared_at IS NOT NULL AND reporter_cleared_at IS NULL ORDER BY id DESC LIMIT 100")
+    Ok(sqlx::query_as("SELECT id,post_id,CASE WHEN $2 THEN reason ELSE NULL::text END AS reason,CASE WHEN $2 THEN category_id ELSE NULL::bigint END AS category_id,state,group_cleared_at,CASE WHEN $2 THEN auto_cleared_at ELSE NULL::timestamptz END AS auto_cleared_at,CASE WHEN $2 THEN group_cleared_by ELSE NULL::bigint END AS group_cleared_by,coalesce(group_clear_inherited,false) AS group_clear_inherited FROM content.reports WHERE board=$1 AND (group_cleared_at IS NOT NULL OR auto_cleared_at IS NOT NULL) AND reporter_cleared_at IS NULL ORDER BY id DESC LIMIT 100")
         .bind(board)
         .bind(session.at_least(crate::access::Level::Moderator))
         .fetch_all(pool).await?)

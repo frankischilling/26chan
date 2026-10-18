@@ -1,0 +1,112 @@
+//! Capability-scoped metadata held under the posting transaction's job lock.
+use crate::{
+    StoreError,
+    post_media::{self, NewAttachment},
+};
+use sqlx::PgConnection;
+
+type Metadata = (String, Option<String>, Option<Vec<u8>>, Option<bool>);
+
+pub(crate) struct Target<'a> {
+    pub board: &'a str,
+    pub parent: i64,
+    pub authorized: bool,
+    pub badged: bool,
+}
+
+pub(super) struct FileContext<'a> {
+    pub board: &'a str,
+    pub parent: i64,
+    pub badged: bool,
+    pub job: &'a str,
+    pub capability: &'a str,
+    pub filename: &'a str,
+    pub normalized: Option<&'a str>,
+    pub original: Option<&'a [u8]>,
+    pub eligible: Option<bool>,
+}
+
+pub(crate) struct Preflight<'a> {
+    attachment: &'a NewAttachment,
+    target: Target<'a>,
+    metadata: Metadata,
+}
+
+impl<'a> Preflight<'a> {
+    pub async fn begin(
+        connection: &mut PgConnection,
+        attachment: &'a NewAttachment,
+        target: Target<'a>,
+    ) -> Result<Self, StoreError> {
+        let metadata = read(connection, attachment, &target).await?;
+        Ok(Self {
+            attachment,
+            target,
+            metadata,
+        })
+    }
+
+    pub(super) fn file_context(&self) -> FileContext<'_> {
+        FileContext {
+            board: self.target.board,
+            parent: self.target.parent,
+            badged: self.target.badged,
+            job: &self.attachment.upload.id,
+            capability: &self.attachment.upload.capability,
+            filename: &self.metadata.0,
+            normalized: self.metadata.1.as_deref(),
+            original: self.metadata.2.as_deref(),
+            eligible: self.metadata.3,
+        }
+    }
+
+    /// A capability-bound decision, with no private history rows or digests
+    /// returned to the runtime role. Badge identity does not exempt this gate.
+    pub async fn prior_banned(&self, connection: &mut PgConnection) -> Result<bool, StoreError> {
+        if self.target.board == "b" {
+            return Ok(false);
+        }
+        let blocked: Option<bool> =
+            sqlx::query_scalar("SELECT content.prior_upload_banned($1,$2,$3,$4,$5,$6)")
+                .bind(&self.attachment.upload.id)
+                .bind(&self.attachment.upload.capability)
+                .bind(self.target.board)
+                .bind(self.target.parent)
+                .bind(self.target.authorized)
+                .bind(self.target.badged)
+                .fetch_one(connection)
+                .await
+                .map_err(post_media::scoped_error)?;
+        blocked.ok_or_else(|| {
+            StoreError::Database(sqlx::Error::Protocol(
+                "Upload history is unavailable.".into(),
+            ))
+        })
+    }
+
+    pub fn filename(&self) -> &str {
+        &self.metadata.0
+    }
+
+    /// A filter evaluation may wait for bounded native work. Check expiry again
+    /// before committing its effects, without consuming the one-use attachment.
+    pub async fn revalidate(&self, connection: &mut PgConnection) -> Result<(), StoreError> {
+        if read(connection, self.attachment, &self.target).await? != self.metadata {
+            return Err(StoreError::Conflict(
+                "Attachment admission metadata changed.",
+            ));
+        }
+        Ok(())
+    }
+}
+
+async fn read(
+    connection: &mut PgConnection,
+    attachment: &NewAttachment,
+    target: &Target<'_>,
+) -> Result<Metadata, StoreError> {
+    sqlx::query_as("SELECT filename,normalized_md5,original_md5,original_eligible FROM content.attachment_upload_filter_metadata($1,$2,$3,$4,$5,$6)")
+        .bind(&attachment.upload.id).bind(&attachment.upload.capability)
+        .bind(target.board).bind(target.parent).bind(target.authorized).bind(target.badged)
+        .fetch_one(connection).await.map_err(post_media::scoped_error)
+}

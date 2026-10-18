@@ -378,8 +378,7 @@ impl PostView {
 
     pub fn fortune_class(&self) -> Option<&'static str> {
         self.post
-            .fortune_color
-            .as_deref()
+            .separate_fortune_color()
             .and_then(board_domain::posting_randomizers::fortune_class)
     }
 
@@ -388,16 +387,16 @@ impl PostView {
     }
 
     pub fn catalog_teaser(&self, board: &Board) -> crate::catalog::teaser::Prepared {
-        crate::catalog::teaser::prepare_with_metadata(
+        crate::catalog::teaser::prepare_with_notices(
             &self.lines,
             &board.slug,
             crate::catalog::teaser::Policy::for_post(board, self.post.comment_format),
-            self.post.dice_result.as_deref(),
+            self.post.separate_dice_result(),
             self.post
-                .fortune_text
-                .as_deref()
-                .zip(self.post.fortune_color.as_deref()),
+                .separate_fortune_text()
+                .zip(self.post.separate_fortune_color()),
             self.drawing_annotation().as_ref(),
+            &self.post.staff_notices,
         )
     }
 
@@ -474,24 +473,52 @@ pub struct Comment<'a> {
     pub fortune_text: Option<&'a str>,
     pub fortune_color: Option<&'a str>,
     pub drawing: Option<DrawingAnnotation>,
+    pub staff_notices: &'a [String],
 }
 
 impl Comment<'_> {
+    pub fn generated_source(&self) -> bool {
+        self.lines.iter().any(|line| {
+            line.tokens
+                .iter()
+                .any(|token| matches!(token, Token::FilteredGenerated(_)))
+        })
+    }
+
     /// JSON keeps the source ENT_QUOTES spelling after the typed template has
     /// escaped every value. This only changes equivalent entity spellings; it
     /// never decodes entities, parses user HTML, or changes historical profiles.
     pub(crate) fn render_json(&self, format: i16) -> askama::Result<String> {
-        let html = self.render()?;
-        if matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255) {
-            Ok(html
-                .replace("&#38;", "&amp;")
+        let body = Self {
+            lines: self.lines,
+            board: self.board,
+            dice_result: self.dice_result,
+            fortune_text: self.fortune_text,
+            fortune_color: self.fortune_color,
+            drawing: self.drawing,
+            staff_notices: &[],
+        }
+        .render()?;
+        let mut html = if matches!(format, 104..=111 | 120..=127 | 232..=239 | 248..=255 | 488..=495 | 504..=511)
+        {
+            body.replace("&#38;", "&amp;")
                 .replace("&#60;", "&lt;")
                 .replace("&#62;", "&gt;")
                 .replace("&#34;", "&quot;")
-                .replace("&#39;", "&#039;"))
+                .replace("&#39;", "&#039;")
         } else {
-            Ok(html)
+            body
+        };
+        board_domain::post_notice::validate_saved(self.staff_notices)
+            .map_err(|_| askama::Error::Fmt)?;
+        for text in self.staff_notices {
+            html.push_str(
+                &board_domain::post_notice::Notice::from_saved(text)
+                    .map_err(|_| askama::Error::Fmt)?
+                    .source_html(),
+            );
         }
+        Ok(html)
     }
 }
 
@@ -519,6 +546,41 @@ mod comment_tests {
     use board_domain::{CommentSpacing, parse_comment, prepare_post_comment};
 
     #[test]
+    fn post_notices_keep_source_escaping_order_and_duplicates_for_every_profile() {
+        let notices = vec![
+            "<script>\"&'猫</script>".into(),
+            "again".into(),
+            "again".into(),
+        ];
+        let comment = Comment {
+            lines: &[],
+            board: "demo",
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
+            drawing: None,
+            staff_notices: &notices,
+        };
+        let expected = " <br><br><strong style=\"color: red;\">(&lt;script&gt;&quot;&amp;&#039;猫&lt;/script&gt;)</strong> <br><br><strong style=\"color: red;\">(again)</strong> <br><br><strong style=\"color: red;\">(again)</strong>";
+        for profile in 0..=511 {
+            assert_eq!(
+                comment.render_json(profile).unwrap(),
+                expected,
+                "profile {profile}"
+            );
+        }
+        let invalid = vec![String::new()];
+        assert!(
+            Comment {
+                staff_notices: &invalid,
+                ..comment
+            }
+            .render_json(488)
+            .is_err()
+        );
+    }
+
+    #[test]
     fn source_json_entity_spellings_match_independent_php_cases() {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
             "../../../fixtures/quote-resolution-reference.json"
@@ -530,6 +592,7 @@ mod comment_tests {
                 tokens: vec![Token::Text(case["input"].as_str().unwrap().into())],
             }];
             let comment = Comment {
+                staff_notices: &[],
                 lines: &lines,
                 board: "g",
                 dice_result: None,
@@ -562,6 +625,7 @@ mod comment_tests {
                 tokens: vec![Token::Text(text.into())],
             }];
             let comment = Comment {
+                staff_notices: &[],
                 lines: &lines,
                 board: "g",
                 dice_result: None,
@@ -588,6 +652,7 @@ mod comment_tests {
 
     fn render(input: &str, format: i16) -> String {
         Comment {
+            staff_notices: &[],
             lines: &parse_post_comment(input, format),
             board: "test",
             dice_result: None,
@@ -631,6 +696,7 @@ mod comment_tests {
                 }
             }
             let html = Comment {
+                staff_notices: &[],
                 lines: &lines,
                 board,
                 dice_result: None,
@@ -696,6 +762,7 @@ mod comment_tests {
             let drawing = view.drawing_annotation();
             assert_eq!(drawing.unwrap().replay_tim, expected.then_some(123));
             let html = Comment {
+                staff_notices: &[],
                 lines: &[],
                 board: "i",
                 dice_result: None,
@@ -733,6 +800,7 @@ mod comment_tests {
             let seconds = i32::try_from(case["args"][0].as_i64().unwrap()).ok();
             let drawing = DrawingAnnotation::from_saved(seconds, None);
             let html = Comment {
+                staff_notices: &[],
                 lines: &[],
                 board: "i",
                 dice_result: None,
@@ -751,6 +819,7 @@ mod comment_tests {
             "<br><br><small><b>Oekaki Post</b> (Time: 1h 1m, Source: &gt;&gt;42)</small>";
         assert_eq!(drawing.stored_html(), expected);
         let html = Comment {
+            staff_notices: &[],
             lines: &[],
             board: "i",
             dice_result: None,
@@ -772,9 +841,87 @@ mod comment_tests {
     }
 
     #[test]
+    fn generated_palette_payloads_keep_source_json_and_csp_safe_page_markup() {
+        use board_domain::posting_randomizers::Outcome;
+        use board_domain::wordfilter::{LeetRolls, Profile};
+        #[derive(Template)]
+        #[template(
+            source = "{% import \"formatting.html\" as formatting %}{% call formatting::comment(lines, \"test\") %}{% endcall %}",
+            ext = "html"
+        )]
+        struct Page<'a> {
+            lines: &'a [Line],
+        }
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../../../fixtures/randomizer-reference.json"))
+                .unwrap();
+        let css = include_str!("../../../assets/comment-markup.css");
+        for fortune in fixture["fortunes"].as_array().unwrap() {
+            // Thirteen fixed fixture strings; the production outcome remains static.
+            let text: &'static str = Box::leak(
+                fortune["text"]
+                    .as_str()
+                    .unwrap()
+                    .to_owned()
+                    .into_boxed_str(),
+            );
+            let outcome = Outcome::Fortune {
+                text,
+                color: fortune["color"].as_str().unwrap().into(),
+            };
+            for first in 0..6 {
+                for second in 0..6 {
+                    let mut prepared = board_domain::wordfiltered_comment::prepare_with_randomizer(
+                        "",
+                        Default::default(),
+                        Some(Profile::Test),
+                        Some(LeetRolls::from_choices(first, second).unwrap()),
+                        board_domain::PostLimits::ordinary(1000),
+                        &outcome,
+                    )
+                    .unwrap();
+                    prepared.freeze_format("test");
+                    let lines =
+                        board_domain::filtered_formatting::lines_for_post(&prepared, "test", 488);
+                    let source = board_domain::filtered_formatting::source_projection(&lines);
+                    let json = Comment {
+                        staff_notices: &[],
+                        lines: &lines,
+                        board: "test",
+                        dice_result: None,
+                        fortune_text: None,
+                        fortune_color: None,
+                        drawing: None,
+                    }
+                    .render_json(488)
+                    .unwrap();
+                    assert_eq!(json, source, "{first},{second},{}", fortune["text"]);
+                    let html = Page { lines: &lines }.render().unwrap();
+                    assert!(!html.contains(" style="));
+                    for token in lines.iter().flat_map(|line| &line.tokens) {
+                        if let Token::FilteredGenerated(delimiter) = token
+                            && delimiter.opening()
+                            && let Some(class) = delimiter.color_class()
+                        {
+                            assert!(html.contains(&class));
+                            let color = delimiter
+                                .style_value()
+                                .strip_prefix("color:")
+                                .unwrap()
+                                .to_owned();
+                            assert!(css.contains(&format!(".{class} {{ color: {color}; }}")));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn retained_randomizer_metadata_uses_fixed_markup_and_escaped_text() {
         let lines = parse_post_comment("ordinary <text>", 0);
         let html = Comment {
+            staff_notices: &[],
             lines: &lines,
             board: "test",
             dice_result: Some("Rolled <1>"),
@@ -931,6 +1078,7 @@ mod comment_tests {
         .unwrap();
         let lines = parse_comment(&text);
         let html = Comment {
+            staff_notices: &[],
             lines: &lines,
             board: "test",
             dice_result: None,
@@ -959,6 +1107,7 @@ mod comment_tests {
             .unwrap();
             let lines = parse_comment(&text);
             let html = Comment {
+                staff_notices: &[],
                 lines: &lines,
                 board: "test",
                 dice_result: None,
@@ -998,6 +1147,7 @@ mod comment_tests {
                 );
                 let lines = parse_comment(&text);
                 let html = Comment {
+                    staff_notices: &[],
                     lines: &lines,
                     board: "test",
                     dice_result: None,

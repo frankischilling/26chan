@@ -84,8 +84,35 @@ GRANT CONNECT ON DATABASE homepage_restored TO board_migrator,board_public;
 SQL
 "$pg_bin/pg_restore" -h 127.0.0.1 -p 55446 -U postgres -d homepage_restored --exit-on-error "$cluster/owned.dump"
 "${psql[@]}" -d homepage_restored -f - < "$cluster/assertions.sql"
+# The current reader requires the later notice projection. Check that it does
+# not silently accept the historical view, then qualify the complete upgrade.
 for database in homepage_upgrade homepage_restored; do
+    "${psql[@]}" -d "$database" -At -f crates/store/src/homepage_readiness.sql | grep -qx f
+    for migration in migrations/*.sql; do
+        [[ $(basename "$migration") > 0156_homepage_snapshots.sql ]] || continue
+        "${psql[@]}" -U board_migrator -d "$database" --single-transaction -f - < "$migration" >/dev/null
+    done
+    "${psql[@]}" -U board_migrator -d "$database" <<'SQL'
+-- Only the reviewed additive fields change the saved row shape. Older fields
+-- remain compared byte-for-byte through the existing assertions.
+UPDATE public.homepage_saved_boards SET saved=saved||jsonb_build_object(
+ 'captcha_enabled',slug<>'j','captcha_twister',slug<>'f',
+ 'captcha_allow_bypass',slug NOT IN('pol','trash','bant'),
+ 'preupload_captcha',slug='hr','noscript_captcha_only',false);
+UPDATE public.homepage_saved_posts SET saved=saved||jsonb_build_object('staff_notices','[]'::jsonb);
+SQL
+    "${psql[@]}" -d "$database" -f - < "$cluster/assertions.sql"
+done
+"$pg_bin/pg_dump" -h 127.0.0.1 -p 55446 -U postgres -d homepage_upgrade --format=custom -f "$cluster/current.dump"
+"${psql[@]}" -d postgres <<'SQL'
+CREATE DATABASE homepage_current_restored OWNER board_migrator;
+REVOKE ALL ON DATABASE homepage_current_restored FROM PUBLIC;
+GRANT CONNECT ON DATABASE homepage_current_restored TO board_migrator,board_public;
+SQL
+"$pg_bin/pg_restore" -h 127.0.0.1 -p 55446 -U postgres -d homepage_current_restored --exit-on-error "$cluster/current.dump"
+for database in homepage_upgrade homepage_restored homepage_current_restored; do
+    "${psql[@]}" -d "$database" -f - < "$cluster/assertions.sql"
     "${psql[@]}" -d "$database" -At -f crates/store/src/homepage_readiness.sql | grep -qx t
     "${psql[@]}" -U board_public -d "$database" -c 'SELECT * FROM content.published_news; SELECT * FROM content.published_site_pages; SELECT * FROM content.homepage_cards; SELECT * FROM content.homepage_statistics; SELECT * FROM content.homepage_board_statistics' >/dev/null
  done
-echo 'Populated homepage upgrade, conflict rollback, public projections and administrator restore passed.'
+echo 'Historical and current homepage upgrades, conflict rollback, retained content, public projections and both administrator restores passed.'
