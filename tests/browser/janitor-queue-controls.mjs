@@ -37,11 +37,14 @@ try {
     // Execute only the isolated source filter against the same harmless fixture.
     const expected = await page.evaluate(code => {
       const BR = {};
-      const $ = { id: id => document.getElementById(id), cls: (name, root = document) => root.getElementsByClassName(name) };
+      const root = document.createElement('div');
+      root.append(document.getElementById('content').cloneNode(true));
+      root.append(document.getElementById('reset-btn').cloneNode(true));
+      const $ = { id: id => root.querySelector(`#${id}`), cls: (name, scope = root) => scope.getElementsByClassName(name) };
       new Function('BR', '$', code)(BR, $);
       return ['', 'ALICE', 'beta', 'off topic', '<script>', 'g', 'nothing', ' '].map(query => {
         BR.applySearch(query);
-        const ids = [...document.querySelectorAll('.ban-request')].filter(row => !row.classList.contains('hidden')).map(row => row.id);
+        const ids = [...root.querySelectorAll('.ban-request')].filter(row => !row.classList.contains('hidden')).map(row => row.id);
         BR.clearSearch();
         return { query, ids };
       });
