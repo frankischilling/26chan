@@ -235,3 +235,30 @@ current-application tests.
 The new creation form is functional; its layout has not been compared with the
 original popup. The staff-message page's earlier pixel result does not qualify
 this form. Full hosted checks of the current application changes remain pending.
+
+## Ordinary review transactions
+
+Migration 0209 adds atomic acceptance and denial, separate cumulative totals and
+detailed review history. Its SQL decision helper matches all 2,016 executed
+source cases. Acceptance retains the captured post with the issued restriction;
+denial removes the pending evidence without restoring the deleted public post.
+Only the primary request increments a counter. Related requests are removed
+according to the accepted template and warning action. Every affected board
+must remain within the reviewer's current scope.
+
+An already-denied or otherwise missing request does not count again. Accepting
+a missing request fails. Two actual staff connections competing over one request
+produce one outcome. The local exercise also passes warning-only duplicate
+clearing, JSON-only duplicate retention, amendment rules, changed zero-day
+templates, scope refusal, quota accounting and populated restore.
+
+Detailed outcomes are pruned when a review commits, using the source's six
+calendar months. Cumulative totals are not pruned. Detailed history is bounded
+to 100,000 rows and totals to 10,000 account IDs; exhausted capacity rejects the
+whole review. Identity uses immutable native account IDs instead of request
+cookies or a mutable username.
+
+Review currently requires an explicitly configured `none` blacklist policy and
+a supported retained-post policy. Image blacklisting, private media retention,
+queue presentation, review HTTP adapters and statistics readers still need
+integration. These SQL checks do not qualify those missing paths.
