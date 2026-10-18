@@ -66,15 +66,24 @@ node tests/browser/janitor-queue-controls.mjs
 RUN_JANITOR_BROWSER=1 cargo test -p board-staff --features database-tests --test janitor_requests --locked -- --nocapture
 ```
 
-The state suite passes locally. The controlled Chromium suite covers desktop
-and mobile filtering, focus, theme persistence, amendments, the three-second
-boundary, Undo, repeated clicks, lost responses, superseded refreshes and
-navigation. The database-backed browser fixture checks actual request creation,
-filtering, cancelled review, denial, queue refresh, history and counted outcomes
-with JavaScript enabled and disabled. These browser checks are wired into CI;
-this workspace currently cannot launch Chromium because its required socket
-operation is blocked. The supported permission request also fails before launch.
-They have not yet been qualified for this change.
+The nine state tests, 59 staff unit tests, strict all-target Clippy and the real
+PostgreSQL/HTTP regression pass locally. The controlled Chromium suite passes at
+desktop and mobile sizes, covering filtering, focus, theme persistence,
+amendments, the three-second boundary, Undo, repeated clicks, lost responses,
+superseded refreshes and navigation.
+
+The database-backed browser fixture also passes all four viewport/script
+combinations in CI on `988b0607`. It checks actual request creation, filtering,
+cancelled review, denial, queue refresh, history and counted outcomes, while the
+opaque-origin negative control still receives 403. Both browser suites run
+before the full database suite in CI and remain merge prerequisites.
+
+Local Chromium cannot launch because this workspace blocks its required Unix
+socket operation, and the supported permission request fails before launch.
+Browser qualification therefore comes from the hosted runner, not this local
+workspace. The source-oracle browser fixture runs against a detached clone so
+its CSS classes cannot contaminate the native page. The negative-control driver
+waits for its refused form navigation to finish before reloading the queue.
 
 ## Remaining scope
 
