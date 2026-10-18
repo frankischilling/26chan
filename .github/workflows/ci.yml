@@ -109,6 +109,8 @@ jobs:
           cargo test -p board-public --lib --test proxy_https --all-features --locked
       - name: Exercise janitor request and review forms in real browsers
         run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
           set -a
           source .local/database.env
           source .local/staff.env

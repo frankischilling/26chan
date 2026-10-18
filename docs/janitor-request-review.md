@@ -347,3 +347,9 @@ the exact wrapping-label selector did not match. The driver now selects that
 combobox by its accessible role and name. The workflow runs this focused browser
 exercise before the longer Rust suite so failures produce evidence sooner.
 Fresh hosted qualification is required before merging.
+
+Moving the browser exercise earlier exposed its dependency on the later
+verification script's installation step. Head `99742d64` stopped before browser
+launch because `@playwright/test` was absent. The early step now installs the
+locked npm dependencies and Chromium explicitly before loading database
+environment files. The existing full verification script remains unchanged.
