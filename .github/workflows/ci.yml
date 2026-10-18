@@ -206,7 +206,10 @@ jobs:
           include-hidden-files: false
   media-and-operations:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # The full migration, VM and monitoring sequence reached the old 40-minute
+    # job cap during final cleanup. Keep individual qualification deadlines and
+    # allow headroom for runner variation and cache finalization.
+    timeout-minutes: 60
     env:
       CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: rust-lld
     steps:
