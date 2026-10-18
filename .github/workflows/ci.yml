@@ -76,6 +76,7 @@ jobs:
         run: |
           php -n scripts/test-ban-request-review-reference.php
           php -n scripts/test-janitor-request-caller.php
+          php -n scripts/test-janitor-file-effects.php
       - name: Verify source staff queue assets
         run: |
           python3 scripts/build-staff-queue-assets.py --check
@@ -628,6 +629,8 @@ jobs:
         run: sudo bash scripts/test-janitor-request-store.sh
       - name: Qualify request review decisions and counted outcomes
         run: sudo bash scripts/test-janitor-request-review.sh
+      - name: Qualify atomic request image rules and policy contention
+        run: sudo env REQUEST_FILE_EFFECTS=1 bash scripts/test-janitor-request-review.sh
       - name: Upgrade existing content for attachment-only posts
         run: sudo bash scripts/test-attachment-only-migration.sh
       - name: Upgrade existing threads from migration 0008

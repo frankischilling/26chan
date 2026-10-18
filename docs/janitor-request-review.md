@@ -1,10 +1,11 @@
 # Janitor requests and moderator review
 
 Issue #223 covers request creation, moderator review, staff messages and review
-statistics. PR #295 merged the decision model and staff-message reader after all 18 PR
-checks and the separate dependency advisory run passed. The authenticated request store and creation form are implemented locally.
-The request queue, ordinary review endpoints and own-account statistics are
-implemented locally; their full hosted qualification is pending.
+statistics. PR #295 merged the decision model and staff-message reader. PR #296
+merged atomic creation, ordinary review, scoped queues and own-account statistics
+after all 18 PR checks and the separate dependency advisory run passed.
+[Image-rule work](janitor-file-effects.md) has separate qualification; private
+media retention and full source client/visual parity remain unfinished.
 
 ## Review decisions
 
@@ -118,7 +119,8 @@ tests verify one restriction and one counted outcome per request. Source salts
 and client-supplied unlock claims are not authority.
 
 The review path implements amendment reasons and ordinary restriction issuance.
-Private file retention and source-qualified blacklist effects remain unfinished. Its optional
+Private file retention remains unfinished. Image-rule decisions and the native
+writer are covered in [janitor-file-effects.md](janitor-file-effects.md). The optional
 delete-all call is commented out in the supplied source. No such effect should
 be inferred from a template label.
 
@@ -216,7 +218,7 @@ weight-qualified cross-board requests, two competing staff connections and
 populated restore. The first concurrency fixture used a sleep equal to the
 statement timeout; it now stays below that deadline without increasing runtime
 limits. Queue/review operations are now connected to the application; private
-file retention remains unimplemented. Full hosted qualification is pending.
+file retention remains unimplemented. PR #296 qualified the ordinary workflow.
 
 ## Request creation form
 
@@ -236,7 +238,7 @@ current-application tests.
 
 The new creation form is functional; its layout has not been compared with the
 original popup. The staff-message page's earlier pixel result does not qualify
-this form. Full hosted checks of the current application changes remain pending.
+this form. PR #296 passed full hosted checks, including functional form coverage.
 
 ## Ordinary review transactions
 
@@ -260,10 +262,10 @@ to 100,000 rows and totals to 10,000 account IDs; exhausted capacity rejects the
 whole review. Identity uses immutable native account IDs instead of request
 cookies or a mutable username.
 
-Review currently requires an explicitly configured `none` blacklist policy and
-a supported retained-post policy. Image blacklisting and private media retention
-still need implementation. The queue, HTTP adapters and statistics readers have
-separate local qualification below.
+Migration 0209 initially admitted only the `none` blacklist policy. Migration
+0211 adds the [image-rule writer](janitor-file-effects.md) for supported retained
+evidence. Private media retention remains unfinished. The queue, HTTP adapters
+and statistics readers have separate qualification below.
 
 ## Historical cleanup qualification
 
@@ -330,7 +332,8 @@ denial, Back navigation and cumulative statistics at desktop/mobile sizes with
 scripts enabled and disabled. It receives only a synthetic session and target
 IDs, never database credentials. Its twelve screenshots are functional evidence;
 they do not compare these pages against source pixels. The fixture compiles and
-its driver passes syntax checks locally; real browser execution remains pending.
+its driver passes syntax checks locally. PR #296 passed all four real-browser
+viewport/script combinations and the opaque-origin refusal control.
 
 Queue and creation-form pixels and the source's full client-side interactions
 remain unqualified. Autocomplete, quick-amend shortcuts, in-place refresh,
@@ -346,7 +349,7 @@ selector: the accessibility snapshot contained a combobox named `Template`, but
 the exact wrapping-label selector did not match. The driver now selects that
 combobox by its accessible role and name. The workflow runs this focused browser
 exercise before the longer Rust suite so failures produce evidence sooner.
-Fresh hosted qualification is required before merging.
+The subsequent `d93c7b1f` head passed the complete hosted suite before PR #296 merged.
 
 Moving the browser exercise earlier exposed its dependency on the later
 verification script's installation step. Head `99742d64` stopped before browser
@@ -362,4 +365,4 @@ suppressed. The guard still rejects missing, null and foreign origins, and the
 browser fixture checks the actual review request's Origin and response status.
 A negative control restores `no-referrer` on the synthetic page and requires
 an opaque-origin refusal with the request still pending before the valid retry.
-This security compatibility change still requires a fresh hosted browser pass.
+PR #296 qualified this security compatibility change in real browsers before merging.
