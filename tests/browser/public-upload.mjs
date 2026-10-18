@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { chromium, expect } from '@playwright/test';
 import { saveWatcherSettings } from './helpers/watcher-settings.js';
+import { assertViewportFit, qualifyOverflowGuard } from './helpers/viewport-fit.js';
 
 const origin = new URL(process.argv[2]);
 const board = process.argv[3];
@@ -47,7 +48,7 @@ try {
     if (screenshots) {
       await page.screenshot({ path: path.join(screenshots, `${name}.png`), fullPage: true });
       await page.setViewportSize({ width: 390, height: 844 });
-      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+      await assertViewportFit(page, `${name}-mobile`);
       await page.screenshot({ path: path.join(screenshots, `${name}-mobile.png`), fullPage: true });
       await page.setViewportSize({ width: 1280, height: 900 });
     }
@@ -93,9 +94,10 @@ try {
   await expect(page.getByLabel('Comment', { exact: true })).not.toHaveAttribute('required');
   for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
     await page.setViewportSize(viewport);
-    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await assertViewportFit(page, `approved form ${viewport.width}px javascript=${javascript}`);
     await expect(page.getByRole('button', { name: 'Post with image', exact: true })).toBeVisible();
   }
+  await qualifyOverflowGuard(page);
   await page.getByLabel('Name', { exact: true }).fill('Synthetic browser');
   await page.getByLabel('Subject', { exact: true }).fill('Isolated upload');
   if (!attachmentOnly) {

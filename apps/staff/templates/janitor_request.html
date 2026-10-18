@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ban request</title><link rel="stylesheet" href="/reportqueue.css"></head><body>
+<header><h1 id="title">Ban request</h1></header>
+<div id="menu"><a class="button button-light" href="/reports">Reports</a></div>
+<div id="content">
+<p>/{{ board }}/ post {{ target }}: {{ saved.subject }}</p>
+{% if saved.related_count > 0 %}<p>{{ saved.related_count }} pending requests for this poster.</p>{% endif %}
+{% if !recent %}<p><a href="/">Sign in again</a> before submitting a request.</p>{% endif %}
+<form method="post" action="/ban-request">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="target" value="{{ target }}">
+<label>Template <select name="template" required><option value="">Select a template</option>{% for choice in saved.templates %}<option value="{{ choice.id }}"{% if !choice.available %} disabled{% endif %}>{{ choice.name }}{% if choice.warning %} [Warn]{% endif %}{% if choice.requires_file %} [File required]{% endif %}{% if choice.can_warn %} [Warning allowed]{% endif %}{% if !choice.available %} [Retention unavailable]{% endif %}</option>{% endfor %}</select></label>
+<label><input type="checkbox" name="warn_req" value="1">Request a warning instead</label>
+<p>Submitting captures this post and removes it. An OP request removes its thread. The request waits for moderator review.</p>
+<button{% if !recent %} disabled{% endif %}>Submit request</button>
+</form>
+</div></body></html>

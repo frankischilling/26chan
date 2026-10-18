@@ -196,10 +196,11 @@ assert rows() == changed
 sql("DROP TABLE public.unreviewed_report_child")
 
 # A deferred failure runs at commit after report cascades and post erasure.
-# The report-profile seal now covers every report trigger. First prove that
-# this owned test trigger is rejected as drift. Then attest only this disposable
-# fixture so the same sentinel can exercise the later rollback boundary.
+# Both the report-profile and restriction seals cover report triggers. Prove
+# that each rejects this owned trigger before attesting the disposable fixture
+# so the same sentinel can exercise the later commit-rollback boundary.
 profile_seal = sql("SELECT encode(definition_hash,'hex') FROM post_secrets.report_profile_catalog WHERE singleton")
+restriction_seal = sql("SELECT encode(definition_hash,'hex') FROM restrictions.catalog WHERE singleton")
 sql("""CREATE FUNCTION public.refuse_owned_erasure_commit() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN IF OLD.id=31010003 THEN RAISE EXCEPTION 'Owned rollback sentinel'; END IF; RETURN OLD; END $$;
 CREATE CONSTRAINT TRIGGER owned_erasure_failure AFTER DELETE ON content.reports
@@ -209,13 +210,23 @@ assert "schema or visibility is unavailable" in error, error
 assert rows() == changed, "Unattested test trigger changed persisted rows"
 sql("UPDATE post_secrets.report_profile_catalog SET definition_hash=post_secrets.report_profile_catalog_hash() WHERE singleton")
 assert sql("SELECT content.report_profile_ready()", role="board_migrator") == "t"
+assert sql("SELECT content.restrictions_ready()") == "f"
+profile_attested = rows()
+error = apply(first, ok=False)
+assert "schema or visibility is unavailable" in error, error
+assert rows() == profile_attested, "Unattested restriction trigger changed persisted rows"
+sql("UPDATE restrictions.catalog SET definition_hash=restrictions.catalog_hash() WHERE singleton")
+assert sql("SELECT content.restrictions_ready()") == "t"
 instrumented = rows()
 error = apply(first, ok=False)
 assert "Cannot confirm historical cleanup" in error, error
 assert rows() == instrumented, "Deferred failure did not roll back payload and report cascades"
 sql("DROP TRIGGER owned_erasure_failure ON content.reports; DROP FUNCTION public.refuse_owned_erasure_commit()")
 assert re.fullmatch(r"[0-9a-f]{64}", profile_seal)
+assert re.fullmatch(r"[0-9a-f]{64}", restriction_seal)
 sql("UPDATE post_secrets.report_profile_catalog SET definition_hash=decode('" + profile_seal + "','hex') WHERE singleton")
+sql("UPDATE restrictions.catalog SET definition_hash=decode('" + restriction_seal + "','hex') WHERE singleton")
+assert sql("SELECT content.restrictions_ready()") == "t"
 assert sql("SELECT content.report_profile_ready()", role="board_migrator") == "t"
 assert rows() == changed
 

@@ -7,7 +7,9 @@ contains the selection logic, but not the private template records or their
 production reasons and permission levels.
 
 This covers preset issuance and its upload-history snapshot. Optional post-ban
-actions, the janitor request workflow and the rest of issue #220 remain open.
+actions and the rest of issue #220 remain open. Ordinary janitor request creation
+and review use a separate [protected workflow](janitor-request-review.md);
+private-media retention and blacklist effects are still pending.
 The [prior-ban upload gate](admission/file-blocking.md#prior-ban-upload-gate) uses
 these snapshots. Other admission work remains open under #212.
 
@@ -33,7 +35,7 @@ applies the restriction and its qualified automatic-range event, when configured
 
 The minimum role further restricts the existing moderator-and-above issuance
 path. Configuring a janitor minimum does not enable direct janitor bans. That
-request-and-approval workflow remains separate work.
+request-and-approval workflow uses its own session-bound writers.
 
 ## Issuance authority
 
@@ -96,3 +98,38 @@ The producer uses the stored post's mobile browser comparison and keyed IPv4
 prefix. It receives no caller-supplied network metadata. Ban and event commit
 or roll back together. See [automatic-range policy](admission/automatic-range-policy.md)
 for scope, deduplication and the unfinished janitor-request path.
+
+## Janitor request configuration
+
+Request creation requires an explicit `request_save_policy`: `none` or
+`json_only`. Both retain the post presentation for review. Neither retains a
+private media copy. On acceptance, `json_only` preserves related pending requests;
+`none` uses the source's ordinary duplicate-clearing rules. The `everything`
+value is reserved but currently rejects creation until private file retention is
+available. It does not silently fall back to text-only evidence.
+
+`request_can_warn` defaults to false. An explicit warning checkbox requires it,
+even on a zero-day preset. Leaving the checkbox unset still creates a warning
+from a zero-day preset. Async template submissions ignore that checkbox.
+
+Review also requires `request_blacklist_policy='none'`. NULL means unconfigured.
+The reserved `image` and `rejectimage` values currently reject acceptance rather
+than omit a required file effect. Direct moderator preset issuance is unchanged
+by these request-only fields.
+
+For an existing template whose intended policy matches those limits, use an
+operator transaction and substitute its reviewed ID:
+
+```sql
+BEGIN;
+SET LOCAL ROLE board_restriction_owner;
+UPDATE restrictions.templates
+SET request_can_warn = true,
+    request_save_policy = 'json_only',
+    request_blacklist_policy = 'none'
+WHERE id = :template_id;
+COMMIT;
+```
+
+Do not assign these values to every imported template. Confirm its intended
+retention, duplicate-clearing and blacklist behavior first.

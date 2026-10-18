@@ -107,6 +107,15 @@ jobs:
         run: |
           source .local/database.env
           cargo test -p board-public --lib --test proxy_https --all-features --locked
+      - name: Exercise janitor request and review forms in real browsers
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          set -a
+          source .local/database.env
+          source .local/staff.env
+          set +a
+          RUN_JANITOR_BROWSER=1 cargo test -p board-staff --features database-tests --test janitor_requests --locked -- --nocapture
       - name: Rust, database permissions, concurrency, and browser-backed uploads
         run: |
           source .local/database.env
@@ -613,6 +622,12 @@ jobs:
           sudo bash scripts/test-template-automatic-ranges-migration.sh
       - name: Qualify staff message visibility and restored authority
         run: sudo bash scripts/test-staff-messages-migration.sh
+      - name: Qualify private janitor request weight authority
+        run: sudo bash scripts/test-janitor-request-authority.sh
+      - name: Qualify atomic janitor request capture and deletion
+        run: sudo bash scripts/test-janitor-request-store.sh
+      - name: Qualify request review decisions and counted outcomes
+        run: sudo bash scripts/test-janitor-request-review.sh
       - name: Upgrade existing content for attachment-only posts
         run: sudo bash scripts/test-attachment-only-migration.sh
       - name: Upgrade existing threads from migration 0008

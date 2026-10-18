@@ -130,104 +130,130 @@ pub(crate) async fn load(
     .await?;
     let mut snapshots = HashMap::with_capacity(rows.len());
     for row in rows {
-        let payload = row.payload.ok_or(AppError::Capacity)?;
-        let post: CapturedPost = serde_json::from_str(&payload).map_err(|_| AppError::Internal)?;
-        board_domain::post_notice::validate_saved(&post.staff_notices)
-            .map_err(|_| AppError::Internal)?;
-        if row.version != 1
-            || post.board != row.board
-            || post.post_id != row.post_id
-            || post.post_id <= 0
-            || post.thread_id <= 0
-            || board_domain::BoardSlug::parse(&post.board).is_err()
-        {
-            return Err(AppError::Internal);
-        }
-        let limits = if post.staff_authorized_limits {
-            PostLimits::authorized(board_domain::MAX_AUTHORIZED_COMMENT_CHARS)
-                .expect("finite persisted staff bound")
-        } else {
-            PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
-        };
-        let bounds = WordfilterLimits::for_post(limits);
-        if post.comment.len() > bounds.output_bytes() {
-            return Err(AppError::Internal);
-        }
-        let wordfilter = decode_hex(post.wordfilter_payload.as_deref(), bounds.stored_bytes())?;
-        let frozen = decode_hex(post.saved_presentation.as_deref(), bounds.stored_bytes())?;
-        let lines = if let Some(bytes) = frozen.as_deref() {
-            if wordfilter.is_some() {
-                return Err(AppError::Internal);
-            }
-            let saved = board_domain::saved_presentation::FrozenPresentation::decode(bytes, limits)
-                .map_err(|_| AppError::Internal)?;
-            if saved.source_projection() != post.comment {
-                return Err(AppError::Internal);
-            }
-            saved.unresolved_lines()
-        } else {
-            board_domain::formatting::parse_saved_comment_with_limits(
-                &post.comment,
-                post.comment_format,
-                &post.board,
-                wordfilter.as_deref(),
-                limits,
-            )
-        };
-        let attachment = post
-            .attachment
-            .as_ref()
-            .map(|a| {
-                if a.post_id != post.post_id
-                    || a.tim <= 0
-                    || a.bytes <= 0
-                    || a.width <= 0
-                    || a.height <= 0
-                    || a.thumbnail_width.is_some_and(|w| w <= 0)
-                    || a.thumbnail_height.is_some_and(|h| h <= 0)
-                {
-                    return Err(AppError::Internal);
-                }
-                let output_format = match a.output_format.as_str() {
-                    "png" => board_store::media_assets::MediaFormat::Png,
-                    "jpeg" => board_store::media_assets::MediaFormat::Jpeg,
-                    "gif" => board_store::media_assets::MediaFormat::Gif,
-                    "pdf" => board_store::media_assets::MediaFormat::Pdf,
-                    _ => return Err(AppError::Internal),
-                };
-                Ok(Attachment {
-                    post_id: a.post_id,
-                    filename: a.filename.clone(),
-                    bytes: a.bytes,
-                    width: a.width,
-                    height: a.height,
-                    spoiler: a.spoiler || row.media_spoiler,
-                    tim: a.tim,
-                    thumbnail_width: a.thumbnail_width,
-                    thumbnail_height: a.thumbnail_height,
-                    available: a.available && row.media_available,
-                    md5: a.md5.clone(),
-                    output_format,
-                })
-            })
-            .transpose()?;
-        if snapshots
-            .insert(
-                row.report_id,
-                ReportPostSnapshot {
-                    post,
-                    captured_at: row.captured_at,
-                    lines,
-                    wordfilter,
-                    attachment,
-                },
-            )
-            .is_some()
-        {
+        let id = row.report_id;
+        if snapshots.insert(id, decode(row)?).is_some() {
             return Err(AppError::Internal);
         }
     }
     Ok(snapshots)
+}
+
+fn decode(row: Row) -> Result<ReportPostSnapshot, AppError> {
+    let payload = row.payload.ok_or(AppError::Capacity)?;
+    let post: CapturedPost = serde_json::from_str(&payload).map_err(|_| AppError::Internal)?;
+    board_domain::post_notice::validate_saved(&post.staff_notices)
+        .map_err(|_| AppError::Internal)?;
+    if row.version != 1
+        || post.board != row.board
+        || post.post_id != row.post_id
+        || post.post_id <= 0
+        || post.thread_id <= 0
+        || board_domain::BoardSlug::parse(&post.board).is_err()
+    {
+        return Err(AppError::Internal);
+    }
+    let limits = if post.staff_authorized_limits {
+        PostLimits::authorized(board_domain::MAX_AUTHORIZED_COMMENT_CHARS)
+            .expect("finite persisted staff bound")
+    } else {
+        PostLimits::ordinary(board_domain::MAX_COMMENT_CHARS)
+    };
+    let bounds = WordfilterLimits::for_post(limits);
+    if post.comment.len() > bounds.output_bytes() {
+        return Err(AppError::Internal);
+    }
+    let wordfilter = decode_hex(post.wordfilter_payload.as_deref(), bounds.stored_bytes())?;
+    let frozen = decode_hex(post.saved_presentation.as_deref(), bounds.stored_bytes())?;
+    let lines = if let Some(bytes) = frozen.as_deref() {
+        if wordfilter.is_some() {
+            return Err(AppError::Internal);
+        }
+        let saved = board_domain::saved_presentation::FrozenPresentation::decode(bytes, limits)
+            .map_err(|_| AppError::Internal)?;
+        if saved.source_projection() != post.comment {
+            return Err(AppError::Internal);
+        }
+        saved.unresolved_lines()
+    } else {
+        board_domain::formatting::parse_saved_comment_with_limits(
+            &post.comment,
+            post.comment_format,
+            &post.board,
+            wordfilter.as_deref(),
+            limits,
+        )
+    };
+    let attachment = post
+        .attachment
+        .as_ref()
+        .map(|a| {
+            if a.post_id != post.post_id
+                || a.tim <= 0
+                || a.bytes <= 0
+                || a.width <= 0
+                || a.height <= 0
+                || a.thumbnail_width.is_some_and(|w| w <= 0)
+                || a.thumbnail_height.is_some_and(|h| h <= 0)
+            {
+                return Err(AppError::Internal);
+            }
+            let output_format = match a.output_format.as_str() {
+                "png" => board_store::media_assets::MediaFormat::Png,
+                "jpeg" => board_store::media_assets::MediaFormat::Jpeg,
+                "gif" => board_store::media_assets::MediaFormat::Gif,
+                "pdf" => board_store::media_assets::MediaFormat::Pdf,
+                "webm" => board_store::media_assets::MediaFormat::Webm,
+                "mp4" => board_store::media_assets::MediaFormat::Mp4,
+                _ => return Err(AppError::Internal),
+            };
+            Ok(Attachment {
+                post_id: a.post_id,
+                filename: a.filename.clone(),
+                bytes: a.bytes,
+                width: a.width,
+                height: a.height,
+                spoiler: a.spoiler || row.media_spoiler,
+                tim: a.tim,
+                thumbnail_width: a.thumbnail_width,
+                thumbnail_height: a.thumbnail_height,
+                available: a.available && row.media_available,
+                md5: a.md5.clone(),
+                output_format,
+            })
+        })
+        .transpose()?;
+    Ok(ReportPostSnapshot {
+        post,
+        captured_at: row.captured_at,
+        lines,
+        wordfilter,
+        attachment,
+    })
+}
+
+/// Request capture uses the same saved formatting and integrity checks as
+/// report capture. Public media is never revived for a deleted request target.
+pub(crate) fn request_preview(
+    request_id: i64,
+    board: String,
+    post_id: i64,
+    captured_at: DateTime<Utc>,
+    payload: String,
+) -> Result<Preview, AppError> {
+    if request_id <= 0 || payload.len() > 16 * 1024 * 1024 {
+        return Err(AppError::Capacity);
+    }
+    Ok(decode(Row {
+        report_id: request_id,
+        board,
+        post_id,
+        version: 1,
+        captured_at,
+        payload: Some(payload),
+        media_available: false,
+        media_spoiler: false,
+    })?
+    .history_preview(request_id, "pending".into()))
 }
 
 fn decode_hex(value: Option<&str>, maximum: usize) -> Result<Option<Vec<u8>>, AppError> {
@@ -312,5 +338,43 @@ impl ReportPostSnapshot {
             ..Report::default()
         };
         self.preview(report)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use board_store::media_assets::MediaFormat;
+
+    #[test]
+    fn request_capture_preserves_all_approved_formats_without_reviving_media() {
+        for (format, expected) in [
+            ("png", MediaFormat::Png),
+            ("jpeg", MediaFormat::Jpeg),
+            ("gif", MediaFormat::Gif),
+            ("pdf", MediaFormat::Pdf),
+            ("webm", MediaFormat::Webm),
+            ("mp4", MediaFormat::Mp4),
+        ] {
+            let mut payload = serde_json::json!({
+                "board":"g","post_id":2,"thread_id":1,"created_at":"2026-01-01T00:00:00Z",
+                "name":"Owned","trip":null,"poster_id":null,"capcode":null,
+                "country":null,"country_name":null,"board_flag":null,"board_flag_type":"generic","flag_name":null,
+                "subject":"Owned file","comment":"Owned saved content","staff_notices":[],"comment_format":0,
+                "file_deleted":false,"staff_authorized_limits":false,"wordfilter_payload":null,"saved_presentation":null,
+                "drawing_time_seconds":null,"drawing_source_post_id":null,"archived":false,"relative_subject":null,
+                "attachment":{"post_id":2,"filename":"owned","bytes":32,"width":1,"height":1,"spoiler":false,
+                    "tim":100,"thumbnail_width":1,"thumbnail_height":1,"available":true,"md5":null,"output_format":format}
+            });
+            let captured = DateTime::parse_from_rfc3339("2026-01-02T00:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc);
+            let preview = request_preview(7, "g".into(), 2, captured, payload.to_string()).unwrap();
+            let attachment = preview.report.attachment.unwrap();
+            assert_eq!(attachment.output_format, expected);
+            assert!(!attachment.available);
+            payload["attachment"]["output_format"] = serde_json::json!("svg");
+            assert!(request_preview(7, "g".into(), 2, captured, payload.to_string()).is_err());
+        }
     }
 }

@@ -75,6 +75,12 @@ DO $$ BEGIN
 END $$;
 SQL
 if [[ ${RUN_RUST_TESTS:-0} = 1 ]]; then
+    # The rollback/upgrade assertions above pin the historical 0205 boundary.
+    # Current application startup also requires subsequent private features.
+    for migration in migrations/*.sql; do
+        [[ $(basename "$migration") > 0205_staff_messages.sql ]] || continue
+        "${migrator[@]}" --single-transaction -f - < "$migration" >/dev/null
+    done
     MIGRATION_DATABASE_URL=postgres://board_migrator@127.0.0.1:55447/message_upgrade \
     AUTH_DATABASE_URL=postgres://board_auth@127.0.0.1:55447/message_upgrade \
     STAFF_DATABASE_URL=postgres://board_staff@127.0.0.1:55447/message_upgrade \

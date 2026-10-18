@@ -2,7 +2,7 @@
 {% macro action(csrf, board, target, action, label) %}<form method="post" action="/moderate"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="target" value="{{ target }}"><button name="action" value="{{ action }}">{{ label }}</button>{% if action == "remove-file" || action == "remove-post" || action == "remove-thread" %}<details><summary>Own-post deletion password</summary><label>Ownership password <input type="password" name="deletion_password" maxlength="128" autocomplete="off"></label><p>Optional. A verified password or matching posting peer records self deletion. File-only self deletion keeps reports. An incorrect supplied password is rejected when the peer does not match.</p></details>{% endif %}</form>{% endmacro %}
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Staff reports</title><link rel="stylesheet" href="/comment-markup.css"></head><body><main>
 <h1>Report queue</h1>
-<p><a href="/messages">Staff messages</a></p>
+<p><a href="/messages">Staff messages</a> · <a href="/ban-requests/statistics">My request statistics</a>{% if moderator %} · <a href="/ban-requests">Ban requests</a>{% endif %}</p>
 <p>Filter: {{ filter_label }}</p>
 <form method="get" action="/reports"><label>Board <input name="board" value="{{ filter_board }}" maxlength="10" pattern="[a-z0-9]+"></label><button>Filter board</button></form>
 <form method="get" action="/reports"><button name="board" value="">All authorized boards</button></form>
@@ -42,6 +42,7 @@
 {% if r.undead %}{% call action(csrf,r.board,r.thread_id,"unundead","Disable Undead") %}{% endcall %}{% else %}{% call action(csrf,r.board,r.thread_id,"undead","Enable Undead") %}{% endcall %}{% endif %}
 {% endif %}
 {% call action(csrf,r.board,r.post_id,"remove-post","Remove post") %}{% endcall %}
+{% if r.board != "j" && !r.archived %}<p><a href="/ban-request?board={{ r.board }}&amp;target={{ r.post_id }}">Request a ban or warning</a></p>{% endif %}
 {% call action(csrf,r.board,r.thread_id,"remove-thread","Remove thread") %}{% endcall %}
 {% endif %}
 <p>Resolve or dismiss changes only selected report {{ r.id }}, not the whole group.</p>
