@@ -155,8 +155,12 @@ ROLLBACK;
 -- Real retained exact weights authorize the otherwise denied board. No client
 -- unlock field or board-access mutation is supplied to the request writer.
 SET ROLE board_migrator;
-INSERT INTO content.reports(board,post_id,reason)
- SELECT 'rqother',207101,'Owned request unlock' FROM generate_series(1,2399);
+-- Each real report still runs its capture/authority triggers. Bound individual
+-- operator setup statements without changing runtime timeouts or report totals.
+SELECT format($seed$INSERT INTO content.reports(board,post_id,reason)
+ SELECT 'rqother',207101,'Owned request unlock' FROM generate_series(%s,%s)$seed$,
+ n,least(n+255,2399)) FROM generate_series(1,2399,256) n
+\gexec
 SET ROLE board_report_admission_owner;
 INSERT INTO post_secrets.report_weight_evidence(report_id,evaluator_version,effective_weight,numeric_proof,evaluated_at)
  SELECT id,1,0.5,'BaseEqualsFallback',clock_timestamp() FROM content.reports WHERE board='rqother';

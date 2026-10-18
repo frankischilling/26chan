@@ -25,11 +25,23 @@ SELECT NOT EXISTS (
    AND oidvectortypes(p.proargtypes)=required.arguments AND p.prosecdef
    AND p.proowner='board_restriction_owner'::regrole AND p.prorettype=to_regtype(required.result_type)
    AND has_function_privilege(current_user,p.oid,'EXECUTE')=(current_user=required.reader))
+) AND NOT EXISTS (
+ SELECT 1 FROM (VALUES ('restrictions','requests'),('restrictions','request_file_rules'),
+  ('admission','file_rules')) required(namespace,name)
+ WHERE NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname=required.namespace AND c.relname=required.name AND c.relkind='r'
+   AND NOT has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE')
+   AND NOT has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE'))
+) AND NOT EXISTS (
+ SELECT 1 FROM (VALUES ('request_file_rule_decision'),('issue_request_file_rule')) required(name)
+ WHERE NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='restrictions' AND p.proname=required.name AND NOT p.prosecdef
+   AND p.proowner='board_restriction_owner'::regrole
+   AND NOT has_function_privilege(current_user,p.oid,'EXECUTE'))
 ) AND EXISTS (
  SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname='restrictions' AND c.relname='requests'
-  AND NOT has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE')
-  AND NOT has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE')
+ WHERE n.nspname='admission' AND c.relname='file_rules_id_seq' AND c.relkind='S'
+  AND NOT has_sequence_privilege(current_user,c.oid,'USAGE,UPDATE')
 )
 "#;
 

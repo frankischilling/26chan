@@ -9,7 +9,8 @@ production reasons and permission levels.
 This covers preset issuance and its upload-history snapshot. Optional post-ban
 actions and the rest of issue #220 remain open. Ordinary janitor request creation
 and review use a separate [protected workflow](janitor-request-review.md);
-private-media retention and blacklist effects are still pending.
+private-media retention is still pending. Request-review image rules are
+covered in [janitor-file-effects.md](janitor-file-effects.md).
 The [prior-ban upload gate](admission/file-blocking.md#prior-ban-upload-gate) uses
 these snapshots. Other admission work remains open under #212.
 
@@ -97,7 +98,8 @@ presets keep NULL evidence after migration and acquire no automatic effect.
 The producer uses the stored post's mobile browser comparison and keyed IPv4
 prefix. It receives no caller-supplied network metadata. Ban and event commit
 or roll back together. See [automatic-range policy](admission/automatic-range-policy.md)
-for scope, deduplication and the unfinished janitor-request path.
+for scope and deduplication. The separate request caller produces no range
+event in the supplied source; see [janitor-request-review.md](janitor-request-review.md).
 
 ## Janitor request configuration
 
@@ -112,10 +114,13 @@ available. It does not silently fall back to text-only evidence.
 even on a zero-day preset. Leaving the checkbox unset still creates a warning
 from a zero-day preset. Async template submissions ignore that checkbox.
 
-Review also requires `request_blacklist_policy='none'`. NULL means unconfigured.
-The reserved `image` and `rejectimage` values currently reject acceptance rather
-than omit a required file effect. Direct moderator preset issuance is unchanged
-by these request-only fields.
+Review requires an explicit `request_blacklist_policy`. NULL means unconfigured.
+After migration 0211, `image` adds a global digest rule with an indefinite ban,
+and `rejectimage` adds a rejecting rule. Both use retained private evidence;
+warnings and known absence add no rule. Unknown evidence refuses a non-warning
+review with either image policy. `none` requests no image effect. See
+[janitor-file-effects.md](janitor-file-effects.md) for qualification and bounds.
+Direct moderator preset issuance is unchanged by these request-only fields.
 
 For an existing template whose intended policy matches those limits, use an
 operator transaction and substitute its reviewed ID:

@@ -58,6 +58,7 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
     let csrf = auth::token();
     let credential = uuid::Uuid::new_v4().as_bytes().to_vec();
     let actor = uuid::Uuid::new_v4().simple().to_string().repeat(2);
+    let file_digest = uuid::Uuid::new_v4().as_bytes().to_vec();
     let mut tx = owner.begin().await.unwrap();
     let op: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")
         .fetch_one(&mut *tx)
@@ -100,7 +101,7 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
         .await
         .unwrap();
     for (id, warning, seconds) in [(template, false, 86400_i64), (template + 1, true, 0)] {
-        sqlx::query("INSERT INTO restrictions.templates(id,name,minimum_role,global,warning,seconds,public_reason,private_reason,request_save_policy,request_blacklist_policy) VALUES($1,'Owned request template','janitor',false,$2,$3,'Owned reason','','none','none')").bind(id).bind(warning).bind(seconds).execute(&mut *tx).await.unwrap();
+        sqlx::query("INSERT INTO restrictions.templates(id,name,minimum_role,global,warning,seconds,public_reason,private_reason,request_save_policy,request_blacklist_policy) VALUES($1,'Owned request template','janitor',false,$2,$3,'Owned reason','','none',CASE WHEN $2 THEN 'none' ELSE 'image' END)").bind(id).bind(warning).bind(seconds).execute(&mut *tx).await.unwrap();
     }
     tx.commit().await.unwrap();
     let outcome=tokio::spawn({
@@ -140,6 +141,10 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
             let flags:Vec<bool>=sqlx::query_scalar("SELECT warning FROM restrictions.requests WHERE account_id=$1 ORDER BY post_id").bind(account).fetch_all(&mut *inspect).await.unwrap();
             assert_eq!(flags,vec![false,true]);
             let request_ids:Vec<i64>=sqlx::query_scalar("SELECT id FROM restrictions.requests WHERE account_id=$1 ORDER BY post_id").bind(account).fetch_all(&mut *inspect).await.unwrap();
+            // Owned restored-evidence fixture: the writer must use this private
+            // digest, never a form field. Public media admission is qualified separately.
+            sqlx::query("UPDATE restrictions.requests SET upload_observation='known',normalized_upload_md5=$2 WHERE id=$1")
+                .bind(request_ids[0]).bind(&file_digest).execute(&mut *inspect).await.unwrap();
             inspect.commit().await.unwrap();
             assert_eq!(app.clone().oneshot(get("/ban-requests",&cookie)).await.unwrap().status(),StatusCode::FORBIDDEN);
             let review=|id:i64,decision:&str| Request::post("/ban-requests/review").header("cookie",&cookie)
@@ -172,6 +177,15 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
             assert_eq!(accepted["changed"],true);
             assert_eq!(accepted["cleared"],1);
             assert!(accepted["ban_id"].as_i64().is_some_and(|id|id>0));
+            let mut rule_check=owner.begin().await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *rule_check).await.unwrap();
+            let rule_id:i64=sqlx::query_scalar("SELECT rule_id FROM restrictions.request_file_rules WHERE request_id=$1 AND reviewer_id=$2")
+                .bind(request_ids[0]).bind(account).fetch_one(&mut *rule_check).await.unwrap();
+            sqlx::query("RESET ROLE").execute(&mut *rule_check).await.unwrap();
+            let rule:(String,i16,i32,Vec<u8>)=sqlx::query_as("SELECT board,mode,ban_days,digest FROM admission.file_rules WHERE id=$1")
+                .bind(rule_id).fetch_one(&mut *rule_check).await.unwrap();
+            assert_eq!(rule,(String::new(),1,-1,file_digest.clone()));
+            rule_check.commit().await.unwrap();
             assert_eq!(app.clone().oneshot(review(request_ids[0],"accept")).await.unwrap().status(),StatusCode::NOT_FOUND);
             for changed in [true,false] {
                 let response=app.clone().oneshot(review(request_ids[1],"deny")).await.unwrap();
@@ -218,6 +232,21 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
         }
     }).await;
     let mut cleanup = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *cleanup)
+        .await
+        .unwrap();
+    let owned_rules:Vec<i64>=sqlx::query_scalar("SELECT rule_id FROM restrictions.request_file_rules WHERE requested_by=$1 OR reviewer_id=$1")
+        .bind(account).fetch_all(&mut *cleanup).await.unwrap();
+    sqlx::query("RESET ROLE")
+        .execute(&mut *cleanup)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM admission.file_rules WHERE id=ANY($1)")
+        .bind(owned_rules)
+        .execute(&mut *cleanup)
+        .await
+        .unwrap();
     sqlx::query("SET LOCAL ROLE board_restriction_owner")
         .execute(&mut *cleanup)
         .await
