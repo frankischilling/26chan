@@ -7,11 +7,11 @@ SELECT decode(repeat('a1',32),'hex'),decode(repeat('a2',32),'hex'),decode(repeat
 INSERT INTO verification_private.receipts(token_hash,peer_hash,session_hash,purpose,board,target,context_hash,
  from_credit,suspicious,unsolved_before,may_grant_credit,created_at,expires_at)
 VALUES(decode(repeat('b1',32),'hex'),decode(repeat('b2',32),'hex'),decode(repeat('a1',32),'hex'),
- 'thread','qcredit193',0,decode(repeat('b3',32),'hex'),false,false,1,true,clock_timestamp(),clock_timestamp()+interval '30 seconds');
+ 'thread','qcredit193',0,decode(repeat('b3',32),'hex'),false,false,1,true,statement_timestamp(),statement_timestamp()+interval '30 seconds');
 INSERT INTO verification_private.challenges(token_hash,answer_hash,suspicious,peer_hash,session_hash,
  purpose,board,target,context_hash,created_at,expires_at)
 VALUES(decode(repeat('c1',32),'hex'),decode(repeat('c2',32),'hex'),false,decode(repeat('c3',32),'hex'),decode(repeat('a1',32),'hex'),
- 'thread','qcredit193',0,decode(repeat('c4',32),'hex'),clock_timestamp(),clock_timestamp()+interval '60 seconds');
+ 'thread','qcredit193',0,decode(repeat('c4',32),'hex'),statement_timestamp(),statement_timestamp()+interval '60 seconds');
 INSERT INTO verification_private.credits(identity_key,remaining,expires_at)
  VALUES(decode(repeat('d1',32),'hex'),2,clock_timestamp()+interval '1 hour');
 CREATE FUNCTION public.owned_credit_request_rows() RETURNS jsonb LANGUAGE sql AS $$
