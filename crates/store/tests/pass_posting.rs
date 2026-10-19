@@ -103,7 +103,9 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
         let retry_receipt=ReceiptToken::generate().unwrap();assert_eq!(issue_reply(retry_receipt.storage_hash()).await.status,"ready");
         let retry_proof=||WriteChallengeProof::from_issuer(&retry_receipt.encode(),networks.peer,reply_context);
         let early=reply(2,1,retry_proof()).await.unwrap_err();
-        assert!(matches!(early,StoreError::PostingCooldownRejected(ref rejection) if rejection.remaining_seconds==1),"{early:?}");
+        assert!(matches!(early,StoreError::PostingCooldownRejected(ref rejection) if rejection.remaining_seconds==1 && !rejection.pass_offer),"{early:?}");
+        let ordinary_early=reply(2,99,None).await.unwrap_err();
+        assert!(matches!(ordinary_early,StoreError::PostingCooldownRejected(ref rejection) if rejection.remaining_seconds==3 && rejection.pass_offer),"{ordinary_early:?}");
         assert!(reply(3,2,retry_proof()).await.unwrap()>0,"exact ceil-half boundary accepts the same unconsumed receipt");
         let next=ReceiptToken::generate().unwrap();assert_eq!(issue(next.storage_hash()).await.status,"ready");
         let mut tx=owner.begin().await.unwrap();sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *tx).await.unwrap();
@@ -112,6 +114,8 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
         assert!(matches!(revoked,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),"{revoked:?}");
         // CAPTCHA-off is a trusted source bypass even on a Pass-only board.
         sqlx::query("UPDATE content.boards SET captcha_enabled=false WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
+        let captcha_off=reply(4,100,None).await.unwrap_err();
+        assert!(matches!(captcha_off,StoreError::PostingCooldownRejected(ref rejection) if rejection.remaining_seconds==2 && !rejection.pass_offer),"{captcha_off:?}");
         assert!(submit(6,None).await.unwrap()>0);
         assert!(submit(7,WriteChallengeProof::from_issuer(&ordinary.encode(),networks.peer,context)).await.unwrap()>0);
         let mut private=owner.begin().await.unwrap();sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *private).await.unwrap();

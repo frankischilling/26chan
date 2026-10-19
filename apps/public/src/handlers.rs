@@ -1306,7 +1306,7 @@ async fn submit_post(
     let id = match id {
         Ok(id) => id,
         Err(StoreError::PostingCooldownRejected(rejection)) => {
-            return Ok(format.rule_error(&rejection.source_message()));
+            return Ok(format.cooldown_error(&rejection));
         }
         Err(StoreError::Robot9000Rejected(message) | StoreError::ContentRejected(message)) => {
             if matches!(format, crate::posting_response::Format::Html)

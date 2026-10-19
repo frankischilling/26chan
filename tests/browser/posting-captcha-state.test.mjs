@@ -68,3 +68,28 @@ test('refresh cooldown ticks do not report proof changes that would cancel armed
   e.advance(4000);assert.ok(events.length>0);assert.ok(events.every(value=>value===false));
   events.length=0;api.invalidate();assert.ok(events.includes(true));api.dispose();
 });
+
+test('only current disabled CAPTCHA advice selects the presentation-only cooldown bypass', async () => {
+  const f=fixture(async()=>response(reply({state:'disabled'})));
+  assert.equal(f.api.cooldownBypass(),false); await f.api.load(); assert.equal(f.api.cooldownBypass(),true);
+  f.api.invalidate(); assert.equal(f.api.cooldownBypass(),false); await f.api.load(); assert.equal(f.api.cooldownBypass(),true);
+  f.api.dispose(); assert.equal(f.api.cooldownBypass(),false);
+  const report=fixture(async()=>response(reply({state:'disabled'},{report_exempt:true})),'report');
+  await report.api.load(); assert.equal(report.api.cooldownBypass(),false); report.api.dispose();
+  const credit=fixture(async()=>response(reply({state:'credits',remaining:1,ttl_seconds:60})));
+  await credit.api.load(); assert.equal(credit.api.cooldownBypass(),false); credit.api.dispose();
+});
+
+test('a Pass presentation cookie requests verified advice but never grants its own bypass', async () => {
+  for (const accepted of [false,true]) {
+    let calls=0;
+    const e=environment(async()=>{calls++;return response(accepted?reply({state:'disabled'}):ready());});
+    e.win.document=e.doc; e.doc.cookie='pass_enabled=1';
+    const form=e.doc.createElement('form'); const root=createPostingCaptcha(form,{board:'b',target:'10',purpose:'reply'},e.doc);
+    const api=mountPostingCaptcha(root,{win:e.win});
+    assert.equal(api.cooldownBypass(),false); await settle();
+    assert.equal(calls,1); assert.equal(api.cooldownBypass(),accepted);
+    if (accepted) { api.afterSubmit(); await settle(); assert.equal(calls,2); assert.equal(api.cooldownBypass(),true); }
+    api.dispose();
+  }
+});

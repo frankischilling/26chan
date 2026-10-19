@@ -761,7 +761,8 @@ async fn create_post_in_context(
                     .map(|session| session.fingerprints.token.as_slice()),
             )
             .fetch_one(&mut *tx)
-            .await?
+            .await
+            .map_err(crate::restrictions::posting_lookup_error)?
     } else {
         false
     };
@@ -1365,7 +1366,13 @@ async fn create_post_in_context(
                 attachment,
                 false,
             )
-            .await?;
+            .await
+            .map_err(|error| {
+                crate::posting_cooldown::with_pass_offer(
+                    error,
+                    late_enabled && !member_network_bypass,
+                )
+            })?;
         }
         crate::posting_cooldown::check(
             &mut tx,
@@ -1375,7 +1382,10 @@ async fn create_post_in_context(
             attachment.is_some(),
             posted_at.timestamp(),
         )
-        .await?;
+        .await
+        .map_err(|error| {
+            crate::posting_cooldown::with_pass_offer(error, late_enabled && !member_network_bypass)
+        })?;
     }
     // Keep the locked policy outside the savepoint. A rejected post rolls back
     // rollover, counters, attachments and secrets, then persists only its mute.

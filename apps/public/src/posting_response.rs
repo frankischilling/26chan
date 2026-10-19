@@ -1,4 +1,5 @@
 use crate::handlers::AppError;
+use askama::Template;
 use axum::{
     Json,
     http::{
@@ -24,6 +25,16 @@ struct Posted {
 #[derive(Serialize)]
 struct Failed<'a> {
     error: &'a str,
+}
+
+// Exact S_RENZOKU_PASS suffix from config/global_strings.ini. Only this fixed
+// fragment is emitted as markup; request or database text is never trusted HTML.
+const PASS_COOLDOWN_HINT: &str = "<br>4chan Pass users have lower cooldowns. [<a href=\"https://www.4chan.org/pass\" target=\"_blank\">Learn More</a>]";
+
+#[derive(Template)]
+#[template(path = "posting_cooldown_error.html")]
+struct CooldownMessage<'a> {
+    message: &'a str,
 }
 
 impl Format {
@@ -74,6 +85,28 @@ impl Format {
                 crate::handlers::message_response(StatusCode::UNPROCESSABLE_ENTITY, message)
             }
             Self::Json => Json(Failed { error: message }).into_response(),
+        }
+    }
+
+    pub(crate) fn cooldown_error(
+        self,
+        rejection: &board_store::PostingCooldownRejection,
+    ) -> Response {
+        let message = rejection.source_message();
+        if !rejection.pass_offer {
+            return self.rule_error(&message);
+        }
+        match self {
+            Self::Html => match (CooldownMessage { message: &message }).render() {
+                Ok(html) => {
+                    (StatusCode::UNPROCESSABLE_ENTITY, axum::response::Html(html)).into_response()
+                }
+                Err(_) => self.rule_error(&message),
+            },
+            Self::Json => Json(Failed {
+                error: &format!("{message}{PASS_COOLDOWN_HINT}"),
+            })
+            .into_response(),
         }
     }
 
@@ -285,5 +318,37 @@ mod tests {
             serde_json::from_slice::<serde_json::Value>(&bytes).unwrap(),
             serde_json::json!({"error":message})
         );
+    }
+    #[tokio::test]
+    async fn cooldown_offer_has_fixed_html_and_source_json_without_changing_other_errors() {
+        for offer in [false, true] {
+            let rejection = board_store::PostingCooldownRejection {
+                reason: board_store::PostingCooldownReason::Reply,
+                remaining_seconds: 17,
+                pass_offer: offer,
+            };
+            let response = Format::Html.cooldown_error(&rejection);
+            assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            let html = std::str::from_utf8(&bytes).unwrap();
+            assert_eq!(html.contains("https://www.4chan.org/pass"), offer);
+            if offer {
+                assert!(html.contains("rel=\"noopener noreferrer\""));
+            }
+            let response = Format::Json.cooldown_error(&rejection);
+            assert_eq!(response.status(), StatusCode::OK);
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            assert_eq!(
+                serde_json::from_slice::<serde_json::Value>(&bytes).unwrap(),
+                serde_json::json!({"error":format!("{}{}",rejection.source_message(),if offer {PASS_COOLDOWN_HINT} else {""})})
+            );
+        }
+        let html = CooldownMessage {
+            message: "<script>owned</script>",
+        }
+        .render()
+        .unwrap();
+        assert!(html.contains("&#60;script&#62;owned&#60;/script&#62;"));
+        assert!(!html.contains("<script>owned"));
     }
 }

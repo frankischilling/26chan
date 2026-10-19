@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   QUICK_REPLY_UPLOAD_LIMITS,
+  PASS_COOLDOWN_HINT, renderQuickReplyError,
   cancelQuickReplyUpload,
   checkQuickReplyUpload,
   commentLengthWarning,
@@ -271,4 +272,24 @@ test('file refusals allow only the fixed same-origin delayed ban redirect', asyn
     await assert.rejects(sendQuickReply({ board: 'g', thread: '10', fields: { com: 'Owned' }, origin: 'https://board.example',
       fetcher: async () => new Response(body, { status, headers: { 'content-type': 'application/json', 'x-board-posting-redirect': header } }) }), /Posting response unavailable/);
   }
+});
+
+test('the fixed Pass cooldown hint becomes a safe link without parsing arbitrary HTML', () => {
+  const prefix = 'Error: You must wait  17 seconds before posting a reply.';
+  const document = { createElement(tag) { return { tag, set innerHTML(_) { throw new Error('No HTML parser'); } }; } };
+  const element = { ownerDocument: document, children: [], value:'', append(...nodes) { this.children.push(...nodes); },
+    set textContent(value) { this.value=value; this.children=[]; }, get textContent() { return this.value; },
+    set innerHTML(_) { throw new Error('No HTML parser'); } };
+  for (const input of [prefix, PASS_COOLDOWN_HINT.replace('https://www.4chan.org/pass','javascript:alert(1)'), PASS_COOLDOWN_HINT+'<img src=x>', '<script>owned</script>']) {
+    renderQuickReplyError(element,input);
+    assert.equal(element.textContent,input); assert.equal(element.children.length,0);
+  }
+  renderQuickReplyError(element, '<img src=x onerror=owned()>' + PASS_COOLDOWN_HINT);
+  assert.equal(element.textContent, '<img src=x onerror=owned()>');
+  assert.equal(element.children[0].tag, 'br');
+  const link=element.children[2];
+  assert.equal(link.tag,'a'); assert.equal(link.href,'https://www.4chan.org/pass');
+  assert.equal(link.target,'_blank'); assert.equal(link.rel,'noopener noreferrer'); assert.equal(link.textContent,'Learn More');
+  renderQuickReplyError(element,'');
+  assert.equal(element.textContent,''); assert.equal(element.children.length,0);
 });

@@ -8,6 +8,9 @@ export const QUICK_REPLY_UPLOAD_LIMITS = Object.freeze({
   cancelMs: 10_000,
 });
 
+const invalidUploadResponse = 'Invalid upload response.';
+const invalidUploadOrigin = 'Invalid upload origin.';
+const cancelFailure = 'Upload could not be canceled. Try again.';
 const uploadStates = new Set(['queued', 'processing', 'approved', 'failed', 'incomplete']);
 const lowerHex = (value, length) => typeof value === 'string' && value.length === length && /^[0-9a-f]+$/.test(value);
 const exact = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -18,21 +21,21 @@ export const uploadTarget = thread => thread === '0' || !!postId(thread);
 function uploadContext(board, thread, origin) {
   if (!/^[a-z0-9]{1,10}$/.test(board) || !uploadTarget(thread)) throw new Error('Invalid upload target.');
   let base;
-  try { base = new URL(origin); } catch { throw new Error('Invalid upload origin.'); }
+  try { base = new URL(origin); } catch { throw new Error(invalidUploadOrigin); }
   if (!['http:', 'https:'].includes(base.protocol) || base.origin !== origin
-    || base.username || base.password || base.pathname !== '/' || base.search || base.hash) throw new Error('Invalid upload origin.');
+    || base.username || base.password || base.pathname !== '/' || base.search || base.hash) throw new Error(invalidUploadOrigin);
   return { board, thread, origin };
 }
 
 export function parseQuickReplyUpload(text, thread) {
   if (typeof text !== 'string' || text.length > QUICK_REPLY_UPLOAD_LIMITS.responseBytes || !uploadTarget(thread)) {
-    throw new Error('Invalid upload response.');
+    throw new Error(invalidUploadResponse);
   }
   let value;
-  try { value = JSON.parse(text); } catch { throw new Error('Invalid upload response.'); }
+  try { value = JSON.parse(text); } catch { throw new Error(invalidUploadResponse); }
   if (!exact(value, ['upload_id', 'upload_capability', 'resto', 'state'])
     || !lowerHex(value.upload_id, 32) || !lowerHex(value.upload_capability, 64)
-    || value.resto !== thread || !uploadStates.has(value.state)) throw new Error('Invalid upload response.');
+    || value.resto !== thread || !uploadStates.has(value.state)) throw new Error(invalidUploadResponse);
   return Object.freeze({ ...value });
 }
 
@@ -185,7 +188,7 @@ export async function checkQuickReplyUpload({
     parse: text => {
       const next = parseQuickReplyUpload(text, context.thread);
       if (next.upload_id !== expected.upload_id || next.upload_capability !== expected.upload_capability) {
-        throw new Error('Invalid upload response.');
+        throw new Error(invalidUploadResponse);
       }
       return next;
     },
@@ -200,12 +203,12 @@ export async function cancelQuickReplyUpload({
     url: `${context.origin}/${context.board}/upload/cancel`,
     body: receiptBody(receipt, context), signal, fetcher,
     timeout: QUICK_REPLY_UPLOAD_LIMITS.cancelMs,
-    failure: 'Upload could not be canceled. Try again.',
+    failure: cancelFailure,
     keepalive,
     parse: text => {
       let value;
-      try { value = JSON.parse(text); } catch { throw new Error('Upload could not be canceled. Try again.'); }
-      if (!exact(value, ['cancelled']) || value.cancelled !== true) throw new Error('Upload could not be canceled. Try again.');
+      try { value = JSON.parse(text); } catch { throw new Error(cancelFailure); }
+      if (!exact(value, ['cancelled']) || value.cancelled !== true) throw new Error(cancelFailure);
       return Object.freeze({ cancelled: true });
     },
   });
@@ -321,4 +324,18 @@ async function sendPost({ board, thread, fields, signal, origin = location.origi
     clearTimeout(timer); signal?.removeEventListener('abort', abort);
     controller.abort(); reader?.cancel().catch(() => {});
   }
+}
+
+// Match the one fixed source suffix without accepting general HTML in errors.
+const passInfoUrl = 'https://www.4chan.org/pass', passInfoText = '4chan Pass users have lower cooldowns. [';
+export const PASS_COOLDOWN_HINT = `<br>${passInfoText}<a href="${passInfoUrl}" target="_blank">Learn More</a>]`;
+export function renderQuickReplyError(element, text) {
+  const offered = text.endsWith(PASS_COOLDOWN_HINT);
+  element.textContent = offered ? text.slice(0, -PASS_COOLDOWN_HINT.length) : text;
+  if (!offered) return;
+  const document = element.ownerDocument;
+  const link = Object.assign(document.createElement('a'), {
+    href: passInfoUrl, target: '_blank', rel: 'noopener noreferrer', textContent: 'Learn More',
+  });
+  element.append(document.createElement('br'), passInfoText, link, ']');
 }

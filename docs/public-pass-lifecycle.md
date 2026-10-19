@@ -274,6 +274,43 @@ HTTP tests pass login, membership-only warning display, CSRF rejection,
 acknowledgment, logout rejection and cookie clearing. Ordinary warning routes
 still pass their identity, escaping and CSRF checks. Complete browser coverage
 and hosted CI remain pending.
-The source's non-member cooldown link, report membership, public badges and
-recovery/delivery remain unfinished. The complete posting flow still needs
+Report membership, public badges and recovery/delivery remain unfinished. The complete posting flow still needs
 browser qualification.
+
+
+Non-member reply, image-reply and duplicate-image refusals now include the
+source's fixed Pass information link. The Store selects it from the locked
+CAPTCHA policy and validated membership result. Members, CAPTCHA-disabled
+boards, staff replies and thread timers omit it. This flag changes presentation
+only; it cannot select a cooldown or grant a bypass.
+
+HTML escapes the ordinary message and renders a fixed link. Source JSON keeps
+its single `error` field with the exact `S_RENZOKU_PASS` suffix. Quick Reply and
+the drawing form recognize only that suffix and construct the link with DOM
+methods; all other response text stays inert. The link retains the source's
+external information URL. It does not connect the local entitlement store to an
+external checkout. The separate checkout integration remains unfinished.
+
+The Quick Reply bundle remains within its existing 50 KiB limit. Reusing the
+unchanged upload-error string offsets the new renderer without removing guards.
+Local checks pass the ordinary, member and CAPTCHA-disabled Store paths,
+HTML/JSON responses and safe DOM rendering. The added browser cases still need
+hosted qualification.
+
+Quick Reply also halves its advisory timer when CAPTCHA is disabled or the
+private endpoint confirms current Pass advice. Report exemptions and CAPTCHA
+credits do not select that reduction. A presentation cookie only starts the
+advice request; it cannot grant a bypass. Advice refreshes after submission.
+The source browser halves milliseconds, so an odd five-second policy becomes
+2.5 seconds in the advisory while the server still enforces its three-second
+ceil-half rule. Unit tests preserve this distinction. The ordinary timer tests
+remain unchanged; the CAPTCHA-disabled browser fixture projects 20/40 seconds
+and checks the resulting 10/20-second advisory.
+
+
+Pass preflight now reaches the public-board check before the ordinary Store
+lookup. Its missing/private-board result is mapped back to `NotFound`, preserving
+the existing public response. CI exposed the regression in private archive
+qualification; the owned local test reproduced it before the correction and all
+three private archive cases pass afterward. Invalid receipts and other database
+errors retain their existing failure paths.

@@ -25,7 +25,8 @@ const test = base.extend({
 });
 
 // This suite deliberately substitutes only the browser's advisory policy with
-// owned synthetic 10s/20s values. It never changes a board's database policy.
+// owned synthetic 20s/40s values. This CAPTCHA-disabled fixture uses the source
+// half delay, giving effective 10s/20s timers. Database policy is unchanged.
 // Real server projection and authoritative enforcement have separate HTTP tests.
 async function open(page, id, { persistent = true, timestamp = null, files = false } = {}) {
   await page.clock.pauseAt(time);
@@ -40,8 +41,8 @@ async function open(page, id, { persistent = true, timestamp = null, files = fal
       found = true;
       expect(tag).toMatch(/data-posting-reply-seconds="\d+"/);
       expect(tag).toMatch(/data-posting-image-seconds="\d+"/);
-      return tag.replace(/data-posting-reply-seconds="\d+"/, 'data-posting-reply-seconds="10"')
-        .replace(/data-posting-image-seconds="\d+"/, 'data-posting-image-seconds="20"')
+      return tag.replace(/data-posting-reply-seconds="\d+"/, 'data-posting-reply-seconds="20"')
+        .replace(/data-posting-image-seconds="\d+"/, 'data-posting-image-seconds="40"')
         .replace(/>$/, ' data-owned-synthetic-cooldown="true">');
     });
     expect(found).toBe(true);
@@ -53,6 +54,7 @@ async function open(page, id, { persistent = true, timestamp = null, files = fal
     await route.fulfill({ response, body: html });
   });
   await page.goto(`/fixture/thread/${id}`);
+  await expect(page.locator('form.postEditor [data-posting-captcha]')).toHaveCount(0);
   await page.locator('.open-qr-link').click();
   await page.locator('#qrCom').fill('Owned cooldown draft');
 }

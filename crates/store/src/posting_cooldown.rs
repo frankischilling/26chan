@@ -16,6 +16,8 @@ pub enum PostingCooldownReason {
 pub struct PostingCooldownRejection {
     pub reason: PostingCooldownReason,
     pub remaining_seconds: i64,
+    /// Presentation only, derived from the locked board and checked membership.
+    pub pass_offer: bool,
 }
 
 impl PostingCooldownRejection {
@@ -39,6 +41,21 @@ impl PostingCooldownRejection {
             }
         }
     }
+}
+
+/// Source S_RENZOKU_PASS applies only to non-bypassed reply timers.
+/// This presentation flag never participates in admission or proof validation.
+pub(crate) fn with_pass_offer(mut error: StoreError, ordinary: bool) -> StoreError {
+    if let StoreError::PostingCooldownRejected(ref mut rejection) = error {
+        rejection.pass_offer = ordinary
+            && matches!(
+                rejection.reason,
+                PostingCooldownReason::Reply
+                    | PostingCooldownReason::ImageReply
+                    | PostingCooldownReason::DuplicateImage
+            );
+    }
+    error
 }
 
 impl std::fmt::Display for PostingCooldownRejection {
@@ -227,6 +244,7 @@ fn decode_result(rows: &[ResultRow], context: CheckContext) -> Result<(), StoreE
         PostingCooldownRejection {
             reason,
             remaining_seconds: row.remaining_seconds,
+            pass_offer: false,
         },
     ))
 }
@@ -412,10 +430,51 @@ mod tests {
     }
 
     #[test]
+    fn pass_offer_is_presentation_only_and_limited_to_ordinary_reply_timers() {
+        for reason in [
+            PostingCooldownReason::Reply,
+            PostingCooldownReason::ImageReply,
+            PostingCooldownReason::DuplicateImage,
+            PostingCooldownReason::Thread,
+            PostingCooldownReason::CrossBoardThread,
+        ] {
+            for ordinary in [false, true] {
+                let error = with_pass_offer(
+                    StoreError::PostingCooldownRejected(PostingCooldownRejection {
+                        reason,
+                        remaining_seconds: 17,
+                        pass_offer: false,
+                    }),
+                    ordinary,
+                );
+                let StoreError::PostingCooldownRejected(value) = error else {
+                    panic!("wrong error");
+                };
+                assert_eq!(
+                    value.pass_offer,
+                    ordinary
+                        && matches!(
+                            reason,
+                            PostingCooldownReason::Reply
+                                | PostingCooldownReason::ImageReply
+                                | PostingCooldownReason::DuplicateImage
+                        )
+                );
+                assert_eq!(value.remaining_seconds, 17);
+            }
+        }
+        assert!(matches!(
+            with_pass_offer(StoreError::NotFound, true),
+            StoreError::NotFound
+        ));
+    }
+
+    #[test]
     fn typed_messages_match_source_errors() {
         let rejected = |reason| PostingCooldownRejection {
             reason,
             remaining_seconds: 61,
+            pass_offer: false,
         };
         assert_eq!(
             rejected(PostingCooldownReason::Reply).source_message(),

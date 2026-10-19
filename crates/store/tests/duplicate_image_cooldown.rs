@@ -219,7 +219,7 @@ async fn duplicate_images_use_bound_normalized_digest_before_ordinary_reply_time
         .await
         .unwrap_err();
     assert!(
-        matches!(error,StoreError::PostingCooldownRejected(ref rejection) if rejection.reason==PostingCooldownReason::DuplicateImage && rejection.remaining_seconds==50),
+        matches!(error,StoreError::PostingCooldownRejected(ref rejection) if rejection.reason==PostingCooldownReason::DuplicateImage && rejection.remaining_seconds==50 && !rejection.pass_offer),
         "{error:?}"
     );
     sqlx::query("UPDATE content.post_media SET file_deleted=true WHERE post_id=$1")
@@ -262,6 +262,13 @@ async fn duplicate_images_use_bound_normalized_digest_before_ordinary_reply_time
     .await
     .unwrap();
     assert_eq!(ordinary, Some(200));
+    let ordinary_error = post(&public, &board, op2, now, &candidate)
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(ordinary_error,StoreError::PostingCooldownRejected(ref rejection) if rejection.reason==PostingCooldownReason::DuplicateImage && rejection.remaining_seconds==200 && rejection.pass_offer),
+        "{ordinary_error:?}"
+    );
     let mut setup = owner.begin().await.unwrap();
     sqlx::raw_sql("INSERT INTO post_secrets.anonymous_sessions(token_hash,network_hash,address_hash,environment_hash,created_at,network_at,address_at,environment_at,expires_at) SELECT sha256('duplicate-anon'),sha256('network'),sha256('address'),sha256('environment'),n,n,n,n,n+3600 FROM (SELECT floor(extract(epoch FROM clock_timestamp()))::bigint n) clock; SET LOCAL ROLE board_anonymous_owner; WITH account AS (INSERT INTO verification_private.pass_entitlements(token_hash,pin_hash,status,purchased_at,expires_at) VALUES(sha256('duplicate-account'),repeat('owned-placeholder',3),0,'2020-01-01',statement_timestamp()+interval '1 year') RETURNING id) INSERT INTO verification_private.pass_sessions SELECT sha256('duplicate-member'),id,1,statement_timestamp(),statement_timestamp()+interval '1 day' FROM account;").execute(&mut *setup).await.unwrap();
     setup.commit().await.unwrap();
