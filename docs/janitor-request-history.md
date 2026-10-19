@@ -73,5 +73,32 @@ restore. The HTTP/browser fixture seeds owned history and checks its rendered
 counts, template reasons and absence of private notes. Existing expired-session,
 revocation, wrong-origin and wrong-board controls remain in the suite.
 
-Issue #223 remains open for retained media, thumbnail controls, full history
-search, linked Pass evidence and source visual parity.
+Issue #223 remains open for full history search, linked Pass evidence and
+source visual parity. Private retained media and thumbnail controls are covered
+by PR #302.
+
+
+## Request-linked history reader
+
+The source queue links to a separate staff ban-search service using the target's
+address or a Pass reference. That service's implementation is absent from the
+supplied tree. The native reader uses a pending request ID to resolve the saved
+address identity inside the database. It displays retained ban and warning rows,
+public reasons and private notes from boards the reviewer can access. Global
+bans originating on an inaccessible board are also excluded.
+
+Only moderators and higher roles can open this reader. Authentication, CSRF
+cookie, source-board access and catalog integrity are checked for every page.
+Once the request is reviewed or removed, its history URL stops working. The
+reader accepts no address, password, actor hash or arbitrary account selector.
+It provides 25 records per page in descending ID order, with an exclusive older-ID
+cursor and a 10,000-row actor bound. New records do not shift an older page.
+Rendered reasons and notes are escaped; responses remain private and uncached.
+
+This restores the queue's retained-address ban lookup. Post searches by address,
+password and file hash, linked Pass history and the separate staff service's
+layout remain outside this reader. Browser coverage exercises the link and
+repeated newest-page navigation on desktop/mobile with scripts on and off.
+SQL tests cover pagination, cross-board and unrelated identities, role refusal,
+changed scope and removed requests. HTTP checks cover authentication, cache
+headers and stale URLs.

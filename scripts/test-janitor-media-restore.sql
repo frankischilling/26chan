@@ -19,4 +19,9 @@ SELECT encode(body,'escape')='full' AS readable FROM staff_identity.janitor_requ
 \else
 \quit 1
 \endif
+SELECT (staff_identity.janitor_request_history(decode(repeat('55',32),'hex'),decode(repeat('77',32),'hex'),600,:pending_request,0)->>'request_id')::bigint=:pending_request AS history_readable \gset
+\if :history_readable
+\else
+\quit 1
+\endif
 RESET ROLE;

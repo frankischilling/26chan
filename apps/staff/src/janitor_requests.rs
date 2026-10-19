@@ -17,6 +17,7 @@ SELECT NOT EXISTS (
   ('staff_identity','janitor_request_form','bytea, bytea, integer, text, bigint','jsonb','board_auth'),
   ('content','create_janitor_request','bytea, bytea, integer, text, bigint, bigint, boolean, boolean','bigint','board_staff'),
   ('content','create_janitor_request','bytea, bytea, integer, text, bigint, bigint, boolean, boolean, bytea, bytea','bigint','board_staff'),
+  ('staff_identity','janitor_request_history','bytea, bytea, integer, bigint, bigint','jsonb','board_auth'),
   ('staff_identity','janitor_request_media_plan','bytea, bytea, integer, text, bigint, bigint','jsonb','board_auth'),
   ('staff_identity','janitor_request_media','bytea, bytea, integer, bigint, boolean','record','board_auth'),
   ('content','review_janitor_request','bytea, bytea, integer, bigint, boolean, bigint, integer, boolean, text, text','jsonb','board_staff'),

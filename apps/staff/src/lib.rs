@@ -14,6 +14,7 @@ mod report_post_snapshot;
 pub mod report_queue;
 mod report_queue_query;
 mod reporter_clear;
+mod request_history;
 mod request_media;
 mod request_review;
 mod restrictions;
@@ -204,6 +205,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/reports", get(handlers::queue))
         .route("/messages", get(staff_messages::show))
         .route("/ban-requests", get(request_review::queue))
+        .route("/ban-requests/history/{id}", get(request_history::show))
         .route(
             "/ban-requests/media/{id}/{variant}",
             get(request_media::serve),

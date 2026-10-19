@@ -49,6 +49,16 @@ try {
         await expect(row).toContainText('Owned HTTP request body');
         await expect(row.locator('.user-bans-cnt')).toContainText('Past 12 months ban history');
         await expect(row.locator('.br-tpl-reason')).toHaveText('Owned <script>reason</script>');
+        const historyLink=row.getByRole('link',{name:'Search bans by retained identity'});
+        await expect(historyLink).toHaveAttribute('href',`/ban-requests/history/${id}`);
+        const historyPage=await context.newPage();
+        assert.equal((await historyPage.goto(`${origin}/ban-requests/history/${id}`)).status(),200);
+        await expect(historyPage.locator('#content')).toContainText('Owned prior ban');
+        await expect(historyPage.locator('#content')).toContainText('Private history sentinel');
+        await historyPage.getByRole('link',{name:'Newest',exact:true}).click();
+        await expect(historyPage.locator('h1')).toHaveText('Retained ban history');
+        await historyPage.close();
+
         await expect(row.getByRole('button', { name: /^Deny/ })).toBeVisible();
         const thumbnail=row.locator('.post-thumb');
         await expect(thumbnail).toBeVisible();
@@ -127,6 +137,7 @@ try {
         assert.equal(reviewResponse.status(), 200, 'authorized review form must succeed');
         const gone=await context.request.get(`${origin}/ban-requests/media/${id}/file`);
         assert.equal(gone.status(),404,'cleared request must lose private media access');
+        assert.equal((await context.request.get(`${origin}/ban-requests/history/${id}`)).status(),404,'cleared request must lose history access');
         await expect(page.locator(javaScriptEnabled ? '#queue-status' : '#content')).toContainText('Request denied. 1 pending request(s) cleared.');
         await page.screenshot({ fullPage: true, path: path.join(output, `${prefix}-review.png`) });
         if (javaScriptEnabled) {

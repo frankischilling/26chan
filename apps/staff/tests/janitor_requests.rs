@@ -166,7 +166,7 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
             sqlx::query("UPDATE staff_identity.accounts SET role='moderator' WHERE id=$1").bind(account).execute(&owner).await.unwrap();
             let mut history=owner.begin().await.unwrap();
             sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *history).await.unwrap();
-            sqlx::query("INSERT INTO restrictions.bans(board,post_id,actor_hash,global,warning,starts_at,ends_at,public_reason,private_reason,account_id,charged_bytes,template_id,upload_observation) VALUES($1,$2,decode($3,'hex'),false,false,date_trunc('second',statement_timestamp())-interval '1 day',date_trunc('second',statement_timestamp())+interval '1 day','Owned prior ban','Private history sentinel',$4,512,$5,'absent'),($1,$2,decode($3,'hex'),false,true,date_trunc('second',statement_timestamp())-interval '2 hours',date_trunc('second',statement_timestamp())-interval '2 hours','Owned prior warning','Private history sentinel',$4,512,$5,'absent')")
+            sqlx::query("INSERT INTO restrictions.bans(board,post_id,actor_hash,global,warning,starts_at,ends_at,public_reason,private_reason,account_id,charged_bytes,template_id,upload_observation) VALUES($1,$2,decode($3,'hex'),false,false,date_trunc('second',statement_timestamp())-interval '1 day',date_trunc('second',statement_timestamp())+interval '1 day','Owned prior ban','Private history sentinel <script>private</script>',$4,512,$5,'absent'),($1,$2,decode($3,'hex'),false,true,date_trunc('second',statement_timestamp())-interval '2 hours',date_trunc('second',statement_timestamp())-interval '2 hours','Owned prior warning','Private history sentinel <script>private</script>',$4,512,$5,'absent')")
                 .bind(&board).bind(op).bind(&actor).bind(account).bind(template).execute(&mut *history).await.unwrap();
             sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes+1024 WHERE singleton").execute(&mut *history).await.unwrap();
             history.commit().await.unwrap();
@@ -196,6 +196,19 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
             assert!(!html.contains("<script>Owned subject</script>"));
             assert!(!html.contains(&actor));
             assert_eq!(app.clone().oneshot(get("/ban-requests?board=outside",&cookie)).await.unwrap().status(),StatusCode::FORBIDDEN);
+            let history_url=format!("/ban-requests/history/{}",request_ids[0]);
+            assert!(html.contains(&history_url));
+            let response=app.clone().oneshot(get(&history_url,&cookie)).await.unwrap();
+            assert_eq!(response.status(),StatusCode::OK);
+            assert_eq!(response.headers()["cache-control"],"private, no-store");
+            let history_html=String::from_utf8(to_bytes(response.into_body(),2*1024*1024).await.unwrap().to_vec()).unwrap();
+            assert!(history_html.contains("Owned prior ban"));
+            assert!(history_html.contains("Owned prior warning"));
+            assert!(history_html.contains("Private history sentinel"));
+            assert!(!history_html.contains("<script>private</script>"));
+            assert!(!history_html.contains(&actor));
+            assert_eq!(app.clone().oneshot(get(&history_url,"")).await.unwrap().status(),StatusCode::UNAUTHORIZED);
+            assert_eq!(app.clone().oneshot(get(&format!("{history_url}?before=-1"),&cookie)).await.unwrap().status(),StatusCode::BAD_REQUEST);
             for origin in [None, Some("null"), Some("https://outside.invalid")] {
                 let mut denied=review(request_ids[0],"accept");
                 denied.headers_mut().remove("origin");
@@ -211,6 +224,7 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
             let accepted:serde_json::Value=serde_json::from_slice(&to_bytes(response.into_body(),4096).await.unwrap()).unwrap();
             assert_eq!(accepted["changed"],true);
             assert_eq!(accepted["cleared"],1);
+            assert_eq!(app.clone().oneshot(get(&history_url,&cookie)).await.unwrap().status(),StatusCode::NOT_FOUND);
             assert!(accepted["ban_id"].as_i64().is_some_and(|id|id>0));
             let mut rule_check=owner.begin().await.unwrap();
             sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *rule_check).await.unwrap();
