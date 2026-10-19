@@ -98,8 +98,11 @@ for database in homepage_upgrade homepage_restored; do
 UPDATE public.homepage_saved_boards SET saved=saved||jsonb_build_object(
  'captcha_enabled',slug<>'j','captcha_twister',slug<>'f',
  'captcha_allow_bypass',slug NOT IN('pol','trash','bant'),
- 'preupload_captcha',slug='hr','noscript_captcha_only',false);
-UPDATE public.homepage_saved_posts SET saved=saved||jsonb_build_object('staff_notices','[]'::jsonb);
+ 'preupload_captcha',slug='hr','noscript_captcha_only',false,
+ 'pass_post_only',slug='vip');
+UPDATE public.homepage_saved_posts SET saved=saved||jsonb_build_object('staff_notices','[]'::jsonb,'since4pass',0);
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM content.posts WHERE since4pass<>0) THEN
+ RAISE EXCEPTION 'Upgrade invented historical Pass years'; END IF; END $$;
 SQL
     "${psql[@]}" -d "$database" -f - < "$cluster/assertions.sql"
 done
@@ -112,6 +115,16 @@ SQL
 "$pg_bin/pg_restore" -h 127.0.0.1 -p 55446 -U postgres -d homepage_current_restored --exit-on-error "$cluster/current.dump"
 for database in homepage_upgrade homepage_restored homepage_current_restored; do
     "${psql[@]}" -d "$database" -f - < "$cluster/assertions.sql"
+    for mutation in \
+      "UPDATE content.posts SET since4pass=2020 WHERE id=15500001;" \
+      "UPDATE content.boards SET pass_post_only=true WHERE slug='homeup';"; do
+        { printf '%s\n' "$mutation"; cat "$cluster/assertions.sql"; } > "$cluster/pass-history-negative.sql"
+        if "${psql[@]}" -d "$database" --single-transaction -f - < "$cluster/pass-history-negative.sql" > "$cluster/pass-history-negative.log" 2>&1; then
+            echo 'Homepage history guard accepted a Pass year or board gate mutation.' >&2; exit 1
+        fi
+        grep -q 'Existing content changed' "$cluster/pass-history-negative.log"
+        "${psql[@]}" -d "$database" -f - < "$cluster/assertions.sql"
+    done
     "${psql[@]}" -d "$database" -At -f crates/store/src/homepage_readiness.sql | grep -qx t
     "${psql[@]}" -U board_public -d "$database" -c 'SELECT * FROM content.published_news; SELECT * FROM content.published_site_pages; SELECT * FROM content.homepage_cards; SELECT * FROM content.homepage_statistics; SELECT * FROM content.homepage_board_statistics' >/dev/null
  done
