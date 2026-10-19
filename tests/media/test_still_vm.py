@@ -132,7 +132,15 @@ class StillVmTest(unittest.TestCase):
                 self.assertNotEqual(runner.returncode, 0)
                 self.assertFalse(disk.exists())
                 self.assertFalse(workspace.exists())
-                self.assertFalse(vmm.exists())
+                remaining = vmm.exists()
+                details = []
+                if remaining:
+                    for field in ('comm', 'status', 'cgroup'):
+                        try:
+                            details.append(field + ': ' + (vmm / field).read_text()[:4096])
+                        except (FileNotFoundError, ProcessLookupError):
+                            details.append(field + ': exited during inspection')
+                self.assertFalse(remaining, 'Cancelled VMM proc entry remained: ' + '\n'.join(details))
                 vm.assert_clean()
         output = self.run_job(b'inspect'.ljust(17, b' '), probe=True)
         check_probe_report(output[:4_194_816], 9)
