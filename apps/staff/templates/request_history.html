@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Retained ban history</title><link rel="stylesheet" href="/reportqueue.css"></head>
+<body><header><h1 id="title">Retained ban history</h1></header>
+<div id="menu"><a class="button button-light" href="/ban-requests?board={{ board }}">Request queue</a></div>
+<div id="content"><p>History for request {{ request_id }} on /{{ board }}/. Only records from boards you can access are shown. This matches the request's retained address identity; linked Pass history is not included.</p>
+{% if rows.is_empty() %}<p>No retained bans or warnings on this page.</p>{% endif %}
+<table class="items-table"><thead><tr><th>Restriction</th><th>Post</th><th>Dates (UTC)</th><th>Status</th><th>Public reason</th><th>Private notes</th></tr></thead><tbody>
+{% for row in rows %}<tr id="history-{{ row.id }}"><td>{{ row.id }}: {% if row.warning %}Warning{% else %}Ban{% endif %}{% if row.global %} (global){% endif %}</td><td>/{{ row.board }}/{{ row.post_id }}</td><td>{{ row.start() }}<br>{{ row.end() }}</td><td>{% if row.active %}Active{% else %}Inactive{% endif %}{% if let Some(reason) = row.retirement %}<br>{{ reason }} {{ row.retired() }}{% endif %}</td><td>{{ row.public_reason }}</td><td>{{ row.private_reason }}</td></tr>{% endfor %}
+</tbody></table><nav class="page-nav"><a href="/ban-requests/history/{{ request_id }}">Newest</a>{% if next_before != 0 %} <a href="/ban-requests/history/{{ request_id }}?before={{ next_before }}">Older &raquo;</a>{% endif %}</nav></div></body></html>
