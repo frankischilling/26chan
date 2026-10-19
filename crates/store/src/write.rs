@@ -1860,12 +1860,22 @@ async fn create_post_in_context(
                 "Posting activity is unavailable.".into(),
             ))
         })?;
+        let pass_bypass = if let Some(session) = anonymous.as_ref() {
+            sqlx::query_scalar::<_, bool>("SELECT content.pass_post_bypass($1,$2)")
+                .bind(id)
+                .bind(session.fingerprints.token.as_slice())
+                .fetch_one(&mut *tx)
+                .await?
+        } else {
+            false
+        };
         let decision = plan::evaluate(
             &mut tx,
             plan::Context {
                 board: slug,
                 parent,
                 image: attachment.is_some(),
+                captcha_bypass: pass_bypass,
                 actor: activity.as_ref(),
                 activity_at,
                 session: anonymous.as_ref(),

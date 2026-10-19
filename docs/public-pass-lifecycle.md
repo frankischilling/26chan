@@ -165,6 +165,14 @@ capacity and rollback. HTTP tests check the issuer response and reject email or
 newly minted browser contexts. A two-connection test observes the duplicate
 consumer waiting on a database lock, then rejects it after the first commits.
 
-This receipt path is not yet connected to public posting. A receipt currently
-grants no CAPTCHA bypass, cooldown reduction or Pass-only board access through
-the public application.
+Thread and reply forms now obtain these receipts for authenticated Pass users.
+Classic, Twister and script-disabled controls keep the form nonce while hiding
+the CAPTCHA. The post insert consumes the receipt, and a private transaction-only
+handoff supplies the source's late-classifier bypass. Commit removes that
+handoff; it cannot authorize a later request. Pass posts do not earn courtesy
+CAPTCHA credits. Store tests cover a real accepted post, missing proof, replay
+and revocation; public-handler tests cover the private issuer and form advice.
+
+Pass-only boards, cooldown reductions, early restriction exceptions, report
+receipts, visible membership years and recovery/delivery remain unfinished.
+The complete posting flow still needs browser qualification.

@@ -36,6 +36,24 @@ fn invalid() -> AppError {
 fn client(state: &AppState) -> Result<&VerificationClient, AppError> {
     state.verification.as_ref().ok_or_else(unavailable)
 }
+/// UI advice only; every submitted post obtains a separately bound receipt.
+pub(crate) async fn posting_ready(
+    state: &AppState,
+    headers: &HeaderMap,
+    peer: Option<std::net::IpAddr>,
+) -> Result<bool, AppError> {
+    let Some(token) = read_cookie(headers, state.production)? else {
+        return Ok(false);
+    };
+    let peer = peer.ok_or_else(unavailable)?;
+    Ok(matches!(
+        client(state)?
+            .pass_posting_state(&protocol::PassPostingSession { token, peer })
+            .await
+            .map_err(|_| unavailable())?,
+        protocol::PassPostingState::Ready { .. }
+    ))
+}
 fn cookie_name(production: bool) -> &'static str {
     if production {
         "__Host-board-pass"

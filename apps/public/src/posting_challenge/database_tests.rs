@@ -119,6 +119,8 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
         tripcode_key: None,
         country_database: None,
     };
+    let pass_token = board_domain::challenge_secrets::PassSessionToken::generate().unwrap();
+    let pass_hash = pass_token.storage_hash();
     let token = Arc::new(std::sync::Mutex::new(None));
     let outcome=tokio::spawn({let owner=owner.clone();let board=board.clone();let token=token.clone();async move {
         let mut initial=HeaderMap::new();initial.insert(header::CONTENT_TYPE,"application/x-www-form-urlencoded".parse().unwrap());
@@ -200,12 +202,46 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
         assert_eq!(proof(&state,&headers,&current,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread},&credit).await.err().unwrap().0,StatusCode::BAD_REQUEST);
         let mut unavailable_state=state.clone(); unavailable_state.verification=None;
         assert_eq!(proof(&unavailable_state,&headers,&current,Some(peer),Scope{board:board.clone(),target:target.parse().unwrap(),purpose:protocol::Purpose::Reply},&credit).await.err().unwrap().0,StatusCode::SERVICE_UNAVAILABLE);
+        // Owned membership uses the real private issuer, while public controls
+        // disclose only a hidden CAPTCHA state and the browser form nonce.
+        let mut tx=owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *tx).await.unwrap();
+        let pass_id:i64=sqlx::query_scalar("INSERT INTO verification_private.pass_entitlements(token_hash,pin_hash,status,purchased_at,expires_at) VALUES($1,repeat('owned-placeholder',3),0,'2020-01-02',clock_timestamp()+interval '1 day') RETURNING id")
+            .bind(pass_hash.as_slice()).fetch_one(&mut *tx).await.unwrap();
+        sqlx::query("INSERT INTO verification_private.pass_sessions VALUES($1,$2,1,clock_timestamp(),clock_timestamp()+interval '1 day')")
+            .bind(pass_hash.as_slice()).bind(pass_id).execute(&mut *tx).await.unwrap();tx.commit().await.unwrap();
+        let mut member_headers=headers.clone();
+        member_headers.append(header::COOKIE,format!("board-pass={}",pass_token.encode()).parse().unwrap());
+        let response=request(State(state.clone()),Extension(RequestPeer(Some(peer))),member_headers.clone(),encoded(&[("action","challenge"),("board",&board),("purpose","thread"),("target","0"),("csrf",nonce)])).await.unwrap();
+        let reply=decoded(response).await;assert_eq!(reply["challenge"]["state"],"disabled");assert_eq!(reply["report_exempt"],false);
+        let input=FormInput{csrf:nonce.into(),..FormInput::default()};
+        assert!(proof(&state,&member_headers,&current,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread},&input).await.unwrap().is_some());
+        for twister in [false,true] {
+            sqlx::query("UPDATE content.boards SET captcha_twister=$2 WHERE slug=$1").bind(&board).bind(twister).execute(&owner).await.unwrap();
+            let (view,context)=page::prepare(&state,&member_headers,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread}).await;
+            assert!(view.enabled && view.exempt);assert!(!view.csrf.is_empty());assert!(view.token.is_empty() && view.image.is_empty());
+            let html=ClassicForm{captcha:view}.render().unwrap();assert!(html.contains("data-exempt=\"true\""));assert!(!html.contains(&pass_token.encode()));
+            let finished=page::finish(StatusCode::OK.into_response(),&context);assert!(finished.headers().contains_key(header::SET_COOKIE));
+        }
+        state.verification.as_ref().unwrap().pass_signout(&protocol::PassSession{token:pass_token.encode()}).await.unwrap();
+        assert_eq!(proof(&state,&member_headers,&current,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread},&input).await.err().unwrap().0,StatusCode::BAD_REQUEST);
         sqlx::query("UPDATE content.boards SET captcha_enabled=false WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
         let mut offline=state.clone();offline.verification=None;
         let response=request(State(offline),Extension(RequestPeer(Some(peer))),headers,encoded(&[("action","challenge"),("board",&board),("purpose","thread"),("target","0"),("csrf",nonce)])).await.unwrap();assert_eq!(decoded(response).await["challenge"]["state"],"disabled");
     }}).await;
     serving.abort();
     let _ = serving.await;
+    let mut pass_cleanup = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+        .execute(&mut *pass_cleanup)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM verification_private.pass_entitlements WHERE token_hash=$1")
+        .bind(pass_hash.as_slice())
+        .execute(&mut *pass_cleanup)
+        .await
+        .unwrap();
+    pass_cleanup.commit().await.unwrap();
     sqlx::query("DELETE FROM verification_private.tickets WHERE board=$1")
         .bind(&board)
         .execute(&owner)

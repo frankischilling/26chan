@@ -184,13 +184,19 @@ pub(crate) async fn proof(
     scope: Scope,
     input: &FormInput,
 ) -> Result<Option<board_store::WriteChallengeProof>, AppError> {
+    let pass = if scope.purpose != protocol::Purpose::Report {
+        crate::pass_auth::read_cookie(headers, state.production)?
+    } else {
+        None
+    };
     // Presence is retained for request observations. Verification still treats
     // absent and empty values alike and derives authority only from the issuer.
     let challenge = input.challenge.as_deref().unwrap_or_default();
     let answer = input.answer.as_deref().unwrap_or_default();
-    if !board_store::posting_challenge::board_policy(&state.pool, &scope.board)
-        .await?
-        .enabled
+    if pass.is_none()
+        && !board_store::posting_challenge::board_policy(&state.pool, &scope.board)
+            .await?
+            .enabled
     {
         return Ok(None);
     }
@@ -215,6 +221,41 @@ pub(crate) async fn proof(
         || answer.chars().any(char::is_control)
     {
         return Err(invalid());
+    }
+    if let Some(token) = pass {
+        let context = scope.context(state, session, peer, &input.csrf)?;
+        let checked = state
+            .verification
+            .as_ref()
+            .ok_or_else(unavailable)?
+            .pass_write_receipt(&protocol::PassWriteRequest { token, context })
+            .await
+            .map_err(|_| unavailable())?;
+        return match checked {
+            protocol::PassWriteResult::Verified {
+                receipt,
+                peer_hash,
+                context_hash,
+            } => board_store::WriteChallengeProof::from_issuer(&receipt, peer_hash, context_hash)
+                .map(Some)
+                .ok_or_else(unavailable),
+            protocol::PassWriteResult::Expired {} => {
+                Err(AppError(StatusCode::BAD_REQUEST, "This Pass has expired."))
+            }
+            protocol::PassWriteResult::Disabled {} => Err(AppError(
+                StatusCode::BAD_REQUEST,
+                "This Pass has been disabled.",
+            )),
+            protocol::PassWriteResult::InUse {} => Err(AppError(
+                StatusCode::BAD_REQUEST,
+                "This Pass is already in use from another network.",
+            )),
+            protocol::PassWriteResult::None {} => Err(AppError(
+                StatusCode::BAD_REQUEST,
+                "This Pass session is invalid. Authenticate again.",
+            )),
+            protocol::PassWriteResult::Capacity {} => Err(unavailable()),
+        };
     }
     if scope.purpose == protocol::Purpose::Report
         && challenge.is_empty()
@@ -391,7 +432,18 @@ async fn request(
     } else {
         false
     };
-    let issued = if !policy.enabled || exempt {
+    let pass_exempt = scope.purpose != protocol::Purpose::Report
+        && crate::pass_auth::posting_ready(&state, &headers, peer).await?;
+    if pass_exempt {
+        state
+            .verification
+            .as_ref()
+            .ok_or_else(unavailable)?
+            .ensure_session(&crate::signin::trusted(&session, &state, peer)?)
+            .await
+            .map_err(|_| unavailable())?;
+    }
+    let issued = if !policy.enabled || exempt || pass_exempt {
         protocol::PostingChallengeResult {
             challenge: protocol::Challenge::Disabled {},
             ticket_challenge: false,

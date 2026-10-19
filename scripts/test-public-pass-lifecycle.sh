@@ -49,6 +49,18 @@ DO $$ BEGIN IF to_regclass('verification_private.pass_entitlements') IS NOT NULL
  RAISE EXCEPTION 'Membership rollback left authority behind'; END IF; END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0216_public_pass_authority.sql
+"${migrator[@]}" -c BEGIN -f migrations/0217_pass_post_challenge.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN
+ IF to_regclass('verification_private.pass_post_handoffs') IS NOT NULL
+  OR content.public_pass_ready() IS DISTINCT FROM true
+  OR content.public_challenge_ready() IS DISTINCT FROM true
+  OR content.restrictions_ready() IS DISTINCT FROM true
+  OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'Pass post rollback changed existing authority'; END IF;
+END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0217_pass_post_challenge.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-public-pass-lifecycle.sql
 "${psql[@]}" -d pass_lifecycle <<'SQL'
 SET ROLE board_anonymous_owner;

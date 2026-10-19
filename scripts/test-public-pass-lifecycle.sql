@@ -163,7 +163,7 @@ DO $$ DECLARE n integer; result record; BEGIN
  END LOOP;
 END $$;
 SET LOCAL ROLE board_anonymous_owner;
-UPDATE verification_private.pass_receipts SET created_at=clock_timestamp()-interval '60 seconds',expires_at=clock_timestamp()-interval '30 seconds'
+UPDATE verification_private.pass_receipts SET created_at=statement_timestamp()-interval '60 seconds',expires_at=statement_timestamp()-interval '30 seconds'
  WHERE token_hash=sha256('owned-receipt-cap-1');
 DO $$ BEGIN
  BEGIN
