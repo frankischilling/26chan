@@ -47,6 +47,8 @@ try {
         await page.goto(`${origin}/ban-requests?board=${input.board}`, { waitUntil: 'networkidle' });
         const row = page.locator(`#ban-request-${id}`);
         await expect(row).toContainText('Owned HTTP request body');
+        await expect(row.locator('.user-bans-cnt')).toContainText('Past 12 months ban history');
+        await expect(row.locator('.br-tpl-reason')).toHaveText('Owned <script>reason</script>');
         await expect(row.getByRole('button', { name: /^Deny/ })).toBeVisible();
         await page.screenshot({ fullPage: true, path: path.join(output, `${prefix}-queue.png`) });
         if (index === 0) {
@@ -69,7 +71,9 @@ try {
         }
         if (javaScriptEnabled) {
           await row.locator('.request-amend summary').click();
+          await row.locator('[name="public_reason"]').fill('Old override');
           await row.getByLabel('Find template').fill('Owned request');
+          await expect(row.locator('[name="public_reason"]')).toHaveValue('Owned <script>reason</script>');
           await expect(row.locator('[name="ban_length"][type="number"]')).toHaveValue('1');
           await row.locator('select[name="amend_tpl"]').selectOption(String(input.template + 1));
           await expect(row.locator('[name="ban_length"][type="number"]')).toHaveValue('0');

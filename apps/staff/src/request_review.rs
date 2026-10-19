@@ -50,6 +50,7 @@ struct SavedRequest {
     account_id: i64,
     created_at: DateTime<Utc>,
     can_accept: bool,
+    history: RequestHistory,
     payload: String,
 }
 #[derive(Deserialize)]
@@ -62,6 +63,8 @@ struct Choice {
     seconds: Option<i64>,
     available: bool,
     no_warn: bool,
+    #[serde(default)]
+    reason: String,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -133,6 +136,23 @@ fn quick_reviews(template_id: i64, warning: bool, templates: &[Choice]) -> Vec<Q
     actions
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RequestHistory {
+    total: u32,
+    recent_bans: u32,
+    recent_warns: u32,
+    recent_days: i64,
+    active_bans: Vec<Option<i64>>,
+    active_warns: Vec<Option<i64>>,
+}
+fn history_names(ids: &[Option<i64>], templates: &[Choice]) -> String {
+    ids.iter()
+        .filter_map(|id| templates.iter().find(|template| Some(template.id) == *id))
+        .map(|template| template.name.as_str())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
 struct Request {
     id: i64,
     template_id: i64,
@@ -140,6 +160,10 @@ struct Request {
     warning: bool,
     default_warning: bool,
     quick_reviews: Vec<QuickReview>,
+    history: RequestHistory,
+    active_ban_names: String,
+    active_warn_names: String,
+    template_reason: String,
     account_id: i64,
     created_at: String,
     can_accept: bool,
@@ -274,6 +298,15 @@ pub(crate) async fn queue(
             warning: request.warning,
             default_warning,
             quick_reviews: quick_reviews(request.template_id, request.warning, &saved.templates),
+            active_ban_names: history_names(&request.history.active_bans, &saved.templates),
+            active_warn_names: history_names(&request.history.active_warns, &saved.templates),
+            history: request.history,
+            template_reason: saved
+                .templates
+                .iter()
+                .find(|choice| choice.id == request.template_id)
+                .map(|choice| choice.reason.clone())
+                .unwrap_or_default(),
             account_id: request.account_id,
             created_at: request.created_at.format("%m/%d/%y %H:%M").to_string(),
             can_accept: request.can_accept,
@@ -423,6 +456,7 @@ mod tests {
                 seconds: Some(86401),
                 available: true,
                 no_warn: false,
+                reason: String::new(),
             },
             Choice {
                 id: 207,
@@ -432,6 +466,7 @@ mod tests {
                 seconds: Some(86400),
                 available: false,
                 no_warn: false,
+                reason: String::new(),
             },
         ];
         assert_eq!(

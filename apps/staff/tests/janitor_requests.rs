@@ -101,7 +101,7 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
         .await
         .unwrap();
     for (id, warning, seconds) in [(template, false, 86400_i64), (template + 1, true, 0)] {
-        sqlx::query("INSERT INTO restrictions.templates(id,name,minimum_role,global,warning,seconds,public_reason,private_reason,request_save_policy,request_blacklist_policy) VALUES($1,'Owned request template','janitor',false,$2,$3,'Owned reason','','none',CASE WHEN $2 THEN 'none' ELSE 'image' END)").bind(id).bind(warning).bind(seconds).execute(&mut *tx).await.unwrap();
+        sqlx::query("INSERT INTO restrictions.templates(id,name,minimum_role,global,warning,seconds,public_reason,private_reason,request_save_policy,request_blacklist_policy) VALUES($1,'Owned request template','janitor',false,$2,$3,'Owned <script>reason</script>','','none',CASE WHEN $2 THEN 'none' ELSE 'image' END)").bind(id).bind(warning).bind(seconds).execute(&mut *tx).await.unwrap();
     }
     tx.commit().await.unwrap();
     let outcome=tokio::spawn({
@@ -153,10 +153,24 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
                 .body(Body::from(format!("id={id}&decision={decision}&csrf={csrf}"))).unwrap();
             assert_eq!(app.clone().oneshot(review(request_ids[0],"accept")).await.unwrap().status(),StatusCode::FORBIDDEN);
             sqlx::query("UPDATE staff_identity.accounts SET role='moderator' WHERE id=$1").bind(account).execute(&owner).await.unwrap();
+            let mut history=owner.begin().await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *history).await.unwrap();
+            sqlx::query("INSERT INTO restrictions.bans(board,post_id,actor_hash,global,warning,starts_at,ends_at,public_reason,private_reason,account_id,charged_bytes,template_id) VALUES($1,$2,decode($3,'hex'),false,false,date_trunc('second',statement_timestamp())-interval '1 day',date_trunc('second',statement_timestamp())+interval '1 day','Owned prior ban','Private history sentinel',$4,512,$5),($1,$2,decode($3,'hex'),false,true,date_trunc('second',statement_timestamp())-interval '2 hours',date_trunc('second',statement_timestamp())-interval '2 hours','Owned prior warning','Private history sentinel',$4,512,$5)")
+                .bind(&board).bind(op).bind(&actor).bind(account).bind(template).execute(&mut *history).await.unwrap();
+            sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes+1024 WHERE singleton").execute(&mut *history).await.unwrap();
+            history.commit().await.unwrap();
             let response=app.clone().oneshot(get("/ban-requests",&cookie)).await.unwrap();
             assert_eq!(response.status(),StatusCode::OK);
             let html=String::from_utf8(to_bytes(response.into_body(),4*1024*1024).await.unwrap().to_vec()).unwrap();
             assert!(html.contains("Owned HTTP request body"));
+            assert!(html.contains("Past 12 months ban history"));
+            assert!(html.contains("Retained bans or warnings: 2"));
+            assert!(html.contains("1 active</b>"));
+            assert!(html.contains("1 today</b>"));
+            assert!(html.contains("class=\"br-tpl-reason\""));
+            assert!(!html.contains("<script>reason</script>"));
+            assert!(html.contains("Owned &#60;script&#62;reason&#60;/script&#62;") || html.contains("Owned &lt;script&gt;reason&lt;/script&gt;"));
+            assert!(!html.contains("Private history sentinel"));
             assert!(html.contains("name=\"referrer\" content=\"same-origin\""));
             assert!(html.contains(&format!("No.{}",posts[0])));
             let warning_marker=format!("id=\"ban-request-{}\"",request_ids[1]);

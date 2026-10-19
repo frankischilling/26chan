@@ -35,9 +35,8 @@ user-provided expression on the staff page.
 Changing the selected template updates whole-day duration and scope. Indefinite
 uses -1 and a warning duration uses 0. A fractional or out-of-range duration
 leaves the explicit length blank so the server retains the template's duration.
-A previous public-reason override is cleared to use the new template's default;
-private notes remain. The form does not yet display the template's default
-public reason before submission.
+Changing templates restores the selected public reason; private notes remain.
+The reason is displayed as escaped text. See [request history](janitor-request-history.md).
 
 Without JavaScript, the ordinary template selector and explicit amendment
 fields remain available. Search and browser preference controls stay hidden.
