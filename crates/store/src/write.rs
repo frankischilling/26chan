@@ -742,6 +742,7 @@ async fn create_post_in_context(
             .map(|session| &session.fingerprints.token),
         slug,
         context.request_start.timestamp(),
+        staff.is_none().then_some(parent),
     )
     .await?
     {
@@ -750,6 +751,20 @@ async fn create_post_in_context(
         tx.commit().await?;
         return Err(StoreError::ContentRejected(message.into()));
     }
+    let member_network_bypass: bool = if staff.is_none() {
+        sqlx::query_scalar("SELECT content.pass_network_bypass($1,$2,$3)")
+            .bind(slug)
+            .bind(parent)
+            .bind(
+                anonymous
+                    .as_ref()
+                    .map(|session| session.fingerprints.token.as_slice()),
+            )
+            .fetch_one(&mut *tx)
+            .await?
+    } else {
+        false
+    };
     if staff.is_some() {
         let role: String = sqlx::query_scalar("SELECT current_user::text")
             .fetch_one(&mut *tx)
@@ -787,7 +802,7 @@ async fn create_post_in_context(
                 crate::content_admission::NetworkContext {
                     asn,
                     hints: hints.cloned().unwrap_or_default(),
-                    staff_bypass: staff_network_bypass,
+                    trusted_bypass: staff_network_bypass || member_network_bypass,
                 },
             )
             .await?,
@@ -1212,7 +1227,14 @@ async fn create_post_in_context(
                 .peer
                 .ok_or(StoreError::Invalid("Posting identity is unavailable."))?;
             let refusal = file
-                .record(pool, &posting_actor, peer, anonymous, staff.as_ref())
+                .record(
+                    pool,
+                    &posting_actor,
+                    peer,
+                    anonymous,
+                    staff.as_ref(),
+                    challenge.as_ref(),
+                )
                 .await?;
             return Err(StoreError::FileRejected(refusal));
         }

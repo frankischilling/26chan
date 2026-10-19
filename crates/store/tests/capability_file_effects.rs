@@ -645,3 +645,67 @@ async fn expired_upload_after_cookie_wait_rolls_back_the_repeat_ban() {
     f.cleanup().await;
     result.unwrap();
 }
+
+#[tokio::test]
+async fn refused_pass_upload_retains_membership_in_automatic_ban() {
+    use board_domain::challenge_secrets::{PassSessionToken, ReceiptToken, VerificationKey};
+    use board_store::{
+        anonymous_session::PostingSession,
+        verification::{VerificationStore, pass::WriteRequest},
+        *,
+    };
+    let _serial = TEST.lock().await;
+    let f = Fixture::new("g", "owned-pass.png").await;
+    f.policy(1, false, false).await;
+    f.clock(Some("UTC")).await;
+    let material = PassSessionToken::generate().unwrap();
+    let key = VerificationKey::parse(&material.encode()[3..]).unwrap();
+    let poster_key = board_domain::poster_id::PosterIdKey::parse(&material.encode()[3..]).unwrap();
+    let peer = "192.0.2.198".parse().unwrap();
+    let actor = poster_key.public_posting_rate_identity(peer);
+    f.actors.lock().unwrap().push(actor.as_bytes().to_vec());
+    let fingerprints = Capability::generate()
+        .unwrap()
+        .fingerprints(Some(peer), *b"US");
+    f.tokens.lock().unwrap().push(fingerprints.token.to_vec());
+    let verifier =
+        VerificationStore::connect(&std::env::var("TEST_VERIFICATION_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+    verifier.ensure_session(&fingerprints, true).await.unwrap();
+    let mut setup = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+        .execute(&mut *setup)
+        .await
+        .unwrap();
+    let account:i64=sqlx::query_scalar("INSERT INTO verification_private.pass_entitlements(token_hash,pin_hash,status,purchased_at,expires_at) VALUES($1,repeat('owned-placeholder',3),0,'2020-01-01',clock_timestamp()+interval '1 year') RETURNING id").bind(material.storage_hash().as_slice()).fetch_one(&mut *setup).await.unwrap();
+    sqlx::query("INSERT INTO verification_private.pass_sessions VALUES($1,$2,1,clock_timestamp(),clock_timestamp()+interval '1 day')").bind(material.storage_hash().as_slice()).bind(account).execute(&mut *setup).await.unwrap();
+    setup.commit().await.unwrap();
+    let owned = f.clone();
+    let result=tokio::spawn(async move {
+        let receipt=ReceiptToken::generate().unwrap();
+        let context=key.form_context("thread",Some(&owned.board),0,&"cd".repeat(32)).unwrap();
+        let networks=key.pass_networks(peer).unwrap();
+        assert_eq!(verifier.pass_write_receipt(&WriteRequest{pass_session:&material.storage_hash(),receipt:&receipt.storage_hash(),networks:&networks,anonymous:&fingerprints.token,context:&context,purpose:"thread",board:&owned.board,target:0}).await.unwrap().status,"ready");
+        let image=post_media::NewAttachment{upload:media_intake::IntakeReservation{id:owned.job.clone(),capability:owned.capability.clone()},spoiler:false};
+        let now=chrono::Utc::now();
+        let error=create_post_with_challenge(&owned.public,&owned.board,0,&NewPost{name:"Anonymous".into(),subject:"Owned Pass file ban".into(),comment:"Owned membership refusal qualification".into(),deletion_hash:"owned".into(),sage:false},Some(&image),ProtectedPostingContext{request_facts:None,anonymous:AnonymousPostingContext{posting:PostingContext{request_start:now,peer:Some(peer),op_password_proof:None},session:PostingSession{fingerprints,minted:false,now}},challenge:WriteChallengeProof::from_issuer(&receipt.encode(),networks.peer,context)},PostMetadata{keys:PostIdentityKeys{tripcode:None,poster_id:Some(&poster_key)},country_database:None,flag:"",options:"",spoiler:false,drawing:None}).await.unwrap_err();
+        assert!(matches!(error,StoreError::FileRejected(_)),"{error:?}");
+        let mut private=owned.owner.begin().await.unwrap();sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *private).await.unwrap();
+        let identity:Option<Vec<u8>>=sqlx::query_scalar("SELECT pass_identity_hash FROM restrictions.bans WHERE actor_hash=$1").bind(actor.as_bytes().as_slice()).fetch_one(&mut *private).await.unwrap();assert_eq!(identity,Some(material.storage_hash().to_vec()));
+        let decision:String=sqlx::query_scalar("SELECT disposition FROM restrictions.posting_decision_qualified(sha256('changed-pass-file-peer'),NULL,$1,$2,$3)").bind(&owned.board).bind(now.timestamp()).bind(material.storage_hash().as_slice()).fetch_one(&mut *private).await.unwrap();assert_eq!(decision,"banned");private.rollback().await.unwrap();
+    }).await;
+    let mut cleanup = f.owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+        .execute(&mut *cleanup)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM verification_private.pass_entitlements WHERE id=$1")
+        .bind(account)
+        .execute(&mut *cleanup)
+        .await
+        .unwrap();
+    cleanup.commit().await.unwrap();
+    f.cleanup().await;
+    result.unwrap();
+}

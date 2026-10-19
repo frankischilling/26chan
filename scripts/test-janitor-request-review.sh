@@ -106,6 +106,14 @@ SQL
     python3 scripts/janitor-file-effects-sql.py > "$cluster/file-source.sql"
     "${psql[@]}" -d request_review -f "$cluster/file-source.sql"
 fi
+# Keep predecessor migration checks above, then qualify current request behavior.
+if [[ ${REQUEST_CURRENT_SCHEMA:-0} = 1 ]]; then
+    [[ ${REQUEST_FILE_EFFECTS:-0} = 1 ]] || { echo 'Current-schema qualification requires file effects.' >&2; exit 1; }
+    for migration in migrations/*.sql; do
+        [[ $(basename "$migration") > 0215_janitor_history_reader.sql ]] || continue
+        "${migrator[@]}" --single-transaction -f "$migration"
+    done
+fi
 python3 scripts/ban-request-review-sql.py > "$cluster/source.sql"
 "${psql[@]}" -d request_review -f "$cluster/source.sql"
 "${psql[@]}" -d request_review -f scripts/test-janitor-request-store.sql

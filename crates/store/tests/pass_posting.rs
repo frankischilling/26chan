@@ -73,8 +73,12 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
             .bind(ordinary.storage_hash().as_slice()).bind(networks.peer.as_slice()).bind(fingerprints.token.as_slice()).bind(&board).bind(context.as_slice()).execute(&mut *tx).await.unwrap();tx.commit().await.unwrap();
         let nonmember=submit(5,WriteChallengeProof::from_issuer(&ordinary.encode(),networks.peer,context)).await.unwrap_err();
         assert!(matches!(nonmember,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0201")),"{nonmember:?}");
+        sqlx::query("INSERT INTO admission.network_rules(boards,range_start,range_end) VALUES($1,0,4294967295)").bind(&board).execute(&owner).await.unwrap();
+        let range_refusal=submit(8,WriteChallengeProof::from_issuer(&ordinary.encode(),networks.peer,context)).await.unwrap_err();
+        assert!(matches!(range_refusal,StoreError::ContentRejected(ref message) if message.contains("IP range")),"{range_refusal:?}");
         let proof=||WriteChallengeProof::from_issuer(&receipt.encode(),networks.peer,context);
         let posted=submit(1,proof()).await.unwrap();assert!(posted>0);
+        sqlx::query("DELETE FROM admission.network_rules WHERE boards=$1").bind(&board).execute(&owner).await.unwrap();
         let published_year:i32=sqlx::query_scalar("SELECT since4pass FROM content.posts WHERE id=$1").bind(posted).fetch_one(&public).await.unwrap();assert_eq!(published_year,2020);
 
         let persisted:bool=sqlx::query_scalar("SELECT content.pass_post_bypass($1,$2)").bind(posted).bind(fingerprints.token.as_slice()).fetch_one(&public).await.unwrap();
@@ -130,6 +134,7 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
         .await
         .unwrap();
     for statement in [
+        "DELETE FROM admission.network_rules WHERE boards=$1",
         "DELETE FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",
         "DELETE FROM content.posts WHERE board=$1",
         "DELETE FROM content.threads WHERE board=$1",

@@ -32,9 +32,9 @@ pub(super) async fn snapshot(
     connection: &mut PgConnection,
     board: &str,
     now: i64,
-    staff_bypass: bool,
+    trusted_bypass: bool,
 ) -> Result<Snapshot, StoreError> {
-    if staff_bypass {
+    if trusted_bypass {
         return Ok(Snapshot { policy: None });
     }
     let rows: Vec<Row> = sqlx::query_as("SELECT * FROM content.network_admission_rules($1,$2)")

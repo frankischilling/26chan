@@ -123,6 +123,16 @@ DO $$ BEGIN
 END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0222_pass_duplicate_image_cooldown.sql
+"${migrator[@]}" -c BEGIN -f migrations/0223_pass_posting_restrictions.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='restrictions.bans'::regclass AND attname='pass_identity_hash' AND NOT attisdropped)
+ OR content.public_pass_ready() IS DISTINCT FROM true OR content.text_thread_transfer_ready() IS DISTINCT FROM true
+ OR content.restrictions_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Pass restriction rollback changed authority'; END IF;
+END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0223_pass_posting_restrictions.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-restrictions.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-public-pass-lifecycle.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-reply-cooldowns.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-post-identity.sql

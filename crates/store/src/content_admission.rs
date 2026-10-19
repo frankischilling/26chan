@@ -14,7 +14,7 @@ pub(crate) mod staff;
 pub(crate) struct NetworkContext {
     pub asn: board_domain::content_admission::network::ProviderValue<Option<u32>>,
     pub hints: board_domain::content_admission::network::hints::DerivedHints,
-    pub staff_bypass: bool,
+    pub trusted_bypass: bool,
 }
 
 static WORK: LazyLock<Arc<tokio::sync::Semaphore>> =
@@ -123,8 +123,13 @@ pub(crate) async fn begin(
         .bind(board)
         .fetch_all(&mut *connection)
         .await?;
-    let network =
-        network::snapshot(connection, board, request_at, network_context.staff_bypass).await?;
+    let network = network::snapshot(
+        connection,
+        board,
+        request_at,
+        network_context.trusted_bypass,
+    )
+    .await?;
     Ok(Snapshot {
         hints: network_context.hints,
         revision,

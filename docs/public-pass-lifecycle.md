@@ -215,8 +215,7 @@ Thread transfers bind the private identity into their source fingerprint, copy
 it to the destination posts, and erase the source association. Deleting a post
 or archiving its thread removes the private identity. The opt-in public year
 still survives archiving. Tests cover transfer drift, erasure, disabled cleanup
-triggers, privilege drift and a populated database restore. Ban and report
-matching have not yet been connected to these associations.
+triggers, privilege drift and a populated database restore. Posting bans now use these associations; report matching still needs integration.
 
 Public image replies now check the source's same-image timer before the ordinary
 reply timer. The comparison uses the approved normalized upload digest, the same
@@ -235,8 +234,28 @@ the check does not infer one from the original input or a later asset.
 
 Authenticated janitor replies use the same half-delay through a staff-only
 wrapper after their posting authority is issued. Other staff modes retain their
-separate timer policy. The source's non-member cooldown link, early restriction
-exceptions, report receipts,
+separate timer policy.
 
-public membership badges and recovery/delivery remain unfinished.
-The complete posting flow still needs browser qualification.
+Posting restrictions now match private membership identity after the source's
+password branch. A valid membership skips host matches; template 124 is skipped
+only in the membership branch, after warnings and expiry. The early decision
+validates the receipt without consuming it. The final insert checks the current
+transaction's consumed handoff, so a retained historical post cannot authorize a
+new write. Refused inserts restore their receipt and leave no post association.
+
+Staff bans capture the source post's membership identity. Janitor requests
+capture it before removing the source post, and approval copies that retained
+identity into the ban. Queue summaries and the scoped history reader include
+membership-linked bans from other addresses without double-counting the same
+row. Detailed history still enforces board access and never returns the private
+membership hash. Automatic file bans
+revalidate the same receipt in the separate refusal transaction and retain that
+identity too. PIN changes and address changes do not evade those matches.
+Network and automatic-range checks use a separately checked membership boolean;
+disabling CAPTCHA alone does not grant that network exception. Public runtime
+roles cannot read membership hashes or choose a trusted ban identity.
+
+Membership-only warning status and acknowledgments still need integration.
+The source's non-member cooldown link, report membership, public badges and
+recovery/delivery remain unfinished. The complete posting flow still needs
+browser qualification.

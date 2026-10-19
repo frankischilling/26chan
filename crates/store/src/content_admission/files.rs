@@ -163,6 +163,7 @@ impl Candidate {
         peer: IpAddr,
         anonymous: Option<PostingSession>,
         staff: Option<&StaffPostAuthority<'_>>,
+        challenge: Option<&crate::WriteChallengeProof>,
     ) -> Result<FileRefusal, StoreError> {
         if staff.is_some() && anonymous.is_some()
             || staff
@@ -179,6 +180,7 @@ impl Candidate {
         sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
             .execute(&mut *tx)
             .await?;
+        crate::write_challenge::install(&mut tx, challenge, anonymous.as_ref()).await?;
         let (kind,diagnostic,post,cookie_refreshed):(String,Option<String>,Option<i64>,bool)=sqlx::query_as(
             "SELECT * FROM content.finalize_file_filter($1,$2::inet,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)"
         ).bind(actor.as_bytes().as_slice()).bind(peer.to_canonical().to_string())

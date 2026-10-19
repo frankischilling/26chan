@@ -113,6 +113,7 @@ pub(crate) async fn prepare(
     token: Option<&[u8; 32]>,
     board: &str,
     request_at: i64,
+    member_target: Option<i64>,
 ) -> Result<Option<&'static str>, StoreError> {
     // Always replace the local context, including the absent-token case: a
     // previously configured pooled connection must not supply cookie authority.
@@ -128,14 +129,20 @@ pub(crate) async fn prepare(
         .bind(encoded)
         .execute(&mut **tx)
         .await?;
-    let decision: String =
-        sqlx::query_scalar("SELECT content.evaluate_posting_restrictions($1,$2,$3,$4)")
-            .bind(actor.as_bytes().as_slice())
-            .bind(token.map(|token| token.as_slice()))
-            .bind(board)
-            .bind(request_at)
-            .fetch_one(&mut **tx)
-            .await?;
+    let statement = if member_target.is_some() {
+        "SELECT content.evaluate_member_posting_restrictions($1,$2,$3,$4,$5)"
+    } else {
+        "SELECT content.evaluate_posting_restrictions($1,$2,$3,$4)"
+    };
+    let mut query = sqlx::query_scalar(statement)
+        .bind(actor.as_bytes().as_slice())
+        .bind(token.map(|token| token.as_slice()))
+        .bind(board)
+        .bind(request_at);
+    if let Some(target) = member_target {
+        query = query.bind(target);
+    }
+    let decision: String = query.fetch_one(&mut **tx).await?;
     match decision.as_str() {
         "allowed" => Ok(None),
         "banned" => Ok(Some(BANNED)),
