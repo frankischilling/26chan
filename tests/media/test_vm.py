@@ -42,6 +42,17 @@ def red_png():
 
 
 class VmTest(unittest.TestCase):
+    def assert_vmm_removed(self, vmm):
+        remaining = vmm.exists()
+        details = []
+        if remaining:
+            for field in ('comm', 'status', 'stat', 'cgroup'):
+                try:
+                    details.append(field + ': ' + (vmm / field).read_text()[:4096])
+                except (FileNotFoundError, ProcessLookupError):
+                    details.append(field + ': exited during inspection')
+        self.assertFalse(remaining, 'Cancelled VMM proc entry remained: ' + '\n'.join(details))
+
     def test_stopped_output_passes_real_rust_validation_before_private_promotion(self):
         validator = os.environ['MEDIA_VM_VALIDATOR']
         with tempfile.TemporaryDirectory(prefix='vm-pipeline-', dir=os.environ.get('MEDIA_VM_TEST_TEMP')) as name:
@@ -235,7 +246,7 @@ class VmTest(unittest.TestCase):
                 self.assertNotEqual(runner.returncode, 0)
                 self.assertFalse(disk.exists())
                 self.assertFalse(workspace.exists(), 'cancelled runner left reusable workspace: ' + diagnostics[:4096])
-                self.assertFalse(vmm.exists(), 'cancelled runner left a live VMM')
+                self.assert_vmm_removed(vmm)
                 self.assert_clean()
         self.run_probe(b'disk')
 
