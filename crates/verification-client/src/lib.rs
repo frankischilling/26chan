@@ -135,6 +135,12 @@ impl VerificationClient {
     ) -> Result<protocol::PassPostingState, Error> {
         self.exchange("/v1/pass/posting-state", input).await
     }
+    pub async fn pass_restriction_receipt(
+        &self,
+        input: &protocol::PassRestrictionRequest,
+    ) -> Result<protocol::PassWriteResult, Error> {
+        self.exchange("/v1/pass/restriction-receipt", input).await
+    }
     pub async fn pass_write_receipt(
         &self,
         input: &protocol::PassWriteRequest,

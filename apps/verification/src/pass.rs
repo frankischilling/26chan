@@ -191,11 +191,7 @@ pub(crate) async fn write_receipt(
     State(state): State<AppState>,
     Json(input): Json<protocol::PassWriteRequest>,
 ) -> Response {
-    use board_domain::challenge_secrets::ReceiptToken;
     let context = &input.context;
-    let Some(fp) = crate::handlers::session(&context.session) else {
-        return error(StatusCode::BAD_REQUEST);
-    };
     if context.session.minted || context.email_token.is_some() {
         return error(StatusCode::BAD_REQUEST);
     }
@@ -208,17 +204,61 @@ pub(crate) async fn write_receipt(
     let Some(board) = context.board.as_deref() else {
         return error(StatusCode::BAD_REQUEST);
     };
-    let Some(hash) =
-        state
-            .key
-            .form_context(purpose, Some(board), context.target, &context.form_nonce)
-    else {
+    issue_receipt(
+        &state,
+        &input.token,
+        &context.session,
+        purpose,
+        board,
+        context.target,
+        &context.form_nonce,
+    )
+    .await
+}
+
+pub(crate) async fn restriction_receipt(
+    State(state): State<AppState>,
+    Json(input): Json<protocol::PassRestrictionRequest>,
+) -> Response {
+    let purpose = match input.action {
+        protocol::PassRestrictionAction::Status => "restriction_status",
+        protocol::PassRestrictionAction::WarningView => "warning_view",
+    };
+    issue_receipt(
+        &state,
+        &input.token,
+        &input.session,
+        purpose,
+        &input.board,
+        input.target,
+        &input.nonce,
+    )
+    .await
+}
+
+async fn issue_receipt(
+    state: &AppState,
+    pass_token: &str,
+    session: &protocol::Session,
+    purpose: &str,
+    board: &str,
+    target: i64,
+    nonce: &str,
+) -> Response {
+    use board_domain::challenge_secrets::ReceiptToken;
+    let Some(fp) = crate::handlers::session(session) else {
         return error(StatusCode::BAD_REQUEST);
     };
-    let Some(networks) = state.key.pass_networks(context.session.peer) else {
+    if session.minted {
+        return error(StatusCode::BAD_REQUEST);
+    }
+    let Some(hash) = state.key.form_context(purpose, Some(board), target, nonce) else {
         return error(StatusCode::BAD_REQUEST);
     };
-    let Some(token) = PassSessionToken::parse(&input.token) else {
+    let Some(networks) = state.key.pass_networks(session.peer) else {
+        return error(StatusCode::BAD_REQUEST);
+    };
+    let Some(token) = PassSessionToken::parse(pass_token) else {
         return Json(protocol::PassWriteResult::None {}).into_response();
     };
     let Ok(receipt) = ReceiptToken::generate() else {
@@ -234,7 +274,7 @@ pub(crate) async fn write_receipt(
             context: &hash,
             purpose,
             board,
-            target: context.target,
+            target,
         })
         .await
     {

@@ -113,8 +113,8 @@ impl VerificationKey {
         }
         let valid = match purpose {
             "email_request" => board.is_none() && target == 0,
-            "thread" => board.is_some() && target == 0,
-            "reply" | "report" => board.is_some() && target > 0,
+            "thread" | "restriction_status" => board.is_some() && target == 0,
+            "reply" | "report" | "warning_view" => board.is_some() && target > 0,
             "ticket" => board.is_some(),
             _ => false,
         };
@@ -434,6 +434,51 @@ mod tests {
                 .is_none()
         );
         assert!(key.form_context("email_verify", None, 0, &nonce).is_none());
+    }
+    #[test]
+    fn pass_warning_contexts_are_separate_from_posting_and_bound_to_exact_targets() {
+        let key = VerificationKey::parse(&"01".repeat(32)).unwrap();
+        let nonce = "ab".repeat(32);
+        let status = key
+            .form_context("restriction_status", Some("g"), 0, &nonce)
+            .unwrap();
+        let warning = key
+            .form_context("warning_view", Some("g"), 42, &nonce)
+            .unwrap();
+        assert_ne!(
+            Some(status),
+            key.form_context("thread", Some("g"), 0, &nonce)
+        );
+        for purpose in ["reply", "report"] {
+            assert_ne!(
+                Some(warning),
+                key.form_context(purpose, Some("g"), 42, &nonce)
+            );
+        }
+        assert_ne!(
+            Some(warning),
+            key.form_context("warning_view", Some("g"), 43, &nonce)
+        );
+        assert_ne!(
+            Some(warning),
+            key.form_context("warning_view", Some("a"), 42, &nonce)
+        );
+        assert_ne!(
+            Some(warning),
+            key.form_context("warning_view", Some("g"), 42, &"cd".repeat(32))
+        );
+        assert!(
+            key.form_context("warning_view", Some("g"), 0, &nonce)
+                .is_none()
+        );
+        assert!(
+            key.form_context("restriction_status", Some("g"), 42, &nonce)
+                .is_none()
+        );
+        assert!(
+            key.form_context("restriction_status", None, 0, &nonce)
+                .is_none()
+        );
     }
     #[test]
     fn generated_tokens_roundtrip_without_using_display_or_debug() {

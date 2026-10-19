@@ -192,7 +192,7 @@ impl From<board_store::StoreError> for ProofError {
     }
 }
 impl ProofError {
-    fn pass_rejected(production: bool, message: &'static str) -> Self {
+    pub(crate) fn pass_rejected(production: bool, message: &'static str) -> Self {
         Self {
             error: AppError(StatusCode::BAD_REQUEST, message),
             clear_pass: Some(production),

@@ -63,6 +63,58 @@ pub async fn acknowledge(
     Ok(changed)
 }
 
+/// Server-resolved session plus opaque issuer proof. The SQL owner consumes
+/// the receipt and derives membership; callers cannot supply a membership ID.
+pub struct MemberContext<'a> {
+    pub actor: &'a PublicPostingRateIdentity,
+    pub session: &'a crate::anonymous_session::PostingSession,
+    pub proof: &'a crate::WriteChallengeProof,
+    pub board: &'a str,
+    pub request_at: i64,
+}
+
+pub async fn member_status(
+    pool: &PgPool,
+    input: &MemberContext<'_>,
+) -> Result<Vec<Status>, StoreError> {
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *tx)
+        .await?;
+    crate::write_challenge::install(&mut tx, Some(input.proof), Some(input.session)).await?;
+    let rows = sqlx::query_as("SELECT * FROM content.pass_restriction_status($1,$2,$3,$4)")
+        .bind(input.actor.as_bytes().as_slice())
+        .bind(input.session.fingerprints.token.as_slice())
+        .bind(input.board)
+        .bind(input.request_at)
+        .fetch_all(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(rows)
+}
+
+pub async fn member_acknowledge(
+    pool: &PgPool,
+    input: &MemberContext<'_>,
+    id: i64,
+) -> Result<bool, StoreError> {
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *tx)
+        .await?;
+    crate::write_challenge::install(&mut tx, Some(input.proof), Some(input.session)).await?;
+    let changed = sqlx::query_scalar("SELECT content.pass_acknowledge_warning($1,$2,$3,$4,$5)")
+        .bind(input.actor.as_bytes().as_slice())
+        .bind(input.session.fingerprints.token.as_slice())
+        .bind(input.board)
+        .bind(input.request_at)
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(changed)
+}
+
 pub const BANNED: &str = "Error: You are banned.";
 pub const WARNED: &str = "Error: You were warned. You must first view this warning to post again.";
 pub const REPORT_BANNED: &str = "You can't report posts because you are banned.";

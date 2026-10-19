@@ -122,11 +122,14 @@ async fn public_pass_forms_use_private_issuer_and_ignore_forged_presentation_coo
         media: None,
         verification: Some(VerificationClient::new(endpoint, "11".repeat(32)).unwrap()),
         proxy_uid: None,
-        poster_id_key: None,
+        poster_id_key: Some(Arc::new(
+            board_domain::poster_id::PosterIdKey::parse(&material[3..]).unwrap(),
+        )),
         tripcode_key: None,
         country_database: None,
     };
     let app = routes()
+        .merge(crate::restrictions::routes())
         .merge(crate::ui_assets::routes())
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -203,6 +206,7 @@ async fn public_pass_forms_use_private_issuer_and_ignore_forged_presentation_coo
         assert!(html.contains("Your device is now authorized."));
         assert!(!html.contains("p1_"));
         assert!(!html.contains("owned-public-pin"));
+        check_member_warning(&app, &work_owner, &session_cookie, &token_hash).await;
         let response = app
             .clone()
             .oneshot(request("/auth", &session_cookie, None))
@@ -223,6 +227,23 @@ async fn public_pass_forms_use_private_issuer_and_ignore_forged_presentation_coo
         assert_eq!(response.status(), StatusCode::OK);
         let value: serde_json::Value = serde_json::from_str(&body(response).await).unwrap();
         assert_eq!(value["status"], 4);
+        let rejected = app
+            .clone()
+            .oneshot(request("/banned?board=g", &session_cookie, None))
+            .await
+            .unwrap();
+        assert_eq!(rejected.status(), StatusCode::BAD_REQUEST);
+        assert!(
+            rejected
+                .headers()
+                .get_all(header::SET_COOKIE)
+                .iter()
+                .any(|v| v
+                    .to_str()
+                    .unwrap()
+                    .starts_with("board-pass=; Path=/; Max-Age=0;"))
+        );
+        assert!(body(rejected).await.contains("Authenticate again"));
         let response = app
             .clone()
             .oneshot(request("/auth", &session_cookie, None))
@@ -297,4 +318,127 @@ async fn public_pass_forms_use_private_issuer_and_ignore_forged_presentation_coo
     public.close().await;
     owner.close().await;
     outcome.unwrap();
+}
+
+async fn check_member_warning(
+    app: &Router,
+    owner: &sqlx::PgPool,
+    pass_cookie: &str,
+    identity: &[u8; 32],
+) {
+    let mut tx = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let id:i64=sqlx::query_scalar("INSERT INTO restrictions.bans(board,post_id,actor_hash,global,warning,starts_at,ends_at,public_reason,private_reason,account_id,charged_bytes,pass_identity_hash) VALUES('g',1,sha256('owned prior warning address'),false,true,now(),now(),'Owned private membership warning','Never expose owned private reason',1,1024,$1) RETURNING id")
+        .bind(identity.as_slice()).fetch_one(&mut *tx).await.unwrap();
+    sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes+1024 WHERE singleton")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    let response = app
+        .clone()
+        .oneshot(request("/banned?board=g", "", None))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        !body(response)
+            .await
+            .contains("Owned private membership warning")
+    );
+    let response = app
+        .clone()
+        .oneshot(request("/banned?board=g", pass_cookie, None))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers()[header::CACHE_CONTROL],
+        "private, no-store"
+    );
+    let cookies = format!("{pass_cookie}; {}", cookie(&response));
+    assert!(cookies.contains("board-anon="));
+    let html = body(response).await;
+    assert!(html.contains("Owned private membership warning"));
+    assert!(!html.contains("Never expose owned private reason"));
+    assert!(!html.contains("p1_"));
+    let csrf = html
+        .split("name=\"csrf\" value=\"")
+        .nth(1)
+        .unwrap()
+        .split('"')
+        .next()
+        .unwrap();
+    let id_text = id.to_string();
+    let invalid = app
+        .clone()
+        .oneshot(request(
+            "/banned",
+            &cookies,
+            Some(&[("board", "g"), ("id", &id_text), ("csrf", "wrong")]),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(invalid.status(), StatusCode::FORBIDDEN);
+    let response = app
+        .clone()
+        .oneshot(request(
+            "/banned",
+            &cookies,
+            Some(&[("board", "g"), ("id", &id_text), ("csrf", csrf)]),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    assert_eq!(response.headers()[header::LOCATION], "/banned?board=g");
+    let response = app
+        .clone()
+        .oneshot(request("/banned?board=g", &cookies, None))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        !body(response)
+            .await
+            .contains("Owned private membership warning")
+    );
+    let mut tx = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let retired: bool = sqlx::query_scalar(
+        "SELECT NOT active AND retirement='warning-viewed' FROM restrictions.bans WHERE id=$1",
+    )
+    .bind(id)
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    assert!(retired);
+    let audited: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM restrictions.audit WHERE ban_id=$1 AND action='warning-viewed'",
+    )
+    .bind(id)
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    assert_eq!(audited, 1);
+    sqlx::query("DELETE FROM restrictions.audit WHERE ban_id=$1")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM restrictions.bans WHERE id=$1")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE restrictions.capacity SET used_bytes=used_bytes-1024 WHERE singleton")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
 }

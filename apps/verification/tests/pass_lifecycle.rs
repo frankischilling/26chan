@@ -185,6 +185,59 @@ async fn private_pass_login_checks_credentials_network_holds_flood_and_revocatio
                 StatusCode::BAD_REQUEST
             );
 
+            // These actions use a separate internal endpoint and cannot be
+            // accepted as ordinary CAPTCHA/posting purposes.
+            for (action, purpose, target) in [
+                ("status", "restriction_status", 0),
+                ("warning_view", "warning_view", 42),
+            ] {
+                let request = json!({"token":token,"session":browser,"board":"g","action":action,"target":target,"nonce":"ab".repeat(32)});
+                let (status, proof) =
+                    call(&app, "/v1/pass/restriction-receipt", request.clone()).await;
+                assert_eq!(status, StatusCode::OK);
+                assert_eq!(proof["state"], "verified");
+                assert!(proof.get("entitlement_id").is_none());
+                let receipt = board_domain::challenge_secrets::ReceiptToken::parse(
+                    proof["receipt"].as_str().unwrap(),
+                )
+                .unwrap()
+                .storage_hash();
+                let context: [u8; 32] =
+                    serde_json::from_value(proof["context_hash"].clone()).unwrap();
+                assert_eq!(
+                    Some(context),
+                    key.form_context(purpose, Some("g"), target, &"ab".repeat(32))
+                );
+                let mut tx = owner.begin().await.unwrap();
+                sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+                    .execute(&mut *tx)
+                    .await
+                    .unwrap();
+                let found:i64=sqlx::query_scalar("SELECT entitlement_id FROM verification_private.pass_take_receipt($1,$2,$3,$4,$5,'g',$6)")
+                    .bind(receipt.as_slice()).bind(normal_peer.as_slice()).bind(token_hash.as_slice()).bind(context.as_slice()).bind(purpose).bind(target)
+                    .fetch_one(&mut *tx).await.unwrap();
+                assert_eq!(found, id);
+                tx.commit().await.unwrap();
+                for (field, value) in [
+                    ("target", json!(if target == 0 { 1 } else { 0 })),
+                    ("nonce", json!("bad")),
+                ] {
+                    let mut bad = request.clone();
+                    bad[field] = value;
+                    let status = call(&app, "/v1/pass/restriction-receipt", bad).await.0;
+                    assert!(
+                        status == StatusCode::BAD_REQUEST
+                            || status == StatusCode::UNPROCESSABLE_ENTITY
+                    );
+                }
+                let mut minted = request;
+                minted["session"]["minted"] = json!(true);
+                assert_eq!(
+                    call(&app, "/v1/pass/restriction-receipt", minted).await.0,
+                    StatusCode::BAD_REQUEST
+                );
+            }
+
             for (peer, expected) in [
                 ("192.0.2.19", "ready"),
                 ("192.0.2.99", "ready"),

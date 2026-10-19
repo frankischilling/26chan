@@ -132,6 +132,16 @@ DO $$ BEGIN
 END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0223_pass_posting_restrictions.sql
+"${migrator[@]}" -c BEGIN -f migrations/0224_pass_warning_receipts.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN
+ IF to_regprocedure('content.pass_restriction_status(bytea,bytea,text,bigint)') IS NOT NULL
+ OR content.public_pass_ready() IS DISTINCT FROM true OR content.restrictions_ready() IS DISTINCT FROM true
+ THEN RAISE EXCEPTION 'Pass warning rollback changed authority'; END IF;
+END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0224_pass_warning_receipts.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-warning-receipts.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-restrictions.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-public-pass-lifecycle.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-reply-cooldowns.sql
@@ -167,6 +177,7 @@ SQL
 "$pg_bin/pg_dump" -h 127.0.0.1 -p 15453 -U postgres -d pass_lifecycle --format=custom -f "$cluster/owned.dump"
 "${psql[@]}" -d postgres -c 'CREATE DATABASE pass_restored OWNER board_migrator'
 "$pg_bin/pg_restore" -h 127.0.0.1 -p 15453 -U postgres -d pass_restored --exit-on-error "$cluster/owned.dump"
+"${psql[@]}" -d pass_restored -f scripts/test-pass-warning-receipts.sql
 "${psql[@]}" -d pass_restored <<'SQL'
 DO $$ BEGIN IF content.public_pass_ready() IS DISTINCT FROM true THEN
  RAISE EXCEPTION 'Restored membership authority differs'; END IF; END $$;

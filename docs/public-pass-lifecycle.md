@@ -255,7 +255,25 @@ Network and automatic-range checks use a separately checked membership boolean;
 disabling CAPTCHA alone does not grant that network exception. Public runtime
 roles cannot read membership hashes or choose a trusted ban identity.
 
-Membership-only warning status and acknowledgments still need integration.
+The reconstructed `/banned` controller now includes membership-linked warnings
+and bans after an address change. Status reads and warning acknowledgments use
+separate thirty-second receipts, bound to the anonymous session, board, form
+nonce and exact action. Viewing status or a warning leaves the posting-network
+hold unchanged. A status receipt cannot acknowledge a warning or post;
+a warning receipt cannot acknowledge another ID. Consumption repeats account
+expiry and credential-version checks, and replay fails.
+
+The public page keeps its separate HttpOnly CSRF cookie and private, no-store
+response. Only public restriction reasons leave the private reader. The existing
+address and anonymous-identity status behavior remains available. The original
+archive has no `/banned` controller, so this extends the documented replacement
+contract rather than claiming an exact rendering match. SQL qualification covers
+wrong-purpose and wrong-target proofs, another member's warning, revoked
+credentials, private-function grants and a populated restore. The private issuer and public
+HTTP tests pass login, membership-only warning display, CSRF rejection,
+acknowledgment, logout rejection and cookie clearing. Ordinary warning routes
+still pass their identity, escaping and CSRF checks. Complete browser coverage
+and hosted CI remain pending.
 The source's non-member cooldown link, report membership, public badges and
 recovery/delivery remain unfinished. The complete posting flow still needs
 browser qualification.

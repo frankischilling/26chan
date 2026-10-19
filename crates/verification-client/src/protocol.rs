@@ -227,6 +227,23 @@ pub struct PassWriteRequest {
     pub token: String,
     pub context: ChallengeContext,
 }
+/// Separate from CAPTCHA actions: status proof cannot authorize posting.
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PassRestrictionAction {
+    Status,
+    WarningView,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassRestrictionRequest {
+    pub token: String,
+    pub session: Session,
+    pub board: String,
+    pub action: PassRestrictionAction,
+    pub target: i64,
+    pub nonce: String,
+}
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PassWriteResult {
@@ -240,4 +257,23 @@ pub enum PassWriteResult {
     Disabled {},
     InUse {},
     Capacity {},
+}
+
+#[cfg(test)]
+mod pass_restriction_tests {
+    use super::*;
+    #[test]
+    fn warning_actions_cannot_enter_the_captcha_protocol() {
+        for action in ["status", "warning_view"] {
+            assert!(
+                serde_json::from_value::<PassRestrictionAction>(serde_json::json!(action)).is_ok()
+            );
+            assert!(serde_json::from_value::<Purpose>(serde_json::json!(action)).is_err());
+        }
+        for action in ["thread", "reply", "report", "email_request", "ticket"] {
+            assert!(
+                serde_json::from_value::<PassRestrictionAction>(serde_json::json!(action)).is_err()
+            );
+        }
+    }
 }
