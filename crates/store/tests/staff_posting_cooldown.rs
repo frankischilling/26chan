@@ -399,11 +399,26 @@ async fn public_staff_mixed_history_preserves_imported_public_policy() {
             .fetch_one(&f.owner)
             .await
             .unwrap();
-    assert!(delay > 5, "Fixture retains imported ordinary cooldown");
+    assert!(delay > 10, "Fixture retains imported ordinary cooldown");
+    // Source CAPTCHA-off bypass applies to public writers sharing staff history.
+    rejected(
+        f.public_write(0, op, peer(30), now + 10).await,
+        i64::from((delay + 1) / 2) - 5,
+    );
+    sqlx::query("UPDATE content.boards SET captcha_enabled=true WHERE slug=$1")
+        .bind(&f.boards[0])
+        .execute(&f.owner)
+        .await
+        .unwrap();
     rejected(
         f.public_write(0, op, peer(30), now + 10).await,
         i64::from(delay) - 5,
     );
+    sqlx::query("UPDATE content.boards SET captcha_enabled=false WHERE slug=$1")
+        .bind(&f.boards[0])
+        .execute(&f.owner)
+        .await
+        .unwrap();
     f.public_write(0, op, peer(30), now + 5 + i64::from(delay))
         .await
         .unwrap();
