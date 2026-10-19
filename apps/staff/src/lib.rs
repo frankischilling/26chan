@@ -194,6 +194,7 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/", get(handlers::landing))
         .route("/staff.js", get(handlers::javascript))
+        .route("/request-queue.js", get(handlers::request_queue_javascript))
         .route("/post-limits.js", get(handlers::post_limits_javascript))
         .route("/comment-markup.css", get(handlers::comment_css))
         .route("/readyz", get(handlers::ready))

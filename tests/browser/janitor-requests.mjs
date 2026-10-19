@@ -23,7 +23,7 @@ const cookies = process.env.STAFF_REQUEST_COOKIE.split(';').map(field => {
 assert.equal(cookies.length, 2);
 const output = path.resolve('test-results/janitor-requests');
 await mkdir(output, { recursive: true });
-const browser = await chromium.launch();
+const browser = await chromium.launch(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } : {});
 try {
   let index = 0;
   for (const javaScriptEnabled of [true, false]) {
@@ -54,12 +54,29 @@ try {
           await page.evaluate(() => document.querySelector('meta[name="referrer"]').content = 'no-referrer');
           const [refused] = await Promise.all([
             page.waitForResponse(response => response.url() === `${origin}/ban-requests/review` && response.request().method() === 'POST'),
-            row.getByRole('button', { name: /^Deny/ }).click(),
+            row.locator('form').first().evaluate(form => {
+              const decision = document.createElement('input');
+              decision.type = 'hidden'; decision.name = 'decision'; decision.value = 'deny';
+              form.append(decision);
+              HTMLFormElement.prototype.submit.call(form);
+            }),
           ]);
           assert.equal(await refused.request().headerValue('origin'), 'null');
           assert.equal(refused.status(), 403, 'opaque-origin form must remain forbidden');
+          await page.waitForURL(`${origin}/ban-requests/review`, { waitUntil: 'domcontentloaded' });
           await page.goto(`${origin}/ban-requests?board=${input.board}`, { waitUntil: 'networkidle' });
           await expect(row).toContainText('Owned HTTP request body');
+        }
+        if (javaScriptEnabled) {
+          await page.getByLabel('Filter loaded requests').fill('no-such-owned-request');
+          await page.getByLabel('Filter loaded requests').press('Enter');
+          await expect(row).toBeHidden();
+          await page.getByRole('button', { name: 'Clear filter' }).click();
+          await expect(row).toBeVisible();
+          await row.getByRole('button', { name: /^Deny/ }).click();
+          await page.getByRole('button', { name: 'Undo pending review' }).click();
+          await expect(row).toBeVisible();
+          await expect(page.locator('#queue-status')).toContainText('Nothing was submitted');
         }
         const [reviewResponse] = await Promise.all([
           page.waitForResponse(response => response.url() === `${origin}/ban-requests/review` && response.request().method() === 'POST'),
@@ -68,8 +85,13 @@ try {
         assert.equal(await reviewResponse.request().headerValue('origin'), origin,
           'native form must retain its same-origin proof');
         assert.equal(reviewResponse.status(), 200, 'authorized review form must succeed');
-        await expect(page.locator('#content')).toContainText('Request denied. 1 pending request(s) cleared.');
+        await expect(page.locator(javaScriptEnabled ? '#queue-status' : '#content')).toContainText('Request denied. 1 pending request(s) cleared.');
         await page.screenshot({ fullPage: true, path: path.join(output, `${prefix}-review.png`) });
+        if (javaScriptEnabled) {
+          assert.equal(new URL(page.url()).pathname, '/ban-requests', 'enhanced review stays in the queue');
+          await expect(row).toHaveCount(0);
+          await page.goto(`${origin}/ban-requests/statistics`, { waitUntil: 'networkidle' });
+        }
         await page.goBack({ waitUntil: 'networkidle' });
         await expect(page.locator(`#ban-request-${id}`)).toHaveCount(0);
         await page.goto(`${origin}/ban-requests/statistics`, { waitUntil: 'networkidle' });

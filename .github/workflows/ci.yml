@@ -112,6 +112,8 @@ jobs:
         run: |
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
+          node --test tests/browser/janitor-queue-state.test.mjs
+          node tests/browser/janitor-queue-controls.mjs
           set -a
           source .local/database.env
           source .local/staff.env
