@@ -54,6 +54,7 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/pass/ready", post(handlers::ready))
         .route("/v1/pass/login", post(pass::login))
         .route("/v1/pass/state", post(pass::status))
+        .route("/v1/pass/posting-state", post(pass::posting_status))
         .route("/v1/pass/signout", post(pass::signout))
         .route("/v1/challenge", post(handlers::challenge))
         .route("/v1/check", post(challenge::check::check))

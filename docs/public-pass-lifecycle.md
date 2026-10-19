@@ -146,3 +146,11 @@ both enabled and disabled. Submission is intercepted with owned fixture data;
 these cases do not prove session issuance or posting benefits. Private issuer
 and full-router database tests cover login and revocation separately. Hosted
 browser results must pass before this work is ready to merge.
+
+Posting advice uses the source's 30-minute network hold and checks membership
+expiry before that hold. Login still uses its separate 15-minute, wider-network
+rule. The internal advice endpoint returns only a state and, when valid, a
+purchase year. It does not change the last-used network or issue a receipt.
+A protected write must recheck membership under locks before applying benefits.
+The SQL and private HTTP tests cover differing IPv4 /24 scopes, the release
+boundary, absent previous scope, expiry precedence and signed-out sessions.

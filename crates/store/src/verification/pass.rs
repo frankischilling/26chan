@@ -64,6 +64,20 @@ impl VerificationStore {
                 .await?,
         )
     }
+    /// Advice only; it must not authorize a protected write or bypass on its own.
+    pub async fn pass_posting_state(
+        &self,
+        session: &[u8; 32],
+        scope: Option<&[u8; 32]>,
+    ) -> Result<State, StoreError> {
+        Ok(
+            sqlx::query_as("SELECT * FROM content.pass_posting_state($1,$2)")
+                .bind(session.as_slice())
+                .bind(scope.map(|value| value.as_slice()))
+                .fetch_one(&self.pool)
+                .await?,
+        )
+    }
     pub async fn pass_signout(&self, session: &[u8; 32]) -> Result<(), StoreError> {
         sqlx::query("SELECT content.pass_signout($1)")
             .bind(session.as_slice())

@@ -175,6 +175,32 @@ BEGIN
  IF target.status<>0 THEN RETURN QUERY SELECT 'disabled'::text,NULL::integer; RETURN; END IF;
  RETURN QUERY SELECT 'ready'::text,extract(year FROM target.purchased_at AT TIME ZONE 'America/New_York')::integer;
 END $$;
+-- Advisory posting state uses the source's narrower network scope. A protected
+-- write must repeat this check while retaining the session/account locks.
+CREATE FUNCTION content.pass_posting_state(p_session bytea,p_scope bytea)
+RETURNS TABLE(status text,purchase_year integer) LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE saved verification_private.pass_sessions%ROWTYPE; target verification_private.pass_entitlements%ROWTYPE;
+ stamp timestamptz:=date_trunc('second',clock_timestamp());
+BEGIN
+ IF (CASE WHEN current_setting('role')='none' THEN session_user::text ELSE current_setting('role') END)<>'board_verifier' THEN
+  RAISE EXCEPTION 'Membership issuer is unavailable' USING ERRCODE='42501'; END IF;
+ PERFORM verification_private.pass_gate();
+ IF p_session IS NULL OR octet_length(p_session)<>32 OR (p_scope IS NOT NULL AND octet_length(p_scope)<>32) THEN
+  RAISE EXCEPTION 'Invalid membership posting context' USING ERRCODE='23514'; END IF;
+ SELECT * INTO saved FROM verification_private.pass_sessions WHERE token_hash=p_session;
+ IF NOT FOUND OR saved.expires_at<=stamp THEN RETURN QUERY SELECT 'none'::text,NULL::integer; RETURN; END IF;
+ SELECT * INTO target FROM verification_private.pass_entitlements WHERE id=saved.entitlement_id;
+ IF NOT FOUND OR target.credential_version<>saved.credential_version THEN RETURN QUERY SELECT 'none'::text,NULL::integer; RETURN; END IF;
+ IF target.expires_at IS NULL OR target.expires_at<=stamp THEN RETURN QUERY SELECT 'expired'::text,NULL::integer; RETURN; END IF;
+ IF target.status<>0 THEN RETURN QUERY SELECT 'disabled'::text,NULL::integer; RETURN; END IF;
+ IF target.posting_scope IS NOT NULL AND target.posting_scope IS DISTINCT FROM p_scope
+   AND target.last_used>stamp-interval '1800 seconds' THEN
+  RETURN QUERY SELECT 'in_use'::text,NULL::integer; RETURN; END IF;
+ RETURN QUERY SELECT 'ready'::text,extract(year FROM target.purchased_at AT TIME ZONE 'America/New_York')::integer;
+END $$;
+REVOKE ALL ON FUNCTION content.pass_posting_state(bytea,bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION content.pass_posting_state(bytea,bytea) TO board_verifier;
+
 REVOKE ALL ON FUNCTION content.pass_session_state(bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION content.pass_session_state(bytea) TO board_verifier;
 

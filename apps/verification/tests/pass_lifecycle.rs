@@ -96,6 +96,34 @@ async fn private_pass_login_checks_credentials_network_holds_flood_and_revocatio
             let (_, state) = call(&app, "/v1/pass/state", json!({"token":token})).await;
             assert_eq!(state["state"], "ready");
             assert_eq!(state["purchase_year"], 2020);
+            for (peer, expected) in [
+                ("192.0.2.19", "ready"),
+                ("192.0.2.99", "ready"),
+                ("192.0.3.19", "in_use"),
+                ("198.51.100.19", "in_use"),
+            ] {
+                let (status, advice) = call(
+                    &app,
+                    "/v1/pass/posting-state",
+                    json!({"token":token,"peer":peer}),
+                )
+                .await;
+                assert_eq!(status, StatusCode::OK);
+                assert_eq!(advice["state"], expected);
+                assert!(advice.get("receipt").is_none());
+                assert!(advice.get("entitlement_id").is_none());
+            }
+            assert_eq!(
+                call(
+                    &app,
+                    "/v1/pass/posting-state",
+                    json!({"token":token,"peer":"0.0.0.0"})
+                )
+                .await
+                .0,
+                StatusCode::BAD_REQUEST
+            );
+
             let (_, held) = call(
                 &app,
                 "/v1/pass/login",
@@ -110,6 +138,17 @@ async fn private_pass_login_checks_credentials_network_holds_flood_and_revocatio
             );
             let (_, signed_out) = call(&app, "/v1/pass/signout", json!({"token":token})).await;
             assert_eq!(signed_out["state"], "none");
+            assert_eq!(
+                call(
+                    &app,
+                    "/v1/pass/posting-state",
+                    json!({"token":token,"peer":"192.0.2.19"})
+                )
+                .await
+                .1["state"],
+                "none"
+            );
+
             assert_eq!(
                 call(&app, "/v1/pass/state", json!({"token":token})).await.1["state"],
                 "none"

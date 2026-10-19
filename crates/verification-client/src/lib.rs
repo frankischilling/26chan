@@ -128,6 +128,13 @@ impl VerificationClient {
     ) -> Result<protocol::PassState, Error> {
         self.exchange("/v1/pass/state", input).await
     }
+    /// This advice does not grant CAPTCHA bypass or protected-write authority.
+    pub async fn pass_posting_state(
+        &self,
+        input: &protocol::PassPostingSession,
+    ) -> Result<protocol::PassPostingState, Error> {
+        self.exchange("/v1/pass/posting-state", input).await
+    }
     pub async fn pass_signout(
         &self,
         input: &protocol::PassSession,

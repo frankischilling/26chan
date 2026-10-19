@@ -11,7 +11,8 @@ DO $$ BEGIN
  OR has_table_privilege('board_public','verification_private.pass_entitlements','SELECT,INSERT,UPDATE,DELETE')
  OR has_table_privilege('board_verifier','verification_private.pass_sessions','SELECT,INSERT,UPDATE,DELETE')
  OR has_function_privilege('board_public','content.pass_begin_login(bytea,bytea,bytea)','EXECUTE')
- OR has_function_privilege('board_staff','content.pass_session_state(bytea)','EXECUTE') THEN
+ OR has_function_privilege('board_staff','content.pass_session_state(bytea)','EXECUTE')
+ OR has_function_privilege('board_public','content.pass_posting_state(bytea,bytea)','EXECUTE') THEN
  RAISE EXCEPTION 'Private membership authority leaked'; END IF;
 END $$;
 SET LOCAL ROLE board_verifier;
@@ -69,6 +70,48 @@ DO $$ BEGIN
  IF (SELECT status FROM content.pass_finish_login(sha256('owned-after-reset-ticket'),sha256('owned-other-peer'),sha256('owned-scope16'),sha256('other-scope24'),true,sha256('owned-after-reset-session'),false))<>'ready' THEN
  RAISE EXCEPTION 'Rotated credentials were stranded by stale sessions'; END IF;
 END $$;
+RESET ROLE;
+SAVEPOINT posting_advice;
+SET LOCAL ROLE board_verifier;
+DO $$ BEGIN
+ IF (SELECT status FROM content.pass_posting_state(sha256('owned-session-7'),sha256('owned-scope24')))<>'ready'
+ OR (SELECT status FROM content.pass_posting_state(sha256('owned-session-7'),sha256('different-posting-scope')))<>'in_use'
+ OR (SELECT status FROM content.pass_posting_state(sha256('owned-session-7'),NULL))<>'in_use'
+ OR (SELECT status FROM content.pass_posting_state(sha256('unknown-session'),NULL))<>'none' THEN
+  RAISE EXCEPTION 'Posting advice did not preserve the narrower source network hold'; END IF;
+ BEGIN
+  PERFORM content.pass_posting_state(sha256('owned-session-7'),decode('00','hex'));
+  RAISE EXCEPTION 'Malformed posting scope accepted'; EXCEPTION WHEN check_violation THEN NULL; END;
+END $$;
+SET LOCAL ROLE board_anonymous_owner;
+DO $$ BEGIN
+ IF (SELECT posting_scope FROM verification_private.pass_entitlements WHERE token_hash=sha256('owned-pass-7'))<>sha256('owned-scope24') THEN
+  RAISE EXCEPTION 'Advisory read changed the membership network'; END IF;
+END $$;
+UPDATE verification_private.pass_entitlements SET last_used=date_trunc('second',clock_timestamp())-interval '1800 seconds'
+ WHERE token_hash=sha256('owned-pass-7');
+SET LOCAL ROLE board_verifier;
+DO $$ BEGIN
+ IF (SELECT status FROM content.pass_posting_state(sha256('owned-session-7'),sha256('different-posting-scope')))<>'ready' THEN
+  RAISE EXCEPTION 'Posting network hold did not release at the source boundary'; END IF;
+END $$;
+SET LOCAL ROLE board_anonymous_owner;
+UPDATE verification_private.pass_entitlements SET last_used=clock_timestamp()+interval '1 hour',posting_scope=NULL
+ WHERE token_hash=sha256('owned-pass-7');
+SET LOCAL ROLE board_verifier;
+DO $$ BEGIN
+ IF (SELECT status FROM content.pass_posting_state(sha256('owned-session-7'),sha256('different-posting-scope')))<>'ready' THEN
+  RAISE EXCEPTION 'Unset previous posting scope imposed a hold'; END IF;
+END $$;
+SET LOCAL ROLE board_anonymous_owner;
+UPDATE verification_private.pass_entitlements SET expires_at=date_trunc('second',clock_timestamp()),posting_scope=sha256('owned-scope24')
+ WHERE token_hash=sha256('owned-pass-7');
+SET LOCAL ROLE board_verifier;
+DO $$ BEGIN
+ IF (SELECT status FROM content.pass_posting_state(sha256('owned-session-7'),sha256('different-posting-scope')))<>'expired' THEN
+  RAISE EXCEPTION 'Expiry did not precede posting network hold'; END IF;
+END $$;
+ROLLBACK TO posting_advice;
 RESET ROLE;
 SAVEPOINT drift;
 SET LOCAL ROLE board_anonymous_owner;

@@ -154,3 +154,35 @@ pub(crate) async fn signout(
     }
     Json(protocol::PassState::None {}).into_response()
 }
+
+pub(crate) async fn posting_status(
+    State(state): State<AppState>,
+    Json(input): Json<protocol::PassPostingSession>,
+) -> Response {
+    let Some(networks) = state.key.pass_networks(input.peer) else {
+        return error(StatusCode::BAD_REQUEST);
+    };
+    let Some(token) = PassSessionToken::parse(&input.token) else {
+        return Json(protocol::PassPostingState::None {}).into_response();
+    };
+    let result = match state
+        .store
+        .pass_posting_state(&token.storage_hash(), networks.posting.as_ref())
+        .await
+    {
+        Ok(value) => value,
+        Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE),
+    };
+    let output = match result.status.as_str() {
+        "ready" => match result.purchase_year {
+            Some(purchase_year) => protocol::PassPostingState::Ready { purchase_year },
+            None => return error(StatusCode::SERVICE_UNAVAILABLE),
+        },
+        "none" => protocol::PassPostingState::None {},
+        "expired" => protocol::PassPostingState::Expired {},
+        "disabled" => protocol::PassPostingState::Disabled {},
+        "in_use" => protocol::PassPostingState::InUse {},
+        _ => return error(StatusCode::SERVICE_UNAVAILABLE),
+    };
+    Json(output).into_response()
+}

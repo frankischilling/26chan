@@ -203,3 +203,20 @@ pub enum PassState {
     Expired {},
     Disabled {},
 }
+
+/// Advisory state only; a successful reply is not a write receipt.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassPostingSession {
+    pub token: String,
+    pub peer: IpAddr,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PassPostingState {
+    Ready { purchase_year: i32 },
+    None {},
+    Expired {},
+    Disabled {},
+    InUse {},
+}
