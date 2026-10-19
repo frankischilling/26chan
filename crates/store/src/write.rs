@@ -1331,6 +1331,20 @@ async fn create_post_in_context(
     // authoritatively selects named/meta janitor ordinary timers before the
     // separate five-second staff check.
     if staff.is_none() {
+        if parent > 0
+            && let Some(attachment) = attachment
+        {
+            crate::posting_cooldown::check_duplicate_image(
+                &mut tx,
+                &posting_actor,
+                slug,
+                parent,
+                posted_at.timestamp(),
+                attachment,
+                false,
+            )
+            .await?;
+        }
         crate::posting_cooldown::check(
             &mut tx,
             &posting_actor,
@@ -1583,6 +1597,20 @@ async fn create_post_in_context(
             .await?;
         }
         if ordinary_timers {
+            if parent > 0
+                && let Some(attachment) = attachment
+            {
+                crate::posting_cooldown::check_duplicate_image(
+                    &mut tx,
+                    &posting_actor,
+                    slug,
+                    parent,
+                    posted_at.timestamp(),
+                    attachment,
+                    true,
+                )
+                .await?;
+            }
             crate::posting_cooldown::check_janitor(
                 &mut tx,
                 &posting_actor,

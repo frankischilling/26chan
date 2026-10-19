@@ -114,6 +114,15 @@ DO $$ BEGIN
 END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0221_private_pass_post_identity.sql
+"${migrator[@]}" -c BEGIN -f migrations/0222_pass_duplicate_image_cooldown.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN
+ IF to_regprocedure('content.pass_check_duplicate_image(bytea,text,bigint,bigint,text,text)') IS NOT NULL
+ OR content.public_pass_ready() IS DISTINCT FROM true OR content.text_thread_transfer_ready() IS DISTINCT FROM true
+ OR content.restrictions_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Duplicate-image rollback changed authority'; END IF;
+END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0222_pass_duplicate_image_cooldown.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-public-pass-lifecycle.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-reply-cooldowns.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-post-identity.sql

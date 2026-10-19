@@ -1,0 +1,11 @@
+{
+  "source_sha256": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+  "php": "$cooldown = RENZOKU_DUPE;\n            $cooldown_error = S_RENZOKU2_DUP;\n            \n            if ($captcha_bypass) {\n              $cooldown = ceil((int)$cooldown / 2);\n            }\n            else {\n              $cooldown_error .= S_RENZOKU_PASS;\n            }\n            \n            if ($last_time > $time - $cooldown) {\n              error(sprintf($cooldown_error, sec2hms($last_time + $cooldown - $time, false, true)), $dest);\n            }",
+  "seconds": 300,
+  "query": "SELECT time FROM `%s` WHERE host = '%s' AND md5 = '%s' AND resto != %d ORDER BY no DESC LIMIT 1",
+  "boundaries": [
+    "Owned last-used timestamps replace SQL results",
+    "Duration formatting returns seconds",
+    "Errors are captured instead of sending HTTP"
+  ]
+}

@@ -2442,3 +2442,85 @@ async fn terminal_staff_filters(f: &Fixture) {
             .unwrap();
     assert_eq!(intents, 0);
 }
+
+database_case!(
+    janitor_duplicate_images_use_source_half_delay,
+    janitor_duplicate_images
+);
+async fn janitor_duplicate_images(f: &Fixture) {
+    let first = f.approved("first.png", false).await;
+    let second = f.approved("second.png", false).await;
+    let now = Utc::now();
+    let op1 = f
+        .write(
+            0,
+            Some(&first),
+            true,
+            &post(),
+            71,
+            now - chrono::Duration::seconds(1000),
+        )
+        .await
+        .unwrap();
+    let op2 = f
+        .write(
+            0,
+            Some(&second),
+            true,
+            &post(),
+            72,
+            now - chrono::Duration::seconds(900),
+        )
+        .await
+        .unwrap();
+    f.role("janitor").await;
+    let variants = board_store::media_assets::OutputVariants {
+        md5: "37".repeat(16),
+        thumbnail: OutputMetadata {
+            sha256: "b".repeat(64),
+            bytes: 50,
+            width: 10,
+            height: 20,
+        },
+    };
+    let image = f
+        .approved_with_variants("owned.png", false, Some(&variants))
+        .await;
+    f.write(
+        op1,
+        Some(&image),
+        true,
+        &post(),
+        77,
+        now - chrono::Duration::seconds(100),
+    )
+    .await
+    .unwrap();
+    let candidate = f
+        .approved_with_variants("owned-again.png", false, Some(&variants))
+        .await;
+    let mut input = post();
+    input.comment = "A separate owned duplicate-image attempt".into();
+    let error = f
+        .write(op2, Some(&candidate), true, &input, 77, now)
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(error,StoreError::PostingCooldownRejected(ref r) if r.reason==PostingCooldownReason::DuplicateImage && r.remaining_seconds==50),
+        "{error:?}"
+    );
+    assert!(f.receipt(&candidate).await);
+    assert!(
+        f.write(
+            op2,
+            Some(&candidate),
+            true,
+            &input,
+            77,
+            now + chrono::Duration::seconds(50)
+        )
+        .await
+        .unwrap()
+            > 0
+    );
+}

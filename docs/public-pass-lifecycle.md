@@ -218,6 +218,25 @@ still survives archiving. Tests cover transfer drift, erasure, disabled cleanup
 triggers, privilege drift and a populated database restore. Ban and report
 matching have not yet been connected to these associations.
 
-Same-image cross-thread cooldowns, early restriction exceptions, report receipts,
+Public image replies now check the source's same-image timer before the ordinary
+reply timer. The comparison uses the approved normalized upload digest, the same
+board and posting identity, and the newest matching post number. Source OPs have
+`resto=0`, so an OP image can match a reply in its own thread. File-only deletion
+retains the timer; whole deletion and archiving remove the posting history.
+
+The interval is 300 seconds for ordinary posters and 150 for a checked Pass
+receipt or CAPTCHA-disabled board. A receipt preflight does not consume the
+proof. The wrapper revalidates the upload capability, and the public role cannot
+call the core with its own discount flag. Twenty-two timing cases execute the
+isolated PHP fragment. Store qualification also covers exact boundaries,
+revocation, upload reuse after refusal, digest/scope separation and file-only
+deletion. Legacy approved uploads with no normalized digest remain unknown;
+the check does not infer one from the original input or a later asset.
+
+Authenticated janitor replies use the same half-delay through a staff-only
+wrapper after their posting authority is issued. Other staff modes retain their
+separate timer policy. The source's non-member cooldown link, early restriction
+exceptions, report receipts,
+
 public membership badges and recovery/delivery remain unfinished.
 The complete posting flow still needs browser qualification.

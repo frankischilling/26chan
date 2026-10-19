@@ -7,6 +7,7 @@ use sqlx::{Postgres, Transaction};
 pub enum PostingCooldownReason {
     Reply,
     ImageReply,
+    DuplicateImage,
     Thread,
     CrossBoardThread,
 }
@@ -27,6 +28,10 @@ impl PostingCooldownRejection {
             ),
             PostingCooldownReason::ImageReply => format!(
                 "Error: You must wait {} before posting an image reply.",
+                source_duration(self.remaining_seconds)
+            ),
+            PostingCooldownReason::DuplicateImage => format!(
+                "Error: You must wait {} before posting a duplicate image.",
                 source_duration(self.remaining_seconds)
             ),
             PostingCooldownReason::Thread | PostingCooldownReason::CrossBoardThread => {
@@ -110,6 +115,32 @@ pub(crate) async fn check(
     decode_result(&rows, CheckContext::Ordinary { parent, has_image })
 }
 
+pub(crate) async fn check_duplicate_image(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &PublicPostingRateIdentity,
+    board: &str,
+    parent: i64,
+    request_epoch: i64,
+    attachment: &crate::post_media::NewAttachment,
+    janitor: bool,
+) -> Result<(), StoreError> {
+    let statement = if janitor {
+        "SELECT kind,remaining_seconds FROM content.pass_check_janitor_duplicate($1,$2,$3,$4,$5,$6)"
+    } else {
+        "SELECT kind,remaining_seconds FROM content.pass_check_duplicate_image($1,$2,$3,$4,$5,$6)"
+    };
+    let rows: Vec<ResultRow> = sqlx::query_as(statement)
+        .bind(actor.as_bytes().as_slice())
+        .bind(board)
+        .bind(parent)
+        .bind(request_epoch)
+        .bind(&attachment.upload.id)
+        .bind(&attachment.upload.capability)
+        .fetch_all(&mut **tx)
+        .await?;
+    decode_result(&rows, CheckContext::DuplicateImage)
+}
+
 /// Only a current, bound janitor authority can select the ordinary timer path.
 /// SQL exposes the ceil-half reply discount to the staff runtime only.
 pub(crate) async fn check_janitor(
@@ -155,6 +186,7 @@ pub(crate) async fn check_staff(
 enum CheckContext {
     Ordinary { parent: i64, has_image: bool },
     Staff,
+    DuplicateImage,
 }
 
 fn decode_result(rows: &[ResultRow], context: CheckContext) -> Result<(), StoreError> {
@@ -169,6 +201,7 @@ fn decode_result(rows: &[ResultRow], context: CheckContext) -> Result<(), StoreE
         _ => return Err(invalid()),
     };
     let reason = match (context, row.kind.as_str()) {
+        (CheckContext::DuplicateImage, "duplicate_image") => PostingCooldownReason::DuplicateImage,
         (CheckContext::Staff, "reply") => PostingCooldownReason::Reply,
         (
             CheckContext::Ordinary {
@@ -391,6 +424,10 @@ mod tests {
         assert_eq!(
             rejected(PostingCooldownReason::ImageReply).source_message(),
             "Error: You must wait 1 minute 1 second before posting an image reply."
+        );
+        assert_eq!(
+            rejected(PostingCooldownReason::DuplicateImage).source_message(),
+            "Error: You must wait 1 minute 1 second before posting a duplicate image."
         );
         for reason in [
             PostingCooldownReason::Thread,
