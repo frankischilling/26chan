@@ -104,8 +104,19 @@ DO $$ BEGIN
  RAISE EXCEPTION 'Runtime can forge a public purchase year'; END IF;
 END $$;
 SQL
+"${migrator[@]}" -c BEGIN -f migrations/0221_private_pass_post_identity.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN
+ IF to_regclass('verification_private.pass_posts') IS NOT NULL
+ OR content.public_pass_ready() IS DISTINCT FROM true OR content.public_challenge_ready() IS DISTINCT FROM true
+ OR content.text_thread_transfer_ready() IS DISTINCT FROM true OR content.restrictions_ready() IS DISTINCT FROM true
+ OR content.report_snapshots_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Private Pass capture rollback changed authority'; END IF;
+END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0221_private_pass_post_identity.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-public-pass-lifecycle.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-reply-cooldowns.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-post-identity.sql
 "${psql[@]}" -d pass_lifecycle <<'SQL'
 SET ROLE board_anonymous_owner;
 INSERT INTO verification_private.pass_entitlements(token_hash,pin_hash,status,purchased_at,expires_at)
@@ -113,6 +124,25 @@ VALUES(sha256('restore-owned-pass'),repeat('owned-phc-placeholder',3),0,statemen
 SET ROLE board_verifier;
 SELECT status FROM content.pass_begin_login(sha256('restore-owned-pass'),sha256('restore-peer'),sha256('restore-ticket'));
 SELECT status FROM content.pass_finish_login(sha256('restore-ticket'),sha256('restore-peer'),sha256('restore-login-scope'),sha256('restore-posting-scope'),true,sha256('restore-session'),false);
+RESET ROLE;
+SQL
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+SET ROLE board_migrator;
+INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page)
+ VALUES('passrst','Owned identity restore','',2000,100,100,100,10);
+WITH parent AS (INSERT INTO content.threads(board) VALUES('passrst') RETURNING id,board)
+INSERT INTO content.posts(id,board,thread_id,name,subject,comment)
+ SELECT id,board,id,'Anonymous','Owned restore','Owned private identity restore fixture' FROM parent;
+SET ROLE board_anonymous_owner;
+INSERT INTO verification_private.pass_posts(post_id,identity_hash)
+ SELECT id,sha256('owned-restored-private-pass') FROM content.posts WHERE board='passrst';
+DO $$ BEGIN
+ IF has_table_privilege('board_public','verification_private.pass_posts','SELECT,INSERT,UPDATE,DELETE')
+ OR has_table_privilege('board_staff','verification_private.pass_posts','SELECT,INSERT,UPDATE,DELETE')
+ OR has_table_privilege('board_verifier','verification_private.pass_posts','SELECT,INSERT,UPDATE,DELETE')
+ OR has_column_privilege('board_thread_transfer_owner','verification_private.pass_posts','identity_hash','UPDATE') THEN
+ RAISE EXCEPTION 'Private posting membership leaked to a runtime'; END IF;
+END $$;
 RESET ROLE;
 SQL
 "$pg_bin/pg_dump" -h 127.0.0.1 -p 15453 -U postgres -d pass_lifecycle --format=custom -f "$cluster/owned.dump"
@@ -124,6 +154,8 @@ DO $$ BEGIN IF content.public_pass_ready() IS DISTINCT FROM true THEN
 SET ROLE board_anonymous_owner;
 DO $$ BEGIN IF post_secrets.classifier_history_ready() IS DISTINCT FROM true THEN
  RAISE EXCEPTION 'Restored classifier history differs'; END IF; END $$;
+DO $$ BEGIN IF (SELECT count(*) FROM verification_private.pass_posts WHERE identity_hash=sha256('owned-restored-private-pass'))<>1 THEN
+ RAISE EXCEPTION 'Restored private membership differs'; END IF; END $$;
 RESET ROLE;
 SET ROLE board_verifier;
 DO $$ BEGIN IF (SELECT status FROM content.pass_session_state(sha256('restore-session')))<>'ready' THEN

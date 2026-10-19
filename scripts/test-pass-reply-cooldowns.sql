@@ -62,6 +62,42 @@ DO $$ BEGIN
  IF (SELECT count(*) FROM verification_private.pass_receipts WHERE pass_session=sha256('cd-member'))<>2 THEN
  RAISE EXCEPTION 'Cooldown preflight consumed a receipt'; END IF;
 END $$;
+SAVEPOINT late_insert_failure;
+-- A constraint failure after the BEFORE INSERT consumer must restore its receipt
+-- and leave no private membership association. Retry the same proof successfully.
+SET LOCAL ROLE board_public;
+DO $$ DECLARE failed bigint:=nextval('content.post_number'); actual_constraint text; BEGIN
+ PERFORM set_config('board.fixture_failed_post',failed::text,true);
+ BEGIN
+  INSERT INTO content.threads(id,board) VALUES(failed,'qpasscd');
+  INSERT INTO content.posts(id,board,thread_id,name,subject,comment)
+   VALUES(failed,'qpasscd',failed,repeat('x',256),'Owned rollback','Owned failed post');
+  RAISE EXCEPTION 'Oversized name unexpectedly succeeded';
+ EXCEPTION WHEN check_violation THEN
+  GET STACKED DIAGNOSTICS actual_constraint=CONSTRAINT_NAME;
+  IF actual_constraint<>'posts_name_check' THEN RAISE EXCEPTION 'Unexpected constraint: %',actual_constraint; END IF;
+ END;
+END $$;
+SET LOCAL ROLE board_anonymous_owner;
+DO $$ BEGIN
+ IF NOT EXISTS(SELECT 1 FROM verification_private.pass_receipts WHERE token_hash=sha256('cd-thread'))
+ OR EXISTS(SELECT 1 FROM verification_private.pass_posts WHERE post_id=current_setting('board.fixture_failed_post')::bigint) THEN
+ RAISE EXCEPTION 'Failed insert consumed a receipt or retained private identity'; END IF;
+END $$;
+SET LOCAL ROLE board_public;
+DO $$ DECLARE op bigint:=nextval('content.post_number'); BEGIN
+ INSERT INTO content.threads(id,board) VALUES(op,'qpasscd');
+ INSERT INTO content.posts(id,board,thread_id,name,subject,comment)
+  VALUES(op,'qpasscd',op,'Anonymous','Owned retry','Owned successful retry');
+ PERFORM set_config('board.fixture_retry_post',op::text,true);
+END $$;
+SET LOCAL ROLE board_anonymous_owner;
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM verification_private.pass_receipts WHERE token_hash=sha256('cd-thread'))
+ OR NOT EXISTS(SELECT 1 FROM verification_private.pass_posts WHERE post_id=current_setting('board.fixture_retry_post')::bigint AND identity_hash=sha256('cd-account')) THEN
+ RAISE EXCEPTION 'Retry did not consume the original proof and capture private identity'; END IF;
+END $$;
+ROLLBACK TO late_insert_failure;
 SAVEPOINT revoke;
 UPDATE verification_private.pass_entitlements SET status=4 WHERE token_hash=sha256('cd-account');
 SET LOCAL ROLE board_public;

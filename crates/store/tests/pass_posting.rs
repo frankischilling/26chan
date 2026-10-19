@@ -30,6 +30,7 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
     sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,text_only,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,captcha_enabled,captcha_twister,captcha_allow_bypass) VALUES($1,'Owned Pass posting','',2000,100,100,100,10,true,0,0,0,true,true,true)")
         .bind(&board).execute(&owner).await.unwrap();
     let material = PassSessionToken::generate().unwrap();
+    let retained_identity = material.storage_hash();
     let key = VerificationKey::parse(&material.encode()[3..]).unwrap();
     let poster_key = board_domain::poster_id::PosterIdKey::parse(&material.encode()[3..]).unwrap();
     let peer = "192.0.2.121".parse().unwrap();
@@ -109,6 +110,10 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
         sqlx::query("UPDATE content.boards SET captcha_enabled=false WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
         assert!(submit(6,None).await.unwrap()>0);
         assert!(submit(7,WriteChallengeProof::from_issuer(&ordinary.encode(),networks.peer,context)).await.unwrap()>0);
+        let mut private=owner.begin().await.unwrap();sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *private).await.unwrap();
+        let captured:i64=sqlx::query_scalar("SELECT count(*) FROM verification_private.pass_posts WHERE identity_hash=$1").bind(material.storage_hash().as_slice()).fetch_one(&mut *private).await.unwrap();assert_eq!(captured,3,"only accepted member posts retain identity, including after PIN rotation");
+        let original:Vec<u8>=sqlx::query_scalar("SELECT identity_hash FROM verification_private.pass_posts WHERE post_id=$1").bind(posted).fetch_one(&mut *private).await.unwrap();assert_eq!(original,material.storage_hash());private.rollback().await.unwrap();
+        let denied=sqlx::query("SELECT identity_hash FROM verification_private.pass_posts").fetch_all(&public).await.unwrap_err();assert_eq!(denied.as_database_error().and_then(|e|e.code()).as_deref(),Some("42501"));
         let public_years:Vec<i32>=sqlx::query_scalar("SELECT since4pass FROM content.posts WHERE board=$1 ORDER BY id").bind(&board).fetch_all(&public).await.unwrap();assert_eq!(public_years,vec![2020,0,0,0,0]);
         let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&board).fetch_one(&owner).await.unwrap();assert_eq!(count,5);
         let credits:i64=sqlx::query_scalar("SELECT count(*) FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).fetch_one(&owner).await.unwrap();assert_eq!(credits,0);
@@ -146,6 +151,17 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
         .execute(&mut *tx)
         .await
         .unwrap();
+    let retained: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM verification_private.pass_posts WHERE identity_hash=$1)",
+    )
+    .bind(retained_identity.as_slice())
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    assert!(
+        !retained,
+        "physical fixture deletion must remove private Pass links"
+    );
     sqlx::query("DELETE FROM verification_private.pass_entitlements WHERE id=$1")
         .bind(account)
         .execute(&mut *tx)

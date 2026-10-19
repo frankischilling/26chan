@@ -204,6 +204,20 @@ The badge bitmap, `minileaf.gif`, is absent from the supplied archive. Its host
 returned an unavailable page rather than an image. Public badge rendering still
 needs that asset and visual qualification; no substitute image is shipped.
 
+Private post associations now capture the login identifier's HMAC when a Pass
+receipt is consumed. PIN changes preserve that identity; public, staff and
+verifier runtime roles cannot read the association table. A failed insert rolls
+back receipt consumption and the association together. The qualification suite
+rejects an oversized name after receipt consumption, then successfully retries
+with the same receipt.
+
+Thread transfers bind the private identity into their source fingerprint, copy
+it to the destination posts, and erase the source association. Deleting a post
+or archiving its thread removes the private identity. The opt-in public year
+still survives archiving. Tests cover transfer drift, erasure, disabled cleanup
+triggers, privilege drift and a populated database restore. Ban and report
+matching have not yet been connected to these associations.
+
 Same-image cross-thread cooldowns, early restriction exceptions, report receipts,
 public membership badges and recovery/delivery remain unfinished.
 The complete posting flow still needs browser qualification.

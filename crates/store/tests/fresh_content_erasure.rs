@@ -93,6 +93,14 @@ impl Fixture {
             .execute(&owner)
             .await
             .unwrap();
+        let mut membership = owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+            .execute(&mut *membership)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO verification_private.pass_posts(post_id,identity_hash) SELECT id,sha256(convert_to('owned-erasure-'||id,'UTF8')) FROM content.posts WHERE board=$1")
+            .bind(&board).execute(&mut *membership).await.unwrap();
+        membership.commit().await.unwrap();
         let account: i64 = sqlx::query_scalar(
             "INSERT INTO staff_identity.accounts(role) VALUES('moderator') RETURNING id",
         )
@@ -284,6 +292,20 @@ impl Fixture {
                 "Every retained post column must be explicitly justified for tombstone {id}"
             );
         }
+        let mut membership = self.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+            .execute(&mut *membership)
+            .await
+            .unwrap();
+        let count: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM verification_private.pass_posts WHERE post_id=ANY($1)",
+        )
+        .bind(ids)
+        .fetch_one(&mut *membership)
+        .await
+        .unwrap();
+        assert_eq!(count, 0, "erased posts retain no private Pass identity");
+        membership.rollback().await.unwrap();
         for table in [
             "post_secrets.deletion",
             "post_secrets.anonymous_posts",
