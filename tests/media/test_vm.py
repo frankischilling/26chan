@@ -234,20 +234,23 @@ class VmTest(unittest.TestCase):
                     workspace.rmdir()
 
     def test_catchable_cancellation_cleans_service_and_workspace(self):
-        for first_signal in (signal.SIGTERM, signal.SIGINT):
-            with self.subTest(first_signal=first_signal), self.sleeping_vm() as (runner, unit, workspace, disk, vmm):
-                runner.send_signal(first_signal)
-                time.sleep(0.02)
-                if runner.poll() is None:
-                    runner.send_signal(signal.SIGTERM)
-                    runner.send_signal(signal.SIGINT)
-                runner.wait(timeout=12)
-                _, diagnostics = runner.communicate(timeout=2)
-                self.assertNotEqual(runner.returncode, 0)
-                self.assertFalse(disk.exists())
-                self.assertFalse(workspace.exists(), 'cancelled runner left reusable workspace: ' + diagnostics[:4096])
-                self.assert_vmm_removed(vmm)
-                self.assert_clean()
+        # Exercise the observed intermittent teardown boundary more than once.
+        # Every iteration retains the strict process/workspace assertions.
+        for attempt in range(3):
+            for first_signal in (signal.SIGTERM, signal.SIGINT):
+                with self.subTest(attempt=attempt, first_signal=first_signal), self.sleeping_vm() as (runner, unit, workspace, disk, vmm):
+                    runner.send_signal(first_signal)
+                    time.sleep(0.02)
+                    if runner.poll() is None:
+                        runner.send_signal(signal.SIGTERM)
+                        runner.send_signal(signal.SIGINT)
+                    runner.wait(timeout=12)
+                    _, diagnostics = runner.communicate(timeout=2)
+                    self.assertNotEqual(runner.returncode, 0)
+                    self.assertFalse(disk.exists())
+                    self.assertFalse(workspace.exists(), 'cancelled runner left reusable workspace: ' + diagnostics[:4096])
+                    self.assert_vmm_removed(vmm)
+                    self.assert_clean()
         self.run_probe(b'disk')
 
     def test_live_vmm_has_effective_host_resource_limits(self):
