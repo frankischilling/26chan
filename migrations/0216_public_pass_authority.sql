@@ -6,6 +6,7 @@ CREATE TABLE verification_private.pass_policy (
  singleton boolean PRIMARY KEY CHECK(singleton),
  entitlement_limit integer NOT NULL DEFAULT 50000 CHECK(entitlement_limit BETWEEN 1 AND 1000000),
  session_limit integer NOT NULL DEFAULT 100000 CHECK(session_limit BETWEEN 1 AND 1000000),
+ receipt_limit integer NOT NULL DEFAULT 100000 CHECK(receipt_limit BETWEEN 1 AND 1000000),
  attempt_limit integer NOT NULL DEFAULT 50000 CHECK(attempt_limit BETWEEN 1 AND 1000000)
 );
 INSERT INTO verification_private.pass_policy(singleton) VALUES(true);
@@ -208,6 +209,116 @@ REVOKE ALL ON FUNCTION content.pass_begin_login(bytea,bytea,bytea),
  content.pass_finish_login(bytea,bytea,bytea,bytea,boolean,bytea,boolean),content.pass_signout(bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION content.pass_begin_login(bytea,bytea,bytea),
  content.pass_finish_login(bytea,bytea,bytea,bytea,boolean,bytea,boolean),content.pass_signout(bytea) TO board_verifier;
+-- Short-lived receipts are private verifier claims, not browser-visible bypass
+-- flags. Consumption stays private until a protected write binds its scope.
+CREATE TABLE verification_private.pass_receipts (
+ token_hash bytea PRIMARY KEY CHECK(octet_length(token_hash)=32),
+ pass_session bytea NOT NULL REFERENCES verification_private.pass_sessions(token_hash) ON DELETE CASCADE,
+ anonymous_session bytea NOT NULL CHECK(octet_length(anonymous_session)=32),
+ peer bytea NOT NULL CHECK(octet_length(peer)=32),
+ login_scope bytea CHECK(login_scope IS NULL OR octet_length(login_scope)=32),
+ posting_scope bytea CHECK(posting_scope IS NULL OR octet_length(posting_scope)=32),
+ context_hash bytea NOT NULL CHECK(octet_length(context_hash)=32),
+ purpose text NOT NULL CHECK(purpose IN('thread','reply','report')),
+ board text NOT NULL CHECK(board ~ '^[a-z0-9]{1,16}$'),
+ target bigint NOT NULL CHECK((purpose='thread' AND target=0) OR (purpose IN('reply','report') AND target>0)),
+ created_at timestamptz NOT NULL,
+ expires_at timestamptz NOT NULL CHECK(expires_at>created_at AND expires_at<=created_at+interval '30 seconds')
+);
+CREATE INDEX pass_receipts_expiry ON verification_private.pass_receipts(expires_at);
+CREATE INDEX pass_receipts_session ON verification_private.pass_receipts(pass_session);
+REVOKE ALL ON verification_private.pass_receipts FROM PUBLIC;
+
+CREATE FUNCTION verification_private.pass_lock_write_scope(p_pass bytea,p_anonymous bytea,p_board text)
+RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
+DECLARE account bigint; expiry bigint;
+BEGIN
+ PERFORM verification_private.pass_gate();
+ -- The caller takes its actor gate first. Board/session locks match ordinary
+ -- CAPTCHA writes; membership login/signout never take board/session locks.
+ PERFORM slug FROM content.boards WHERE slug=p_board AND NOT staff_only FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Public board not found' USING ERRCODE='P0002'; END IF;
+ SELECT expires_at INTO expiry FROM post_secrets.anonymous_sessions WHERE token_hash=p_anonymous FOR UPDATE;
+ IF NOT FOUND OR expiry<=floor(extract(epoch FROM clock_timestamp()))::bigint THEN
+  RAISE EXCEPTION 'Anonymous session unavailable' USING ERRCODE='P0166'; END IF;
+ PERFORM singleton FROM verification_private.pass_policy WHERE singleton FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Membership policy unavailable' USING ERRCODE='55000'; END IF;
+ SELECT entitlement_id INTO account FROM verification_private.pass_sessions WHERE token_hash=p_pass FOR UPDATE;
+ IF FOUND THEN PERFORM id FROM verification_private.pass_entitlements WHERE id=account FOR UPDATE; END IF;
+ IF expiry<=floor(extract(epoch FROM clock_timestamp()))::bigint THEN
+  RAISE EXCEPTION 'Anonymous session expired while waiting' USING ERRCODE='P0166'; END IF;
+END $$;
+REVOKE ALL ON FUNCTION verification_private.pass_lock_write_scope(bytea,bytea,text) FROM PUBLIC;
+
+CREATE FUNCTION content.pass_write_receipt(
+ p_pass bytea,p_receipt bytea,p_peer bytea,p_login bytea,p_posting bytea,p_anonymous bytea,
+ p_context bytea,p_purpose text,p_board text,p_target bigint
+) RETURNS TABLE(status text,purchase_year integer) LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE advice record; stamp timestamptz; bound integer; cap integer;
+BEGIN
+ IF (CASE WHEN current_setting('role')='none' THEN session_user::text ELSE current_setting('role') END)<>'board_verifier' THEN
+  RAISE EXCEPTION 'Membership issuer unavailable' USING ERRCODE='42501'; END IF;
+ IF p_pass IS NULL OR octet_length(p_pass)<>32 OR p_receipt IS NULL OR octet_length(p_receipt)<>32
+  OR p_peer IS NULL OR octet_length(p_peer)<>32 OR p_anonymous IS NULL OR octet_length(p_anonymous)<>32
+  OR p_context IS NULL OR octet_length(p_context)<>32 OR (p_login IS NOT NULL AND octet_length(p_login)<>32)
+  OR (p_posting IS NOT NULL AND octet_length(p_posting)<>32) OR p_purpose IS NULL OR p_board IS NULL
+  OR p_target IS NULL OR NOT ((p_purpose='thread' AND p_target=0) OR (p_purpose IN('reply','report') AND p_target>0)) THEN
+  RAISE EXCEPTION 'Invalid membership receipt context' USING ERRCODE='23514'; END IF;
+ PERFORM verification_private.pass_lock_write_scope(p_pass,p_anonymous,p_board);
+ SELECT * INTO advice FROM content.pass_posting_state(p_pass,p_posting);
+ IF advice.status<>'ready' THEN RETURN QUERY SELECT advice.status::text,NULL::integer; RETURN; END IF;
+ stamp:=clock_timestamp();
+ DELETE FROM verification_private.pass_receipts WHERE token_hash IN (
+  SELECT token_hash FROM verification_private.pass_receipts WHERE expires_at<=stamp ORDER BY expires_at LIMIT 64 FOR UPDATE SKIP LOCKED);
+ -- At most eight outstanding requests per authenticated device. Existing
+ -- policy bounds the device inventory; receipts expire after thirty seconds.
+ SELECT count(*) INTO bound FROM (SELECT 1 FROM verification_private.pass_receipts WHERE pass_session=p_pass LIMIT 8) inventory;
+ SELECT receipt_limit INTO cap FROM verification_private.pass_policy WHERE singleton;
+ IF bound>=8 OR (SELECT count(*) FROM (SELECT 1 FROM verification_private.pass_receipts LIMIT cap) inventory)>=cap THEN
+  RETURN QUERY SELECT 'capacity'::text,NULL::integer; RETURN; END IF;
+ INSERT INTO verification_private.pass_receipts VALUES(p_receipt,p_pass,p_anonymous,p_peer,p_login,p_posting,p_context,p_purpose,p_board,p_target,stamp,stamp+interval '30 seconds');
+ RETURN QUERY SELECT 'ready'::text,advice.purchase_year::integer;
+END $$;
+REVOKE ALL ON FUNCTION content.pass_write_receipt(bytea,bytea,bytea,bytea,bytea,bytea,bytea,text,text,bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION content.pass_write_receipt(bytea,bytea,bytea,bytea,bytea,bytea,bytea,text,text,bigint) TO board_verifier;
+
+CREATE FUNCTION verification_private.pass_take_receipt(
+ p_receipt bytea,p_peer bytea,p_anonymous bytea,p_context bytea,p_purpose text,p_board text,p_target bigint
+) RETURNS TABLE(entitlement_id bigint,purchase_year integer) LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
+DECLARE receipt verification_private.pass_receipts%ROWTYPE; advice record; stamp timestamptz; account bigint;
+BEGIN
+ PERFORM verification_private.pass_gate();
+ IF p_receipt IS NULL OR octet_length(p_receipt)<>32 OR p_peer IS NULL OR octet_length(p_peer)<>32
+  OR p_anonymous IS NULL OR octet_length(p_anonymous)<>32 OR p_context IS NULL OR octet_length(p_context)<>32
+  OR p_purpose IS NULL OR p_board IS NULL OR p_target IS NULL THEN
+  RAISE EXCEPTION 'Invalid membership receipt context' USING ERRCODE='23514'; END IF;
+ -- This first read grants nothing. Re-read under all write locks below.
+ SELECT * INTO receipt FROM verification_private.pass_receipts WHERE token_hash=p_receipt;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Membership receipt unavailable' USING ERRCODE='P0166'; END IF;
+ PERFORM verification_private.pass_lock_write_scope(receipt.pass_session,p_anonymous,p_board);
+ SELECT * INTO receipt FROM verification_private.pass_receipts WHERE token_hash=p_receipt FOR UPDATE;
+ stamp:=clock_timestamp();
+ IF NOT FOUND OR receipt.peer<>p_peer OR receipt.anonymous_session<>p_anonymous
+  OR receipt.context_hash<>p_context OR receipt.purpose<>p_purpose OR receipt.board<>p_board
+  OR receipt.target<>p_target OR receipt.expires_at<=stamp THEN
+  RAISE EXCEPTION 'Membership receipt unavailable' USING ERRCODE='P0166'; END IF;
+ -- The private helper cannot invoke an issuer-only wrapper as board_public.
+ -- Repeat its source order against the account and session held above.
+ SELECT s.entitlement_id INTO account FROM verification_private.pass_sessions s
+ JOIN verification_private.pass_entitlements e ON e.id=s.entitlement_id
+ WHERE s.token_hash=receipt.pass_session AND s.expires_at>stamp
+  AND s.credential_version=e.credential_version AND e.expires_at>stamp AND e.status=0
+  AND (e.posting_scope IS NULL OR e.posting_scope IS NOT DISTINCT FROM receipt.posting_scope
+    OR e.last_used<=date_trunc('second',stamp)-interval '1800 seconds');
+ IF NOT FOUND THEN RAISE EXCEPTION 'Membership authorization changed' USING ERRCODE='P0166'; END IF;
+ DELETE FROM verification_private.pass_receipts WHERE token_hash=p_receipt;
+ UPDATE verification_private.pass_entitlements SET last_peer=receipt.peer,login_scope=receipt.login_scope,
+  posting_scope=receipt.posting_scope,last_used=date_trunc('second',stamp) WHERE id=account;
+ RETURN QUERY SELECT e.id,extract(year FROM e.purchased_at AT TIME ZONE 'America/New_York')::integer
+  FROM verification_private.pass_entitlements e WHERE e.id=account;
+END $$;
+REVOKE ALL ON FUNCTION verification_private.pass_take_receipt(bytea,bytea,bytea,bytea,text,text,bigint) FROM PUBLIC;
+
 CREATE TABLE verification_private.pass_catalog (
  singleton boolean PRIMARY KEY CHECK(singleton),
  definition_hash bytea NOT NULL CHECK(octet_length(definition_hash)=32)

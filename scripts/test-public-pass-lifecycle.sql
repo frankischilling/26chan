@@ -1,5 +1,11 @@
 -- Owned synthetic hashes qualify SQL authority, not password hashing.
 BEGIN;
+SET LOCAL ROLE board_migrator;
+INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page)
+VALUES('qpassr1','Owned receipt test','',2000,100,100,100,10);
+INSERT INTO post_secrets.anonymous_sessions(token_hash,network_hash,address_hash,environment_hash,created_at,network_at,address_at,environment_at,expires_at)
+SELECT sha256('owned-pass-anon'),sha256('owned-pass-network'),sha256('owned-pass-address'),sha256('owned-pass-environment'),n,n,n,n,n+3600
+FROM (SELECT floor(extract(epoch FROM clock_timestamp()))::bigint n) clock;
 SET LOCAL ROLE board_anonymous_owner;
 INSERT INTO verification_private.pass_entitlements(token_hash,pin_hash,status,purchased_at,expires_at)
  SELECT sha256(convert_to('owned-pass-'||n,'UTF8')),repeat('owned-phc-placeholder',3),n,
@@ -112,6 +118,73 @@ DO $$ BEGIN
   RAISE EXCEPTION 'Expiry did not precede posting network hold'; END IF;
 END $$;
 ROLLBACK TO posting_advice;
+RESET ROLE;
+SAVEPOINT receipt_tests;
+SET LOCAL ROLE board_verifier;
+DO $$ BEGIN
+ IF (SELECT status FROM content.pass_write_receipt(sha256('owned-session-7'),sha256('owned-pass-receipt'),sha256('owned-peer'),
+ sha256('owned-scope16'),sha256('owned-scope24'),sha256('owned-pass-anon'),sha256('owned-form'),'thread','qpassr1',0))<>'ready' THEN
+ RAISE EXCEPTION 'Valid membership did not issue a receipt'; END IF;
+ BEGIN
+ PERFORM verification_private.pass_take_receipt(sha256('owned-pass-receipt'),sha256('owned-peer'),sha256('owned-pass-anon'),sha256('owned-form'),'thread','qpassr1',0);
+ RAISE EXCEPTION 'Verifier directly consumed a private receipt'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $$;
+SET LOCAL ROLE board_anonymous_owner;
+DO $$ DECLARE mismatch integer; result record; BEGIN
+ FOR mismatch IN 1..5 LOOP
+  BEGIN
+   PERFORM verification_private.pass_take_receipt(sha256('owned-pass-receipt'),
+    CASE WHEN mismatch=1 THEN sha256('wrong-peer') ELSE sha256('owned-peer') END,
+    sha256('owned-pass-anon'),CASE WHEN mismatch=2 THEN sha256('wrong-form') ELSE sha256('owned-form') END,
+    CASE WHEN mismatch=3 THEN 'report' ELSE 'thread' END,'qpassr1',CASE WHEN mismatch=4 THEN 1 ELSE 0 END);
+   IF mismatch<5 THEN RAISE EXCEPTION 'Mismatched membership receipt accepted'; END IF;
+   -- A failed enclosing write restores receipt consumption and account activity.
+   RAISE EXCEPTION 'Owned rollback control' USING ERRCODE='P0217';
+  EXCEPTION WHEN SQLSTATE 'P0166' THEN
+   IF mismatch=5 THEN RAISE; END IF;
+  WHEN SQLSTATE 'P0217' THEN
+   IF mismatch<>5 THEN RAISE; END IF;
+  END;
+ END LOOP;
+ IF NOT EXISTS(SELECT 1 FROM verification_private.pass_receipts WHERE token_hash=sha256('owned-pass-receipt')) THEN
+ RAISE EXCEPTION 'Failed write consumed membership receipt'; END IF;
+ SELECT * INTO result FROM verification_private.pass_take_receipt(sha256('owned-pass-receipt'),sha256('owned-peer'),sha256('owned-pass-anon'),sha256('owned-form'),'thread','qpassr1',0);
+ IF result.entitlement_id IS NULL OR result.purchase_year IS NULL THEN RAISE EXCEPTION 'Receipt lost private membership identity'; END IF;
+ BEGIN
+ PERFORM verification_private.pass_take_receipt(sha256('owned-pass-receipt'),sha256('owned-peer'),sha256('owned-pass-anon'),sha256('owned-form'),'thread','qpassr1',0);
+ RAISE EXCEPTION 'Membership receipt replay accepted'; EXCEPTION WHEN SQLSTATE 'P0166' THEN NULL; END;
+END $$;
+SET LOCAL ROLE board_verifier;
+DO $$ DECLARE n integer; result record; BEGIN
+ FOR n IN 1..9 LOOP
+  SELECT * INTO result FROM content.pass_write_receipt(sha256('owned-session-7'),sha256(convert_to('owned-receipt-cap-'||n,'UTF8')),
+   sha256('owned-peer'),sha256('owned-scope16'),sha256('owned-scope24'),sha256('owned-pass-anon'),sha256('owned-form'),'thread','qpassr1',0);
+  IF result.status<>(CASE WHEN n=9 THEN 'capacity' ELSE 'ready' END) THEN RAISE EXCEPTION 'Membership receipt inventory bound differs'; END IF;
+ END LOOP;
+END $$;
+SET LOCAL ROLE board_anonymous_owner;
+UPDATE verification_private.pass_receipts SET created_at=clock_timestamp()-interval '60 seconds',expires_at=clock_timestamp()-interval '30 seconds'
+ WHERE token_hash=sha256('owned-receipt-cap-1');
+DO $$ BEGIN
+ BEGIN
+  PERFORM verification_private.pass_take_receipt(sha256('owned-receipt-cap-1'),sha256('owned-peer'),sha256('owned-pass-anon'),sha256('owned-form'),'thread','qpassr1',0);
+  RAISE EXCEPTION 'Expired membership receipt accepted'; EXCEPTION WHEN SQLSTATE 'P0166' THEN NULL; END;
+END $$;
+UPDATE verification_private.pass_entitlements SET pin_hash=pin_hash||'-receipt-reset' WHERE token_hash=sha256('owned-pass-7');
+DO $$ BEGIN
+ BEGIN
+  PERFORM verification_private.pass_take_receipt(sha256('owned-receipt-cap-2'),sha256('owned-peer'),sha256('owned-pass-anon'),sha256('owned-form'),'thread','qpassr1',0);
+  RAISE EXCEPTION 'Credential rotation left receipt authorized'; EXCEPTION WHEN SQLSTATE 'P0166' THEN NULL; END;
+END $$;
+SET LOCAL ROLE board_verifier;
+SELECT content.pass_signout(sha256('owned-session-7'));
+
+SET LOCAL ROLE board_anonymous_owner;
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM verification_private.pass_receipts WHERE pass_session=sha256('owned-session-7')) THEN
+ RAISE EXCEPTION 'Signout did not revoke outstanding receipts'; END IF;
+END $$;
+ROLLBACK TO receipt_tests;
 RESET ROLE;
 SAVEPOINT drift;
 SET LOCAL ROLE board_anonymous_owner;

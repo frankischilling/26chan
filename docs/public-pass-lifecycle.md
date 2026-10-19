@@ -154,3 +154,16 @@ purchase year. It does not change the last-used network or issue a receipt.
 A protected write must recheck membership under locks before applying benefits.
 The SQL and private HTTP tests cover differing IPv4 /24 scopes, the release
 boundary, absent previous scope, expiry precedence and signed-out sessions.
+
+The private issuer can now create 30-second membership receipts bound to the
+anonymous session, peer, form, board and write purpose. It limits outstanding
+receipts to eight per Pass session and a configured global inventory. Private
+consumption rechecks the current session, credential version, expiry and network
+hold under write locks. Signout removes outstanding receipts; a failed write
+rolls consumption back. SQL tests cover wrong context, replay, expiry, rotation,
+capacity and rollback. HTTP tests check the issuer response and reject email or
+newly minted browser contexts.
+
+This receipt path is not yet connected to public posting. A receipt currently
+grants no CAPTCHA bypass, cooldown reduction or Pass-only board access through
+the public application.

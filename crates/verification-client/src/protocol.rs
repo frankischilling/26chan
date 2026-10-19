@@ -220,3 +220,24 @@ pub enum PassPostingState {
     Disabled {},
     InUse {},
 }
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassWriteRequest {
+    pub token: String,
+    pub context: ChallengeContext,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PassWriteResult {
+    Verified {
+        receipt: String,
+        peer_hash: [u8; 32],
+        context_hash: [u8; 32],
+    },
+    None {},
+    Expired {},
+    Disabled {},
+    InUse {},
+    Capacity {},
+}

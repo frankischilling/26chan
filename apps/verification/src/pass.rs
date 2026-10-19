@@ -186,3 +186,78 @@ pub(crate) async fn posting_status(
     };
     Json(output).into_response()
 }
+
+pub(crate) async fn write_receipt(
+    State(state): State<AppState>,
+    Json(input): Json<protocol::PassWriteRequest>,
+) -> Response {
+    use board_domain::challenge_secrets::ReceiptToken;
+    let context = &input.context;
+    let Some(fp) = crate::handlers::session(&context.session) else {
+        return error(StatusCode::BAD_REQUEST);
+    };
+    if context.session.minted || context.email_token.is_some() {
+        return error(StatusCode::BAD_REQUEST);
+    }
+    let purpose = match context.purpose {
+        protocol::Purpose::Thread => "thread",
+        protocol::Purpose::Reply => "reply",
+        protocol::Purpose::Report => "report",
+        _ => return error(StatusCode::BAD_REQUEST),
+    };
+    let Some(board) = context.board.as_deref() else {
+        return error(StatusCode::BAD_REQUEST);
+    };
+    let Some(hash) =
+        state
+            .key
+            .form_context(purpose, Some(board), context.target, &context.form_nonce)
+    else {
+        return error(StatusCode::BAD_REQUEST);
+    };
+    let Some(networks) = state.key.pass_networks(context.session.peer) else {
+        return error(StatusCode::BAD_REQUEST);
+    };
+    let Some(token) = PassSessionToken::parse(&input.token) else {
+        return Json(protocol::PassWriteResult::None {}).into_response();
+    };
+    let Ok(receipt) = ReceiptToken::generate() else {
+        return error(StatusCode::SERVICE_UNAVAILABLE);
+    };
+    let result = match state
+        .store
+        .pass_write_receipt(&board_store::verification::pass::WriteRequest {
+            pass_session: &token.storage_hash(),
+            receipt: &receipt.storage_hash(),
+            networks: &networks,
+            anonymous: &fp.token,
+            context: &hash,
+            purpose,
+            board,
+            target: context.target,
+        })
+        .await
+    {
+        Ok(result) => result,
+        Err(board_store::StoreError::Database(ref error))
+            if error.as_database_error().and_then(|e| e.code()).as_deref() == Some("P0166") =>
+        {
+            return Json(protocol::PassWriteResult::None {}).into_response();
+        }
+        Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE),
+    };
+    let output = match result.status.as_str() {
+        "ready" => protocol::PassWriteResult::Verified {
+            receipt: receipt.encode(),
+            peer_hash: networks.peer,
+            context_hash: hash,
+        },
+        "none" => protocol::PassWriteResult::None {},
+        "expired" => protocol::PassWriteResult::Expired {},
+        "disabled" => protocol::PassWriteResult::Disabled {},
+        "in_use" => protocol::PassWriteResult::InUse {},
+        "capacity" => protocol::PassWriteResult::Capacity {},
+        _ => return error(StatusCode::SERVICE_UNAVAILABLE),
+    };
+    Json(output).into_response()
+}

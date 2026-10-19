@@ -96,6 +96,43 @@ async fn private_pass_login_checks_credentials_network_holds_flood_and_revocatio
             let (_, state) = call(&app, "/v1/pass/state", json!({"token":token})).await;
             assert_eq!(state["state"], "ready");
             assert_eq!(state["purchase_year"], 2020);
+            let browser = json!({"fingerprints":{"token":token_hash,"network":token_hash,"address":token_hash,"environment":token_hash},"minted":true,"peer":"192.0.2.19","country":"US"});
+            assert_eq!(
+                call(&app, "/v1/session", browser.clone()).await.0,
+                StatusCode::OK
+            );
+            let mut browser = browser;
+            browser["minted"] = json!(false);
+            let request = json!({"token":token,"context":{"session":browser,"purpose":"thread","board":"g","target":0,"form_nonce":"ab".repeat(32),"email_token":null}});
+            let (receipt_status, receipt) = call(&app, "/v1/pass/receipt", request.clone()).await;
+            assert_eq!(receipt_status, StatusCode::OK);
+            assert_eq!(receipt["state"], "verified");
+            assert!(
+                board_domain::challenge_secrets::ReceiptToken::parse(
+                    receipt["receipt"].as_str().unwrap()
+                )
+                .is_some()
+            );
+            assert_eq!(receipt["peer_hash"], json!(normal_peer));
+            assert!(receipt.get("entitlement_id").is_none());
+            for (field, value) in [
+                ("purpose", json!("email_request")),
+                ("form_nonce", json!("invalid")),
+            ] {
+                let mut invalid = request.clone();
+                invalid["context"][field] = value;
+                assert_eq!(
+                    call(&app, "/v1/pass/receipt", invalid).await.0,
+                    StatusCode::BAD_REQUEST
+                );
+            }
+            let mut minted = request;
+            minted["context"]["session"]["minted"] = json!(true);
+            assert_eq!(
+                call(&app, "/v1/pass/receipt", minted).await.0,
+                StatusCode::BAD_REQUEST
+            );
+
             for (peer, expected) in [
                 ("192.0.2.19", "ready"),
                 ("192.0.2.99", "ready"),
@@ -226,6 +263,11 @@ async fn private_pass_login_checks_credentials_network_holds_flood_and_revocatio
         .unwrap();
     sqlx::query("DELETE FROM verification_private.pass_entitlements WHERE id=$1")
         .bind(id)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash=$1")
+        .bind(token_hash.as_slice())
         .execute(&mut *tx)
         .await
         .unwrap();
