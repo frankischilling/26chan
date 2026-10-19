@@ -314,3 +314,11 @@ the existing public response. CI exposed the regression in private archive
 qualification; the owned local test reproduced it before the correction and all
 three private archive cases pass afterward. Invalid receipts and other database
 errors retain their existing failure paths.
+
+
+The historical-deletion operator's pinned guard now matches migration 0220,
+which clears the public Pass year. The old pin safely refused the current schema
+and was reproduced locally. An operator unit test compares both pins with the
+latest migration bodies. The populated CLI qualification now erases an imported
+year, preserves live and unrelated years, and rejects a guard whose year-clearing
+statement was removed. Rollback, bounded batches and administrator restore pass.

@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use sqlx::{Connection, PgConnection};
 
 const LIMIT: i64 = 64;
-const POST_GUARD: &str = "011547b9575a05f12b6154884bdef7624bfa241caf6e88910b978ce588d9e3b6";
+const POST_GUARD: &str = "71cacbdcdcc037cd3628d0f06d742aab41c08aded68bc2728c0e236af1ce887c";
 const THREAD_GUARD: &str = "01aff94037bf0af55a594fe13916bbe6255bcf2925d5b7f1bbfe91aaa977b63b";
 
 #[derive(Debug, thiserror::Error)]
@@ -250,6 +250,42 @@ pub(crate) async fn preflight(connection: &mut PgConnection) -> Result<(), Erasu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn operator_guard_pins_match_the_latest_migration_bodies() {
+        let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../migrations");
+        let mut files: Vec<_> = std::fs::read_dir(directory)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path.extension().is_some_and(|extension| extension == "sql"))
+            .collect();
+        files.sort();
+        for (name, expected) in [
+            ("guard_post_erasure", POST_GUARD),
+            ("guard_thread_erasure", THREAD_GUARD),
+        ] {
+            let marker = format!("FUNCTION post_secrets.{name}() RETURNS trigger");
+            let mut latest = None;
+            for path in &files {
+                let text = std::fs::read_to_string(path).unwrap();
+                if let Some((_, definition)) = text.split_once(&marker) {
+                    let body = definition
+                        .split_once("AS $$")
+                        .unwrap()
+                        .1
+                        .split_once("$$;")
+                        .unwrap()
+                        .0;
+                    latest = Some(format!("{:x}", Sha256::digest(body.as_bytes())));
+                }
+            }
+            assert_eq!(
+                latest.as_deref(),
+                Some(expected),
+                "Operator pin differs from latest {name}"
+            );
+        }
+    }
 
     #[test]
     fn receipt_binds_scope_order_and_saved_state_without_exposing_payload() {
