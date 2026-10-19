@@ -1,0 +1,17 @@
+{
+  "keys": {
+    "source": "reports/js/admincore.js",
+    "sha256": "c424978ca6021724a56dd5807de2a56dc0ce0d1fdca08c75ecab8d51fe54d081",
+    "fragment": "Keybinds.codeToKey = function(code) {\n  var key = null;\n  \n  if (code == 8) {\n    return null;\n  }\n  \n  if (code == 27) {\n    key = 'Esc';\n  }\n  else if (code == 37) {\n    key = '&#8592;';\n  }\n  else if (code == 39) {\n    key = '&#8594;';\n  }\n  else if (code >= 65 && code <= 90) {\n    key = String.fromCharCode(code).toUpperCase();\n  }\n  \n  return key;\n};"
+  },
+  "search": {
+    "source": "reports/js/d8d9b0cdc33f3418/banrequests.js",
+    "sha256": "1f727c3e93e6c824e24b6140e652e5a4e4cf2748a8802c4fabdf3ac055ac220d",
+    "fragment": "BR.onAmendKeyUp = function(e) {\n  var esc, nodes, cnt, el, i, query, sel, w, words;\n  \n  if (e.keyCode == 27) {\n    this.blur();\n    return;\n  }\n  \n  query = $.id('amend-auto').value;\n  \n  esc = ['/', '.', '*', '+', '?', '(', ')', '[', ']', '{', '}', '\\\\' ].join('|\\\\');\n  esc = new RegExp('(\\\\' + esc + ')', 'g');\n  \n  words = query.split(/ +/);\n  \n  query = '';\n  \n  for (i = 0; w = words[i]; ++i) {\n    query += '(?=[\\\\s\\\\S]*\\\\b' + w.replace(esc, '\\\\$1') + ')';\n  }\n  \n  query = new RegExp(query, 'i');\n  \n  cnt = $.id('amend-selector');\n  nodes = cnt.children;\n  \n  sel = false;\n  \n  for (i = 0; el = nodes[i]; ++i) {\n    if (query.test(el.textContent)) {\n      sel = i;\n      break;\n    }\n  }\n  \n  if (sel !== false) {\n    cnt.selectedIndex = sel;\n    BR.onAmendChange.call(cnt);\n  }\n};"
+  },
+  "menu": {
+    "source": "reports/js/d8d9b0cdc33f3418/banrequests.js",
+    "sha256": "1f727c3e93e6c824e24b6140e652e5a4e4cf2748a8802c4fabdf3ac055ac220d",
+    "fragment": "BR.applyCustomMenu = function(str) {\n  var i, slug, el, nav, boards, more, nodes, hash;\n  \n  if (!str) {\n    return;\n  }\n  \n  boards = str.split(',');\n  \n  hash = {};\n  \n  for (i = 0; slug = boards[i]; ++i) {\n    hash[slug] = true;\n  }\n  \n  nav = $.id('board-menu');\n  nav.style.display = 'none';\n  \n  nodes = $.cls('board-slug', nav);\n  \n  for (i = 0; el = nodes[i]; ++i) {\n    if (!hash[el.textContent]) {\n      el.style.display = 'none';\n    }\n  }\n  \n  more = $.id('more-slugs');\n  more.style.display = 'inline';\n  \n  nav.style.display = 'block';\n};"
+  }
+}

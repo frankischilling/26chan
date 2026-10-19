@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const source = readFileSync('apps/staff/static/request-queue.js', 'utf8');
-function fixture({ storageThrows = false } = {}) {
+function fixture({ storageThrows = false, initialStorage = {}, preferences = false } = {}) {
   let active = null;
+  const storage = new Map(Object.entries(initialStorage));
   const timers = new Map(), requests = [], events = new Map(), windowEvents = new Map();
   let sequence = 0;
   class Element {
@@ -17,6 +18,7 @@ function fixture({ storageThrows = false } = {}) {
     addEventListener(name, handler) { this.listeners.set(name, handler); }
     fire(name) { this.listeners.get(name)?.({ preventDefault() {} }); }
     closest() { return null; }
+    matches() { return false; }
     querySelector() { return null; }
     focus() { active = this; }
     getBoundingClientRect() { return { top: 0, bottom: 50 }; }
@@ -32,6 +34,13 @@ function fixture({ storageThrows = false } = {}) {
   }
   const ids = new Map(['filter-form', 'search-box', 'queue-status', 'queue-undo', 'cfg-cb-dt', 'queue-keybinds', 'queue-preferences', 'reset-btn', 'content', 'title', 'refresh-btn', 'board-menu'].map(id => [id, new Element(id)]));
   ids.get('content').dataset.board = 'g';
+  const preferenceFields = [], boardItems = [];
+  if (preferences) {
+    for (const id of ['queue-custom-menu','queue-save-preferences','queue-reset-preferences','queue-more-boards']) ids.set(id,new Element(id));
+    for (const action of ['arrowright','arrowleft','a','d','w','c','r','u','escape']) { const field=new Element(); field.dataset.queueKey=action; preferenceFields.push(field); }
+    for (const board of ['g','a','jp']) { const item=new Element(); item.dataset.board=board; boardItems.push(item); }
+  }
+
   const rows = ['Alpha', 'Beta', 'Gamma'].map((word, index) => {
     const row = new Element(String(index + 1));
     row.fields = { '.post-name': { textContent: word }, '.post-content': { textContent: 'owned' }, '.ban-request-template': { textContent: 'Spam' } };
@@ -43,7 +52,7 @@ function fixture({ storageThrows = false } = {}) {
   const document = {
     documentElement: root, getElementById: id => ids.get(id),
     addEventListener: (event, callback) => events.set(event, callback),
-    querySelectorAll: selector => selector === '#br-list .ban-request' ? rows : [],
+    querySelectorAll: selector => selector === '#br-list .ban-request' ? rows : selector === '[data-queue-key]' ? preferenceFields : selector === '#board-menu .board-slug' ? boardItems : [],
   };
   const context = vm.createContext({
     document, Element, HTMLFormElement: Form,
@@ -51,14 +60,15 @@ function fixture({ storageThrows = false } = {}) {
     URL, URLSearchParams, AbortController,
     location: { href: 'http://localhost:3001/ban-requests?board=g', reload() {} },
     window: { addEventListener: (event, callback) => windowEvents.set(event, callback) },
-    localStorage: { getItem() { if (storageThrows) throw Error(); return null; }, setItem() { if (storageThrows) throw Error(); }, removeItem() { if (storageThrows) throw Error(); } },
+    localStorage: { getItem(key) { if (storageThrows) throw Error(); return storage.get(key) ?? null; }, setItem(key, value) { if (storageThrows) throw Error(); storage.set(key, value); }, removeItem(key) { if (storageThrows) throw Error(); storage.delete(key); } },
     setTimeout: (callback, ms) => { assert.equal(ms, 3000); timers.set(++sequence, callback); return sequence; },
     clearTimeout: id => timers.delete(id),
     fetch: (url, options) => new Promise((resolve, reject) => requests.push({ url, options, resolve, reject })),
   });
   vm.runInContext(source, context);
   return {
-    ids, rows, timers, requests, active: () => active,
+    element: () => new Element(), input: target => events.get('input')({target}), change: target => events.get('change')({target}),
+    ids, rows, timers, requests, storage, preferenceFields, boardItems, active: () => active,
     key: (key, target = new Element()) => events.get('keydown')({ key, target, preventDefault() {} }),
     submit: (index = 0, decision = 'deny') => events.get('submit')({ target: rows[index].form, submitter: { name: 'decision', value: decision, disabled: false }, preventDefault() {} }),
     run: () => { const callbacks = [...timers.values()]; timers.clear(); for (const callback of callbacks) callback(); },
@@ -165,4 +175,89 @@ test('W only invokes an enabled warning shortcut on the focused row', () => {
   button.disabled = true; f.key('w'); assert.equal(clicks, 1);
   f.ids.get('queue-keybinds').checked = false;
   button.disabled = false; f.key('w'); assert.equal(clicks, 1);
+});
+test('saved key remapping moves the action and leaves its original key inactive', () => {
+  const f=fixture({initialStorage:{'br-keyremap':'[[39,78]]'}});
+  f.key('ArrowRight'); assert.equal(f.active(),null); f.key('n'); assert.equal(f.active(),f.rows[0]);
+});
+test('malformed, duplicate, unsupported and colliding saved mappings retain defaults', () => {
+  for(const raw of ['{','{}','[[39,65]]','[[39,78],[39,80]]','[[73,78]]','[[39,49]]','[null]']) {
+    const f=fixture({initialStorage:{'br-keyremap':raw}}); f.key('ArrowRight'); assert.equal(f.active(),f.rows[0],raw);
+  }
+});
+test('settings validate all keys before saving and reset restores defaults', () => {
+  const f=fixture({preferences:true}), next=f.preferenceFields.find(field=>field.dataset.queueKey==='arrowright');
+  next.value='a'; f.ids.get('queue-save-preferences').fire('click'); assert(!f.storage.has('br-keyremap'));
+  assert.match(f.ids.get('queue-status').textContent,/different keys/);
+  next.value='N'; f.ids.get('queue-save-preferences').fire('click'); assert.equal(f.storage.get('br-keyremap'),'[[39,78]]');
+  f.key('n'); assert.equal(f.active(),f.rows[0]); f.ids.get('queue-reset-preferences').fire('click');
+  assert(!f.storage.has('br-keyremap')); f.key('ArrowRight'); assert.equal(f.active(),f.rows[1]);
+});
+test('custom board list, More and reset preserve unrelated source preferences', () => {
+  const f=fixture({preferences:true,initialStorage:{'rq-settings':'{"customMenu":"g,jp","imageHover":false}'}});
+  assert.deepEqual(f.boardItems.map(item=>item.hidden),[false,true,false]);
+  f.ids.get('queue-more-boards').fire('click'); assert(f.boardItems.every(item=>!item.hidden));
+  f.ids.get('queue-custom-menu').value='a'; f.ids.get('queue-save-preferences').fire('click');
+  assert.deepEqual(f.boardItems.map(item=>item.hidden),[true,false,true]);
+  assert.deepEqual(JSON.parse(f.storage.get('rq-settings')),{customMenu:'a',imageHover:false});
+  f.ids.get('queue-reset-preferences').fire('click'); assert(f.boardItems.every(item=>!item.hidden));
+  assert.deepEqual(JSON.parse(f.storage.get('rq-settings')),{imageHover:false});
+});
+function amendmentFixture(f,names) {
+  const search=f.element(),select=f.element(),days=f.element(),scope=f.element();
+  const options=names.map((name,index)=>({value:String(index+1),textContent:name,dataset:{templateName:name,seconds:String(index*86400),global:index===2?'1':'0'}}));
+  select.options=options; select.value='1';
+  Object.defineProperty(select,'selectedOptions',{get:()=>options.filter(option=>option.value===select.value)});
+  const form={querySelector:selector=>selector==='[name="amend_tpl"]'?select:selector==='[name="ban_length"]'?days:selector==='[name="global"]'?scope:null};
+  search.closest=select.closest=()=>form;
+  search.matches=selector=>selector==='[data-template-search]'; select.matches=selector=>selector==='.request-amend select[name="amend_tpl"]';
+  return {search,select,days,scope,options};
+}
+test('autocomplete and template changes retain source word-prefix matching and defaults', () => {
+  const reference=JSON.parse(readFileSync('fixtures/janitor-preference-source.json')).search;
+  const names=['Off topic','Ban Evasion [Short]','Global spam','Spam (repeated)'];
+  for(const query of ['','spam','ban short','topic','evasion','(repeated)','no-match',' topic','ban  short']) {
+    const f=fixture(),{search,select,days,scope,options}=amendmentFixture(f,names);
+    const original={children:options,selectedIndex:0};
+    const context=vm.createContext({BR:{onAmendChange(){}},$:{id:id=>id==='amend-auto'?{value:query}:original}});
+    vm.runInContext(reference.fragment,context); vm.runInContext('BR.onAmendKeyUp.call({}, {keyCode:65})',context);
+    search.value=query; f.input(search); assert.equal(select.value,options[original.selectedIndex].value,query);
+    select.value='3'; f.change(select); assert.equal(days.value,'2'); assert.equal(scope.value,'1');
+  }
+});
+test('autocomplete treats regex control characters literally and skips disabled choices', () => {
+  const f=fixture(),{search,select,days,options}=amendmentFixture(f,['Spam','Spam']);
+  options[0].disabled=true; options[1].dataset.seconds='86401'; select.value='old';
+  search.value='.*'; f.input(search); assert.equal(select.value,'old');
+  search.value='Spam'; f.input(search); assert.equal(select.value,'2'); assert.equal(days.value,'');
+});
+test('custom menu decisions match the isolated source including empty comma fields', () => {
+  const reference=JSON.parse(readFileSync('fixtures/janitor-preference-source.json')).menu;
+  for(const customMenu of ['','g','a,jp','g,,a',',g','g, jp','missing','g,g']) {
+    const f=fixture({preferences:true,initialStorage:{'rq-settings':JSON.stringify({customMenu})}});
+    const items=['g','a','jp'].map(textContent=>({textContent,style:{display:null}}));
+    const context=vm.createContext({BR:{},$:{id:()=>({style:{}}),cls:()=>items}});
+    vm.runInContext(reference.fragment,context); context.value=customMenu; vm.runInContext('BR.applyCustomMenu(value)',context);
+    assert.deepEqual(f.boardItems.map(item=>item.hidden),items.map(item=>item.style.display==='none'),customMenu);
+  }
+});
+test('source key alphabet and native accepted remaps agree without collisions', () => {
+  const reference=JSON.parse(readFileSync('fixtures/janitor-preference-source.json')).keys;
+  const context=vm.createContext({Keybinds:{}}); vm.runInContext(reference.fragment,context);
+  const reserved=new Set([27,37,39,65,67,68,82,85,87]);
+  for(let code=0;code<128;code++) { if(reserved.has(code)) continue;
+    context.code=code; const supported=Boolean(vm.runInContext('Keybinds.codeToKey(code)',context));
+    const f=fixture({initialStorage:{'br-keyremap':JSON.stringify([[39,code]])}});
+    f.key('ArrowRight'); assert.equal(f.active()===null,supported,`code ${code}`);
+  }
+});
+test('preference storage failures keep current-page controls usable', () => {
+  const f=fixture({preferences:true,storageThrows:true});
+  f.preferenceFields.find(input=>input.dataset.queueKey==='arrowright').value='n';
+  f.ids.get('queue-custom-menu').value='g'; f.ids.get('queue-save-preferences').fire('click');
+  f.key('n'); assert.equal(f.active(),f.rows[0]); assert.deepEqual(f.boardItems.map(item=>item.hidden),[false,true,true]);
+});
+test('saving a menu does not destroy an oversized unrelated settings record', () => {
+  const raw=JSON.stringify({customCSS:'x'.repeat(5000)}),f=fixture({preferences:true,initialStorage:{'rq-settings':raw}});
+  f.ids.get('queue-custom-menu').value='g'; f.ids.get('queue-save-preferences').fire('click'); assert.equal(f.storage.get('rq-settings'),raw);
 });

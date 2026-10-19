@@ -68,6 +68,21 @@ try {
           await expect(row).toContainText('Owned HTTP request body');
         }
         if (javaScriptEnabled) {
+          await row.locator('.request-amend summary').click();
+          await row.getByLabel('Find template').fill('Owned request');
+          await expect(row.locator('[name="ban_length"][type="number"]')).toHaveValue('1');
+          await row.locator('select[name="amend_tpl"]').selectOption(String(input.template + 1));
+          await expect(row.locator('[name="ban_length"][type="number"]')).toHaveValue('0');
+          await row.locator('.request-amend summary').click();
+          await page.getByText('Settings', {exact:true}).click();
+          await page.locator('[data-queue-key="w"]').fill('v');
+          await page.locator('#queue-custom-menu').fill(input.board);
+          await page.locator('#queue-save-preferences').click();
+          await page.reload();
+          await page.getByText('Settings', {exact:true}).click();
+          await expect(page.locator('[data-queue-key="w"]')).toHaveValue('v');
+          await expect(page.locator('#queue-custom-menu')).toHaveValue(input.board);
+          await page.getByText('Settings', {exact:true}).click();
           await page.getByLabel('Filter loaded requests').fill('no-such-owned-request');
           await page.getByLabel('Filter loaded requests').press('Enter');
           await expect(row).toBeHidden();
@@ -77,7 +92,7 @@ try {
           await page.getByRole('button', { name: 'Undo pending review' }).click();
           await expect(row).toBeVisible();
           await expect(page.locator('#queue-status')).toContainText('Nothing was submitted');
-          await page.keyboard.press('w');
+          await page.keyboard.press('v');
           await expect(page.locator('#queue-undo')).toBeVisible();
           await page.locator('#queue-undo').click();
           await expect(row).toBeVisible();
