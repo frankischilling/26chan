@@ -1,0 +1,17 @@
+{
+  "sources": {
+    "auth.php": "b300f64e6d2bc4306fa473b3a509fe38e12c292f4e6b6879c4ccf384a9ab6735",
+    "lib/auth.php": "98138062957155f859c6c2650613117290feeb386c6deb3a1097f5b62cbb6019"
+  },
+  "login_php": "$last_used = strtotime($pass['last_used']);\n    \n    $last_ip_mask = ip2long($pass['last_ip']) & (~65535);\n    \n    $ip_mask = $long_ip & (~65535);\n    \n    if ($last_ip_mask !== 0 && ($time_now - $last_used) < PASS_TIMEOUT && $last_ip_mask != $ip_mask) {\n      $remaining = $this->pretty_duration(PASS_TIMEOUT - ($time_now - $last_used));\n      $this->error(sprintf(self::ERR_IN_USE, $remaining));\n    }\n    \n    switch ($pass['status']){\n      case 0:\n        break;\n        \n      case 1:\n        $this->clear_cookies();\n        $this->error(sprintf(self::ERR_EXPIRED, $pass['pending_id']));\n        break;\n        \n      case 2:\n        $this->clear_cookies();\n        $this->error(self::ERR_REFUNDED);\n        break;\n        \n      case 3:\n        $this->clear_cookies();\n        $this->error(self::ERR_DISPUTED);\n        break;\n        \n      case 4:\n        $this->clear_cookies();\n        $this->error(self::ERR_REVOKED_SPAM);\n        break;\n        \n      case 5:\n        $this->clear_cookies();\n        $this->error(self::ERR_REVOKED_ILLEGAL);\n        break;\n        \n      case 6:\n        $this->convert_new_pass_status($pass['user_hash'], $pin);\n        break;\n        \n      case 7:\n        $this->convert_delayed_pass_status($pass['user_hash'], $pin);\n        break;\n    }",
+  "posting_php": "if ((int)$res['expiration_date'] <= $time) {\n\t\t  clear_pass_cookies();\n\t\t\terror(sprintf(S_PASSEXPIRED, $res['pending_id']));\n\t\t}\n\t\t\n\t\tif ($res['status'] != 0) {\n\t\t  clear_pass_cookies();\n\t\t  error(S_PASSDISABLED);\n\t  }\n\n\t\t$lastused = strtotime( $res['last_used'] );\n\t\t$lastip_mask = ip2long( $res['last_ip'] ) & ( ~255 );\n\t\t$ip_mask     = ip2long( $host ) & ( ~255 );\n\n\t\tif( $lastip_mask !== 0 && ( $time - $lastused ) < PASS_TIMEOUT && $lastip_mask != $ip_mask ) {\n\n\t\t\t// old strict code, above is to match last octet\n\t\t\t//if( ( $time - $lastused ) < PASS_TIMEOUT && $res['last_ip'] != $host && $res['last_ip'] != '0.0.0.0' ) {\n\t\t  clear_pass_cookies();\n\t\t\terror( S_PASSINUSE );\n\t\t}",
+  "login_timeout": 900,
+  "posting_timeout": 1800,
+  "boundary_stubs": [
+    "synthetic status and timestamps",
+    "owned documentation IPv4 addresses",
+    "error returns instead of HTTP termination",
+    "activation reports a transition instead of issuing SQL",
+    "no cookie writes"
+  ]
+}
