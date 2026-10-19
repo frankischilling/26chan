@@ -35,8 +35,8 @@ impl ApprovedRepresentation<'_> {
             return Err(ReadError);
         }
         let limit = match (self.suffix, self.content_type) {
-            (".png", "image/png") | ("s.jpg", "image/png" | "image/jpeg") => 5_242_880,
-            (".jpg", "image/jpeg") => 10_485_760,
+            ("s.jpg", "image/png" | "image/jpeg") => 5_242_880,
+            (".png", "image/png") | (".jpg", "image/jpeg") => 10_485_760,
             (".gif", "image/gif") => 20_971_520,
             (".webm", "video/webm") | (".mp4", "video/mp4") | (".pdf", "application/pdf") => {
                 8_388_608
@@ -138,7 +138,7 @@ mod tests {
         }
         assert!(
             ApprovedRepresentation {
-                bytes: 5_242_881,
+                bytes: 10_485_761,
                 ..image()
             }
             .path()
