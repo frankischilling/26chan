@@ -170,3 +170,36 @@ pub struct PostingChallengeResult {
     pub challenge: Challenge,
     pub ticket_challenge: bool,
 }
+
+// Credential-bearing protocol values deliberately omit Debug.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassLogin {
+    pub identifier: String,
+    pub pin: String,
+    pub peer: IpAddr,
+    pub remember: bool,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassSession {
+    pub token: String,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PassLoginResult {
+    Ready { token: String, ttl_seconds: u32 },
+    Rejected {},
+    Flood {},
+    InUse { seconds: u32 },
+    Disabled { status: u8 },
+    Capacity {},
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PassState {
+    Ready { purchase_year: i32 },
+    None {},
+    Expired {},
+    Disabled {},
+}

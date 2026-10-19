@@ -1,0 +1,327 @@
+//! Browser Pass forms mediate the private verifier; no entitlement SQL runs here.
+use crate::{
+    AppState,
+    handlers::AppError,
+    security::RequestPeer,
+    verification_form::{self, Fields, PassSecret},
+};
+use askama::Template;
+use axum::{
+    Extension, Router,
+    body::Bytes,
+    extract::{RawQuery, State},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
+    response::{IntoResponse, Response},
+    routing::get,
+};
+use board_domain::challenge_secrets::PassSessionToken;
+use board_verification_client::{VerificationClient, protocol};
+
+#[derive(Template)]
+#[template(path = "pass_auth.html")]
+struct Page<'a> {
+    csrf: &'a str,
+    status: i8,
+    message: &'a str,
+}
+fn unavailable() -> AppError {
+    AppError(
+        StatusCode::SERVICE_UNAVAILABLE,
+        "Pass authentication is unavailable. Try again later.",
+    )
+}
+fn invalid() -> AppError {
+    AppError(StatusCode::BAD_REQUEST, "Invalid Pass form.")
+}
+fn client(state: &AppState) -> Result<&VerificationClient, AppError> {
+    state.verification.as_ref().ok_or_else(unavailable)
+}
+fn cookie_name(production: bool) -> &'static str {
+    if production {
+        "__Host-board-pass"
+    } else {
+        "board-pass"
+    }
+}
+pub(crate) fn read_cookie(
+    headers: &HeaderMap,
+    production: bool,
+) -> Result<Option<String>, AppError> {
+    let mut result = None;
+    let mut seen = false;
+    let mut total = 0usize;
+    for header in headers.get_all(header::COOKIE) {
+        total = total
+            .checked_add(header.as_bytes().len())
+            .ok_or_else(invalid)?;
+        if total > verification_form::MAX_BODY {
+            return Err(invalid());
+        }
+        for pair in header.to_str().map_err(|_| invalid())?.split(';') {
+            let Some((name, value)) = pair.trim().split_once('=') else {
+                continue;
+            };
+            if name != cookie_name(production) {
+                continue;
+            }
+            if seen {
+                return Err(invalid());
+            }
+            seen = true;
+            result = PassSessionToken::parse(value).map(|token| token.encode());
+        }
+    }
+    Ok(result)
+}
+fn set_cookie(
+    headers: &mut HeaderMap,
+    production: bool,
+    token: &str,
+    ttl: u32,
+) -> Result<(), AppError> {
+    if (!token.is_empty() && PassSessionToken::parse(token).is_none())
+        || ![0, 86400, 31556900].contains(&ttl)
+    {
+        return Err(unavailable());
+    }
+    let secure = if production { "; Secure" } else { "" };
+    let value = format!(
+        "{}={token}; Path=/; Max-Age={ttl}; HttpOnly; SameSite=Lax{secure}",
+        cookie_name(production)
+    );
+    headers.append(
+        header::SET_COOKIE,
+        HeaderValue::from_str(&value).map_err(|_| unavailable())?,
+    );
+    // This source-compatible presentation cookie is never read as authority.
+    let enabled = if token.is_empty() { "" } else { "1" };
+    headers.append(
+        header::SET_COOKIE,
+        HeaderValue::from_str(&format!(
+            "pass_enabled={enabled}; Path=/; Max-Age={ttl}; SameSite=Lax{secure}"
+        ))
+        .map_err(|_| unavailable())?,
+    );
+    Ok(())
+}
+fn render(
+    state: &AppState,
+    secret: &PassSecret,
+    status: i8,
+    message: &str,
+    xhr: bool,
+) -> Result<Response, AppError> {
+    let mut response = if xhr {
+        let encoded = crate::output::json(
+            state.limits.response_writer(4096),
+            &serde_json::json!({"status":status,"message":if message.is_empty(){None}else{Some(message)}}),
+        )?;
+        (
+            [(header::CONTENT_TYPE, "application/json")],
+            encoded.into_body(),
+        )
+            .into_response()
+    } else {
+        crate::output::html(
+            state,
+            &Page {
+                csrf: &secret.nonce(),
+                status,
+                message,
+            },
+        )?
+    };
+    if status != 1 && status != 4 {
+        secret.append(response.headers_mut(), state.production);
+    }
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    Ok(response)
+}
+pub(crate) fn routes() -> Router<AppState> {
+    Router::new()
+        .route("/auth", get(page).post(submit))
+        .route("/auth.php", get(page).post(submit))
+        .layer(axum::extract::DefaultBodyLimit::max(
+            verification_form::MAX_BODY,
+        ))
+}
+async fn page(
+    State(state): State<AppState>,
+    RawQuery(query): RawQuery,
+    headers: HeaderMap,
+) -> Result<Response, AppError> {
+    let service = client(&state)?;
+    let fields = Fields::parse(
+        query.as_deref().unwrap_or("").as_bytes(),
+        &["xhr", "action"],
+        128,
+    )
+    .map_err(|_| invalid())?;
+    if !matches!(fields.get("action"), "" | "index") || !matches!(fields.get("xhr"), "" | "1") {
+        return Err(invalid());
+    }
+    let secret = PassSecret::generate().map_err(|_| unavailable())?;
+    let token = read_cookie(&headers, state.production)?;
+    let status = if let Some(token) = token.as_ref() {
+        service
+            .pass_state(&protocol::PassSession {
+                token: token.clone(),
+            })
+            .await
+            .map_err(|_| unavailable())?
+    } else {
+        protocol::PassState::None {}
+    };
+    let authenticated = matches!(status, protocol::PassState::Ready { .. });
+    let mut response = render(
+        &state,
+        &secret,
+        if authenticated { 2 } else { 0 },
+        "",
+        fields.has("xhr"),
+    )?;
+    if token.is_some() && !authenticated {
+        set_cookie(response.headers_mut(), state.production, "", 0)?;
+    }
+    Ok(response)
+}
+async fn submit(
+    State(state): State<AppState>,
+    Extension(RequestPeer(peer)): Extension<RequestPeer>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response, AppError> {
+    let service = client(&state)?;
+    if headers.get_all(header::CONTENT_TYPE).iter().count() != 1
+        || headers
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_none_or(|v| {
+                !matches!(
+                    v,
+                    "application/x-www-form-urlencoded"
+                        | "application/x-www-form-urlencoded;charset=UTF-8"
+                        | "application/x-www-form-urlencoded; charset=UTF-8"
+                )
+            })
+    {
+        return Err(invalid());
+    }
+    let fields = Fields::parse(
+        &body,
+        &["id", "pin", "long_login", "logout", "csrf", "xhr", "action"],
+        verification_form::MAX_BODY,
+    )
+    .map_err(|_| invalid())?;
+    if !matches!(fields.get("action"), "" | "index")
+        || !matches!(fields.get("xhr"), "" | "1")
+        || !matches!(fields.get("long_login"), "" | "1")
+        || !matches!(fields.get("logout"), "" | "1")
+    {
+        return Err(invalid());
+    }
+    let secret = PassSecret::read(&headers, state.production)
+        .map_err(|_| invalid())?
+        .ok_or_else(invalid)?;
+    if !secret.matches(fields.get("csrf")) {
+        return Err(AppError(
+            StatusCode::FORBIDDEN,
+            "This Pass form has expired. Reload the page.",
+        ));
+    }
+    let xhr = fields.has("xhr");
+    if fields.get("logout") == "1" {
+        if fields.has("id") || fields.has("pin") || fields.has("long_login") {
+            return Err(invalid());
+        }
+        if let Some(token) = read_cookie(&headers, state.production)? {
+            service
+                .pass_signout(&protocol::PassSession { token })
+                .await
+                .map_err(|_| unavailable())?;
+        }
+        let mut response = render(&state, &secret, 4, "", xhr)?;
+        set_cookie(response.headers_mut(), state.production, "", 0)?;
+        PassSecret::clear(response.headers_mut(), state.production);
+        return Ok(response);
+    }
+    if fields.get("id").is_empty() || fields.get("pin").is_empty() {
+        return render(
+            &state,
+            &secret,
+            -1,
+            "You have left one or more fields blank.",
+            xhr,
+        );
+    }
+    if fields.get("id").len() != 10 {
+        return render(
+            &state,
+            &secret,
+            -1,
+            "Your Token must be exactly 10 characters.",
+            xhr,
+        );
+    }
+    if !fields
+        .get("id")
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric())
+        || fields.get("pin").len() > 128
+    {
+        return render(&state, &secret, -1, "Incorrect Token or PIN.", xhr);
+    }
+    let peer = peer
+        .filter(|value| !value.is_unspecified() && !value.is_multicast())
+        .ok_or_else(unavailable)?;
+    let result = service
+        .pass_login(&protocol::PassLogin {
+            identifier: fields.get("id").into(),
+            pin: fields.get("pin").into(),
+            peer,
+            remember: fields.get("long_login") == "1",
+        })
+        .await
+        .map_err(|_| unavailable())?;
+    let message = match result {
+        protocol::PassLoginResult::Ready { token, ttl_seconds } => {
+            let mut response = render(&state, &secret, 1, "", xhr)?;
+            set_cookie(
+                response.headers_mut(),
+                state.production,
+                &token,
+                ttl_seconds,
+            )?;
+            PassSecret::clear(response.headers_mut(), state.production);
+            return Ok(response);
+        }
+        protocol::PassLoginResult::Rejected {} => "Incorrect Token or PIN.".into(),
+        protocol::PassLoginResult::Flood {} => {
+            "You have to wait a while before attempting this again.".into()
+        }
+        protocol::PassLoginResult::InUse { seconds } => format!(
+            "This Pass is already in use from another network. Wait {seconds} seconds before trying again."
+        ),
+        protocol::PassLoginResult::Disabled { status } => {
+            let message = match status {
+                1 => "This Pass has expired.",
+                2 => "This Pass has been refunded and disabled.",
+                3 => "This Pass has a disputed payment.",
+                4 => "This Pass has been revoked due to spamming.",
+                5 => "This Pass has been revoked due to illegal content.",
+                _ => return Err(unavailable()),
+            };
+            let mut response = render(&state, &secret, -1, message, xhr)?;
+            set_cookie(response.headers_mut(), state.production, "", 0)?;
+            return Ok(response);
+        }
+        protocol::PassLoginResult::Capacity {} => return Err(unavailable()),
+    };
+    render(&state, &secret, -1, &message, xhr)
+}
+
+#[cfg(all(test, feature = "database-tests"))]
+mod database_tests;

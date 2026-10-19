@@ -10,6 +10,7 @@ database-tests = ["board-store/database-tests"]
 
 [dependencies]
 axum.workspace = true
+argon2 = "0.5"
 board-domain = { path = "../../crates/domain" }
 board-store = { path = "../../crates/store" }
 board-verification-client = { path = "../../crates/verification-client" }

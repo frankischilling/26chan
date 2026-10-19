@@ -110,6 +110,25 @@ impl VerificationClient {
         }
     }
 
+    pub async fn pass_login(
+        &self,
+        input: &protocol::PassLogin,
+    ) -> Result<protocol::PassLoginResult, Error> {
+        self.exchange("/v1/pass/login", input).await
+    }
+    pub async fn pass_state(
+        &self,
+        input: &protocol::PassSession,
+    ) -> Result<protocol::PassState, Error> {
+        self.exchange("/v1/pass/state", input).await
+    }
+    pub async fn pass_signout(
+        &self,
+        input: &protocol::PassSession,
+    ) -> Result<protocol::PassState, Error> {
+        self.exchange("/v1/pass/signout", input).await
+    }
+
     pub async fn ensure_session(
         &self,
         input: &protocol::Session,

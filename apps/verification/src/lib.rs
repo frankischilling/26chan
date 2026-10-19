@@ -5,6 +5,8 @@ mod access;
 mod challenge;
 pub mod config;
 mod handlers;
+mod pass;
+use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use axum::{Router, extract::DefaultBodyLimit, http::StatusCode, middleware, routing::post};
 use board_domain::{challenge_secrets::VerificationKey, verification_mail::MailKey};
 use board_store::verification::VerificationStore;
@@ -17,6 +19,8 @@ pub struct AppState {
     mail_key: Arc<MailKey>,
     access: access::Access,
     rendering: Arc<tokio::sync::Semaphore>,
+    pass_hashing: Arc<tokio::sync::Semaphore>,
+    pass_dummy: Arc<String>,
 }
 impl AppState {
     pub fn new(
@@ -25,12 +29,20 @@ impl AppState {
         mail_key: MailKey,
         service_token: &str,
     ) -> Result<Self, config::ConfigError> {
+        let salt =
+            SaltString::encode_b64(b"pass-dummy-salt-v1").map_err(|_| config::ConfigError)?;
+        let dummy = Argon2::default()
+            .hash_password(b"unrecognized-pass-credential", &salt)
+            .map_err(|_| config::ConfigError)?
+            .to_string();
         Ok(Self {
             store,
             key: Arc::new(key),
             mail_key: Arc::new(mail_key),
             access: access::Access::new(service_token)?,
             rendering: Arc::new(tokio::sync::Semaphore::new(4)),
+            pass_hashing: Arc::new(tokio::sync::Semaphore::new(2)),
+            pass_dummy: Arc::new(dummy),
         })
     }
 }
@@ -39,6 +51,9 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/readyz", post(handlers::ready))
         .route("/v1/session", post(handlers::ensure_session))
+        .route("/v1/pass/login", post(pass::login))
+        .route("/v1/pass/state", post(pass::status))
+        .route("/v1/pass/signout", post(pass::signout))
         .route("/v1/challenge", post(handlers::challenge))
         .route("/v1/check", post(challenge::check::check))
         .route("/v1/credit", post(challenge::credit::claim))

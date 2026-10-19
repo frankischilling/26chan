@@ -115,6 +115,7 @@ jobs:
         run: |
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
+          php -n scripts/test-pass-policy-source.php
           node --test tests/browser/janitor-queue-state.test.mjs
           node tests/browser/janitor-queue-controls.mjs
           set -a
@@ -630,6 +631,8 @@ jobs:
         run: sudo bash scripts/test-staff-messages-migration.sh
       - name: Qualify private janitor request weight authority
         run: sudo bash scripts/test-janitor-request-authority.sh
+      - name: Qualify Pass lifecycle and restored sessions
+        run: sudo bash scripts/test-public-pass-lifecycle.sh
       - name: Qualify atomic janitor request capture and deletion
         run: sudo bash scripts/test-janitor-request-store.sh
       - name: Qualify request review decisions and counted outcomes

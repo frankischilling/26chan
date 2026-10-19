@@ -58,6 +58,11 @@ const ASSETS: &[(&str, &str, &[u8])] = &[
         include_bytes!("../static/verification.v1.js"),
     ),
     (
+        "/static/pass-auth.v1.css",
+        "text/css; charset=utf-8",
+        include_bytes!("../static/pass-auth.v1.css"),
+    ),
+    (
         "/static/verification.v1.css",
         "text/css; charset=utf-8",
         include_bytes!("../static/verification.v1.css"),

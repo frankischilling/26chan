@@ -1,9 +1,10 @@
 # Public Pass lifecycle
 
 Issue #201 covers public membership authentication and its posting benefits.
-This work begins with the source state model. The policy module alone grants no
-identity, session or posting authority. Storage, HTTP routes and posting
-integration are still pending.
+The source state model is qualified. Private entitlement/session storage, the
+isolated verifier and browser login/logout forms are implemented and undergoing
+integration checks. The policy module alone grants no identity or posting
+authority. Posting integration, recovery and local provisioning remain pending.
 
 ## Source decisions
 
@@ -70,3 +71,33 @@ Local provisioning must use deployment-owned test entitlements. Source tokens,
 PINs, production salts and payment accounts are never imported. Recovery and
 checkout dependencies remain part of the parent issue until they have working,
 qualified boundaries.
+
+
+## Current authentication boundary
+
+The verifier reserves a failed-attempt slot before password work. Five failed
+or unfinished attempts from a peer within an hour refuse further attempts;
+correct credentials release their slot. Login completion consumes its one-use
+30-second ticket and rechecks the credential version after acquiring the account
+lock. PIN verification accepts only the fixed Argon2id profile and runs at most
+two hashes concurrently. Missing identifiers use a dummy hash with that same
+profile. Hash permits remain attached to blocking work after HTTP cancellation.
+
+Sessions are random, separately hashed tokens with host-only HttpOnly cookies.
+The source-compatible `pass_enabled` cookie is presentation only. Each account
+has at most eight active stored sessions; global inventories are bounded.
+Changing the PIN or account status advances the credential version and invalidates
+older sessions. Login/logout forms have a separate CSRF cookie and nonce purpose.
+Only the isolated verifier can call the issuer entry points; structural or
+privilege drift blocks them.
+
+IPv4 holds preserve the source /16 and /24 rules. IPv6 uses keyed /64 scopes
+instead of collapsing every address through the source's IPv4 conversion.
+Addresses and public login identifiers are HMAC-derived before database storage.
+No runtime receives table access to credential hashes or membership sessions.
+
+The supplied Pass template references an external stylesheet that is absent from
+the checkout. A retrieval attempt returned an HTML site-unavailable page, which
+was not installed as CSS. The local form stylesheet is provisional; complete
+source-pixel qualification remains open. No production entitlement, payment or
+mail account has been provisioned by these tests.

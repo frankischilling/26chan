@@ -5,12 +5,20 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub(crate) const MAX_BODY: usize = 8192;
-pub(crate) struct BrowserSecret<const POSTING: bool>([u8; 32]);
-pub(crate) type FormSecret = BrowserSecret<false>;
-pub(crate) type PostingSecret = BrowserSecret<true>;
+pub(crate) struct BrowserSecret<const PURPOSE: u8>([u8; 32]);
+pub(crate) type FormSecret = BrowserSecret<0>;
+pub(crate) type PostingSecret = BrowserSecret<1>;
+pub(crate) type PassSecret = BrowserSecret<2>;
 
-fn name<const POSTING: bool>(production: bool) -> &'static str {
-    if POSTING {
+fn name<const PURPOSE: u8>(production: bool) -> &'static str {
+    if PURPOSE == 2 {
+        return if production {
+            "__Host-board-pass-form"
+        } else {
+            "board-pass-form"
+        };
+    }
+    if PURPOSE == 1 {
         return if production {
             "__Host-board-captcha"
         } else {
@@ -50,7 +58,7 @@ fn decode(value: &str) -> Option<[u8; 32]> {
     }
     Some(output)
 }
-impl<const POSTING: bool> BrowserSecret<POSTING> {
+impl<const PURPOSE: u8> BrowserSecret<PURPOSE> {
     pub(crate) fn generate() -> Result<Self, ()> {
         let mut secret = [0; 32];
         OsRng.try_fill_bytes(&mut secret).map_err(|_| ())?;
@@ -69,7 +77,7 @@ impl<const POSTING: bool> BrowserSecret<POSTING> {
                 let Some((key, value)) = pair.trim().split_once('=') else {
                     continue;
                 };
-                if key != name::<POSTING>(production) {
+                if key != name::<PURPOSE>(production) {
                     continue;
                 }
                 if seen {
@@ -83,8 +91,10 @@ impl<const POSTING: bool> BrowserSecret<POSTING> {
     }
     pub(crate) fn nonce(&self) -> String {
         let mut hash = Sha256::new();
-        if POSTING {
+        if PURPOSE == 1 {
             hash.update(b"26chan:posting-form:v1\0");
+        } else if PURPOSE == 2 {
+            hash.update(b"26chan:pass-form:v1\0");
         } else {
             hash.update(b"26chan:verification-form:v1\0");
         }
@@ -105,22 +115,17 @@ impl<const POSTING: bool> BrowserSecret<POSTING> {
             == 0
     }
     pub(crate) fn append(&self, headers: &mut HeaderMap, production: bool) {
-        set_cookie::<POSTING>(headers, production, &hex(&self.0), 1800);
+        set_cookie::<PURPOSE>(headers, production, &hex(&self.0), 1800);
     }
     pub(crate) fn clear(headers: &mut HeaderMap, production: bool) {
-        set_cookie::<POSTING>(headers, production, "", 0);
+        set_cookie::<PURPOSE>(headers, production, "", 0);
     }
 }
-fn set_cookie<const POSTING: bool>(
-    headers: &mut HeaderMap,
-    production: bool,
-    value: &str,
-    age: u16,
-) {
+fn set_cookie<const PURPOSE: u8>(headers: &mut HeaderMap, production: bool, value: &str, age: u16) {
     let secure = if production { "; Secure" } else { "" };
     let value = format!(
         "{}={value}; Path=/; Max-Age={age}; HttpOnly; SameSite=Strict{secure}",
-        name::<POSTING>(production)
+        name::<PURPOSE>(production)
     );
     headers.append(
         header::SET_COOKIE,
@@ -211,8 +216,12 @@ mod tests {
     }
     #[test]
     fn posting_and_signin_secrets_never_share_cookies_or_nonces() {
-        let signin = BrowserSecret::<false>([7; 32]);
-        let posting = BrowserSecret::<true>([7; 32]);
+        let signin = BrowserSecret::<0>([7; 32]);
+        let posting = BrowserSecret::<1>([7; 32]);
+        let pass = BrowserSecret::<2>([7; 32]);
+        assert_ne!(pass.nonce(), signin.nonce());
+        assert_ne!(pass.nonce(), posting.nonce());
+        assert!(!pass.matches(&signin.nonce()));
         assert_ne!(signin.nonce(), posting.nonce());
         assert!(!posting.matches(&signin.nonce()));
         assert!(!signin.matches(&posting.nonce()));
