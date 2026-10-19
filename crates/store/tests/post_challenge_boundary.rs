@@ -18,7 +18,7 @@ use sqlx::PgPool;
 // These deliberate late-failure constraints are fixture-owned schema. Attest
 // their exact temporary shape, and require the original catalog on removal.
 // Without this, admission correctly rejects the DDL before consuming a receipt.
-async fn transfer_catalog(owner: &PgPool) -> Vec<u8> {
+async fn transfer_catalog(owner: &PgPool) -> (Vec<u8>, Vec<u8>) {
     let mut tx = owner.begin().await.unwrap();
     sqlx::query("SET LOCAL ROLE board_thread_transfer_owner")
         .execute(&mut *tx)
@@ -35,10 +35,28 @@ async fn transfer_catalog(owner: &PgPool) -> Vec<u8> {
     .fetch_one(&mut *tx)
     .await
     .unwrap();
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let ready: bool = sqlx::query_scalar("SELECT content.restrictions_ready()")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    assert!(ready, "Fixture starts with intact restriction authority");
+    let restriction_hash =
+        sqlx::query_scalar("SELECT definition_hash FROM restrictions.catalog WHERE singleton")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
     tx.rollback().await.unwrap();
-    hash
+    (hash, restriction_hash)
 }
-async fn qualified_constraint(owner: &PgPool, statements: &[String], restore: Option<&[u8]>) {
+async fn qualified_constraint(
+    owner: &PgPool,
+    statements: &[String],
+    restore: Option<&(Vec<u8>, Vec<u8>)>,
+) {
     let mut tx = owner.begin().await.unwrap();
     if restore.is_none() {
         sqlx::query("SET LOCAL ROLE board_thread_transfer_owner")
@@ -55,6 +73,23 @@ async fn qualified_constraint(owner: &PgPool, statements: &[String], restore: Op
         );
         sqlx::query("RESET ROLE").execute(&mut *tx).await.unwrap();
     }
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    if restore.is_none() {
+        let ready: bool = sqlx::query_scalar("SELECT content.restrictions_ready()")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        assert!(ready, "Do not attest pre-existing restriction drift");
+    }
+    let previous_restriction_hash: Vec<u8> =
+        sqlx::query_scalar("SELECT restrictions.catalog_hash()")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+    sqlx::query("RESET ROLE").execute(&mut *tx).await.unwrap();
     for statement in statements {
         sqlx::query(sqlx::AssertSqlSafe(statement.clone()))
             .execute(&mut *tx)
@@ -71,7 +106,7 @@ async fn qualified_constraint(owner: &PgPool, statements: &[String], restore: Op
         .unwrap();
     if let Some(expected) = restore {
         assert_eq!(
-            hash, expected,
+            hash, expected.0,
             "Removing owned fault constraints restores the exact original catalog"
         );
     } else {
@@ -99,6 +134,41 @@ async fn qualified_constraint(owner: &PgPool, statements: &[String], restore: Op
         ready,
         "Only the owned temporary schema is attested for the late-failure test"
     );
+    // The private-media authority also seals post_media. Preserve the production
+    // guard while admitting only this test's explicit late-failure constraint.
+    sqlx::query("SET LOCAL ROLE board_restriction_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let restriction_hash: Vec<u8> = sqlx::query_scalar("SELECT restrictions.catalog_hash()")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    if let Some(expected) = restore {
+        assert_eq!(
+            restriction_hash, expected.1,
+            "Owned constraint removal restores restriction authority exactly"
+        );
+    } else if restriction_hash != previous_restriction_hash {
+        let ready: bool = sqlx::query_scalar("SELECT content.restrictions_ready()")
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+        assert!(
+            !ready,
+            "Unattested media constraint must fail restriction readiness"
+        );
+    }
+    sqlx::query("UPDATE restrictions.catalog SET definition_hash=$1 WHERE singleton")
+        .bind(&restriction_hash)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let ready: bool = sqlx::query_scalar("SELECT content.restrictions_ready()")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    assert!(ready, "Only the owned fixture constraint is attested");
     tx.commit().await.unwrap();
 }
 

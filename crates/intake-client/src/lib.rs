@@ -1,4 +1,5 @@
-//! Fixed-endpoint authenticated transport. Never decodes media or follows URLs.
+//! Fixed-endpoint transports. Never decode media or follow URLs.
+pub mod approved;
 use axum::{
     body::{Body, to_bytes},
     http::{Method, Request, StatusCode},

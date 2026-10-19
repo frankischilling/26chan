@@ -22,17 +22,18 @@
   const save = (key, value) => {
     try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* Preferences are optional. */ }
   };
-  const defaults = { arrowright: 'arrowright', arrowleft: 'arrowleft', a: 'a', d: 'd', w: 'w', c: 'c', r: 'r', u: 'u', escape: 'escape' };
+  const defaults = { arrowright: 'arrowright', arrowleft: 'arrowleft', a: 'a', d: 'd', w: 'w', c: 'c', r: 'r', u: 'u', i: 'i', escape: 'escape' };
   const keyCode = key => key === 'escape' ? 27 : key === 'arrowleft' ? 37 : key === 'arrowright' ? 39 : /^[a-z]$/.test(key) ? key.toUpperCase().charCodeAt(0) : null;
   const codeKey = code => code === 27 ? 'escape' : code === 37 ? 'arrowleft' : code === 39 ? 'arrowright' : Number.isInteger(code) && code >= 65 && code <= 90 ? String.fromCharCode(code).toLowerCase() : null;
   const validMap = map => Object.keys(defaults).every(action => keyCode(map[action]) !== null) && new Set(Object.values(map)).size === Object.keys(defaults).length;
   let keymap = { ...defaults };
   let menuPreference = '';
+  let imageHover = true, hideThumbnails = false;
   try {
     const raw = saved('br-keyremap');
     if (raw && raw.length <= 4096) {
       const pairs = JSON.parse(raw), candidate = { ...defaults }, seen = new Set();
-      if (!Array.isArray(pairs) || pairs.length > 9) throw Error('key map');
+      if (!Array.isArray(pairs) || pairs.length > 10) throw Error('key map');
       for (const pair of pairs) {
         if (!Array.isArray(pair) || pair.length !== 2) throw Error('key pair');
         const action = codeKey(pair[0]), key = codeKey(pair[1]);
@@ -46,6 +47,8 @@
     const raw = saved('rq-settings');
     if (raw && raw.length <= 4096) {
       const settings = JSON.parse(raw);
+      if (typeof settings?.imageHover === 'boolean') imageHover = settings.imageHover;
+      if (typeof settings?.hideThumbnails === 'boolean') hideThumbnails = settings.hideThumbnails;
       if (typeof settings?.customMenu === 'string' && settings.customMenu.length <= 1024) menuPreference = settings.customMenu;
     }
   } catch { /* No queue data is needed to restore preferences. */ }
@@ -66,12 +69,18 @@
         if (value && typeof value === 'object' && !Array.isArray(value)) settings = value;
       }
     } catch { /* A malformed record has no usable settings. */ }
+    if (imageHover) delete settings.imageHover; else settings.imageHover = false;
+    if (hideThumbnails) settings.hideThumbnails = true; else delete settings.hideThumbnails;
     if (menuPreference) settings.customMenu = menuPreference;
     else delete settings.customMenu;
     const encoded = Object.keys(settings).length ? JSON.stringify(settings) : null;
     if (encoded === null || encoded.length <= 4096) save('rq-settings', encoded);
   }
   function fillPreferences() {
+    const hover = document.getElementById('queue-image-hover'), hidden = document.getElementById('queue-hide-thumbnails');
+    if (hover) hover.checked = imageHover;
+    if (hidden) hidden.checked = hideThumbnails;
+    document.body?.classList.toggle('no-thumbnails', hideThumbnails);
     for (const input of document.querySelectorAll('[data-queue-key]')) input.value = keymap[input.dataset.queueKey];
     const menu = document.getElementById('queue-custom-menu');
     if (menu) menu.value = menuPreference;
@@ -84,13 +93,16 @@
     if (!validMap(candidate)) { say('Choose different keys: A–Z, ArrowLeft, ArrowRight or Escape.'); return; }
     const menu = document.getElementById('queue-custom-menu').value;
     if (menu.length > 1024) { say('The custom board list is too long.'); return; }
+    imageHover = document.getElementById('queue-image-hover')?.checked ?? imageHover;
+    hideThumbnails = document.getElementById('queue-hide-thumbnails')?.checked ?? hideThumbnails;
+    hideMedia();
     keymap = candidate; menuPreference = menu;
     const pairs = Object.entries(keymap).filter(([action, key]) => action !== key).map(([action, key]) => [keyCode(action), keyCode(key)]);
     save('br-keyremap', pairs.length ? JSON.stringify(pairs) : null);
     saveMenu(); fillPreferences(); applyMenu(); say('Queue preferences applied.');
   });
   document.getElementById('queue-reset-preferences')?.addEventListener('click', () => {
-    keymap = { ...defaults }; menuPreference = '';
+    keymap = { ...defaults }; menuPreference = ''; imageHover = true; hideThumbnails = false; hideMedia();
     save('br-keyremap', null); saveMenu();
     fillPreferences(); applyMenu(); say('Queue preferences reset.');
   });
@@ -138,7 +150,44 @@
     const match = [...select.options].find(option => !option.disabled && option.value && patterns.every(pattern => pattern.test(option.dataset.templateName)));
     if (match) { select.value = match.value; selectTemplate(select); }
   });
+  let expansion = null, hoverTimer = null;
+  function hideMedia() {
+    if (hoverTimer !== null) clearTimeout(hoverTimer);
+    hoverTimer = null;
+    if (expansion) { expansion.pause?.(); expansion.removeAttribute('src'); expansion.load?.(); expansion.remove(); expansion = null; }
+  }
+  function showMedia(thumb) {
+    hideMedia();
+    const link = thumb?.closest('.post-thumb-link');
+    const path = link?.getAttribute('href');
+    const format = link?.dataset.format;
+    if (!path || !/^\/ban-requests\/media\/[1-9][0-9]*\/file$/.test(path) || !['png','jpeg','gif','webm','mp4'].includes(format)) return;
+    const row = thumb.closest('.ban-request');
+    if (!row || row.hidden || row.classList.contains('processing') || leaving) return;
+    const video = format === 'webm' || format === 'mp4';
+    const element = document.createElement(video ? 'video' : 'img');
+    element.id = 'image-hover'; element.className = 'fitToScreen';
+    if (video) { element.muted = true; element.loop = true; } else { element.alt = 'Image'; element.referrerPolicy = 'no-referrer'; }
+    const bounds = thumb.getBoundingClientRect();
+    const right = document.documentElement.clientWidth - bounds.right;
+    const leftSide = bounds.left >= right;
+    const limit = leftSide ? bounds.left : right;
+    element.style[leftSide ? 'left' : 'right'] = '0px';
+    if (Number(thumb.dataset.width) > limit) element.style.maxWidth = `${Math.max(1, limit - 10)}px`;
+    element.onerror = () => { if (expansion === element) { hideMedia(); say('Retained media is unavailable. Refresh the queue or sign in again.'); } };
+    expansion = element; element.src = path; document.body.appendChild(element);
+    if (video) element.play().catch(() => { if (expansion === element) hideMedia(); });
+  }
+  document.addEventListener('mouseover', event => {
+    if (!imageHover || !(event.target instanceof Element) || !event.target.classList.contains('post-thumb')) return;
+    hideMedia(); const thumb = event.target;
+    hoverTimer = setTimeout(() => { hoverTimer = null; showMedia(thumb); }, 150);
+  });
+  document.addEventListener('mouseout', event => {
+    if (event.target instanceof Element && event.target.classList.contains('post-thumb')) hideMedia();
+  });
   function focus(row) {
+    hideMedia();
     focused?.classList.remove('focused');
     focused = row;
     if (!row) return;
@@ -159,6 +208,7 @@
     focus(index < 0 ? null : list.slice(0, index).reverse().find(row => available.includes(row)) || null);
   }
   function applyFilter() {
+    hideMedia();
     const query = search.value.toLowerCase();
     for (const row of rows()) {
       row.hidden = query !== '' && !['.post-name', '.post-content', '.ban-request-template']
@@ -180,6 +230,7 @@
   // Read-only refreshes may be superseded. A pending/sent review is never retried.
   async function reload() {
     if (pending || sending) { say('Finish or undo the pending review before refreshing.'); return; }
+    hideMedia();
     refresh?.abort();
     const controller = new AbortController();
     refresh = controller;
@@ -271,6 +322,7 @@
     if (!['accept', 'deny'].includes(data.get('decision'))) return;
     const job = { row, data, approved: data.get('decision') === 'accept', timer: null };
     pending = job;
+    hideMedia();
     row.classList.add('processing');
     undo.hidden = false;
     say(`${job.approved ? 'Approval' : 'Denial'} pending for 3 seconds. Use Undo or ${keymap.u.toUpperCase()} to cancel.`);
@@ -292,12 +344,13 @@
     }
     if (!(event.target instanceof Element) || event.target.closest('input,textarea,select,button,a,summary,[contenteditable]')) return;
     const key = Object.keys(keymap).find(action => keymap[action] === event.key.toLowerCase());
-    if (!['arrowright', 'arrowleft', 'a', 'd', 'r', 'u', 'c', 'w', 'escape'].includes(key)) return;
+    if (!['arrowright', 'arrowleft', 'a', 'd', 'r', 'u', 'c', 'w', 'i', 'escape'].includes(key)) return;
     event.preventDefault();
     if (key === 'arrowright') next();
     else if (key === 'arrowleft') previous();
     else if (key === 'r') void reload();
     else if (key === 'u') cancel();
+    else if (key === 'i') { if (expansion) hideMedia(); else showMedia(focused?.querySelector('.post-thumb')); }
     else if (key === 'escape') {
       for (const panel of document.querySelectorAll('.request-amend[open]')) panel.open = false;
       focus(focused);
@@ -314,6 +367,7 @@
     }
   });
   window.addEventListener('pagehide', () => {
+    hideMedia();
     leaving = true;
     ++generation;
     refresh?.abort();
