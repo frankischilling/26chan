@@ -495,7 +495,22 @@ async fn ordinary_error_precedes_five_seconds_and_shared_history_rolls_back() {
     .await
     .unwrap();
     assert!(same);
+    // CAPTCHA-off is itself a source bypass, so this public request also gets
+    // the half delay. Enabling CAPTCHA restores the full ordinary timer.
+    let after_janitor = f.snapshot().await;
+    rejected(f.public_write(0, op, ip, now + half + 5).await, half - 5);
+    sqlx::query("UPDATE content.boards SET captcha_enabled=true WHERE slug=$1")
+        .bind(&f.boards[0])
+        .execute(&f.owner)
+        .await
+        .unwrap();
     rejected(f.public_write(0, op, ip, now + half + 5).await, delay - 5);
+    sqlx::query("UPDATE content.boards SET captcha_enabled=false WHERE slug=$1")
+        .bind(&f.boards[0])
+        .execute(&f.owner)
+        .await
+        .unwrap();
+    assert_eq!(f.snapshot().await, after_janitor);
     // Ordinary timer can already be satisfied while the newest OP still trips
     // the staff timer. Neither gate replaces the other.
     f.seed(0, 0, ip, now + 2 * half).await;
