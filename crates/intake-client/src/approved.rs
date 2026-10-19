@@ -237,4 +237,34 @@ mod tests {
         assert!(read.await.unwrap_err().is_cancelled());
         server.await.unwrap();
     }
+    #[tokio::test]
+    async fn a_stalled_read_expires_and_closes_its_socket() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let client = ApprovedMediaClient::new(listener.local_addr().unwrap()).unwrap();
+        let request = tokio::spawn(async move { client.read(&image()).await });
+        let (mut socket, _) = tokio::time::timeout(Duration::from_secs(5), listener.accept())
+            .await
+            .unwrap()
+            .unwrap();
+        let mut headers = Vec::new();
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while !headers.ends_with(b"\r\n\r\n") {
+                headers.push(socket.read_u8().await.unwrap());
+                assert!(headers.len() < 4096);
+            }
+        })
+        .await
+        .unwrap();
+        tokio::time::pause();
+        tokio::time::advance(Duration::from_secs(9)).await;
+        assert_eq!(request.await.unwrap(), Err(ReadError));
+        tokio::time::resume();
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(5), socket.read(&mut [0; 1]))
+                .await
+                .unwrap()
+                .unwrap(),
+            0
+        );
+    }
 }
