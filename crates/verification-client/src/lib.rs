@@ -103,7 +103,13 @@ impl VerificationClient {
     pub async fn ready(&self) -> Result<(), Error> {
         let response: protocol::Readiness =
             self.exchange("/readyz", &serde_json::json!({})).await?;
-        if response.ready {
+        if !response.ready {
+            return Err(Error::Unavailable);
+        }
+        let membership: protocol::Readiness = self
+            .exchange("/v1/pass/ready", &serde_json::json!({}))
+            .await?;
+        if membership.ready {
             Ok(())
         } else {
             Err(Error::Unavailable)
@@ -215,5 +221,37 @@ mod tests {
             )
             .is_err()
         );
+    }
+}
+
+#[cfg(test)]
+mod pass_readiness_tests {
+    use super::*;
+    #[tokio::test]
+    async fn readiness_requires_the_membership_endpoint() {
+        for supported in [false, true] {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let endpoint = listener.local_addr().unwrap();
+            let mut app = axum::Router::new().route(
+                "/readyz",
+                axum::routing::post(|| async { axum::Json(serde_json::json!({"ready":true})) }),
+            );
+            if supported {
+                app = app.route(
+                    "/v1/pass/ready",
+                    axum::routing::post(|| async { axum::Json(serde_json::json!({"ready":true})) }),
+                );
+            }
+            let serving = tokio::spawn(async move {
+                axum::serve(listener, app).await.unwrap();
+            });
+            let result = VerificationClient::new(endpoint, "11".repeat(32))
+                .unwrap()
+                .ready()
+                .await;
+            serving.abort();
+            let _ = serving.await;
+            assert_eq!(result.is_ok(), supported);
+        }
     }
 }

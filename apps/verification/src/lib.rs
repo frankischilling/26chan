@@ -51,6 +51,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/readyz", post(handlers::ready))
         .route("/v1/session", post(handlers::ensure_session))
+        .route("/v1/pass/ready", post(handlers::ready))
         .route("/v1/pass/login", post(pass::login))
         .route("/v1/pass/state", post(pass::status))
         .route("/v1/pass/signout", post(pass::signout))

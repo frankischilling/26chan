@@ -4,7 +4,7 @@ Issue #201 covers public membership authentication and its posting benefits.
 The source state model is qualified. Private entitlement/session storage, the
 isolated verifier and browser login/logout forms are implemented and undergoing
 integration checks. The policy module alone grants no identity or posting
-authority. Posting integration, recovery and local provisioning remain pending.
+authority. Posting integration and recovery remain pending.
 
 ## Source decisions
 
@@ -101,3 +101,40 @@ the checkout. A retrieval attempt returned an HTML site-unavailable page, which
 was not installed as CSS. The local form stylesheet is provisional; complete
 source-pixel qualification remains open. No production entitlement, payment or
 mail account has been provisioned by these tests.
+
+
+## Local operator provisioning
+
+`board-pass-admin` reads one bounded JSON operation from standard input. It needs
+`MIGRATION_DATABASE_URL` and the same protected `VERIFICATION_KEY` used by the
+verifier. Keep that key stable and backed up: login identifier hashes cannot be
+recomputed after losing it. The CLI refuses public/runtime database identities
+and checks the sealed membership catalog before changing a row.
+
+Use `cargo run -p board-verification --bin board-pass-admin --locked` with input
+redirected from a private file outside the repository. The supported operations
+are:
+
+- `create`: identifier, PIN, status (0 active, 6 new, 7 delayed), purchase time,
+  and expiry time. Delayed accounts omit expiry until first authentication.
+- `reset_pin`: identifier and replacement PIN. Existing sessions are invalidated.
+- `status`: identifier and status 0 through 5. A status change invalidates sessions.
+- `renew`: identifier and a future expiry later than the stored expiry. It keeps
+  the original purchase time and reactivates the account.
+
+Dates use RFC 3339. Identifiers contain ten ASCII letters or digits and are
+case-insensitive. PINs contain 1 to 128 bytes. Unknown fields and fields belonging
+to another operation are refused. The result contains only the internal ID and
+status; identifiers, PINs and hashes are never printed. Protect and remove any
+input file containing credentials after use. These operator changes do not
+contact a checkout or mail provider.
+
+An eight-session inventory cannot lock out a user after a credential rotation:
+login removes stale versions before applying the session cap. The SQL suite
+checks this boundary. Provisioning tests use only a disposable database and
+owned credentials, verify that IDs and purchase history are preserved, reject
+shortening renewals and runtime-role writes, and inspect output for secret leaks.
+
+Apply migration 0216 before running these binaries. The public client also checks
+the explicit Pass readiness endpoint, so an older verifier cannot appear ready
+for membership routes it does not implement.

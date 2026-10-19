@@ -127,8 +127,14 @@ BEGIN
   RETURN QUERY SELECT 'in_use'::text,ceil(extract(epoch FROM target.last_used+interval '900 seconds'-stamp))::integer,0; RETURN; END IF;
  IF target.status BETWEEN 1 AND 5 THEN
   RETURN QUERY SELECT ('disabled_'||target.status)::text,0,0; RETURN; END IF;
- DELETE FROM verification_private.pass_sessions WHERE token_hash IN(SELECT token_hash FROM verification_private.pass_sessions
-  WHERE expires_at<=stamp ORDER BY expires_at LIMIT 64);
+ -- A PIN/status rotation must not strand the owner behind eight stale sessions.
+ DELETE FROM verification_private.pass_sessions WHERE token_hash IN(
+  SELECT token_hash FROM verification_private.pass_sessions WHERE entitlement_id=target.id
+   AND (expires_at<=stamp OR credential_version<>target.credential_version) ORDER BY created_at LIMIT 8);
+ DELETE FROM verification_private.pass_sessions WHERE token_hash IN(
+  SELECT s.token_hash FROM verification_private.pass_sessions s
+  JOIN verification_private.pass_entitlements e ON e.id=s.entitlement_id
+  WHERE s.expires_at<=stamp OR s.credential_version<>e.credential_version ORDER BY s.expires_at LIMIT 64);
  IF (SELECT count(*) FROM verification_private.pass_sessions)>=limits.session_limit
  OR (SELECT count(*) FROM verification_private.pass_sessions WHERE entitlement_id=target.id)>=8 THEN
   RETURN QUERY SELECT 'capacity'::text,0,0; RETURN; END IF;

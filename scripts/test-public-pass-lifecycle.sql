@@ -53,6 +53,22 @@ DO $$ DECLARE started record; result record; BEGIN
  SELECT * INTO result FROM content.pass_finish_login(sha256('owned-same-network-ticket'),sha256('owned-other-peer'),sha256('owned-scope16'),sha256('other-scope24'),true,sha256('owned-same-network-session'),false);
  IF result.status<>'ready' THEN RAISE EXCEPTION 'Same login scope was refused'; END IF;
 END $$;
+SET LOCAL ROLE board_verifier;
+DO $$ DECLARE n integer; result record; BEGIN
+ FOR n IN 1..7 LOOP
+  PERFORM content.pass_begin_login(sha256('owned-pass-0'),sha256('owned-other-peer'),sha256(convert_to('owned-cap-ticket-'||n,'UTF8')));
+  SELECT * INTO result FROM content.pass_finish_login(sha256(convert_to('owned-cap-ticket-'||n,'UTF8')),sha256('owned-other-peer'),sha256('owned-scope16'),sha256('other-scope24'),true,sha256(convert_to('owned-cap-session-'||n,'UTF8')),false);
+  IF result.status<>'ready' THEN RAISE EXCEPTION 'Owned session inventory could not be filled'; END IF;
+ END LOOP;
+END $$;
+SET LOCAL ROLE board_anonymous_owner;
+UPDATE verification_private.pass_entitlements SET pin_hash=pin_hash||'-rotated' WHERE token_hash=sha256('owned-pass-0');
+SET LOCAL ROLE board_verifier;
+DO $$ BEGIN
+ PERFORM content.pass_begin_login(sha256('owned-pass-0'),sha256('owned-other-peer'),sha256('owned-after-reset-ticket'));
+ IF (SELECT status FROM content.pass_finish_login(sha256('owned-after-reset-ticket'),sha256('owned-other-peer'),sha256('owned-scope16'),sha256('other-scope24'),true,sha256('owned-after-reset-session'),false))<>'ready' THEN
+ RAISE EXCEPTION 'Rotated credentials were stranded by stale sessions'; END IF;
+END $$;
 RESET ROLE;
 SAVEPOINT drift;
 SET LOCAL ROLE board_anonymous_owner;

@@ -75,6 +75,9 @@ async fn private_pass_login_checks_credentials_network_holds_flood_and_revocatio
         let owner = owner.clone();
         let identifier = identifier.clone();
         async move {
+            let (ready_status, ready) = call(&app, "/v1/pass/ready", json!({})).await;
+            assert_eq!(ready_status, StatusCode::OK);
+            assert_eq!(ready["ready"], true);
             let login = |pin: &str, peer: &str, remember: bool| json!({"identifier":identifier,"pin":pin,"peer":peer,"remember":remember});
             let (status, rejected) =
                 call(&app, "/v1/pass/login", login("wrong", "192.0.2.19", false)).await;
