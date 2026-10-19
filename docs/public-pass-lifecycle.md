@@ -4,7 +4,8 @@ Issue #201 covers public membership authentication and its posting benefits.
 The source state model is qualified. Private entitlement/session storage, the
 isolated verifier and browser login/logout forms are implemented and undergoing
 integration checks. The policy module alone grants no identity or posting
-authority. Posting integration and recovery remain pending.
+authority. CAPTCHA bypass is connected to protected posts; the remaining
+benefits and recovery are still being implemented.
 
 ## Source decisions
 
@@ -170,9 +171,18 @@ Classic, Twister and script-disabled controls keep the form nonce while hiding
 the CAPTCHA. The post insert consumes the receipt, and a private transaction-only
 handoff supplies the source's late-classifier bypass. Commit removes that
 handoff; it cannot authorize a later request. Pass posts do not earn courtesy
-CAPTCHA credits. Store tests cover a real accepted post, missing proof, replay
+CAPTCHA credits. Invalid, expired, disabled and network-held membership
+responses clear both browser Pass cookies. Issuer outages leave them intact.
+Store tests cover a real accepted post, missing proof, replay
 and revocation; public-handler tests cover the private issuer and form advice.
 
-Pass-only boards, cooldown reductions, early restriction exceptions, report
-receipts, visible membership years and recovery/delivery remain unfinished.
+The board policy follows `config/boards/vip.config.ini`: `/vip/` is Pass-only,
+while other boards default to ordinary admission. With CAPTCHA enabled, the
+post trigger requires a consumed Pass receipt; a solved ordinary CAPTCHA cannot
+satisfy the membership gate. The original `valid_captcha_bypass` treats
+CAPTCHA-disabled boards as bypassed, so that configuration also permits ordinary
+posts on a Pass-only board. The separate staff authority remains unchanged.
+
+Cooldown reductions, early restriction exceptions, report receipts, visible
+membership years and recovery/delivery remain unfinished.
 The complete posting flow still needs browser qualification.

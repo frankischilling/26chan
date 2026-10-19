@@ -91,6 +91,21 @@ pub(crate) fn read_cookie(
     }
     Ok(result)
 }
+pub(crate) fn clear_cookie(headers: &mut HeaderMap, production: bool) {
+    let (session, enabled) = if production {
+        (
+            "__Host-board-pass=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure",
+            "pass_enabled=; Path=/; Max-Age=0; SameSite=Lax; Secure",
+        )
+    } else {
+        (
+            "board-pass=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+            "pass_enabled=; Path=/; Max-Age=0; SameSite=Lax",
+        )
+    };
+    headers.append(header::SET_COOKIE, HeaderValue::from_static(session));
+    headers.append(header::SET_COOKIE, HeaderValue::from_static(enabled));
+}
 fn set_cookie(
     headers: &mut HeaderMap,
     production: bool,

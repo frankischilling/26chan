@@ -63,6 +63,15 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
         }};
         let missing=submit(0,None).await.unwrap_err();
         assert!(matches!(missing,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),"{missing:?}");
+        sqlx::query("UPDATE content.boards SET pass_post_only=true WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
+        let members_only=submit(4,None).await.unwrap_err();
+        assert!(matches!(members_only,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0201")),"{members_only:?}");
+        let ordinary=ReceiptToken::generate().unwrap();
+        let mut tx=owner.begin().await.unwrap();sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *tx).await.unwrap();
+        sqlx::query("INSERT INTO verification_private.receipts(token_hash,peer_hash,session_hash,purpose,board,target,context_hash,from_credit,suspicious,unsolved_before,may_grant_credit,created_at,expires_at) VALUES($1,$2,$3,'thread',$4,0,$5,false,false,0,false,statement_timestamp(),statement_timestamp()+interval '30 seconds')")
+            .bind(ordinary.storage_hash().as_slice()).bind(networks.peer.as_slice()).bind(fingerprints.token.as_slice()).bind(&board).bind(context.as_slice()).execute(&mut *tx).await.unwrap();tx.commit().await.unwrap();
+        let nonmember=submit(5,WriteChallengeProof::from_issuer(&ordinary.encode(),networks.peer,context)).await.unwrap_err();
+        assert!(matches!(nonmember,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0201")),"{nonmember:?}");
         let proof=||WriteChallengeProof::from_issuer(&receipt.encode(),networks.peer,context);
         let posted=submit(1,proof()).await.unwrap();assert!(posted>0);
         let persisted:bool=sqlx::query_scalar("SELECT content.pass_post_bypass($1,$2)").bind(posted).bind(fingerprints.token.as_slice()).fetch_one(&public).await.unwrap();
@@ -74,7 +83,11 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
         sqlx::query("UPDATE verification_private.pass_entitlements SET pin_hash=pin_hash||'-rotated' WHERE id=$1").bind(account).execute(&mut *tx).await.unwrap();tx.commit().await.unwrap();
         let revoked=submit(3,WriteChallengeProof::from_issuer(&next.encode(),networks.peer,context)).await.unwrap_err();
         assert!(matches!(revoked,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),"{revoked:?}");
-        let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&board).fetch_one(&owner).await.unwrap();assert_eq!(count,1);
+        // CAPTCHA-off is a trusted source bypass even on a Pass-only board.
+        sqlx::query("UPDATE content.boards SET captcha_enabled=false WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
+        assert!(submit(6,None).await.unwrap()>0);
+        assert!(submit(7,WriteChallengeProof::from_issuer(&ordinary.encode(),networks.peer,context)).await.unwrap()>0);
+        let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&board).fetch_one(&owner).await.unwrap();assert_eq!(count,3);
         let credits:i64=sqlx::query_scalar("SELECT count(*) FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).fetch_one(&owner).await.unwrap();assert_eq!(credits,0);
     }}).await;
     let mut tx = owner.begin().await.unwrap();

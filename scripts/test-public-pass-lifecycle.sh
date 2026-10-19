@@ -61,6 +61,28 @@ DO $$ BEGIN
 END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0217_pass_post_challenge.sql
+"${migrator[@]}" -c BEGIN -f migrations/0218_pass_only_boards.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='content.boards'::regclass AND attname='pass_post_only' AND NOT attisdropped)
+  OR content.public_pass_ready() IS DISTINCT FROM true
+  OR content.public_challenge_ready() IS DISTINCT FROM true
+  OR content.restrictions_ready() IS DISTINCT FROM true
+  OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'Pass-only rollback changed existing authority'; END IF;
+END $$;
+SQL
+"${migrator[@]}" -c 'SET ROLE board_anonymous_owner' -c "DO \$\$ BEGIN IF post_secrets.classifier_history_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Pass-only rollback changed classifier history'; END IF; END \$\$;"
+"${migrator[@]}" --single-transaction -f migrations/0218_pass_only_boards.sql
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN
+ IF (SELECT pass_post_only FROM content.boards WHERE slug='vip') IS DISTINCT FROM true
+  OR EXISTS(SELECT 1 FROM content.boards WHERE slug<>'vip' AND pass_post_only)
+  OR has_column_privilege('board_public','content.boards','pass_post_only','UPDATE')
+  OR has_column_privilege('board_verifier','content.boards','pass_post_only','UPDATE') THEN
+  RAISE EXCEPTION 'Pass-only source board configuration differs'; END IF;
+END $$;
+SQL
 "${psql[@]}" -d pass_lifecycle -f scripts/test-public-pass-lifecycle.sql
 "${psql[@]}" -d pass_lifecycle <<'SQL'
 SET ROLE board_anonymous_owner;
@@ -77,6 +99,10 @@ SQL
 "${psql[@]}" -d pass_restored <<'SQL'
 DO $$ BEGIN IF content.public_pass_ready() IS DISTINCT FROM true THEN
  RAISE EXCEPTION 'Restored membership authority differs'; END IF; END $$;
+SET ROLE board_anonymous_owner;
+DO $$ BEGIN IF post_secrets.classifier_history_ready() IS DISTINCT FROM true THEN
+ RAISE EXCEPTION 'Restored classifier history differs'; END IF; END $$;
+RESET ROLE;
 SET ROLE board_verifier;
 DO $$ BEGIN IF (SELECT status FROM content.pass_session_state(sha256('restore-session')))<>'ready' THEN
  RAISE EXCEPTION 'Restored owned session failed'; END IF; END $$;
