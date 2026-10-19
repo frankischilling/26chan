@@ -117,7 +117,10 @@
     form.querySelector('[name="ban_length"]').value = days !== null && days >= -1 && days <= 1024 ? String(days) : '';
     form.querySelector('[name="global"]').value = option.dataset.global === '1' ? '1' : '0';
     const publicReason = form.querySelector('[name="public_reason"]');
-    if (publicReason) publicReason.value = '';
+    if (publicReason) {
+      const reasons = document.getElementById('queue-template-reasons')?.content;
+      publicReason.value = reasons ? [...reasons.children].find(item => item.dataset.templateId === option.value)?.textContent ?? '' : '';
+    }
   }
   enableAutocomplete();
   document.addEventListener('change', event => {

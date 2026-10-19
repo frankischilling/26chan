@@ -261,3 +261,12 @@ test('saving a menu does not destroy an oversized unrelated settings record', ()
   const raw=JSON.stringify({customCSS:'x'.repeat(5000)}),f=fixture({preferences:true,initialStorage:{'rq-settings':raw}});
   f.ids.get('queue-custom-menu').value='g'; f.ids.get('queue-save-preferences').fire('click'); assert.equal(f.storage.get('rq-settings'),raw);
 });
+
+test('changing a template restores its inert public reason without carrying an old override', () => {
+  const f=fixture(), {select}=amendmentFixture(f,['Owned']);
+  const reason=f.element(); reason.value='Previous override';
+  const form=select.closest('form'), original=form.querySelector;
+  form.querySelector=selector=>selector==='[name="public_reason"]'?reason:original(selector);
+  f.ids.set('queue-template-reasons',{content:{children:[{dataset:{templateId:'1'},textContent:'Owned <script>reason</script>'}]}});
+  f.change(select); assert.equal(reason.value,'Owned <script>reason</script>');
+});

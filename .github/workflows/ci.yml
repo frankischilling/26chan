@@ -77,6 +77,7 @@ jobs:
           php -n scripts/test-ban-request-review-reference.php
           php -n scripts/test-janitor-request-caller.php
           php -n scripts/test-janitor-file-effects.php
+          php -n scripts/test-janitor-history-source.php
       - name: Verify source janitor shortcut decisions
         run: node scripts/test-janitor-shortcut-source.mjs
       - name: Verify source staff queue assets
