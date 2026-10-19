@@ -64,6 +64,7 @@ fn nonce(cookie: &str) -> String {
     PassSecret::read(&headers, false).unwrap().unwrap().nonce()
 }
 #[tokio::test]
+#[ignore = "Run explicitly with isolated verifier test credentials."]
 async fn public_pass_forms_use_private_issuer_and_ignore_forged_presentation_cookie() {
     let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
