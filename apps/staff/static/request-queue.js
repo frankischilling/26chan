@@ -22,6 +22,78 @@
   const save = (key, value) => {
     try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* Preferences are optional. */ }
   };
+  const defaults = { arrowright: 'arrowright', arrowleft: 'arrowleft', a: 'a', d: 'd', w: 'w', c: 'c', r: 'r', u: 'u', escape: 'escape' };
+  const keyCode = key => key === 'escape' ? 27 : key === 'arrowleft' ? 37 : key === 'arrowright' ? 39 : /^[a-z]$/.test(key) ? key.toUpperCase().charCodeAt(0) : null;
+  const codeKey = code => code === 27 ? 'escape' : code === 37 ? 'arrowleft' : code === 39 ? 'arrowright' : Number.isInteger(code) && code >= 65 && code <= 90 ? String.fromCharCode(code).toLowerCase() : null;
+  const validMap = map => Object.keys(defaults).every(action => keyCode(map[action]) !== null) && new Set(Object.values(map)).size === Object.keys(defaults).length;
+  let keymap = { ...defaults };
+  let menuPreference = '';
+  try {
+    const raw = saved('br-keyremap');
+    if (raw && raw.length <= 4096) {
+      const pairs = JSON.parse(raw), candidate = { ...defaults }, seen = new Set();
+      if (!Array.isArray(pairs) || pairs.length > 9) throw Error('key map');
+      for (const pair of pairs) {
+        if (!Array.isArray(pair) || pair.length !== 2) throw Error('key pair');
+        const action = codeKey(pair[0]), key = codeKey(pair[1]);
+        if (!Object.hasOwn(defaults, action) || !key || seen.has(action)) throw Error('key');
+        seen.add(action); candidate[action] = key;
+      }
+      if (validMap(candidate)) keymap = candidate;
+    }
+  } catch { /* Invalid preferences retain safe defaults. */ }
+  try {
+    const raw = saved('rq-settings');
+    if (raw && raw.length <= 4096) {
+      const settings = JSON.parse(raw);
+      if (typeof settings?.customMenu === 'string' && settings.customMenu.length <= 1024) menuPreference = settings.customMenu;
+    }
+  } catch { /* No queue data is needed to restore preferences. */ }
+  function applyMenu(showAll = false) {
+    const boards = new Set();
+    for (const slug of menuPreference.split(',')) { if (!slug) break; boards.add(slug); }
+    for (const item of document.querySelectorAll('#board-menu .board-slug')) item.hidden = !showAll && menuPreference !== '' && !boards.has(item.dataset.board);
+    const more = document.getElementById('queue-more-boards');
+    if (more) more.hidden = showAll || menuPreference === '';
+  }
+  function saveMenu() {
+    let settings = {};
+    try {
+      const raw = saved('rq-settings');
+      if (raw && raw.length > 4096) return;
+      if (raw) {
+        const value = JSON.parse(raw);
+        if (value && typeof value === 'object' && !Array.isArray(value)) settings = value;
+      }
+    } catch { /* A malformed record has no usable settings. */ }
+    if (menuPreference) settings.customMenu = menuPreference;
+    else delete settings.customMenu;
+    const encoded = Object.keys(settings).length ? JSON.stringify(settings) : null;
+    if (encoded === null || encoded.length <= 4096) save('rq-settings', encoded);
+  }
+  function fillPreferences() {
+    for (const input of document.querySelectorAll('[data-queue-key]')) input.value = keymap[input.dataset.queueKey];
+    const menu = document.getElementById('queue-custom-menu');
+    if (menu) menu.value = menuPreference;
+  }
+  fillPreferences(); applyMenu();
+  document.getElementById('queue-more-boards')?.addEventListener('click', () => applyMenu(true));
+  document.getElementById('queue-save-preferences')?.addEventListener('click', () => {
+    const candidate = { ...defaults };
+    for (const input of document.querySelectorAll('[data-queue-key]')) candidate[input.dataset.queueKey] = input.value.toLowerCase();
+    if (!validMap(candidate)) { say('Choose different keys: A–Z, ArrowLeft, ArrowRight or Escape.'); return; }
+    const menu = document.getElementById('queue-custom-menu').value;
+    if (menu.length > 1024) { say('The custom board list is too long.'); return; }
+    keymap = candidate; menuPreference = menu;
+    const pairs = Object.entries(keymap).filter(([action, key]) => action !== key).map(([action, key]) => [keyCode(action), keyCode(key)]);
+    save('br-keyremap', pairs.length ? JSON.stringify(pairs) : null);
+    saveMenu(); fillPreferences(); applyMenu(); say('Queue preferences applied.');
+  });
+  document.getElementById('queue-reset-preferences')?.addEventListener('click', () => {
+    keymap = { ...defaults }; menuPreference = '';
+    save('br-keyremap', null); saveMenu();
+    fillPreferences(); applyMenu(); say('Queue preferences reset.');
+  });
   dark.checked = saved('dark-theme') !== null;
   keys.checked = saved('request-queue-keybinds') !== 'off';
   document.documentElement.classList.toggle('dark-theme', dark.checked);
@@ -33,6 +105,36 @@
   filter.hidden = false;
   document.getElementById('queue-preferences').hidden = false;
 
+  function enableAutocomplete() {
+    for (const field of document.querySelectorAll('.amend-autocomplete')) field.hidden = false;
+  }
+  function selectTemplate(select) {
+    const option = select.selectedOptions[0];
+    if (!option || option.disabled || !option.value) return;
+    const form = select.closest('form');
+    const seconds = Number(option.dataset.seconds);
+    const days = seconds === -1 ? -1 : Number.isSafeInteger(seconds) && seconds % 86400 === 0 ? seconds / 86400 : null;
+    form.querySelector('[name="ban_length"]').value = days !== null && days >= -1 && days <= 1024 ? String(days) : '';
+    form.querySelector('[name="global"]').value = option.dataset.global === '1' ? '1' : '0';
+    const publicReason = form.querySelector('[name="public_reason"]');
+    if (publicReason) publicReason.value = '';
+  }
+  enableAutocomplete();
+  document.addEventListener('change', event => {
+    if (event.target instanceof Element && event.target.matches('.request-amend select[name="amend_tpl"]')) selectTemplate(event.target);
+  });
+  document.addEventListener('input', event => {
+    if (!(event.target instanceof Element) || !event.target.matches('[data-template-search]')) return;
+    const value = event.target.value;
+    if (value.length > 256) return;
+    const words = [];
+    for (const word of value.split(/ +/)) { if (!word) break; words.push(word); }
+    if (words.length > 16) return;
+    const patterns = words.map(word => new RegExp('\\b' + word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+    const select = event.target.closest('form').querySelector('[name="amend_tpl"]');
+    const match = [...select.options].find(option => !option.disabled && option.value && patterns.every(pattern => pattern.test(option.dataset.templateName)));
+    if (match) { select.value = match.value; selectTemplate(select); }
+  });
   function focus(row) {
     focused?.classList.remove('focused');
     focused = row;
@@ -95,6 +197,8 @@
       document.getElementById('board-menu').replaceWith(document.importNode(menu, true));
       uncertain = false;
       applyFilter();
+      applyMenu();
+      enableAutocomplete();
       title();
       say('Requests refreshed.');
     } catch (error) {
@@ -166,7 +270,7 @@
     pending = job;
     row.classList.add('processing');
     undo.hidden = false;
-    say(`${job.approved ? 'Approval' : 'Denial'} pending for 3 seconds. Use Undo or U to cancel.`);
+    say(`${job.approved ? 'Approval' : 'Denial'} pending for 3 seconds. Use Undo or ${keymap.u.toUpperCase()} to cancel.`);
     job.timer = setTimeout(() => void send(job), 3000);
     if (focused === row) next();
   });
@@ -184,7 +288,7 @@
       return;
     }
     if (!(event.target instanceof Element) || event.target.closest('input,textarea,select,button,a,summary,[contenteditable]')) return;
-    const key = event.key.toLowerCase();
+    const key = Object.keys(keymap).find(action => keymap[action] === event.key.toLowerCase());
     if (!['arrowright', 'arrowleft', 'a', 'd', 'r', 'u', 'c', 'w', 'escape'].includes(key)) return;
     event.preventDefault();
     if (key === 'arrowright') next();
