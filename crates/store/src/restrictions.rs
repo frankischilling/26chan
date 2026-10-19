@@ -194,7 +194,10 @@ pub(crate) async fn prepare(
     if let Some(target) = member_target {
         query = query.bind(target);
     }
-    let decision: String = query.fetch_one(&mut **tx).await?;
+    let decision: String = query
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(posting_lookup_error)?;
     match decision.as_str() {
         "allowed" => Ok(None),
         "banned" => Ok(Some(BANNED)),
@@ -202,6 +205,22 @@ pub(crate) async fn prepare(
         _ => Err(StoreError::Database(sqlx::Error::Protocol(
             "Restriction decision is unavailable.".into(),
         ))),
+    }
+}
+
+/// Membership preflight now reaches the public-board lookup before the Store's
+/// ordinary row read. Preserve the same absent/private-board response without
+/// disguising invalid proofs, permission drift or other database failures.
+pub(crate) fn posting_lookup_error(error: sqlx::Error) -> StoreError {
+    if error
+        .as_database_error()
+        .and_then(|error| error.code())
+        .as_deref()
+        == Some("P0002")
+    {
+        StoreError::NotFound
+    } else {
+        StoreError::Database(error)
     }
 }
 
