@@ -86,6 +86,14 @@ DO $$ BEGIN IF content.restrictions_ready() IS DISTINCT FROM true
  RAISE EXCEPTION 'Request history rollback changed its predecessor'; END IF; END $$;
 SQL
     "${migrator[@]}" --single-transaction -f migrations/0213_janitor_request_history.sql
+    "${migrator[@]}" -c BEGIN -f migrations/0214_janitor_request_media.sql -c ROLLBACK
+    "${psql[@]}" -d request_review <<'SQL'
+DO $$ BEGIN IF content.restrictions_ready() IS DISTINCT FROM true
+ OR to_regclass('restrictions.request_media') IS NOT NULL
+ OR to_regprocedure('staff_identity.janitor_request_media(bytea,bytea,integer,bigint,boolean)') IS NOT NULL THEN
+ RAISE EXCEPTION 'Private media rollback changed its predecessor'; END IF; END $$;
+SQL
+    "${migrator[@]}" --single-transaction -f migrations/0214_janitor_request_media.sql
     python3 scripts/janitor-history-sql.py > "$cluster/history-source.sql"
     "${psql[@]}" -d request_review -f "$cluster/history-source.sql"
     python3 scripts/janitor-file-effects-sql.py > "$cluster/file-source.sql"
@@ -98,6 +106,7 @@ python3 scripts/ban-request-review-sql.py > "$cluster/source.sql"
 if [[ ${REQUEST_FILE_EFFECTS:-0} = 1 ]]; then
     "${psql[@]}" -d request_review -f scripts/test-janitor-shortcut-metadata.sql
     "${psql[@]}" -d request_review -f scripts/test-janitor-history.sql
+    "${psql[@]}" -d request_review -f scripts/test-janitor-retained-media.sql
 fi
 request=$("${psql[@]}" -U board_staff -d request_review -Atc "SELECT content.create_janitor_request(decode(repeat('22',32),'hex'),decode(repeat('33',32),'hex'),600,'rqown',207007,9003,false,false)")
 [[ $request =~ ^[1-9][0-9]*$ ]] || exit 1

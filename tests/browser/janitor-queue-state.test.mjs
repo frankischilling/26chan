@@ -12,16 +12,21 @@ function fixture({ storageThrows = false, initialStorage = {}, preferences = fal
   class Element {
     constructor(id = '') {
       this.id = id; this.hidden = false; this.value = ''; this.textContent = ''; this.checked = false;
-      this.listeners = new Map(); this.classes = new Set(); this.dataset = {};
+      this.listeners = new Map(); this.classes = new Set(); this.dataset = {}; this.style = {}; this.attributes = new Map(); this.children = []; this.parentElement = null;
       this.classList = { add: name => this.classes.add(name), remove: name => this.classes.delete(name), contains: name => this.classes.has(name), toggle: (name, on) => on ? this.classes.add(name) : this.classes.delete(name) };
     }
     addEventListener(name, handler) { this.listeners.set(name, handler); }
     fire(name) { this.listeners.get(name)?.({ preventDefault() {} }); }
+    getAttribute(name) {return this.attributes.get(name) ?? null;}
+    setAttribute(name,value) {this.attributes.set(name,value);}
+    removeAttribute(name) {this.attributes.delete(name); delete this[name];}
+    appendChild(child) {this.children.push(child);child.parentElement=this;return child;}
+    remove() {if(this.parentElement)this.parentElement.children=this.parentElement.children.filter(child=>child!==this);this.parentElement=null;}
     closest() { return null; }
     matches() { return false; }
     querySelector() { return null; }
     focus() { active = this; }
-    getBoundingClientRect() { return { top: 0, bottom: 50 }; }
+    getBoundingClientRect() { return { top: 0, bottom: 50, left: 100, right: 150 }; }
     scrollIntoView() {}
   }
   class Form extends Element {
@@ -36,8 +41,8 @@ function fixture({ storageThrows = false, initialStorage = {}, preferences = fal
   ids.get('content').dataset.board = 'g';
   const preferenceFields = [], boardItems = [];
   if (preferences) {
-    for (const id of ['queue-custom-menu','queue-save-preferences','queue-reset-preferences','queue-more-boards']) ids.set(id,new Element(id));
-    for (const action of ['arrowright','arrowleft','a','d','w','c','r','u','escape']) { const field=new Element(); field.dataset.queueKey=action; preferenceFields.push(field); }
+    for (const id of ['queue-custom-menu','queue-save-preferences','queue-reset-preferences','queue-more-boards','queue-image-hover','queue-hide-thumbnails']) ids.set(id,new Element(id));
+    for (const action of ['arrowright','arrowleft','a','d','w','c','r','u','i','escape']) { const field=new Element(); field.dataset.queueKey=action; preferenceFields.push(field); }
     for (const board of ['g','a','jp']) { const item=new Element(); item.dataset.board=board; boardItems.push(item); }
   }
 
@@ -48,9 +53,10 @@ function fixture({ storageThrows = false, initialStorage = {}, preferences = fal
     row.form = new Form(row);
     return row;
   });
-  const root = new Element(); root.clientHeight = 900;
+  const root = new Element(); root.clientHeight = 900; root.clientWidth = 1200;
+  const body = new Element();
   const document = {
-    documentElement: root, getElementById: id => ids.get(id),
+    documentElement: root, body, createElement: tag => { const element=new Element(); if(tag==='video'){element.play=()=>Promise.resolve(); element.pause=()=>{};element.load=()=>{};} return element; }, getElementById: id => ids.get(id),
     addEventListener: (event, callback) => events.set(event, callback),
     querySelectorAll: selector => selector === '#br-list .ban-request' ? rows : selector === '[data-queue-key]' ? preferenceFields : selector === '#board-menu .board-slug' ? boardItems : [],
   };
@@ -61,13 +67,15 @@ function fixture({ storageThrows = false, initialStorage = {}, preferences = fal
     location: { href: 'http://localhost:3001/ban-requests?board=g', reload() {} },
     window: { addEventListener: (event, callback) => windowEvents.set(event, callback) },
     localStorage: { getItem(key) { if (storageThrows) throw Error(); return storage.get(key) ?? null; }, setItem(key, value) { if (storageThrows) throw Error(); storage.set(key, value); }, removeItem(key) { if (storageThrows) throw Error(); storage.delete(key); } },
-    setTimeout: (callback, ms) => { assert.equal(ms, 3000); timers.set(++sequence, callback); return sequence; },
+    setTimeout: (callback, ms) => { assert([150,3000].includes(ms)); timers.set(++sequence, callback); return sequence; },
     clearTimeout: id => timers.delete(id),
     fetch: (url, options) => new Promise((resolve, reject) => requests.push({ url, options, resolve, reject })),
   });
   vm.runInContext(source, context);
   return {
     element: () => new Element(), input: target => events.get('input')({target}), change: target => events.get('change')({target}),
+    body, hover: target => events.get('mouseover')({target}), leave: target => events.get('mouseout')({target}),
+    media(index=0,format='png') {const row=rows[index],thumb=new Element(),link=new Element(); thumb.classList.add('post-thumb');link.dataset.format=format;link.setAttribute('href',`/ban-requests/media/${row.id}/file`);thumb.closest=selector=>selector==='.post-thumb-link'?link:selector==='.ban-request'?row:null;row.fields['.post-thumb']=thumb;return {thumb,link};},
     ids, rows, timers, requests, storage, preferenceFields, boardItems, active: () => active,
     key: (key, target = new Element()) => events.get('keydown')({ key, target, preventDefault() {} }),
     submit: (index = 0, decision = 'deny') => events.get('submit')({ target: rows[index].form, submitter: { name: 'decision', value: decision, disabled: false }, preventDefault() {} }),
@@ -201,7 +209,7 @@ test('custom board list, More and reset preserve unrelated source preferences', 
   assert.deepEqual(f.boardItems.map(item=>item.hidden),[true,false,true]);
   assert.deepEqual(JSON.parse(f.storage.get('rq-settings')),{customMenu:'a',imageHover:false});
   f.ids.get('queue-reset-preferences').fire('click'); assert(f.boardItems.every(item=>!item.hidden));
-  assert.deepEqual(JSON.parse(f.storage.get('rq-settings')),{imageHover:false});
+  assert(!f.storage.has('rq-settings'));
 });
 function amendmentFixture(f,names) {
   const search=f.element(),select=f.element(),days=f.element(),scope=f.element();
@@ -244,7 +252,7 @@ test('custom menu decisions match the isolated source including empty comma fiel
 test('source key alphabet and native accepted remaps agree without collisions', () => {
   const reference=JSON.parse(readFileSync('fixtures/janitor-preference-source.json')).keys;
   const context=vm.createContext({Keybinds:{}}); vm.runInContext(reference.fragment,context);
-  const reserved=new Set([27,37,39,65,67,68,82,85,87]);
+  const reserved=new Set([27,37,39,65,67,68,73,82,85,87]);
   for(let code=0;code<128;code++) { if(reserved.has(code)) continue;
     context.code=code; const supported=Boolean(vm.runInContext('Keybinds.codeToKey(code)',context));
     const f=fixture({initialStorage:{'br-keyremap':JSON.stringify([[39,code]])}});
@@ -269,4 +277,31 @@ test('changing a template restores its inert public reason without carrying an o
   form.querySelector=selector=>selector==='[name="public_reason"]'?reason:original(selector);
   f.ids.set('queue-template-reasons',{content:{children:[{dataset:{templateId:'1'},textContent:'Owned <script>reason</script>'}]}});
   f.change(select); assert.equal(reason.value,'Owned <script>reason</script>');
+});
+
+test('retained thumbnails expand after the source hover delay and close on exit or navigation', () => {
+  const f=fixture(), {thumb}=f.media();
+  f.hover(thumb); assert.equal(f.body.children.length,0); assert.equal(f.timers.size,1);
+  f.run(); assert.equal(f.body.children.length,1); assert.equal(f.body.children[0].src,'/ban-requests/media/1/file');
+  f.leave(thumb); assert.equal(f.body.children.length,0);
+  f.hover(thumb); f.hide(); assert.equal(f.timers.size,0); f.run(); assert.equal(f.body.children.length,0);
+});
+test('I toggles focused media and navigation, filtering and pending review close it', () => {
+  const f=fixture(); f.media(); f.key('ArrowRight'); f.key('i'); assert.equal(f.body.children.length,1);
+  f.key('i'); assert.equal(f.body.children.length,0); f.key('i'); f.key('ArrowRight'); assert.equal(f.body.children.length,0);
+  f.key('ArrowLeft'); f.key('i'); f.ids.get('filter-form').fire('submit'); assert.equal(f.body.children.length,0);
+  f.key('i'); f.submit(0); assert.equal(f.body.children.length,0);
+});
+test('media preferences preserve source defaults and reset owned settings', () => {
+  const f=fixture({preferences:true, initialStorage:{'rq-settings':'{"imageHover":false,"hideThumbnails":true,"customCSS":"owned"}'}}), {thumb}=f.media();
+  assert(f.body.classes.has('no-thumbnails')); f.hover(thumb); assert.equal(f.timers.size,0);
+  f.ids.get('queue-reset-preferences').fire('click'); assert(!f.body.classes.has('no-thumbnails'));
+  assert.deepEqual(JSON.parse(f.storage.get('rq-settings')),{customCSS:'owned'}); f.hover(thumb); assert.equal(f.timers.size,1);
+});
+test('expansion refuses documents, external targets, processing rows and stale errors', () => {
+  const f=fixture(), {thumb,link}=f.media(0,'pdf'); f.hover(thumb); f.run(); assert.equal(f.body.children.length,0);
+  link.dataset.format='png'; link.setAttribute('href','https://example.invalid/private'); f.hover(thumb);f.run();assert.equal(f.body.children.length,0);
+  link.setAttribute('href','/ban-requests/media/1/file'); f.rows[0].classList.add('processing'); f.hover(thumb); f.run(); assert.equal(f.body.children.length,0);
+  f.rows[0].classList.remove('processing');f.hover(thumb);f.run();const old=f.body.children[0];f.leave(thumb);f.hover(thumb);f.run();old.onerror();assert.equal(f.body.children.length,1);
+  f.body.children[0].onerror();assert.equal(f.body.children.length,0);assert.match(f.ids.get('queue-status').textContent,/unavailable/);
 });

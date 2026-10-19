@@ -16,6 +16,9 @@ SELECT NOT EXISTS (
  SELECT 1 FROM (VALUES
   ('staff_identity','janitor_request_form','bytea, bytea, integer, text, bigint','jsonb','board_auth'),
   ('content','create_janitor_request','bytea, bytea, integer, text, bigint, bigint, boolean, boolean','bigint','board_staff'),
+  ('content','create_janitor_request','bytea, bytea, integer, text, bigint, bigint, boolean, boolean, bytea, bytea','bigint','board_staff'),
+  ('staff_identity','janitor_request_media_plan','bytea, bytea, integer, text, bigint, bigint','jsonb','board_auth'),
+  ('staff_identity','janitor_request_media','bytea, bytea, integer, bigint, boolean','record','board_auth'),
   ('content','review_janitor_request','bytea, bytea, integer, bigint, boolean, bigint, integer, boolean, text, text','jsonb','board_staff'),
   ('staff_identity','janitor_request_queue','bytea, bytea, integer, text, integer','jsonb','board_auth'),
   ('staff_identity','janitor_request_statistics','bytea, bytea, integer, integer','jsonb','board_auth')
@@ -27,7 +30,8 @@ SELECT NOT EXISTS (
    AND has_function_privilege(current_user,p.oid,'EXECUTE')=(current_user=required.reader))
 ) AND NOT EXISTS (
  SELECT 1 FROM (VALUES ('restrictions','requests'),('restrictions','request_file_rules'),
-  ('admission','file_rules')) required(namespace,name)
+  ('admission','file_rules'),('restrictions','request_media'),('restrictions','request_ban_thumbnails'),
+  ('restrictions','request_media_capacity')) required(namespace,name)
  WHERE NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
   WHERE n.nspname=required.namespace AND c.relname=required.name AND c.relkind='r'
    AND NOT has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE')
@@ -189,8 +193,17 @@ pub(crate) async fn submit(
         return Err(AppError::Invalid);
     }
     let token = auth::hash(&auth::cookie(&headers, state.config.cookie_name())?);
+    let (body, thumbnail) = crate::request_media::capture(
+        &state,
+        &headers,
+        &input.board,
+        input.target,
+        template,
+        &input.csrf,
+    )
+    .await?;
     let id: i64 =
-        sqlx::query_scalar("SELECT content.create_janitor_request($1,$2,$3,$4,$5,$6,$7,$8)")
+        sqlx::query_scalar("SELECT content.create_janitor_request($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)")
             .bind(token)
             .bind(auth::hash(&input.csrf))
             .bind(state.config.idle_timeout.as_secs() as i32)
@@ -199,6 +212,8 @@ pub(crate) async fn submit(
             .bind(template)
             .bind(warning)
             .bind(asynchronous)
+            .bind(body)
+            .bind(thumbnail)
             .fetch_one(&state.staff)
             .await
             .map_err(database)?;

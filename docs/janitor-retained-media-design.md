@@ -1,7 +1,8 @@
 # Retained request media
 
-Implementation plan for the remaining media work in issue #223. These paths are
-not enabled yet.
+Draft implementation for the remaining media work in issue #223. Database
+lifecycle checks pass on owned fixtures; HTTP and browser qualification are
+still in progress. This work is not ready to merge.
 
 ## Source behavior
 
@@ -64,3 +65,23 @@ reports must never cause a media fetch or retain supplied bytes.
 
 This does not complete linked Pass history, staff-history search or full visual
 parity. README showcase work remains reserved for verified overall completion.
+
+## Development transport
+
+The staff process reads approved representations from a numeric loopback HTTP
+media origin. DNS names, credentials in URLs, remote addresses, redirects and
+encoded responses are refused. Each response must match the planned MIME type,
+length and digest. The client has a two-second connection timeout and an
+eight-second total deadline; cancellation closes its socket. It never sends a
+staff cookie or authorization header to the media service.
+
+The transport accepts the existing approved-file ceilings: 10 MiB for PNG/JPEG,
+20 MiB for GIF, 8 MiB for PDF/WebM/MP4, and 5 MiB for thumbnails. The database
+rechecks the actual representation metadata before retaining bytes. Custody has
+a 256 MiB default budget and a 1 GiB configuration ceiling; exhaustion refuses
+the request without deleting its public post.
+
+`migrations/0214_janitor_request_media.sql` keeps report classification behind a
+private helper owned by the report authority. The restriction owner receives a
+private approved-metadata view; it gains no direct access to additional report
+or attachment columns. Public media credentials cannot read custody tables.

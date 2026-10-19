@@ -51,7 +51,53 @@ struct SavedRequest {
     created_at: DateTime<Utc>,
     can_accept: bool,
     history: RequestHistory,
+    media: Option<RequestMedia>,
     payload: String,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RequestMedia {
+    format: String,
+    width: i32,
+    height: i32,
+    thumbnail_width: i32,
+    thumbnail_height: i32,
+}
+impl RequestMedia {
+    fn validate(&self) -> Result<(), AppError> {
+        if !matches!(
+            self.format.as_str(),
+            "png" | "jpeg" | "gif" | "pdf" | "webm" | "mp4"
+        ) || !(1..=65535).contains(&self.width)
+            || !(1..=65535).contains(&self.height)
+            || !(1..=250).contains(&self.thumbnail_width)
+            || !(1..=250).contains(&self.thumbnail_height)
+        {
+            return Err(AppError::Internal);
+        }
+        Ok(())
+    }
+    fn size(&self) -> (f64, f64) {
+        let (mut width, mut height) = (
+            f64::from(self.thumbnail_width),
+            f64::from(self.thumbnail_height),
+        );
+        if width > 130.0 {
+            height *= 130.0 / width;
+            width = 130.0;
+        }
+        if height > 130.0 {
+            width *= 130.0 / height;
+            height = 130.0;
+        }
+        (width, height)
+    }
+    fn display_width(&self) -> f64 {
+        self.size().0
+    }
+    fn display_height(&self) -> f64 {
+        self.size().1
+    }
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -168,6 +214,7 @@ struct Request {
     created_at: String,
     can_accept: bool,
     preview: Preview,
+    media: Option<RequestMedia>,
 }
 #[derive(Template)]
 #[template(path = "request_queue.html")]
@@ -291,8 +338,12 @@ pub(crate) async fn queue(
             request.created_at,
             request.payload,
         )?;
+        if let Some(media) = &request.media {
+            media.validate()?;
+        }
         requests.push(Request {
             id: request.id,
+            media: request.media,
             template_id: request.template_id,
             template_name: request.template_name,
             warning: request.warning,
