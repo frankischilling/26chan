@@ -33,6 +33,22 @@ async fn main() {
             }),
         );
     }
+    for mode in [
+        "login",
+        "success",
+        "authenticated",
+        "logout",
+        "error",
+        "escaped",
+    ] {
+        app = app.route(
+            &format!("/fixture/pass/{mode}"),
+            get(move || async move {
+                board_public::pass_fixture_response(mode, ORIGIN)
+                    .expect("production Pass form response")
+            }),
+        );
+    }
     let app = app.fallback_service(board_public::router(pool, ORIGIN.into(), false));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await

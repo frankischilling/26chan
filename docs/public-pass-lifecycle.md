@@ -138,3 +138,11 @@ shortening renewals and runtime-role writes, and inspect output for secret leaks
 Apply migration 0216 before running these binaries. The public client also checks
 the explicit Pass readiness endpoint, so an older verifier cannot appear ready
 for membership routes it does not implement.
+
+The verification browser fixture includes Pass login, authenticated, completion
+and error pages rendered by the production template. The browser cases cover
+native form validation and POST fields on desktop and mobile, with JavaScript
+both enabled and disabled. Submission is intercepted with owned fixture data;
+these cases do not prove session issuance or posting benefits. Private issuer
+and full-router database tests cover login and revocation separately. Hosted
+browser results must pass before this work is ready to merge.

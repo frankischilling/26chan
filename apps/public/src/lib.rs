@@ -470,3 +470,9 @@ pub fn posting_captcha_fixture_response(
 ) -> Result<axum::response::Response, String> {
     posting_challenge::fixture::response(mode, origin)
 }
+
+/// Synthetic Pass form states with production rendering, without write authority.
+#[cfg(feature = "browser-tests")]
+pub fn pass_fixture_response(mode: &str, origin: &str) -> Result<axum::response::Response, String> {
+    pass_auth::fixture_response(mode, origin)
+}

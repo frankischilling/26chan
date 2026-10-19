@@ -325,3 +325,46 @@ async fn submit(
 
 #[cfg(all(test, feature = "database-tests"))]
 mod database_tests;
+
+/// Rendering-only browser evidence; this fixture cannot issue membership authority.
+#[cfg(feature = "browser-tests")]
+pub(crate) fn fixture_response(mode: &str, origin: &str) -> Result<Response, String> {
+    let parsed = url::Url::parse(origin).map_err(|_| "Invalid fixture origin.")?;
+    if parsed.origin().ascii_serialization() != origin {
+        return Err("Invalid fixture origin.".into());
+    }
+    let (status, message) = match mode {
+        "login" => (0, ""),
+        "success" => (1, ""),
+        "authenticated" => (2, ""),
+        "logout" => (4, ""),
+        "error" => (-1, "Incorrect Token or PIN."),
+        "escaped" => (-1, "<script>owned fixture</script>"),
+        _ => return Err("Invalid Pass fixture.".into()),
+    };
+    let state = AppState {
+        asn_database: None,
+        browser_hint_key: None,
+        posting_browser_compat_key: None,
+        pool: sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+            .map_err(|_| "Fixture pool unavailable.")?,
+        origin: origin.into(),
+        production: false,
+        limits: std::sync::Arc::new(crate::security::Limits::new(
+            board_config::PublicRequestLimits::default(),
+        )),
+        media: None,
+        verification: None,
+        proxy_uid: None,
+        poster_id_key: None,
+        tripcode_key: None,
+        country_database: None,
+    };
+    let secret = PassSecret::generate().map_err(|_| "Fixture secret unavailable.")?;
+    let response =
+        render(&state, &secret, status, message, false).map_err(|_| "Fixture rendering failed.")?;
+    Ok(crate::security::verification_fixture_headers(
+        response, &state,
+    ))
+}
