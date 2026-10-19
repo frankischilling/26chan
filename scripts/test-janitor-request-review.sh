@@ -71,6 +71,13 @@ DO $$ BEGIN IF to_regclass('restrictions.request_file_rules') IS NOT NULL
  RAISE EXCEPTION 'File-effect rollback changed authority'; END IF; END $$;
 SQL
     "${migrator[@]}" --single-transaction -f migrations/0211_janitor_request_file_rules.sql
+    "${migrator[@]}" -c BEGIN -f migrations/0212_janitor_review_shortcuts.sql -c ROLLBACK
+    "${psql[@]}" -d request_review <<'SQL'
+DO $$ BEGIN IF content.restrictions_ready() IS DISTINCT FROM true
+ OR position('no_warn' IN pg_get_functiondef('staff_identity.janitor_request_queue(bytea,bytea,integer,text,integer)'::regprocedure))>0 THEN
+ RAISE EXCEPTION 'Shortcut metadata rollback changed its predecessor'; END IF; END $$;
+SQL
+    "${migrator[@]}" --single-transaction -f migrations/0212_janitor_review_shortcuts.sql
     python3 scripts/janitor-file-effects-sql.py > "$cluster/file-source.sql"
     "${psql[@]}" -d request_review -f "$cluster/file-source.sql"
 fi
@@ -78,6 +85,9 @@ python3 scripts/ban-request-review-sql.py > "$cluster/source.sql"
 "${psql[@]}" -d request_review -f "$cluster/source.sql"
 "${psql[@]}" -d request_review -f scripts/test-janitor-request-store.sql
 "${psql[@]}" -d request_review -f scripts/test-janitor-request-review.sql
+if [[ ${REQUEST_FILE_EFFECTS:-0} = 1 ]]; then
+    "${psql[@]}" -d request_review -f scripts/test-janitor-shortcut-metadata.sql
+fi
 request=$("${psql[@]}" -U board_staff -d request_review -Atc "SELECT content.create_janitor_request(decode(repeat('22',32),'hex'),decode(repeat('33',32),'hex'),600,'rqown',207007,9003,false,false)")
 [[ $request =~ ^[1-9][0-9]*$ ]] || exit 1
 PGAPPNAME=owned_review_hold "${psql[@]}" -U board_staff -d request_review -v request="$request" > "$cluster/first-review.log" 2>&1 <<'SQL' &

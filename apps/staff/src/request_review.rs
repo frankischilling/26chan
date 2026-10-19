@@ -61,6 +61,7 @@ struct Choice {
     warning: bool,
     seconds: Option<i64>,
     available: bool,
+    no_warn: bool,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -78,12 +79,67 @@ struct SavedQueue {
     previous_offset: u32,
     next_offset: u32,
 }
+#[derive(Debug, PartialEq, Serialize)]
+struct QuickReview {
+    label: &'static str,
+    template: i64,
+    days: i32,
+    global: &'static str,
+}
+
+fn quick_reviews(template_id: i64, warning: bool, templates: &[Choice]) -> Vec<QuickReview> {
+    let mut actions = Vec::new();
+    if let Some(template) = templates
+        .iter()
+        .find(|t| t.id == template_id && t.available)
+    {
+        let is_warning = warning || template.warning;
+        if !is_warning && !template.no_warn {
+            actions.push(QuickReview {
+                label: "Warn",
+                template: template_id,
+                days: 0,
+                global: "",
+            });
+        }
+        if is_warning {
+            actions.push(QuickReview {
+                label: "Ban",
+                template: template_id,
+                days: 1,
+                global: "1",
+            });
+        } else if !template.global
+            && let Some(seconds) = template
+                .seconds
+                .filter(|s| *s >= 86400 && *s <= 1024 * 86400 && *s % 86400 == 0)
+        {
+            actions.push(QuickReview {
+                label: "Global",
+                template: template_id,
+                days: (seconds / 86400) as i32,
+                global: "1",
+            });
+        }
+    }
+    if template_id == 135 && templates.iter().any(|t| t.id == 207 && t.available) {
+        actions.push(QuickReview {
+            label: "Short",
+            template: 207,
+            days: 1,
+            global: "1",
+        });
+    }
+    actions
+}
+
 struct Request {
     id: i64,
     template_id: i64,
     template_name: String,
     warning: bool,
     default_warning: bool,
+    quick_reviews: Vec<QuickReview>,
     account_id: i64,
     created_at: String,
     can_accept: bool,
@@ -217,6 +273,7 @@ pub(crate) async fn queue(
             template_name: request.template_name,
             warning: request.warning,
             default_warning,
+            quick_reviews: quick_reviews(request.template_id, request.warning, &saved.templates),
             account_id: request.account_id,
             created_at: request.created_at.format("%m/%d/%y %H:%M").to_string(),
             can_accept: request.can_accept,
@@ -332,6 +389,65 @@ pub(crate) async fn statistics(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn shortcut_payloads_match_pinned_source_cases() {
+        #[derive(Deserialize)]
+        struct Case {
+            id: i64,
+            warning: bool,
+            templates: Vec<Choice>,
+            expected: serde_json::Value,
+        }
+        let cases: Vec<Case> = serde_json::from_str(include_str!(
+            "../../../fixtures/janitor-shortcut-cases.json"
+        ))
+        .unwrap();
+        assert_eq!(cases.len(), 160);
+        for case in cases {
+            assert_eq!(
+                serde_json::to_value(quick_reviews(case.id, case.warning, &case.templates))
+                    .unwrap(),
+                case.expected
+            );
+        }
+    }
+
+    #[test]
+    fn shortcuts_require_available_configuration_and_exact_days() {
+        let mut choices = vec![
+            Choice {
+                id: 135,
+                name: "Owned".into(),
+                global: false,
+                warning: false,
+                seconds: Some(86401),
+                available: true,
+                no_warn: false,
+            },
+            Choice {
+                id: 207,
+                name: "Owned short".into(),
+                global: true,
+                warning: false,
+                seconds: Some(86400),
+                available: false,
+                no_warn: false,
+            },
+        ];
+        assert_eq!(
+            quick_reviews(135, false, &choices)
+                .iter()
+                .map(|a| a.label)
+                .collect::<Vec<_>>(),
+            vec!["Warn"]
+        );
+        choices[0].available = false;
+        assert!(quick_reviews(135, false, &choices).is_empty());
+        assert!(quick_reviews(42, false, &choices).is_empty());
+        choices[1].available = true;
+        assert_eq!(quick_reviews(135, false, &choices)[0].label, "Short");
+    }
+
     #[test]
     fn filters_and_optional_amendments_are_canonical() {
         assert_eq!(board(Some("")).unwrap(), None);

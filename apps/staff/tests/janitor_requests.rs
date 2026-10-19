@@ -162,6 +162,12 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
             let warning_marker=format!("id=\"ban-request-{}\"",request_ids[1]);
             let warning_row=html.split(&warning_marker).nth(1).unwrap().split("</tr>").next().unwrap();
             assert!(warning_row.contains("name=\"ban_length\" type=\"number\" min=\"-1\" max=\"1024\" value=\"0\""));
+            assert!(warning_row.contains("data-review=\"Ban\""));
+            assert!(!warning_row.contains("data-review=\"Warn\""));
+            let normal_marker=format!("id=\"ban-request-{}\"",request_ids[0]);
+            let normal_row=html.split(&normal_marker).nth(1).unwrap().split("</tr>").next().unwrap();
+            assert!(normal_row.contains("data-review=\"Warn\""));
+            assert!(normal_row.contains("data-review=\"Global\""));
             assert!(!html.contains("<script>Owned subject</script>"));
             assert!(!html.contains(&actor));
             assert_eq!(app.clone().oneshot(get("/ban-requests?board=outside",&cookie)).await.unwrap().status(),StatusCode::FORBIDDEN);
@@ -171,7 +177,11 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
                 if let Some(origin)=origin { denied.headers_mut().insert("origin",origin.parse().unwrap()); }
                 assert_eq!(app.clone().oneshot(denied).await.unwrap().status(),StatusCode::FORBIDDEN);
             }
-            let response=app.clone().oneshot(review(request_ids[0],"accept")).await.unwrap();
+            let shortcut=Request::post("/ban-requests/review").header("cookie",&cookie)
+                .header("origin","http://localhost:3001").header("sec-fetch-site","same-origin")
+                .header("content-type","application/x-www-form-urlencoded").header("accept","application/json")
+                .body(Body::from(format!("id={}&decision=accept&csrf={csrf}&amend_tpl={template}&ban_length=1&global=1",request_ids[0]))).unwrap();
+            let response=app.clone().oneshot(shortcut).await.unwrap();
             assert_eq!(response.status(),StatusCode::OK);
             let accepted:serde_json::Value=serde_json::from_slice(&to_bytes(response.into_body(),4096).await.unwrap()).unwrap();
             assert_eq!(accepted["changed"],true);

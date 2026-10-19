@@ -77,6 +77,10 @@ try {
           await page.getByRole('button', { name: 'Undo pending review' }).click();
           await expect(row).toBeVisible();
           await expect(page.locator('#queue-status')).toContainText('Nothing was submitted');
+          await page.keyboard.press('w');
+          await expect(page.locator('#queue-undo')).toBeVisible();
+          await page.locator('#queue-undo').click();
+          await expect(row).toBeVisible();
         }
         const [reviewResponse] = await Promise.all([
           page.waitForResponse(response => response.url() === `${origin}/ban-requests/review` && response.request().method() === 'POST'),

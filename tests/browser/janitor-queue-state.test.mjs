@@ -137,3 +137,32 @@ test('isolated source filter agrees across names, comments, templates and litera
   }
   assert.equal(count, 192);
 });
+
+test('quick amendments preserve explicit warning and scope through delay and Undo', () => {
+  for (const [days, scope] of [['0', ''], ['1', '1'], ['7', '1']]) {
+    const f = fixture();
+    f.rows[0].form.values.push(['decision', 'accept'], ['amend_tpl', '207'], ['ban_length', days], ['global', scope]);
+    f.submit(0, 'accept'); f.run();
+    assert.equal(f.requests.length, 1);
+    const data = f.requests[0].options.body;
+    assert.equal(data.get('amend_tpl'), '207');
+    assert.equal(data.get('ban_length'), days);
+    assert.equal(data.get('global'), scope);
+    const cancelled = fixture();
+    cancelled.rows[0].form.values.push(['decision', 'accept'], ['amend_tpl', '207'], ['ban_length', days], ['global', scope]);
+    cancelled.submit(0, 'accept'); cancelled.ids.get('queue-undo').fire('click'); cancelled.run();
+    assert.equal(cancelled.requests.length, 0);
+  }
+});
+
+test('W only invokes an enabled warning shortcut on the focused row', () => {
+  const f = fixture(); let clicks = 0;
+  f.key('w'); assert.equal(clicks, 0);
+  f.key('ArrowRight');
+  const button = { disabled: false, click() { clicks++; } };
+  f.rows[0].fields['button[data-review="Warn"]'] = button;
+  f.key('w'); assert.equal(clicks, 1);
+  button.disabled = true; f.key('w'); assert.equal(clicks, 1);
+  f.ids.get('queue-keybinds').checked = false;
+  button.disabled = false; f.key('w'); assert.equal(clicks, 1);
+});
