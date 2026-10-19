@@ -185,7 +185,9 @@ mod tests {
     #[test]
     fn cooldown_rounds_up_without_overflow() {
         for value in 0..1000 {
-            assert_eq!(reply_cooldown(value), (value + 1) / 2);
+            let discounted = reply_cooldown(value);
+            assert!(discounted * 2 >= value);
+            assert!(discounted == 0 || (discounted - 1) * 2 < value);
         }
         assert_eq!(reply_cooldown(u32::MAX), 2147483648);
     }

@@ -59,7 +59,9 @@ for (const javaScriptEnabled of [true, false]) {
         ['escaped', '<script>owned fixture</script>'],
       ]) {
         await page.goto(`/fixture/pass/${mode}`);
-        await expect(page.getByRole('heading', { level: 2 })).toHaveText(text);
+        await expect(mode === 'error' || mode === 'escaped'
+          ? page.getByRole('alert')
+          : page.getByRole('heading', { level: 2 })).toHaveText(text);
         await expect(page.locator('input[name="pin"], input[name="id"], script')).toHaveCount(0);
         await expect(page.getByRole('link')).toHaveAttribute('href', '/auth');
       }
