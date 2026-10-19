@@ -70,6 +70,12 @@ fn matches_digest(bytes: &[u8], expected: &str) -> bool {
     }
     format!("{:x}", Sha256::digest(bytes)) == expected
 }
+pub(crate) struct Capture {
+    pub body: Option<Vec<u8>>,
+    pub thumbnail: Option<Vec<u8>>,
+    // Held until the final writer has consumed both buffers.
+    _permit: Option<tokio::sync::OwnedSemaphorePermit>,
+}
 pub(crate) async fn capture(
     state: &Arc<AppState>,
     headers: &HeaderMap,
@@ -77,7 +83,7 @@ pub(crate) async fn capture(
     post: i64,
     template: i64,
     csrf: &str,
-) -> Result<(Option<Vec<u8>>, Option<Vec<u8>>), AppError> {
+) -> Result<Capture, AppError> {
     let mut authority = auth::guard(state, headers).await?;
     let token = auth::hash(&auth::cookie(headers, state.config.cookie_name())?);
     let plan: Option<sqlx::types::Json<Plan>> =
@@ -94,7 +100,11 @@ pub(crate) async fn capture(
     authority.ensure_current(true).await?;
     authority.finish().await?;
     let Some(sqlx::types::Json(plan)) = plan else {
-        return Ok((None, None));
+        return Ok(Capture {
+            body: None,
+            thumbnail: None,
+            _permit: None,
+        });
     };
     if plan.board != board
         || plan.width <= 0
@@ -104,6 +114,12 @@ pub(crate) async fn capture(
     {
         return Err(AppError::Internal);
     }
+    let permit = state
+        .limits
+        .private_media
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| AppError::Capacity)?;
     let client = client(&state.config.media_origin, state.config.production)?;
     let (suffix, content_type) = media_type(&plan.format)?;
     let (_, thumbnail_type) = media_type(&plan.thumbnail_format)?;
@@ -126,7 +142,11 @@ pub(crate) async fn capture(
     if !matches_digest(&body, &plan.sha256) || !matches_digest(&thumb, &plan.thumbnail_sha256) {
         return Err(AppError::Internal);
     }
-    Ok((Some(body), Some(thumb)))
+    Ok(Capture {
+        body: Some(body),
+        thumbnail: Some(thumb),
+        _permit: Some(permit),
+    })
 }
 #[derive(sqlx::FromRow)]
 struct Retained {
@@ -150,6 +170,12 @@ pub(crate) async fn serve(
     let csrf = auth::cookie(&headers, &crate::handlers::csrf_cookie(&state))?;
     auth::csrf(&authority.session, &csrf)?;
     let token = auth::hash(&auth::cookie(&headers, state.config.cookie_name())?);
+    let _permit = state
+        .limits
+        .private_media
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| AppError::Capacity)?;
     let retained: Retained = sqlx::query_as(
         "SELECT body,format FROM staff_identity.janitor_request_media($1,$2,$3,$4,$5)",
     )

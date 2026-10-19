@@ -22,6 +22,7 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
         .await
         .unwrap();
     let origin = Url::parse("http://localhost:3001").unwrap();
+    let (media_origin, media_server) = approved_media_fixture(owner.clone()).await;
     let state = Arc::new(AppState {
         config: Config {
             asn_database: None,
@@ -32,7 +33,7 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
             country_database: None,
             origin: "http://localhost:3001".into(),
             public_origin: "http://localhost:3000".into(),
-            media_origin: "http://127.0.0.1:3002".into(),
+            media_origin,
             bind: "127.0.0.1:3001".parse().unwrap(),
             production: false,
             auth_database: String::new(),
@@ -66,7 +67,7 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
         .unwrap();
     let board = format!("jq{op:x}");
     let posts: Vec<i64> =
-        sqlx::query_scalar("SELECT nextval('content.post_number') FROM generate_series(1,7)")
+        sqlx::query_scalar("SELECT nextval('content.post_number') FROM generate_series(1,8)")
             .fetch_all(&mut *tx)
             .await
             .unwrap();
@@ -85,6 +86,16 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
         .unwrap();
     for post in std::iter::once(&op).chain(posts.iter()) {
         sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$3,'Owned','<script>Owned subject</script>','Owned HTTP request body')").bind(post).bind(&board).bind(op).execute(&mut *tx).await.unwrap();
+    }
+    // These generated PNGs qualify custody, not decoder admission.
+    let mut assets = Vec::new();
+    for post in &posts[3..8] {
+        let asset = uuid::Uuid::new_v4().simple().to_string();
+        sqlx::query("INSERT INTO media.assets(id,job_id,lease_token,sha256,bytes,width,height,state,approved_at,md5,thumbnail_sha256,thumbnail_bytes,thumbnail_width,thumbnail_height) VALUES($1,$1,$1,encode(sha256($2),'hex'),octet_length($2),200,100,'approved',clock_timestamp(),md5($2),encode(sha256($2),'hex'),octet_length($2),200,100)")
+            .bind(&asset).bind(OWNED_MEDIA).execute(&mut *tx).await.unwrap();
+        sqlx::query("INSERT INTO content.post_media(post_id,job_id,asset_id,filename,bytes,width,height,spoiler) VALUES($1,$2,$2,'Owned custody.png',$3,200,100,false)")
+            .bind(post).bind(&asset).bind(OWNED_MEDIA.len() as i64).execute(&mut *tx).await.unwrap();
+        assets.push(asset);
     }
     let account:i64=sqlx::query_scalar("INSERT INTO staff_identity.accounts(role,allow_boards) VALUES('janitor',ARRAY[$1]) RETURNING id").bind(&board).fetch_one(&mut *tx).await.unwrap();
     sqlx::query(
@@ -225,6 +236,10 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
             assert!(html.contains("My requests: 1 approved, 1 denied, 0 pending."));
             assert!(html.contains("Reviews I performed in retained history: 1 approved, 1 denied."));
             assert_eq!(app.clone().oneshot(get("/ban-requests/statistics?account_id=1",&cookie)).await.unwrap().status(),StatusCode::BAD_REQUEST);
+            let mut policy=owner.begin().await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *policy).await.unwrap();
+            sqlx::query("UPDATE restrictions.templates SET request_save_policy='everything' WHERE id=$1").bind(template).execute(&mut *policy).await.unwrap();
+            policy.commit().await.unwrap();
             if std::env::var("RUN_JANITOR_BROWSER").as_deref()==Ok("1") {
                 let listener=tokio::net::TcpListener::bind("127.0.0.1:3001").await.unwrap();
                 let served=app.clone();
@@ -246,6 +261,24 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
                 println!("{}",String::from_utf8_lossy(&output.stdout));
                 assert!(output.status.success(),"Janitor browser failed: {}",String::from_utf8_lossy(&output.stderr));
             }
+            let creation=format!("board={board}&target={}&template={template}&csrf={csrf}",posts[7]);
+            let response=app.clone().oneshot(post(creation,"http://localhost:3001")).await.unwrap();
+            assert_eq!(response.status(),StatusCode::OK);
+            let mut custody=owner.begin().await.unwrap();sqlx::query("SET LOCAL ROLE board_restriction_owner").execute(&mut *custody).await.unwrap();
+            let request:i64=sqlx::query_scalar("SELECT id FROM restrictions.requests WHERE board=$1 AND post_id=$2").bind(&board).bind(posts[7]).fetch_one(&mut *custody).await.unwrap();custody.commit().await.unwrap();
+            let image_path=format!("/ban-requests/media/{request}/file");
+            let response=app.clone().oneshot(get(&image_path,&cookie)).await.unwrap();
+            assert_eq!(response.status(),StatusCode::OK);assert_eq!(response.headers()["cache-control"],"private, no-store");
+            assert_eq!(response.headers()["cross-origin-resource-policy"],"same-origin");
+            assert_eq!(response.headers()["referrer-policy"],"no-referrer");
+            assert_eq!(response.headers()["content-security-policy"],"default-src 'none'; sandbox; frame-ancestors 'none'");
+            assert_eq!(to_bytes(response.into_body(),1_048_576).await.unwrap().as_ref(),OWNED_MEDIA);
+            assert_eq!(app.clone().oneshot(get(&image_path,"")).await.unwrap().status(),StatusCode::UNAUTHORIZED);
+            sqlx::query("UPDATE staff_identity.accounts SET allow_boards=ARRAY[]::text[] WHERE id=$1").bind(account).execute(&owner).await.unwrap();
+            assert_eq!(app.clone().oneshot(get(&image_path,&cookie)).await.unwrap().status(),StatusCode::FORBIDDEN);
+            sqlx::query("UPDATE staff_identity.accounts SET allow_boards=ARRAY[$1] WHERE id=$2").bind(&board).bind(account).execute(&owner).await.unwrap();
+            assert_eq!(app.clone().oneshot(review(request,"deny")).await.unwrap().status(),StatusCode::OK);
+            assert_eq!(app.clone().oneshot(get(&image_path,&cookie)).await.unwrap().status(),StatusCode::NOT_FOUND);
             sqlx::query("UPDATE staff_identity.sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE account_id=$1").bind(account).execute(&owner).await.unwrap();
             let expired=format!("board={board}&target={}&template={template}&csrf={csrf}",posts[2]);
             assert_eq!(app.clone().oneshot(post(expired,"http://localhost:3001")).await.unwrap().status(),StatusCode::UNAUTHORIZED);
@@ -256,6 +289,8 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
             assert!(untouched);
         }
     }).await;
+    media_server.abort();
+    let _ = media_server.await;
     let mut cleanup = owner.begin().await.unwrap();
     sqlx::query("SET LOCAL ROLE board_restriction_owner")
         .execute(&mut *cleanup)
@@ -324,8 +359,18 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
         .execute(&mut *cleanup)
         .await
         .unwrap();
+    sqlx::query("DELETE FROM content.post_media WHERE post_id=ANY($1)")
+        .bind(&posts)
+        .execute(&mut *cleanup)
+        .await
+        .unwrap();
     sqlx::query("DELETE FROM content.posts WHERE board=$1")
         .bind(&board)
+        .execute(&mut *cleanup)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM media.assets WHERE id=ANY($1)")
+        .bind(&assets)
         .execute(&mut *cleanup)
         .await
         .unwrap();
@@ -341,4 +386,24 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
         .unwrap();
     cleanup.commit().await.unwrap();
     outcome.unwrap();
+}
+
+const OWNED_MEDIA: &[u8] = include_bytes!("../../../fixtures/janitor-request-owned.png");
+async fn approved_media_fixture(owner: PgPool) -> (String, tokio::task::JoinHandle<()>) {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        let app=axum::Router::new().route("/{board}/{name}",axum::routing::get(move |axum::extract::Path((board,name)):axum::extract::Path<(String,String)>,headers:axum::http::HeaderMap| {
+            let owner=owner.clone(); async move {
+                use axum::response::IntoResponse;
+                assert!(!headers.contains_key("cookie") && !headers.contains_key("authorization"));
+                let tim=name.strip_suffix("s.jpg").or_else(||name.strip_suffix(".png")).and_then(|s|s.parse::<i64>().ok()).unwrap_or(0);
+                let approved:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM media.approved_post_assets WHERE board=$1 AND tim=$2)").bind(board).bind(tim).fetch_one(&owner).await.unwrap();
+                if approved {(StatusCode::OK,[("content-type","image/png")],OWNED_MEDIA).into_response()}
+                else {StatusCode::NOT_FOUND.into_response()}
+            }
+        }));
+        axum::serve(listener, app).await.unwrap();
+    });
+    (origin, server)
 }

@@ -483,7 +483,8 @@ BEGIN
    coalesce(t.source_rule IN('global1','hm6','s6'),false) AS priority,
    coalesce(t.enabled AND restrictions.template_rank(t.minimum_role)<=rank
     AND t.request_save_policy IN('none','json_only','everything') AND t.request_blacklist_policy IN('none','image','rejectimage')
-    AND (r.warning OR t.request_blacklist_policy='none' OR r.upload_observation IN('known','absent')),false) AS can_accept,
+    AND (EXISTS(SELECT 1 FROM restrictions.request_media m WHERE m.request_id=r.id)
+     OR r.warning OR t.request_blacklist_policy='none' OR r.upload_observation IN('known','absent')),false) AS can_accept,
    row_number() OVER(ORDER BY CASE WHEN p_board IS NOT NULL THEN r.template_id END,r.created_at,r.id) AS position
   FROM restrictions.requests r LEFT JOIN restrictions.templates t ON t.id=r.template_id
   WHERE (CASE WHEN p_board IS NULL THEN r.board<>'test' ELSE r.board=p_board END)

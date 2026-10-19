@@ -173,7 +173,7 @@
     const leftSide = bounds.left >= right;
     const limit = leftSide ? bounds.left : right;
     element.style[leftSide ? 'left' : 'right'] = '0px';
-    element.style.maxWidth = `${Math.max(1, limit - 10)}px`;
+    if (Number(thumb.dataset.width) > limit) element.style.maxWidth = `${Math.max(1, limit - 10)}px`;
     element.onerror = () => { if (expansion === element) { hideMedia(); say('Retained media is unavailable. Refresh the queue or sign in again.'); } };
     expansion = element; element.src = path; document.body.appendChild(element);
     if (video) element.play().catch(() => { if (expansion === element) hideMedia(); });

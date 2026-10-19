@@ -36,7 +36,10 @@ SELECT NOT EXISTS (
   WHERE n.nspname=required.namespace AND c.relname=required.name AND c.relkind='r'
    AND NOT has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE')
    AND NOT has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE'))
-) AND NOT EXISTS (
+) AND EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='media' AND c.relname='request_post_assets' AND c.relkind='v'
+ AND NOT has_table_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,DELETE'))
+AND NOT EXISTS (
  SELECT 1 FROM (VALUES ('request_file_rule_decision'),('issue_request_file_rule')) required(name)
  WHERE NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
   WHERE n.nspname='restrictions' AND p.proname=required.name AND NOT p.prosecdef
@@ -193,7 +196,7 @@ pub(crate) async fn submit(
         return Err(AppError::Invalid);
     }
     let token = auth::hash(&auth::cookie(&headers, state.config.cookie_name())?);
-    let (body, thumbnail) = crate::request_media::capture(
+    let capture = crate::request_media::capture(
         &state,
         &headers,
         &input.board,
@@ -212,8 +215,8 @@ pub(crate) async fn submit(
             .bind(template)
             .bind(warning)
             .bind(asynchronous)
-            .bind(body)
-            .bind(thumbnail)
+            .bind(capture.body.as_deref())
+            .bind(capture.thumbnail.as_deref())
             .fetch_one(&state.staff)
             .await
             .map_err(database)?;

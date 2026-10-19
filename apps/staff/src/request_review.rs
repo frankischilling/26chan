@@ -546,3 +546,28 @@ mod tests {
         assert!(optional_number::<i32>(Some("1.5")).is_err());
     }
 }
+
+#[cfg(test)]
+mod retained_thumbnail_tests {
+    use super::RequestMedia;
+    #[test]
+    fn source_thumbnail_box_never_enlarges_small_images() {
+        for (width, height, wanted) in [
+            (200, 100, (130.0, 65.0)),
+            (100, 200, (65.0, 130.0)),
+            (130, 130, (130.0, 130.0)),
+            (10, 20, (10.0, 20.0)),
+            (250, 250, (130.0, 130.0)),
+        ] {
+            let media = RequestMedia {
+                format: "png".into(),
+                width,
+                height,
+                thumbnail_width: width,
+                thumbnail_height: height,
+            };
+            assert!(media.validate().is_ok());
+            assert_eq!(media.size(), wanted);
+        }
+    }
+}

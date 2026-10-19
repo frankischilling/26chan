@@ -80,6 +80,8 @@ async fn request_limits_inner(state: Arc<AppState>, request: Request, next: Next
 }
 
 pub async fn security_headers(State(state): Shared, request: Request, next: Next) -> Response {
+    let private_media = request.uri().path().starts_with("/ban-requests/media/");
+    let request_queue = request.uri().path() == "/ban-requests";
     let mut response = next.run(request).await;
     for (key, value) in [
         ("cache-control", "private, no-store"),
@@ -95,8 +97,18 @@ pub async fn security_headers(State(state): Shared, request: Request, next: Next
             .insert(key, HeaderValue::from_static(value));
     }
     let origin = state.config.origin.trim_end_matches('/');
+    let queue_images = if request_queue {
+        format!("{origin}/ban-requests/media/ ")
+    } else {
+        String::new()
+    };
+    let queue_video = if request_queue {
+        format!("media-src {origin}/ban-requests/media/; ")
+    } else {
+        String::new()
+    };
     let policy = format!(
-        "default-src 'none'; script-src 'self'; style-src 'self'; font-src {origin}/staff-assets/reportqueue.woff2; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; connect-src 'self'; img-src {origin}/staff-assets/select-arrow.png {origin}/staff-assets/select-arrow-light.png {origin}/staff-assets/favicon-team.ico {}",
+        "default-src 'none'; script-src 'self'; style-src 'self'; font-src {origin}/staff-assets/reportqueue.woff2; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; connect-src 'self'; {queue_video}img-src {queue_images}{origin}/staff-assets/select-arrow.png {origin}/staff-assets/select-arrow-light.png {origin}/staff-assets/favicon-team.ico {}",
         state.config.media_origin
     );
     let Ok(policy) = HeaderValue::from_str(&policy) else {
@@ -105,6 +117,18 @@ pub async fn security_headers(State(state): Shared, request: Request, next: Next
     response
         .headers_mut()
         .insert("content-security-policy", policy);
+    if private_media {
+        let headers = response.headers_mut();
+        headers.insert(
+            "content-security-policy",
+            HeaderValue::from_static("default-src 'none'; sandbox; frame-ancestors 'none'"),
+        );
+        headers.insert("referrer-policy", HeaderValue::from_static("no-referrer"));
+        headers.insert(
+            "cross-origin-resource-policy",
+            HeaderValue::from_static("same-origin"),
+        );
+    }
     response
 }
 pub async fn landing() -> Result<Html<String>, AppError> {

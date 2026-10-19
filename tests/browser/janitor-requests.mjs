@@ -50,6 +50,18 @@ try {
         await expect(row.locator('.user-bans-cnt')).toContainText('Past 12 months ban history');
         await expect(row.locator('.br-tpl-reason')).toHaveText('Owned <script>reason</script>');
         await expect(row.getByRole('button', { name: /^Deny/ })).toBeVisible();
+        const thumbnail=row.locator('.post-thumb');
+        await expect(thumbnail).toBeVisible();
+        await expect.poll(()=>thumbnail.evaluate(image=>image.complete && image.naturalWidth)).toBe(200);
+        await expect(thumbnail).toHaveAttribute('width','130');
+        await expect(thumbnail).toHaveAttribute('height','65');
+        if(javaScriptEnabled) {
+          await thumbnail.hover(); await expect(page.locator('#image-hover')).toBeVisible();
+          await page.mouse.move(0,0); await expect(page.locator('#image-hover')).toHaveCount(0);
+          await row.locator('.post-no').click(); await page.keyboard.press('i');
+          await expect(page.locator('#image-hover')).toBeVisible();
+          await page.keyboard.press('i'); await expect(page.locator('#image-hover')).toHaveCount(0);
+        }
         await page.screenshot({ fullPage: true, path: path.join(output, `${prefix}-queue.png`) });
         if (index === 0) {
           // Reproduce the incompatible source policy without weakening the POST guard.
@@ -81,11 +93,16 @@ try {
           await page.getByText('Settings', {exact:true}).click();
           await page.locator('[data-queue-key="w"]').fill('v');
           await page.locator('#queue-custom-menu').fill(input.board);
+          await page.locator('#queue-hide-thumbnails').check();
           await page.locator('#queue-save-preferences').click();
           await page.reload();
           await page.getByText('Settings', {exact:true}).click();
           await expect(page.locator('[data-queue-key="w"]')).toHaveValue('v');
           await expect(page.locator('#queue-custom-menu')).toHaveValue(input.board);
+          await expect(row.locator('.post-thumb')).toHaveCSS('opacity','0');
+          await page.locator('#queue-hide-thumbnails').uncheck();
+          await page.locator('#queue-save-preferences').click();
+          await expect(row.locator('.post-thumb')).toHaveCSS('opacity','1');
           await page.getByText('Settings', {exact:true}).click();
           await page.getByLabel('Filter loaded requests').fill('no-such-owned-request');
           await page.getByLabel('Filter loaded requests').press('Enter');
@@ -108,6 +125,8 @@ try {
         assert.equal(await reviewResponse.request().headerValue('origin'), origin,
           'native form must retain its same-origin proof');
         assert.equal(reviewResponse.status(), 200, 'authorized review form must succeed');
+        const gone=await context.request.get(`${origin}/ban-requests/media/${id}/file`);
+        assert.equal(gone.status(),404,'cleared request must lose private media access');
         await expect(page.locator(javaScriptEnabled ? '#queue-status' : '#content')).toContainText('Request denied. 1 pending request(s) cleared.');
         await page.screenshot({ fullPage: true, path: path.join(output, `${prefix}-review.png`) });
         if (javaScriptEnabled) {

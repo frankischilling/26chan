@@ -48,6 +48,7 @@ pub struct AppState {
 }
 pub struct Limits {
     pub permits: Arc<tokio::sync::Semaphore>,
+    pub private_media: Arc<tokio::sync::Semaphore>,
     pub attempts: std::sync::Mutex<(std::time::Instant, u32)>,
     pub response_output: board_http::ResponseBudget,
 }
@@ -55,6 +56,7 @@ impl Default for Limits {
     fn default() -> Self {
         Self {
             permits: Arc::new(tokio::sync::Semaphore::new(16)),
+            private_media: Arc::new(tokio::sync::Semaphore::new(2)),
             attempts: std::sync::Mutex::new((std::time::Instant::now(), 0)),
             response_output: board_http::ResponseBudget::new(64 * 1024 * 1024)
                 .expect("fixed staff output budget"),

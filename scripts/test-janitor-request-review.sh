@@ -193,5 +193,12 @@ DO $$ BEGIN
 END $$;
 SQL
     echo 'Request image rules, policy contention and populated restore passed.'
+    "${psql[@]}" -d request_review -f scripts/seed-janitor-media-restore.sql
+    "${psql[@]}" -d request_review -f scripts/test-janitor-media-restore.sql
+    "$pg_bin/pg_dump" -h 127.0.0.1 -p 55450 -U postgres -d request_review --format=custom -f "$cluster/private-media.dump"
+    "${psql[@]}" -d postgres -c 'CREATE DATABASE private_media_restored OWNER board_migrator'
+    "$pg_bin/pg_restore" -h 127.0.0.1 -p 55450 -U postgres -d private_media_restored --exit-on-error "$cluster/private-media.dump"
+    "${psql[@]}" -d private_media_restored -f scripts/test-janitor-media-restore.sql
+    echo 'Populated pending media, approved thumbnails, quota and scoped reads survive restore.'
 fi
-echo 'Janitor request review source, transaction and populated restore checks passed.' 
+echo 'Janitor request review source, transaction and populated restore checks passed.'
