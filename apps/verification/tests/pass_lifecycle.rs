@@ -114,6 +114,58 @@ async fn private_pass_login_checks_credentials_network_holds_flood_and_revocatio
                 .is_some()
             );
             assert_eq!(receipt["peer_hash"], json!(normal_peer));
+            let receipt_hash = board_domain::challenge_secrets::ReceiptToken::parse(
+                receipt["receipt"].as_str().unwrap(),
+            )
+            .unwrap()
+            .storage_hash();
+            let context_hash: [u8; 32] =
+                serde_json::from_value(receipt["context_hash"].clone()).unwrap();
+            let mut first = owner.begin().await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+                .execute(&mut *first)
+                .await
+                .unwrap();
+            let accepted_id: i64 = sqlx::query_scalar("SELECT entitlement_id FROM verification_private.pass_take_receipt($1,$2,$3,$4,'thread','g',0)")
+                .bind(receipt_hash.as_slice()).bind(normal_peer.as_slice()).bind(token_hash.as_slice()).bind(context_hash.as_slice())
+                .fetch_one(&mut *first).await.unwrap();
+            assert_eq!(accepted_id, id);
+            let mut second = owner.begin().await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+                .execute(&mut *second)
+                .await
+                .unwrap();
+            let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+                .fetch_one(&mut *second)
+                .await
+                .unwrap();
+            let duplicate = tokio::spawn(async move {
+                let outcome = sqlx::query_scalar::<_,i64>("SELECT entitlement_id FROM verification_private.pass_take_receipt($1,$2,$3,$4,'thread','g',0)")
+                    .bind(receipt_hash.as_slice()).bind(normal_peer.as_slice()).bind(token_hash.as_slice()).bind(context_hash.as_slice())
+                    .fetch_one(&mut *second).await;
+                second.rollback().await.unwrap();
+                outcome
+            });
+            // Observe actual lock contention rather than assuming a sleep gave
+            // the duplicate request enough time to reach the write boundary.
+            tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                loop {
+                    let waiting: bool = sqlx::query_scalar("SELECT coalesce((SELECT wait_event_type='Lock' FROM pg_stat_activity WHERE pid=$1),false)")
+                        .bind(pid).fetch_one(&owner).await.unwrap();
+                    if waiting { break; }
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                }
+            }).await.expect("duplicate receipt must wait for the first write");
+            first.commit().await.unwrap();
+            let rejected = duplicate.await.unwrap().unwrap_err();
+            assert_eq!(
+                rejected
+                    .as_database_error()
+                    .and_then(|error| error.code())
+                    .as_deref(),
+                Some("P0166")
+            );
+
             assert!(receipt.get("entitlement_id").is_none());
             for (field, value) in [
                 ("purpose", json!("email_request")),

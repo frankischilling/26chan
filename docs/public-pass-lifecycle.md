@@ -162,7 +162,8 @@ consumption rechecks the current session, credential version, expiry and network
 hold under write locks. Signout removes outstanding receipts; a failed write
 rolls consumption back. SQL tests cover wrong context, replay, expiry, rotation,
 capacity and rollback. HTTP tests check the issuer response and reject email or
-newly minted browser contexts.
+newly minted browser contexts. A two-connection test observes the duplicate
+consumer waiting on a database lock, then rejects it after the first commits.
 
 This receipt path is not yet connected to public posting. A receipt currently
 grants no CAPTCHA bypass, cooldown reduction or Pass-only board access through
