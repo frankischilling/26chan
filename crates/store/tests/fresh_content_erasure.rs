@@ -87,6 +87,12 @@ impl Fixture {
             .unwrap();
             ids.push(id);
         }
+        // Owned retained metadata tests erasure independently of Pass issuance.
+        sqlx::query("UPDATE content.posts SET since4pass=2020 WHERE board=$1")
+            .bind(&board)
+            .execute(&owner)
+            .await
+            .unwrap();
         let account: i64 = sqlx::query_scalar(
             "INSERT INTO staff_identity.accounts(role) VALUES('moderator') RETURNING id",
         )
@@ -251,7 +257,7 @@ impl Fixture {
             let row = rows.iter().find(|p| p["id"] == *id).unwrap();
             let mut expected = json!({"id":id,"board":self.board,"thread_id":row["thread_id"],"deleted":true,"content_erased":true,
                 "name":"","subject":"","comment":"","staff_notices":[],"created_at":"1970-01-01T00:00:00+00:00", "comment_format":0,
-                "staff_authorized_limits":false,"image_spoiler":false,"file_deleted":false,"board_flag_type":"pol"});
+                "staff_authorized_limits":false,"image_spoiler":false,"file_deleted":false,"board_flag_type":"pol","since4pass":0});
             for key in [
                 "trip",
                 "poster_id",

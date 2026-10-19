@@ -33,6 +33,7 @@ pub fn page_with_worksafe(worksafe: bool) -> String {
             name: "Owned staff".into(),
             trip: None,
             poster_id: None,
+            since4pass: 0,
             json_op_poster_id: None,
             capcode: Some(capcode.into()),
             country: None,

@@ -339,6 +339,9 @@ pub struct Post {
     pub poster_id: Option<String>,
     #[sqlx(default)]
     pub json_op_poster_id: Option<String>,
+    /// Public opt-in membership year; zero means no year was published.
+    #[sqlx(default)]
+    pub since4pass: i32,
     pub capcode: Option<String>,
     pub country: Option<String>,
     pub country_name: Option<String>,

@@ -36,10 +36,34 @@ pub fn without_sage(value: &str) -> String {
     remainder
 }
 
+/// The source tests an exact ASCII-space-delimited token after removing sage.
+pub fn pass_year_requested(prepared_options: &str) -> bool {
+    prepared_options.split(' ').any(|part| part == "since4pass")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use proptest::prelude::*;
+
+    #[test]
+    fn pass_year_opt_in_keeps_source_case_and_space_boundaries() {
+        for (raw, wanted) in [
+            ("since4pass", true),
+            (" since4pass ", true),
+            ("foo  since4pass bar", true),
+            ("sinceSAGE4pass", true),
+            ("sage since4pass", true),
+            ("SINCE4PASS", false),
+            ("xsince4pass", false),
+            ("since4passx", false),
+            ("since4pass\t", false),
+            ("\nsince4pass", false),
+            ("", false),
+        ] {
+            assert_eq!(pass_year_requested(&without_sage(raw)), wanted, "{raw:?}");
+        }
+    }
 
     #[test]
     fn source_options_remove_sage_without_trimming_or_interpreting_other_text() {

@@ -35,12 +35,14 @@ async fn automatic_archive_threshold_and_preserved_reply() {
     let p = public.clone();
     let result = tokio::spawn(async move {
         let op = support::create_post(&p,&b,0,&post()).await.unwrap();
+        sqlx::query("UPDATE content.posts SET since4pass=2020 WHERE id=$1").bind(op).execute(&o).await.unwrap();
         for _ in 0..2 { support::create_post(&p,&b,op,&post()).await.unwrap(); }
         assert!(board_store::thread(&p,&b,op).await.unwrap().archived_at.is_none());
         sqlx::query("UPDATE content.threads SET bumped_at=clock_timestamp()-interval '90 hours' WHERE board=$1 AND id=$2").bind(&b).bind(op).execute(&o).await.unwrap();
         let last = support::create_post(&p,&b,op,&post()).await.unwrap();
         let snapshot = board_store::thread_snapshot(&p,&b,op).await.unwrap();
         assert_eq!(snapshot.posts.len(),4);
+        assert_eq!(snapshot.posts[0].since4pass,2020,"archive retains the public opt-in year");
         assert_eq!(snapshot.posts.last().unwrap().id,last);
         let archived = snapshot.thread.archived_at.unwrap();
         assert_eq!(snapshot.thread.bumped_at,archived);

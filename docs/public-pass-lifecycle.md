@@ -193,6 +193,17 @@ explicitly need ordinary timing; protected public writes use the new checked
 entry point. The public role cannot call the core function with its own discount
 flag.
 
+The exact `since4pass` option now publishes the purchase year from the consumed
+membership receipt. The source's sage removal runs first; the option remains
+case-sensitive and ASCII-space-delimited. Ordinary posts and members who did not
+opt in store zero. JSON omits zero and values at or above 10000, without exposing
+an account ID. Thread transfers preserve the year and bind it into their source
+fingerprint. Whole deletion clears it; archiving retains it.
+
+The badge bitmap, `minileaf.gif`, is absent from the supplied archive. Its host
+returned an unavailable page rather than an image. Public badge rendering still
+needs that asset and visual qualification; no substitute image is shipped.
+
 Same-image cross-thread cooldowns, early restriction exceptions, report receipts,
-visible membership years and recovery/delivery remain unfinished.
+public membership badges and recovery/delivery remain unfinished.
 The complete posting flow still needs browser qualification.

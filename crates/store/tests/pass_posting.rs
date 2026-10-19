@@ -59,7 +59,7 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
             let now=chrono::Utc::now();
             create_post_with_challenge(&public,&board,0,&NewPost{name:"Anonymous".into(),subject:format!("Owned Pass {number}"),comment:format!("Owned Pass posting attempt {number}"),deletion_hash:"fixture".into(),sage:false},None,
                 ProtectedPostingContext {request_facts:None,anonymous:AnonymousPostingContext{posting:PostingContext{request_start:now,peer:Some(peer),op_password_proof:None},session:PostingSession{fingerprints,minted:false,now}},challenge:proof},
-                PostMetadata{keys:PostIdentityKeys{tripcode:None,poster_id:Some(poster_key)},country_database:None,flag:"",options:"",spoiler:false,drawing:None}).await
+                PostMetadata{keys:PostIdentityKeys{tripcode:None,poster_id:Some(poster_key)},country_database:None,flag:"",options:if number==1 || number>=6 {"since4pass"} else {""},spoiler:false,drawing:None}).await
         }};
         let missing=submit(0,None).await.unwrap_err();
         assert!(matches!(missing,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),"{missing:?}");
@@ -74,6 +74,8 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
         assert!(matches!(nonmember,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0201")),"{nonmember:?}");
         let proof=||WriteChallengeProof::from_issuer(&receipt.encode(),networks.peer,context);
         let posted=submit(1,proof()).await.unwrap();assert!(posted>0);
+        let published_year:i32=sqlx::query_scalar("SELECT since4pass FROM content.posts WHERE id=$1").bind(posted).fetch_one(&public).await.unwrap();assert_eq!(published_year,2020);
+
         let persisted:bool=sqlx::query_scalar("SELECT content.pass_post_bypass($1,$2)").bind(posted).bind(fingerprints.token.as_slice()).fetch_one(&public).await.unwrap();
         assert!(!persisted,"committed membership handoff must not authorize a later transaction");
         let replay=submit(2,proof()).await.unwrap_err();
@@ -107,6 +109,7 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
         sqlx::query("UPDATE content.boards SET captcha_enabled=false WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
         assert!(submit(6,None).await.unwrap()>0);
         assert!(submit(7,WriteChallengeProof::from_issuer(&ordinary.encode(),networks.peer,context)).await.unwrap()>0);
+        let public_years:Vec<i32>=sqlx::query_scalar("SELECT since4pass FROM content.posts WHERE board=$1 ORDER BY id").bind(&board).fetch_all(&public).await.unwrap();assert_eq!(public_years,vec![2020,0,0,0,0]);
         let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&board).fetch_one(&owner).await.unwrap();assert_eq!(count,5);
         let credits:i64=sqlx::query_scalar("SELECT count(*) FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).fetch_one(&owner).await.unwrap();assert_eq!(credits,0);
     }}).await;

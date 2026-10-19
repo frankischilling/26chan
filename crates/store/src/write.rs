@@ -716,6 +716,16 @@ async fn create_post_in_context(
         .execute(&mut *tx)
         .await?;
     crate::write_challenge::install(&mut tx, challenge.as_ref(), anonymous.as_ref()).await?;
+    sqlx::query("SELECT set_config('board.pass_year_requested',$1,true)")
+        .bind(
+            if board_domain::posting_options::pass_year_requested(&prepared_options) {
+                "true"
+            } else {
+                "false"
+            },
+        )
+        .execute(&mut *tx)
+        .await?;
     // Clear attachment intent even when a pooled session previously set it.
     sqlx::query("SELECT set_config('board.staff_attachment_job','',true),set_config('board.staff_attachment_capability','',true),set_config('board.staff_attachment_spoiler','',true),set_config('board.post_image_spoiler','false',true)")
         .execute(&mut *tx)

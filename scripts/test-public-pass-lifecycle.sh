@@ -86,6 +86,24 @@ SQL
 "${migrator[@]}" -c BEGIN -f migrations/0219_pass_reply_cooldowns.sql -c ROLLBACK
 "${migrator[@]}" -c 'SET ROLE board_anonymous_owner' -c "DO \$\$ BEGIN IF content.public_pass_ready() IS DISTINCT FROM true OR post_secrets.classifier_history_ready() IS DISTINCT FROM true OR to_regprocedure('content.pass_check_posting_cooldown(bytea,text,bigint,boolean,bigint)') IS NOT NULL OR has_function_privilege('board_anonymous_owner','content.check_posting_cooldown_core(bytea,text,bigint,boolean,bigint,boolean)','EXECUTE') THEN RAISE EXCEPTION 'Cooldown rollback changed authority'; END IF; END \$\$;"
 "${migrator[@]}" --single-transaction -f migrations/0219_pass_reply_cooldowns.sql
+"${migrator[@]}" -c BEGIN -f migrations/0220_pass_purchase_year.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN
+ IF EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='content.posts'::regclass AND attname='since4pass' AND NOT attisdropped)
+  OR content.public_pass_ready() IS DISTINCT FROM true OR content.public_challenge_ready() IS DISTINCT FROM true
+  OR content.restrictions_ready() IS DISTINCT FROM true OR content.text_thread_transfer_ready() IS DISTINCT FROM true
+  OR content.report_snapshots_ready() IS DISTINCT FROM true OR content.report_profile_ready() IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'Purchase year rollback changed authority'; END IF;
+END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0220_pass_purchase_year.sql
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN
+ IF has_column_privilege('board_public','content.posts','since4pass','INSERT,UPDATE')
+ OR has_column_privilege('board_staff','content.posts','since4pass','INSERT,UPDATE') THEN
+ RAISE EXCEPTION 'Runtime can forge a public purchase year'; END IF;
+END $$;
+SQL
 "${psql[@]}" -d pass_lifecycle -f scripts/test-public-pass-lifecycle.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-reply-cooldowns.sql
 "${psql[@]}" -d pass_lifecycle <<'SQL'
