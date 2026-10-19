@@ -185,7 +185,7 @@
     }
     if (!(event.target instanceof Element) || event.target.closest('input,textarea,select,button,a,summary,[contenteditable]')) return;
     const key = event.key.toLowerCase();
-    if (!['arrowright', 'arrowleft', 'a', 'd', 'r', 'u', 'c', 'escape'].includes(key)) return;
+    if (!['arrowright', 'arrowleft', 'a', 'd', 'r', 'u', 'c', 'w', 'escape'].includes(key)) return;
     event.preventDefault();
     if (key === 'arrowright') next();
     else if (key === 'arrowleft') previous();
@@ -194,6 +194,10 @@
     else if (key === 'escape') {
       for (const panel of document.querySelectorAll('.request-amend[open]')) panel.open = false;
       focus(focused);
+    } else if (key === 'w') {
+      const button = focused?.querySelector('button[data-review="Warn"]');
+      if (button && !button.disabled) button.click();
+      else say('This request cannot be accepted as a warning.');
     } else if (key === 'c') {
       const panel = focused?.querySelector('.request-amend');
       if (panel) { panel.open = true; panel.querySelector('select')?.focus(); }

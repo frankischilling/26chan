@@ -25,7 +25,7 @@ review decisions are never saved to browser storage. Storage failures leave the
 queue usable.
 
 Supported shortcuts are Right/Left for row focus, A/D for accept/deny, C for the
-amendment form, R for refresh, U for Undo and Escape to close an amendment.
+amendment form, W for an available warning shortcut, R for refresh, U for Undo and Escape to close an amendment.
 Shortcuts ignore modifiers, repeated key events, composition and editable
 controls. Buttons and links retain their normal keyboard behavior. The
 keyboard-shortcuts checkbox disables them. Filtering also clears focus when it
@@ -87,9 +87,11 @@ waits for its refused form navigation to finish before reloading the queue.
 
 ## Remaining scope
 
-This does not close #223. Private retained media, quick warning/global/short-ban
-amendments, template autocomplete, custom menus, key remapping, thumbnail
+This does not close #223. Private retained media, template autocomplete, custom menus, key remapping, thumbnail
 controls, staff-history tools and source-pixel comparison remain unfinished.
 The native queue keeps bounded pagination and scoped identities. The screenshots
 from the database fixture are functional evidence, not a full source visual
 comparison.
+
+[Review shortcuts](janitor-review-shortcuts.md) covers warning, global and short
+amendments and the W shortcut.
