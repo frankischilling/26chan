@@ -78,6 +78,26 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
         assert!(!persisted,"committed membership handoff must not authorize a later transaction");
         let replay=submit(2,proof()).await.unwrap_err();
         assert!(matches!(replay,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),"{replay:?}");
+        sqlx::query("UPDATE content.boards SET posting_reply_seconds=5 WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
+        let reply_context=key.form_context("reply",Some(&board),posted,&"cd".repeat(32)).unwrap();
+        let reply_receipt=ReceiptToken::generate().unwrap();
+        let issue_reply=|receipt:[u8;32]| {let verifier=verifier.clone();let board=board.clone();let networks=key.pass_networks(peer).unwrap();let session=material.storage_hash();async move {
+            verifier.pass_write_receipt(&WriteRequest{pass_session:&session,receipt:&receipt,networks:&networks,anonymous:&fingerprints.token,context:&reply_context,purpose:"reply",board:&board,target:posted}).await.unwrap()
+        }};
+        let reply_clock=chrono::Utc::now();
+        let reply=|seconds,number,proof| {let public=public.clone();let board=board.clone();let poster_key=&poster_key;async move {
+            let now=reply_clock+chrono::Duration::seconds(seconds);
+            create_post_with_challenge(&public,&board,posted,&NewPost{name:"Anonymous".into(),subject:String::new(),comment:format!("Owned membership reply {number}"),deletion_hash:"fixture".into(),sage:false},None,
+                ProtectedPostingContext{request_facts:None,anonymous:AnonymousPostingContext{posting:PostingContext{request_start:now,peer:Some(peer),op_password_proof:None},session:PostingSession{fingerprints,minted:false,now}},challenge:proof},
+                PostMetadata{keys:PostIdentityKeys{tripcode:None,poster_id:Some(poster_key)},country_database:None,flag:"",options:"",spoiler:false,drawing:None}).await
+        }};
+        assert_eq!(issue_reply(reply_receipt.storage_hash()).await.status,"ready");
+        assert!(reply(0,0,WriteChallengeProof::from_issuer(&reply_receipt.encode(),networks.peer,reply_context)).await.unwrap()>0);
+        let retry_receipt=ReceiptToken::generate().unwrap();assert_eq!(issue_reply(retry_receipt.storage_hash()).await.status,"ready");
+        let retry_proof=||WriteChallengeProof::from_issuer(&retry_receipt.encode(),networks.peer,reply_context);
+        let early=reply(2,1,retry_proof()).await.unwrap_err();
+        assert!(matches!(early,StoreError::PostingCooldownRejected(ref rejection) if rejection.remaining_seconds==1),"{early:?}");
+        assert!(reply(3,2,retry_proof()).await.unwrap()>0,"exact ceil-half boundary accepts the same unconsumed receipt");
         let next=ReceiptToken::generate().unwrap();assert_eq!(issue(next.storage_hash()).await.status,"ready");
         let mut tx=owner.begin().await.unwrap();sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *tx).await.unwrap();
         sqlx::query("UPDATE verification_private.pass_entitlements SET pin_hash=pin_hash||'-rotated' WHERE id=$1").bind(account).execute(&mut *tx).await.unwrap();tx.commit().await.unwrap();
@@ -87,7 +107,7 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
         sqlx::query("UPDATE content.boards SET captcha_enabled=false WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
         assert!(submit(6,None).await.unwrap()>0);
         assert!(submit(7,WriteChallengeProof::from_issuer(&ordinary.encode(),networks.peer,context)).await.unwrap()>0);
-        let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&board).fetch_one(&owner).await.unwrap();assert_eq!(count,3);
+        let count:i64=sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1").bind(&board).fetch_one(&owner).await.unwrap();assert_eq!(count,5);
         let credits:i64=sqlx::query_scalar("SELECT count(*) FROM verification_private.credits WHERE identity_key=sha256(convert_to('26chan:captcha-credit:browser:v1','UTF8')||$1::bytea)").bind(fingerprints.token.as_slice()).fetch_one(&owner).await.unwrap();assert_eq!(credits,0);
     }}).await;
     let mut tx = owner.begin().await.unwrap();

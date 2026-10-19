@@ -183,6 +183,16 @@ satisfy the membership gate. The original `valid_captcha_bypass` treats
 CAPTCHA-disabled boards as bypassed, so that configuration also permits ordinary
 posts on a Pass-only board. The separate staff authority remains unchanged.
 
-Cooldown reductions, early restriction exceptions, report receipts, visible
-membership years and recovery/delivery remain unfinished.
+Ordinary text and image replies now use ceil-half cooldowns for a current Pass
+receipt. Preflight holds the receipt, session and account locks without consuming
+the receipt; the eventual post insert repeats the same validation and consumes
+it. A refused cooldown can retry with the still-valid receipt. Thread delays are
+unchanged. CAPTCHA-disabled boards also receive the source bypass reduction.
+The ordinary full-delay SQL entry point remains available for callers that
+explicitly need ordinary timing; protected public writes use the new checked
+entry point. The public role cannot call the core function with its own discount
+flag.
+
+Same-image cross-thread cooldowns, early restriction exceptions, report receipts,
+visible membership years and recovery/delivery remain unfinished.
 The complete posting flow still needs browser qualification.

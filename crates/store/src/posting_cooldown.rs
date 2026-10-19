@@ -18,8 +18,7 @@ pub struct PostingCooldownRejection {
 }
 
 impl PostingCooldownRejection {
-    /// Source S_RENZOKU/S_RENZOKU2/S_RENZOKU3. Pass promotion is deliberately
-    /// absent: this backend does not implement a trusted Pass discount.
+    /// Source S_RENZOKU/S_RENZOKU2/S_RENZOKU3 refusal text.
     pub fn source_message(&self) -> String {
         match self.reason {
             PostingCooldownReason::Reply => format!(
@@ -99,7 +98,7 @@ pub(crate) async fn check(
     request_epoch: i64,
 ) -> Result<(), StoreError> {
     let rows: Vec<ResultRow> = sqlx::query_as(
-        "SELECT kind,remaining_seconds FROM content.check_posting_cooldown($1,$2,$3,$4,$5)",
+        "SELECT kind,remaining_seconds FROM content.pass_check_posting_cooldown($1,$2,$3,$4,$5)",
     )
     .bind(actor.as_bytes().as_slice())
     .bind(board)
