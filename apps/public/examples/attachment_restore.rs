@@ -101,7 +101,7 @@ impl Fixture {
             poster_id: Some(&self.posting_key),
         }
     }
-    async fn add(&self, parent: i64, spoiler: bool) -> Record {
+    async fn add(&self, parent: i64, spoiler: bool, red: u8) -> Record {
         let receipt = self
             .intake
             .reserve("<restore & fixture>.png")
@@ -120,7 +120,8 @@ impl Fixture {
         let mut frame = b"IBRGBA01".to_vec();
         frame.extend_from_slice(&500u32.to_be_bytes());
         frame.extend_from_slice(&300u32.to_be_bytes());
-        frame.extend_from_slice(&[220, 20, 90, 180].repeat(500 * 300));
+        // Each restore case has distinct bytes so setup does not test repost timing.
+        frame.extend_from_slice(&[red, 20, 90, 180].repeat(500 * 300));
         let output = ValidatedOutput::read(frame.as_slice()).await.unwrap();
         let asset = board_media_admin::publish(
             &self.queue,
@@ -192,15 +193,15 @@ impl Fixture {
         sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,image_limit,archive_retention_seconds,posting_reply_seconds,posting_image_seconds,posting_thread_seconds) VALUES (false,'restore','Restore fixture','Synthetic only',2000,100,100,100,10,20,3600,0,0,0)").execute(&self.admin).await.unwrap();
         // An ahead-of-wall-clock counter catches a restore that resets the clock.
         sqlx::query("UPDATE content.media_clock SET last_number=floor(extract(epoch FROM clock_timestamp())*1000)::bigint+86400000").execute(&self.admin).await.unwrap();
-        let op = self.add(0, false).await;
-        let spoiler = self.add(op.thread, true).await;
-        let mut deleted = self.add(op.thread, false).await;
+        let op = self.add(0, false, 20).await;
+        let spoiler = self.add(op.thread, true, 40).await;
+        let mut deleted = self.add(op.thread, false, 60).await;
         board_store::post_media::delete_attachment(&self.public, "restore", deleted.post)
             .await
             .unwrap();
         deleted.live = false;
         deleted.retire = true;
-        let mut retired = self.add(op.thread, false).await;
+        let mut retired = self.add(op.thread, false, 80).await;
         board_store::post_media::delete_attachment(&self.public, "restore", retired.post)
             .await
             .unwrap();
@@ -209,13 +210,13 @@ impl Fixture {
         drop(guard); // Deliberate interrupted-cleanup window: both files still exist.
         retired.live = false;
         retired.retire = true;
-        let archived = self.add(0, false).await;
+        let archived = self.add(0, false, 100).await;
         sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1").bind(archived.thread).execute(&self.admin).await.unwrap();
-        let mut expired = self.add(0, false).await;
+        let mut expired = self.add(0, false, 120).await;
         sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp()-interval '2 seconds',archive_expires_at=clock_timestamp()-interval '1 second' WHERE id=$1").bind(expired.thread).execute(&self.admin).await.unwrap();
         expired.live = false;
         expired.retire = true;
-        let mut removed = self.add(op.thread, false).await;
+        let mut removed = self.add(op.thread, false, 140).await;
         board_store::delete_post(&self.public, "restore", removed.post)
             .await
             .unwrap();
@@ -386,7 +387,7 @@ impl Fixture {
             .unwrap();
             assert_eq!(count, 1, "Cleanup must preserve the attachment tombstone");
         }
-        let new = self.add(0, false).await;
+        let new = self.add(0, false, 160).await;
         assert_eq!(
             new.tim,
             manifest.clock + 1,

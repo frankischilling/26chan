@@ -329,3 +329,12 @@ new source duplicate-image cooldown before it reached the erasure assertions.
 The corrected test passes locally with the complete migration set; media
 revocation, consumed-receipt rejection and surviving-content assertions remain
 unchanged. The separate attachment-restore CI failure is still under investigation.
+
+The attachment-restore fixture had the same setup defect. A local reproduction
+confirmed the duplicate-image refusal before the correction. Each restore case
+now has distinct synthetic pixels. The owned PostgreSQL 16 dump/file-restore
+exercise passes for seven attachments and fourteen files, exact JSON and bytes,
+four URL forms, deletion/archive visibility, one-use receipts, interrupted
+cleanup and monotonic numbering. The source database remains unchanged. Local
+qualification used an owned TCP cluster; the standard hosted wrapper still needs
+CI qualification.
