@@ -429,7 +429,8 @@ Clippy and formatting pass.
 Public receipt admission is now connected. Retained-history helpers still do not
 establish arbitrary effective weights or enable automatic abuse bans; those
 report-weight limitations remain documented separately. Complete browser coverage,
-Pass recovery/delivery, checkout integration and final hosted CI remain unfinished.
+final hosted CI remain unfinished. Mail, recovery and native sandbox checkout
+are implemented as described below and in `checkout-source-inventory.md`.
 
 ## Mail and recovery preparation
 
@@ -450,7 +451,7 @@ ASCII case without provider-specific dot or subaddress rules.
 Contact/notice envelopes use authenticated encryption with a distinct Pass-mail
 version and context. They cannot be substituted for browser-verification mail.
 Four domain tests pass policy edges, safe mailbox parsing, typed payload bounds,
-fresh nonces and rejection of altered/truncated/wrong-context envelopes. The delivery integration is described below; browser recovery remains unfinished.
+fresh nonces and rejection of altered/truncated/wrong-context envelopes. The delivery integration and native recovery form are described below.
 
 
 ## Encrypted notice delivery
@@ -478,16 +479,16 @@ Pass messages retain the source's three-second delivery spacing.
 
 Reminder and expired messages use the source subjects and include the public
 identifier and renewal reference. Renewal links use the configured public origin.
-The `/pass?renew=...` checkout route still needs implementation, so this queue is
-not ready for production delivery. No external email was sent during testing.
+The `/pass?renew=...` route now connects to native sandbox renewal checkout.
+Live payment-provider integration remains open. No external email was sent during
+testing.
 
 Local tests pass the actual operator contact command, private producer, gift-owner
 selection, encrypted payload round-trip and duplicate suppression. Owned SMTP
 accept/reject fixtures pass for both browser verification and Pass expiry, including
 retry and account-state assertions. SQL tests cover eligibility, lease fencing,
 contact changes, renewal races, role separation, migration rollback and populated
-contact/outbox restore. Browser PIN recovery, checkout and hosted qualification
-remain open.
+contact/outbox restore. Final hosted qualification remains open.
 
 ## Native PIN recovery
 
@@ -521,3 +522,15 @@ Owned SMTP fixtures pass accepted and rejected recovery delivery without changin
 entitlement status. Desktop/mobile rendering and native submission tests are
 registered with scripts enabled and disabled; hosted browser qualification is
 still pending. No recovery email was sent outside the owned fixtures.
+
+
+## Read-only report advice
+
+The Pass report identity lookup returns immediately when the transaction has no
+assigned ID or no consumed handoff. Advisory report checks therefore remain valid
+inside a read-only transaction and do not allocate an ID or acquire a Pass catalog
+row lock. A real consumed handoff still requires the guarded private lookup.
+The regression calls that helper directly as the restricted report owner, so an
+empty membership join cannot let the planner hide an accidental write dependency.
+All 32 Store report-admission cases pass locally, including CAPTCHA-enabled network
+rules with actual verifier-issued proofs and the unchanged no-partial-report checks.
