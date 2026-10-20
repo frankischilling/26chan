@@ -349,6 +349,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "board-checkout"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "board-domain",
+ "board-store",
+ "chrono",
+ "ring",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tower",
+ "url",
+]
+
+[[package]]
 name = "board-config"
 version = "0.1.0"
 dependencies = [

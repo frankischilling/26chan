@@ -1,5 +1,6 @@
 //! Restricted verification issuer access. Never construct this with public,
 //! staff, migrator or mail-sink credentials.
+pub mod checkout;
 pub mod mail;
 pub mod pass;
 pub mod pass_recovery;

@@ -18,6 +18,7 @@ mod native_updater_snapshot;
 mod output;
 pub mod paired_upload;
 mod pass_auth;
+mod pass_checkout;
 mod pass_recovery;
 mod polls;
 mod post_preferences;

@@ -300,3 +300,62 @@ pub enum PassRecoveryResult {
     Complete {},
     Capacity {},
 }
+
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CheckoutOffer {
+    Ready {
+        provider: String,
+        amount_minor: i64,
+        currency: String,
+    },
+    Unavailable {},
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CheckoutRenewal {
+    pub reference: String,
+    pub nonce: String,
+    pub peer: IpAddr,
+    pub amount_minor: i64,
+    pub currency: String,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CheckoutCreated {
+    Ready { order: String, view: String },
+    Unavailable {},
+    PriceChanged {},
+    Flood {},
+    Capacity {},
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CheckoutView {
+    pub order: String,
+    pub view: String,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckoutStatus {
+    Pending,
+    Paid,
+    Declined,
+    Cancelled,
+    Refunded,
+    Disputed,
+    Expired,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CheckoutState {
+    Ready {
+        status: CheckoutStatus,
+        provider: String,
+        amount_minor: i64,
+        currency: String,
+        fulfilled: bool,
+        review_required: bool,
+    },
+    Missing {},
+}

@@ -70,10 +70,14 @@ fn render(
 }
 pub(crate) fn routes() -> Router<AppState> {
     Router::new()
-        .route("/pass", get(page).post(submit))
+        .route("/pass", get(crate::pass_checkout::page).post(submit))
+        .route(
+            "/pass/renew",
+            axum::routing::post(crate::pass_checkout::submit),
+        )
         .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY))
 }
-async fn page(
+pub(crate) async fn page(
     State(state): State<AppState>,
     RawQuery(query): RawQuery,
 ) -> Result<Response, AppError> {

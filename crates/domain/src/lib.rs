@@ -8,6 +8,7 @@ pub mod board_flags;
 pub mod capcode;
 pub mod challenge_policy;
 pub mod challenge_secrets;
+pub mod checkout;
 pub mod content_admission;
 pub mod country;
 pub mod drawing_annotation;

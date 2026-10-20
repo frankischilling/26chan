@@ -60,6 +60,15 @@ async fn run() -> Result<usize, ()> {
                 {
                     return Err(());
                 }
+                let reference = key.pass_renewal(contact.renewal()).ok_or(())?;
+                let recipient = key.pass_recipient(contact.recipient()).ok_or(())?;
+                if !store
+                    .bind_pass_renewal(&identity, &recipient, &reference)
+                    .await
+                    .map_err(|_| ())?
+                {
+                    return Err(());
+                }
                 let kind = match candidate.notice_kind.as_str() {
                     "reminder" => Notice::Reminder,
                     "expired" => Notice::Expired,

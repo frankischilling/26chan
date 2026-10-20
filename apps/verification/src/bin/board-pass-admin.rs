@@ -91,10 +91,13 @@ async fn run() -> Result<(), &'static str> {
         }
         let mail_key = MailKey::parse(&raw_mail)
             .ok_or("A valid VERIFICATION_MAIL_KEY is required for contacts")?;
+        let renewal_hash = key
+            .pass_renewal(contact.renewal())
+            .ok_or("Invalid renewal reference")?;
         let payload = mail_key
             .seal_pass(&token, &Payload::Contact(contact))
             .ok_or("Contact encryption failed")?;
-        Some((recipient_hash, payload))
+        Some((recipient_hash, payload, renewal_hash))
     } else {
         if input.email.is_some() || input.gift_email.is_some() || input.renewal_reference.is_some()
         {
@@ -223,9 +226,9 @@ async fn run() -> Result<(), &'static str> {
   _=>unreachable!(),
  }.map_err(|_|"Membership operation was refused; no changes committed")?;
     let (id, status) = row.ok_or("Membership was not found; no changes committed")?;
-    if let Some((recipient, payload)) = contact {
-        sqlx::query("INSERT INTO verification_private.pass_contacts(entitlement_id,recipient_hash,encrypted_contact) VALUES($1,$2,$3) ON CONFLICT(entitlement_id) DO UPDATE SET recipient_hash=EXCLUDED.recipient_hash,encrypted_contact=EXCLUDED.encrypted_contact")
-            .bind(id).bind(recipient.as_slice()).bind(payload).execute(&mut *tx).await.map_err(|_| "Contact update refused; no changes committed")?;
+    if let Some((recipient, payload, renewal)) = contact {
+        sqlx::query("INSERT INTO verification_private.pass_contacts(entitlement_id,recipient_hash,encrypted_contact,renewal_hash) VALUES($1,$2,$3,$4) ON CONFLICT(entitlement_id) DO UPDATE SET recipient_hash=EXCLUDED.recipient_hash,encrypted_contact=EXCLUDED.encrypted_contact,renewal_hash=EXCLUDED.renewal_hash")
+            .bind(id).bind(recipient.as_slice()).bind(payload).bind(renewal.as_slice()).execute(&mut *tx).await.map_err(|_| "Contact update refused; no changes committed")?;
     }
     tx.commit()
         .await

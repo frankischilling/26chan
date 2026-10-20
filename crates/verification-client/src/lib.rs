@@ -116,6 +116,22 @@ impl VerificationClient {
         }
     }
 
+    pub async fn checkout_offer(&self) -> Result<protocol::CheckoutOffer, Error> {
+        self.exchange("/v1/pass/checkout/offer", &serde_json::json!({}))
+            .await
+    }
+    pub async fn checkout_renewal(
+        &self,
+        input: &protocol::CheckoutRenewal,
+    ) -> Result<protocol::CheckoutCreated, Error> {
+        self.exchange("/v1/pass/checkout/renewal", input).await
+    }
+    pub async fn checkout_state(
+        &self,
+        input: &protocol::CheckoutView,
+    ) -> Result<protocol::CheckoutState, Error> {
+        self.exchange("/v1/pass/checkout/state", input).await
+    }
     pub async fn pass_recovery_request(
         &self,
         input: &protocol::PassRecoveryRequest,

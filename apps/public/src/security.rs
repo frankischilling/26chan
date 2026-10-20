@@ -255,6 +255,10 @@ fn headers(
             .get("content-type")
             .and_then(|value| value.to_str().ok())
             .is_some_and(|value| value.starts_with("text/html"));
+    let checkout_page = response
+        .extensions()
+        .get::<crate::pass_checkout::CheckoutPage>()
+        .is_some();
     let recovery_page = response
         .extensions()
         .get::<crate::pass_recovery::RecoveryPage>()
@@ -634,7 +638,7 @@ fn headers(
     // same-origin signal while withholding referrers from external destinations.
     headers.insert(
         "referrer-policy",
-        HeaderValue::from_static(if verification_page || recovery_page {
+        HeaderValue::from_static(if verification_page || recovery_page || checkout_page {
             "strict-origin"
         } else {
             "same-origin"

@@ -89,6 +89,7 @@ jobs:
           python3 scripts/test-dev-db-env.py
           python3 scripts/test-dev-staff-db-env.py
           python3 scripts/test-dev-verification-db-env.py
+          python3 scripts/test-dev-checkout-db-env.py
           sudo bash scripts/test-role-bootstrap.sh
           sudo bash scripts/test-source-restrictions-migration.sh
           sudo bash scripts/dev-db.sh
@@ -98,6 +99,7 @@ jobs:
           sudo bash scripts/dev-monitor-db.sh
           sudo bash scripts/dev-staff-db.sh
           sudo bash scripts/dev-verification-db.sh
+          sudo bash scripts/dev-checkout-db.sh
           sudo chown -R "$(id -u):$(id -g)" .local
           source .local/database.env
           cargo run -p board-store --bin board-migrate --locked
@@ -107,6 +109,12 @@ jobs:
         run: |
           python3 scripts/test-email-verification-reference.py
           python3 scripts/test-challenge-answer-reference.py
+      - name: Qualify signed sandbox checkout and renewal idempotency
+        run: |
+          source .local/database.env
+          source .local/verification-tests.env
+          source .local/checkout-tests.env
+          cargo test -p board-checkout --all-features --locked --test sandbox_callbacks -- --ignored --exact signed_sandbox_callbacks_bind_order_and_renew_once_without_reviving_refunds
       - name: Qualify verified client identity through the actual HTTPS proxy
         run: |
           source .local/database.env

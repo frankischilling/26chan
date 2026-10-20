@@ -52,6 +52,25 @@ impl VerificationKey {
         Some(self.digest(b"pass-recipient", &[recipient.identity().as_bytes()]))
     }
 
+    pub fn pass_renewal(&self, value: &str) -> Option<[u8; 32]> {
+        if value.is_empty()
+            || value.len() > 128
+            || !value
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
+        {
+            return None;
+        }
+        Some(self.digest(b"pass-renewal", &[value.as_bytes()]))
+    }
+
+    pub fn checkout_view(&self, nonce: &str, reference: &[u8; 32]) -> Option<CheckoutToken> {
+        let nonce = decode(nonce)?;
+        Some(CheckoutToken(
+            self.digest(b"checkout-idempotent-view", &[&nonce, reference]),
+        ))
+    }
+
     pub fn pass_networks(&self, address: std::net::IpAddr) -> Option<PassNetworks> {
         use std::net::IpAddr;
         let address = match address {
@@ -295,6 +314,28 @@ impl PassRecoveryToken {
     pub fn storage_hash(&self) -> [u8; 32] {
         let mut context = Context::new(&SHA256);
         context.update(b"26chan:pass-recovery:v1\0");
+        context.update(&self.0);
+        context.finish().as_ref().try_into().expect("SHA-256 size")
+    }
+}
+
+/// Browser capability for one checkout result. It never authenticates a Pass.
+pub struct CheckoutToken([u8; 32]);
+impl CheckoutToken {
+    pub fn generate() -> Result<Self, ring::error::Unspecified> {
+        let mut bytes = [0; 32];
+        SystemRandom::new().fill(&mut bytes)?;
+        Ok(Self(bytes))
+    }
+    pub fn parse(value: &str) -> Option<Self> {
+        Some(Self(decode(value.strip_prefix("po1_")?)?))
+    }
+    pub fn encode(&self) -> String {
+        encode("po1_", &self.0)
+    }
+    pub fn storage_hash(&self) -> [u8; 32] {
+        let mut context = Context::new(&SHA256);
+        context.update(b"26chan:checkout-view:v1\0");
         context.update(&self.0);
         context.finish().as_ref().try_into().expect("SHA-256 size")
     }
