@@ -115,3 +115,14 @@ refusal, price mismatch, concurrent order retries, pending status, a signed sand
 callback and the final renewed state. Rendering-only browser tests cover native
 submission and all result states on desktop/mobile with scripts enabled and
 disabled. Those hosted browser checks are still pending.
+
+
+Contacts created before migration 0234 need a renewal-reference index before old
+email links can create an order. Run `board-pass-bind-renewals` as the migration
+operator with the existing `VERIFICATION_KEY` and `VERIFICATION_MAIL_KEY`, then
+repeat until it reports zero remaining bindings. Each transaction handles at most
+100 contacts. It decrypts and verifies the stored contact before deriving the
+private index; it sends no mail and changes neither the PIN nor account status.
+This covers expired and delayed Passes that the reminder producer does not select.
+A wrong key or invalid contact aborts the batch. Run this before enabling checkout
+on an upgraded installation.
