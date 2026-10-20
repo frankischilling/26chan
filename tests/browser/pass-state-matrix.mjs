@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { passWritePacer } from './pass-state-pacing.mjs';
+import { mkdir } from 'node:fs/promises';
 const mode = process.argv[2];
 assert.ok(['http', 'browser', 'noscript'].includes(mode));
 let input = '';
@@ -53,6 +55,7 @@ async function httpCase(row) {
     posted.push({ id: created.pid, account: row.account, year: 2020 });
     const data = await api(created.pid); safe(data); assert.equal(data.posts[0].since4pass, 2020);
     const thread = await request(`/${fixture.board}/thread/${created.pid}`);
+    assert.equal((thread.text.match(/title="Pass user since 2020" class="n-pu"/g) ?? []).length, 2);
     const reply = await request(`/${fixture.board}/imgboard.php`, { ...fields, resto: String(created.pid), sub: '', com: `Owned Pass ${row.name} JSON reply`, email: '', 'captcha-csrf': hidden(thread.text, 'captcha-csrf') }, 'application/json');
     const saved = JSON.parse(reply.text); assert.equal(saved.error, undefined, `${row.name}: ${saved.error}`); assert.equal(saved.tid, created.pid);
     posted.push({ id: saved.pid, account: row.account, year: 0 });
@@ -62,13 +65,17 @@ async function httpCase(row) {
 }
 async function browserCases() {
   const { chromium, expect } = await import('@playwright/test');
+  const pacing = passWritePacer();
+  await mkdir('test-results/pass-state-matrix', { recursive: true });
   const browser = await chromium.launch({ timeout: 15000 });
   const stop = () => { void browser.close(); };
   process.once('SIGTERM', stop); process.once('SIGINT', stop);
   try {
     for (const [index,row] of fixture.cases.entries()) {
+      await pacing.beginCase();
       const width = index % 2 ? 390 : 1280;
       const context = await browser.newContext({ javaScriptEnabled: mode !== 'noscript', viewport: { width, height: 900 } });
+      context.on('request', request => { if (request.method() === 'POST') pacing.write(); });
       await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ persistentQR: true, quickReply: true })));
       const openQuick = async page => page.locator(width <= 480 ? '#mpostform .mobilePostFormToggle' : '.open-qr-link').click();
       const page = await context.newPage(); page.setDefaultTimeout(12000);
@@ -85,6 +92,7 @@ async function browserCases() {
         if (!row.active) {
           // A presentation cookie cannot authorize a native or JSON write.
           const csrf = await page.locator('form.postEditor [name="captcha-csrf"]').first().inputValue();
+          pacing.write();
           const denied = await context.request.post(`${fixture.origin}/${fixture.board}/post`, { headers: { Origin: fixture.origin, Accept: 'application/json' }, form: { com: 'Owned refused member post', email: 'since4pass', 'captcha-csrf': csrf }, maxRedirects: 0 });
           if (denied.headers()['content-type']?.startsWith('application/json')) { const value = await denied.json(); assert.ok(value.error); assert.equal(value.pid, undefined); }
           else { assert.ok(denied.status() >= 400); assert.match(await denied.text(), /CAPTCHA|Pass/); }
@@ -107,6 +115,11 @@ async function browserCases() {
         await expect(page).toHaveURL(new RegExp(`/${fixture.board}/thread/[1-9][0-9]*#p[1-9][0-9]*$`));
         const thread = Number(/\/thread\/(\d+)/.exec(page.url())[1]);
         posted.push({ id: thread, account: row.account, year: 2020 });
+        await expect(page.locator(`#pc${thread} .n-pu`)).toHaveCount(2);
+        await expect(page.locator(`#pc${thread} .postInfo .n-pu`)).toHaveAttribute('title', 'Pass user since 2020');
+        const badge = page.locator(`#pc${thread} ${width <= 480 ? '.postInfoM' : '.postInfo'} .n-pu`);
+        const badgeBox = await badge.boundingBox();
+        assert.equal(badgeBox.width, 16); assert.equal(badgeBox.height, 16);
         if (mode === 'noscript') {
           const replyForm = page.locator('form.postEditor').first();
           await replyForm.locator('[name="com"]').fill(`Owned Pass ${row.name} native reply`);
@@ -132,9 +145,15 @@ async function browserCases() {
         await expect(qr.locator('[name="com"]')).toHaveValue('');
         const data = await api(thread); safe(data); assert.equal(data.posts.length, 2);
         assert.equal(data.posts[0].since4pass, 2020); assert.equal(data.posts[1].since4pass, 2020);
+      } catch (error) {
+        // Only owned fixture pages are captured; no database or issuer secrets
+        // are available to this child. Preserve the original failure.
+        if (/^[a-z_]+$/.test(row.name)) await page.screenshot({ path: `test-results/pass-state-matrix/${mode}-${row.name}-${width}.png`, fullPage: true }).catch(() => {});
+        throw error;
       } finally {
         const cookie = (await context.cookies()).find(cookie => cookie.name === 'board-anon'); if (cookie) anonymous.push(cookie.value);
         await context.close();
+        pacing.endCase();
       }
     }
   } finally { await browser.close(); }

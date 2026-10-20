@@ -176,3 +176,37 @@ test('quote lifecycle cleanup preserves primary failures and never turns teardow
   await assert.rejects(withFailurePreservingCleanup(async () => { throw primary; },
     async () => { throw secondary; }, () => { throw new Error('diagnostic failure'); }), error => error === primary);
 });
+
+test('opt-in Pass badges survive remote and local quote recipes without broadening markup', async () => {
+  const released = await import('../../apps/public/static/native-filter.v1.js');
+  for (const year of [1, 2020, 9999]) {
+    const value = post('Owned member');
+    value.html = value.html.replace('<span class="name">Anonymous</span>', `<span class="name">Anonymous</span> <span title="Pass user since ${year}" class="n-pu"></span>`);
+    const parsed = parseUpdaterSnapshot(JSON.stringify(updater(value)), context);
+    assert.equal(parsed.status, 'ok');
+    const tree = parsed.snapshot.posts[0].tree;
+    assert.doesNotThrow(() => released.validatePostTree(tree, context, no));
+    for (const reader of [localQuoteTree, released.localQuoteTree]) {
+      const local = reader(dom(tree), context, no);
+      const badge = local.children[0].children[0].children.find(node => node.attrs?.class === 'n-pu');
+      assert.deepEqual(badge, { tag: 'span', attrs: { class: 'n-pu', title: `Pass user since ${year}` }, children: [] });
+    }
+    assert.equal(parseQuotePreviewSnapshot(JSON.stringify(preview(value)), { ...context, post: no }).status, 'ok');
+    assert.equal(parseBoardPageSnapshot(JSON.stringify(page(value)), { ...context, page: 0 }).status, 'ok');
+  }
+  for (const badge of [
+    '<span title="Pass user since 0" class="n-pu"></span>',
+    '<span title="Pass user since 10000" class="n-pu"></span>',
+    '<span title="Pass user since 02020" class="n-pu"></span>',
+    '<span title="Pass user since 2020" class="n-pu name"></span>',
+    '<span title="Pass user since 2020" class="n-pu">text</span>',
+    '<span title="Pass user since 2020" class="n-pu" onclick="owned()"></span>',
+    '<span class="n-pu"></span>',
+    '<a title="Pass user since 2020" class="n-pu" href="/g/post/123"></a>',
+  ]) {
+    const value = post('Owned');
+    value.html = value.html.replace('<span class="name">Anonymous</span>', badge);
+    assert.equal(parseUpdaterSnapshot(JSON.stringify(updater(value)), context).status, 'invalid-snapshot', badge);
+  }
+  assert.equal(parse('<span title="Pass user since 2020" class="n-pu"></span>').status, 'invalid-snapshot', 'comments cannot claim membership');
+});

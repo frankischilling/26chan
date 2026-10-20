@@ -120,7 +120,7 @@ jobs:
         run: |
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
-          node --test tests/helpers/pass-state-workflow.test.mjs
+          node --test tests/helpers/pass-state-workflow.test.mjs tests/helpers/pass-state-pacing.test.mjs
       - name: Qualify Pass states through native forms, Quick Reply, and JSON
         run: |
           source .local/database.env

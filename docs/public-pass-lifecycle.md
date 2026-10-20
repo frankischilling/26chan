@@ -222,9 +222,17 @@ opt in store zero. JSON omits zero and values at or above 10000, without exposin
 an account ID. Thread transfers preserve the year and bind it into their source
 fingerprint. Whole deletion clears it; archiving retains it.
 
-The badge bitmap, `minileaf.gif`, is absent from the supplied archive. Fetching its referenced URL
-returned an unavailable HTML page rather than an image. Public badge rendering still
-needs that asset and visual qualification; no substitute image is shipped.
+Opt-in years now render the source `n-pu` badge and its “Pass user since YEAR”
+title beside desktop and mobile names. Capcoded posts and values outside 1–9999
+do not receive a badge. Shared rendering carries the same field through thread
+pages, updater responses and quote previews. The client accepts only an empty
+badge span with that bounded year title, never comment-supplied membership markup.
+
+The original `minileaf.gif` is absent from the supplied archive, and its referenced
+URL returned HTML rather than an image. The badge provisionally uses the existing
+bundled 16×16 clover favicon with the source dimensions and alignment. This is a
+visible local fallback, not a claim that the original badge pixels match. The
+original bitmap and auth stylesheet are still needed for final visual comparison.
 
 Private post associations now capture the login identifier's HMAC when a Pass
 receipt is consumed. PIN changes preserve that identity; public, staff and
@@ -296,8 +304,8 @@ HTTP tests pass login, membership-only warning display, CSRF rejection,
 acknowledgment, logout rejection and cookie clearing. Ordinary warning routes
 still pass their identity, escaping and CSRF checks. Complete browser coverage
 and hosted CI remain pending.
-Report membership, public badges and recovery/delivery remain unfinished. The complete posting flow still needs
-browser qualification.
+Report membership and recovery/delivery are covered below. The complete posting
+state matrix still needs hosted browser qualification.
 
 
 Non-member reply, image-reply and duplicate-image refusals now include the
@@ -311,7 +319,7 @@ its single `error` field with the exact `S_RENZOKU_PASS` suffix. Quick Reply and
 the drawing form recognize only that suffix and construct the link with DOM
 methods; all other response text stays inert. The link retains the source's
 external information URL. It does not connect the local entitlement store to an
-external checkout. The separate checkout integration remains unfinished.
+external checkout. Sandbox checkout is integrated; live provider reconciliation remains under #226.
 
 The Quick Reply bundle remains within its existing 50 KiB limit. Reusing the
 unchanged upload-error string offsets the new renderer without removing guards.
@@ -572,7 +580,12 @@ cookie does not grant that bypass to other states; ordinary nonmember CAPTCHA
 admission remains covered separately. Opting out of `since4pass` leaves the
 reply's year out of JSON. Script-enabled native
 forms/Quick Reply and script-disabled native forms are registered for hosted
-browser qualification. Those browser cases have not passed yet.
+browser qualification. The script-disabled matrix passed at c23814a8. The scripted
+matrix reached real native and Quick Reply writes before its shared loopback peer
+hit the unchanged 30-write/minute limit. Its client now reserves room for automatic
+CAPTCHA requests and waits for the real window between cases; it neither raises
+the runtime limit nor retries a potentially committed write. Full scripted
+qualification remains pending.
 
 
 The auth template now also preserves the supplied title/header wording, local

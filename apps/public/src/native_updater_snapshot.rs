@@ -1061,6 +1061,34 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn pass_badges_keep_opt_in_year_and_hide_capcoded_or_event_values() {
+        for (year, capcode, visible) in [
+            (2020, None, true),
+            (1, None, true),
+            (9999, None, true),
+            (0, None, false),
+            (-1, None, false),
+            (10000, None, false),
+            (2020, Some("admin"), false),
+            (2020, Some("unknown"), false),
+        ] {
+            let mut snapshot = fixture();
+            snapshot.posts[0].since4pass = year;
+            snapshot.posts[0].capcode = capcode.map(str::to_owned);
+            let body = encode(snapshot, "", MAX_BYTES).unwrap();
+            let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+            let html = value["posts"][0]["html"].as_str().unwrap();
+            assert_eq!(
+                html.matches("class=\"n-pu\"").count(),
+                if visible { 2 } else { 0 }
+            );
+            if visible {
+                assert!(html.contains(&format!("title=\"Pass user since {year}\"")));
+            }
+        }
+    }
+
+    #[test]
     fn exact_identifiers_and_shared_escaped_markup() {
         let bytes = encode(fixture(), "", MAX_BYTES).unwrap();
         let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();

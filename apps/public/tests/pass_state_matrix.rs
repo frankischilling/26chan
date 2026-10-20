@@ -217,7 +217,10 @@ async fn exercise(mode: &str, pass_only: bool) {
         .spawn()
         .unwrap();
     child.stdin.take().unwrap().write_all(&serde_json::to_vec(&json!({"origin":origin,"api":api_origin,"board":board,"target":target,"cases":cases})).unwrap()).await.unwrap();
-    let output = tokio::time::timeout(Duration::from_secs(240), child.wait_with_output()).await;
+    // Browser cases share one real peer and may wait through four 61-second
+    // write windows. Individual browser actions retain their 12-second limit.
+    let seconds = if mode == "http" { 240 } else { 420 };
+    let output = tokio::time::timeout(Duration::from_secs(seconds), child.wait_with_output()).await;
     serving.abort();
     api_serving.abort();
     private_server.abort();

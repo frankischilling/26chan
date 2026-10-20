@@ -346,6 +346,12 @@ impl PostView {
         mobile_label::label(&self.post.subject)
     }
 
+    pub fn pass_year(&self) -> Option<i32> {
+        (self.post.capcode.as_deref().is_none_or(str::is_empty)
+            && (1..10000).contains(&self.post.since4pass))
+        .then_some(self.post.since4pass)
+    }
+
     pub fn capcode(&self) -> Option<board_domain::capcode::Capcode> {
         self.post
             .capcode
