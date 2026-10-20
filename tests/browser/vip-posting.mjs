@@ -48,6 +48,9 @@ try {
       const result = await response.json(); assert.equal(result.tid, Number(target));
       assert.ok(Number.isSafeInteger(result.pid) && result.pid > 0); id = String(result.pid);
       await expect(qr.locator('#qrCom')).toHaveValue('');
+      stage = `${mode}-inserted-header`;
+      const liveHeader = mode === 'mobile-qr' ? '.postInfoM' : '.postInfo';
+      await expect(page.locator(`#p${id} ${liveHeader} .capcode`)).toHaveText('## Verified');
       const stored = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
       assert.ok(!stored.includes('owned-public-vip') && !stored.includes('owned-vip-secret'));
       await page.goto(`${origin}/${board}/thread/${target}#p${id}`);
