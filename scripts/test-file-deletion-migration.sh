@@ -384,6 +384,26 @@ UPDATE public.upgraded_rows SET value=value||jsonb_build_object('since4pass',202
 WHERE relation='content.posts' AND (value->>'id')::bigint=13000002;
 SQL
 fi
+# Image admission adds only these policy fields. Preserve every historical key;
+# recapturing whole board rows would conceal unrelated upgrade changes.
+if [[ -f migrations/0241_source_image_duplicates.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object(
+ 'image_repost_limit',CASE WHEN value->>'slug'='wsg' THEN 3 ELSE 0 END)
+WHERE relation='content.boards';
+SQL
+fi
+if [[ -f migrations/0242_source_upload_image_history.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object(
+ 'image_history_scope',CASE WHEN value->>'slug' IN('f','test') THEN 'f_md5'::text ELSE NULL::text END)
+WHERE relation='content.boards';
+INSERT INTO public.upgraded_rows VALUES('post_secrets.image_history_scopes',
+ jsonb_build_object('scope','f_md5','row_limit',100000));
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM post_secrets.image_upload_history) THEN
+ RAISE EXCEPTION 'Upgrade invented historical upload-image identity'; END IF; END $$;
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
