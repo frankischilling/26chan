@@ -35,7 +35,6 @@ impl MailStore {
     pub async fn ready(&self) -> Result<(), StoreError> {
         let safe: bool = sqlx::query_scalar(
             "SELECT current_user='board_mailer' AND session_user='board_mailer'
-             AND content.pass_mail_ready()
              AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
              AND NOT rolreplication AND NOT rolbypassrls
              AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid)
@@ -61,7 +60,15 @@ impl MailStore {
         )
         .fetch_one(&self.pool)
         .await?;
-        if safe {
+        if !safe {
+            return Err(StoreError::UnsafeRole);
+        }
+        // SQL does not guarantee boolean predicate evaluation order. Refuse a
+        // wrong role before calling an authority function it cannot execute.
+        let pass_ready: bool = sqlx::query_scalar("SELECT content.pass_mail_ready()")
+            .fetch_one(&self.pool)
+            .await?;
+        if pass_ready {
             Ok(())
         } else {
             Err(StoreError::UnsafeRole)
