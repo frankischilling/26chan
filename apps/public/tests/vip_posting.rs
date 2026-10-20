@@ -15,6 +15,16 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn vip_credentials_flow_through_public_forms_without_persistence() {
+    qualify_public_vip(false).await;
+}
+
+#[cfg(feature = "browser-tests")]
+#[tokio::test]
+async fn verified_browser_forms_and_quick_reply_preserve_private_preferences() {
+    qualify_public_vip(true).await;
+}
+
+async fn qualify_public_vip(browser: bool) {
     let owner = PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -73,10 +83,12 @@ async fn vip_credentials_flow_through_public_forms_without_persistence() {
     let server = tokio::spawn(async move {
         axum::serve(private, private_app).await.unwrap();
     });
+    let web = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", web.local_addr().unwrap());
     let (app, api) = board_public::routers_with_verification(
         public.clone(),
         board_public::PublicRouterOptions {
-            origin: "http://127.0.0.1:3000".into(),
+            origin: origin.clone(),
             production: false,
             media: None,
             limits: board_config::PublicRequestLimits::default(),
@@ -93,6 +105,15 @@ async fn vip_credentials_flow_through_public_forms_without_persistence() {
         )
         .unwrap(),
     );
+    let web_app = app.clone();
+    let web_server = tokio::spawn(async move {
+        axum::serve(
+            web,
+            web_app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        .unwrap();
+    });
     let work = {
         let board = board.clone();
         let public = public.clone();
@@ -118,7 +139,7 @@ async fn vip_credentials_flow_through_public_forms_without_persistence() {
                     format!("/{board}/post")
                 };
                 let mut request = Request::post(path)
-                    .header("origin", "http://127.0.0.1:3000")
+                    .header("origin", origin.as_str())
                     .header(
                         "accept",
                         if number == 2 {
@@ -205,7 +226,7 @@ async fn vip_credentials_flow_through_public_forms_without_persistence() {
                 .clone()
                 .oneshot(
                     Request::post(format!("/{board}/post"))
-                        .header("origin", "http://127.0.0.1:3000")
+                        .header("origin", origin.as_str())
                         .header("accept", "application/json")
                         .header("content-type", "application/x-www-form-urlencoded")
                         .header(
@@ -251,12 +272,32 @@ async fn vip_credentials_flow_through_public_forms_without_persistence() {
                 assert!(body.contains("verified") || body.contains("Verified"));
                 assert!(!body.contains(password) && !body.contains("owned-public-vip"));
             }
+            if browser {
+                #[cfg(feature = "browser-tests")]
+                {
+                    let ids = qualify_browser(&origin, &board, target, password).await;
+                    assert_eq!(ids.len(), 3);
+                    for id in ids {
+                        let row: (String, Option<String>, bool) = sqlx::query_as("SELECT name,capcode,staff_authorized_limits FROM content.posts WHERE board=$1 AND id=$2")
+                            .bind(&board).bind(id).fetch_one(&public).await.unwrap();
+                        assert_eq!(
+                            row,
+                            ("Owned Verified".into(), Some("verified".into()), false)
+                        );
+                        posted.push(id);
+                    }
+                }
+                #[cfg(not(feature = "browser-tests"))]
+                panic!("Browser qualification requires its explicit feature");
+            }
             (posted, cookie)
         }
     };
     let result = tokio::spawn(work).await;
     server.abort();
+    web_server.abort();
     let _ = server.await;
+    let _ = web_server.await;
     // Retire only the synthetic fixture, also when a route assertion fails.
     let mut tx = owner.begin().await.unwrap();
     sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
@@ -304,4 +345,52 @@ async fn vip_credentials_flow_through_public_forms_without_persistence() {
     issuer.close().await;
     owner.close().await;
     result.unwrap();
+}
+
+#[cfg(feature = "browser-tests")]
+async fn qualify_browser(origin: &str, board: &str, target: i64, password: &str) -> Vec<i64> {
+    use std::{process::Stdio, time::Duration};
+    use tokio::io::AsyncWriteExt;
+    let mut command = tokio::process::Command::new("node");
+    command.env_clear();
+    for name in [
+        "PATH",
+        "HOME",
+        "SystemRoot",
+        "WINDIR",
+        "TEMP",
+        "TMP",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "APPDATA",
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "LANG",
+    ] {
+        if let Some(value) = std::env::var_os(name) {
+            command.env(name, value);
+        }
+    }
+    let mut child = command
+        .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."))
+        .arg("tests/browser/vip-posting.mjs")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .unwrap();
+    let mut input = child.stdin.take().unwrap();
+    input.write_all(serde_json::to_string(&serde_json::json!({"origin":origin,"board":board,"target":target.to_string(),"credential":format!("capcode_!owned-public-vip!{password}")})).unwrap().as_bytes()).await.unwrap();
+    input.shutdown().await.unwrap();
+    drop(input);
+    let output = tokio::time::timeout(Duration::from_secs(90), child.wait_with_output())
+        .await
+        .expect("Owned VIP browser exceeded its deadline")
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "Owned VIP browser failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&output.stdout).unwrap()
 }

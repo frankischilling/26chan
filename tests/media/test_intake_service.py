@@ -221,9 +221,13 @@ class IntakeExercise(MediaHttpExercise):
         original = (REPO / 'tests/media/fixtures/jpeg/baseline.jpg').read_bytes()
         metadata = b'Exif\0\0OWNED-STILL-HTTP-METADATA'
         tagged = original[:2] + b'\xff\xe1' + (len(metadata) + 2).to_bytes(2, 'big') + metadata + original[2:]
-        for board, extension, payload in [('aco', 'png', red_png()), ('aco', 'jpg', tagged), ('p', 'jpg', tagged)]:
+        # The intake flag selects processing only. Separate posting tests require
+        # an actual VIP receipt matching this context before publication as a post.
+        for board, extension, payload, badged in [
+                ('aco', 'png', red_png(), False), ('aco', 'jpg', tagged, False),
+                ('p', 'jpg', tagged, False), ('p', 'jpg', tagged, True)]:
             request = {'filename': 'owned-still.' + extension,
-                       'image_context': {'board': board, 'thread_id': 0, 'capcode': False}}
+                       'image_context': {'board': board, 'thread_id': 0, 'capcode': badged}}
             status, reservation = self.call('/v1/reservations', 'POST', json.dumps(request).encode(),
                                              {'Content-Type': 'application/json'})
             assert status == 201 and reservation['state'] == 'receiving'
@@ -239,7 +243,7 @@ class IntakeExercise(MediaHttpExercise):
             assert status == 200 and headers['content-type'] == ('image/png' if extension == 'png' else 'image/jpeg')
             assert retained == (self.objects / f'{asset}.{extension}').read_bytes()
             assert sql(f"SELECT source_profile||':'||md5||':'||bytes FROM media.assets WHERE id='{asset}'") == 'still-v6:' + hashlib.md5(retained).hexdigest() + ':' + str(len(retained))
-            if extension == 'png' or board == 'p':
+            if extension == 'png' or (board == 'p' and not badged):
                 assert retained == payload
             else:
                 assert metadata not in retained
@@ -249,7 +253,7 @@ class IntakeExercise(MediaHttpExercise):
             assert self.http(f'/media/{asset}.thumb.png')[0] == 404
             assert self.http(f'/media/{asset}.mobile.jpg')[0] == 404
             assert self.call(f'/v1/uploads/{job}', headers={'Upload-Capability': capability})[1]['state'] == 'published'
-        print('PASS contextual PNG/JPEG intake -> real still VM -> retained-byte checksums and JPEG HTTP thumbnails, including /p/ metadata retention', flush=True)
+        print('PASS contextual PNG/JPEG intake -> real still VM -> retained-byte checksums and JPEG HTTP thumbnails, including /p/ metadata retention and badge-context stripping', flush=True)
 
     def exercise_source_gifs(self):
         original = (REPO / 'tests/media/fixtures/gif/animated.gif').read_bytes()
