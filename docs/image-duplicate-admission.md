@@ -3,8 +3,8 @@
 Issue #213 includes the separate image-content checks in
 `imgboard.php:6103–6144`. They run after ordinary actor cooldowns and before
 Robot9000. VIP and staff badges exempt these checks; an ordinary Pass does not.
-This implementation is in progress. The active-post checks are wired to posting;
-the upload-board history check is still missing.
+Active-post checks and upload-board history are wired to posting. Final browser
+and CI qualification is still in progress.
 
 ## Active posts
 
@@ -48,7 +48,7 @@ Quick Reply recognizes only that exact local-link form and creates DOM nodes;
 it does not parse error HTML. Invalid paths, foreign origins, oversized IDs and
 added markup remain plain text.
 
-## Remaining upload-board history
+## Upload-board history
 
 The source also reads `SQLLOGMD5` with a strict one-day predicate. An entry at
 exactly one day is outside the window. The supplied `/f/` and `/test/` settings
@@ -56,10 +56,36 @@ name `f_md5`; only an accepted `UPLOAD_BOARD` post writes it. `/test/` does not
 enable `UPLOAD_BOARD` in the supplied configuration. `admin.php` removes rows
 older than two days.
 
-That persistent history path, its bounded retention and accepted-post recording
-are not implemented by migration 0241. The schema in `README2.txt` labels its
-keys and other details as inferred, so those declarations are not proof of the
-original uniqueness behavior.
+Migration 0242 records accepted upload-board attachments in a private history
+namespace. A checked badge bypasses the lookup but still records an accepted
+upload. A later transaction failure rolls the record back with the post and its
+one-use attachment. Removing or archiving a post does not erase its recent-file
+history. Read-enabled boards that are not upload boards do not record uploads.
+
+The supplied `/f/` and `/test/` table label seeds the native `f_md5` namespace.
+The source selected its physical database from an external `boardlist.db` value,
+which was not supplied. Sharing that native namespace is a deployment assumption,
+not proof that those source boards used the same database. An operator can assign
+separate `image_history_scope` values and corresponding private scope rows when
+the original board map is known. `README2.txt` also labels its keys and other
+schema details as inferred; they do not establish original uniqueness behavior.
+
+The scope lock serializes lookup and recording across boards sharing a namespace.
+The default capacity is 100,000 retained rows per scope, configurable by the
+migration owner up to 1,000,000. Insertion trims at most 256 records strictly older
+than 48 hours. If capacity is still exhausted, the post fails without consuming
+its attachment. Recent records are never discarded to make room. This bounded,
+transactional failure is a backend safety difference from the source's unchecked
+`INSERT IGNORE` result.
+
+`board-image-history-retention run` removes up to 1,000 records per transaction
+and 16 batches per invocation. Its server-owned cutoff is strictly older than
+48 hours. It accepts no IDs, cutoff or duration, cannot read hashes, and requires
+the existing dedicated `board_moderation_retention` login through
+`MODERATION_RETENTION_DATABASE_URL`. The supplied `deploy/image-history-retention`
+service and timer run it once per minute. Install the built binary alongside the
+other retention tools and use the existing moderation-retention environment file.
+These files do not deploy or enable a service by themselves.
 
 ## Qualification
 
@@ -67,15 +93,19 @@ The extractor pins the source gate and relevant configuration files by SHA-256.
 The PHP harness executes the unchanged gate against owned rows in three constant
 profiles. Its 288 cases cover badge dispatch, thread/opening-post scopes,
 archived/deleted files, repost thresholds and the strict history boundary. Rust
-compares its decision order with those executed results.
+compares its decision order with those executed results. The harness also executes
+the accepted-upload recording and cleanup statements, including badge-independent
+recording and the strict two-day cutoff.
 
 Owned PostgreSQL tests exercise actual intake capabilities, normalized metadata,
 accepted posts, refused retries, archive/file-deletion release and concurrent
 writers. Migration checks include rollback and populated restore. Actual public
 HTML and legacy JSON submissions return the duplicate link without consuming
 the upload or adding a reply. Response tests also cover exact large IDs and
-unsafe-link refusal. The source history cases qualify
-the decision model only, not a persistent implementation.
+unsafe-link refusal. History tests cover retirement, expiry, capacity rollback,
+read-only scopes, concurrent boards sharing a namespace, and verified-badge
+recording with late-failure rollback. The
+retention SQL checks bounded batches, private grants and authority drift.
 
 ```sh
 python3 scripts/extract-image-duplicate-reference.py /path/to/4chan-old --check

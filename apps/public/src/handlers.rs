@@ -93,10 +93,9 @@ impl From<StoreError> for AppError {
                     "VIP verification changed. Please submit again.",
                 )
             }
-            StoreError::ImageDuplicate(_) => Self(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                board_domain::image_duplicates::DUPLICATE,
-            ),
+            StoreError::ImageDuplicate(rejection) => {
+                Self(StatusCode::UNPROCESSABLE_ENTITY, rejection.source_message())
+            }
             StoreError::Invalid(message) => Self(StatusCode::UNPROCESSABLE_ENTITY, message),
             StoreError::Conflict(message) => Self(StatusCode::CONFLICT, message),
             StoreError::PublicDeletionRejected(message) => Self(StatusCode::FORBIDDEN, message),

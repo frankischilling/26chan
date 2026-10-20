@@ -1,0 +1,27 @@
+[Unit]
+Description=Expire private upload-image history older than two days
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+DynamicUser=true
+EnvironmentFile=/etc/paperboard/moderation-retention.env
+ExecStart=/opt/paperboard/bin/board-image-history-retention run
+TimeoutStartSec=35
+TimeoutStopSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+LimitCORE=0
+MemoryMax=128M
+TasksMax=32
+UMask=0077
+StandardOutput=journal
+StandardError=journal

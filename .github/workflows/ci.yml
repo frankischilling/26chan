@@ -657,7 +657,9 @@ jobs:
       - name: Qualify Pass lifecycle and restored sessions
         run: sudo bash scripts/test-public-pass-lifecycle.sh
       - name: Qualify isolated VIP credentials and restored authority
-        run: sudo bash scripts/test-vip-credentials.sh
+        run: |
+          cargo build -p board-store --bin board-image-history-retention --locked
+          sudo bash scripts/test-vip-credentials.sh
       - name: Qualify atomic janitor request capture and deletion
         run: sudo bash scripts/test-janitor-request-store.sh
       - name: Qualify request review decisions and counted outcomes

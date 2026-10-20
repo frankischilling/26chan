@@ -155,8 +155,11 @@ handling. A separate metadata matrix checks actual VIP receipts with PNG/JPEG
 on `/g/` and `/p/`, including refusal of staff-only attachment bounds. Actual
 `/p/` JPEG processing and posting still need end-to-end qualification. The
 active-post duplicate scopes and board-wide repost limits are implemented in
-migration 0241, with checked badge exemptions. Persistent upload-board history
-remains open; see [image duplicate admission](image-duplicate-admission.md).
+migration 0241, with checked badge exemptions. Migration 0242 adds persistent
+upload-board history: the badge bypasses lookup but accepted uploads still add
+history, and a later posting failure rolls that history back. See
+[image duplicate admission](image-duplicate-admission.md) for capacity, retention
+and the unresolved original database-placement detail.
 
 ## Saved badge presentation
 

@@ -18,6 +18,7 @@ if (!in_array($profile, ['ordinary', 'repost', 'history'], true)) {
     echo 'Source image duplicate cases: ' . count($all) . " passed\n";
     exit;
 }
+define('UPLOAD_BOARD', $profile === 'history');
 define('MAX_IMG_REPOST_COUNT', $profile === 'repost' ? 3 : 0);
 if ($profile === 'history') define('SQLLOGMD5', 'owned_md5');
 define('SQLLOG', 'owned_posts'); define('BOARD_DIR', 'owned'); define('PHP_EXT2', '');
@@ -27,10 +28,16 @@ class DuplicateRefusal extends Exception {}
 function error($message, $dest = null) { throw new DuplicateRefusal($message); }
 function mysql_num_rows($rows) { return count($rows); }
 function mysql_fetch_row($rows) { return $rows[0]; }
-$rows = []; $history_age = null; $queries = [];
+$rows = []; $history_age = null; $queries = []; $recorded = []; $expired = 0;
 function mysql_board_call($query, ...$args) {
-    global $rows, $history_age, $queries;
+    global $rows, $history_age, $queries, $recorded, $expired;
     $queries[] = $query;
+    if ($query === "insert ignore into `%s` (filename,md5) values('%s','%s')") {
+        $recorded[] = $args; return true;
+    }
+    if ($query === "DELETE FROM f_md5 WHERE now < DATE_SUB(NOW(), INTERVAL 2 DAY)") {
+        $expired = $history_age > 172800 ? 1 : 0; return true;
+    }
     if (str_contains($query, 'SELECT sql_no_cache `no`,`resto`')) {
         if (!str_contains($query, 'archived = 0') || !str_contains($query, 'filedeleted=0 limit 1')) throw new Exception('Scope changed');
         $reply = count($args) === 3;
@@ -54,6 +61,19 @@ function mysql_board_call($query, ...$args) {
 }
 $source = json_decode(file_get_contents(__DIR__ . '/../fixtures/image-duplicate-source.json'), true, 512, JSON_THROW_ON_ERROR);
 eval($source['gate_php']);
+eval('function source_record($md5, $insfile, $capcode) {' . $source['record_php'] . '}');
+eval('function source_expire() {' . $source['retention_php'] . '}');
+foreach (['none', 'verified'] as $badge) foreach ([null, '', '0', 'owned-digest'] as $digest) {
+    $recorded = [];
+    source_record($digest, 'owned-file', $badge);
+    $expected = UPLOAD_BOARD && (bool)$digest ? [['owned_md5', 'owned-file', $digest]] : [];
+    if ($recorded !== $expected) throw new Exception('Accepted upload history recording differs');
+}
+foreach ([172799, 172800, 172801] as $age) {
+    $history_age = $age; $expired = -1; source_expire();
+    if ($expired !== ($age > 172800 ? 1 : 0)) throw new Exception('History expiry boundary differs');
+}
+
 $cases = [];
 foreach ([false, true] as $image) foreach (['none', 'verified'] as $badge) foreach ([0, 10] as $target) {
     foreach (['empty', 'same_active', 'same_archived', 'same_deleted', 'other_thread', 'op', 'count_below', 'count_exact', 'count_above', 'recent_history', 'history_boundary', 'history_old'] as $scenario) {

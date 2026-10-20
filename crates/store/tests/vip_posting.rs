@@ -83,8 +83,9 @@ async fn qualify_posting(enabled: bool, images: bool) {
                     let receipt = ReceiptToken::generate().unwrap();
                     let context = ReceiptToken::generate().unwrap().storage_hash();
                     let pass_receipt = ReceiptToken::generate().unwrap();
+                    let purpose = if target == 0 { "thread" } else { "reply" };
                     let pass_context = key
-                        .form_context("reply", Some(&board), target, &"ab".repeat(32))
+                        .form_context(purpose, Some(&board), target, &"ab".repeat(32))
                         .unwrap();
                     if enabled {
                         let networks = key.pass_networks(peer).unwrap();
@@ -97,7 +98,7 @@ async fn qualify_posting(enabled: bool, images: bool) {
                                         networks: &networks,
                                         anonymous: &fingerprints.token,
                                         context: &pass_context,
-                                        purpose: "reply",
+                                        purpose,
                                         board: &board,
                                         target,
                                     }
@@ -219,6 +220,24 @@ async fn qualify_posting(enabled: bool, images: bool) {
                 .await
                 .unwrap();
             let upload = if images {
+                let mut history = owner.begin().await.unwrap();
+                sqlx::query("SET LOCAL ROLE board_attachment_owner")
+                    .execute(&mut *history)
+                    .await
+                    .unwrap();
+                sqlx::query("INSERT INTO post_secrets.image_history_scopes(scope) VALUES($1)")
+                    .bind(&board)
+                    .execute(&mut *history)
+                    .await
+                    .unwrap();
+                sqlx::query("INSERT INTO post_secrets.image_upload_history(post_id,scope,digest,accepted_at) VALUES($1,$2,$3,clock_timestamp())")
+                    .bind(op).bind(&board).bind(vec![7_u8;16]).execute(&mut *history).await.unwrap();
+                history.commit().await.unwrap();
+                sqlx::query("UPDATE content.boards SET image_history_scope=$1 WHERE slug=$1")
+                    .bind(&board)
+                    .execute(&owner)
+                    .await
+                    .unwrap();
                 Some(std::sync::Arc::new(owned_upload(&board, op).await))
             } else {
                 None
@@ -472,6 +491,72 @@ async fn qualify_posting(enabled: bool, images: bool) {
                     .unwrap();
             assert_eq!(retained, 0);
             tx.rollback().await.unwrap();
+            if images {
+                sqlx::query("UPDATE content.boards SET upload_board=true WHERE slug=$1")
+                    .bind(&board)
+                    .execute(&owner)
+                    .await
+                    .unwrap();
+                let file = std::sync::Arc::new(owned_upload(&board, 0).await);
+                let (receipt, context, pass, pass_context) = issue(0).await;
+                let proof = || WriteVipProof::from_issuer(&receipt.encode(), peer_hash, context);
+                let challenge = || {
+                    enabled.then(|| {
+                        WriteChallengeProof::from_issuer(&pass.encode(), peer_hash, pass_context)
+                            .unwrap()
+                    })
+                };
+                let late = submit(
+                    0,
+                    "Owned upload history rollback",
+                    proof(),
+                    challenge(),
+                    Some(file.clone()),
+                    "x".repeat(257),
+                )
+                .await
+                .unwrap_err();
+                assert!(
+                    matches!(late, StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("23514")),
+                    "{late:?}"
+                );
+                let mut check = owner.begin().await.unwrap();
+                sqlx::query("SET LOCAL ROLE board_attachment_owner")
+                    .execute(&mut *check)
+                    .await
+                    .unwrap();
+                let count: i64 = sqlx::query_scalar(
+                    "SELECT count(*) FROM post_secrets.image_upload_history WHERE scope=$1",
+                )
+                .bind(&board)
+                .fetch_one(&mut *check)
+                .await
+                .unwrap();
+                assert_eq!(count, 1, "Late failure must not retain upload history");
+                check.rollback().await.unwrap();
+                let posted = submit(
+                    0,
+                    "Owned upload history rollback",
+                    proof(),
+                    challenge(),
+                    Some(file),
+                    "fixture".into(),
+                )
+                .await
+                .unwrap();
+                let mut check = owner.begin().await.unwrap();
+                sqlx::query("SET LOCAL ROLE board_attachment_owner")
+                    .execute(&mut *check)
+                    .await
+                    .unwrap();
+                let count: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.image_upload_history WHERE scope=$1 AND post_id=$2")
+                    .bind(&board).bind(posted).fetch_one(&mut *check).await.unwrap();
+                assert_eq!(
+                    count, 1,
+                    "Checked badges bypass lookup but accepted uploads still record history"
+                );
+                check.rollback().await.unwrap();
+            }
         }
     };
     let result = tokio::spawn(work).await;
@@ -486,6 +571,23 @@ async fn qualify_posting(enabled: bool, images: bool) {
         .execute(&mut *tx)
         .await
         .unwrap();
+    if images {
+        sqlx::query("SET LOCAL ROLE board_attachment_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM post_secrets.image_upload_history WHERE scope=$1")
+            .bind(&board)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM post_secrets.image_history_scopes WHERE scope=$1")
+            .bind(&board)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        sqlx::query("RESET ROLE").execute(&mut *tx).await.unwrap();
+    }
     sqlx::query("DELETE FROM admission.file_rules WHERE board=$1")
         .bind(&board)
         .execute(&mut *tx)

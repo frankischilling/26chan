@@ -507,6 +507,8 @@ async fn exercise(f: &Fixture) {
             'content.attachment_upload_filename(text,text)'::regprocedure,
             'content.attachment_upload_filter_metadata(text,text,text,bigint,boolean,boolean)'::regprocedure,
             'content.image_duplicate_candidate(text,text,text,bigint,boolean,boolean)'::regprocedure,
+            'content.record_image_upload_history()'::regprocedure,
+            'content.expire_image_upload_history()'::regprocedure,
             'content.file_effect_upload_metadata(text,text,text,bigint,boolean)'::regprocedure,
             'content.retain_attachment_digest()'::regprocedure,
             'content.prior_ban_upload_digest(text,text,text,bigint,boolean,boolean)'::regprocedure,

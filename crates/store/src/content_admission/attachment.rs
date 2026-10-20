@@ -101,9 +101,12 @@ impl<'a> Preflight<'a> {
         .await?;
         match row {
             None => Ok(None),
-            Some((0, 0)) => Ok(Some(crate::ImageDuplicateRefusal { existing: None })),
+            Some((-1, -1)) => Ok(Some(crate::ImageDuplicateRefusal::RecentUpload)),
+            Some((0, 0)) => Ok(Some(crate::ImageDuplicateRefusal::Duplicate {
+                existing: None,
+            })),
             Some((post, thread)) if post > 0 && thread > 0 => {
-                Ok(Some(crate::ImageDuplicateRefusal {
+                Ok(Some(crate::ImageDuplicateRefusal::Duplicate {
                     existing: Some((post, thread)),
                 }))
             }

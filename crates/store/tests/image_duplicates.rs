@@ -19,16 +19,21 @@ async fn active_image_scopes_repost_limits_and_concurrent_attempts() {
             .unwrap();
     sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,text_only,captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,image_limit,archive_retention_seconds) VALUES($1,'Owned duplicates','Synthetic',2000,100,100,100,10,true,false,0,0,0,100,100,3600)")
         .bind(&board).execute(&owner).await.unwrap();
+    let alias_board = format!("h{}", &board[1..]);
     let mut uploads = Vec::new();
     for digest in [7, 7, 7, 7, 7, 8, 8] {
         uploads.push(Arc::new(owned_upload(Some(digest)).await));
     }
     uploads.push(Arc::new(owned_upload(None).await));
+    for digest in [9, 9, 10, 11, 12, 12] {
+        uploads.push(Arc::new(owned_upload(Some(digest)).await));
+    }
     let jobs: Vec<String> = uploads.iter().map(|file| file.upload.id.clone()).collect();
     let work = {
         let public = public.clone();
         let owner = owner.clone();
         let board = board.clone();
+        let alias_board = alias_board.clone();
         async move {
             let submit = |parent, index: Option<usize>, peer: u8| {
                 let public = public.clone();
@@ -80,7 +85,7 @@ async fn active_image_scopes_repost_limits_and_concurrent_attempts() {
             let first = submit(threads[0], Some(0), 10).await.unwrap();
             let duplicate = submit(threads[0], Some(1), 11).await.unwrap_err();
             assert!(
-                matches!(duplicate,StoreError::ImageDuplicate(ref r) if r.existing==Some((first,threads[0]))),
+                matches!(duplicate,StoreError::ImageDuplicate(ref r) if r.existing()==Some((first,threads[0]))),
                 "{duplicate:?}"
             );
             let second = submit(threads[1], Some(1), 11).await.unwrap();
@@ -91,7 +96,7 @@ async fn active_image_scopes_repost_limits_and_concurrent_attempts() {
                 .unwrap();
             let limited = submit(threads[2], Some(2), 12).await.unwrap_err();
             assert!(
-                matches!(limited,StoreError::ImageDuplicate(ref r) if r.existing.is_none()),
+                matches!(limited,StoreError::ImageDuplicate(ref r) if r.existing().is_none()),
                 "{limited:?}"
             );
             sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE board=$1 AND id=$2")
@@ -109,7 +114,7 @@ async fn active_image_scopes_repost_limits_and_concurrent_attempts() {
             let op = submit(0, Some(3), 13).await.unwrap();
             let duplicate_op = submit(0, Some(4), 14).await.unwrap_err();
             assert!(
-                matches!(duplicate_op,StoreError::ImageDuplicate(ref r) if r.existing==Some((op,op))),
+                matches!(duplicate_op,StoreError::ImageDuplicate(ref r) if r.existing()==Some((op,op))),
                 "{duplicate_op:?}"
             );
             // The fixture owns the target; exercise the existing file-only
@@ -136,9 +141,141 @@ async fn active_image_scopes_repost_limits_and_concurrent_attempts() {
                 matches!(refusal, StoreError::ImageDuplicate(_)),
                 "{refusal:?}"
             );
+            // Upload-board history survives live-post retirement. This fixture
+            // owns a private namespace rather than borrowing production /f/ rows.
+            history_sql(
+                &owner,
+                "INSERT INTO post_secrets.image_history_scopes(scope,row_limit) VALUES($1,2)",
+                &board,
+            )
+            .await;
+            sqlx::query(
+                "UPDATE content.boards SET image_history_scope=$1,upload_board=true WHERE slug=$1",
+            )
+            .bind(&board)
+            .execute(&owner)
+            .await
+            .unwrap();
+            let history_first = submit(0, Some(8), 30).await.unwrap();
+            sqlx::query("UPDATE content.threads SET archived_at=clock_timestamp(),archive_expires_at=clock_timestamp()+interval '1 hour' WHERE id=$1")
+                .bind(history_first).execute(&owner).await.unwrap();
+            let recent = submit(0, Some(9), 31).await.unwrap_err();
+            assert!(
+                matches!(
+                    recent,
+                    StoreError::ImageDuplicate(ImageDuplicateRefusal::RecentUpload)
+                ),
+                "{recent:?}"
+            );
+            post_media::check_upload(
+                &public,
+                &uploads[9].upload.id,
+                &uploads[9].upload.capability,
+            )
+            .await
+            .unwrap();
+            history_sql(&owner, "UPDATE post_secrets.image_upload_history SET accepted_at=date_trunc('second',clock_timestamp())-interval '24 hours' WHERE scope=$1", &board).await;
+            let history_second = submit(0, Some(9), 31).await.unwrap();
+            assert!(history_second > history_first);
+            // Both recorded rows still exist, so capacity refuses a distinct
+            // image and rolls back its post and one-use attachment consumption.
+            let full = submit(0, Some(10), 32).await.unwrap_err();
+            assert!(
+                matches!(full,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0242")),
+                "{full:?}"
+            );
+            post_media::check_upload(
+                &public,
+                &uploads[10].upload.id,
+                &uploads[10].upload.capability,
+            )
+            .await
+            .unwrap();
+            history_sql(&owner, "UPDATE post_secrets.image_upload_history SET accepted_at=date_trunc('second',clock_timestamp())-interval '49 hours' WHERE scope=$1 AND post_id=(SELECT min(post_id) FROM post_secrets.image_upload_history WHERE scope=$1)", &board).await;
+            submit(0, Some(10), 32).await.unwrap();
+            sqlx::query("UPDATE content.boards SET upload_board=false WHERE slug=$1")
+                .bind(&board)
+                .execute(&owner)
+                .await
+                .unwrap();
+            // Read-enabled, non-upload boards do not add a history row, even
+            // when the shared namespace's accepted-upload capacity is full.
+            submit(0, Some(11), 33).await.unwrap();
+            let mut read = owner.begin().await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_attachment_owner")
+                .execute(&mut *read)
+                .await
+                .unwrap();
+            let retained: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM post_secrets.image_upload_history WHERE scope=$1",
+            )
+            .bind(&board)
+            .fetch_one(&mut *read)
+            .await
+            .unwrap();
+            assert_eq!(retained, 2);
+            read.rollback().await.unwrap();
+            history_sql(
+                &owner,
+                "UPDATE post_secrets.image_history_scopes SET row_limit=10 WHERE scope=$1",
+                &board,
+            )
+            .await;
+            sqlx::query("UPDATE content.boards SET upload_board=true WHERE slug=$1")
+                .bind(&board)
+                .execute(&owner)
+                .await
+                .unwrap();
+            sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,text_only,captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,image_limit,upload_board,image_history_scope) VALUES($1,'Owned shared history','Synthetic',2000,100,100,100,10,false,false,0,0,0,100,100,true,$2)")
+                .bind(&alias_board).bind(&board).execute(&owner).await.unwrap();
+            let independent = NewPost {
+                name: "Anonymous".into(),
+                subject: "Owned shared history".into(),
+                comment: "Owned independent namespace contender".into(),
+                deletion_hash: "fixture".into(),
+                sage: false,
+            };
+            let other = support::create_post_with_context(
+                &public,
+                &alias_board,
+                0,
+                &independent,
+                Some(uploads[13].as_ref()),
+                PostingContext {
+                    request_start: chrono::Utc::now(),
+                    peer: Some(std::net::Ipv4Addr::new(192, 0, 2, 35).into()),
+                    op_password_proof: None,
+                },
+            );
+            let (left, right) = tokio::join!(submit(0, Some(12), 34), other);
+            assert_eq!(
+                usize::from(left.is_ok()) + usize::from(right.is_ok()),
+                1,
+                "Shared history serializes independent boards"
+            );
+            let refusal = left.err().or_else(|| right.err()).unwrap();
+            assert!(
+                matches!(
+                    refusal,
+                    StoreError::ImageDuplicate(ImageDuplicateRefusal::RecentUpload)
+                ),
+                "{refusal:?}"
+            );
         }
     };
     let result = tokio::spawn(work).await;
+    history_sql(
+        &owner,
+        "DELETE FROM post_secrets.image_upload_history WHERE scope=$1",
+        &board,
+    )
+    .await;
+    history_sql(
+        &owner,
+        "DELETE FROM post_secrets.image_history_scopes WHERE scope=$1",
+        &board,
+    )
+    .await;
     let mut tx = owner.begin().await.unwrap();
     sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
         .bind(&board)
@@ -150,6 +287,16 @@ async fn active_image_scopes_repost_limits_and_concurrent_attempts() {
         .execute(&mut *tx)
         .await
         .unwrap();
+    sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
+        .bind(&alias_board)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("SELECT id FROM content.threads WHERE board=$1 ORDER BY id FOR UPDATE")
+        .bind(&alias_board)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
     for statement in [
         "DELETE FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",
         "DELETE FROM content.post_media WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",
@@ -158,11 +305,13 @@ async fn active_image_scopes_repost_limits_and_concurrent_attempts() {
         "DELETE FROM post_secrets.posting_thread_actions WHERE board=$1",
         "DELETE FROM content.boards WHERE slug=$1",
     ] {
-        sqlx::query(statement)
-            .bind(&board)
-            .execute(&mut *tx)
-            .await
-            .unwrap();
+        for owned_board in [&board, &alias_board] {
+            sqlx::query(statement)
+                .bind(owned_board)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+        }
     }
     for job in jobs {
         for statement in [
@@ -262,4 +411,18 @@ async fn owned_upload(digest: Option<u8>) -> post_media::NewAttachment {
         upload,
         spoiler: false,
     }
+}
+
+async fn history_sql(owner: &PgPool, statement: &'static str, scope: &str) {
+    let mut tx = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_attachment_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query(statement)
+        .bind(scope)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
 }

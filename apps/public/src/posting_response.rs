@@ -100,13 +100,13 @@ impl Format {
         rejection: &board_store::ImageDuplicateRefusal,
     ) -> Response {
         let Some((post, thread)) = rejection
-            .existing
+            .existing()
             .filter(|(post, thread)| *post > 0 && *thread > 0)
         else {
-            return self.rule_error(board_domain::image_duplicates::DUPLICATE);
+            return self.rule_error(rejection.source_message());
         };
         if board_domain::BoardSlug::parse(board).is_err() {
-            return self.rule_error(board_domain::image_duplicates::DUPLICATE);
+            return self.rule_error(rejection.source_message());
         }
         let location = format!("/{board}/thread/{thread}#p{post}");
         match self {
@@ -205,7 +205,7 @@ mod tests {
 
     #[tokio::test]
     async fn duplicate_file_links_use_only_checked_local_targets() {
-        let refusal = board_store::ImageDuplicateRefusal {
+        let refusal = board_store::ImageDuplicateRefusal::Duplicate {
             existing: Some((i64::MAX, 9007199254740992)),
         };
         let expected = "/g/thread/9007199254740992#p9223372036854775807";
@@ -231,13 +231,23 @@ mod tests {
                 assert!(body.contains(expected));
             }
         }
+        let response = Format::Json
+            .image_duplicate_error("f", &board_store::ImageDuplicateRefusal::RecentUpload);
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({"error": board_domain::image_duplicates::RECENT_UPLOAD})
+        );
         for (board, existing) in [
             ("../outside", Some((1, 1))),
             ("g", Some((0, 1))),
             ("g", None),
         ] {
-            let response = Format::Json
-                .image_duplicate_error(board, &board_store::ImageDuplicateRefusal { existing });
+            let response = Format::Json.image_duplicate_error(
+                board,
+                &board_store::ImageDuplicateRefusal::Duplicate { existing },
+            );
             let bytes = response.into_body().collect().await.unwrap().to_bytes();
             let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
             assert_eq!(value["error"], board_domain::image_duplicates::DUPLICATE);

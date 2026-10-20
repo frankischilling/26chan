@@ -35,7 +35,8 @@ psql=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 15455 -U postgres)
 "${psql[@]}" -d postgres <<'SQL'
 CREATE DATABASE vip_credentials OWNER board_migrator;
 REVOKE ALL ON DATABASE vip_credentials FROM PUBLIC;
-GRANT CONNECT ON DATABASE vip_credentials TO board_migrator,board_verifier,board_public;
+GRANT CONNECT ON DATABASE vip_credentials TO board_migrator,board_verifier,board_public,board_moderation_retention;
+ALTER ROLE board_moderation_retention LOGIN;
 SQL
 migrator=("${psql[@]}" -U board_migrator -d vip_credentials)
 for migration in migrations/*.sql; do
@@ -77,7 +78,27 @@ DO $$ BEGIN
 END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0241_source_image_duplicates.sql
+"${migrator[@]}" -c BEGIN -f migrations/0242_source_upload_image_history.sql -c ROLLBACK
+"${psql[@]}" -d vip_credentials <<'SQL'
+DO $$ BEGIN
+ IF to_regclass('post_secrets.image_upload_history') IS NOT NULL
+ OR to_regprocedure('content.expire_image_upload_history()') IS NOT NULL
+ OR content.text_thread_transfer_ready() IS DISTINCT FROM true
+ OR post_secrets.classifier_history_ready() IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'Upload history rollback changed existing authority'; END IF;
+END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0242_source_upload_image_history.sql
+"${psql[@]}" -d vip_credentials -f scripts/test-image-upload-history.sql
 "${psql[@]}" -d vip_credentials -f scripts/test-vip-credentials.sql
+"${psql[@]}" -d vip_credentials -c "INSERT INTO post_secrets.image_upload_history(post_id,scope,digest,accepted_at) VALUES(9000001005,'f_md5',decode(repeat('12',16),'hex'),clock_timestamp()-interval '49 hours')"
+binary="$PWD/target/debug/board-image-history-retention"
+[[ -x $binary ]] || { echo 'Build board-image-history-retention before qualification.' >&2; exit 1; }
+result=$(MODERATION_RETENTION_DATABASE_URL=postgres://board_moderation_retention@127.0.0.1:15455/vip_credentials "$binary" run)
+[[ $result == '{"expired_image_history_rows":1,"batch_limit_reached":false}' ]] || { echo 'Image history CLI expiry differs.' >&2; exit 1; }
+if MODERATION_RETENTION_DATABASE_URL=postgres://board_migrator@127.0.0.1:15455/vip_credentials "$binary" run; then
+ echo 'Image history CLI accepted a migration identity.' >&2; exit 1
+fi
 "$pg_bin/pg_dump" -h 127.0.0.1 -p 15455 -U postgres -d vip_credentials -Fc -f "$cluster/vip.dump"
 "${psql[@]}" -d postgres -c 'CREATE DATABASE vip_restored OWNER board_migrator'
 "$pg_bin/pg_restore" -h 127.0.0.1 -p 15455 -U postgres -d vip_restored --exit-on-error "$cluster/vip.dump"
@@ -86,6 +107,8 @@ DO $$ BEGIN
  IF content.public_vip_ready() IS DISTINCT FROM true
   OR content.public_pass_ready() IS DISTINCT FROM true
   OR content.public_challenge_ready() IS DISTINCT FROM true
+  OR content.text_thread_transfer_ready() IS DISTINCT FROM true
+  OR (SELECT count(*) FROM post_secrets.image_upload_history)<>2
   OR (SELECT count(*) FROM verification_private.vip_accounts)<>2
   OR (SELECT count(*) FROM verification_private.vip_receipts)<>1
   OR NOT EXISTS(SELECT 1 FROM verification_private.vip_accounts WHERE name='Renamed Owned VIP' AND credential_version=2) THEN

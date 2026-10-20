@@ -1,0 +1,11 @@
+[Unit]
+Description=Run bounded upload-image history expiry every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=1s
+Unit=image-history-retention.service
+
+[Install]
+WantedBy=timers.target
