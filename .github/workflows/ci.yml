@@ -21,9 +21,10 @@ jobs:
     runs-on: ubuntu-24.04
     # Rust tests include real browser-backed upload qualification.
     # Public browser suites run on separate disposable databases below.
-    # The complete database suite takes about 41 minutes on a warm runner.
-    # Leave CI scheduling headroom; individual runtime and lock limits stay fixed.
-    timeout-minutes: 60
+    # The full Pass matrix plus database and public suites exceeded one hour
+    # on a warm runner while tests were still completing successfully.
+    # This job budget includes builds; runtime, lock and browser limits stay fixed.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
