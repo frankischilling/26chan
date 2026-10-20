@@ -200,8 +200,8 @@ opt in store zero. JSON omits zero and values at or above 10000, without exposin
 an account ID. Thread transfers preserve the year and bind it into their source
 fingerprint. Whole deletion clears it; archiving retains it.
 
-The badge bitmap, `minileaf.gif`, is absent from the supplied archive. Its host
-returned an unavailable page rather than an image. Public badge rendering still
+The badge bitmap, `minileaf.gif`, is absent from the supplied archive. Fetching its referenced URL
+returned an unavailable HTML page rather than an image. Public badge rendering still
 needs that asset and visual qualification; no substitute image is shipped.
 
 Private post associations now capture the login identifier's HMAC when a Pass
@@ -534,3 +534,20 @@ The regression calls that helper directly as the restricted report owner, so an
 empty membership join cannot let the planner hide an accidental write dependency.
 All 32 Store report-admission cases pass locally, including CAPTCHA-enabled network
 rules with actual verifier-issued proofs and the unchanged no-partial-report checks.
+
+## Posting state matrix under qualification
+
+The new owned matrix provisions new, active, expired, refunded, chargeback,
+disabled, spam-restricted, delayed and renewed accounts. Each client has only
+public HTTP credentials. The supervisor retains database access and checks the
+stored post year, private account association, total post count and absence of
+CAPTCHA courtesy credits before deleting its fixture data.
+
+The HTTP matrices cover an ordinary CAPTCHA-enabled board and a Pass-only board,
+with real login, OP submission, a JSON reply and the separate JSON listener. Only
+the four eligible states bypass CAPTCHA. A forged `pass_enabled` presentation
+cookie does not grant that bypass to other states; ordinary nonmember CAPTCHA
+admission remains covered separately. Opting out of `since4pass` leaves the
+reply's year out of JSON. Script-enabled native
+forms/Quick Reply and script-disabled native forms are registered for hosted
+browser qualification. Those browser cases have not passed yet.
