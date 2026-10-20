@@ -103,6 +103,8 @@ class PublicVipJpegTest(unittest.TestCase):
             self.assertEqual(set(run.call_args.kwargs['env']), {'PATH','APP_ENV','MIGRATION_DATABASE_URL','VERIFICATION_KEY'})
             active = (root/'public.env').read_bytes()
             self.assertTrue(active.startswith(before))
+            self.assertEqual(active.count(b'PUBLIC_HANDLER_TIMEOUT_MS=30000\n'), 1)
+            self.assertNotIn(b'PUBLIC_HANDLER_TIMEOUT_MS=', fixture.public_env['before'])
             self.assertIn(fixture.token.encode(), active)
             for value in [fixture.key, fixture.mail_key, fixture.password, 'owned-issuer', 'owned-operator']:
                 self.assertNotIn(value.encode(), active)

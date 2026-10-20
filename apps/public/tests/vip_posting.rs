@@ -107,6 +107,13 @@ async fn qualify_public_vip(browser: bool) {
         )
         .unwrap(),
     );
+    let ready = app
+        .clone()
+        .oneshot(Request::get("/readyz").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(ready.status(), StatusCode::OK);
+    drop(ready);
     let web_app = app.clone();
     let web_server = tokio::spawn(async move {
         axum::serve(

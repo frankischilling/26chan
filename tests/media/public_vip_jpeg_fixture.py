@@ -112,8 +112,10 @@ class PublicVipJpeg:
         self.account_id = candidate
         path = self.f.root / 'public.env'
         before = path.read_bytes()
-        assert b'PUBLIC_VERIFICATION_' not in before and before.endswith(b'\n')
-        active = before + f'PUBLIC_VERIFICATION_ADDR=127.0.0.1:{self.port}\nPUBLIC_VERIFICATION_TOKEN={self.token}\n'.encode()
+        assert b'PUBLIC_VERIFICATION_' not in before and b'PUBLIC_HANDLER_TIMEOUT_MS=' not in before and before.endswith(b'\n')
+        # Settings requires this bounded handler budget whenever verification is enabled.
+        # It is restored with the original environment after the owned fixture.
+        active = before + f'PUBLIC_HANDLER_TIMEOUT_MS=30000\nPUBLIC_VERIFICATION_ADDR=127.0.0.1:{self.port}\nPUBLIC_VERIFICATION_TOKEN={self.token}\n'.encode()
         self.public_env = {'before': before, 'active': active}
         systemctl('stop', self.host.unit.name)
         self.f.write(path, active)
