@@ -14,12 +14,14 @@ use std::sync::Arc;
 use tower::ServiceExt;
 
 #[tokio::test]
+#[ignore = "Requires the isolated issuer role; scripts/verify.sh runs this explicitly"]
 async fn vip_credentials_flow_through_public_forms_without_persistence() {
     qualify_public_vip(false).await;
 }
 
 #[cfg(feature = "browser-tests")]
 #[tokio::test]
+#[ignore = "Requires the isolated issuer role and pinned browser; scripts/verify.sh runs this explicitly"]
 async fn verified_browser_forms_and_quick_reply_preserve_private_preferences() {
     qualify_public_vip(true).await;
 }
