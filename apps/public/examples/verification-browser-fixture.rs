@@ -2,8 +2,7 @@
 #![forbid(unsafe_code)]
 use axum::{Router, routing::get};
 const ORIGIN: &str = "http://127.0.0.1:3000";
-#[tokio::main]
-async fn main() {
+async fn app() -> Router {
     let pool = sqlx::postgres::PgPoolOptions::new()
         .connect_lazy("postgres://unused@127.0.0.1:1/unused")
         .expect("closed fixture pool");
@@ -44,6 +43,7 @@ async fn main() {
         "recovery-reset",
         "recovery-complete",
         "recovery-escaped",
+        "checkout-purchase",
         "checkout-renew",
         "checkout-pending",
         "checkout-paid",
@@ -62,9 +62,40 @@ async fn main() {
             }),
         );
     }
-    let app = app.fallback_service(board_public::router(pool, ORIGIN.into(), false));
+    app.fallback_service(board_public::router(pool, ORIGIN.into(), false))
+}
+#[tokio::main]
+async fn main() {
+    let app = app().await;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .expect("owned fixture listener");
     axum::serve(listener, app).await.expect("fixture server");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        body::{Body, to_bytes},
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt;
+    #[tokio::test]
+    async fn purchase_fixture_is_routed_to_the_real_form() {
+        let response = app()
+            .await
+            .oneshot(
+                Request::get("/fixture/pass/checkout-purchase")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = to_bytes(response.into_body(), 65536).await.unwrap();
+        let html = std::str::from_utf8(&bytes).unwrap();
+        assert!(html.contains("action=\"/pass/purchase\""));
+        assert!(html.contains("name=\"gift_email\""));
+    }
 }

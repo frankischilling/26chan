@@ -110,7 +110,7 @@
     "build:verification": "node scripts/build-verification.mjs",
     "check:verification": "node scripts/build-verification.mjs --check",
     "test:verification-core": "npm run check:verification && node --test tests/helpers/verification.test.mjs",
-    "test:verification": "npm run test:verification-core && playwright test --config playwright.verification.config.js",
+    "test:verification": "npm run test:verification-core && cargo test -p board-public --example verification-browser-fixture --features browser-tests --locked && playwright test --config playwright.verification.config.js",
     "build:posting-captcha": "node scripts/build-posting-captcha.mjs",
     "check:posting-captcha": "node scripts/build-posting-captcha.mjs --check"
   },
