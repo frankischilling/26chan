@@ -126,7 +126,7 @@ async function uploadRequest({ url, body, signal, fetcher, timeout, failure, par
 }
 
 export async function uploadQuickReplyFile({
-  board, thread, file, signal, origin = location.origin, fetcher = fetch,
+  board, thread, file, badged = false, signal, origin = location.origin, fetcher = fetch,
 }) {
   const context = uploadContext(board, thread, origin);
   if (!(file instanceof Blob) || typeof file.name !== 'string' || !file.name || file.name.length > 255
@@ -135,6 +135,7 @@ export async function uploadQuickReplyFile({
   if (file.size > QUICK_REPLY_UPLOAD_LIMITS.bytes) throw new Error('The file exceeds the 8 MiB upload limit.');
   const form = new FormData();
   form.append('resto', context.thread);
+  if (badged) form.append('vip_image', '1');
   form.append('upfile', file, file.name);
   return uploadRequest({
     url: `${context.origin}/${context.board}/upload`, body: form, signal, fetcher,

@@ -53,6 +53,19 @@ DO $$ BEGIN
 END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0238_vip_credentials.sql
+"${migrator[@]}" -c BEGIN -f migrations/0239_vip_posting_receipts.sql -c ROLLBACK
+"${psql[@]}" -d vip_credentials <<'SQL'
+DO $$ BEGIN
+ IF to_regclass('verification_private.vip_post_handoffs') IS NOT NULL
+  OR content.public_vip_ready() IS DISTINCT FROM true
+  OR content.public_pass_ready() IS DISTINCT FROM true
+  OR content.public_challenge_ready() IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'VIP posting rollback changed authority'; END IF;
+END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0239_vip_posting_receipts.sql
+"${migrator[@]}" -c BEGIN -f migrations/0240_vip_attachment_admission.sql -c ROLLBACK
+"${migrator[@]}" --single-transaction -f migrations/0240_vip_attachment_admission.sql
 "${psql[@]}" -d vip_credentials -f scripts/test-vip-credentials.sql
 "$pg_bin/pg_dump" -h 127.0.0.1 -p 15455 -U postgres -d vip_credentials -Fc -f "$cluster/vip.dump"
 "${psql[@]}" -d postgres -c 'CREATE DATABASE vip_restored OWNER board_migrator'

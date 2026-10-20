@@ -34,8 +34,16 @@ fn upload(board: &str, bytes: &[u8]) -> Request<Body> {
     upload_named(board, &format!("native-{board}.png"), bytes)
 }
 fn upload_named(board: &str, filename: &str, bytes: &[u8]) -> Request<Body> {
+    upload_named_hint(board, filename, bytes, false)
+}
+fn upload_named_hint(board: &str, filename: &str, bytes: &[u8], badged: bool) -> Request<Body> {
+    let hint = if badged {
+        "--owned\r\nContent-Disposition: form-data; name=\"vip_image\"\r\n\r\n1\r\n"
+    } else {
+        ""
+    };
     let mut body = format!(
-        "--owned\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n0\r\n--owned\r\nContent-Disposition: form-data; name=\"upfile\"; filename=\"{filename}\"\r\nContent-Type: image/png\r\n\r\n"
+        "--owned\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n0\r\n{hint}--owned\r\nContent-Disposition: form-data; name=\"upfile\"; filename=\"{filename}\"\r\nContent-Type: image/png\r\n\r\n"
     ).into_bytes();
     body.extend_from_slice(bytes);
     body.extend_from_slice(b"\r\n--owned--\r\n");
@@ -163,45 +171,50 @@ impl Fixture {
     }
 
     async fn exercise_source_context(&self) {
-        let bytes = b"source transport fixture";
-        let filename = format!("native-{}.png", self.board);
-        let pending = self
-            .send(upload_named("p", &filename, bytes), StatusCode::OK)
-            .await;
-        let id = pending["upload_id"].as_str().unwrap();
-        let context: (String, i64, bool) = sqlx::query_as(
-            "SELECT board,thread_id,capcode FROM media.image_context WHERE job_id=$1",
-        )
-        .bind(id)
-        .fetch_one(&self.owner)
-        .await
-        .unwrap();
-        assert_eq!(context, ("p".into(), 0, false));
-        assert_eq!(
-            std::fs::read(self.root.join(format!("{id}.input"))).unwrap(),
-            bytes
-        );
-        let form_body = receipt(&pending);
-        self.send(form("p", "upload/cancel", form_body), StatusCode::OK)
-            .await;
-        assert!(matches!(
-            self.intake
-                .status(id, pending["upload_capability"].as_str().unwrap())
-                .await,
-            Err(board_store::StoreError::NotFound)
-        ));
-        // Cancellation revokes posting authority; the queued job may still be
-        // collected by the worker. Remove this owned fixture before the next
-        // exercise, which deliberately requires an otherwise idle queue.
-        assert_eq!(
-            sqlx::query("DELETE FROM media.jobs WHERE id=$1")
-                .bind(id)
-                .execute(&self.owner)
-                .await
-                .unwrap()
-                .rows_affected(),
-            1
-        );
+        for badged in [false, true] {
+            let bytes = b"source transport fixture";
+            let filename = format!("native-{}.png", self.board);
+            let pending = self
+                .send(
+                    upload_named_hint("p", &filename, bytes, badged),
+                    StatusCode::OK,
+                )
+                .await;
+            let id = pending["upload_id"].as_str().unwrap();
+            let context: (String, i64, bool) = sqlx::query_as(
+                "SELECT board,thread_id,capcode FROM media.image_context WHERE job_id=$1",
+            )
+            .bind(id)
+            .fetch_one(&self.owner)
+            .await
+            .unwrap();
+            assert_eq!(context, ("p".into(), 0, badged));
+            assert_eq!(
+                std::fs::read(self.root.join(format!("{id}.input"))).unwrap(),
+                bytes
+            );
+            let form_body = receipt(&pending);
+            self.send(form("p", "upload/cancel", form_body), StatusCode::OK)
+                .await;
+            assert!(matches!(
+                self.intake
+                    .status(id, pending["upload_capability"].as_str().unwrap())
+                    .await,
+                Err(board_store::StoreError::NotFound)
+            ));
+            // Cancellation revokes posting authority; the queued job may still be
+            // collected by the worker. Remove this owned fixture before the next
+            // exercise, which deliberately requires an otherwise idle queue.
+            assert_eq!(
+                sqlx::query("DELETE FROM media.jobs WHERE id=$1")
+                    .bind(id)
+                    .execute(&self.owner)
+                    .await
+                    .unwrap()
+                    .rows_affected(),
+                1
+            );
+        }
     }
 
     async fn exercise_drawings(&self) {

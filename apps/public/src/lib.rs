@@ -26,6 +26,7 @@ mod post_receipts;
 mod posting_challenge;
 mod posting_form;
 mod posting_response;
+mod posting_vip;
 mod restrictions;
 mod rss;
 mod search;

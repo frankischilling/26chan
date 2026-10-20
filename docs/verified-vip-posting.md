@@ -1,9 +1,10 @@
 # Verified VIP posting
 
 Issue #222 includes the source's separate VIP credential and `verified` badge.
-This work is in progress. Private credential storage and receipt issuance are
-implemented, but public posting does not consume those receipts yet. Parsing
-the option alone grants no authority.
+This work is in progress. Public posting now exchanges credentials with the
+private issuer and consumes its receipt in the posting transaction. Parsing
+the option alone grants no authority. The full source-behavior audit and final
+CI qualification are still open.
 
 The preference boundary already discards VIP-looking options instead of saving
 them in a cookie, and clears an existing options cookie after such a submission.
@@ -92,7 +93,11 @@ version before issuing a separate 30-second receipt. A name, password or active
 state change advances that version. Receipts bind the account version to the
 peer, anonymous session, board and target. The private response contains only
 the opaque receipt and context hashes, with no password, identifier or name.
-Posting-time consumption and its final revocation checks are still unfinished.
+Migration 0239 checks that version again while holding the account and receipt
+locks. The post insert consumes the receipt, sets the configured name and badge,
+and requires matching anonymous-post registration before commit. A later write
+failure rolls consumption back. Changing the credentials or deactivating the
+account invalidates receipts that have not been consumed.
 
 Local SQL qualification covers role denial, failure limits, changed credentials,
 expired attempts, actual Pass receipt binding and revocation, catalog privilege
@@ -110,13 +115,45 @@ remain stable.
 
 The provisioning command refuses credentials that cannot survive the source's
 sage removal or fit its 100-byte options field. It rejects control characters
-and does not put secrets in command-line arguments or output. The actual CLI tests cover create, password/name changes, deactivation,
-runtime-role refusal and secret-free confirmation.
+and does not put secrets in command-line arguments or output. CLI tests cover
+create, password/name changes, deactivation, runtime-role refusal and secret-free
+confirmation.
 
-Public posting and Quick Reply submission, receipt consumption and the source's
-badge-specific admission predicates remain unfinished. Credentials must not
-enter post rows, logs, URLs or persistent browser preferences. Staff credential
-and posting authority remain separate.
+## Protected posting
+
+Native and legacy posting routes use the same private exchange as Quick Reply's
+JSON submission. The adapter removes credential-bearing options before calling
+the Store; sage, anonymous fallback and redirect behavior were already parsed.
+Only the ordinary Pass-year opt-in can survive in the options metadata. Fixed
+public errors do not expose private SQL diagnostics.
+
+Owned PostgreSQL tests cover CAPTCHA-disabled boards and actual Pass receipts
+on CAPTCHA-enabled boards. They exercise wrong-peer refusal, post-insert
+rollback and retry, one-use consumption, revocation, configured names containing
+`#`, forced-anonymous boards, Robot9000 exemption and ordinary-post cleanup.
+Content filters still reject matching VIP posts, while the exact-file blacklist
+exempts a checked badge. The same tests cover sticky reply pruning and a VIP
+reply that archives its thread in the posting transaction.
+Public route tests exercise real password verification through URL-encoded and
+multipart forms, then inspect saved rows, cookies, HTML and JSON. These are HTTP
+tests, not a substitute for browser interaction tests.
+
+Migration 0240 admits the badge-specific file metadata path only after checking
+the VIP receipt. It never grants staff posting bounds. The exact-file blacklist
+uses that checked badge; retained banned-upload history still applies. The
+existing actor duplicate-image cooldown remains separate.
+
+For `/p/` JPEG processing, native uploads accept a bounded `vip_image=1` hint
+before the file. Quick Reply derives it from its current VIP option without
+sending credentials to media intake. The script-free upload form offers the
+same hint. This only selects metadata stripping: the final checked badge must
+match the upload context. A hint alone cannot authorize a Verified post.
+Synthetic PNG metadata tests qualify protected attachment consumption. The
+source-context upload test checks both hint values and one-use capability
+handling. A separate metadata matrix checks actual VIP receipts with PNG/JPEG
+on `/g/` and `/p/`, including refusal of staff-only attachment bounds. Actual
+`/p/` JPEG processing and posting still need end-to-end qualification. The
+source's infrequent duplicate-image predicates remain a separate posting gap.
 
 ## Saved badge presentation
 
@@ -133,4 +170,5 @@ administrator highlighting. The filter and search bundles remain within their
 existing release budgets. Local renderer and parser tests pass. Real-browser
 highlight and inert-preview cases are written but cannot run in this workspace
 because its pinned Chromium executable is absent; hosted qualification remains
-required. This presentation work does not enable public VIP posting.
+required. Configured VIP names are bounded to 100 UTF-8 bytes; the parser accepts
+HTML-escaped expansion without widening ordinary staff-name bounds.

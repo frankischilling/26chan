@@ -62,12 +62,13 @@ export function validateCapcodeTree(tree, no) {
         && block.children[3] === ' ');
       permittedTrips.add(trip);
     }
+    const verified = block.attrs.class === 'nameBlock capcodeVerified';
     require(typeof name === 'object' && name.tag === 'span' && (isMobile
       ? name.attrs.class === 'name' && Object.keys(name.attrs).every(key => ['class', 'title'].includes(key))
       : exact(name.attrs, { class: 'name' }))
       && name.children.every(child => typeof child === 'string')
-      && encoder.encode(escapedName(name.attrs.title ?? name.children.join(''))
-        + (trip ? `</span> <span class="postertrip">${trip.children[0]}` : '')).length <= 255
+      && encoder.encode((verified ? value => value : escapedName)(name.attrs.title ?? name.children.join(''))
+        + (trip ? `</span> <span class="postertrip">${trip.children[0]}` : '')).length <= (verified ? 100 : 255)
       && space1 === ' ' && typeof badge === 'object' && badge.tag === 'strong' && badge.children.length === 1);
     const def = definitions.find(value => badge.children[0] === `## ${value.label}`);
     require(def && exact(block.attrs, { class: `nameBlock ${def.nameClass}` })

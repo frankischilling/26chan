@@ -9,6 +9,8 @@ import { postNumberReply } from './native-post-numbers.js';
 import { createQuickReplyCooldown } from './native-quick-reply-cooldown.js';
 import { mountNativeDrawing, mountDrawingEditLinks } from './native-drawing.js';
 
+const uploadFailures = Object.freeze({ failed: 'Processing failed. Cancel this upload or choose another file.', incomplete: 'The upload is incomplete. Cancel it or choose the file again.' });
+
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed, math }) {
   const source = document.querySelector('form.postEditor');
   const sourceCaptcha = source?.querySelector('[data-posting-captcha]');
@@ -107,8 +109,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     const labels = {
       empty: '', uploading: `Uploading ${uploadName}…`, queued: `${uploadName} queued for processing.`,
       processing: `${uploadName} is processing.`, approved: `${uploadName} is approved.`,
-      failed: 'Processing failed. Cancel this upload or choose another file.',
-      incomplete: 'The upload is incomplete. Cancel it or choose the file again.',
+      ...uploadFailures,
       checking: `Checking ${uploadName}…`,
     };
     uploadStatus.textContent = labels[state] ?? '';
@@ -403,8 +404,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       if (active !== uploadEpoch || !dialog || current !== id) return false;
       uploadReceipt = next; uploadPhase = next.state; uploadBusy = false; uploadController = null;
       if (next.state === 'approved') { addInlineCapability(next); message(''); }
-      else if (next.state === 'failed') message('Processing failed. Cancel this upload or choose another file.', 'upload');
-      else if (next.state === 'incomplete') message('The upload is incomplete. Cancel it or choose the file again.', 'upload');
+      else if (Object.hasOwn(uploadFailures, next.state)) message(uploadFailures[next.state], 'upload');
       else if (automatic) scheduleUploadCheck();
       else uploadCanCheck = true;
       renderUpload(); return true;
@@ -459,7 +459,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     const active = ++uploadEpoch, id = current; uploadName = file.name; uploadPhase = 'uploading'; uploadCanCheck = false; uploadPolls = 0;
     removeInlineCapability(); uploadController = new AbortController(); uploadBusy = true; message(''); renderUpload();
     try {
-      const receipt = await (fromDrawing && replay !== null ? uploadDrawingFile : uploadQuickReplyFile)({ board, thread: id, file, ...(fromDrawing ? { replay } : {}), signal: uploadController.signal });
+      const receipt = await (fromDrawing && replay !== null ? uploadDrawingFile : uploadQuickReplyFile)({ board, thread: id, file, badged: /^capcode_!/.test(form.elements.email.value.replace(/sage/gi, '')), ...(fromDrawing ? { replay } : {}), signal: uploadController.signal });
       if (active !== uploadEpoch || !dialog || current !== id) {
         void cancelQuickReplyUpload({ board, thread: id, receipt, keepalive: true }).catch(() => {}); return;
       }

@@ -199,6 +199,14 @@ test('Verified recipes reject invented icons, staff classes and comment badges',
   assert.equal(parse(snapshot(badgeHtml(verified))).status, 'invalid-snapshot');
 });
 
+test('configured Verified names keep the bounded raw name even when HTML escaping expands it', () => {
+  for (const [name, status] of [['&quot;'.repeat(100), 'ok'], ['&quot;'.repeat(101), 'invalid-snapshot']]) {
+    const value = capcodeSnapshot(capcodes.find(def => def[0] === 'Verified'));
+    value.posts[1].html = value.posts[1].html.replace('Owned &lt;staff&gt;', name);
+    assert.equal(parse(value).status, status);
+  }
+});
+
 test('staff badges admit only complete pinned header recipes and fixed icon fetches', () => {
   for (const def of capcodes) assert.equal(parse(capcodeSnapshot(def)).status, 'ok', def[0]);
   assert.equal(parse(capcodeSnapshot(capcodes[1], true)).status, 'ok');
@@ -256,9 +264,10 @@ test('staff badges retain only prepared trip hashes in their own bounded name bl
     const moved = structuredClone(positive);
     moved.posts[1].html = moved.posts[1].html.replace(` ${hash}`, '').replace('</blockquote>', `${hash}</blockquote>`);
     assert.equal(parse(moved).status, 'invalid-snapshot');
-    const limit = 255 - new TextEncoder().encode(`</span> <span class="postertrip">${trip}`).length;
+    const limit = (def[0] === 'Verified' ? 100 : 255) - new TextEncoder().encode(`</span> <span class="postertrip">${trip}`).length;
+    const escapedWidth = def[0] === 'Verified' ? 1 : 5;
     for (const [name, expected] of [['n'.repeat(limit), 'ok'], ['n'.repeat(limit + 1), 'invalid-snapshot'],
-      ['&amp;'.repeat(Math.floor(limit / 5)), 'ok'], ['&amp;'.repeat(Math.floor(limit / 5) + 1), 'invalid-snapshot']]) {
+      ['&amp;'.repeat(Math.floor(limit / escapedWidth)), 'ok'], ['&amp;'.repeat(Math.floor(limit / escapedWidth) + 1), 'invalid-snapshot']]) {
       const candidate = structuredClone(positive);
       candidate.posts[1].html = candidate.posts[1].html.replace('Owned &lt;staff&gt;', name);
       assert.equal(parse(candidate).status, expected, `${trip}: ${name.length}`);

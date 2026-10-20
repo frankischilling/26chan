@@ -21,6 +21,12 @@ impl WriteChallengeProof {
         })
     }
 
+    /// Opaque issuer references, not a claim that this is a Pass receipt.
+    /// The VIP issuer independently checks receipt kind and every bound field.
+    pub fn vip_candidate(&self) -> ([u8; 32], [u8; 32]) {
+        (self.receipt_hash, self.context_hash)
+    }
+
     /// Request facts only restrict courtesy-credit issuance. The private issuer
     /// receipt still decides whether the solved challenge is valid.
     pub fn with_credit_request(

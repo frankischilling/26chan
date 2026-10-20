@@ -165,6 +165,21 @@ test('inline selection streams one bounded file to the fixed board upload endpoi
   assert.equal(oversizedCalls, 0);
 });
 
+test('verified-image processing sends only a hint before the file, never credentials', async () => {
+  const file = new File([new Uint8Array([1, 2, 3])], 'owned.jpg', { type: 'image/jpeg' });
+  const result = await uploadQuickReplyFile({ origin: 'https://board.example', board: 'p', thread: '10', file, badged: true,
+    fetcher: async (url, options) => {
+      assert.equal(url, 'https://board.example/p/upload');
+      assert.deepEqual([...options.body.keys()], ['resto', 'vip_image', 'upfile']);
+      assert.equal(options.body.get('vip_image'), '1');
+      assert.equal(options.body.has('email'), false);
+      assert.equal(options.body.has('password'), false);
+      return uploadResponse(upload);
+    },
+  });
+  assert.deepEqual(result, upload);
+});
+
 test('status and cancel retain the exact capability, use fixed current-board paths and never retry malformed responses', async () => {
   let statusCalls = 0;
   const approved = await checkQuickReplyUpload({
