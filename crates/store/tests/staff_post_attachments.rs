@@ -122,7 +122,24 @@ impl Fixture {
     }
 
     async fn approved(&self, filename: &str, spoiler: bool) -> NewAttachment {
-        Box::pin(self.approved_with_variants(filename, spoiler, None)).await
+        // These independent transport cases declare synthetic normalized output;
+        // they do not decode image bytes or derive production provenance.
+        let seed = board_domain::challenge_secrets::ReceiptToken::generate()
+            .unwrap()
+            .storage_hash();
+        let variants = board_store::media_assets::OutputVariants {
+            md5: seed[..16]
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect(),
+            thumbnail: OutputMetadata {
+                sha256: "b".repeat(64),
+                bytes: 40,
+                width: 5,
+                height: 10,
+            },
+        };
+        Box::pin(self.approved_with_variants(filename, spoiler, Some(&variants))).await
     }
 
     async fn approved_with_variants(
@@ -194,6 +211,63 @@ impl Fixture {
     ) -> Result<i64, StoreError> {
         self.write_with_options(parent, a, ordinary, input, ip, at, "")
             .await
+    }
+
+    async fn legacy_unknown(&self, attachment: &NewAttachment, ip: u8) -> i64 {
+        // Unknown old metadata remains observable, but cannot be a new ordinary
+        // upload. Seed the historical state through the existing scoped SQL
+        // writer, without disabling guards or manufacturing a digest.
+        let denied = self
+            .write(0, Some(attachment), true, &post(), ip, Utc::now())
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(denied, StoreError::Database(ref error) if error.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0241")),
+            "{denied:?}"
+        );
+        assert!(self.receipt(attachment).await);
+        let key = PosterIdKey::parse(&self.key).unwrap();
+        let actor = key.public_posting_rate_identity(peer(ip));
+        let mut tx = self.public.begin().await.unwrap();
+        sqlx::query("SELECT content.lock_posting_actor($1,true)")
+            .bind(actor.as_bytes().as_slice())
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        let encoded: String = actor
+            .as_bytes()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        sqlx::query(
+            "SELECT set_config('board.posting_actor',$1,true),set_config('board.peer',$2,true)",
+        )
+        .bind(encoded)
+        .bind(peer(ip).to_string())
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+        let id: i64 =
+            sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
+                .bind(&self.board)
+                .fetch_one(&mut *tx)
+                .await
+                .unwrap();
+        let label = key.label(&self.board, id, peer(ip)).unwrap();
+        let counts = key.count_context(&self.board, id, peer(ip)).unwrap();
+        sqlx::query("SELECT set_config('board.poster_id',$1,true),set_config('board.post_sage','false',true),set_config('board.poster_fingerprint',$2,true),set_config('board.poster_epoch',$3,true)")
+            .bind(label).bind(counts.fingerprint).bind(counts.epoch).execute(&mut *tx).await.unwrap();
+        sqlx::query("SELECT content.insert_post_attachment($1,$2,$1,'Owned historical','Owned attachment','Synthetic historical metadata',$3,$4,false,date_trunc('second',clock_timestamp()))")
+            .bind(id).bind(&self.board).bind(&attachment.upload.id).bind(&attachment.upload.capability).execute(&mut *tx).await.unwrap();
+        tx.commit().await.unwrap();
+        let digest: Option<Vec<u8>> =
+            sqlx::query_scalar("SELECT normalized_md5 FROM content.post_media WHERE post_id=$1")
+                .bind(id)
+                .fetch_one(&self.owner)
+                .await
+                .unwrap();
+        assert!(digest.is_none());
+        id
     }
 
     async fn write_public(
@@ -501,7 +575,7 @@ async fn successful_modes(f: &Fixture) {
                         "<owned & file>.png",
                         true,
                         Some(&board_store::media_assets::OutputVariants {
-                            md5: "37".repeat(16),
+                            md5: format!("{ip:02x}").repeat(16),
                             thumbnail: OutputMetadata {
                                 sha256: "b".repeat(64),
                                 bytes: 40,
@@ -528,7 +602,7 @@ async fn successful_modes(f: &Fixture) {
                 .unwrap();
                 assert_eq!(
                     retained,
-                    Some(vec![0x37; 16]),
+                    Some(vec![ip; 16]),
                     "Both staff receipt modes retain approved normalized identity"
                 );
                 let saved = attachment(&f.public, id).await.unwrap().unwrap();

@@ -44,11 +44,10 @@ pub(super) async fn template_history(f: &Fixture) {
         .write(0, Some(&upload), true, &post(), 71, Utc::now())
         .await
         .unwrap();
-    let legacy_upload = f.approved("Owned legacy.png", false).await;
-    let legacy = f
-        .write(0, Some(&legacy_upload), true, &post(), 72, Utc::now())
-        .await
-        .unwrap();
+    let legacy_upload = f
+        .approved_with_variants("Owned legacy.png", false, None)
+        .await;
+    let legacy = f.legacy_unknown(&legacy_upload, 72).await;
     let text = f
         .write(0, None, true, &post(), 73, Utc::now())
         .await

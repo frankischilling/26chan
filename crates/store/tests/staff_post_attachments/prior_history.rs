@@ -132,10 +132,7 @@ pub(super) async fn prior_history(f: &Fixture) {
         .await
         .unwrap();
     let legacy_source = upload(f, None).await;
-    let legacy = f
-        .write(0, Some(&legacy_source), true, &post(), 72, Utc::now())
-        .await
-        .unwrap();
+    let legacy = f.legacy_unknown(&legacy_source, 72).await;
     let plain = f
         .write(0, None, true, &post(), 73, Utc::now())
         .await
@@ -388,6 +385,13 @@ pub(super) async fn prior_history(f: &Fixture) {
         .execute(&f.owner)
         .await
         .unwrap();
+    // The live OP duplicate rule is independent of this retained-template
+    // decision. Retire that file through the real operation before the positive
+    // write; its template events and captured digest must remain observable.
+    board_store::post_media::delete_attachment(&f.staff, &f.board, good_target)
+        .await
+        .unwrap();
+    assert_eq!(decision(f, &good, &f.board).await, Some(false));
     f.write(0, Some(&good), true, &post(), 86, Utc::now())
         .await
         .unwrap();
