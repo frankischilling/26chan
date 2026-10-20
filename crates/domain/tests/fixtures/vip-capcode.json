@@ -1,0 +1,4322 @@
+[
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "verified",
+        "name": "Owned Verified Name",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 0,
+            "last_used_updates": 1
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "verified",
+        "name": "Owned Verified Name",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 0,
+            "last_used_updates": 1
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "verified",
+        "name": "Owned Verified Name",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 0,
+            "last_used_updates": 1
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "verified",
+        "name": "Owned Verified Name",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 0,
+            "last_used_updates": 1
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "sagecapcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "verified",
+        "name": "Owned Verified Name",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 0,
+            "last_used_updates": 1
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "verified",
+        "name": "Owned Verified Name",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 0,
+            "last_used_updates": 1
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!owned-SAGEsecret!",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!wrong",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "unknown",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "unknown",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "unknown",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "unknown",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!unknown!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!0",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!0!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "owner",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!owner!!",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "00",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "00",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "00",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "00",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!00!00",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": " ",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": " ",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": " ",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": " ",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_! ! ",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "名前",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "名前",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "名前",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 1,
+            "identifier": "名前",
+            "failure_writes": 1,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_!名前!秘密",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 1,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "CAPCODE_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": " capcode_!owner!owned-secret!",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "capcode_admin",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Anonymous",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": false,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": false,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": false,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": false,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": false,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": false,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": false,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": false,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": true,
+        "failures": 0,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": true,
+        "failures": 0,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": true,
+        "failures": 2,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": true,
+        "failures": 2,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": true,
+        "failures": 3,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": true,
+        "failures": 3,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": true,
+        "failures": 4,
+        "active": false,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    },
+    {
+        "raw": "",
+        "bypass": true,
+        "failures": 4,
+        "active": true,
+        "capcode": "none",
+        "name": "Owned Input",
+        "effects": {
+            "count_reads": 0,
+            "lookups": 0,
+            "identifier": null,
+            "failure_writes": 0,
+            "last_used_updates": 0
+        }
+    }
+]

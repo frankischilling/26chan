@@ -2,6 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readPostPreferences, restorePostPreferences } from '../../apps/public/client/native-post-preferences.js';
 
+test('VIP credential attempts are never restored from old preference cookies', () => {
+  for (const value of ['capcode_!owner!owned-secret', 'sageCAPCODE_!owner!owned-secret',
+    ' capcode_!owner!owned-secret', 'capsagecode_!owner!owned-secret']) {
+    assert.equal(readPostPreferences(`options=${encodeURIComponent(value)}`).options, '');
+  }
+  assert.equal(readPostPreferences('options=capcode_admin').options, 'capcode_admin');
+});
+
 test('fixed cookie names decode bounded display values', () => {
   assert.deepEqual(readPostPreferences('unrelated=x; 4chan_name=%E5%90%8D%20%2B%20%3Cuser%3E; options=sage%20nonoko'),
     { name: '名 + <user>', options: 'sage nonoko' });

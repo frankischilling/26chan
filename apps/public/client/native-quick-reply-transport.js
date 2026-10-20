@@ -1,5 +1,7 @@
 import { postId } from '../static/thread-watcher-core.v1.js';
 
+export const uploadFields = Object.freeze(['upload_id', 'upload_capability']);
+
 export const QUICK_REPLY_UPLOAD_LIMITS = Object.freeze({
   bytes: 8_388_608,
   responseBytes: 4096,

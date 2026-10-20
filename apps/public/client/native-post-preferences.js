@@ -46,6 +46,7 @@ export function readPostPreferences(raw) {
     try {
       const value = decodeURIComponent(values[0]);
       if (encoder.encode(value).length > 100 || /\p{Cc}/u.test(value)) continue;
+      if (field === 'options' && /capcode_!/i.test(value.replace(/sage/gi, ''))) continue;
       // Old or manually supplied cookies must not restore a private trip suffix.
       result[field] = field === 'name' ? value.split('#', 1)[0].trim() : value;
     } catch { /* Malformed preferences leave the ordinary empty default. */ }

@@ -134,6 +134,7 @@ jobs:
       - name: Exercise janitor request and review forms in real browsers
         run: |
           php -n scripts/test-pass-policy-source.php
+          php -n scripts/test-vip-capcode-source.php
           php -n scripts/test-duplicate-image-cooldown.php
           node --test tests/browser/janitor-queue-state.test.mjs
           node tests/browser/janitor-queue-controls.mjs

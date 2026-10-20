@@ -1,6 +1,6 @@
 import { createDrawingUpload, drawingDimensions } from './native-drawing-core.js';
 import { createDrawingPainter } from './native-drawing-painter.js';
-import { renderQuickReplyError, schedulePostingRedirect, sendDrawingPost, uploadDrawingFile, uploadTarget } from './native-quick-reply-transport.js';
+import { renderQuickReplyError, schedulePostingRedirect, sendDrawingPost, uploadDrawingFile, uploadTarget, uploadFields } from './native-quick-reply-transport.js';
 
 // The media server, not a post's filename or any user-supplied link, chooses
 // the URL. JPEG uploads also appear here as approved, normalized .png output.
@@ -191,7 +191,7 @@ export function mountNativeDrawing({ board, source, uploadForm }) {
     }
     function capabilities(receipt) {
       source.querySelectorAll('[data-drawing-capability]').forEach(el => el.remove());
-      if (receipt?.state === 'approved') for (const key of ['upload_id', 'upload_capability']) {
+      if (receipt?.state === 'approved') for (const key of uploadFields) {
         const input = node('input'); input.type = 'hidden'; input.name = key; input.value = receipt[key]; input.dataset.drawingCapability = ''; source.append(input);
       }
       if (comment) comment.required = receipt?.state === 'approved' ? false : originalRequired;
