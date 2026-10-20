@@ -137,6 +137,18 @@ fn pass_message(
         return Err(());
     }
     let domain = origin.host_str().ok_or(())?;
+    if let Payload::Recovery { recipient, token } = payload {
+        let mut link = origin.join("pass").map_err(|_| ())?;
+        link.query_pairs_mut().append_pair("reset", &token.encode());
+        let message = format!(
+            "From: Pass <noreply@{domain}>\r\nTo: {}\r\nSubject: Reset your Pass PIN\r\nMessage-ID: <pass-{id}@{domain}>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nOpen this link to choose a new Pass PIN: {link}\r\n\r\nThis link expires in 30 minutes and can be used once. If you did not request it, ignore this email.\r\n.\r\n",
+            recipient.address()
+        );
+        if message.len() > 2048 {
+            return Err(());
+        }
+        return Ok((domain.to_owned(), recipient.address().to_owned(), message));
+    }
     let Payload::Notice {
         contact,
         kind,
@@ -238,6 +250,29 @@ mod tests {
             );
         }
         assert!(pass_message("https://board.example", id, &Payload::Contact(contact())).is_err());
+    }
+
+    #[test]
+    fn recovery_mail_uses_a_bounded_native_link_without_revealing_a_pin() {
+        use board_domain::{
+            challenge_secrets::PassRecoveryToken,
+            pass_mail::{Payload, Recipient},
+        };
+        let token = PassRecoveryToken::generate().unwrap();
+        let encoded = token.encode();
+        let payload = Payload::Recovery {
+            recipient: Recipient::parse("owned@example.org").unwrap(),
+            token,
+        };
+        let (_, _, message) = pass_message(
+            "https://board.example",
+            "12345678-1234-1234-1234-123456789abc",
+            &payload,
+        )
+        .unwrap();
+        assert!(message.contains(&format!("https://board.example/pass?reset={encoded}")));
+        assert!(message.contains("30 minutes and can be used once"));
+        assert!(message.len() < 2048);
     }
 
     #[tokio::test]

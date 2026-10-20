@@ -118,6 +118,10 @@ impl Contact {
 
 pub enum Payload {
     Contact(Contact),
+    Recovery {
+        recipient: Recipient,
+        token: crate::challenge_secrets::PassRecoveryToken,
+    },
     Notice {
         contact: Contact,
         kind: Notice,
@@ -135,7 +139,15 @@ impl Payload {
             })
     }
     pub(crate) fn encode(&self) -> Option<Vec<u8>> {
+        if let Self::Recovery { recipient, token } = self {
+            let mut out = vec![4];
+            out.extend_from_slice(&(recipient.address().len() as u16).to_be_bytes());
+            out.extend_from_slice(recipient.address().as_bytes());
+            out.extend_from_slice(token.encode().as_bytes());
+            return Some(out);
+        }
         let (tag, contact, expires) = match self {
+            Self::Recovery { .. } => unreachable!("handled separately"),
             Self::Contact(contact) => (1, contact, 0i64),
             Self::Notice {
                 contact,
@@ -164,6 +176,17 @@ impl Payload {
         if bytes.len() < 23 || bytes.len() > MAX_ENCRYPTED_BYTES - 29 {
             return None;
         }
+        if bytes[0] == 4 {
+            let length = usize::from(u16::from_be_bytes(bytes.get(1..3)?.try_into().ok()?));
+            if length > 254 || bytes.len() != 3 + length + 68 {
+                return None;
+            }
+            let recipient = Recipient::parse(std::str::from_utf8(bytes.get(3..3 + length)?).ok()?)?;
+            let token = crate::challenge_secrets::PassRecoveryToken::parse(
+                std::str::from_utf8(bytes.get(3 + length..)?).ok()?,
+            )?;
+            return Some(Self::Recovery { recipient, token });
+        }
         let expires = i64::from_be_bytes(bytes.get(1..9)?.try_into().ok()?);
         let recipient_len = usize::from(u16::from_be_bytes(bytes.get(9..11)?.try_into().ok()?));
         if recipient_len > 254 {
@@ -191,6 +214,40 @@ impl Payload {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn recovery_material_is_distinct_and_roundtrips_without_session_authority() {
+        use crate::challenge_secrets::{PassRecoveryToken, PassSessionToken, ReceiptToken};
+        let token = PassRecoveryToken::generate().unwrap();
+        let encoded = token.encode();
+        let hash = token.storage_hash();
+        assert!(PassSessionToken::parse(&encoded).is_none());
+        assert!(ReceiptToken::parse(&encoded).is_none());
+        let payload = Payload::Recovery {
+            recipient: Recipient::parse("owner@example.org").unwrap(),
+            token,
+        };
+        let key = crate::verification_mail::MailKey::parse(&"44".repeat(32)).unwrap();
+        let sealed = key.seal_pass(&hash, &payload).unwrap();
+        assert!(matches!(
+            key.open_pass(&hash, &sealed),
+            Some(Payload::Recovery { .. })
+        ));
+        assert!(key.open(&hash, &sealed).is_none());
+        assert!(key.open_pass(&[0; 32], &sealed).is_none());
+        let bytes = payload.encode().unwrap();
+        let Payload::Recovery { recipient, token } = Payload::decode(&bytes).unwrap() else {
+            panic!("recovery expected")
+        };
+        assert_eq!(recipient.address(), "owner@example.org");
+        assert_eq!(token.storage_hash(), hash);
+        for length in 0..bytes.len() {
+            assert!(Payload::decode(&bytes[..length]).is_none());
+        }
+        let mut extra = bytes;
+        extra.push(0);
+        assert!(Payload::decode(&extra).is_none());
+    }
+
     #[test]
     fn source_notice_boundaries_and_sent_flags() {
         let now = 1_700_000_000;

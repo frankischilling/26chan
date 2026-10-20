@@ -96,6 +96,32 @@ impl MailStore {
             .map_err(StoreError::from)
     }
 
+    pub async fn claim_recovery(
+        &self,
+        lease: &[u8; 32],
+        limit: i32,
+    ) -> Result<Vec<MailJob>, StoreError> {
+        sqlx::query_as("SELECT * FROM content.pass_claim_recovery_mail($1,$2)")
+            .bind(lease.as_slice())
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
+    pub async fn finish_recovery(
+        &self,
+        request: &str,
+        lease: &[u8; 32],
+        success: bool,
+    ) -> Result<bool, StoreError> {
+        sqlx::query_scalar("SELECT content.pass_finish_recovery_mail($1,$2,$3)")
+            .bind(request)
+            .bind(lease.as_slice())
+            .bind(success)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
     pub async fn claim_pass(
         &self,
         lease_hash: &[u8; 32],

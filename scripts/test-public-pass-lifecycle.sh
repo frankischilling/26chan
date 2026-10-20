@@ -194,7 +194,13 @@ SQL
 DO $$ BEGIN IF to_regclass('verification_private.pass_contacts') IS NOT NULL OR content.public_pass_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Notice rollback changed authority'; END IF; END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0232_pass_notice_outbox.sql
+"${migrator[@]}" -c BEGIN -f migrations/0233_pass_pin_recovery.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN IF to_regclass('verification_private.pass_recoveries') IS NOT NULL OR content.public_pass_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Recovery rollback changed authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0233_pass_pin_recovery.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-notice-outbox.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-pin-recovery.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-identity.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-quotas.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-restrictions.sql
@@ -257,6 +263,20 @@ SET ROLE board_verifier;
 SELECT content.pass_queue_notice(current_setting('board.restore_notice_account')::bigint,1,current_setting('board.restore_notice_expiry')::timestamptz,'expired','00000000-0000-4000-8000-000000000099',sha256('restore-notice-context'),decode(repeat('03',40),'hex'));
 RESET ROLE;
 SQL
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+SET ROLE board_anonymous_owner;
+INSERT INTO verification_private.pass_entitlements(token_hash,pin_hash,status,purchased_at,expires_at)
+ VALUES(sha256('restore-recovery-pass'),repeat('owned-placeholder',3),4,clock_timestamp()-interval '1 year',clock_timestamp()+interval '1 year');
+INSERT INTO verification_private.pass_contacts(entitlement_id,recipient_hash,encrypted_contact)
+ SELECT id,sha256('restore-recovery-recipient'),decode(repeat('02',40),'hex') FROM verification_private.pass_entitlements WHERE token_hash=sha256('restore-recovery-pass');
+SET ROLE board_verifier;
+SELECT * FROM content.pass_begin_recovery(sha256('restore-recovery-pass'),sha256('restore-recovery-recipient'),sha256('restore-recovery-peer'),sha256('restore-recovery-ticket'));
+SELECT content.pass_queue_recovery(sha256('restore-recovery-ticket'),sha256('restore-recovery-token'),'00000000-0000-4000-8000-000000000085',decode(repeat('03',40),'hex'));
+SET ROLE board_mailer;
+SELECT * FROM content.pass_claim_recovery_mail(sha256('restore-recovery-lease'),1);
+SELECT content.pass_finish_recovery_mail('00000000-0000-4000-8000-000000000085',sha256('restore-recovery-lease'),true);
+RESET ROLE;
+SQL
 "$pg_bin/pg_dump" -h 127.0.0.1 -p 15453 -U postgres -d pass_lifecycle --format=custom -f "$cluster/owned.dump"
 "${psql[@]}" -d postgres -c 'CREATE DATABASE pass_restored OWNER board_migrator'
 "$pg_bin/pg_restore" -h 127.0.0.1 -p 15453 -U postgres -d pass_restored --exit-on-error "$cluster/owned.dump"
@@ -275,6 +295,15 @@ DO $$ BEGIN IF (SELECT count(*) FROM content.pass_claim_mail(sha256('restore-not
  IF NOT content.pass_finish_mail('00000000-0000-4000-8000-000000000099',sha256('restore-notice-lease'),true) THEN RAISE EXCEPTION 'Restored notice acknowledgement failed'; END IF; END $$;
 SET ROLE board_anonymous_owner;
 DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM verification_private.pass_entitlements e JOIN verification_private.pass_contacts c ON c.entitlement_id=e.id WHERE e.token_hash=sha256('restore-notice-pass') AND e.status=1 AND c.expired_expiry=e.expires_at) THEN RAISE EXCEPTION 'Restored notice lifecycle differs'; END IF; END $$;
+RESET ROLE;
+SQL
+"${psql[@]}" -d pass_restored <<'SQL'
+SET ROLE board_verifier;
+DO $$ BEGIN IF NOT content.pass_recovery_state(sha256('restore-recovery-token')) THEN RAISE EXCEPTION 'Restored delivered recovery unavailable'; END IF;
+ IF NOT content.pass_complete_recovery(sha256('restore-recovery-token'),'$argon2id$v=19$m=19456,t=2,p=1$'||repeat('a',20)||'$'||repeat('b',43)) THEN RAISE EXCEPTION 'Restored recovery could not rotate credential'; END IF;
+ IF content.pass_recovery_state(sha256('restore-recovery-token')) THEN RAISE EXCEPTION 'Restored recovery replay accepted'; END IF; END $$;
+SET ROLE board_anonymous_owner;
+DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM verification_private.pass_entitlements WHERE token_hash=sha256('restore-recovery-pass') AND status=4 AND credential_version=2) THEN RAISE EXCEPTION 'Restored recovery altered restriction'; END IF; END $$;
 RESET ROLE;
 SQL
 "${psql[@]}" -d pass_restored -f scripts/test-pass-warning-receipts.sql

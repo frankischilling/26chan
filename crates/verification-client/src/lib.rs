@@ -116,6 +116,24 @@ impl VerificationClient {
         }
     }
 
+    pub async fn pass_recovery_request(
+        &self,
+        input: &protocol::PassRecoveryRequest,
+    ) -> Result<protocol::PassRecoveryResult, Error> {
+        self.exchange("/v1/pass/recovery/request", input).await
+    }
+    pub async fn pass_recovery_state(
+        &self,
+        input: &protocol::PassSession,
+    ) -> Result<protocol::PassRecoveryResult, Error> {
+        self.exchange("/v1/pass/recovery/state", input).await
+    }
+    pub async fn pass_recovery_complete(
+        &self,
+        input: &protocol::PassRecoveryComplete,
+    ) -> Result<protocol::PassRecoveryResult, Error> {
+        self.exchange("/v1/pass/recovery/complete", input).await
+    }
     pub async fn pass_login(
         &self,
         input: &protocol::PassLogin,

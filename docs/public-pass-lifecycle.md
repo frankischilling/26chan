@@ -488,3 +488,36 @@ retry and account-state assertions. SQL tests cover eligibility, lease fencing,
 contact changes, renewal races, role separation, migration rollback and populated
 contact/outbox restore. Browser PIN recovery, checkout and hosted qualification
 remain open.
+
+## Native PIN recovery
+
+The native `/pass?reset` form replaces the reset controller missing from the
+archive. It requires the ten-character public Token and the current owner email;
+gift recipients use their own email. Known, unknown and throttled requests return
+the same public confirmation. The private issuer allows three requests per peer
+and recipient per hour, with a 60-second repeat delay for the same Token/recipient.
+Attempt and recovery inventories are bounded; full inventories refuse new work.
+
+Recovery mail contains a random, purpose-separated link that expires after
+30 minutes. The database stores its hash and encrypted delivery payload. Only a
+successfully acknowledged delivery enables the link. Viewing the form does not
+consume it. Changing the PIN requires the recovery form's separate HttpOnly CSRF
+cookie and a POST containing matching PIN fields. The new PIN is hashed with
+Argon2id under the same bounded hashing budget as login.
+
+The update is atomic and single-use. It advances the credential version, revokes
+old sessions and preserves the account's restriction status. Contact changes and
+credential changes invalidate outstanding links. A request prepared before a
+contact change cannot queue mail for the old owner. Public handlers never receive
+contact records or run entitlement SQL. Recovery pages use an origin-only referrer
+policy so link tokens do not enter referrer headers.
+
+Local SQL tests pass unknown/wrong-owner refusal, request throttling, inventory
+limits, preparation replay, failed delivery, retry fencing, expired tokens,
+contact changes, credential rotation and role denial. The actual public/private
+HTTP flow passes matching public responses, CSRF refusal, delivery gating,
+GET-only viewing, reset replay, session revocation and login with the new PIN.
+Owned SMTP fixtures pass accepted and rejected recovery delivery without changing
+entitlement status. Desktop/mobile rendering and native submission tests are
+registered with scripts enabled and disabled; hosted browser qualification is
+still pending. No recovery email was sent outside the owned fixtures.

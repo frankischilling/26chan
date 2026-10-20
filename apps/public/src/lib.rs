@@ -18,6 +18,7 @@ mod native_updater_snapshot;
 mod output;
 pub mod paired_upload;
 mod pass_auth;
+mod pass_recovery;
 mod polls;
 mod post_preferences;
 mod post_receipts;
@@ -368,6 +369,7 @@ pub fn routers_with_classifiers(
         .merge(blotter::routes())
         .merge(signin::routes())
         .merge(pass_auth::routes())
+        .merge(pass_recovery::routes())
         .merge(posting_challenge::routes())
         .route("/", get(handlers::home))
         .route("/derefer", get(derefer::get))

@@ -69,9 +69,11 @@ rust_checks() {
     : "${TEST_VERIFICATION_DATABASE_URL:?Set the disposable verifier database URL}"
     : "${TEST_VERIFICATION_MAIL_DATABASE_URL:?Set the disposable mail database URL}"
     cargo test -p board-store -p board-verification --all-features --locked
-    cargo test -p board-verification-mailer --all-features --locked delivery_tests:: -- --ignored
+    cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact
+    cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact
     cargo test -p board-public --all-features --locked --lib signin::database_tests::public_form_to_private_queue_and_browser_rotation_round_trip -- --ignored --exact
     cargo test -p board-public --all-features --locked --lib pass_auth::database_tests::public_pass_forms_use_private_issuer_and_ignore_forged_presentation_cookie -- --ignored --exact
+    cargo test -p board-public --all-features --locked --lib pass_recovery::database_tests::public_recovery_requires_owner_mail_delivery_csrf_and_one_use_token -- --ignored --exact
     cargo test -p board-public --all-features --locked --lib posting_challenge::database_tests::public_captcha_requests_keep_private_scope_and_source_report_opt_out -- --ignored --exact
   )
   cargo test --workspace --exclude board-store --exclude board-verification --all-features --locked

@@ -11,6 +11,8 @@ for (const javaScriptEnabled of [true, false]) {
         const response = await page.goto('/fixture/pass/login');
         expect(response.headers()['cache-control']).toBe('private, no-store');
         expect(response.headers()['content-security-policy']).toContain("frame-ancestors 'none'");
+        await expect(page.getByRole('link', { name: 'Go here', exact: true })).toHaveAttribute('href', '/pass?reset');
+        await expect(page.getByRole('link', { name: 'Click here', exact: true })).toHaveAttribute('href', '/pass');
         const token = page.getByLabel('Token', { exact: true });
         const pin = page.getByLabel('PIN', { exact: true });
         await expect(pin).toHaveAttribute('type', 'password');
@@ -63,8 +65,56 @@ for (const javaScriptEnabled of [true, false]) {
           ? page.getByRole('alert')
           : page.getByRole('heading', { level: 2 })).toHaveText(text);
         await expect(page.locator('input[name="pin"], input[name="id"], script')).toHaveCount(0);
-        await expect(page.getByRole('link')).toHaveAttribute('href', '/auth');
+        await expect(page.locator('a[href="/auth"]')).toBeVisible();
       }
     });
+  });
+}
+
+for (const javaScriptEnabled of [true, false]) {
+  test.describe(`Pass recovery forms, scripts ${javaScriptEnabled ? 'enabled' : 'disabled'}`, () => {
+    test.use({ javaScriptEnabled });
+    for (const width of [1280, 390]) {
+      test(`owner request and new PIN submission at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        const response = await page.goto('/fixture/pass/recovery-request');
+        expect(response.headers()['cache-control']).toBe('private, no-store');
+        expect(response.headers()['referrer-policy']).toBe('strict-origin');
+        let sent;
+        await page.route('**/pass', async route => {
+          sent = route.request();
+          await route.fulfill({ contentType: 'text/html', body: '<p>Owned recovery submission received.</p>' });
+        });
+        await page.getByRole('button', { name: 'Send recovery link' }).click();
+        expect(sent).toBeUndefined();
+        await page.getByLabel('Token', { exact: true }).fill('OWNED12345');
+        await page.getByLabel('Owner email').fill('owned+gift@example.org');
+        const csrf = await page.locator('input[name="csrf"]').inputValue();
+        const content = await page.locator('#content').boundingBox();
+        expect(content.x).toBeGreaterThanOrEqual(0);
+        expect(content.x + content.width).toBeLessThanOrEqual(width);
+        await page.screenshot({ path: `.local/verification-review/pass-recovery-${width}-${javaScriptEnabled}.png`, fullPage: true });
+        await page.getByRole('button', { name: 'Send recovery link' }).click();
+        await expect(page.getByText('Owned recovery submission received.')).toBeVisible();
+        expect(sent.method()).toBe('POST');
+        expect(sent.headers().origin).toBe('http://127.0.0.1:3000');
+        expect(Object.fromEntries(new URLSearchParams(sent.postData()))).toEqual({ action: 'request', csrf, id: 'OWNED12345', email: 'owned+gift@example.org' });
+        await page.goto('/fixture/pass/recovery-reset');
+        await expect(page.getByLabel('New PIN', { exact: true })).toHaveAttribute('type', 'password');
+        await expect(page.getByLabel('Confirm PIN')).toHaveAttribute('type', 'password');
+        await page.getByLabel('New PIN', { exact: true }).fill('owned-new-pin');
+        await page.getByLabel('Confirm PIN').fill('owned-new-pin');
+        const resetCsrf = await page.locator('input[name="csrf"]').inputValue();
+        const token = await page.locator('input[name="token"]').inputValue();
+        await expect(page.locator('body')).not.toContainText('owned-new-pin');
+        await page.getByRole('button', { name: 'Change PIN' }).click();
+        await expect(page.getByText('Owned recovery submission received.')).toBeVisible();
+        expect(sent.headers().origin).toBe('http://127.0.0.1:3000');
+        expect(Object.fromEntries(new URLSearchParams(sent.postData()))).toEqual({ action: 'complete', csrf: resetCsrf, token, pin: 'owned-new-pin', confirm: 'owned-new-pin' });
+        await page.goto('/fixture/pass/recovery-escaped');
+        await expect(page.getByRole('status')).toHaveText('<script>owned recovery fixture</script>');
+        await expect(page.locator('script, input[name="pin"], input[name="token"]')).toHaveCount(0);
+      });
+    }
   });
 }

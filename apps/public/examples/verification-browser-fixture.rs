@@ -40,6 +40,10 @@ async fn main() {
         "logout",
         "error",
         "escaped",
+        "recovery-request",
+        "recovery-reset",
+        "recovery-complete",
+        "recovery-escaped",
     ] {
         app = app.route(
             &format!("/fixture/pass/{mode}"),

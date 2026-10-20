@@ -9,8 +9,16 @@ pub(crate) struct BrowserSecret<const PURPOSE: u8>([u8; 32]);
 pub(crate) type FormSecret = BrowserSecret<0>;
 pub(crate) type PostingSecret = BrowserSecret<1>;
 pub(crate) type PassSecret = BrowserSecret<2>;
+pub(crate) type RecoverySecret = BrowserSecret<3>;
 
 fn name<const PURPOSE: u8>(production: bool) -> &'static str {
+    if PURPOSE == 3 {
+        return if production {
+            "__Host-board-pass-recovery"
+        } else {
+            "board-pass-recovery"
+        };
+    }
     if PURPOSE == 2 {
         return if production {
             "__Host-board-pass-form"
@@ -93,6 +101,8 @@ impl<const PURPOSE: u8> BrowserSecret<PURPOSE> {
         let mut hash = Sha256::new();
         if PURPOSE == 1 {
             hash.update(b"26chan:posting-form:v1\0");
+        } else if PURPOSE == 3 {
+            hash.update(b"26chan:pass-recovery-form:v1\0");
         } else if PURPOSE == 2 {
             hash.update(b"26chan:pass-form:v1\0");
         } else {
@@ -219,6 +229,34 @@ mod tests {
         let signin = BrowserSecret::<0>([7; 32]);
         let posting = BrowserSecret::<1>([7; 32]);
         let pass = BrowserSecret::<2>([7; 32]);
+        let recovery = BrowserSecret::<3>([7; 32]);
+        for other in [signin.nonce(), posting.nonce(), pass.nonce()] {
+            assert_ne!(recovery.nonce(), other);
+            assert!(!recovery.matches(&other));
+        }
+        for production in [false, true] {
+            let mut output = HeaderMap::new();
+            recovery.append(&mut output, production);
+            let value = output[header::SET_COOKIE].to_str().unwrap();
+            assert!(value.starts_with(if production {
+                "__Host-board-pass-recovery="
+            } else {
+                "board-pass-recovery="
+            }));
+            let mut input = HeaderMap::new();
+            input.insert(
+                header::COOKIE,
+                value.split(';').next().unwrap().parse().unwrap(),
+            );
+            assert!(
+                RecoverySecret::read(&input, production)
+                    .unwrap()
+                    .unwrap()
+                    .matches(&recovery.nonce())
+            );
+            assert!(PassSecret::read(&input, production).unwrap().is_none());
+            assert!(FormSecret::read(&input, production).unwrap().is_none());
+        }
         assert_ne!(pass.nonce(), signin.nonce());
         assert_ne!(pass.nonce(), posting.nonce());
         assert!(!pass.matches(&signin.nonce()));

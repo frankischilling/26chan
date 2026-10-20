@@ -373,6 +373,7 @@ pub(crate) fn fixture_response(mode: &str, origin: &str) -> Result<Response, Str
         "logout" => (4, ""),
         "error" => (-1, "Incorrect Token or PIN."),
         "escaped" => (-1, "<script>owned fixture</script>"),
+        "recovery-request" | "recovery-reset" | "recovery-complete" | "recovery-escaped" => (0, ""),
         _ => return Err("Invalid Pass fixture.".into()),
     };
     let state = AppState {
@@ -394,6 +395,9 @@ pub(crate) fn fixture_response(mode: &str, origin: &str) -> Result<Response, Str
         tripcode_key: None,
         country_database: None,
     };
+    if mode.starts_with("recovery-") {
+        return crate::pass_recovery::fixture_response(&state, mode);
+    }
     let secret = PassSecret::generate().map_err(|_| "Fixture secret unavailable.")?;
     let response =
         render(&state, &secret, status, message, false).map_err(|_| "Fixture rendering failed.")?;

@@ -2,6 +2,7 @@
 //! staff, migrator or mail-sink credentials.
 pub mod mail;
 pub mod pass;
+pub mod pass_recovery;
 
 use crate::{StoreError, anonymous_session::Snapshot};
 use board_domain::anonymous_session::Fingerprints;

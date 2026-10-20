@@ -278,6 +278,28 @@ impl PassSessionToken {
     }
 }
 
+/// Single-use PIN recovery material, isolated from membership sessions and receipts.
+pub struct PassRecoveryToken([u8; 32]);
+impl PassRecoveryToken {
+    pub fn generate() -> Result<Self, ring::error::Unspecified> {
+        let mut bytes = [0; 32];
+        SystemRandom::new().fill(&mut bytes)?;
+        Ok(Self(bytes))
+    }
+    pub fn parse(value: &str) -> Option<Self> {
+        Some(Self(decode(value.strip_prefix("pr1_")?)?))
+    }
+    pub fn encode(&self) -> String {
+        encode("pr1_", &self.0)
+    }
+    pub fn storage_hash(&self) -> [u8; 32] {
+        let mut context = Context::new(&SHA256);
+        context.update(b"26chan:pass-recovery:v1\0");
+        context.update(&self.0);
+        context.finish().as_ref().try_into().expect("SHA-256 size")
+    }
+}
+
 pub struct ReceiptToken([u8; 32]);
 impl ReceiptToken {
     pub fn generate() -> Result<Self, ring::error::Unspecified> {

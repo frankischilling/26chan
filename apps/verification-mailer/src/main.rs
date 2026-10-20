@@ -130,20 +130,28 @@ fn main() -> std::process::ExitCode {
         }
     }
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Queue {
+    Verification,
+    Notice,
+    Recovery,
+}
 async fn next_job(
     store: &MailStore,
     lease: &[u8; 32],
-    pass_first: bool,
-) -> Result<Option<(MailJob, bool)>, ()> {
-    for pass in [pass_first, !pass_first] {
-        let jobs = if pass {
-            store.claim_pass(lease, 1).await
-        } else {
-            store.claim(lease, 1).await
+    turn: usize,
+) -> Result<Option<(MailJob, Queue)>, ()> {
+    let queues = [Queue::Verification, Queue::Notice, Queue::Recovery];
+    for offset in 0..3 {
+        let queue = queues[(turn + offset) % 3];
+        let jobs = match queue {
+            Queue::Verification => store.claim(lease, 1).await,
+            Queue::Notice => store.claim_pass(lease, 1).await,
+            Queue::Recovery => store.claim_recovery(lease, 1).await,
         }
         .map_err(|_| ())?;
         if let Some(job) = jobs.into_iter().next() {
-            return Ok(Some((job, pass)));
+            return Ok(Some((job, queue)));
         }
     }
     Ok(None)
@@ -159,11 +167,11 @@ async fn run(settings: Settings) -> Result<usize, ()> {
             // Claim one message at a time so every delivery gets a fresh lease,
             // even when previous deliveries consumed their entire SMTP budget.
             let lease = ReceiptToken::generate().map_err(|_| ())?.storage_hash();
-            let Some((job, pass)) = next_job(&store, &lease, turn % 2 == 1).await? else {
+            let Some((job, queue)) = next_job(&store, &lease, turn).await? else {
                 break;
             };
             let token: [u8; 32] = job.token_hash.as_slice().try_into().map_err(|_| ())?;
-            let delivered = if pass {
+            let delivered = if queue != Queue::Verification {
                 if let Some(payload) = settings.key.open_pass(&token, &job.encrypted_payload) {
                     smtp::deliver_pass(settings.relay, &settings.origin, &job.request_id, &payload)
                         .await
@@ -178,20 +186,24 @@ async fn run(settings: Settings) -> Result<usize, ()> {
             } else {
                 false
             };
-            let finished = if pass {
-                store.finish_pass(&job.request_id, &lease, delivered).await
-            } else {
-                store.finish(&job.request_id, &lease, delivered).await
+            let finished = match queue {
+                Queue::Notice => store.finish_pass(&job.request_id, &lease, delivered).await,
+                Queue::Recovery => {
+                    store
+                        .finish_recovery(&job.request_id, &lease, delivered)
+                        .await
+                }
+                Queue::Verification => store.finish(&job.request_id, &lease, delivered).await,
             }
             .map_err(|_| ())?;
             if !finished {
                 return Err(());
             }
-            if pass {
+            if queue == Queue::Notice {
                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
             }
             if !delivered {
-                if !pass {
+                if queue == Queue::Verification {
                     return Err(());
                 }
                 incomplete = true;
@@ -357,7 +369,7 @@ mod delivery_tests {
         let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
             .await
             .unwrap();
-        for accepted in [false, true] {
+        for (accepted, recovery) in [(false, false), (true, false), (false, true), (true, true)] {
             let material = ReceiptToken::generate().unwrap().encode();
             let bytes = &material[3..35];
             let id = format!(
@@ -386,31 +398,66 @@ mod delivery_tests {
                 .bind(hash.as_slice()).fetch_one(&mut *tx).await.unwrap();
             sqlx::query("INSERT INTO verification_private.pass_contacts(entitlement_id,recipient_hash,encrypted_contact) VALUES($1,$2,$3)")
                 .bind(account).bind(hash.as_slice()).bind(contact_envelope).execute(&mut *tx).await.unwrap();
-            let contact = Contact::new(
-                Recipient::parse("owned.pass.fixture@example.org").unwrap(),
-                "ABCDEFGHIJ",
-                "owned_renewal",
-            )
-            .unwrap();
-            let payload = Payload::notice(contact, Notice::Expired, expiry.timestamp()).unwrap();
-            let encrypted = key.seal_pass(&hash, &payload).unwrap();
+            let recovery_token =
+                board_domain::challenge_secrets::PassRecoveryToken::generate().unwrap();
+            let recovery_text = recovery_token.encode();
+            let recovery_hash = recovery_token.storage_hash();
+            let payload = if recovery {
+                Payload::Recovery {
+                    recipient: Recipient::parse("owned.pass.fixture@example.org").unwrap(),
+                    token: recovery_token,
+                }
+            } else {
+                let contact = Contact::new(
+                    Recipient::parse("owned.pass.fixture@example.org").unwrap(),
+                    "ABCDEFGHIJ",
+                    "owned_renewal",
+                )
+                .unwrap();
+                Payload::notice(contact, Notice::Expired, expiry.timestamp()).unwrap()
+            };
+            let encrypted = key
+                .seal_pass(if recovery { &recovery_hash } else { &hash }, &payload)
+                .unwrap();
             tx.commit().await.unwrap();
             let verifier =
                 sqlx::PgPool::connect(&std::env::var("TEST_VERIFICATION_DATABASE_URL").unwrap())
                     .await
                     .unwrap();
-            let queued: String = sqlx::query_scalar(
-                "SELECT content.pass_queue_notice($1,1,$2,'expired',$3::text::uuid,$4,$5)",
-            )
-            .bind(account)
-            .bind(expiry)
-            .bind(&id)
-            .bind(hash.as_slice())
-            .bind(encrypted)
-            .fetch_one(&verifier)
-            .await
-            .unwrap();
-            assert_eq!(queued, "queued");
+            if recovery {
+                let prepared: String = sqlx::query_scalar(
+                    "SELECT status FROM content.pass_begin_recovery($1,$1,$1,$1)",
+                )
+                .bind(hash.as_slice())
+                .fetch_one(&verifier)
+                .await
+                .unwrap();
+                assert_eq!(prepared, "prepare");
+                let queued: bool = sqlx::query_scalar(
+                    "SELECT content.pass_queue_recovery($1,$2,$3::text::uuid,$4)",
+                )
+                .bind(hash.as_slice())
+                .bind(recovery_hash.as_slice())
+                .bind(&id)
+                .bind(encrypted)
+                .fetch_one(&verifier)
+                .await
+                .unwrap();
+                assert!(queued);
+            } else {
+                let queued: String = sqlx::query_scalar(
+                    "SELECT content.pass_queue_notice($1,1,$2,'expired',$3::text::uuid,$4,$5)",
+                )
+                .bind(account)
+                .bind(expiry)
+                .bind(&id)
+                .bind(hash.as_slice())
+                .bind(encrypted)
+                .fetch_one(&verifier)
+                .await
+                .unwrap();
+                assert_eq!(queued, "queued");
+            }
             verifier.close().await;
             let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
             let relay = listener.local_addr().unwrap();
@@ -469,10 +516,15 @@ mod delivery_tests {
                 .execute(&mut *tx)
                 .await
                 .unwrap();
-            let (status, marked): (i16,bool) = sqlx::query_as("SELECT e.status,c.expired_expiry IS NOT DISTINCT FROM e.expires_at FROM verification_private.pass_entitlements e JOIN verification_private.pass_contacts c ON c.entitlement_id=e.id WHERE e.id=$1")
-                .bind(account).fetch_one(&mut *tx).await.unwrap();
-            let retry: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM verification_private.pass_mail_outbox WHERE entitlement_id=$1 AND lease_hash IS NULL AND retry_after>clock_timestamp())")
-                .bind(account).fetch_one(&mut *tx).await.unwrap();
+            let status: i16 = sqlx::query_scalar(
+                "SELECT status FROM verification_private.pass_entitlements WHERE id=$1",
+            )
+            .bind(account)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
+            let marked:bool=sqlx::query_scalar(if recovery {"SELECT delivered_at IS NOT NULL FROM verification_private.pass_recoveries WHERE entitlement_id=$1"} else {"SELECT c.expired_expiry IS NOT DISTINCT FROM e.expires_at FROM verification_private.pass_contacts c JOIN verification_private.pass_entitlements e ON e.id=c.entitlement_id WHERE e.id=$1"}).bind(account).fetch_one(&mut *tx).await.unwrap();
+            let retry:bool=sqlx::query_scalar(if recovery {"SELECT EXISTS(SELECT 1 FROM verification_private.pass_recoveries WHERE entitlement_id=$1 AND delivered_at IS NULL AND lease_hash IS NULL AND retry_after>clock_timestamp())"} else {"SELECT EXISTS(SELECT 1 FROM verification_private.pass_mail_outbox WHERE entitlement_id=$1 AND lease_hash IS NULL AND retry_after>clock_timestamp())"}).bind(account).fetch_one(&mut *tx).await.unwrap();
             sqlx::query("DELETE FROM verification_private.pass_entitlements WHERE id=$1")
                 .bind(account)
                 .execute(&mut *tx)
@@ -480,12 +532,17 @@ mod delivery_tests {
                 .unwrap();
             tx.commit().await.unwrap();
             assert_eq!(result.is_ok(), accepted);
-            assert_eq!(status, if accepted { 1 } else { 6 });
+            assert_eq!(status, if accepted && !recovery { 1 } else { 6 });
             assert_eq!(marked, accepted);
             assert_eq!(retry, !accepted);
-            assert!(mail.contains("Subject: Your 4chan Pass has expired!"));
-            assert!(mail.contains("/pass?renew=owned_renewal"));
-            assert!(mail.contains("Token: ABCDEFGHIJ"));
+            if recovery {
+                assert!(mail.contains("Subject: Reset your Pass PIN"));
+                assert!(mail.contains(&format!("/pass?reset={recovery_text}")));
+            } else {
+                assert!(mail.contains("Subject: Your 4chan Pass has expired!"));
+                assert!(mail.contains("/pass?renew=owned_renewal"));
+                assert!(mail.contains("Token: ABCDEFGHIJ"));
+            }
         }
         owner.close().await;
     }

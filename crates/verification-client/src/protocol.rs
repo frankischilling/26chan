@@ -277,3 +277,26 @@ mod pass_restriction_tests {
         }
     }
 }
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassRecoveryRequest {
+    pub identifier: String,
+    pub email: String,
+    pub peer: IpAddr,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassRecoveryComplete {
+    pub token: String,
+    pub pin: String,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PassRecoveryResult {
+    Accepted {},
+    Ready {},
+    Rejected {},
+    Complete {},
+    Capacity {},
+}

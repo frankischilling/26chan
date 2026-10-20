@@ -6,6 +6,7 @@ mod challenge;
 pub mod config;
 mod handlers;
 mod pass;
+mod pass_recovery;
 use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use axum::{Router, extract::DefaultBodyLimit, http::StatusCode, middleware, routing::post};
 use board_domain::{challenge_secrets::VerificationKey, verification_mail::MailKey};
@@ -53,6 +54,9 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/session", post(handlers::ensure_session))
         .route("/v1/pass/ready", post(handlers::ready))
         .route("/v1/pass/login", post(pass::login))
+        .route("/v1/pass/recovery/request", post(pass_recovery::request))
+        .route("/v1/pass/recovery/state", post(pass_recovery::status))
+        .route("/v1/pass/recovery/complete", post(pass_recovery::complete))
         .route("/v1/pass/state", post(pass::status))
         .route("/v1/pass/posting-state", post(pass::posting_status))
         .route("/v1/pass/signout", post(pass::signout))
