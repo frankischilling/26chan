@@ -339,11 +339,29 @@ async fn parser_owned_network_hints_drive_both_posting_routes_without_header_cla
     result.unwrap();
 }
 
-async fn report_request(address: SocketAddr, path: &str, body: Option<&str>) -> (u16, String) {
+type ReportCookies = Arc<std::sync::Mutex<std::collections::BTreeMap<String, String>>>;
+async fn report_request(
+    address: SocketAddr,
+    path: &str,
+    body: Option<&str>,
+    cookies: &ReportCookies,
+) -> (u16, String) {
     let method = if body.is_some() { "POST" } else { "GET" };
     let body = body.unwrap_or("");
+    let cookie = cookies
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|(name, value)| format!("{name}={value}"))
+        .collect::<Vec<_>>()
+        .join("; ");
+    let cookie = if cookie.is_empty() {
+        String::new()
+    } else {
+        format!("Cookie: {cookie}\r\n")
+    };
     let wire = format!(
-        "{method} {path} HTTP/1.1\r\nHost: {address}\r\nOrigin: http://{address}\r\nUser-Agent: Firefox/123.4\r\nAccept: text/html\r\nReferer: http://{address}/\r\nAccept-Language: en\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        "{method} {path} HTTP/1.1\r\nHost: {address}\r\nOrigin: http://{address}\r\nUser-Agent: Firefox/123.4\r\nAccept: text/html\r\nReferer: http://{address}/\r\nAccept-Language: en\r\n{cookie}Content-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
     );
     let mut stream = TcpStream::connect(address).await.unwrap();
@@ -359,13 +377,54 @@ async fn report_request(address: SocketAddr, path: &str, body: Option<&str>) -> 
     assert!(response.len() < 1_048_576);
     let response = String::from_utf8(response).unwrap();
     let (head, body) = response.split_once("\r\n\r\n").unwrap();
+    for line in head.lines() {
+        if let Some((name, value)) = line.split_once(':')
+            && name.eq_ignore_ascii_case("set-cookie")
+            && let Some((name, value)) = value.trim().split(';').next().unwrap().split_once('=')
+        {
+            cookies.lock().unwrap().insert(name.into(), value.into());
+        }
+    }
     (
         head.split_whitespace().nth(1).unwrap().parse().unwrap(),
         body.into(),
     )
 }
 
+async fn report_proof(
+    address: SocketAddr,
+    path: &str,
+    cookies: &ReportCookies,
+    key: &board_domain::challenge_secrets::VerificationKey,
+) -> String {
+    use board_domain::challenge_secrets::{TokenKind, VerificationToken};
+    for _ in 0..5 {
+        let (status, html) = report_request(address, path, None, cookies).await;
+        assert_eq!(status, 200, "{html}");
+        assert!(!html.contains("Reporting from this IP range"));
+        let field = |name: &str| {
+            html.split_once(&format!("name=\"{name}\" value=\""))
+                .and_then(|(_, tail)| tail.split_once('"'))
+                .map(|(value, _)| value.to_owned())
+        };
+        if let Some(token) = field("t-challenge")
+            .and_then(|value| VerificationToken::parse(TokenKind::Challenge, &value))
+        {
+            let answer = key.challenge_answer(&token, 6).unwrap();
+            return url::form_urlencoded::Serializer::new(String::new())
+                .append_pair("captcha-csrf", &field("captcha-csrf").unwrap())
+                .append_pair("t-challenge", &token.encode())
+                .append_pair("t-response", answer.as_str())
+                .finish();
+        }
+        // Respect the real issuer's refresh delay; do not weaken its policy.
+        tokio::time::sleep(Duration::from_secs(2)).await;
+    }
+    panic!("Owned report challenge was not issued within its bounded refresh window");
+}
+
 #[tokio::test]
+#[ignore = "Run explicitly with isolated verifier test credentials."]
 async fn report_routes_keep_get_advice_and_apply_parser_hints_before_commit() {
     let _guard = POLICY_TEST.lock().await;
     assert!(std::env::var("BOARD_TEST_CLUSTER").is_ok_and(|path| {
@@ -398,6 +457,33 @@ async fn report_routes_keep_get_advice_and_apply_parser_hints_before_commit() {
     )
     .await
     .unwrap();
+    // CAPTCHA-off boards intentionally bypass report network policy. This
+    // fixture must use a real solved challenge on a CAPTCHA-enabled board.
+    sqlx::query("UPDATE content.boards SET captcha_enabled=true,captcha_twister=false,captcha_allow_bypass=false WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
+    let issuer = board_store::verification::VerificationStore::connect(
+        &std::env::var("TEST_VERIFICATION_DATABASE_URL").unwrap(),
+    )
+    .await
+    .unwrap();
+    let verification_material = board_domain::challenge_secrets::PassSessionToken::generate()
+        .unwrap()
+        .encode();
+    let private_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let private_address = private_listener.local_addr().unwrap();
+    let private_app = board_verification::router(
+        board_verification::AppState::new(
+            issuer.clone(),
+            board_domain::challenge_secrets::VerificationKey::parse(&verification_material[3..])
+                .unwrap(),
+            board_domain::verification_mail::MailKey::parse(&"33".repeat(32)).unwrap(),
+            &"44".repeat(32),
+        )
+        .unwrap(),
+    );
+    let private_serving = tokio::spawn(async move {
+        axum::serve(private_listener, private_app).await.unwrap();
+    });
+    let cookies: ReportCookies = Arc::new(std::sync::Mutex::new(std::collections::BTreeMap::new()));
     let rule:i64=sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end,reports_only,signatures) VALUES($1,2130706433,2130706433,true,$2) RETURNING id").bind(&board).bind(BROWSER).fetch_one(&owner).await.unwrap();
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -413,7 +499,11 @@ async fn report_routes_keep_get_advice_and_apply_parser_hints_before_commit() {
             tripcode_key: None,
             country_database: None,
         },
-        None,
+        board_config::PublicVerificationSettings::parse(
+            Some(&private_address.to_string()),
+            Some(&"44".repeat(32)),
+        )
+        .unwrap(),
         None,
         Some(Arc::new(BrowserKey::parse(&"11".repeat(32)).unwrap())),
     )
@@ -429,28 +519,30 @@ async fn report_routes_keep_get_advice_and_apply_parser_hints_before_commit() {
     );
     let task_owner = owner.clone();
     let task_board = board.clone();
+    let task_cookies = cookies.clone();
+    let task_material = verification_material.clone();
     let result = tokio::spawn(async move {
         let path = format!("/{task_board}/imgboard.php?mode=report&no={post}");
-        let (status, html) = report_request(address, &path, None).await;
-        assert_eq!(status, 200);
-        assert!(!html.contains("Reporting from this IP range"));
-        let direct_body=format!("no={post}&reason=Owned+report");
-        let (status,html)=report_request(address,&format!("/{task_board}/report"),Some(&direct_body)).await;
+        let key=board_domain::challenge_secrets::VerificationKey::parse(&task_material[3..]).unwrap();
+        let proof=report_proof(address,&path,&task_cookies,&key).await;
+        let direct_body=format!("no={post}&reason=Owned+report&{proof}");
+        let (status,html)=report_request(address,&format!("/{task_board}/report"),Some(&direct_body),&task_cookies).await;
         assert_eq!(status,422,"{html}");
         assert!(html.contains("Reporting from this IP range has been blocked due to abuse."));
         let catalog=serde_json::json!({"version":1,"categories":[{"id":7,"board":"","op_only":false,"reply_only":false,"image_only":false,"exclude_boards":null,"title":"Owned report category","weight":1.25,"filtered":0}]});
         let revision:i64=sqlx::query_scalar("SELECT content.import_report_catalog($1::text::jsonb)").bind(catalog.to_string()).fetch_one(&task_owner).await.unwrap();
         sqlx::query("SELECT content.set_report_catalog_active($1)").bind(revision).execute(&task_owner).await.unwrap();
-        let body=format!("cat_id=7&revision={revision}");
-        let (status,html)=report_request(address,&path,None).await;
-        assert_eq!(status,200);assert!(!html.contains("Reporting from this IP range"));
-        let (status,html)=report_request(address,&path,Some(&body)).await;
+        let proof=report_proof(address,&path,&task_cookies,&key).await;
+        let body=format!("cat_id=7&revision={revision}&{proof}");
+        let (status,html)=report_request(address,&path,Some(&body),&task_cookies).await;
         assert_eq!(status,422,"{html}");
         assert!(html.contains("Reporting from this IP range has been blocked due to abuse."));
         assert!(!html.contains(BROWSER));
         assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM content.reports WHERE board=$1").bind(&task_board).fetch_one(&task_owner).await.unwrap(),0);
         sqlx::query("UPDATE admission.network_rules SET active=false WHERE id=$1").bind(rule).execute(&task_owner).await.unwrap();
-        let (status,html)=report_request(address,&path,Some(&body)).await;
+        let proof=report_proof(address,&path,&task_cookies,&key).await;
+        let body=format!("cat_id=7&revision={revision}&{proof}");
+        let (status,html)=report_request(address,&path,Some(&body),&task_cookies).await;
         assert_eq!(status,200,"{html}");
         assert_eq!(
             sqlx::query_scalar::<_, i64>("SELECT count(*) FROM content.reports WHERE board=$1")
@@ -474,7 +566,17 @@ async fn report_routes_keep_get_advice_and_apply_parser_hints_before_commit() {
         .execute(&owner)
         .await
         .unwrap();
-    let tokens:Vec<Vec<u8>>=sqlx::query_scalar("SELECT a.token_hash FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board=$1").bind(&board).fetch_all(&owner).await.unwrap();
+    let mut tokens:Vec<Vec<u8>>=sqlx::query_scalar("SELECT a.token_hash FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board=$1").bind(&board).fetch_all(&owner).await.unwrap();
+    if let Some(capability) = cookies
+        .lock()
+        .unwrap()
+        .get("board-anon")
+        .and_then(|value| board_domain::anonymous_session::Capability::parse(value))
+    {
+        tokens.push(capability.storage_hash().to_vec());
+    }
+    tokens.sort();
+    tokens.dedup();
     posting::cleanup_posting(&owner, &board).await;
     for query in [
         "DELETE FROM admission.network_rules WHERE boards=$1",
@@ -497,6 +599,18 @@ async fn report_routes_keep_get_advice_and_apply_parser_hints_before_commit() {
             .await
             .unwrap();
     }
+    let owned_peer =
+        board_domain::challenge_secrets::VerificationKey::parse(&verification_material[3..])
+            .unwrap()
+            .network_identity("127.0.0.1".parse().unwrap());
+    sqlx::query("DELETE FROM verification_private.peers WHERE peer_hash=$1")
+        .bind(owned_peer.as_slice())
+        .execute(&owner)
+        .await
+        .unwrap();
+    private_serving.abort();
+    let _ = private_serving.await;
+    issuer.close().await;
     public.close().await;
     owner.close().await;
     result.unwrap();

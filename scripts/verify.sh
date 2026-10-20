@@ -75,6 +75,7 @@ rust_checks() {
     cargo test -p board-public --all-features --locked --lib pass_auth::database_tests::public_pass_forms_use_private_issuer_and_ignore_forged_presentation_cookie -- --ignored --exact
     cargo test -p board-public --all-features --locked --lib pass_recovery::database_tests::public_recovery_requires_owner_mail_delivery_csrf_and_one_use_token -- --ignored --exact
     cargo test -p board-public --all-features --locked --lib posting_challenge::database_tests::public_captcha_requests_keep_private_scope_and_source_report_opt_out -- --ignored --exact
+    cargo test -p board-public --all-features --locked --test network_hints report_routes_keep_get_advice_and_apply_parser_hints_before_commit -- --ignored --exact
   )
   cargo test --workspace --exclude board-store --exclude board-verification --all-features --locked
   cargo test -p board-staff --features database-tests --test uploads --locked script_disabled_browser -- --ignored --exact --nocapture
