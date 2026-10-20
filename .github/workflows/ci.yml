@@ -116,6 +116,11 @@ jobs:
           source .local/checkout-tests.env
           cargo test -p board-checkout --all-features --locked --test sandbox_callbacks -- --ignored --exact signed_sandbox_callbacks_bind_order_and_renew_once_without_reviving_refunds
           cargo test -p board-public --all-features --locked --lib pass_checkout::database_tests::public_renewal_quotes_are_csrf_bound_idempotent_and_wait_for_signed_payment -- --ignored --exact
+      - name: Install Pass and staff browser dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          node --test tests/helpers/pass-state-workflow.test.mjs
       - name: Qualify Pass states through native forms, Quick Reply, and JSON
         run: |
           source .local/database.env
@@ -127,8 +132,6 @@ jobs:
           cargo test -p board-public --lib --test proxy_https --all-features --locked
       - name: Exercise janitor request and review forms in real browsers
         run: |
-          npm ci --ignore-scripts
-          npx playwright install --with-deps chromium
           php -n scripts/test-pass-policy-source.php
           php -n scripts/test-duplicate-image-cooldown.php
           node --test tests/browser/janitor-queue-state.test.mjs
