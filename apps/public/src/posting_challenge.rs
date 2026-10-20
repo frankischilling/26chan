@@ -565,6 +565,48 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn negotiated_proof_errors_preserve_json_and_cookie_revocation() {
+        use super::*;
+        use crate::posting_response::Format;
+        for production in [false, true] {
+            for format in [Format::Html, Format::Json] {
+                let response = ProofError::pass_rejected(production, "This Pass has expired.")
+                    .render_with(|error| format.error(error));
+                assert_eq!(
+                    response
+                        .headers()
+                        .get_all(header::SET_COOKIE)
+                        .iter()
+                        .count(),
+                    2
+                );
+                let expected = if matches!(format, Format::Json) {
+                    StatusCode::OK
+                } else {
+                    StatusCode::BAD_REQUEST
+                };
+                assert_eq!(response.status(), expected);
+                let body = axum::body::to_bytes(response.into_body(), 65_536)
+                    .await
+                    .unwrap();
+                if matches!(format, Format::Json) {
+                    assert_eq!(
+                        serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+                        serde_json::json!({"error":"This Pass has expired."})
+                    );
+                } else {
+                    assert!(String::from_utf8_lossy(&body).contains("This Pass has expired."));
+                }
+            }
+        }
+        let response =
+            ProofError::from(unavailable()).render_with(|error| Format::Json.error(error));
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert!(!response.headers().contains_key(header::SET_COOKIE));
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+    }
+
     #[test]
     fn courtesy_credit_gate_uses_actual_header_presence_and_duplicate_uncertainty() {
         use board_domain::content_admission::{

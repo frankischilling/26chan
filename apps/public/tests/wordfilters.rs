@@ -208,6 +208,11 @@ async fn original_test_board_keeps_its_source_filter_while_generic_fixtures_stay
             )
             .await
             .unwrap();
+        assert_eq!(source_response.status(), StatusCode::OK);
+        assert_eq!(
+            source_response.headers()["content-type"],
+            "application/json"
+        );
         let denied: serde_json::Value =
             serde_json::from_slice(&to_bytes(source_response.into_body(), 65536).await.unwrap())
                 .unwrap();

@@ -1208,7 +1208,7 @@ async fn submit_post(
     .await
     {
         Ok(challenge) => challenge,
-        Err(error) => return Ok(error.into_response()),
+        Err(error) => return Ok(error.render_with(|error| format.error(error))),
     };
     let password = session.password(&form.password);
     // The operator may enable OP markup while this request waits on the board
