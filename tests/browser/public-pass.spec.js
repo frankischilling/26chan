@@ -60,14 +60,16 @@ for (const javaScriptEnabled of [true, false]) {
         ['success', 'Success! Your device is now authorized.'],
         ['logout', 'You are now logged out.'],
         ['error', 'Incorrect Token or PIN.'],
+        ['expired', 'This Pass has expired. Please visit this page to renew it.'],
         ['escaped', '<script>owned fixture</script>'],
       ]) {
         await page.goto(`/fixture/pass/${mode}`);
-        await expect(mode === 'error' || mode === 'escaped'
+        await expect(['error', 'expired', 'escaped'].includes(mode)
           ? page.getByRole('alert')
           : page.getByRole('heading', { level: 2 })).toHaveText(text);
         await expect(page.locator('input[name="pin"], input[name="id"], script')).toHaveCount(0);
-        if (mode === 'error' || mode === 'escaped') await expect(page.locator('a[href="/auth"]')).toBeVisible();
+        if (mode === 'expired') await expect(page.getByRole('link', { name: 'this page' })).toHaveAttribute('href', '/pass?renew=owned-expired-renewal');
+        if (['error', 'expired', 'escaped'].includes(mode)) await expect(page.locator('a[href="/auth"]')).toBeVisible();
         else await expect(page.locator('a[href="/auth"]')).toHaveCount(0);
       }
     });

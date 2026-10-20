@@ -38,6 +38,7 @@ async fn app() -> Router {
         "authenticated",
         "logout",
         "error",
+        "expired",
         "escaped",
         "recovery-request",
         "recovery-reset",

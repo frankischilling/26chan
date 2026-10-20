@@ -95,6 +95,14 @@ pub(crate) async fn login(
         Ok(value) => value,
         Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE),
     };
+    let renewal = if result.status == "disabled_1" && verified {
+        match expired_renewal(&state, &identifier).await {
+            Ok(value) => value,
+            Err(()) => return error(StatusCode::SERVICE_UNAVAILABLE),
+        }
+    } else {
+        None
+    };
     let output = match result.status.as_str() {
         "ready" if result.ttl_seconds > 0 => protocol::PassLoginResult::Ready {
             token: session.encode(),
@@ -105,14 +113,56 @@ pub(crate) async fn login(
         "in_use" if result.remaining > 0 => protocol::PassLoginResult::InUse {
             seconds: result.remaining as u32,
         },
-        "disabled_1" => protocol::PassLoginResult::Disabled { status: 1 },
-        "disabled_2" => protocol::PassLoginResult::Disabled { status: 2 },
-        "disabled_3" => protocol::PassLoginResult::Disabled { status: 3 },
-        "disabled_4" => protocol::PassLoginResult::Disabled { status: 4 },
-        "disabled_5" => protocol::PassLoginResult::Disabled { status: 5 },
+        "disabled_1" => protocol::PassLoginResult::Disabled { status: 1, renewal },
+        "disabled_2" => protocol::PassLoginResult::Disabled {
+            status: 2,
+            renewal: None,
+        },
+        "disabled_3" => protocol::PassLoginResult::Disabled {
+            status: 3,
+            renewal: None,
+        },
+        "disabled_4" => protocol::PassLoginResult::Disabled {
+            status: 4,
+            renewal: None,
+        },
+        "disabled_5" => protocol::PassLoginResult::Disabled {
+            status: 5,
+            renewal: None,
+        },
         _ => return error(StatusCode::SERVICE_UNAVAILABLE),
     };
     Json(output).into_response()
+}
+async fn expired_renewal(state: &AppState, identity: &[u8; 32]) -> Result<Option<String>, ()> {
+    let Some(bytes) = state
+        .store
+        .expired_pass_contact(identity)
+        .await
+        .map_err(|_| ())?
+    else {
+        // Locally provisioned accounts may have no owner contact.
+        return Ok(None);
+    };
+    let Some(board_domain::pass_mail::Payload::Contact(contact)) =
+        state.mail_key.open_pass(identity, &bytes)
+    else {
+        return Err(());
+    };
+    if state.key.pass_identifier(contact.identifier()).as_ref() != Some(identity) {
+        return Err(());
+    }
+    let recipient = state.key.pass_recipient(contact.recipient()).ok_or(())?;
+    let reference = state.key.pass_renewal(contact.renewal()).ok_or(())?;
+    if !state
+        .store
+        .bind_pass_renewal(identity, &recipient, &reference)
+        .await
+        .map_err(|_| ())?
+    {
+        return Err(());
+    }
+    Ok(Some(contact.renewal().to_owned()))
 }
 pub(crate) async fn status(
     State(state): State<AppState>,

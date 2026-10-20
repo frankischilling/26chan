@@ -94,6 +94,22 @@ async fn public_pass_forms_use_private_issuer_and_ignore_forged_presentation_coo
         .unwrap();
     let id:i64=sqlx::query_scalar("INSERT INTO verification_private.pass_entitlements(token_hash,pin_hash,status,purchased_at,expires_at) VALUES($1,$2,0,'2020-01-02T00:00:00Z',clock_timestamp()+interval '1 year') RETURNING id")
   .bind(token_hash.as_slice()).bind(hash).fetch_one(&mut *tx).await.unwrap();
+    let mail_key = MailKey::parse(&material[3..]).unwrap();
+    let contact = board_domain::pass_mail::Contact::new(
+        board_domain::pass_mail::Recipient::parse("owned-auth@example.org").unwrap(),
+        &identifier,
+        "owned-expired-renewal",
+    )
+    .unwrap();
+    let recipient = key.pass_recipient(contact.recipient()).unwrap();
+    let encrypted = mail_key
+        .seal_pass(
+            &token_hash,
+            &board_domain::pass_mail::Payload::Contact(contact),
+        )
+        .unwrap();
+    sqlx::query("INSERT INTO verification_private.pass_contacts(entitlement_id,recipient_hash,encrypted_contact) VALUES($1,$2,$3)")
+        .bind(id).bind(recipient.as_slice()).bind(encrypted).execute(&mut *tx).await.unwrap();
     tx.commit().await.unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let endpoint = listener.local_addr().unwrap();
@@ -302,6 +318,48 @@ async fn public_pass_forms_use_private_issuer_and_ignore_forged_presentation_coo
                     .starts_with("board-pass=; Path=/; Max-Age=0;"))
         );
         assert!(body(response).await.contains("revoked due to spamming"));
+        // Only correct credentials for an expired account reveal its renewal
+        // capability. Restricted accounts and wrong PINs never do.
+        for status in [2_i16, 3, 1] {
+            let mut tx = work_owner.begin().await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *tx).await.unwrap();
+            sqlx::query("UPDATE verification_private.pass_entitlements SET status=$2,expires_at=clock_timestamp()-interval '1 day' WHERE id=$1")
+                .bind(id).bind(status).execute(&mut *tx).await.unwrap();
+            tx.commit().await.unwrap();
+            for xhr in [false, true] {
+                for pin in ["incorrect-owned-pin", "owned-public-pin"] {
+                    // Two wrong attempts per state would exhaust the real budget;
+                    // only test wrong credentials for the expired branch.
+                    if pin == "incorrect-owned-pin" && status != 1 { continue; }
+                    let mut pairs = vec![("id",identifier.as_str()),("pin",pin),("csrf",fresh_csrf.as_str())];
+                    if xhr { pairs.push(("xhr","1")); }
+                    let response = app.clone().oneshot(request("/auth", &fresh_cookie, Some(&pairs))).await.unwrap();
+                    assert_eq!(response.status(),StatusCode::OK);
+                    let text = body(response).await;
+                    let message = if xhr {
+                        let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+                        assert_eq!(value["status"],-1);
+                        value["message"].as_str().unwrap().to_owned()
+                    } else { text };
+                    assert_eq!(message.contains("/pass?renew=owned-expired-renewal"),status==1 && pin=="owned-public-pin");
+                    assert!(!message.contains("owned-auth@example.org"));
+                    assert!(!message.contains(&identifier));
+                    if status==2 { assert!(message.contains("You cannot use it anymore.")); }
+                    if status==3 { assert!(message.contains("You cannot use it until the dispute is resolved.")); }
+                }
+            }
+        }
+        let mut tx = work_owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *tx).await.unwrap();
+        let bound: Vec<u8> = sqlx::query_scalar("SELECT renewal_hash FROM verification_private.pass_contacts WHERE entitlement_id=$1").bind(id).fetch_one(&mut *tx).await.unwrap();
+        assert_eq!(bound, key.pass_renewal("owned-expired-renewal").unwrap());
+        sqlx::query("DELETE FROM verification_private.pass_contacts WHERE entitlement_id=$1").bind(id).execute(&mut *tx).await.unwrap();
+        tx.commit().await.unwrap();
+        let response = app.clone().oneshot(request("/auth", &fresh_cookie, Some(&[("id",&identifier),("pin","owned-public-pin"),("csrf",&fresh_csrf)]))).await.unwrap();
+        assert_eq!(response.status(),StatusCode::OK);
+        let html=body(response).await;
+        assert!(html.contains("This Pass has expired."));
+        assert!(!html.contains("/pass?renew="));
         let css = app
             .clone()
             .oneshot(request("/static/pass-auth.v1.css", "", None))

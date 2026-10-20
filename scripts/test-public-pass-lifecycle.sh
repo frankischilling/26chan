@@ -209,6 +209,12 @@ SQL
 DO $$ BEGIN IF to_regprocedure('content.pass_purchase_offer()') IS NOT NULL OR content.public_pass_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Purchase rollback changed authority'; END IF; END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0235_pass_checkout_purchases.sql
+"${migrator[@]}" -c BEGIN -f migrations/0236_pass_expired_renewal.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN IF to_regprocedure('content.pass_expired_contact(bytea)') IS NOT NULL OR content.public_pass_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Expired renewal rollback changed authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0236_pass_expired_renewal.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-expired-renewal.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-notice-outbox.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-pin-recovery.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-checkout-renewals.sql

@@ -1,11 +1,11 @@
 # Public Pass lifecycle
 
 Issue #201 covers public membership authentication and its posting benefits.
-The source state model is qualified. Private entitlement/session storage, the
-isolated verifier and browser login/logout forms are implemented and undergoing
-integration checks. The policy module alone grants no identity or posting
-authority. CAPTCHA bypass is connected to protected posts; the remaining
-benefits and recovery are still being implemented.
+The source state model is qualified. Private entitlement/session storage,
+verifier-mediated login/logout, protected posting benefits, owner-email recovery
+and sandbox purchase/renewal are implemented. Full browser state-matrix
+qualification and source visual gaps remain open. The policy module alone grants
+no identity or posting authority; each protected write rechecks its receipt.
 
 ## Source decisions
 
@@ -73,6 +73,28 @@ PINs, production salts and payment accounts are never imported. Recovery and
 checkout dependencies remain part of the parent issue until they have working,
 qualified boundaries.
 
+
+## Expired authentication and renewal
+
+After a correct PIN produces the expired state, the private issuer can read that
+account's encrypted owner contact through a verifier-only function. It verifies
+the contact's identity binding and binds its renewal reference before returning
+only that reference. Wrong PINs, active accounts and restricted accounts do not
+receive it. The public role cannot query contacts. Accounts provisioned without
+an owner contact keep the plain expired message.
+
+The native error page links to the same-origin renewal form. The source XHR
+`status`/`message` contract carries the equivalent fixed link markup; the
+reference is restricted to ASCII letters, digits, hyphens and underscores before
+interpolation. Neither response includes the owner's email, Token or PIN.
+Refund and disputed-payment messages now include the source's full explanatory
+sentence. Source Terms of Use content is absent from the supplied archive, so
+revocation messages do not link to an invented policy page.
+
+Migration 0236 includes rollback and populated-restore qualification. Actual
+public/private HTTP tests cover correct and wrong PINs, native and XHR errors,
+restricted states, legacy reference binding and accounts without contacts. The
+SQL fixture checks expired-only lookup and public/mailer role denial.
 
 ## Current authentication boundary
 

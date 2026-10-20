@@ -23,6 +23,7 @@ struct Page<'a> {
     csrf: &'a str,
     status: i8,
     message: &'a str,
+    renewal: Option<&'a str>,
 }
 fn unavailable() -> AppError {
     AppError(
@@ -144,10 +145,35 @@ fn render(
     message: &str,
     xhr: bool,
 ) -> Result<Response, AppError> {
+    render_with_renewal(state, secret, status, message, xhr, None)
+}
+fn renewal_message(renewal: Option<&str>) -> Result<Option<String>, AppError> {
+    // A private response is still validated before it becomes a URL or HTML.
+    if renewal.is_some_and(|value| {
+        value.is_empty()
+            || value.len() > 128
+            || !value
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
+    }) {
+        return Err(unavailable());
+    }
+    Ok(renewal.map(|reference| format!("This Pass has expired. Please visit <a href=\"/pass?renew={reference}\">this page</a> to renew it.")))
+}
+fn render_with_renewal(
+    state: &AppState,
+    secret: &PassSecret,
+    status: i8,
+    message: &str,
+    xhr: bool,
+    renewal: Option<&str>,
+) -> Result<Response, AppError> {
+    let xhr_message = renewal_message(renewal)?;
+    let json_message = xhr_message.as_deref().unwrap_or(message);
     let mut response = if xhr {
         let encoded = crate::output::json(
             state.limits.response_writer(4096),
-            &serde_json::json!({"status":status,"message":if message.is_empty(){None}else{Some(message)}}),
+            &serde_json::json!({"status":status,"message":if json_message.is_empty(){None}else{Some(json_message)}}),
         )?;
         (
             [(header::CONTENT_TYPE, "application/json")],
@@ -161,6 +187,7 @@ fn render(
                 csrf: &secret.nonce(),
                 status,
                 message,
+                renewal,
             },
         )?
     };
@@ -338,16 +365,22 @@ async fn submit(
         protocol::PassLoginResult::InUse { seconds } => format!(
             "This Pass is already in use from another network. Wait {seconds} seconds before trying again."
         ),
-        protocol::PassLoginResult::Disabled { status } => {
+        protocol::PassLoginResult::Disabled { status, renewal } => {
             let message = match status {
                 1 => "This Pass has expired.",
-                2 => "This Pass has been refunded and disabled.",
-                3 => "This Pass has a disputed payment.",
+                2 => "This Pass has been refunded and disabled. You cannot use it anymore.",
+                3 => {
+                    "This Pass has a disputed payment. You cannot use it until the dispute is resolved."
+                }
                 4 => "This Pass has been revoked due to spamming.",
                 5 => "This Pass has been revoked due to illegal content.",
                 _ => return Err(unavailable()),
             };
-            let mut response = render(&state, &secret, -1, message, xhr)?;
+            if status != 1 && renewal.is_some() {
+                return Err(unavailable());
+            }
+            let mut response =
+                render_with_renewal(&state, &secret, -1, message, xhr, renewal.as_deref())?;
             set_cookie(response.headers_mut(), state.production, "", 0)?;
             return Ok(response);
         }
@@ -372,6 +405,7 @@ pub(crate) fn fixture_response(mode: &str, origin: &str) -> Result<Response, Str
         "authenticated" => (2, ""),
         "logout" => (4, ""),
         "error" => (-1, "Incorrect Token or PIN."),
+        "expired" => (-1, "This Pass has expired."),
         "escaped" => (-1, "<script>owned fixture</script>"),
         "recovery-request" | "recovery-reset" | "recovery-complete" | "recovery-escaped" => (0, ""),
         "checkout-purchase" | "checkout-renew" | "checkout-pending" | "checkout-paid"
@@ -405,8 +439,15 @@ pub(crate) fn fixture_response(mode: &str, origin: &str) -> Result<Response, Str
         return crate::pass_recovery::fixture_response(&state, mode);
     }
     let secret = PassSecret::generate().map_err(|_| "Fixture secret unavailable.")?;
-    let response =
-        render(&state, &secret, status, message, false).map_err(|_| "Fixture rendering failed.")?;
+    let response = render_with_renewal(
+        &state,
+        &secret,
+        status,
+        message,
+        false,
+        (mode == "expired").then_some("owned-expired-renewal"),
+    )
+    .map_err(|_| "Fixture rendering failed.")?;
     Ok(crate::security::verification_fixture_headers(
         response, &state,
     ))
@@ -416,12 +457,57 @@ pub(crate) fn fixture_response(mode: &str, origin: &str) -> Result<Response, Str
 mod source_markup_tests {
     use super::*;
     #[test]
+    fn renewal_message_refuses_markup_and_url_delimiters() {
+        assert!(renewal_message(None).unwrap().is_none());
+        assert!(
+            renewal_message(Some("owned_Reference-123"))
+                .unwrap()
+                .unwrap()
+                .contains("/pass?renew=owned_Reference-123")
+        );
+        for value in [
+            "",
+            "a&other=value",
+            "a#fragment",
+            "a/b",
+            "a%22",
+            "\"><script>",
+            "é",
+            &"a".repeat(129),
+        ] {
+            assert!(renewal_message(Some(value)).is_err());
+        }
+    }
+    #[test]
+    fn expired_auth_uses_same_origin_typed_link() {
+        let html = Page {
+            csrf: "owned",
+            status: -1,
+            message: "",
+            renewal: Some("owned-expired-renewal"),
+        }
+        .render()
+        .unwrap();
+        assert!(html.contains("href=\"/pass?renew=owned-expired-renewal\""));
+        assert!(html.contains("to renew it."));
+        let escaped = Page {
+            csrf: "owned",
+            status: -1,
+            message: "",
+            renewal: Some("\"><script>owned</script>"),
+        }
+        .render()
+        .unwrap();
+        assert!(!escaped.contains("<script>"));
+    }
+    #[test]
     fn source_auth_chrome_and_status_navigation_are_preserved() {
         for status in [0, 1, 2, 4, -1] {
             let html = Page {
                 csrf: "owned-csrf",
                 status,
                 message: "",
+                renewal: None,
             }
             .render()
             .unwrap();

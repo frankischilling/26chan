@@ -28,6 +28,16 @@ pub struct RenewalOrder<'a> {
     pub object: &'a str,
 }
 impl VerificationStore {
+    pub async fn expired_pass_contact(
+        &self,
+        identity: &[u8; 32],
+    ) -> Result<Option<Vec<u8>>, StoreError> {
+        sqlx::query_scalar("SELECT content.pass_expired_contact($1)")
+            .bind(identity.as_slice())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
     pub async fn checkout_offer(&self) -> Result<Offer, StoreError> {
         sqlx::query_as("SELECT * FROM content.pass_checkout_offer()")
             .fetch_one(&self.pool)

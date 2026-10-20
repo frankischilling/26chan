@@ -192,7 +192,7 @@ pub enum PassLoginResult {
     Rejected {},
     Flood {},
     InUse { seconds: u32 },
-    Disabled { status: u8 },
+    Disabled { status: u8, renewal: Option<String> },
     Capacity {},
 }
 #[derive(Serialize, Deserialize)]
