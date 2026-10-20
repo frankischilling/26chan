@@ -120,3 +120,43 @@ impl VerificationStore {
         Ok(())
     }
 }
+
+/// Encrypted contact data for the bounded, private notice producer only.
+#[derive(sqlx::FromRow)]
+pub struct NoticeCandidate {
+    pub entitlement_id: i64,
+    pub identifier_hash: Vec<u8>,
+    pub contact_version: i64,
+    pub recipient_hash: Vec<u8>,
+    pub encrypted_contact: Vec<u8>,
+    pub expiry: chrono::DateTime<chrono::Utc>,
+    pub notice_kind: String,
+}
+impl VerificationStore {
+    pub async fn pass_due_notices(&self, limit: i32) -> Result<Vec<NoticeCandidate>, StoreError> {
+        sqlx::query_as("SELECT * FROM content.pass_due_notices($1)")
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
+    pub async fn queue_pass_notice(
+        &self,
+        candidate: &NoticeCandidate,
+        request: &str,
+        context: &[u8; 32],
+        payload: &[u8],
+    ) -> Result<String, StoreError> {
+        sqlx::query_scalar("SELECT content.pass_queue_notice($1,$2,$3,$4,$5::text::uuid,$6,$7)")
+            .bind(candidate.entitlement_id)
+            .bind(candidate.contact_version)
+            .bind(candidate.expiry)
+            .bind(&candidate.notice_kind)
+            .bind(request)
+            .bind(context.as_slice())
+            .bind(payload)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
+}

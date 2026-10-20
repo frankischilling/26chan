@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 mod smtp;
 use board_domain::{challenge_secrets::ReceiptToken, verification_mail::MailKey};
-use board_store::verification::mail::MailStore;
+use board_store::verification::mail::{MailJob, MailStore};
 use std::{
     collections::BTreeMap,
     net::{IpAddr, SocketAddr},
@@ -130,42 +130,76 @@ fn main() -> std::process::ExitCode {
         }
     }
 }
+async fn next_job(
+    store: &MailStore,
+    lease: &[u8; 32],
+    pass_first: bool,
+) -> Result<Option<(MailJob, bool)>, ()> {
+    for pass in [pass_first, !pass_first] {
+        let jobs = if pass {
+            store.claim_pass(lease, 1).await
+        } else {
+            store.claim(lease, 1).await
+        }
+        .map_err(|_| ())?;
+        if let Some(job) = jobs.into_iter().next() {
+            return Ok(Some((job, pass)));
+        }
+    }
+    Ok(None)
+}
 async fn run(settings: Settings) -> Result<usize, ()> {
     let store = MailStore::connect(&settings.database)
         .await
         .map_err(|_| ())?;
     let mut sent = 0;
     let result = async {
-        for _ in 0..100 {
+        let mut incomplete = false;
+        for turn in 0..100 {
             // Claim one message at a time so every delivery gets a fresh lease,
             // even when previous deliveries consumed their entire SMTP budget.
             let lease = ReceiptToken::generate().map_err(|_| ())?.storage_hash();
-            let jobs = store.claim(&lease, 1).await.map_err(|_| ())?;
-            let Some(job) = jobs.into_iter().next() else {
+            let Some((job, pass)) = next_job(&store, &lease, turn % 2 == 1).await? else {
                 break;
             };
             let token: [u8; 32] = job.token_hash.as_slice().try_into().map_err(|_| ())?;
-            let delivered = if let Some(payload) = settings.key.open(&token, &job.encrypted_payload)
-            {
+            let delivered = if pass {
+                if let Some(payload) = settings.key.open_pass(&token, &job.encrypted_payload) {
+                    smtp::deliver_pass(settings.relay, &settings.origin, &job.request_id, &payload)
+                        .await
+                        .is_ok()
+                } else {
+                    false
+                }
+            } else if let Some(payload) = settings.key.open(&token, &job.encrypted_payload) {
                 smtp::deliver(settings.relay, &settings.origin, &job.request_id, &payload)
                     .await
                     .is_ok()
             } else {
                 false
             };
-            if !store
-                .finish(&job.request_id, &lease, delivered)
-                .await
-                .map_err(|_| ())?
-            {
+            let finished = if pass {
+                store.finish_pass(&job.request_id, &lease, delivered).await
+            } else {
+                store.finish(&job.request_id, &lease, delivered).await
+            }
+            .map_err(|_| ())?;
+            if !finished {
                 return Err(());
             }
+            if pass {
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            }
             if !delivered {
-                return Err(());
+                if !pass {
+                    return Err(());
+                }
+                incomplete = true;
+                continue;
             }
             sent += 1;
         }
-        Ok(sent)
+        if incomplete { Err(()) } else { Ok(sent) }
     }
     .await;
     store.close().await;
@@ -217,9 +251,11 @@ mod delivery_tests {
         verification_mail::MailPayload,
     };
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    static DELIVERY_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     #[tokio::test]
     #[ignore = "Run explicitly with isolated mailer test credentials."]
     async fn delivery_acknowledges_only_accepted_local_mail() {
+        let _guard = DELIVERY_LOCK.lock().await;
         let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
             .await
             .unwrap();
@@ -309,6 +345,147 @@ mod delivery_tests {
             assert_eq!(delivered, accepted);
             assert_eq!(queued, !accepted);
             assert!(mail.contains(&format!("/signin?action=verify&tkn={token}")));
+        }
+        owner.close().await;
+    }
+
+    #[tokio::test]
+    #[ignore = "Run explicitly with isolated mailer test credentials."]
+    async fn pass_delivery_changes_expiry_state_only_after_relay_acceptance() {
+        use board_domain::pass_mail::{Contact, Notice, Payload, Recipient};
+        let _guard = DELIVERY_LOCK.lock().await;
+        let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+        for accepted in [false, true] {
+            let material = ReceiptToken::generate().unwrap().encode();
+            let bytes = &material[3..35];
+            let id = format!(
+                "{}-{}-{}-{}-{}",
+                &bytes[..8],
+                &bytes[8..12],
+                &bytes[12..16],
+                &bytes[16..20],
+                &bytes[20..]
+            );
+            let key = MailKey::parse(&material[3..]).unwrap();
+            let hash = ReceiptToken::generate().unwrap().storage_hash();
+            let contact = Contact::new(
+                Recipient::parse("owned.pass.fixture@example.org").unwrap(),
+                "ABCDEFGHIJ",
+                "owned_renewal",
+            )
+            .unwrap();
+            let contact_envelope = key.seal_pass(&hash, &Payload::Contact(contact)).unwrap();
+            let mut tx = owner.begin().await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            let (account, expiry): (i64, chrono::DateTime<chrono::Utc>) = sqlx::query_as("INSERT INTO verification_private.pass_entitlements(token_hash,pin_hash,status,purchased_at,expires_at) VALUES($1,repeat('owned-placeholder',3),6,clock_timestamp()-interval '1 year',clock_timestamp()-interval '1 second') RETURNING id,expires_at")
+                .bind(hash.as_slice()).fetch_one(&mut *tx).await.unwrap();
+            sqlx::query("INSERT INTO verification_private.pass_contacts(entitlement_id,recipient_hash,encrypted_contact) VALUES($1,$2,$3)")
+                .bind(account).bind(hash.as_slice()).bind(contact_envelope).execute(&mut *tx).await.unwrap();
+            let contact = Contact::new(
+                Recipient::parse("owned.pass.fixture@example.org").unwrap(),
+                "ABCDEFGHIJ",
+                "owned_renewal",
+            )
+            .unwrap();
+            let payload = Payload::notice(contact, Notice::Expired, expiry.timestamp()).unwrap();
+            let encrypted = key.seal_pass(&hash, &payload).unwrap();
+            tx.commit().await.unwrap();
+            let verifier =
+                sqlx::PgPool::connect(&std::env::var("TEST_VERIFICATION_DATABASE_URL").unwrap())
+                    .await
+                    .unwrap();
+            let queued: String = sqlx::query_scalar(
+                "SELECT content.pass_queue_notice($1,1,$2,'expired',$3::text::uuid,$4,$5)",
+            )
+            .bind(account)
+            .bind(expiry)
+            .bind(&id)
+            .bind(hash.as_slice())
+            .bind(encrypted)
+            .fetch_one(&verifier)
+            .await
+            .unwrap();
+            assert_eq!(queued, "queued");
+            verifier.close().await;
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let relay = listener.local_addr().unwrap();
+            let receiver = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut stream = BufReader::new(stream);
+                stream
+                    .get_mut()
+                    .write_all(b"220 owned fixture\r\n")
+                    .await
+                    .unwrap();
+                for response in ["250 OK\r\n", "250 OK\r\n", "250 OK\r\n", "354 DATA\r\n"] {
+                    let mut line = String::new();
+                    stream.read_line(&mut line).await.unwrap();
+                    stream
+                        .get_mut()
+                        .write_all(response.as_bytes())
+                        .await
+                        .unwrap();
+                }
+                let mut data = String::new();
+                loop {
+                    let mut line = String::new();
+                    stream.read_line(&mut line).await.unwrap();
+                    if line == ".\r\n" {
+                        break;
+                    }
+                    assert!(data.len() < 8192);
+                    data.push_str(&line);
+                }
+                stream
+                    .get_mut()
+                    .write_all(if accepted {
+                        b"250 accepted\r\n"
+                    } else {
+                        b"451 rejected\r\n"
+                    })
+                    .await
+                    .unwrap();
+                data
+            });
+
+            let result = run(Settings {
+                database: std::env::var("TEST_VERIFICATION_MAIL_DATABASE_URL").unwrap(),
+                key,
+                relay,
+                origin: "http://127.0.0.1:3000".into(),
+            })
+            .await;
+            let mail = tokio::time::timeout(std::time::Duration::from_secs(8), receiver)
+                .await
+                .unwrap()
+                .unwrap();
+            let mut tx = owner.begin().await.unwrap();
+            sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            let (status, marked): (i16,bool) = sqlx::query_as("SELECT e.status,c.expired_expiry IS NOT DISTINCT FROM e.expires_at FROM verification_private.pass_entitlements e JOIN verification_private.pass_contacts c ON c.entitlement_id=e.id WHERE e.id=$1")
+                .bind(account).fetch_one(&mut *tx).await.unwrap();
+            let retry: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM verification_private.pass_mail_outbox WHERE entitlement_id=$1 AND lease_hash IS NULL AND retry_after>clock_timestamp())")
+                .bind(account).fetch_one(&mut *tx).await.unwrap();
+            sqlx::query("DELETE FROM verification_private.pass_entitlements WHERE id=$1")
+                .bind(account)
+                .execute(&mut *tx)
+                .await
+                .unwrap();
+            tx.commit().await.unwrap();
+            assert_eq!(result.is_ok(), accepted);
+            assert_eq!(status, if accepted { 1 } else { 6 });
+            assert_eq!(marked, accepted);
+            assert_eq!(retry, !accepted);
+            assert!(mail.contains("Subject: Your 4chan Pass has expired!"));
+            assert!(mail.contains("/pass?renew=owned_renewal"));
+            assert!(mail.contains("Token: ABCDEFGHIJ"));
         }
         owner.close().await;
     }

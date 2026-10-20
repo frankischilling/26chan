@@ -189,6 +189,12 @@ DO $$ BEGIN IF content.public_pass_ready() IS DISTINCT FROM true OR content.publ
  OR content.restrictions_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Report receipt rollback changed authority'; END IF; END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0231_pass_report_admission.sql
+"${migrator[@]}" -c BEGIN -f migrations/0232_pass_notice_outbox.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN IF to_regclass('verification_private.pass_contacts') IS NOT NULL OR content.public_pass_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Notice rollback changed authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0232_pass_notice_outbox.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-notice-outbox.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-identity.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-quotas.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-restrictions.sql
@@ -239,6 +245,18 @@ SET ROLE board_report_admission_owner;
 SELECT content.pass_record_report_clears(ARRAY[current_setting('board.fixture_restore_report')::bigint],ARRAY[sha256('owned-restored-reporter')],ARRAY[NULL::uuid],clock_timestamp());
 RESET ROLE;
 SQL
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+SET ROLE board_anonymous_owner;
+INSERT INTO verification_private.pass_entitlements(token_hash,pin_hash,status,purchased_at,expires_at)
+ VALUES(sha256('restore-notice-pass'),repeat('owned-placeholder',3),6,clock_timestamp()-interval '1 year',clock_timestamp()-interval '1 second');
+INSERT INTO verification_private.pass_contacts(entitlement_id,recipient_hash,encrypted_contact)
+ SELECT id,sha256('restore-recipient'),decode(repeat('02',40),'hex') FROM verification_private.pass_entitlements WHERE token_hash=sha256('restore-notice-pass');
+SELECT set_config('board.restore_notice_account',(SELECT id::text FROM verification_private.pass_entitlements WHERE token_hash=sha256('restore-notice-pass')),false);
+SELECT set_config('board.restore_notice_expiry',(SELECT expires_at::text FROM verification_private.pass_entitlements WHERE token_hash=sha256('restore-notice-pass')),false);
+SET ROLE board_verifier;
+SELECT content.pass_queue_notice(current_setting('board.restore_notice_account')::bigint,1,current_setting('board.restore_notice_expiry')::timestamptz,'expired','00000000-0000-4000-8000-000000000099',sha256('restore-notice-context'),decode(repeat('03',40),'hex'));
+RESET ROLE;
+SQL
 "$pg_bin/pg_dump" -h 127.0.0.1 -p 15453 -U postgres -d pass_lifecycle --format=custom -f "$cluster/owned.dump"
 "${psql[@]}" -d postgres -c 'CREATE DATABASE pass_restored OWNER board_migrator'
 "$pg_bin/pg_restore" -h 127.0.0.1 -p 15453 -U postgres -d pass_restored --exit-on-error "$cluster/owned.dump"
@@ -247,6 +265,16 @@ SET ROLE board_anonymous_owner;
 DO $$ BEGIN IF (SELECT count(*) FROM verification_private.pass_reports WHERE identity_hash=sha256('owned-restored-report-pass'))<>1
  OR (SELECT count(*) FROM verification_private.pass_report_clear_events WHERE identity_hash=sha256('owned-restored-report-pass') AND actor_hash=sha256('owned-restored-reporter'))<>1
  OR EXISTS(SELECT 1 FROM verification_private.pass_report_handoffs) THEN RAISE EXCEPTION 'Restored report identity differs'; END IF; END $$;
+RESET ROLE;
+SQL
+"${psql[@]}" -d pass_restored <<'SQL'
+SET ROLE board_anonymous_owner;
+DO $$ BEGIN IF (SELECT count(*) FROM verification_private.pass_contacts c JOIN verification_private.pass_entitlements e ON e.id=c.entitlement_id WHERE e.token_hash=sha256('restore-notice-pass') AND c.encrypted_contact=decode(repeat('02',40),'hex'))<>1 THEN RAISE EXCEPTION 'Restored contact differs'; END IF; END $$;
+SET ROLE board_mailer;
+DO $$ BEGIN IF (SELECT count(*) FROM content.pass_claim_mail(sha256('restore-notice-lease'),1) WHERE request_id='00000000-0000-4000-8000-000000000099' AND token_hash=sha256('restore-notice-context') AND encrypted_payload=decode(repeat('03',40),'hex'))<>1 THEN RAISE EXCEPTION 'Restored notice differs'; END IF;
+ IF NOT content.pass_finish_mail('00000000-0000-4000-8000-000000000099',sha256('restore-notice-lease'),true) THEN RAISE EXCEPTION 'Restored notice acknowledgement failed'; END IF; END $$;
+SET ROLE board_anonymous_owner;
+DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM verification_private.pass_entitlements e JOIN verification_private.pass_contacts c ON c.entitlement_id=e.id WHERE e.token_hash=sha256('restore-notice-pass') AND e.status=1 AND c.expired_expiry=e.expires_at) THEN RAISE EXCEPTION 'Restored notice lifecycle differs'; END IF; END $$;
 RESET ROLE;
 SQL
 "${psql[@]}" -d pass_restored -f scripts/test-pass-warning-receipts.sql

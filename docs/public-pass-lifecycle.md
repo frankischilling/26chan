@@ -450,5 +450,41 @@ ASCII case without provider-specific dot or subaddress rules.
 Contact/notice envelopes use authenticated encryption with a distinct Pass-mail
 version and context. They cannot be substituted for browser-verification mail.
 Four domain tests pass policy edges, safe mailbox parsing, typed payload bounds,
-fresh nonces and rejection of altered/truncated/wrong-context envelopes. No
-contact, outbox, SMTP delivery or recovery endpoint is connected by this step.
+fresh nonces and rejection of altered/truncated/wrong-context envelopes. The delivery integration is described below; browser recovery remains unfinished.
+
+
+## Encrypted notice delivery
+
+Migration 0232 adds encrypted contacts and a bounded notice outbox. The operator's
+`board-pass-admin` contact operation takes an email, optional gift email and renewal
+reference on standard input. It requires distinct identity and mail keys. Only the
+private verifier can read encrypted candidates and queue notices. The mailer can
+claim and acknowledge delivery; it cannot enumerate contacts or read private tables.
+
+`board-pass-notices` processes at most 100 candidates per invocation. It decrypts and
+checks each contact's identifier and recipient hashes before sealing a notice under
+a fresh delivery context. Invalid contacts produce a generic failure without
+printing their contents. A second run cannot duplicate a pending notice for the
+same account, expiry and notice kind. Outbox capacity is enforced under the policy
+lock. Entries expire after an hour and can then be regenerated if still due.
+
+The mailer alternates browser-verification and Pass queues, claims one message at
+a time and accepts only a configured loopback SMTP relay. A final SMTP 250 reply
+is required before sent flags change. Failure releases the lease and schedules a
+retry after 60 seconds; it cannot expire the Pass. Successful expiry mail changes
+an active/new account to expired only if its contact version and expiry still
+match the queued notice. A late acknowledgement cannot expire a renewed Pass.
+Pass messages retain the source's three-second delivery spacing.
+
+Reminder and expired messages use the source subjects and include the public
+identifier and renewal reference. Renewal links use the configured public origin.
+The `/pass?renew=...` checkout route still needs implementation, so this queue is
+not ready for production delivery. No external email was sent during testing.
+
+Local tests pass the actual operator contact command, private producer, gift-owner
+selection, encrypted payload round-trip and duplicate suppression. Owned SMTP
+accept/reject fixtures pass for both browser verification and Pass expiry, including
+retry and account-state assertions. SQL tests cover eligibility, lease fencing,
+contact changes, renewal races, role separation, migration rollback and populated
+contact/outbox restore. Browser PIN recovery, checkout and hosted qualification
+remain open.

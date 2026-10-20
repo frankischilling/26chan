@@ -35,6 +35,7 @@ impl MailStore {
     pub async fn ready(&self) -> Result<(), StoreError> {
         let safe: bool = sqlx::query_scalar(
             "SELECT current_user='board_mailer' AND session_user='board_mailer'
+             AND content.pass_mail_ready()
              AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
              AND NOT rolreplication AND NOT rolbypassrls
              AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid)
@@ -87,6 +88,33 @@ impl MailStore {
         success: bool,
     ) -> Result<bool, StoreError> {
         sqlx::query_scalar("SELECT content.verification_finish_mail($1,$2,$3)")
+            .bind(request)
+            .bind(lease_hash.as_slice())
+            .bind(success)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
+
+    pub async fn claim_pass(
+        &self,
+        lease_hash: &[u8; 32],
+        limit: i32,
+    ) -> Result<Vec<MailJob>, StoreError> {
+        sqlx::query_as("SELECT * FROM content.pass_claim_mail($1,$2)")
+            .bind(lease_hash.as_slice())
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
+    pub async fn finish_pass(
+        &self,
+        request: &str,
+        lease_hash: &[u8; 32],
+        success: bool,
+    ) -> Result<bool, StoreError> {
+        sqlx::query_scalar("SELECT content.pass_finish_mail($1,$2,$3)")
             .bind(request)
             .bind(lease_hash.as_slice())
             .bind(success)

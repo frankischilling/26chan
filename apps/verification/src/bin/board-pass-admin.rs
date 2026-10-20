@@ -1,7 +1,11 @@
 //! Operator-only membership provisioning. Input is stdin; output never contains
 //! identifiers, PINs, credential hashes or deployment keys.
 use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
-use board_domain::challenge_secrets::VerificationKey;
+use board_domain::{
+    challenge_secrets::VerificationKey,
+    pass_mail::{Contact, Payload, Recipient},
+    verification_mail::MailKey,
+};
 use chrono::{DateTime, Utc};
 use ring::rand::{SecureRandom, SystemRandom};
 use serde::Deserialize;
@@ -17,6 +21,9 @@ struct Input {
     status: Option<i16>,
     purchased_at: Option<DateTime<Utc>>,
     expires_at: Option<DateTime<Utc>>,
+    email: Option<String>,
+    gift_email: Option<String>,
+    renewal_reference: Option<String>,
 }
 fn pin_hash(pin: &str) -> Result<String, &'static str> {
     if pin.is_empty() || pin.len() > 128 {
@@ -46,13 +53,55 @@ async fn run() -> Result<(), &'static str> {
     }
     let input: Input =
         serde_json::from_slice(&bytes).map_err(|_| "Invalid membership operation")?;
-    let key = std::env::var("VERIFICATION_KEY")
-        .ok()
-        .and_then(|value| VerificationKey::parse(&value))
-        .ok_or("A valid VERIFICATION_KEY is required")?;
+    let raw_key =
+        std::env::var("VERIFICATION_KEY").map_err(|_| "A valid VERIFICATION_KEY is required")?;
+    let key = VerificationKey::parse(&raw_key).ok_or("A valid VERIFICATION_KEY is required")?;
     let token = key
         .pass_identifier(&input.identifier)
         .ok_or("Token must contain exactly ten ASCII letters or digits")?;
+    let contact = if input.action == "contact" {
+        if input.pin.is_some()
+            || input.status.is_some()
+            || input.purchased_at.is_some()
+            || input.expires_at.is_some()
+        {
+            return Err("Contact cannot change credentials or entitlement state");
+        }
+        let recipient = Recipient::owner(
+            input.email.as_deref().ok_or("Contact requires an email")?,
+            input.gift_email.as_deref(),
+        )
+        .ok_or("Invalid contact address")?;
+        let contact = Contact::new(
+            recipient,
+            &input.identifier,
+            input
+                .renewal_reference
+                .as_deref()
+                .ok_or("Contact requires a renewal reference")?,
+        )
+        .ok_or("Invalid contact material")?;
+        let recipient_hash = key
+            .pass_recipient(contact.recipient())
+            .ok_or("Invalid contact identity")?;
+        let raw_mail = std::env::var("VERIFICATION_MAIL_KEY")
+            .map_err(|_| "A valid VERIFICATION_MAIL_KEY is required for contacts")?;
+        if raw_mail.eq_ignore_ascii_case(&raw_key) {
+            return Err("Contact mail and identity keys must differ");
+        }
+        let mail_key = MailKey::parse(&raw_mail)
+            .ok_or("A valid VERIFICATION_MAIL_KEY is required for contacts")?;
+        let payload = mail_key
+            .seal_pass(&token, &Payload::Contact(contact))
+            .ok_or("Contact encryption failed")?;
+        Some((recipient_hash, payload))
+    } else {
+        if input.email.is_some() || input.gift_email.is_some() || input.renewal_reference.is_some()
+        {
+            return Err("Contact fields require the contact operation");
+        }
+        None
+    };
     let encoded = match input.action.as_str() {
         "create" => {
             if !matches!(input.status, Some(0 | 6 | 7))
@@ -100,7 +149,8 @@ async fn run() -> Result<(), &'static str> {
             }
             None
         }
-        _ => return Err("Supported operations: create, reset_pin, status, renew"),
+        "contact" => None,
+        _ => return Err("Supported operations: create, reset_pin, status, renew, contact"),
     };
     let database = std::env::var("MIGRATION_DATABASE_URL")
         .map_err(|_| "MIGRATION_DATABASE_URL is required")?;
@@ -168,9 +218,15 @@ async fn run() -> Result<(), &'static str> {
    .bind(token.as_slice()).bind(input.status).fetch_optional(&mut *tx).await,
   "renew"=>sqlx::query_as("UPDATE verification_private.pass_entitlements SET status=0,expires_at=$2 WHERE token_hash=$1 RETURNING id,status")
    .bind(token.as_slice()).bind(input.expires_at).fetch_optional(&mut *tx).await,
+  "contact"=>sqlx::query_as("SELECT id,status FROM verification_private.pass_entitlements WHERE token_hash=$1 FOR UPDATE")
+   .bind(token.as_slice()).fetch_optional(&mut *tx).await,
   _=>unreachable!(),
  }.map_err(|_|"Membership operation was refused; no changes committed")?;
     let (id, status) = row.ok_or("Membership was not found; no changes committed")?;
+    if let Some((recipient, payload)) = contact {
+        sqlx::query("INSERT INTO verification_private.pass_contacts(entitlement_id,recipient_hash,encrypted_contact) VALUES($1,$2,$3) ON CONFLICT(entitlement_id) DO UPDATE SET recipient_hash=EXCLUDED.recipient_hash,encrypted_contact=EXCLUDED.encrypted_contact")
+            .bind(id).bind(recipient.as_slice()).bind(payload).execute(&mut *tx).await.map_err(|_| "Contact update refused; no changes committed")?;
+    }
     tx.commit()
         .await
         .map_err(|_| "Membership commit was not confirmed; inspect its state before retrying")?;
