@@ -28,12 +28,16 @@ GRANT CREATE ON SCHEMA content TO board_anonymous_owner;
 SET LOCAL ROLE board_anonymous_owner;
 CREATE FUNCTION content.pass_report_ids(p_actor bytea,p_board text,p_post bigint)
 RETURNS SETOF bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE identity bytea;
+DECLARE identity bytea; transaction_id xid8;
 BEGIN
- PERFORM verification_private.pass_gate();
+ -- Advisory GET cannot have a consumed Pass handoff. Do not allocate an XID
+ -- or acquire a write-transaction gate merely to discover that absence.
+ transaction_id:=pg_current_xact_id_if_assigned();
+ IF transaction_id IS NULL THEN RETURN; END IF;
  SELECT h.identity_hash INTO identity FROM verification_private.pass_report_handoffs h
- WHERE h.registration_xid=pg_current_xact_id() AND h.actor_hash=p_actor AND h.board=p_board AND h.post_id=p_post;
+ WHERE h.registration_xid=transaction_id AND h.actor_hash=p_actor AND h.board=p_board AND h.post_id=p_post;
  IF NOT FOUND THEN RETURN; END IF;
+ PERFORM verification_private.pass_gate();
  RETURN QUERY SELECT r.report_id FROM verification_private.pass_reports r WHERE r.identity_hash=identity;
 END $$;
 REVOKE ALL ON FUNCTION content.pass_report_ids(bytea,text,bigint) FROM PUBLIC;

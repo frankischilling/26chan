@@ -31,6 +31,7 @@ struct Fixture {
     // One OP and three replies per board; all created through real admission.
     posts: [[i64; 4]; 2],
     report_tokens: Arc<Mutex<Vec<[u8; 32]>>>,
+    challenge_peers: Arc<Mutex<Vec<[u8; 32]>>>,
 }
 
 impl Fixture {
@@ -83,7 +84,76 @@ impl Fixture {
             boards,
             posts,
             report_tokens: Arc::new(Mutex::new(Vec::new())),
+            challenge_peers: Arc::new(Mutex::new(Vec::new())),
         }
+    }
+
+    async fn report_proof(
+        &self,
+        capability: &Capability,
+        target: i64,
+    ) -> board_store::WriteChallengeProof {
+        use board_domain::challenge_secrets::{
+            ReceiptToken, TokenKind, VerificationKey, VerificationToken,
+        };
+        use board_store::verification::{
+            ChallengeCheck, ChallengePurpose, NewChallenge, VerificationStore,
+        };
+        let verifier =
+            VerificationStore::connect(&std::env::var("TEST_VERIFICATION_DATABASE_URL").unwrap())
+                .await
+                .unwrap();
+        let fingerprints = session(capability, false, Utc::now()).fingerprints;
+        let minted = board_store::anonymous_session::snapshot(&self.public, &fingerprints.token)
+            .await
+            .unwrap()
+            .is_none();
+        verifier
+            .ensure_session(&fingerprints, minted)
+            .await
+            .unwrap();
+        let key = VerificationKey::parse(&"46".repeat(32)).unwrap();
+        let token = VerificationToken::generate(TokenKind::Challenge).unwrap();
+        let answer = key.challenge_answer(&token, 6).unwrap();
+        let answer_hash = key.answer_hash(&token, answer.as_str()).unwrap();
+        let peer = ReceiptToken::generate().unwrap().storage_hash();
+        self.challenge_peers.lock().unwrap().push(peer);
+        let context = [48; 32];
+        let receipt = ReceiptToken::generate().unwrap();
+        assert!(
+            verifier
+                .issue_challenge(&NewChallenge {
+                    token_hash: &key.token_hash(&token),
+                    answer_hash: &answer_hash,
+                    peer_hash: &peer,
+                    session_hash: &fingerprints.token,
+                    purpose: ChallengePurpose::Report,
+                    board: Some(&self.boards[0]),
+                    target,
+                    suspicious: false,
+                    context_hash: &context,
+                })
+                .await
+                .unwrap()
+                .issued
+        );
+        assert!(
+            verifier
+                .check_challenge(&ChallengeCheck {
+                    token_hash: &key.token_hash(&token),
+                    answer_hash: Some(&answer_hash),
+                    peer_hash: &peer,
+                    session_hash: &fingerprints.token,
+                    purpose: ChallengePurpose::Report,
+                    board: Some(&self.boards[0]),
+                    target,
+                    context_hash: &context,
+                    receipt_hash: &receipt.storage_hash(),
+                })
+                .await
+                .unwrap()
+        );
+        board_store::WriteChallengeProof::from_issuer(&receipt.encode(), peer, context).unwrap()
     }
 
     fn report_capability(&self) -> Capability {
@@ -96,6 +166,14 @@ impl Fixture {
     }
 
     async fn cleanup(&self) {
+        let peers = self.challenge_peers.lock().unwrap().clone();
+        for peer in peers {
+            sqlx::query("DELETE FROM verification_private.peers WHERE peer_hash=$1")
+                .bind(peer.as_slice())
+                .execute(&self.owner)
+                .await
+                .unwrap();
+        }
         let mut tokens: Vec<Vec<u8>> = sqlx::query_scalar("SELECT a.token_hash FROM post_secrets.anonymous_reports a JOIN content.reports r ON r.id=a.report_id WHERE r.board=ANY($1)")
             .bind(self.boards.to_vec()).fetch_all(&self.owner).await.unwrap();
         // Report deletion cascades ownership links, so retain owned tokens
@@ -437,7 +515,36 @@ async fn typed_ip_identity_is_cross_board_and_get_is_read_only_without_reservati
                 .await
                 .unwrap();
         }
+        assert!(
+            sqlx::query_scalar::<_, bool>("SELECT pg_current_xact_id_if_assigned() IS NULL")
+                .fetch_one(&mut *read)
+                .await
+                .unwrap()
+        );
         read.commit().await.unwrap();
+        // Force evaluation of the private quota helper independently of the
+        // planner's ability to skip an empty membership join on advisory GET.
+        let mut direct = f.owner.begin().await.unwrap();
+        sqlx::query("SET TRANSACTION READ ONLY")
+            .execute(&mut *direct)
+            .await
+            .unwrap();
+        private_role(&mut direct).await;
+        let matched: Vec<i64> = sqlx::query_scalar("SELECT content.pass_report_ids($1,$2,$3)")
+            .bind(identity.as_bytes().as_slice())
+            .bind(&f.boards[0])
+            .bind(f.posts[0][0])
+            .fetch_all(&mut *direct)
+            .await
+            .unwrap();
+        assert!(matched.is_empty());
+        assert!(
+            sqlx::query_scalar::<_, bool>("SELECT pg_current_xact_id_if_assigned() IS NULL")
+                .fetch_one(&mut *direct)
+                .await
+                .unwrap()
+        );
+        direct.rollback().await.unwrap();
         assert_eq!(f.counts().await, (0, 0));
         let mut locked = f.owner.begin().await.unwrap();
         sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE")
@@ -1760,57 +1867,65 @@ async fn whole_report_cleanup_does_not_grant_runtime_report_delete_authority() {
 #[tokio::test]
 async fn network_rules_preserve_get_advice_and_quota_precedence_without_partial_reports() {
     run(|f| async move {
+        // CAPTCHA-off boards intentionally bypass report network policy.
+        sqlx::query("UPDATE content.boards SET captcha_enabled=true WHERE slug=$1")
+            .bind(&f.boards[0]).execute(&f.owner).await.unwrap();
         let rule: i64=sqlx::query_scalar("INSERT INTO admission.network_rules(boards,range_start,range_end,reports_only) VALUES($1,0,4294967295,true) RETURNING id")
             .bind(&f.boards[0]).fetch_one(&f.owner).await.unwrap();
         let identity=actor();
         let capability=f.report_capability();
-        let context=|minted| board_store::NetworkReportingContext {
+        let context=|proof| board_store::NetworkReportingContext {
                 request_facts: None,
             protected: board_store::ProtectedReportingContext {
-                session: session(&capability,minted,Utc::now()), challenge:None,source_cookies_absent:false,
+                session: session(&capability,false,Utc::now()), challenge:Some(proof),source_cookies_absent:false,
             },
             request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
         };
         board_store::report_admission::check_with_session(&f.public,&f.boards[0],f.posts[0][0],&identity,None,Utc::now().timestamp()).await.unwrap();
-        let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][0],"Owned network refusal",&identity,context(true)).await;
-        assert!(matches!(result,Err(StoreError::Invalid("Reporting from this IP range has been blocked due to abuse."))));
+        let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][0],"Owned network refusal",&identity,context(f.report_proof(&capability,f.posts[0][0]).await)).await;
+        assert!(matches!(result,Err(StoreError::Invalid("Reporting from this IP range has been blocked due to abuse."))), "unexpected network decision: {result:?}");
         assert_eq!(f.counts().await,(0,0));
-        assert!(board_store::anonymous_session::snapshot(&f.public,&capability.storage_hash()).await.unwrap().is_none());
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT reports::bigint FROM post_secrets.anonymous_sessions WHERE token_hash=$1").bind(capability.storage_hash().as_slice()).fetch_one(&f.owner).await.unwrap(),0);
         sqlx::query("UPDATE admission.network_rules SET ops_only=true WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
-        board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][0],"Posting-only policy is irrelevant",&identity,context(true)).await.unwrap();
+        board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][0],"Posting-only policy is irrelevant",&identity,context(f.report_proof(&capability,f.posts[0][0]).await)).await.unwrap();
         assert_eq!(f.counts().await,(1,1));
         sqlx::query("UPDATE admission.network_rules SET ops_only=false WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
-        let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][0],"Duplicate precedes network block",&identity,context(false)).await;
+        let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][0],"Duplicate precedes network block",&identity,context(f.report_proof(&capability,f.posts[0][0]).await)).await;
         assert_eq!(result.unwrap_err().to_string(),DUPLICATE);
         assert_eq!(f.counts().await,(1,1));
         sqlx::query("UPDATE admission.network_rules SET range_start=NULL,range_end=NULL,asn=15169 WHERE id=$1").bind(rule).execute(&f.owner).await.unwrap();
         let other=f.report_capability();
         let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][1],"Missing provider is not an exemption",&actor(),board_store::NetworkReportingContext {
                 request_facts: None,
-            protected:board_store::ProtectedReportingContext {session:session(&other,true,Utc::now()),challenge:None,source_cookies_absent:false},
+            protected:board_store::ProtectedReportingContext {session:session(&other,false,Utc::now()),challenge:Some(f.report_proof(&other,f.posts[0][1]).await),source_cookies_absent:false},
             request_start:Utc::now(),peer:Some("198.51.100.8".parse().unwrap()),asn_database:None,hints:None,
         }).await;
         assert!(matches!(result,Err(StoreError::Database(_))));
         assert_eq!(f.counts().await,(1,1));
-        assert!(board_store::anonymous_session::snapshot(&f.public,&other.storage_hash()).await.unwrap().is_none());
+        assert_eq!(sqlx::query_scalar::<_,i64>("SELECT reports::bigint FROM post_secrets.anonymous_sessions WHERE token_hash=$1").bind(other.storage_hash().as_slice()).fetch_one(&f.owner).await.unwrap(),0);
     }).await;
 }
 
 #[tokio::test]
 async fn report_waiting_on_policy_generation_observes_committed_rule() {
     run(|f| async move {
+        // CAPTCHA-off boards intentionally bypass report network policy.
+        sqlx::query("UPDATE content.boards SET captcha_enabled=true WHERE slug=$1")
+            .bind(&f.boards[0]).execute(&f.owner).await.unwrap();
         let public=sqlx::postgres::PgPoolOptions::new().max_connections(1)
             .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap()).await.unwrap();
         let waiter:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&public).await.unwrap();
+        let capability=f.report_capability();
+        let proof=f.report_proof(&capability,f.posts[0][0]).await;
         let mut policy=f.owner.begin().await.unwrap();
         let blocker:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *policy).await.unwrap();
         sqlx::query("INSERT INTO admission.network_rules(boards,range_start,range_end,reports_only) VALUES($1,0,4294967295,true)")
             .bind(&f.boards[0]).execute(&mut *policy).await.unwrap();
-        let board=f.boards[0].clone(); let post=f.posts[0][0]; let capability=f.report_capability();
+        let board=f.boards[0].clone(); let post=f.posts[0][0];
         let task=tokio::spawn(async move {
             board_store::report_with_network(&public,&board,post,"Waited network decision",&actor(),board_store::NetworkReportingContext {
                 request_facts: None,
-                protected:board_store::ProtectedReportingContext {session:session(&capability,true,Utc::now()),challenge:None,source_cookies_absent:false},
+                protected:board_store::ProtectedReportingContext {session:session(&capability,false,Utc::now()),challenge:Some(proof),source_cookies_absent:false},
                 request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
             }).await
         });
@@ -1824,18 +1939,23 @@ async fn report_waiting_on_policy_generation_observes_committed_rule() {
 #[tokio::test]
 async fn policy_update_waits_until_report_transaction_releases_shared_generation() {
     run(|f| async move {
+        // CAPTCHA-off boards intentionally bypass report network policy.
+        sqlx::query("UPDATE content.boards SET captcha_enabled=true WHERE slug=$1")
+            .bind(&f.boards[0]).execute(&f.owner).await.unwrap();
         let public=sqlx::postgres::PgPoolOptions::new().max_connections(1)
             .connect(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap()).await.unwrap();
         let report_pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&public).await.unwrap();
+        let capability=f.report_capability();
+        let proof=f.report_proof(&capability,f.posts[0][0]).await;
         let mut gate=f.owner.begin().await.unwrap();
         let gate_pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *gate).await.unwrap();
         private_role(&mut gate).await;
         sqlx::query("SELECT singleton FROM post_secrets.report_admission_gate WHERE singleton FOR UPDATE").execute(&mut *gate).await.unwrap();
-        let board=f.boards[0].clone();let post=f.posts[0][0];let capability=f.report_capability();
+        let board=f.boards[0].clone();let post=f.posts[0][0];
         let report=tokio::spawn(async move {
             board_store::report_with_network(&public,&board,post,"Locked network generation",&actor(),board_store::NetworkReportingContext {
                 request_facts: None,
-                protected:board_store::ProtectedReportingContext {session:session(&capability,true,Utc::now()),challenge:None,source_cookies_absent:false},
+                protected:board_store::ProtectedReportingContext {session:session(&capability,false,Utc::now()),challenge:Some(proof),source_cookies_absent:false},
                 request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
             }).await
         });
@@ -1853,12 +1973,13 @@ async fn policy_update_waits_until_report_transaction_releases_shared_generation
         report.await.unwrap().unwrap(); update.await.unwrap().unwrap();
         assert_eq!(f.counts().await,(1,1));
         let capability=f.report_capability();
+        let proof=f.report_proof(&capability,f.posts[0][1]).await;
         let result=board_store::report_with_network(&f.public,&f.boards[0],f.posts[0][1],"New request sees new generation",&actor(),board_store::NetworkReportingContext {
                 request_facts: None,
-            protected:board_store::ProtectedReportingContext {session:session(&capability,true,Utc::now()),challenge:None,source_cookies_absent:false},
+            protected:board_store::ProtectedReportingContext {session:session(&capability,false,Utc::now()),challenge:Some(proof),source_cookies_absent:false},
             request_start:Utc::now(),peer:Some("198.51.100.7".parse().unwrap()),asn_database:None,hints:None,
         }).await;
-        assert!(matches!(result,Err(StoreError::Invalid("Reporting from this IP range has been blocked due to abuse."))));
+        assert!(matches!(result,Err(StoreError::Invalid("Reporting from this IP range has been blocked due to abuse."))), "unexpected network decision: {result:?}");
         assert_eq!(f.counts().await,(1,1));
     }).await;
 }
