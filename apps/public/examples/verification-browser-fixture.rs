@@ -44,6 +44,15 @@ async fn main() {
         "recovery-reset",
         "recovery-complete",
         "recovery-escaped",
+        "checkout-renew",
+        "checkout-pending",
+        "checkout-paid",
+        "checkout-declined",
+        "checkout-cancelled",
+        "checkout-refunded",
+        "checkout-disputed",
+        "checkout-expired",
+        "checkout-escaped",
     ] {
         app = app.route(
             &format!("/fixture/pass/{mode}"),

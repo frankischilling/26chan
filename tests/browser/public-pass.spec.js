@@ -118,3 +118,47 @@ for (const javaScriptEnabled of [true, false]) {
     }
   });
 }
+
+for (const javaScriptEnabled of [true, false]) {
+  test.describe(`Pass sandbox checkout, scripts ${javaScriptEnabled ? 'enabled' : 'disabled'}`, () => {
+    test.use({ javaScriptEnabled });
+    for (const width of [1280, 390]) {
+      test(`renewal quote uses native forms without card collection at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        const response = await page.goto('/fixture/pass/checkout-renew');
+        expect(response.headers()['cache-control']).toBe('private, no-store');
+        expect(response.headers()['referrer-policy']).toBe('strict-origin');
+        await expect(page.getByText('20.00 USD', { exact: true })).toBeVisible();
+        await expect(page.getByRole('status')).toContainText('No real payment');
+        await expect(page.locator('script, iframe, input[type="password"], input[autocomplete^="cc-"]')).toHaveCount(0);
+        const csrf = await page.locator('input[name="csrf"]').inputValue();
+        const bounds = await page.locator('#content').boundingBox();
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+        await page.screenshot({ path: `.local/verification-review/pass-checkout-${width}-${javaScriptEnabled}.png`, fullPage: true });
+        let sent;
+        await page.route('**/pass/renew', async route => {
+          sent = route.request();
+          await route.fulfill({ contentType: 'text/html', body: '<p>Owned sandbox order request received.</p>' });
+        });
+        await page.getByRole('button', { name: 'Continue to sandbox checkout' }).click();
+        await expect(page.getByText('Owned sandbox order request received.')).toBeVisible();
+        expect(sent.method()).toBe('POST');
+        expect(sent.headers().origin).toBe('http://127.0.0.1:3000');
+        expect(Object.fromEntries(new URLSearchParams(sent.postData()))).toEqual({ csrf, reference: 'owned-renewal', amount_minor: '2000', currency: 'usd' });
+      });
+    }
+    test('payment results do not offer a second submission or render untrusted HTML', async ({ page }) => {
+      for (const [mode, text] of [
+        ['pending', 'Sandbox payment pending'], ['paid', 'Payment Success'],
+        ['declined', 'Payment Declined'], ['cancelled', 'Payment cancelled'],
+        ['refunded', 'Payment refunded'], ['disputed', 'Payment disputed'],
+        ['expired', 'Checkout expired'], ['escaped', '<script>owned checkout fixture</script>'],
+      ]) {
+        await page.goto(`/fixture/pass/checkout-${mode}`);
+        await expect(page.getByRole('status')).toContainText(text);
+        await expect(page.locator('form, script, iframe')).toHaveCount(0);
+      }
+    });
+  });
+}

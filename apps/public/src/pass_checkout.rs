@@ -295,3 +295,40 @@ pub(crate) async fn submit(
         CheckoutCreated::Capacity {} => Err(unavailable()),
     }
 }
+
+#[cfg(all(test, feature = "database-tests"))]
+mod database_tests;
+
+#[cfg(feature = "browser-tests")]
+pub(crate) fn fixture_response(state: &AppState, mode: &str) -> Result<Response, String> {
+    let secret = CheckoutSecret::generate().map_err(|_| "Fixture secret unavailable.")?;
+    let message = match mode {
+        "checkout-renew" => "Sandbox checkout only. No real payment will be collected.",
+        "checkout-pending" => "Sandbox payment pending. No real charge has been made.",
+        "checkout-paid" => "Payment Success. Your Pass has been renewed.",
+        "checkout-declined" => "Payment Declined. Your Pass has not been renewed.",
+        "checkout-cancelled" => "Payment cancelled. Your Pass has not been renewed.",
+        "checkout-refunded" => "Payment refunded. The associated Pass may be on a payment hold.",
+        "checkout-disputed" => "Payment disputed. The associated Pass may be on a payment hold.",
+        "checkout-expired" => "Checkout expired. Open a new renewal form to try again.",
+        "checkout-escaped" => "<script>owned checkout fixture</script>",
+        _ => return Err("Invalid checkout fixture.".into()),
+    };
+    let page = Page {
+        csrf: &secret.nonce(),
+        reference: "owned-renewal",
+        mode: if mode == "checkout-renew" {
+            "renew"
+        } else {
+            "message"
+        },
+        message,
+        amount_minor: 2000,
+        currency: "usd",
+        price: "20.00 USD",
+    };
+    let response = render(state, &secret, &page).map_err(|_| "Fixture rendering failed.")?;
+    Ok(crate::security::verification_fixture_headers(
+        response, state,
+    ))
+}

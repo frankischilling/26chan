@@ -40,6 +40,8 @@ chrono-tz = "0.10"
 rustix = { version = "=1.1.4", features = ["process"] }
 
 [dev-dependencies]
+ring = "=0.17.14"
+board-checkout = { path = "../checkout" }
 # Fixture-only HTTP connection ownership; versions already locked transitively.
 hyper = { version = "=1.11.1", features = ["http1", "server"] }
 hyper-util = { version = "=0.1.20", features = ["tokio", "service"] }

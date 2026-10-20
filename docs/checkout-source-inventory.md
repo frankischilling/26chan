@@ -69,8 +69,7 @@ native policy because the original payment controller is missing.
 The sandbox adapter accepts only an explicit development configuration and a
 loopback listener. It does not collect card data or contact Stripe, PayPal or
 Coinbase. A valid Stripe signature helper does not make a live provider adapter;
-provider reconciliation and live checkout remain unfinished. Public checkout,
-new-Pass purchases, donations and ad publication are also still open.
+provider reconciliation and live checkout remain unfinished. New-Pass purchases, donations and ad publication are still open.
 
 Local checks pass raw-body authentication, stale/wrong-provider signatures,
 product/amount refusal, concurrent callback replay, exact renewal, refund holds,
@@ -99,3 +98,20 @@ checks the signed callback boundary and its transaction effects.
 The order inventory has a fixed operator cap and fails closed when full. Automatic
 financial-history retention/export is not implemented yet; do not treat this
 checkpoint as a production checkout release.
+
+
+## Public renewal forms
+
+The native `/pass?renew=...` form now displays the operator quote and an explicit
+sandbox warning. A separate checkout CSRF cookie binds submission. The private
+issuer derives an idempotent order capability from the form nonce and renewal
+reference; concurrent retries return the same order. A changed amount or currency
+cannot override the stored quote. Result pages use a private view capability and
+an origin-only referrer policy. They read the ledger; browser query parameters
+cannot assert a successful payment.
+
+The owned public/private HTTP test passes quote rendering, wrong-origin and CSRF
+refusal, price mismatch, concurrent order retries, pending status, a signed sandbox
+callback and the final renewed state. Rendering-only browser tests cover native
+submission and all result states on desktop/mobile with scripts enabled and
+disabled. Those hosted browser checks are still pending.

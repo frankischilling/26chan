@@ -240,6 +240,16 @@ mod tests {
         let posting = BrowserSecret::<1>([7; 32]);
         let pass = BrowserSecret::<2>([7; 32]);
         let recovery = BrowserSecret::<3>([7; 32]);
+        let checkout = BrowserSecret::<4>([7; 32]);
+        for other in [
+            signin.nonce(),
+            posting.nonce(),
+            pass.nonce(),
+            recovery.nonce(),
+        ] {
+            assert_ne!(checkout.nonce(), other);
+            assert!(!checkout.matches(&other));
+        }
         for other in [signin.nonce(), posting.nonce(), pass.nonce()] {
             assert_ne!(recovery.nonce(), other);
             assert!(!recovery.matches(&other));
