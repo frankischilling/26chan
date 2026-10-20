@@ -294,6 +294,7 @@ jobs:
           sudo bash scripts/dev-intake-db.sh
           sudo bash scripts/dev-monitor-db.sh
           sudo bash scripts/dev-staff-db.sh
+          sudo bash scripts/dev-verification-db.sh
           sudo chown -R "$(id -u):$(id -g)" .local
           source .local/database.env
           cargo run -p board-store --bin board-migrate --locked
@@ -353,6 +354,7 @@ jobs:
           python3 -m unittest discover -s tests/media -p test_identity_environment.py
           python3 -m unittest discover -s tests/media -p test_browser_diagnostics.py -v
           python3 -m unittest discover -s tests/media -p test_public_upload_fixture.py -v
+          python3 -m unittest discover -s tests/media -p test_public_vip_jpeg_fixture.py -v
           python3 -m unittest discover -s tests/media -p test_public_drawing_fixture.py -v
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin python3 scripts/media/provision-test.py /tmp/26chan-media-ci "$PWD/target/x86_64-unknown-linux-musl/release"
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \

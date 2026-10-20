@@ -153,8 +153,16 @@ Synthetic PNG metadata tests qualify protected attachment consumption. The
 source-context upload test checks both hint values and one-use capability
 handling. A separate metadata matrix checks actual VIP receipts with PNG/JPEG
 on `/g/` and `/p/`, including refusal of staff-only attachment bounds. Actual
-`/p/` JPEG processing and posting still need end-to-end qualification. The
-active-post duplicate scopes and board-wide repost limits are implemented in
+`/p/` JPEG processing and posting still need hosted end-to-end qualification.
+The new `public_vip_jpeg_fixture.py` leases an untouched disposable `/p/` board,
+provisions a synthetic VIP through the operator CLI, starts the real private
+issuer, and connects a script-free public form to intake, Firecracker, posting
+and the separate reader. It checks metadata stripping, the saved badge and
+absence of credential preferences. The fixture restores the exact board and
+public-service configuration; local unit checks cover its ownership and secret
+boundaries. Those checks do not qualify the full VM/browser run.
+
+The active-post duplicate scopes and board-wide repost limits are implemented in
 migration 0241, with checked badge exemptions. Migration 0242 adds persistent
 upload-board history: the badge bypasses lookup but accepted uploads still add
 history, and a later posting failure rolls that history back. See

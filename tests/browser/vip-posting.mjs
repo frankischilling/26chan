@@ -12,8 +12,13 @@ assert.equal(credential, 'capcode_!owned-public-vip!owned-vip-secret');
 for (const name of Object.keys(process.env)) assert.ok(!name.endsWith('DATABASE_URL') && !/TOKEN|KEY/.test(name));
 let browser, stage = 'launch';
 const ids = [];
+let cancelled = false;
+const cancel = () => { cancelled = true; void browser?.close().catch(() => {}); };
+process.once('SIGTERM', cancel); process.once('SIGINT', cancel);
+const lifetime = setTimeout(() => { stage = 'deadline'; cancel(); }, 60_000);
 try {
   browser = await chromium.launch({ timeout: 15000 });
+  assert.ok(!cancelled, 'owned browser cancelled');
   for (const mode of ['native', 'desktop-qr', 'mobile-qr']) {
     stage = `${mode}-open`;
     const context = await browser.newContext({ javaScriptEnabled: mode !== 'native', viewport: mode === 'mobile-qr' ? { width: 390, height: 844 } : { width: 1280, height: 900 } });
@@ -70,4 +75,4 @@ try {
   const where = String(error?.stack ?? '').match(/vip-posting\.mjs:([0-9]{1,6}):([0-9]{1,6})/);
   console.error(`OWNED_VIP_BROWSER stage=${stage}${where ? ` line=${where[1]}:${where[2]}` : ''}`);
   process.exitCode = 1;
-} finally { await browser?.close(); }
+} finally { clearTimeout(lifetime); await browser?.close(); }

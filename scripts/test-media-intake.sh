@@ -10,6 +10,7 @@ source .local/database.env
 source .local/media.env
 source .local/media-reader.env
 source .local/intake.env
+source .local/verification-issuer.env
 cluster=$(cat .local/cluster-path)
 [[ $cluster =~ ^/tmp/board-postgres\.[[:alnum:]]+$ && -d $cluster ]] || exit 1
 actual=$(runuser -u postgres -- /usr/lib/postgresql/16/bin/psql -XAt -h /tmp -p 55432 -d postgres -c 'SHOW data_directory')
