@@ -65,8 +65,9 @@ test('unknown response stages fail before accessing response data', async () => 
 });
 
 test('browser capture retains the real upload and posting bodies after transport cleanup', { timeout: 30000 }, async () => {
-  const [transport, core] = await Promise.all([
+  const [transport, numbers, core] = await Promise.all([
     readFile(new URL('../../apps/public/client/native-quick-reply-transport.js', import.meta.url)),
+    readFile(new URL('../../apps/public/client/native-post-numbers.js', import.meta.url)),
     readFile(new URL('../../apps/public/static/thread-watcher-core.v1.js', import.meta.url)),
   ]);
   const receipt = { upload_id: '1'.repeat(32), upload_capability: '2'.repeat(64), resto: '10', state: 'queued' };
@@ -81,6 +82,8 @@ test('browser capture retains the real upload and posting bodies after transport
       response.writeHead(200, { 'content-type': 'application/json' }).end('{"tid":10,"pid":11}');
     } else if (request.url === '/client/native-quick-reply-transport.js') {
       response.writeHead(200, { 'content-type': 'text/javascript' }).end(transport);
+    } else if (request.url === '/client/native-post-numbers.js') {
+      response.writeHead(200, { 'content-type': 'text/javascript' }).end(numbers);
     } else if (request.url === '/static/thread-watcher-core.v1.js') {
       response.writeHead(200, { 'content-type': 'text/javascript' }).end(core);
     } else {
