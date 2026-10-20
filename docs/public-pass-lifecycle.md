@@ -322,3 +322,10 @@ and was reproduced locally. An operator unit test compares both pins with the
 latest migration bodies. The populated CLI qualification now erases an imported
 year, preserves live and unrelated years, and rejects a guard whose year-clearing
 statement was removed. Rollback, bounded batches and administrator restore pass.
+
+The fresh-deletion HTTP fixture now uses distinct synthetic PNG pixels for its
+live, deleted and archived cases. Reusing identical images made setup hit the
+new source duplicate-image cooldown before it reached the erasure assertions.
+The corrected test passes locally with the complete migration set; media
+revocation, consumed-receipt rejection and surviving-content assertions remain
+unchanged. The separate attachment-restore CI failure is still under investigation.

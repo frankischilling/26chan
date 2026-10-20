@@ -102,7 +102,7 @@ impl Fixture {
         .await
     }
 
-    async fn image(&self, store: &PublicationStore) -> (NewAttachment, String) {
+    async fn image(&self, store: &PublicationStore, red: u8) -> (NewAttachment, String) {
         let upload = self.intake.reserve("owned-erasure.png").await.unwrap();
         self.jobs.lock().unwrap().push(upload.id.clone());
         self.intake
@@ -117,7 +117,8 @@ impl Fixture {
         assert_eq!(claim.id, upload.id, "Use an idle disposable queue");
         let token = claim.lease_token.unwrap();
         let mut pixels = b"IBRGBA01\0\0\0\x01\0\0\0\x01".to_vec();
-        pixels.extend_from_slice(&[40, 80, 120, 255]);
+        // Distinct fixture images keep deletion checks independent of repost cooldowns.
+        pixels.extend_from_slice(&[red, 80, 120, 255]);
         let output = ValidatedOutput::read(pixels.as_slice())
             .await
             .unwrap()
@@ -265,7 +266,7 @@ async fn exercise(f: Fixture) {
         &board_config::Origin::parse(ORIGIN).unwrap(),
     ));
     let (web, api) = posting::routers(f.public.clone(), &f.board, ORIGIN.into(), false);
-    let (op_upload, op_asset) = f.image(&store).await;
+    let (op_upload, op_asset) = f.image(&store, 40).await;
     let op = f
         .post(0, "ownedopsecretneedle", Some(&op_upload))
         .await
@@ -275,7 +276,7 @@ async fn exercise(f: Fixture) {
         .post(op, "ownedreplysecretneedle", Some(&reply_upload))
         .await
         .unwrap();
-    let (live_upload, live_asset) = f.image(&store).await;
+    let (live_upload, live_asset) = f.image(&store, 41).await;
     let live = f
         .post(
             op,
@@ -284,7 +285,7 @@ async fn exercise(f: Fixture) {
         )
         .await
         .unwrap();
-    let (archive_upload, archive_asset) = f.image(&store).await;
+    let (archive_upload, archive_asset) = f.image(&store, 42).await;
     let cross = f
         .post(
             0,
