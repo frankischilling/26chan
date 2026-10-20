@@ -102,6 +102,17 @@ mod tests {
                 .unwrap()
                 .contains("No retained bans or warnings")
         );
+        assert!(
+            page.render()
+                .unwrap()
+                .contains("retained address or Pass identity")
+        );
+        assert!(
+            !page
+                .render()
+                .unwrap()
+                .contains("linked Pass history is not included")
+        );
         page.rows.push(Record {
             id: 9,
             board: "demo".into(),
