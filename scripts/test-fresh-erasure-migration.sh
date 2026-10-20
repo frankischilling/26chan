@@ -480,6 +480,11 @@ WHERE relation='content.posts';
 -- an invented notice on an unrelated post must still fail the row comparison.
 UPDATE public.unrelated_rows SET value=value||jsonb_build_object('staff_notices','[]'::jsonb)
 WHERE relation='content.posts';
+-- 0220 adds an opt-in purchase year. Historical posts must keep zero.
+UPDATE public.unrelated_rows SET value=value||jsonb_build_object('since4pass',0)
+WHERE relation='content.posts';
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM content.posts WHERE since4pass<>0) THEN
+ RAISE EXCEPTION 'Historical posts acquired an invented membership year'; END IF; END $$;
 -- Extend the saved audit shape only with the reviewed 30-day deadline.
 UPDATE public.independent_rows SET value=value||jsonb_build_object('snapshot_expires_at',
  CASE WHEN value->>'snapshot_version' IS NOT NULL THEN (value->>'created_at')::timestamptz+interval '720 hours' ELSE NULL END)
@@ -508,7 +513,7 @@ SQL
 "${admin[@]}" <<'SQL'
 BEGIN;
 SELECT slug FROM content.boards WHERE slug='erasure' FOR UPDATE;
-UPDATE content.posts SET staff_notices=ARRAY['Owned notice before erasure']
+UPDATE content.posts SET staff_notices=ARRAY['Owned notice before erasure'],since4pass=2020
  WHERE thread_id=12300001 AND NOT deleted;
 COMMIT;
 SQL
@@ -517,7 +522,7 @@ DO $$ DECLARE relation_name text; BEGIN
  IF (SELECT count(*) FROM content.posts WHERE thread_id=12300001)<>3
  OR EXISTS(SELECT 1 FROM content.posts WHERE thread_id=12300001 AND
   (NOT deleted OR NOT content_erased OR file_deleted OR name<>'' OR subject<>'' OR comment<>'' OR staff_notices<>'{}'::text[]
-   OR trip IS NOT NULL OR poster_id IS NOT NULL OR json_op_poster_id IS NOT NULL OR capcode IS NOT NULL
+   OR since4pass<>0 OR trip IS NOT NULL OR poster_id IS NOT NULL OR json_op_poster_id IS NOT NULL OR capcode IS NOT NULL
    OR country IS NOT NULL OR country_name IS NOT NULL OR board_flag IS NOT NULL OR flag_name IS NOT NULL
    OR wordfilter_payload IS NOT NULL OR wordfilter_search IS NOT NULL OR dice_result IS NOT NULL
    OR saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL
@@ -558,9 +563,9 @@ SELECT c.conrelid::regclass::text,c.conname,pg_get_constraintdef(c.oid,true) FRO
 SELECT table_schema,table_name,column_name,grantor,grantee,privilege_type,is_grantable FROM information_schema.column_privileges WHERE table_schema IN('content','post_secrets','staff_identity','poll_private') ORDER BY 1,2,3,4,5,6,7;
 SELECT n.nspname,c.relname,c.relkind,pg_get_userbyid(c.relowner),CASE WHEN c.relkind IN('r','p','v','m','f','S') THEN public.normalized_acl(CASE WHEN c.relkind='S' THEN 's' ELSE 'r' END::"char",c.relowner,c.relacl) ELSE to_jsonb(c.relacl::text) END,c.relrowsecurity,c.relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN('content','post_secrets','staff_identity','poll_private') ORDER BY 1,2;
 SQL
-# Compare all historical fields, including the additive empty notice value.
-# Neither an invented notice nor an altered older field may pass preservation.
-for mutation in "staff_notices=ARRAY['Invented notice']" "name='Changed historical name'"; do
+# Compare every historical field, including the empty notice and zero year.
+# Invented membership, a notice, or an altered older field must fail preservation.
+for mutation in "staff_notices=ARRAY['Invented notice']" "name='Changed historical name'" "since4pass=2020"; do
  if {
   printf "BEGIN; SELECT slug FROM content.boards WHERE slug='erasure' FOR UPDATE;\n"
   printf 'UPDATE content.posts SET %s WHERE id=12300020;\n' "$mutation"

@@ -535,13 +535,15 @@ async fn exercise(f: &Fixture) {
     let metadata_grants: bool = sqlx::query_scalar(
         "SELECT has_function_privilege('board_public',p.oid,'EXECUTE')
           AND has_function_privilege('board_staff',p.oid,'EXECUTE')
+          AND has_function_privilege('board_anonymous_owner',p.oid,'EXECUTE')
+          AND EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname='board_anonymous_owner' AND NOT(r.rolcanlogin OR r.rolsuper OR r.rolbypassrls))
           AND NOT EXISTS(SELECT 1 FROM aclexplode(p.proacl) a WHERE a.is_grantable
-            OR (a.grantee<>p.proowner AND a.grantee NOT IN ('board_public'::regrole,'board_staff'::regrole)))
+            OR (a.grantee<>p.proowner AND a.grantee NOT IN ('board_public'::regrole,'board_staff'::regrole,'board_anonymous_owner'::regrole)))
           FROM pg_proc p WHERE p.oid='content.attachment_upload_filter_metadata(text,text,text,bigint,boolean,boolean)'::regprocedure"
     ).fetch_one(&f.admin).await.unwrap();
     assert!(
         metadata_grants,
-        "Only posting roles may use the scoped metadata reader"
+        "Only posting runtimes and the private membership owner may use the scoped metadata reader"
     );
     Box::pin(qualify_file_effect_metadata_grants(f)).await;
     let policy_helper_private: bool = sqlx::query_scalar(

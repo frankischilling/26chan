@@ -63,6 +63,58 @@ pub async fn acknowledge(
     Ok(changed)
 }
 
+/// Server-resolved session plus opaque issuer proof. The SQL owner consumes
+/// the receipt and derives membership; callers cannot supply a membership ID.
+pub struct MemberContext<'a> {
+    pub actor: &'a PublicPostingRateIdentity,
+    pub session: &'a crate::anonymous_session::PostingSession,
+    pub proof: &'a crate::WriteChallengeProof,
+    pub board: &'a str,
+    pub request_at: i64,
+}
+
+pub async fn member_status(
+    pool: &PgPool,
+    input: &MemberContext<'_>,
+) -> Result<Vec<Status>, StoreError> {
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *tx)
+        .await?;
+    crate::write_challenge::install(&mut tx, Some(input.proof), Some(input.session)).await?;
+    let rows = sqlx::query_as("SELECT * FROM content.pass_restriction_status($1,$2,$3,$4)")
+        .bind(input.actor.as_bytes().as_slice())
+        .bind(input.session.fingerprints.token.as_slice())
+        .bind(input.board)
+        .bind(input.request_at)
+        .fetch_all(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(rows)
+}
+
+pub async fn member_acknowledge(
+    pool: &PgPool,
+    input: &MemberContext<'_>,
+    id: i64,
+) -> Result<bool, StoreError> {
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        .execute(&mut *tx)
+        .await?;
+    crate::write_challenge::install(&mut tx, Some(input.proof), Some(input.session)).await?;
+    let changed = sqlx::query_scalar("SELECT content.pass_acknowledge_warning($1,$2,$3,$4,$5)")
+        .bind(input.actor.as_bytes().as_slice())
+        .bind(input.session.fingerprints.token.as_slice())
+        .bind(input.board)
+        .bind(input.request_at)
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(changed)
+}
+
 pub const BANNED: &str = "Error: You are banned.";
 pub const WARNED: &str = "Error: You were warned. You must first view this warning to post again.";
 pub const REPORT_BANNED: &str = "You can't report posts because you are banned.";
@@ -113,6 +165,7 @@ pub(crate) async fn prepare(
     token: Option<&[u8; 32]>,
     board: &str,
     request_at: i64,
+    member_target: Option<i64>,
 ) -> Result<Option<&'static str>, StoreError> {
     // Always replace the local context, including the absent-token case: a
     // previously configured pooled connection must not supply cookie authority.
@@ -128,14 +181,23 @@ pub(crate) async fn prepare(
         .bind(encoded)
         .execute(&mut **tx)
         .await?;
-    let decision: String =
-        sqlx::query_scalar("SELECT content.evaluate_posting_restrictions($1,$2,$3,$4)")
-            .bind(actor.as_bytes().as_slice())
-            .bind(token.map(|token| token.as_slice()))
-            .bind(board)
-            .bind(request_at)
-            .fetch_one(&mut **tx)
-            .await?;
+    let statement = if member_target.is_some() {
+        "SELECT content.evaluate_member_posting_restrictions($1,$2,$3,$4,$5)"
+    } else {
+        "SELECT content.evaluate_posting_restrictions($1,$2,$3,$4)"
+    };
+    let mut query = sqlx::query_scalar(statement)
+        .bind(actor.as_bytes().as_slice())
+        .bind(token.map(|token| token.as_slice()))
+        .bind(board)
+        .bind(request_at);
+    if let Some(target) = member_target {
+        query = query.bind(target);
+    }
+    let decision: String = query
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(posting_lookup_error)?;
     match decision.as_str() {
         "allowed" => Ok(None),
         "banned" => Ok(Some(BANNED)),
@@ -143,6 +205,22 @@ pub(crate) async fn prepare(
         _ => Err(StoreError::Database(sqlx::Error::Protocol(
             "Restriction decision is unavailable.".into(),
         ))),
+    }
+}
+
+/// Membership preflight now reaches the public-board lookup before the Store's
+/// ordinary row read. Preserve the same absent/private-board response without
+/// disguising invalid proofs, permission drift or other database failures.
+pub(crate) fn posting_lookup_error(error: sqlx::Error) -> StoreError {
+    if error
+        .as_database_error()
+        .and_then(|error| error.code())
+        .as_deref()
+        == Some("P0002")
+    {
+        StoreError::NotFound
+    } else {
+        StoreError::Database(error)
     }
 }
 

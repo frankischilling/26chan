@@ -165,22 +165,20 @@ impl Fixture {
         ));
         let key = PosterIdKey::parse(&self.key).unwrap();
         for parent in [0, op] {
-            assert!(matches!(
-                board_store::create_post_with_identity_keys(
-                    &self.public,
-                    &self.board,
-                    parent,
-                    &post(),
-                    None,
-                    context(200),
-                    PostIdentityKeys {
-                        tripcode: None,
-                        poster_id: Some(&key)
-                    },
-                )
-                .await,
-                Err(StoreError::NotFound)
-            ));
+            let outcome = board_store::create_post_with_identity_keys(
+                &self.public,
+                &self.board,
+                parent,
+                &post(),
+                None,
+                context(200),
+                PostIdentityKeys {
+                    tripcode: None,
+                    poster_id: Some(&key),
+                },
+            )
+            .await;
+            assert!(matches!(outcome, Err(StoreError::NotFound)), "{outcome:?}");
         }
     }
 

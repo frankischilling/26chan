@@ -986,3 +986,6 @@ body[data-page-catalog="true"] .globalMessageToggle { width: 18px; height: 18px;
   body:not([data-native-never-mobile="true"]) #globalToggle { display: block; clear: left; box-sizing: content-box; width: 200px; max-width: calc(100% - 22px); margin: 0 auto 10px; padding: 6px 10px 5px; border-radius: 3px; font-weight: bold; text-align: center; user-select: none; text-decoration: none; color: #800 !important; border: 1px solid #c45858; background-color: #ffadad; cursor: pointer; }
   body:not([data-native-never-mobile="true"]) .globalMessageToggle { display: none; }
 }
+
+/* Source badge geometry; the bundled clover is provisional until minileaf.gif is supplied. */
+.n-pu { vertical-align: middle; display: inline-block; width: 16px; height: 16px; margin-top: -2px; background: url('/static/notifications/favicon.ico') center / 16px 16px no-repeat; }

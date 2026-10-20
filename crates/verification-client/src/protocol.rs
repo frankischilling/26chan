@@ -170,3 +170,254 @@ pub struct PostingChallengeResult {
     pub challenge: Challenge,
     pub ticket_challenge: bool,
 }
+
+// Credential-bearing protocol values deliberately omit Debug.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassLogin {
+    pub identifier: String,
+    pub pin: String,
+    pub peer: IpAddr,
+    pub remember: bool,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassSession {
+    pub token: String,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PassLoginResult {
+    Ready {
+        token: String,
+        ttl_seconds: u32,
+    },
+    Rejected {},
+    Flood {},
+    InUse {
+        seconds: u32,
+    },
+    Disabled {
+        status: u8,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        renewal: Option<String>,
+    },
+    Capacity {},
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PassState {
+    Ready { purchase_year: i32 },
+    None {},
+    Expired {},
+    Disabled {},
+}
+
+/// Advisory state only; a successful reply is not a write receipt.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassPostingSession {
+    pub token: String,
+    pub peer: IpAddr,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PassPostingState {
+    Ready { purchase_year: i32 },
+    None {},
+    Expired {},
+    Disabled {},
+    InUse {},
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassWriteRequest {
+    pub token: String,
+    pub context: ChallengeContext,
+}
+/// Separate from CAPTCHA actions: status proof cannot authorize posting.
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PassRestrictionAction {
+    Status,
+    WarningView,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassRestrictionRequest {
+    pub token: String,
+    pub session: Session,
+    pub board: String,
+    pub action: PassRestrictionAction,
+    pub target: i64,
+    pub nonce: String,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PassWriteResult {
+    Verified {
+        receipt: String,
+        peer_hash: [u8; 32],
+        context_hash: [u8; 32],
+    },
+    None {},
+    Expired {},
+    Disabled {},
+    InUse {},
+    Capacity {},
+}
+
+#[cfg(test)]
+mod pass_restriction_tests {
+    use super::*;
+    #[test]
+    fn warning_actions_cannot_enter_the_captcha_protocol() {
+        for action in ["status", "warning_view"] {
+            assert!(
+                serde_json::from_value::<PassRestrictionAction>(serde_json::json!(action)).is_ok()
+            );
+            assert!(serde_json::from_value::<Purpose>(serde_json::json!(action)).is_err());
+        }
+        for action in ["thread", "reply", "report", "email_request", "ticket"] {
+            assert!(
+                serde_json::from_value::<PassRestrictionAction>(serde_json::json!(action)).is_err()
+            );
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassRecoveryRequest {
+    pub identifier: String,
+    pub email: String,
+    pub peer: IpAddr,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PassRecoveryComplete {
+    pub token: String,
+    pub pin: String,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PassRecoveryResult {
+    Accepted {},
+    Ready {},
+    Rejected {},
+    Complete {},
+    Capacity {},
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CheckoutOffer {
+    Ready {
+        provider: String,
+        amount_minor: i64,
+        currency: String,
+    },
+    Unavailable {},
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CheckoutRenewal {
+    pub reference: String,
+    pub nonce: String,
+    pub peer: IpAddr,
+    pub amount_minor: i64,
+    pub currency: String,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CheckoutCreated {
+    Ready { order: String, view: String },
+    Unavailable {},
+    PriceChanged {},
+    Flood {},
+    Capacity {},
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CheckoutView {
+    pub order: String,
+    pub view: String,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckoutStatus {
+    Pending,
+    Paid,
+    Declined,
+    Cancelled,
+    Refunded,
+    Disputed,
+    Expired,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CheckoutState {
+    Ready {
+        status: CheckoutStatus,
+        product: String,
+        identifier: Option<String>,
+        provider: String,
+        amount_minor: i64,
+        currency: String,
+        fulfilled: bool,
+        review_required: bool,
+    },
+    Missing {},
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CheckoutPurchase {
+    pub email: String,
+    pub gift_email: Option<String>,
+    pub delayed: bool,
+    pub nonce: String,
+    pub peer: IpAddr,
+    pub amount_minor: i64,
+    pub currency: String,
+}
+
+#[cfg(test)]
+mod pass_login_tests {
+    use super::PassLoginResult;
+    use serde_json::json;
+
+    #[test]
+    fn disabled_login_omits_absent_renewal_and_preserves_present_reference() {
+        for status in 1..=5 {
+            let expected = json!({"state":"disabled", "status":status});
+            let response = PassLoginResult::Disabled {
+                status,
+                renewal: None,
+            };
+            assert_eq!(serde_json::to_value(response).unwrap(), expected);
+            assert!(matches!(
+                serde_json::from_value::<PassLoginResult>(expected).unwrap(),
+                PassLoginResult::Disabled { renewal: None, .. }
+            ));
+        }
+        let expected = json!({"state":"disabled", "status":1, "renewal":"owned-reference"});
+        let response = PassLoginResult::Disabled {
+            status: 1,
+            renewal: Some("owned-reference".into()),
+        };
+        assert_eq!(serde_json::to_value(response).unwrap(), expected);
+        assert!(matches!(
+            serde_json::from_value::<PassLoginResult>(expected).unwrap(),
+            PassLoginResult::Disabled { renewal: Some(reference), .. }
+                if reference == "owned-reference"
+        ));
+        assert!(
+            serde_json::from_value::<PassLoginResult>(
+                json!({"state":"disabled", "status":4, "unexpected":true})
+            )
+            .is_err()
+        );
+    }
+}

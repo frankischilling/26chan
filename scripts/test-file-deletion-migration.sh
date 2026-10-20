@@ -365,6 +365,25 @@ UPDATE public.upgraded_rows SET value=value||jsonb_build_object('staff_notices',
 WHERE relation='content.posts';
 SQL
 fi
+# Pass gates and opt-in years are additive; historical posts have no year.
+if [[ -f migrations/0218_pass_only_boards.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('pass_post_only',value->>'slug'='vip')
+WHERE relation='content.boards';
+SQL
+fi
+if [[ -f migrations/0220_pass_purchase_year.sql ]]; then
+ "${admin[@]}" <<'SQL'
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM content.posts WHERE since4pass<>0) THEN
+ RAISE EXCEPTION 'Upgrade invented historical Pass years'; END IF; END $$;
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('since4pass',0)
+WHERE relation='content.posts';
+-- A file-only action must preserve an existing, opt-in year on its target.
+UPDATE content.posts SET since4pass=2020 WHERE id=13000002;
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('since4pass',2020)
+WHERE relation='content.posts' AND (value->>'id')::bigint=13000002;
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)
@@ -428,6 +447,22 @@ DO $$ BEGIN
 END $$;
 SQL
 done
+if [[ -f migrations/0220_pass_purchase_year.sql ]]; then
+ for mutation in \
+  "UPDATE content.posts SET since4pass=2021 WHERE id=13000001;" \
+  "UPDATE content.posts SET since4pass=0 WHERE id=13000002;" \
+  "UPDATE content.boards SET pass_post_only=true WHERE slug='filedel';"; do
+  {
+   printf '%s\n' "$mutation"
+   cat "$cluster/assert-retained.sql"
+  } > "$cluster/pass-history-negative.sql"
+  if "${admin[@]}" --single-transaction -f - < "$cluster/pass-history-negative.sql" > "$cluster/pass-history-negative.log" 2>&1; then
+   echo 'File-deletion history guard accepted a Pass year or board gate mutation.' >&3; exit 1
+  fi
+  grep -Eq 'File action (changed unrelated history|rewrote content)' "$cluster/pass-history-negative.log"
+  "${admin[@]}" -f - < "$cluster/assert-retained.sql"
+ done
+fi
 if [[ -f migrations/0187_dmca_warning_state.sql ]]; then
  for mutation in \
   "UPDATE admission.file_effect_capacity SET warning_limit=99999 WHERE singleton;" \

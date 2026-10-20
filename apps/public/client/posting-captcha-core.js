@@ -182,11 +182,18 @@ export function mountPostingCaptcha(root, { win = window, changed = () => {}, in
   const showingHelp = () => win.alert(root.dataset.classic === 'true' ? 'Type the text in the image. Load another CAPTCHA if it is unreadable.' : 'Move the slider to align the image, then type the text you see. Load another CAPTCHA if it is unreadable.');
   const hiding = () => { invalidate(); csrf.value = ''; };
   const showing = event => { if (event.persisted) hiding(); };
-  const consumed = () => invalidate();
+  function memberAdvice() {
+    // The public hint only requests advice. The issuer decides whether the
+    // HttpOnly session qualifies; this cookie never grants a bypass itself.
+    try { if (purpose !== 'report' && /(?:^|;\s*)pass_enabled=1(?:;|$)/.test(win.document?.cookie ?? '')) void fetchChallenge(); }
+    catch { /* Cookie access may be unavailable; manual loading still works. */ }
+  }
+  const consumed = () => { invalidate(); memberAdvice(); };
   load.addEventListener('click', fetchChallenge); help.addEventListener('click', showingHelp); slider.addEventListener('input', sliding);
   if (interceptSubmit) form.addEventListener('submit', submittingForm, true); form.addEventListener('captcha:submitted', consumed); win.addEventListener('pagehide', hiding); win.addEventListener('pageshow', showing);
   const api = {
-    canSubmit, invalidate, load: fetchChallenge,
+    canSubmit, invalidate, afterSubmit: consumed, load: fetchChallenge,
+    cooldownBypass: () => !disposed && state === 'disabled',
     setBusy(value) { submitting = value === true; update(); },
     setTarget(value) { value = String(value); if (!validScope(board, value, purpose)) return false; if (value !== target) { target = value; root.dataset.target = value; invalidate(); } return true; },
     dispose() {
@@ -204,5 +211,5 @@ export function mountPostingCaptcha(root, { win = window, changed = () => {}, in
       challenge: { state: 'ready', token: initialToken, image: initialImage, background: null, slider: false, offset_max: 0, ttl_seconds: ttl, cooldown_seconds: 0 } }, false);
     answer.value = initialAnswer;
   } else { clearProof(); }
-  update(); return api;
+  update(); memberAdvice(); return api;
 }

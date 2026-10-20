@@ -1,7 +1,7 @@
 import { createPostingCaptcha, mountPostingCaptcha } from '../static/posting-captcha.v1.js';
 import { postId } from '../static/thread-watcher-core.v1.js';
 import { cancelQuickReplyUpload, checkQuickReplyUpload, commentLengthWarning, quoteInsertion, sendQuickReply, schedulePostingRedirect,
-  uploadQuickReplyFile, uploadDrawingFile } from './native-quick-reply-transport.js';
+  uploadQuickReplyFile, uploadDrawingFile, renderQuickReplyError } from './native-quick-reply-transport.js';
 import { mountNativePostForm } from './native-post-form.js';
 import { quickReplyPosition } from './native-quick-reply-position.js';
 import { restorePostPreferences, mountBoardFlagPreference } from './native-post-preferences.js';
@@ -37,6 +37,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     Array.isArray(value) ? [value[0], typeof value[1] === 'string' ? value[1]
       : value[1].name ? [value[1].name, value[1].size, value[1].lastModified] : null] : value));
   const cooldown = createQuickReplyCooldown({ board, storage,
+    bypass: () => !sourceCaptcha || captcha?.cooldownBypass() === true,
     replySeconds: source?.dataset.postingReplySeconds, imageSeconds: source?.dataset.postingImageSeconds,
     changed: state => { if (submit && !busy) submit.value = state.label; },
     expired: () => {
@@ -152,7 +153,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     dialog?.remove(); dialog = form = comment = error = submit = null; current = null;
     opener?.focus();
   }
-  function message(text, type = '') { if (error) { error.textContent = text; error.hidden = !text; error.dataset.type = type; } }
+  function message(text, type = '') { if (error) { renderQuickReplyError(error, text); error.hidden = !text; error.dataset.type = type; } }
   function checkComment() {
     if (!dialog || closed(current)) return;
     const warning = commentLengthWarning(comment.value, source.dataset.commentLimit);
@@ -382,7 +383,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
         postingAttachment = false;
         message(failure instanceof Error ? failure.message : 'Connection error. Check the thread before retrying.');
       }
-    } finally { if (active === epoch) { busy = false; controller = null; captcha?.setBusy(false); captcha?.invalidate(); renderUpload(); sync(); } }
+    } finally { if (active === epoch) { busy = false; controller = null; captcha?.setBusy(false); captcha?.afterSubmit(); renderUpload(); sync(); } }
   }
   function scheduleUploadCheck() {
     clearTimeout(uploadTimer);

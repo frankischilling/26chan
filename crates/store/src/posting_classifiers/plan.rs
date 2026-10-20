@@ -11,6 +11,7 @@ pub(crate) struct Context<'a> {
     pub board: &'a str,
     pub parent: i64,
     pub image: bool,
+    pub captcha_bypass: bool,
     pub actor: Option<&'a State>,
     pub activity_at: u64,
     pub session: Option<&'a PostingSession>,
@@ -60,8 +61,8 @@ pub(crate) async fn evaluate(
             board: context.board,
             reply: context.parent != 0,
             image: context.image,
-            // The caller already selected the locked enabled public-board path.
-            captcha_bypass: false,
+            // SQL confirms a Pass receipt consumed by this post in this transaction.
+            captcha_bypass: context.captcha_bypass,
             actor: A(context.actor),
             activity_at: context.activity_at,
             score: score.into(),
@@ -93,9 +94,10 @@ pub(crate) async fn evaluate(
         posting::Outcome::ImageRangeRejected => Outcome::ImageRange,
     };
     if outcome == Outcome::Continue {
-        let needs_country = context
-            .actor
-            .is_some_and(|actor| actor.verified_level == 0 && actor.post_count() < 20);
+        let needs_country = !context.captcha_bypass
+            && context
+                .actor
+                .is_some_and(|actor| actor.verified_level == 0 && actor.post_count() < 20);
         let country_history = if needs_country {
             let session = context.session.ok_or_else(|| unavailable(()))?;
             A(super::history(tx, context.board, session)
@@ -105,7 +107,7 @@ pub(crate) async fn evaluate(
             U
         };
         let suffix = posting::history::evaluate(posting::history::Request {
-            captcha_bypass: false,
+            captcha_bypass: context.captcha_bypass,
             actor: A(context.actor),
             activity_at: context.activity_at,
             // This native deployment has no trusted ingress score adapter.

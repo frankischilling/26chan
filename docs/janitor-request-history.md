@@ -45,10 +45,13 @@ Template names remain limited by the queue's existing role-filtered choices.
 An unknown or unavailable template still contributes to the count without
 exposing its name.
 
-This covers retained address-identity history. The source also joins matching
-Pass history from other addresses; that remains dependent on the unfinished
-Pass identity lifecycle. The displayed total is therefore labeled retained,
-not all-time. This is not a complete staff-history search interface.
+Migration 0223 adds the retained Pass identity captured from the source post.
+Request capture preserves it before source-post deletion, and approval copies it
+into the restriction. Summaries match the retained address or Pass identity and
+count overlapping matches once. The 10,000-row bound applies to that union.
+The total remains labeled retained because original production identities and
+unretained historical records are unavailable. This is not a complete staff-history
+search interface.
 
 ## Template reasons
 
@@ -73,8 +76,7 @@ restore. The HTTP/browser fixture seeds owned history and checks its rendered
 counts, template reasons and absence of private notes. Existing expired-session,
 revocation, wrong-origin and wrong-board controls remain in the suite.
 
-Issue #223 remains open for full history search, linked Pass evidence and
-source visual parity. Private retained media and thumbnail controls are covered
+Issue #223 remains open for full history search and source visual parity. Private retained media and thumbnail controls are covered
 by PR #302.
 
 
@@ -83,7 +85,8 @@ by PR #302.
 The source queue links to a separate staff ban-search service using the target's
 address or a Pass reference. That service's implementation is absent from the
 supplied tree. The native reader uses a pending request ID to resolve the saved
-address identity inside the database. It displays retained ban and warning rows,
+address and optional Pass identity inside the database. It displays retained ban
+and warning rows,
 public reasons and private notes from boards the reviewer can access. Global
 bans originating on an inaccessible board are also excluded.
 
@@ -95,10 +98,19 @@ It provides 25 records per page in descending ID order, with an exclusive older-
 cursor and a 10,000-row actor bound. New records do not shift an older page.
 Rendered reasons and notes are escaped; responses remain private and uncached.
 
-This restores the queue's retained-address ban lookup. Post searches by address,
-password and file hash, linked Pass history and the separate staff service's
-layout remain outside this reader. Browser coverage exercises the link and
+This restores the queue's retained-identity ban lookup, including Pass-linked bans
+from other addresses. Post searches by address, password and file hash, and the
+separate staff service's layout remain outside this reader. Browser coverage exercises the link and
 repeated newest-page navigation on desktop/mobile with scripts on and off.
 SQL tests cover pagination, cross-board and unrelated identities, role refusal,
 changed scope and removed requests. HTTP checks cover authentication, cache
 headers and stale URLs.
+
+
+The Pass lifecycle SQL fixture verifies a same-address/Pass overlap, a matching
+Pass from another address, an inaccessible board and absence of raw identity
+hashes in both summary and detailed output. The detailed reader retains its board
+scope checks; summary counts do not reveal hidden-board reasons or private notes.
+The displayed description now includes Pass matching rather than the obsolete
+address-only limitation. See `scripts/test-pass-restrictions.sql` and
+`docs/public-pass-lifecycle.md` for that qualification.

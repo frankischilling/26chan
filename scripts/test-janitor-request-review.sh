@@ -29,8 +29,13 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 "${runner[@]}" "$pg_bin/initdb" -D "$cluster/data" --username=postgres --auth=trust --encoding=UTF8 --no-locale >/dev/null
 started=1
-"${runner[@]}" "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.log" -o "-c listen_addresses='127.0.0.1' -c port=55450 -c unix_socket_directories='' -c statement_timeout=30000 -c lock_timeout=5000" -w start >/dev/null
-psql=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 55450 -U postgres)
+# Keep the owned listener below the default Linux ephemeral-port range.
+if ! "${runner[@]}" "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.log" -o "-c listen_addresses='127.0.0.1' -c port=15450 -c unix_socket_directories='' -c statement_timeout=30000 -c lock_timeout=5000" -w start >/dev/null; then
+    echo "Owned qualification database failed to start:" >&2
+    [[ ! -f "$cluster/server.log" ]] || cat "$cluster/server.log" >&2
+    exit 1
+fi
+psql=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 15450 -U postgres)
 "${psql[@]}" -d postgres -f - < deploy/roles.sql >/dev/null
 "${psql[@]}" -d postgres <<'SQL'
 CREATE DATABASE request_review OWNER board_migrator;
@@ -106,6 +111,14 @@ SQL
     python3 scripts/janitor-file-effects-sql.py > "$cluster/file-source.sql"
     "${psql[@]}" -d request_review -f "$cluster/file-source.sql"
 fi
+# Keep predecessor migration checks above, then qualify current request behavior.
+if [[ ${REQUEST_CURRENT_SCHEMA:-0} = 1 ]]; then
+    [[ ${REQUEST_FILE_EFFECTS:-0} = 1 ]] || { echo 'Current-schema qualification requires file effects.' >&2; exit 1; }
+    for migration in migrations/*.sql; do
+        [[ $(basename "$migration") > 0215_janitor_history_reader.sql ]] || continue
+        "${migrator[@]}" --single-transaction -f "$migration"
+    done
+fi
 python3 scripts/ban-request-review-sql.py > "$cluster/source.sql"
 "${psql[@]}" -d request_review -f "$cluster/source.sql"
 "${psql[@]}" -d request_review -f scripts/test-janitor-request-store.sql
@@ -145,9 +158,9 @@ DO $$ BEGIN
 END $$;
 SQL
 "${psql[@]}" -d request_review -f scripts/test-janitor-request-readers.sql
-"$pg_bin/pg_dump" -h 127.0.0.1 -p 55450 -U postgres -d request_review --format=custom -f "$cluster/owned.dump"
+"$pg_bin/pg_dump" -h 127.0.0.1 -p 15450 -U postgres -d request_review --format=custom -f "$cluster/owned.dump"
 "${psql[@]}" -d postgres -c 'CREATE DATABASE review_restored OWNER board_migrator'
-"$pg_bin/pg_restore" -h 127.0.0.1 -p 55450 -U postgres -d review_restored --exit-on-error "$cluster/owned.dump"
+"$pg_bin/pg_restore" -h 127.0.0.1 -p 15450 -U postgres -d review_restored --exit-on-error "$cluster/owned.dump"
 "${psql[@]}" -d review_restored <<'SQL'
 DO $$ BEGIN
  IF content.restrictions_ready() IS DISTINCT FROM true
@@ -184,9 +197,9 @@ SQL
     after=$("${psql[@]}" -d request_review -Atc "SELECT jsonb_build_array((SELECT count(*) FROM restrictions.bans),(SELECT used_bytes FROM restrictions.capacity),(SELECT count(*) FROM restrictions.request_reviews),(SELECT revision FROM admission.policy),(SELECT count(*) FROM admission.file_rules))")
     [[ $before = "$after" ]] || { echo 'Policy conflict left partial review effects' >&2; exit 1; }
     "${psql[@]}" -U board_staff -d request_review -c "SELECT content.review_janitor_request(decode(repeat('55',32),'hex'),decode(repeat('77',32),'hex'),600,$request,true,NULL,NULL,NULL,NULL,NULL)"
-    "$pg_bin/pg_dump" -h 127.0.0.1 -p 55450 -U postgres -d request_review --format=custom -f "$cluster/files.dump"
+    "$pg_bin/pg_dump" -h 127.0.0.1 -p 15450 -U postgres -d request_review --format=custom -f "$cluster/files.dump"
     "${psql[@]}" -d postgres -c 'CREATE DATABASE file_rules_restored OWNER board_migrator'
-    "$pg_bin/pg_restore" -h 127.0.0.1 -p 55450 -U postgres -d file_rules_restored --exit-on-error "$cluster/files.dump"
+    "$pg_bin/pg_restore" -h 127.0.0.1 -p 15450 -U postgres -d file_rules_restored --exit-on-error "$cluster/files.dump"
     "${psql[@]}" -d file_rules_restored <<'SQL'
 DO $$ BEGIN
  IF content.restrictions_ready() IS DISTINCT FROM true
@@ -203,9 +216,9 @@ SQL
     echo 'Request image rules, policy contention and populated restore passed.'
     "${psql[@]}" -d request_review -f scripts/seed-janitor-media-restore.sql
     "${psql[@]}" -d request_review -f scripts/test-janitor-media-restore.sql
-    "$pg_bin/pg_dump" -h 127.0.0.1 -p 55450 -U postgres -d request_review --format=custom -f "$cluster/private-media.dump"
+    "$pg_bin/pg_dump" -h 127.0.0.1 -p 15450 -U postgres -d request_review --format=custom -f "$cluster/private-media.dump"
     "${psql[@]}" -d postgres -c 'CREATE DATABASE private_media_restored OWNER board_migrator'
-    "$pg_bin/pg_restore" -h 127.0.0.1 -p 55450 -U postgres -d private_media_restored --exit-on-error "$cluster/private-media.dump"
+    "$pg_bin/pg_restore" -h 127.0.0.1 -p 15450 -U postgres -d private_media_restored --exit-on-error "$cluster/private-media.dump"
     "${psql[@]}" -d private_media_restored -f scripts/test-janitor-media-restore.sql
     echo 'Populated pending media, approved thumbnails, quota and scoped reads survive restore.'
 fi

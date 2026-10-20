@@ -42,6 +42,53 @@ impl MailKey {
         Some(Self(aead::LessSafeKey::new(key)))
     }
 
+    pub fn seal_pass(
+        &self,
+        context: &[u8; 32],
+        payload: &crate::pass_mail::Payload,
+    ) -> Option<Vec<u8>> {
+        let mut nonce = [0; 12];
+        SystemRandom::new().fill(&mut nonce).ok()?;
+        let mut encrypted = payload.encode()?;
+        let mut aad = b"26chan:pass-mail:v1\0".to_vec();
+        aad.extend_from_slice(context);
+        self.0
+            .seal_in_place_append_tag(
+                aead::Nonce::assume_unique_for_key(nonce),
+                aead::Aad::from(aad),
+                &mut encrypted,
+            )
+            .ok()?;
+        let mut envelope = vec![2];
+        envelope.extend_from_slice(&nonce);
+        envelope.extend_from_slice(&encrypted);
+        (envelope.len() <= crate::pass_mail::MAX_ENCRYPTED_BYTES).then_some(envelope)
+    }
+    pub fn open_pass(
+        &self,
+        context: &[u8; 32],
+        envelope: &[u8],
+    ) -> Option<crate::pass_mail::Payload> {
+        if !(29..=crate::pass_mail::MAX_ENCRYPTED_BYTES).contains(&envelope.len())
+            || envelope[0] != 2
+        {
+            return None;
+        }
+        let nonce: [u8; 12] = envelope[1..13].try_into().ok()?;
+        let mut encrypted = envelope[13..].to_vec();
+        let mut aad = b"26chan:pass-mail:v1\0".to_vec();
+        aad.extend_from_slice(context);
+        let plain = self
+            .0
+            .open_in_place(
+                aead::Nonce::assume_unique_for_key(nonce),
+                aead::Aad::from(aad),
+                &mut encrypted,
+            )
+            .ok()?;
+        crate::pass_mail::Payload::decode(plain)
+    }
+
     pub fn seal(&self, context: &[u8; 32], payload: &MailPayload) -> Option<Vec<u8>> {
         let mut nonce = [0; 12];
         SystemRandom::new().fill(&mut nonce).ok()?;
@@ -101,6 +148,59 @@ impl MailKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn pass_mail_envelopes_reject_substitution_and_verification_tokens() {
+        use crate::pass_mail::{Contact, Notice, Payload, Recipient};
+        let key = MailKey::parse(&"11".repeat(32)).unwrap();
+        let wrong = MailKey::parse(&"22".repeat(32)).unwrap();
+        let contact = Contact::new(
+            Recipient::parse("Owned+tag@example.test").unwrap(),
+            "AB12345678",
+            "owned-renewal",
+        )
+        .unwrap();
+        let payload = Payload::notice(contact, Notice::Reminder, 1_700_000_000).unwrap();
+        let context = [7; 32];
+        let envelope = key.seal_pass(&context, &payload).unwrap();
+        let Payload::Notice {
+            contact,
+            kind,
+            expires,
+        } = key.open_pass(&context, &envelope).unwrap()
+        else {
+            panic!("wrong payload")
+        };
+        assert_eq!(contact.recipient(), "Owned+tag@example.test");
+        assert_eq!(kind, Notice::Reminder);
+        assert_eq!(expires, 1_700_000_000);
+        assert!(key.open(&context, &envelope).is_none());
+        assert!(wrong.open_pass(&context, &envelope).is_none());
+        assert!(key.open_pass(&[8; 32], &envelope).is_none());
+        assert_ne!(envelope, key.seal_pass(&context, &payload).unwrap());
+        for length in 0..envelope.len() {
+            assert!(key.open_pass(&context, &envelope[..length]).is_none());
+        }
+        for index in 0..envelope.len() {
+            let mut changed = envelope.clone();
+            changed[index] ^= 1;
+            assert!(key.open_pass(&context, &changed).is_none());
+        }
+        let email = VerificationToken::generate(TokenKind::Email).unwrap();
+        let old = key
+            .seal(
+                &context,
+                &MailPayload::new("owned@gmail.com", &email.encode()).unwrap(),
+            )
+            .unwrap();
+        assert!(key.open_pass(&context, &old).is_none());
+        let invalid = Payload::Notice {
+            contact,
+            kind,
+            expires: i64::MAX,
+        };
+        assert!(key.seal_pass(&context, &invalid).is_none());
+    }
+
     #[test]
     fn local_delivery_roundtrip_keeps_the_full_recipient_and_token() {
         let key = MailKey::parse(&"11".repeat(32)).unwrap();

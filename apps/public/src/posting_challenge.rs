@@ -173,6 +173,45 @@ pub(crate) struct FormInput {
     pub(crate) credit: String,
 }
 
+#[derive(Debug)]
+pub(crate) struct ProofError {
+    pub(crate) error: AppError,
+    clear_pass: Option<bool>,
+}
+impl From<AppError> for ProofError {
+    fn from(error: AppError) -> Self {
+        Self {
+            error,
+            clear_pass: None,
+        }
+    }
+}
+impl From<board_store::StoreError> for ProofError {
+    fn from(error: board_store::StoreError) -> Self {
+        AppError::from(error).into()
+    }
+}
+impl ProofError {
+    pub(crate) fn pass_rejected(production: bool, message: &'static str) -> Self {
+        Self {
+            error: AppError(StatusCode::BAD_REQUEST, message),
+            clear_pass: Some(production),
+        }
+    }
+    pub(crate) fn render_with(self, render: impl FnOnce(AppError) -> Response) -> Response {
+        let mut response = render(self.error);
+        if let Some(production) = self.clear_pass {
+            crate::pass_auth::clear_cookie(response.headers_mut(), production);
+        }
+        response
+    }
+}
+impl IntoResponse for ProofError {
+    fn into_response(self) -> Response {
+        self.render_with(IntoResponse::into_response)
+    }
+}
+
 /// Exchange an answer immediately before the protected write. Only the issuer's
 /// private response supplies the peer/context hashes; they never cross HTTP to
 /// the browser. The database consumes the resulting receipt with the write.
@@ -183,14 +222,16 @@ pub(crate) async fn proof(
     peer: Option<IpAddr>,
     scope: Scope,
     input: &FormInput,
-) -> Result<Option<board_store::WriteChallengeProof>, AppError> {
+) -> Result<Option<board_store::WriteChallengeProof>, ProofError> {
+    let pass = crate::pass_auth::read_cookie(headers, state.production)?;
     // Presence is retained for request observations. Verification still treats
     // absent and empty values alike and derives authority only from the issuer.
     let challenge = input.challenge.as_deref().unwrap_or_default();
     let answer = input.answer.as_deref().unwrap_or_default();
-    if !board_store::posting_challenge::board_policy(&state.pool, &scope.board)
-        .await?
-        .enabled
+    if pass.is_none()
+        && !board_store::posting_challenge::board_policy(&state.pool, &scope.board)
+            .await?
+            .enabled
     {
         return Ok(None);
     }
@@ -199,7 +240,7 @@ pub(crate) async fn proof(
         (protocol::Purpose::Thread, 0)
             | (protocol::Purpose::Reply | protocol::Purpose::Report, 1..)
     ) {
-        return Err(invalid());
+        return Err(invalid().into());
     }
     let secret = PostingSecret::read(headers, state.production)
         .map_err(|_| invalid())?
@@ -208,13 +249,51 @@ pub(crate) async fn proof(
         return Err(AppError(
             StatusCode::FORBIDDEN,
             "This CAPTCHA form has expired. Reload it.",
-        ));
+        )
+        .into());
     }
     if !matches!(input.credit.as_str(), "" | "1")
         || answer.len() > 64
         || answer.chars().any(char::is_control)
     {
-        return Err(invalid());
+        return Err(invalid().into());
+    }
+    if let Some(token) = pass {
+        let context = scope.context(state, session, peer, &input.csrf)?;
+        let checked = state
+            .verification
+            .as_ref()
+            .ok_or_else(unavailable)?
+            .pass_write_receipt(&protocol::PassWriteRequest { token, context })
+            .await
+            .map_err(|_| unavailable())?;
+        return match checked {
+            protocol::PassWriteResult::Verified {
+                receipt,
+                peer_hash,
+                context_hash,
+            } => board_store::WriteChallengeProof::from_issuer(&receipt, peer_hash, context_hash)
+                .map(Some)
+                .ok_or_else(unavailable)
+                .map_err(Into::into),
+            protocol::PassWriteResult::Expired {} => Err(ProofError::pass_rejected(
+                state.production,
+                "This Pass has expired.",
+            )),
+            protocol::PassWriteResult::Disabled {} => Err(ProofError::pass_rejected(
+                state.production,
+                "This Pass has been disabled.",
+            )),
+            protocol::PassWriteResult::InUse {} => Err(ProofError::pass_rejected(
+                state.production,
+                "This Pass is already in use from another network.",
+            )),
+            protocol::PassWriteResult::None {} => Err(ProofError::pass_rejected(
+                state.production,
+                "This Pass session is invalid. Authenticate again.",
+            )),
+            protocol::PassWriteResult::Capacity {} => Err(unavailable().into()),
+        };
     }
     if scope.purpose == protocol::Purpose::Report
         && challenge.is_empty()
@@ -245,7 +324,7 @@ pub(crate) async fn proof(
     let checked = if input.credit == "1" {
         if scope.purpose == protocol::Purpose::Thread || !challenge.is_empty() || !answer.is_empty()
         {
-            return Err(invalid());
+            return Err(invalid().into());
         }
         service.credit(&context).await
     } else {
@@ -259,7 +338,8 @@ pub(crate) async fn proof(
             return Err(AppError(
                 StatusCode::BAD_REQUEST,
                 "Complete the CAPTCHA before submitting.",
-            ));
+            )
+            .into());
         }
         service
             .check(&protocol::Answer {
@@ -277,11 +357,13 @@ pub(crate) async fn proof(
             context_hash,
         } => board_store::WriteChallengeProof::from_issuer(&receipt, peer_hash, context_hash)
             .map(|proof| Some(proof.with_credit_request(credit_request(headers))))
-            .ok_or_else(unavailable),
+            .ok_or_else(unavailable)
+            .map_err(Into::into),
         protocol::AnswerResult::Rejected {} => Err(AppError(
             StatusCode::BAD_REQUEST,
             "Incorrect or expired CAPTCHA. Please try again.",
-        )),
+        )
+        .into()),
     }
 }
 
@@ -391,7 +473,17 @@ async fn request(
     } else {
         false
     };
-    let issued = if !policy.enabled || exempt {
+    let pass_exempt = crate::pass_auth::posting_ready(&state, &headers, peer).await?;
+    if pass_exempt {
+        state
+            .verification
+            .as_ref()
+            .ok_or_else(unavailable)?
+            .ensure_session(&crate::signin::trusted(&session, &state, peer)?)
+            .await
+            .map_err(|_| unavailable())?;
+    }
+    let issued = if !policy.enabled || exempt || pass_exempt {
         protocol::PostingChallengeResult {
             challenge: protocol::Challenge::Disabled {},
             ticket_challenge: false,
@@ -430,6 +522,91 @@ async fn request(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn only_typed_pass_rejections_clear_membership_cookies() {
+        use super::*;
+        for production in [false, true] {
+            let response =
+                ProofError::pass_rejected(production, "This Pass has expired.").into_response();
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+            let cookies: Vec<_> = response
+                .headers()
+                .get_all(header::SET_COOKIE)
+                .iter()
+                .map(|value| value.to_str().unwrap())
+                .collect();
+            assert_eq!(cookies.len(), 2);
+            assert!(cookies[0].starts_with(if production {
+                "__Host-board-pass="
+            } else {
+                "board-pass="
+            }));
+            assert!(cookies[0].contains("HttpOnly"));
+            assert!(cookies[1].starts_with("pass_enabled="));
+            for cookie in cookies {
+                assert!(cookie.contains("Max-Age=0"));
+                assert_eq!(cookie.contains("; Secure"), production);
+                assert!(!cookie.contains("Domain="));
+            }
+        }
+        let ordinary =
+            ProofError::from(AppError(StatusCode::BAD_REQUEST, "This Pass has expired."));
+        assert!(
+            !ordinary
+                .into_response()
+                .headers()
+                .contains_key(header::SET_COOKIE)
+        );
+        assert!(
+            !ProofError::from(unavailable())
+                .into_response()
+                .headers()
+                .contains_key(header::SET_COOKIE)
+        );
+    }
+
+    #[tokio::test]
+    async fn negotiated_proof_errors_preserve_json_and_cookie_revocation() {
+        use super::*;
+        use crate::posting_response::Format;
+        for production in [false, true] {
+            for format in [Format::Html, Format::Json] {
+                let response = ProofError::pass_rejected(production, "This Pass has expired.")
+                    .render_with(|error| format.error(error));
+                assert_eq!(
+                    response
+                        .headers()
+                        .get_all(header::SET_COOKIE)
+                        .iter()
+                        .count(),
+                    2
+                );
+                let expected = if matches!(format, Format::Json) {
+                    StatusCode::OK
+                } else {
+                    StatusCode::BAD_REQUEST
+                };
+                assert_eq!(response.status(), expected);
+                let body = axum::body::to_bytes(response.into_body(), 65_536)
+                    .await
+                    .unwrap();
+                if matches!(format, Format::Json) {
+                    assert_eq!(
+                        serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+                        serde_json::json!({"error":"This Pass has expired."})
+                    );
+                } else {
+                    assert!(String::from_utf8_lossy(&body).contains("This Pass has expired."));
+                }
+            }
+        }
+        let response =
+            ProofError::from(unavailable()).render_with(|error| Format::Json.error(error));
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert!(!response.headers().contains_key(header::SET_COOKIE));
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+    }
+
     #[test]
     fn courtesy_credit_gate_uses_actual_header_presence_and_duplicate_uncertainty() {
         use board_domain::content_admission::{

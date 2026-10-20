@@ -60,7 +60,15 @@ impl MailStore {
         )
         .fetch_one(&self.pool)
         .await?;
-        if safe {
+        if !safe {
+            return Err(StoreError::UnsafeRole);
+        }
+        // SQL does not guarantee boolean predicate evaluation order. Refuse a
+        // wrong role before calling an authority function it cannot execute.
+        let pass_ready: bool = sqlx::query_scalar("SELECT content.pass_mail_ready()")
+            .fetch_one(&self.pool)
+            .await?;
+        if pass_ready {
             Ok(())
         } else {
             Err(StoreError::UnsafeRole)
@@ -87,6 +95,59 @@ impl MailStore {
         success: bool,
     ) -> Result<bool, StoreError> {
         sqlx::query_scalar("SELECT content.verification_finish_mail($1,$2,$3)")
+            .bind(request)
+            .bind(lease_hash.as_slice())
+            .bind(success)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
+
+    pub async fn claim_recovery(
+        &self,
+        lease: &[u8; 32],
+        limit: i32,
+    ) -> Result<Vec<MailJob>, StoreError> {
+        sqlx::query_as("SELECT * FROM content.pass_claim_recovery_mail($1,$2)")
+            .bind(lease.as_slice())
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
+    pub async fn finish_recovery(
+        &self,
+        request: &str,
+        lease: &[u8; 32],
+        success: bool,
+    ) -> Result<bool, StoreError> {
+        sqlx::query_scalar("SELECT content.pass_finish_recovery_mail($1,$2,$3)")
+            .bind(request)
+            .bind(lease.as_slice())
+            .bind(success)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
+    pub async fn claim_pass(
+        &self,
+        lease_hash: &[u8; 32],
+        limit: i32,
+    ) -> Result<Vec<MailJob>, StoreError> {
+        sqlx::query_as("SELECT * FROM content.pass_claim_mail($1,$2)")
+            .bind(lease_hash.as_slice())
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(StoreError::from)
+    }
+    pub async fn finish_pass(
+        &self,
+        request: &str,
+        lease_hash: &[u8; 32],
+        success: bool,
+    ) -> Result<bool, StoreError> {
+        sqlx::query_scalar("SELECT content.pass_finish_mail($1,$2,$3)")
             .bind(request)
             .bind(lease_hash.as_slice())
             .bind(success)

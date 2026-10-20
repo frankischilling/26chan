@@ -333,6 +333,11 @@ async fn successful_move_preserves_exact_private_evidence_and_old_registration_x
         let cap = f.capability();
         let source = f.post(0, 0, Some(&cap)).await;
         let reply = f.post(0, source, None).await;
+        sqlx::query("UPDATE content.posts SET since4pass=CASE WHEN id=$1 THEN 2020 ELSE 2008 END WHERE id=ANY($2)")
+            .bind(source).bind(&[source,reply][..]).execute(&f.owner).await.unwrap();
+        let mut membership=f.owner.begin().await.unwrap();sqlx::query("SET LOCAL ROLE board_anonymous_owner").execute(&mut *membership).await.unwrap();
+        sqlx::query("INSERT INTO verification_private.pass_posts VALUES($1,$2),($3,$4)")
+            .bind(source).bind(vec![0x41u8;32]).bind(reply).bind(vec![0x42u8;32]).execute(&mut *membership).await.unwrap();membership.commit().await.unwrap();
         // Synthetic retained evidence isolates transfer from capture. Runtime
         // capture, including badged staff, has a separate posting regression.
         sqlx::query("UPDATE post_secrets.posting_history SET automatic_browser='1deadbeef',automatic_prefix=decode(repeat('12',32),'hex') WHERE post_id=$1")
@@ -351,6 +356,17 @@ async fn successful_move_preserves_exact_private_evidence_and_old_registration_x
         assert_eq!(result.posts[0].source_post_id, source);
         assert_eq!(result.posts[1].source_post_id, reply);
         let target = result.destination_thread;
+        let moved_years:Vec<i32>=sqlx::query_scalar("SELECT since4pass FROM content.posts WHERE thread_id=$1 AND board=$2 ORDER BY id")
+            .bind(target).bind(&f.boards[1]).fetch_all(&f.public).await.unwrap();
+        assert_eq!(moved_years,vec![2020,2008]);
+        let erased_years:Vec<i32>=sqlx::query_scalar("SELECT since4pass FROM content.posts WHERE id=ANY($1) ORDER BY id")
+            .bind(&[source,reply][..]).fetch_all(&f.owner).await.unwrap();
+        assert_eq!(erased_years,vec![0,0]);
+        let mut membership=f.private().await;
+        let moved:Vec<Vec<u8>>=sqlx::query_scalar("SELECT identity_hash FROM verification_private.pass_posts WHERE post_id=ANY($1) ORDER BY post_id")
+            .bind(&[target,result.posts[1].destination_post_id][..]).fetch_all(&mut *membership).await.unwrap();
+        assert_eq!(moved,vec![vec![0x41u8;32],vec![0x42u8;32]]);
+        let old:i64=sqlx::query_scalar("SELECT count(*) FROM verification_private.pass_posts WHERE post_id=ANY($1)").bind(&[source,reply][..]).fetch_one(&mut *membership).await.unwrap();assert_eq!(old,0);membership.rollback().await.unwrap();
         let after: serde_json::Value = sqlx::query_scalar("SELECT jsonb_build_object('deletion',(SELECT password_hash FROM post_secrets.deletion WHERE post_id=$1),'peer',(SELECT peer::text FROM post_secrets.op_peers WHERE thread_id=$1),'history',(SELECT to_jsonb(h)-'post_id'-'board'-'thread_id' FROM post_secrets.posting_history h WHERE post_id=$1),'anonymous',(SELECT to_jsonb(a)-'post_id' FROM post_secrets.anonymous_posts a WHERE post_id=$1),'session',(SELECT to_jsonb(s) FROM post_secrets.anonymous_sessions s WHERE token_hash=$2),'reply',(SELECT count(*) FROM post_secrets.op_replies WHERE post_id=$3 AND thread_id=$1))")
             .bind(target).bind(cap.storage_hash().as_slice()).bind(result.posts[1].destination_post_id).fetch_one(&f.owner).await.unwrap();
         assert_eq!(after, before, "copy evidence exactly, never mover context or fresh activity");
@@ -544,6 +560,45 @@ async fn source_and_policy_drift_refuse_without_partial_destination_or_audit() {
         assert_eq!(f.snapshot().await, before);
         assert_eq!(f.pending().await, pending);
         transfer::discard(&f.auth, &f.credentials(), &ticket)
+            .await
+            .unwrap();
+        let (year_ticket, _) = f.sealed(source).await;
+        sqlx::query("UPDATE content.posts SET since4pass=2014 WHERE id=$1")
+            .bind(source)
+            .execute(&f.owner)
+            .await
+            .unwrap();
+        let before_year = f.snapshot().await;
+        assert_eq!(
+            transfer::consume(&f.staff, &year_ticket).await.unwrap_err(),
+            TransferError::Drift
+        );
+        assert_eq!(f.snapshot().await, before_year);
+        transfer::discard(&f.auth, &f.credentials(), &year_ticket)
+            .await
+            .unwrap();
+        let (membership_ticket, _) = f.sealed(source).await;
+        let mut membership = f.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+            .execute(&mut *membership)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO verification_private.pass_posts VALUES($1,$2)")
+            .bind(source)
+            .bind(vec![0x43u8; 32])
+            .execute(&mut *membership)
+            .await
+            .unwrap();
+        membership.commit().await.unwrap();
+        let before_membership = f.snapshot().await;
+        assert_eq!(
+            transfer::consume(&f.staff, &membership_ticket)
+                .await
+                .unwrap_err(),
+            TransferError::Drift
+        );
+        assert_eq!(f.snapshot().await, before_membership);
+        transfer::discard(&f.auth, &f.credentials(), &membership_ticket)
             .await
             .unwrap();
         let (ticket, _) = f.sealed(source).await;

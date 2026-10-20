@@ -68,6 +68,10 @@ LANGUAGE plpgsql AS $$ DECLARE r record; BEGIN
  END LOOP;
 END $$;
 REVOKE ALL ON FUNCTION public.historical_rows() FROM PUBLIC;""")
+# Owned imported history can retain a public Pass year. The operator must
+# clear that field on selected tombstones and preserve unrelated/live years.
+sql("UPDATE content.posts SET since4pass=2020 WHERE id IN(31000001,31001001,31002001)", role="board_migrator")
+assert sql("SELECT count(*) FROM content.posts WHERE id IN(31000001,31001001,31002001) AND since4pass=2020 AND NOT content_erased") == "3"
 # One legacy membership and one immutable evidence row per owned report.
 sql("""BEGIN; SET LOCAL ROLE board_report_admission_owner;
 INSERT INTO post_secrets.report_membership(report_id,actor_hash,board,post_id,thread_id,reported_at)
@@ -188,6 +192,14 @@ for change, restore in (
     apply(first, ok=False)
     assert rows() == drift, "Catalog refusal changed rows"
     sql(restore)
+# Changing the actual body remains a refusal, even with the expected owner,
+# security mode and search path. Restore the exact original before proceeding.
+guard = sql("SELECT pg_get_functiondef('post_secrets.guard_post_erasure()'::regprocedure)")
+assert guard.count("NEW.since4pass:=0;") == 1
+sql(guard.replace("NEW.since4pass:=0;", "NULL;"))
+apply(first, ok=False)
+assert rows() == changed, "Guard-body refusal changed rows"
+sql(guard)
 assert rows() == changed
 sql("CREATE TABLE public.unreviewed_report_child(id bigint PRIMARY KEY REFERENCES content.reports(id) ON DELETE CASCADE); INSERT INTO public.unreviewed_report_child VALUES(31010001)")
 apply(first, ok=False)
@@ -255,6 +267,8 @@ assert sql(unchanged_sql) == unrelated, "Independent state changed"
 assert sql("SELECT metadata_erased AND filename='[deleted]' AND bytes=1 AND width=1 AND height=1 AND file_deleted FROM content.post_media WHERE post_id=31000001") == "t"
 assert sql("SELECT job_id=repeat('b1',16) AND asset_id=repeat('b4',16) FROM content.post_media WHERE post_id=31000001") == "t"
 assert sql("SELECT count(*) FROM content.posts WHERE board='hclean' AND content_erased") == "132"
+assert sql("SELECT count(*) FROM content.posts WHERE content_erased AND since4pass<>0") == "0"
+assert sql("SELECT count(*) FROM content.posts WHERE id IN(31001001,31002001) AND since4pass=2020") == "2"
 assert sql("SELECT count(*) FROM content.reports WHERE board='hclean'") == "1"
 assert sql("SELECT count(*) FROM post_secrets.report_membership WHERE board='hclean'") == "1"
 assert sql("SELECT count(*) FROM post_secrets.report_group WHERE board='hclean'") == "1"

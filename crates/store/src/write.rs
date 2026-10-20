@@ -716,6 +716,16 @@ async fn create_post_in_context(
         .execute(&mut *tx)
         .await?;
     crate::write_challenge::install(&mut tx, challenge.as_ref(), anonymous.as_ref()).await?;
+    sqlx::query("SELECT set_config('board.pass_year_requested',$1,true)")
+        .bind(
+            if board_domain::posting_options::pass_year_requested(&prepared_options) {
+                "true"
+            } else {
+                "false"
+            },
+        )
+        .execute(&mut *tx)
+        .await?;
     // Clear attachment intent even when a pooled session previously set it.
     sqlx::query("SELECT set_config('board.staff_attachment_job','',true),set_config('board.staff_attachment_capability','',true),set_config('board.staff_attachment_spoiler','',true),set_config('board.post_image_spoiler','false',true)")
         .execute(&mut *tx)
@@ -732,6 +742,7 @@ async fn create_post_in_context(
             .map(|session| &session.fingerprints.token),
         slug,
         context.request_start.timestamp(),
+        staff.is_none().then_some(parent),
     )
     .await?
     {
@@ -740,6 +751,21 @@ async fn create_post_in_context(
         tx.commit().await?;
         return Err(StoreError::ContentRejected(message.into()));
     }
+    let member_network_bypass: bool = if staff.is_none() {
+        sqlx::query_scalar("SELECT content.pass_network_bypass($1,$2,$3)")
+            .bind(slug)
+            .bind(parent)
+            .bind(
+                anonymous
+                    .as_ref()
+                    .map(|session| session.fingerprints.token.as_slice()),
+            )
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(crate::restrictions::posting_lookup_error)?
+    } else {
+        false
+    };
     if staff.is_some() {
         let role: String = sqlx::query_scalar("SELECT current_user::text")
             .fetch_one(&mut *tx)
@@ -777,7 +803,7 @@ async fn create_post_in_context(
                 crate::content_admission::NetworkContext {
                     asn,
                     hints: hints.cloned().unwrap_or_default(),
-                    staff_bypass: staff_network_bypass,
+                    trusted_bypass: staff_network_bypass || member_network_bypass,
                 },
             )
             .await?,
@@ -1202,7 +1228,14 @@ async fn create_post_in_context(
                 .peer
                 .ok_or(StoreError::Invalid("Posting identity is unavailable."))?;
             let refusal = file
-                .record(pool, &posting_actor, peer, anonymous, staff.as_ref())
+                .record(
+                    pool,
+                    &posting_actor,
+                    peer,
+                    anonymous,
+                    staff.as_ref(),
+                    challenge.as_ref(),
+                )
                 .await?;
             return Err(StoreError::FileRejected(refusal));
         }
@@ -1321,6 +1354,26 @@ async fn create_post_in_context(
     // authoritatively selects named/meta janitor ordinary timers before the
     // separate five-second staff check.
     if staff.is_none() {
+        if parent > 0
+            && let Some(attachment) = attachment
+        {
+            crate::posting_cooldown::check_duplicate_image(
+                &mut tx,
+                &posting_actor,
+                slug,
+                parent,
+                posted_at.timestamp(),
+                attachment,
+                false,
+            )
+            .await
+            .map_err(|error| {
+                crate::posting_cooldown::with_pass_offer(
+                    error,
+                    late_enabled && !member_network_bypass,
+                )
+            })?;
+        }
         crate::posting_cooldown::check(
             &mut tx,
             &posting_actor,
@@ -1329,7 +1382,10 @@ async fn create_post_in_context(
             attachment.is_some(),
             posted_at.timestamp(),
         )
-        .await?;
+        .await
+        .map_err(|error| {
+            crate::posting_cooldown::with_pass_offer(error, late_enabled && !member_network_bypass)
+        })?;
     }
     // Keep the locked policy outside the savepoint. A rejected post rolls back
     // rollover, counters, attachments and secrets, then persists only its mute.
@@ -1573,6 +1629,20 @@ async fn create_post_in_context(
             .await?;
         }
         if ordinary_timers {
+            if parent > 0
+                && let Some(attachment) = attachment
+            {
+                crate::posting_cooldown::check_duplicate_image(
+                    &mut tx,
+                    &posting_actor,
+                    slug,
+                    parent,
+                    posted_at.timestamp(),
+                    attachment,
+                    true,
+                )
+                .await?;
+            }
             crate::posting_cooldown::check_janitor(
                 &mut tx,
                 &posting_actor,
@@ -1860,12 +1930,22 @@ async fn create_post_in_context(
                 "Posting activity is unavailable.".into(),
             ))
         })?;
+        let pass_bypass = if let Some(session) = anonymous.as_ref() {
+            sqlx::query_scalar::<_, bool>("SELECT content.pass_post_bypass($1,$2)")
+                .bind(id)
+                .bind(session.fingerprints.token.as_slice())
+                .fetch_one(&mut *tx)
+                .await?
+        } else {
+            false
+        };
         let decision = plan::evaluate(
             &mut tx,
             plan::Context {
                 board: slug,
                 parent,
                 image: attachment.is_some(),
+                captcha_bypass: pass_bypass,
                 actor: activity.as_ref(),
                 activity_at,
                 session: anonymous.as_ref(),

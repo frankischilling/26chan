@@ -202,6 +202,7 @@ async fn janitor_request_http_preserves_creation_review_and_statistics() {
             assert_eq!(response.status(),StatusCode::OK);
             assert_eq!(response.headers()["cache-control"],"private, no-store");
             let history_html=String::from_utf8(to_bytes(response.into_body(),2*1024*1024).await.unwrap().to_vec()).unwrap();
+            assert!(history_html.contains("retained address or Pass identity"));
             assert!(history_html.contains("Owned prior ban"));
             assert!(history_html.contains("Owned prior warning"));
             assert!(history_html.contains("Private history sentinel"));

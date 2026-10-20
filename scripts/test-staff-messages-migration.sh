@@ -29,8 +29,13 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 "${runner[@]}" "$pg_bin/initdb" -D "$cluster/data" --username=postgres --auth=trust --encoding=UTF8 --no-locale >/dev/null
 started=1
-"${runner[@]}" "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.log" -o "-c listen_addresses='127.0.0.1' -c port=55447 -c unix_socket_directories='' -c statement_timeout=30000 -c lock_timeout=5000" -w start >/dev/null
-psql=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 55447 -U postgres)
+# Keep the owned listener below the default Linux ephemeral-port range.
+if ! "${runner[@]}" "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.log" -o "-c listen_addresses='127.0.0.1' -c port=15447 -c unix_socket_directories='' -c statement_timeout=30000 -c lock_timeout=5000" -w start >/dev/null; then
+    echo "Owned qualification database failed to start:" >&2
+    [[ ! -f "$cluster/server.log" ]] || cat "$cluster/server.log" >&2
+    exit 1
+fi
+psql=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 15447 -U postgres)
 "${psql[@]}" -d postgres -f - < deploy/roles.sql >/dev/null
 "${psql[@]}" -d postgres <<'SQL'
 CREATE DATABASE message_upgrade OWNER board_migrator;
@@ -81,19 +86,19 @@ if [[ ${RUN_RUST_TESTS:-0} = 1 ]]; then
         [[ $(basename "$migration") > 0205_staff_messages.sql ]] || continue
         "${migrator[@]}" --single-transaction -f - < "$migration" >/dev/null
     done
-    MIGRATION_DATABASE_URL=postgres://board_migrator@127.0.0.1:55447/message_upgrade \
-    AUTH_DATABASE_URL=postgres://board_auth@127.0.0.1:55447/message_upgrade \
-    STAFF_DATABASE_URL=postgres://board_staff@127.0.0.1:55447/message_upgrade \
+    MIGRATION_DATABASE_URL=postgres://board_migrator@127.0.0.1:15447/message_upgrade \
+    AUTH_DATABASE_URL=postgres://board_auth@127.0.0.1:15447/message_upgrade \
+    STAFF_DATABASE_URL=postgres://board_staff@127.0.0.1:15447/message_upgrade \
         cargo test -p board-staff --features database-tests --test messages --locked
 fi
 
 "${psql[@]}" -d message_upgrade -f scripts/test-staff-messages.sql
 "${psql[@]}" -U board_auth -d message_upgrade -f scripts/test-staff-messages-runtime.sql
-"$pg_bin/pg_dump" -h 127.0.0.1 -p 55447 -U postgres -d message_upgrade --format=custom -f "$cluster/owned.dump"
+"$pg_bin/pg_dump" -h 127.0.0.1 -p 15447 -U postgres -d message_upgrade --format=custom -f "$cluster/owned.dump"
 "${psql[@]}" -d postgres <<'SQL'
 CREATE DATABASE message_restored OWNER board_migrator;
 SQL
-"$pg_bin/pg_restore" -h 127.0.0.1 -p 55447 -U postgres -d message_restored --exit-on-error "$cluster/owned.dump"
+"$pg_bin/pg_restore" -h 127.0.0.1 -p 15447 -U postgres -d message_restored --exit-on-error "$cluster/owned.dump"
 "${psql[@]}" -d message_restored -c 'GRANT CONNECT ON DATABASE message_restored TO board_auth'
 "${psql[@]}" -U board_auth -d message_restored -f scripts/test-staff-messages-runtime.sql
 "${psql[@]}" -d message_upgrade <<'SQL'

@@ -82,3 +82,9 @@ ALTER ROLE board_moderation_retention SET statement_timeout='5s';
 ALTER ROLE board_moderation_retention SET lock_timeout='2s';
 ALTER ROLE board_moderation_retention SET idle_in_transaction_session_timeout='5s';
 ALTER ROLE board_moderation_retention SET search_path=pg_catalog;
+-- Bootstrap before 0234; only authenticated payment adapters use this runtime.
+CREATE ROLE board_checkout NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE board_checkout SET statement_timeout='5s';
+ALTER ROLE board_checkout SET lock_timeout='2s';
+ALTER ROLE board_checkout SET idle_in_transaction_session_timeout='5s';
+ALTER ROLE board_checkout SET search_path=pg_catalog;

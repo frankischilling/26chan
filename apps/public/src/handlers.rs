@@ -69,6 +69,18 @@ impl From<StoreError> for AppError {
                     "CAPTCHA verification is required. Please reload the CAPTCHA.",
                 )
             }
+            StoreError::Database(ref error)
+                if error
+                    .as_database_error()
+                    .and_then(|error| error.code())
+                    .as_deref()
+                    == Some("P0201") =>
+            {
+                Self(
+                    StatusCode::FORBIDDEN,
+                    "Error: Only Pass users can post on this board.",
+                )
+            }
             StoreError::Invalid(message) => Self(StatusCode::UNPROCESSABLE_ENTITY, message),
             StoreError::Conflict(message) => Self(StatusCode::CONFLICT, message),
             StoreError::PublicDeletionRejected(message) => Self(StatusCode::FORBIDDEN, message),
@@ -1172,7 +1184,7 @@ async fn submit_post(
         &headers,
         state.posting_browser_compat_key.as_deref(),
     ));
-    let challenge = crate::posting_challenge::proof(
+    let challenge = match crate::posting_challenge::proof(
         &state,
         &headers,
         &session,
@@ -1193,7 +1205,11 @@ async fn submit_post(
             credit: form.captcha_credit,
         },
     )
-    .await?;
+    .await
+    {
+        Ok(challenge) => challenge,
+        Err(error) => return Ok(error.render_with(|error| format.error(error))),
+    };
     let password = session.password(&form.password);
     // The operator may enable OP markup while this request waits on the board
     // lock. Capture proof independently of the earlier policy snapshot.
@@ -1290,7 +1306,7 @@ async fn submit_post(
     let id = match id {
         Ok(id) => id,
         Err(StoreError::PostingCooldownRejected(rejection)) => {
-            return Ok(format.rule_error(&rejection.source_message()));
+            return Ok(format.cooldown_error(&rejection));
         }
         Err(StoreError::Robot9000Rejected(message) | StoreError::ContentRejected(message)) => {
             if matches!(format, crate::posting_response::Format::Html)
@@ -1724,7 +1740,7 @@ pub(crate) async fn submit_report(
     .await
     {
         Ok(challenge) => challenge,
-        Err(error) => return Ok(fail(error)),
+        Err(error) => return Ok(error.render_with(fail)),
     };
     let source_cookies_absent = match crate::posting_challenge::source_cookies_absent(headers) {
         Ok(absent) => absent,
@@ -2305,6 +2321,18 @@ mod storage_diagnostic_tests {
             error.1,
             "CAPTCHA verification is required. Please reload the CAPTCHA."
         );
+        assert!(log.is_empty());
+    }
+
+    #[test]
+    fn pass_only_rejection_hides_private_database_diagnostics() {
+        let (error, log) = convert_with_log(StoreError::Database(sqlx::Error::Database(Box::new(
+            FakeDatabaseError {
+                code: Some("P0201"),
+            },
+        ))));
+        assert_eq!(error.0, StatusCode::FORBIDDEN);
+        assert_eq!(error.1, "Error: Only Pass users can post on this board.");
         assert!(log.is_empty());
     }
 

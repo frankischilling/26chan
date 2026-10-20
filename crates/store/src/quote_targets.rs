@@ -116,6 +116,7 @@ mod tests {
             name: String::new(),
             trip: None,
             poster_id: None,
+            since4pass: 0,
             json_op_poster_id: None,
             capcode: None,
             country: None,

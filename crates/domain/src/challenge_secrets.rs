@@ -40,6 +40,85 @@ impl VerificationKey {
             .expect("HMAC-SHA256 size")
     }
 
+    pub fn pass_identifier(&self, value: &str) -> Option<[u8; 32]> {
+        if value.len() != 10 || !value.bytes().all(|byte| byte.is_ascii_alphanumeric()) {
+            return None;
+        }
+        Some(self.digest(b"pass-identifier", &[value.to_ascii_uppercase().as_bytes()]))
+    }
+
+    pub fn pass_recipient(&self, value: &str) -> Option<[u8; 32]> {
+        let recipient = crate::pass_mail::Recipient::parse(value)?;
+        Some(self.digest(b"pass-recipient", &[recipient.identity().as_bytes()]))
+    }
+
+    pub fn pass_renewal(&self, value: &str) -> Option<[u8; 32]> {
+        if value.is_empty()
+            || value.len() > 128
+            || !value
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
+        {
+            return None;
+        }
+        Some(self.digest(b"pass-renewal", &[value.as_bytes()]))
+    }
+
+    pub fn checkout_view(&self, nonce: &str, reference: &[u8; 32]) -> Option<CheckoutToken> {
+        let nonce = decode(nonce)?;
+        Some(CheckoutToken(
+            self.digest(b"checkout-idempotent-view", &[&nonce, reference]),
+        ))
+    }
+
+    pub fn checkout_purchase_view(
+        &self,
+        nonce: &str,
+        recipient: &[u8; 32],
+    ) -> Option<CheckoutToken> {
+        let nonce = decode(nonce)?;
+        Some(CheckoutToken(
+            self.digest(b"checkout-purchase-view", &[&nonce, recipient]),
+        ))
+    }
+
+    pub fn pass_networks(&self, address: std::net::IpAddr) -> Option<PassNetworks> {
+        use std::net::IpAddr;
+        let address = match address {
+            IpAddr::V6(value) => value.to_ipv4_mapped().map(IpAddr::V4).unwrap_or(address),
+            _ => address,
+        };
+        if address.is_unspecified() || address.is_multicast() {
+            return None;
+        }
+        let (login, posting) = match address {
+            IpAddr::V4(value) => {
+                let raw = u32::from(value);
+                let login = raw & 0xffff0000;
+                let posting = raw & 0xffffff00;
+                (
+                    (login != 0).then(|| self.digest(b"pass-login-v4", &[&login.to_be_bytes()])),
+                    (posting != 0)
+                        .then(|| self.digest(b"pass-posting-v4", &[&posting.to_be_bytes()])),
+                )
+            }
+            IpAddr::V6(value) => {
+                // Native IPv6 uses /64 scopes; the source's IPv4-only masking
+                // otherwise collapses IPv6 peers to an unset network.
+                let bytes = value.octets();
+                (
+                    Some(self.digest(b"pass-login-v6", &[&bytes[..8]])),
+                    Some(self.digest(b"pass-posting-v6", &[&bytes[..8]])),
+                )
+            }
+        };
+        Some(PassNetworks {
+            peer: self.network_identity(address),
+            login,
+            posting,
+        })
+    }
+
     pub fn email_identity(&self, email: &crate::email_verification::PreparedEmail) -> [u8; 32] {
         self.digest(b"email-identity", &[email.identity().as_bytes()])
     }
@@ -69,8 +148,8 @@ impl VerificationKey {
         }
         let valid = match purpose {
             "email_request" => board.is_none() && target == 0,
-            "thread" => board.is_some() && target == 0,
-            "reply" | "report" => board.is_some() && target > 0,
+            "thread" | "restriction_status" => board.is_some() && target == 0,
+            "reply" | "report" | "warning_view" => board.is_some() && target > 0,
             "ticket" => board.is_some(),
             _ => false,
         };
@@ -202,6 +281,77 @@ pub struct VerificationToken {
 /// A random receipt candidate is not authority until the isolated issuer has
 /// recorded a successful, context-bound verification. The public writer can
 /// hash and consume a receipt without inheriting the issuer's signing key.
+pub struct PassNetworks {
+    pub peer: [u8; 32],
+    pub login: Option<[u8; 32]>,
+    pub posting: Option<[u8; 32]>,
+}
+
+pub struct PassSessionToken([u8; 32]);
+impl PassSessionToken {
+    pub fn generate() -> Result<Self, ring::error::Unspecified> {
+        let mut bytes = [0; 32];
+        SystemRandom::new().fill(&mut bytes)?;
+        Ok(Self(bytes))
+    }
+    pub fn parse(value: &str) -> Option<Self> {
+        Some(Self(decode(value.strip_prefix("p1_")?)?))
+    }
+    pub fn encode(&self) -> String {
+        encode("p1_", &self.0)
+    }
+    pub fn storage_hash(&self) -> [u8; 32] {
+        let mut context = Context::new(&SHA256);
+        context.update(b"26chan:pass-session:v1\0");
+        context.update(&self.0);
+        context.finish().as_ref().try_into().expect("SHA-256 size")
+    }
+}
+
+/// Single-use PIN recovery material, isolated from membership sessions and receipts.
+pub struct PassRecoveryToken([u8; 32]);
+impl PassRecoveryToken {
+    pub fn generate() -> Result<Self, ring::error::Unspecified> {
+        let mut bytes = [0; 32];
+        SystemRandom::new().fill(&mut bytes)?;
+        Ok(Self(bytes))
+    }
+    pub fn parse(value: &str) -> Option<Self> {
+        Some(Self(decode(value.strip_prefix("pr1_")?)?))
+    }
+    pub fn encode(&self) -> String {
+        encode("pr1_", &self.0)
+    }
+    pub fn storage_hash(&self) -> [u8; 32] {
+        let mut context = Context::new(&SHA256);
+        context.update(b"26chan:pass-recovery:v1\0");
+        context.update(&self.0);
+        context.finish().as_ref().try_into().expect("SHA-256 size")
+    }
+}
+
+/// Browser capability for one checkout result. It never authenticates a Pass.
+pub struct CheckoutToken([u8; 32]);
+impl CheckoutToken {
+    pub fn generate() -> Result<Self, ring::error::Unspecified> {
+        let mut bytes = [0; 32];
+        SystemRandom::new().fill(&mut bytes)?;
+        Ok(Self(bytes))
+    }
+    pub fn parse(value: &str) -> Option<Self> {
+        Some(Self(decode(value.strip_prefix("po1_")?)?))
+    }
+    pub fn encode(&self) -> String {
+        encode("po1_", &self.0)
+    }
+    pub fn storage_hash(&self) -> [u8; 32] {
+        let mut context = Context::new(&SHA256);
+        context.update(b"26chan:checkout-view:v1\0");
+        context.update(&self.0);
+        context.finish().as_ref().try_into().expect("SHA-256 size")
+    }
+}
+
 pub struct ReceiptToken([u8; 32]);
 impl ReceiptToken {
     pub fn generate() -> Result<Self, ring::error::Unspecified> {
@@ -365,6 +515,51 @@ mod tests {
         assert!(key.form_context("email_verify", None, 0, &nonce).is_none());
     }
     #[test]
+    fn pass_warning_contexts_are_separate_from_posting_and_bound_to_exact_targets() {
+        let key = VerificationKey::parse(&"01".repeat(32)).unwrap();
+        let nonce = "ab".repeat(32);
+        let status = key
+            .form_context("restriction_status", Some("g"), 0, &nonce)
+            .unwrap();
+        let warning = key
+            .form_context("warning_view", Some("g"), 42, &nonce)
+            .unwrap();
+        assert_ne!(
+            Some(status),
+            key.form_context("thread", Some("g"), 0, &nonce)
+        );
+        for purpose in ["reply", "report"] {
+            assert_ne!(
+                Some(warning),
+                key.form_context(purpose, Some("g"), 42, &nonce)
+            );
+        }
+        assert_ne!(
+            Some(warning),
+            key.form_context("warning_view", Some("g"), 43, &nonce)
+        );
+        assert_ne!(
+            Some(warning),
+            key.form_context("warning_view", Some("a"), 42, &nonce)
+        );
+        assert_ne!(
+            Some(warning),
+            key.form_context("warning_view", Some("g"), 42, &"cd".repeat(32))
+        );
+        assert!(
+            key.form_context("warning_view", Some("g"), 0, &nonce)
+                .is_none()
+        );
+        assert!(
+            key.form_context("restriction_status", Some("g"), 42, &nonce)
+                .is_none()
+        );
+        assert!(
+            key.form_context("restriction_status", None, 0, &nonce)
+                .is_none()
+        );
+    }
+    #[test]
     fn generated_tokens_roundtrip_without_using_display_or_debug() {
         for kind in [TokenKind::Challenge, TokenKind::Email, TokenKind::Ticket] {
             let token = VerificationToken::generate(kind).unwrap();
@@ -447,5 +642,46 @@ mod tests {
         }
         assert!(key.challenge_answer(&first, 3).is_none());
         assert!(key.challenge_answer(&first, 9).is_none());
+    }
+}
+
+#[cfg(test)]
+mod pass_secret_tests {
+    use super::*;
+    #[test]
+    fn pass_tokens_and_identity_hashes_are_separate_and_canonical() {
+        let key = VerificationKey::parse(&"12".repeat(32)).unwrap();
+        assert_eq!(
+            key.pass_identifier("AbC123xyZ0"),
+            key.pass_identifier("ABC123XYZ0")
+        );
+        assert!(key.pass_identifier("too-short").is_none());
+        assert!(key.pass_identifier("ABC12!XYZ0").is_none());
+        let token = PassSessionToken::generate().unwrap();
+        assert_eq!(
+            token.storage_hash(),
+            PassSessionToken::parse(&token.encode())
+                .unwrap()
+                .storage_hash()
+        );
+        assert!(ReceiptToken::parse(&token.encode()).is_none());
+        assert!(PassSessionToken::parse(&ReceiptToken::generate().unwrap().encode()).is_none());
+    }
+    #[test]
+    fn pass_networks_preserve_login_and_posting_prefixes() {
+        let key = VerificationKey::parse(&"34".repeat(32)).unwrap();
+        let get = |ip: &str| key.pass_networks(ip.parse().unwrap()).unwrap();
+        let a = get("192.0.2.1");
+        let same = get("192.0.2.2");
+        let other = get("192.0.3.1");
+        assert_eq!(a.login, same.login);
+        assert_eq!(a.posting, same.posting);
+        assert_ne!(a.peer, same.peer);
+        assert_eq!(a.login, other.login);
+        assert_ne!(a.posting, other.posting);
+        assert_eq!(a.peer, get("::ffff:192.0.2.1").peer);
+        assert_eq!(get("2001:db8::1").posting, get("2001:db8::2").posting);
+        assert_ne!(get("2001:db8::1").posting, get("2001:db8:0:1::1").posting);
+        assert!(key.pass_networks("::".parse().unwrap()).is_none());
     }
 }

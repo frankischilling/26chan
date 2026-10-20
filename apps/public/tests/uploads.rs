@@ -1302,7 +1302,9 @@ async fn image_reply_contract(
             height: 300,
         };
         let variants = OutputVariants {
-            md5: "00".repeat(16),
+            // These are distinct images; reusing the OP digest correctly triggers
+            // the source cross-thread/OP duplicate-image cooldown on the reply.
+            md5: format!("{index:032x}"),
             thumbnail: OutputMetadata {
                 sha256: "d".repeat(64),
                 bytes: 80,
@@ -1360,7 +1362,14 @@ async fn image_reply_contract(
                 ))
                 .await
                 .unwrap();
-            assert_eq!(response.status(), StatusCode::SEE_OTHER);
+            if response.status() != StatusCode::SEE_OTHER {
+                let status = response.status();
+                let body = to_bytes(response.into_body(), 262_144).await.unwrap();
+                panic!(
+                    "Owned image-only reply returned {status}: {}",
+                    String::from_utf8_lossy(&body)
+                );
+            }
             response.headers()["location"]
                 .to_str()
                 .unwrap()
@@ -1472,7 +1481,17 @@ async fn image_reply_contract(
         } else {
             assert!(p["com"].as_str().unwrap().contains("Synthetic API fixture"));
         }
-        assert_eq!(p["md5"], "AAAAAAAAAAAAAAAAAAAAAA==");
+        let expected_md5 = [
+            "AAAAAAAAAAAAAAAAAAAAAA==",
+            "AAAAAAAAAAAAAAAAAAAAAQ==",
+            "AAAAAAAAAAAAAAAAAAAAAg==",
+            "AAAAAAAAAAAAAAAAAAAAAw==",
+            "AAAAAAAAAAAAAAAAAAAABA==",
+            "AAAAAAAAAAAAAAAAAAAABQ==",
+            "AAAAAAAAAAAAAAAAAAAABg==",
+            "AAAAAAAAAAAAAAAAAAAABw==",
+        ];
+        assert_eq!(p["md5"], expected_md5[index]);
         assert_eq!(p["filename"], format!("<b>{board}</b>"));
         assert_eq!(p["tn_w"], 250);
         assert_eq!(p["tn_h"], 150);

@@ -10,6 +10,7 @@ board-domain = { path = "../../crates/domain" }
 board-store = { path = "../../crates/store" }
 tokio = { workspace = true, features = ["io-util"] }
 url.workspace = true
+chrono.workspace = true
 
 [lints]
 workspace = true

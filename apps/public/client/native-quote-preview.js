@@ -33,7 +33,7 @@ const localTags = {
   br: [], wbr: [], b: [], s: [], small: [], pre: ['class'], p: ['class'], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
 };
 const localClasses = new Set(['postContainer', 'opContainer', 'replyContainer', 'post', 'op', 'reply',
-  'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'imgspoiler', 'fileDeleted', 'fileDeletedRes', 'postMessage',
+  'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'n-pu', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'imgspoiler', 'fileDeleted', 'fileDeletedRes', 'postMessage',
   'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint',
   'fortune', 'fortune-0', 'fortune-1', 'fortune-2', 'fortune-3', 'fortune-4', 'fortune-5', 'fortune-6',
   'fortune-7', 'fortune-8', 'fortune-9', 'fortune-10', 'fortune-11', 'fortune-12']);
@@ -73,7 +73,7 @@ export function localQuoteTree(article, context, no, projection) {
     for (const key of localTags[tag]) {
       if (tag === 'div' && key.startsWith('data-') && (!(originalAttrs.class || '').split(' ').includes('file')
         || !isSpoilerAssetPath(node.querySelector('a.fileThumb.imgspoiler img')?.getAttribute('src')))) continue;
-      if (key === 'title' && tag === 'span' && !Array.from(node.classList).some(isPostFlagToken)
+      if (key === 'title' && tag === 'span' && node.className !== 'n-pu' && !Array.from(node.classList).some(isPostFlagToken)
         && !(['name', 'subject'].includes(node.className) && node.closest('.postInfoM'))) continue;
       if (key === 'title' && tag === 'a' && !node.parentElement?.matches('.postInfo > span.postNum,.postInfoM > span.dateTime.postNum,.file > .fileText')) continue;
       if (key === 'title' && tag === 'div' && node.className !== 'fileText') continue;

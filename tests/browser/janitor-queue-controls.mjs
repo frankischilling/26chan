@@ -73,7 +73,9 @@ try {
     assert.equal(writes.length, 0, 'select interaction must not trigger a review');
     await page.keyboard.press('Escape');
     await expect(page.locator('#ban-request-1 details')).not.toHaveAttribute('open');
-    await page.clock.install();
+    // Keep host scheduling between 2999 ms and Undo from crossing the 3 s
+    // deadline. runFor advances this paused clock explicitly.
+    await page.clock.pauseAt(new Date('2026-09-13T19:00:00Z'));
     await page.keyboard.press('d');
     await expect(page.locator('#queue-undo')).toBeVisible();
     await page.clock.runFor(2999);

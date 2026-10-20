@@ -42,6 +42,17 @@ def red_png():
 
 
 class VmTest(unittest.TestCase):
+    def assert_vmm_removed(self, vmm):
+        remaining = vmm.exists()
+        details = []
+        if remaining:
+            for field in ('comm', 'status', 'stat', 'cgroup'):
+                try:
+                    details.append(field + ': ' + (vmm / field).read_text()[:4096])
+                except (FileNotFoundError, ProcessLookupError):
+                    details.append(field + ': exited during inspection')
+        self.assertFalse(remaining, 'Cancelled VMM proc entry remained: ' + '\n'.join(details))
+
     def test_stopped_output_passes_real_rust_validation_before_private_promotion(self):
         validator = os.environ['MEDIA_VM_VALIDATOR']
         with tempfile.TemporaryDirectory(prefix='vm-pipeline-', dir=os.environ.get('MEDIA_VM_TEST_TEMP')) as name:
@@ -223,20 +234,23 @@ class VmTest(unittest.TestCase):
                     workspace.rmdir()
 
     def test_catchable_cancellation_cleans_service_and_workspace(self):
-        for first_signal in (signal.SIGTERM, signal.SIGINT):
-            with self.subTest(first_signal=first_signal), self.sleeping_vm() as (runner, unit, workspace, disk, vmm):
-                runner.send_signal(first_signal)
-                time.sleep(0.02)
-                if runner.poll() is None:
-                    runner.send_signal(signal.SIGTERM)
-                    runner.send_signal(signal.SIGINT)
-                runner.wait(timeout=12)
-                _, diagnostics = runner.communicate(timeout=2)
-                self.assertNotEqual(runner.returncode, 0)
-                self.assertFalse(disk.exists())
-                self.assertFalse(workspace.exists(), 'cancelled runner left reusable workspace: ' + diagnostics[:4096])
-                self.assertFalse(vmm.exists(), 'cancelled runner left a live VMM')
-                self.assert_clean()
+        # Exercise the observed intermittent teardown boundary more than once.
+        # Every iteration retains the strict process/workspace assertions.
+        for attempt in range(3):
+            for first_signal in (signal.SIGTERM, signal.SIGINT):
+                with self.subTest(attempt=attempt, first_signal=first_signal), self.sleeping_vm() as (runner, unit, workspace, disk, vmm):
+                    runner.send_signal(first_signal)
+                    time.sleep(0.02)
+                    if runner.poll() is None:
+                        runner.send_signal(signal.SIGTERM)
+                        runner.send_signal(signal.SIGINT)
+                    runner.wait(timeout=12)
+                    _, diagnostics = runner.communicate(timeout=2)
+                    self.assertNotEqual(runner.returncode, 0)
+                    self.assertFalse(disk.exists())
+                    self.assertFalse(workspace.exists(), 'cancelled runner left reusable workspace: ' + diagnostics[:4096])
+                    self.assert_vmm_removed(vmm)
+                    self.assert_clean()
         self.run_probe(b'disk')
 
     def test_live_vmm_has_effective_host_resource_limits(self):

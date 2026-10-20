@@ -7,6 +7,7 @@ use sqlx::{Postgres, Transaction};
 pub enum PostingCooldownReason {
     Reply,
     ImageReply,
+    DuplicateImage,
     Thread,
     CrossBoardThread,
 }
@@ -15,11 +16,12 @@ pub enum PostingCooldownReason {
 pub struct PostingCooldownRejection {
     pub reason: PostingCooldownReason,
     pub remaining_seconds: i64,
+    /// Presentation only, derived from the locked board and checked membership.
+    pub pass_offer: bool,
 }
 
 impl PostingCooldownRejection {
-    /// Source S_RENZOKU/S_RENZOKU2/S_RENZOKU3. Pass promotion is deliberately
-    /// absent: this backend does not implement a trusted Pass discount.
+    /// Source S_RENZOKU/S_RENZOKU2/S_RENZOKU3 refusal text.
     pub fn source_message(&self) -> String {
         match self.reason {
             PostingCooldownReason::Reply => format!(
@@ -30,11 +32,30 @@ impl PostingCooldownRejection {
                 "Error: You must wait {} before posting an image reply.",
                 source_duration(self.remaining_seconds)
             ),
+            PostingCooldownReason::DuplicateImage => format!(
+                "Error: You must wait {} before posting a duplicate image.",
+                source_duration(self.remaining_seconds)
+            ),
             PostingCooldownReason::Thread | PostingCooldownReason::CrossBoardThread => {
                 "Error: You must wait longer before posting a new thread.".into()
             }
         }
     }
+}
+
+/// Source S_RENZOKU_PASS applies only to non-bypassed reply timers.
+/// This presentation flag never participates in admission or proof validation.
+pub(crate) fn with_pass_offer(mut error: StoreError, ordinary: bool) -> StoreError {
+    if let StoreError::PostingCooldownRejected(ref mut rejection) = error {
+        rejection.pass_offer = ordinary
+            && matches!(
+                rejection.reason,
+                PostingCooldownReason::Reply
+                    | PostingCooldownReason::ImageReply
+                    | PostingCooldownReason::DuplicateImage
+            );
+    }
+    error
 }
 
 impl std::fmt::Display for PostingCooldownRejection {
@@ -99,7 +120,7 @@ pub(crate) async fn check(
     request_epoch: i64,
 ) -> Result<(), StoreError> {
     let rows: Vec<ResultRow> = sqlx::query_as(
-        "SELECT kind,remaining_seconds FROM content.check_posting_cooldown($1,$2,$3,$4,$5)",
+        "SELECT kind,remaining_seconds FROM content.pass_check_posting_cooldown($1,$2,$3,$4,$5)",
     )
     .bind(actor.as_bytes().as_slice())
     .bind(board)
@@ -109,6 +130,32 @@ pub(crate) async fn check(
     .fetch_all(&mut **tx)
     .await?;
     decode_result(&rows, CheckContext::Ordinary { parent, has_image })
+}
+
+pub(crate) async fn check_duplicate_image(
+    tx: &mut Transaction<'_, Postgres>,
+    actor: &PublicPostingRateIdentity,
+    board: &str,
+    parent: i64,
+    request_epoch: i64,
+    attachment: &crate::post_media::NewAttachment,
+    janitor: bool,
+) -> Result<(), StoreError> {
+    let statement = if janitor {
+        "SELECT kind,remaining_seconds FROM content.pass_check_janitor_duplicate($1,$2,$3,$4,$5,$6)"
+    } else {
+        "SELECT kind,remaining_seconds FROM content.pass_check_duplicate_image($1,$2,$3,$4,$5,$6)"
+    };
+    let rows: Vec<ResultRow> = sqlx::query_as(statement)
+        .bind(actor.as_bytes().as_slice())
+        .bind(board)
+        .bind(parent)
+        .bind(request_epoch)
+        .bind(&attachment.upload.id)
+        .bind(&attachment.upload.capability)
+        .fetch_all(&mut **tx)
+        .await?;
+    decode_result(&rows, CheckContext::DuplicateImage)
 }
 
 /// Only a current, bound janitor authority can select the ordinary timer path.
@@ -156,6 +203,7 @@ pub(crate) async fn check_staff(
 enum CheckContext {
     Ordinary { parent: i64, has_image: bool },
     Staff,
+    DuplicateImage,
 }
 
 fn decode_result(rows: &[ResultRow], context: CheckContext) -> Result<(), StoreError> {
@@ -170,6 +218,7 @@ fn decode_result(rows: &[ResultRow], context: CheckContext) -> Result<(), StoreE
         _ => return Err(invalid()),
     };
     let reason = match (context, row.kind.as_str()) {
+        (CheckContext::DuplicateImage, "duplicate_image") => PostingCooldownReason::DuplicateImage,
         (CheckContext::Staff, "reply") => PostingCooldownReason::Reply,
         (
             CheckContext::Ordinary {
@@ -195,6 +244,7 @@ fn decode_result(rows: &[ResultRow], context: CheckContext) -> Result<(), StoreE
         PostingCooldownRejection {
             reason,
             remaining_seconds: row.remaining_seconds,
+            pass_offer: false,
         },
     ))
 }
@@ -380,10 +430,51 @@ mod tests {
     }
 
     #[test]
+    fn pass_offer_is_presentation_only_and_limited_to_ordinary_reply_timers() {
+        for reason in [
+            PostingCooldownReason::Reply,
+            PostingCooldownReason::ImageReply,
+            PostingCooldownReason::DuplicateImage,
+            PostingCooldownReason::Thread,
+            PostingCooldownReason::CrossBoardThread,
+        ] {
+            for ordinary in [false, true] {
+                let error = with_pass_offer(
+                    StoreError::PostingCooldownRejected(PostingCooldownRejection {
+                        reason,
+                        remaining_seconds: 17,
+                        pass_offer: false,
+                    }),
+                    ordinary,
+                );
+                let StoreError::PostingCooldownRejected(value) = error else {
+                    panic!("wrong error");
+                };
+                assert_eq!(
+                    value.pass_offer,
+                    ordinary
+                        && matches!(
+                            reason,
+                            PostingCooldownReason::Reply
+                                | PostingCooldownReason::ImageReply
+                                | PostingCooldownReason::DuplicateImage
+                        )
+                );
+                assert_eq!(value.remaining_seconds, 17);
+            }
+        }
+        assert!(matches!(
+            with_pass_offer(StoreError::NotFound, true),
+            StoreError::NotFound
+        ));
+    }
+
+    #[test]
     fn typed_messages_match_source_errors() {
         let rejected = |reason| PostingCooldownRejection {
             reason,
             remaining_seconds: 61,
+            pass_offer: false,
         };
         assert_eq!(
             rejected(PostingCooldownReason::Reply).source_message(),
@@ -392,6 +483,10 @@ mod tests {
         assert_eq!(
             rejected(PostingCooldownReason::ImageReply).source_message(),
             "Error: You must wait 1 minute 1 second before posting an image reply."
+        );
+        assert_eq!(
+            rejected(PostingCooldownReason::DuplicateImage).source_message(),
+            "Error: You must wait 1 minute 1 second before posting a duplicate image."
         );
         for reason in [
             PostingCooldownReason::Thread,

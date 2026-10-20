@@ -12,7 +12,7 @@ export const UPDATER_LIMITS = Object.freeze({ bytes: 4194304, posts: 1501, nodes
 export const PREVIEW_LIMITS = Object.freeze({ bytes: 262144, nodes: 16384, depth: 32,
   requestMs: 5000, parseMs: 1000, intervalMs: 300, companions: 4096 });
 const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'sideArrows', 'post',
-  'op', 'reply', 'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'imgspoiler', 'fileDeleted', 'fileDeletedRes',
+  'op', 'reply', 'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'n-pu', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'imgspoiler', 'fileDeleted', 'fileDeletedRes',
   'postMessage', 'post-notice', 'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint', 'postActions',
   'fortune', 'fortune-0', 'fortune-1', 'fortune-2', 'fortune-3', 'fortune-4', 'fortune-5', 'fortune-6',
   'fortune-7', 'fortune-8', 'fortune-9', 'fortune-10', 'fortune-11', 'fortune-12']);
@@ -112,24 +112,25 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     require(++budget.nodes <= limits.nodes && depth <= limits.depth);
     if (typeof node === 'string') { charge(node); return; }
     exactKeys(node, ['tag', 'attrs', 'children']);
+    const attrs = node.attrs;
     require((Object.hasOwn(attributes, node.tag) || isWordfilterMarkupTag(node.tag)) && Array.isArray(node.children));
-    require(node.attrs && typeof node.attrs === 'object' && !Array.isArray(node.attrs));
-    if (comment && isWordfilterMarkup(node.tag, node.attrs)) {
-      for (const [key, value] of Object.entries(node.attrs)) { charge(key); charge(value); }
+    require(attrs && typeof attrs === 'object' && !Array.isArray(attrs));
+    if (comment && isWordfilterMarkup(node.tag, attrs)) {
+      for (const [key, value] of Object.entries(attrs)) { charge(key); charge(value); }
       for (const child of node.children) visit(child, depth + 1, form, true, link);
       return;
     }
     require(Object.hasOwn(attributes, node.tag));
     if (node.tag === 'small') require(comment && !link);
-    const replay = node.attrs['data-drawing-replay'];
+    const replay = attrs['data-drawing-replay'];
     if (replay !== undefined) {
       require(node.tag === 'a' && comment && !link
         && typeof replay === 'string' && /^[1-9][0-9]{0,15}$/.test(replay)
-        && BigInt(replay) <= 9007199254740991n && node.attrs.href === `#replay-${replay}`
-        && Object.keys(node.attrs).sort().join(',') === 'data-drawing-replay,href'
+        && BigInt(replay) <= 9007199254740991n && attrs.href === `#replay-${replay}`
+        && Object.keys(attrs).sort().join(',') === 'data-drawing-replay,href'
         && node.children.length === 1 && node.children[0] === 'View');
     }
-    for (const [key, value] of Object.entries(node.attrs)) {
+    for (const [key, value] of Object.entries(attrs)) {
       // Rust permits 64 KiB of comment UTF-8; URL percent encoding can triple
       // that size. Preserve those valid links within the aggregate wire budget.
       require(attributes[node.tag].includes(key) && typeof value === 'string' && value.length <= (key === 'href' ? 192000 : 4096));
@@ -158,10 +159,10 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
           continue;
         }
         if (key === 'data-utc') {
-          require(node.tag === 'span' && node.attrs.class === 'dateTime postNum' && /^-?(?:0|[1-9][0-9]{0,11})$/.test(value));
+          require(node.tag === 'span' && attrs.class === 'dateTime postNum' && /^-?(?:0|[1-9][0-9]{0,11})$/.test(value));
           continue;
         }
-        require(node.tag === 'div' && node.attrs.class === 'file' && node.attrs['data-image-spoiler'] === 'true');
+        require(node.tag === 'div' && attrs.class === 'file' && attrs['data-image-spoiler'] === 'true');
         if (key === 'data-image-filename') {
           require(value.length > 0 && value.length <= 260 && !/[\u0000-\u001f\u007f-\u009f]/.test(value)
             && new TextEncoder().encode(value).length <= 260);
@@ -170,40 +171,44 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
         } else require(value === 'true');
       }
     }
-    if (node.attrs.class === 'deadlink') {
+    if (attrs.class === 'deadlink') {
       // Source-resolved unavailable references are labels, never containers for
       // nested links, resources or controls. Do not grant deadlink to anchors.
-      require(comment && !link && node.tag === 'span' && Object.keys(node.attrs).join(',') === 'class'
+      require(comment && !link && node.tag === 'span' && Object.keys(attrs).join(',') === 'class'
         && node.children.every(child => typeof child === 'string'));
     }
-    if ((node.attrs.class || '').split(' ').includes('post-notice')) {
-      require(comment && !link && node.tag === 'strong' && node.attrs.class === 'post-notice'
-        && Object.keys(node.attrs).join(',') === 'class'
+    if ((attrs.class || '').split(' ').includes('post-notice')) {
+      require(comment && !link && node.tag === 'strong' && attrs.class === 'post-notice'
+        && Object.keys(attrs).join(',') === 'class'
         && node.children.every(child => typeof child === 'string')
         && new TextEncoder().encode(node.children.join('')).length <= 4098);
     }
-    const mobileLabel = node.tag === 'span' && ['name', 'subject'].includes(node.attrs.class) && Object.hasOwn(node.attrs, 'title');
-    const fileTitle = node.tag === 'div' && node.attrs.class === 'fileText' && Object.hasOwn(node.attrs, 'title');
-    if (fileTitle) require(Object.keys(node.attrs).sort().join(',') === 'class,id,title'
-      && new TextEncoder().encode(node.attrs.title).length <= 260 && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
-    if (mobileLabel) require(Object.keys(node.attrs).sort().join(',') === 'class,title'
-      && new TextEncoder().encode(node.attrs.title).length <= (node.attrs.class === 'name' ? 255 : 1020)
-      && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
-    if ((Object.hasOwn(node.attrs, 'title') && !['strong', 'img', 'a'].includes(node.tag) && !mobileLabel && !fileTitle)
-      || (node.attrs.class || '').split(' ').some(isPostFlagToken)) {
-      require(node.tag === 'span' && isPostFlagClass(node.attrs.class || '')
-        && Object.keys(node.attrs).sort().join(',') === 'class,title'
-        && node.children.length === 0 && typeof node.attrs.title === 'string'
-        && new TextEncoder().encode(node.attrs.title).length >= 1
-        && new TextEncoder().encode(node.attrs.title).length <= 100
-        && !/[\u0000-\u001f\u007f-\u009f]/.test(node.attrs.title));
+    const passBadge = (attrs.class || '').split(' ').includes('n-pu');
+    if (passBadge) require(!comment && !link && node.tag === 'span' && attrs.class === 'n-pu'
+      && Object.keys(attrs).sort().join(',') === 'class,title' && node.children.length === 0
+      && /^Pass user since [1-9][0-9]{0,3}$/.test(attrs.title));
+    const mobileLabel = node.tag === 'span' && ['name', 'subject'].includes(attrs.class) && Object.hasOwn(attrs, 'title');
+    const fileTitle = node.tag === 'div' && attrs.class === 'fileText' && Object.hasOwn(attrs, 'title');
+    if (fileTitle) require(Object.keys(attrs).sort().join(',') === 'class,id,title'
+      && new TextEncoder().encode(attrs.title).length <= 260 && !/[\u0000-\u001f\u007f-\u009f]/.test(attrs.title));
+    if (mobileLabel) require(Object.keys(attrs).sort().join(',') === 'class,title'
+      && new TextEncoder().encode(attrs.title).length <= (attrs.class === 'name' ? 255 : 1020)
+      && !/[\u0000-\u001f\u007f-\u009f]/.test(attrs.title));
+    if ((Object.hasOwn(attrs, 'title') && !['strong', 'img', 'a'].includes(node.tag) && !mobileLabel && !fileTitle && !passBadge)
+      || (attrs.class || '').split(' ').some(isPostFlagToken)) {
+      require(node.tag === 'span' && isPostFlagClass(attrs.class || '')
+        && Object.keys(attrs).sort().join(',') === 'class,title'
+        && node.children.length === 0 && typeof attrs.title === 'string'
+        && new TextEncoder().encode(attrs.title).length >= 1
+        && new TextEncoder().encode(attrs.title).length <= 100
+        && !/[\u0000-\u001f\u007f-\u009f]/.test(attrs.title));
     }
     if (node.tag === 'form') {
-      require(form === null && node.attrs.method === 'post' && ['delete', 'report'].some(action => node.attrs.action === `/${context.board}/${action}`));
-      form = node.attrs.action;
+      require(form === null && attrs.method === 'post' && ['delete', 'report'].some(action => attrs.action === `/${context.board}/${action}`));
+      form = attrs.action;
     }
     if (node.tag === 'input') {
-      const a = node.attrs;
+      const a = attrs;
       if (a.form !== undefined) {
         require(selection === null && form === null && !comment && !link && node.children.length === 0
           && Object.keys(a).sort().join(',') === 'aria-label,form,id,name,type,value'
@@ -222,21 +227,21 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       }
     }
     if (node.tag === 'button') require(form !== null);
-    if (node.tag === 'pre') require(node.attrs.class === 'prettyprint');
-    if ((node.attrs.class || '').split(' ').some(value => ['mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b'].includes(value))) {
-      require(node.tag === 'span' && ['mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b'].includes(node.attrs.class));
+    if (node.tag === 'pre') require(attrs.class === 'prettyprint');
+    if ((attrs.class || '').split(' ').some(value => ['mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b'].includes(value))) {
+      require(node.tag === 'span' && ['mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b'].includes(attrs.class));
     }
-    const fortuneTokens = (node.attrs.class || '').split(' ').filter(value => value === 'fortune' || /^fortune-(?:[0-9]|1[0-2])$/.test(value));
+    const fortuneTokens = (attrs.class || '').split(' ').filter(value => value === 'fortune' || /^fortune-(?:[0-9]|1[0-2])$/.test(value));
     if (fortuneTokens.length) {
-      require(node.tag === 'span' && /^fortune fortune-(?:[0-9]|1[0-2])$/.test(node.attrs.class));
+      require(node.tag === 'span' && /^fortune fortune-(?:[0-9]|1[0-2])$/.test(attrs.class));
     }
-    if (node.tag === 'img') require(typeof node.attrs.src === 'string' && typeof node.attrs.alt === 'string');
+    if (node.tag === 'img') require(typeof attrs.src === 'string' && typeof attrs.alt === 'string');
     if (node.tag === 'a') {
-      require(typeof node.attrs.href === 'string');
-      if (node.attrs.href.startsWith('#')) require(replay !== undefined || (comment && node.attrs.class === 'quotelink'));
-      else if (!node.attrs.href.startsWith('/')) require(['noopener noreferrer', 'nofollow noreferrer noopener'].includes(node.attrs.rel));
+      require(typeof attrs.href === 'string');
+      if (attrs.href.startsWith('#')) require(replay !== undefined || (comment && attrs.class === 'quotelink'));
+      else if (!attrs.href.startsWith('/')) require(['noopener noreferrer', 'nofollow noreferrer noopener'].includes(attrs.rel));
     }
-    const message = node.tag === 'blockquote' && node.attrs.class === 'postMessage' && node.attrs.id === `m${no}`;
+    const message = node.tag === 'blockquote' && attrs.class === 'postMessage' && attrs.id === `m${no}`;
     for (const child of node.children) visit(child, depth + 1, form, comment || message, link || node.tag === 'a');
   }
   visit(tree, 0);

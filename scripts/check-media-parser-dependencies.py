@@ -5,7 +5,7 @@ import subprocess
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 RUNTIMES = (
-    'board-public', 'board-staff', 'board-verification', 'board-verification-mailer', 'board-media-admin', 'board-media-http',
+    'board-public', 'board-checkout', 'board-staff', 'board-verification', 'board-verification-mailer', 'board-media-admin', 'board-media-http',
     'board-media-intake', 'board-media-dispatch', 'board-monitor',
     'board-resource-monitor', 'board-maintenance-monitor',
 )

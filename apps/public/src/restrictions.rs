@@ -4,6 +4,7 @@ use crate::{
     handlers::AppError,
     security::{RequestPeer, RequestStart},
 };
+use crate::{anonymous_session::Session, posting_challenge::ProofError};
 use askama::Template;
 use axum::{
     Extension, Form, Router,
@@ -15,7 +16,8 @@ use axum::{
 use board_domain::{
     BoardSlug, anonymous_session::Capability, poster_id::PublicPostingRateIdentity,
 };
-use board_store::restrictions::Status;
+use board_store::restrictions::{MemberContext, Status};
+use board_verification_client::protocol;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -139,25 +141,114 @@ fn private(mut response: Response) -> Response {
     response
 }
 
+/// Status and acknowledgment get distinct, short-lived private receipts.
+/// The warning cookie remains the browser's CSRF authority, never a Pass ID.
+async fn member_proof(
+    state: &AppState,
+    headers: &HeaderMap,
+    peer: RequestPeer,
+    board: &str,
+    target: i64,
+    nonce: &str,
+) -> Result<Option<(Session, board_store::WriteChallengeProof)>, ProofError> {
+    let Some(token) = crate::pass_auth::read_cookie(headers, state.production)? else {
+        return Ok(None);
+    };
+    let mut session = Session::resolve(state, headers, peer.0).await?;
+    if target > 0 && session.posting.minted {
+        return Err(invalid().into());
+    }
+    let service = state.verification.as_ref().ok_or_else(unavailable)?;
+    service
+        .ensure_session(&crate::signin::trusted(&session, state, peer.0)?)
+        .await
+        .map_err(|_| unavailable())?;
+    session.posting.minted = false;
+    let result = service
+        .pass_restriction_receipt(&protocol::PassRestrictionRequest {
+            token,
+            session: crate::signin::trusted(&session, state, peer.0)?,
+            board: board.to_owned(),
+            action: if target == 0 {
+                protocol::PassRestrictionAction::Status
+            } else {
+                protocol::PassRestrictionAction::WarningView
+            },
+            target,
+            nonce: nonce.to_owned(),
+        })
+        .await
+        .map_err(|_| unavailable())?;
+    let proof = match result {
+        protocol::PassWriteResult::Verified {
+            receipt,
+            peer_hash,
+            context_hash,
+        } => board_store::WriteChallengeProof::from_issuer(&receipt, peer_hash, context_hash)
+            .ok_or_else(unavailable)?,
+        protocol::PassWriteResult::Expired {} => {
+            return Err(ProofError::pass_rejected(
+                state.production,
+                "This Pass has expired.",
+            ));
+        }
+        protocol::PassWriteResult::Disabled {} => {
+            return Err(ProofError::pass_rejected(
+                state.production,
+                "This Pass has been disabled.",
+            ));
+        }
+        protocol::PassWriteResult::InUse {} => {
+            return Err(ProofError::pass_rejected(
+                state.production,
+                "This Pass is already in use from another network.",
+            ));
+        }
+        protocol::PassWriteResult::None {} => {
+            return Err(ProofError::pass_rejected(
+                state.production,
+                "This Pass session is invalid. Authenticate again.",
+            ));
+        }
+        protocol::PassWriteResult::Capacity {} => return Err(unavailable().into()),
+    };
+    Ok(Some((session, proof)))
+}
+
 async fn show(
     State(state): State<AppState>,
     Extension(peer): Extension<RequestPeer>,
     Extension(start): Extension<RequestStart>,
     headers: HeaderMap,
     Query(context): Query<Context>,
-) -> Result<Response, AppError> {
+) -> Result<Response, ProofError> {
     let actor = actor(&state, peer, &context.board)?;
+    let cap = Capability::generate().map_err(|_| unavailable())?;
+    let member = member_proof(&state, &headers, peer, &context.board, 0, &csrf(&cap)).await?;
     let token =
         crate::anonymous_session::cookie(&headers, state.production)?.map(|cap| cap.storage_hash());
-    let rows = board_store::restrictions::status(
-        &state.pool,
-        &actor,
-        token.as_ref(),
-        &context.board,
-        start.0.timestamp(),
-    )
-    .await?;
-    let cap = Capability::generate().map_err(|_| unavailable())?;
+    let rows = if let Some((session, proof)) = member.as_ref() {
+        board_store::restrictions::member_status(
+            &state.pool,
+            &MemberContext {
+                actor: &actor,
+                session: &session.posting,
+                proof,
+                board: &context.board,
+                request_at: start.0.timestamp(),
+            },
+        )
+        .await?
+    } else {
+        board_store::restrictions::status(
+            &state.pool,
+            &actor,
+            token.as_ref(),
+            &context.board,
+            start.0.timestamp(),
+        )
+        .await?
+    };
     let mut response = private(crate::output::html(
         &state,
         &Page {
@@ -166,6 +257,9 @@ async fn show(
             csrf: csrf(&cap),
         },
     )?);
+    if let Some((session, _)) = member.as_ref() {
+        session.append(response.headers_mut(), state.production);
+    }
     let secure = if state.production { "; Secure" } else { "" };
     response.headers_mut().append(
         header::SET_COOKIE,
@@ -176,7 +270,7 @@ async fn show(
         ))
         .map_err(|_| unavailable())?,
     );
-    Ok(response)
+    Ok(private(response))
 }
 
 async fn view(
@@ -185,30 +279,43 @@ async fn view(
     Extension(start): Extension<RequestStart>,
     headers: HeaderMap,
     Form(form): Form<ViewForm>,
-) -> Result<Response, AppError> {
+) -> Result<Response, ProofError> {
     // The shared middleware checks same-origin state-changing requests. The
     // separate HttpOnly viewing cookie grants no posting/deletion equality.
     let cap = view_cookie(&headers, state.production)?;
     if form.csrf.len() != 64 || form.csrf != csrf(&cap) || form.id <= 0 {
-        return Err(invalid());
+        return Err(invalid().into());
     }
     let actor = actor(&state, peer, &form.board)?;
+    let member = member_proof(&state, &headers, peer, &form.board, form.id, &form.csrf).await?;
     let token =
         crate::anonymous_session::cookie(&headers, state.production)?.map(|cap| cap.storage_hash());
-    let changed = board_store::restrictions::acknowledge(
-        &state.pool,
-        &actor,
-        token.as_ref(),
-        &form.board,
-        start.0.timestamp(),
-        form.id,
-    )
-    .await?;
+    let changed = if let Some((session, proof)) = member.as_ref() {
+        board_store::restrictions::member_acknowledge(
+            &state.pool,
+            &MemberContext {
+                actor: &actor,
+                session: &session.posting,
+                proof,
+                board: &form.board,
+                request_at: start.0.timestamp(),
+            },
+            form.id,
+        )
+        .await?
+    } else {
+        board_store::restrictions::acknowledge(
+            &state.pool,
+            &actor,
+            token.as_ref(),
+            &form.board,
+            start.0.timestamp(),
+            form.id,
+        )
+        .await?
+    };
     if !changed {
-        return Err(AppError(
-            StatusCode::CONFLICT,
-            "This warning is no longer available.",
-        ));
+        return Err(AppError(StatusCode::CONFLICT, "This warning is no longer available.").into());
     }
     Ok(private(
         Redirect::to(&format!("/banned?board={}", form.board)).into_response(),

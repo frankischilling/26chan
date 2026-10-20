@@ -103,11 +103,99 @@ impl VerificationClient {
     pub async fn ready(&self) -> Result<(), Error> {
         let response: protocol::Readiness =
             self.exchange("/readyz", &serde_json::json!({})).await?;
-        if response.ready {
+        if !response.ready {
+            return Err(Error::Unavailable);
+        }
+        let membership: protocol::Readiness = self
+            .exchange("/v1/pass/ready", &serde_json::json!({}))
+            .await?;
+        if membership.ready {
             Ok(())
         } else {
             Err(Error::Unavailable)
         }
+    }
+
+    pub async fn purchase_offer(&self) -> Result<protocol::CheckoutOffer, Error> {
+        self.exchange("/v1/pass/checkout/purchase-offer", &serde_json::json!({}))
+            .await
+    }
+    pub async fn checkout_purchase(
+        &self,
+        input: &protocol::CheckoutPurchase,
+    ) -> Result<protocol::CheckoutCreated, Error> {
+        self.exchange("/v1/pass/checkout/purchase", input).await
+    }
+    pub async fn checkout_offer(&self) -> Result<protocol::CheckoutOffer, Error> {
+        self.exchange("/v1/pass/checkout/offer", &serde_json::json!({}))
+            .await
+    }
+    pub async fn checkout_renewal(
+        &self,
+        input: &protocol::CheckoutRenewal,
+    ) -> Result<protocol::CheckoutCreated, Error> {
+        self.exchange("/v1/pass/checkout/renewal", input).await
+    }
+    pub async fn checkout_state(
+        &self,
+        input: &protocol::CheckoutView,
+    ) -> Result<protocol::CheckoutState, Error> {
+        self.exchange("/v1/pass/checkout/state", input).await
+    }
+    pub async fn pass_recovery_request(
+        &self,
+        input: &protocol::PassRecoveryRequest,
+    ) -> Result<protocol::PassRecoveryResult, Error> {
+        self.exchange("/v1/pass/recovery/request", input).await
+    }
+    pub async fn pass_recovery_state(
+        &self,
+        input: &protocol::PassSession,
+    ) -> Result<protocol::PassRecoveryResult, Error> {
+        self.exchange("/v1/pass/recovery/state", input).await
+    }
+    pub async fn pass_recovery_complete(
+        &self,
+        input: &protocol::PassRecoveryComplete,
+    ) -> Result<protocol::PassRecoveryResult, Error> {
+        self.exchange("/v1/pass/recovery/complete", input).await
+    }
+    pub async fn pass_login(
+        &self,
+        input: &protocol::PassLogin,
+    ) -> Result<protocol::PassLoginResult, Error> {
+        self.exchange("/v1/pass/login", input).await
+    }
+    pub async fn pass_state(
+        &self,
+        input: &protocol::PassSession,
+    ) -> Result<protocol::PassState, Error> {
+        self.exchange("/v1/pass/state", input).await
+    }
+    /// This advice does not grant CAPTCHA bypass or protected-write authority.
+    pub async fn pass_posting_state(
+        &self,
+        input: &protocol::PassPostingSession,
+    ) -> Result<protocol::PassPostingState, Error> {
+        self.exchange("/v1/pass/posting-state", input).await
+    }
+    pub async fn pass_restriction_receipt(
+        &self,
+        input: &protocol::PassRestrictionRequest,
+    ) -> Result<protocol::PassWriteResult, Error> {
+        self.exchange("/v1/pass/restriction-receipt", input).await
+    }
+    pub async fn pass_write_receipt(
+        &self,
+        input: &protocol::PassWriteRequest,
+    ) -> Result<protocol::PassWriteResult, Error> {
+        self.exchange("/v1/pass/receipt", input).await
+    }
+    pub async fn pass_signout(
+        &self,
+        input: &protocol::PassSession,
+    ) -> Result<protocol::PassState, Error> {
+        self.exchange("/v1/pass/signout", input).await
     }
 
     pub async fn ensure_session(
@@ -196,5 +284,37 @@ mod tests {
             )
             .is_err()
         );
+    }
+}
+
+#[cfg(test)]
+mod pass_readiness_tests {
+    use super::*;
+    #[tokio::test]
+    async fn readiness_requires_the_membership_endpoint() {
+        for supported in [false, true] {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let endpoint = listener.local_addr().unwrap();
+            let mut app = axum::Router::new().route(
+                "/readyz",
+                axum::routing::post(|| async { axum::Json(serde_json::json!({"ready":true})) }),
+            );
+            if supported {
+                app = app.route(
+                    "/v1/pass/ready",
+                    axum::routing::post(|| async { axum::Json(serde_json::json!({"ready":true})) }),
+                );
+            }
+            let serving = tokio::spawn(async move {
+                axum::serve(listener, app).await.unwrap();
+            });
+            let result = VerificationClient::new(endpoint, "11".repeat(32))
+                .unwrap()
+                .ready()
+                .await;
+            serving.abort();
+            let _ = serving.await;
+            assert_eq!(result.is_ok(), supported);
+        }
     }
 }

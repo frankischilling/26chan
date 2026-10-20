@@ -1,17 +1,18 @@
 // Advisory only. The server independently enforces ordinary posting delays.
-export function cooldownSeconds(timestamp, delaySeconds, now = Date.now()) {
+export function cooldownSeconds(timestamp, delaySeconds, now = Date.now(), bypass = false) {
   if (!/^[0-9]+$/.test(String(timestamp)) || !/^[0-9]+$/.test(String(delaySeconds))) return 0;
   const posted = Number(timestamp), delay = Number(delaySeconds);
   if (!Number.isSafeInteger(posted) || !Number.isSafeInteger(delay) || delay > 86400 || posted > now) return 0;
-  return Math.max(0, Math.ceil((posted + delay * 1000 - now) / 1000));
+  const milliseconds = bypass === true ? Math.ceil(delay * 1000 / 2) : delay * 1000;
+  return Math.max(0, Math.ceil((posted + milliseconds - now) / 1000));
 }
 
 export function createQuickReplyCooldown({ board, replySeconds, imageSeconds, storage,
-  now = Date.now, schedule = setTimeout, cancel = clearTimeout, changed, expired }) {
+  bypass = () => false, now = Date.now, schedule = setTimeout, cancel = clearTimeout, changed, expired }) {
   const key = `4chan-cd-${board}`;
   let timestamp = null, timer = null, image = false, armed = false, active = false, generation = 0;
   try { timestamp = storage?.getItem(key); } catch { /* Storage is optional. */ }
-  const seconds = () => cooldownSeconds(timestamp, image ? imageSeconds : replySeconds, now());
+  const seconds = () => cooldownSeconds(timestamp, image ? imageSeconds : replySeconds, now(), bypass());
   const clear = () => { generation++; cancel(timer); timer = null; };
   function render() {
     const remaining = seconds();

@@ -99,3 +99,19 @@ test('unavailable storage leaves posting usable and retains a successful local a
   f.controller.success(); f.controller.refresh(); assert.equal(f.state.label, '3s');
   f.tick(103000); assert.equal(f.state.label, 'Post'); assert.equal(f.submitted, 0);
 });
+
+test('the source bypass halves milliseconds and leaves ordinary timers unchanged', () => {
+  assert.equal(cooldownSeconds('100000',5,100000,true),3);
+  assert.equal(cooldownSeconds('100000',5,102499,true),1);
+  assert.equal(cooldownSeconds('100000',5,102500,true),0);
+  assert.equal(cooldownSeconds('100000',5,102500,false),3);
+  assert.equal(cooldownSeconds('100000',5,102500,'true'),3);
+  let bypass=false, state;
+  const controller=createQuickReplyCooldown({board:'owned',replySeconds:5,imageSeconds:9,
+    storage:{getItem:()=> '100000'},now:()=>100000,bypass:()=>bypass,schedule:()=>0,cancel:()=>{},changed:value=>{state=value;}});
+  controller.refresh(); assert.equal(state.seconds,5);
+  bypass=true; controller.refresh(); assert.equal(state.seconds,3);
+  controller.refresh(true); assert.equal(state.seconds,5);
+  bypass=false; controller.refresh(true); assert.equal(state.seconds,9);
+  controller.stop();
+});

@@ -213,6 +213,9 @@ fn post_json(
     if let Some(trip) = identity.trip {
         value["trip"] = json!(trip);
     }
+    if (1..10000).contains(&post.post.since4pass) {
+        value["since4pass"] = json!(post.post.since4pass);
+    }
     if let Some(capcode) = &post.post.capcode {
         value["capcode"] = json!(capcode);
     }
@@ -640,6 +643,7 @@ mod poster_id_projection_tests {
                 thread_id: 42,
                 name: "Owned source ID".into(),
                 trip: None,
+                since4pass: 0,
                 json_op_poster_id: (ordinary && op && saved.is_some()).then(|| "Ab12+/CD".into()),
                 poster_id: saved,
                 capcode: (!ordinary).then(|| row["capcode"].as_str().unwrap().into()),
@@ -691,6 +695,38 @@ mod poster_id_projection_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn public_membership_year_matches_source_json_omission_rules() {
+        let fixture = crate::native_updater_snapshot::tests::fixture();
+        for year in [0, 2020, 9999, 10000, 12024] {
+            for capcode in [None, Some("mod".to_owned())] {
+                let mut post = fixture.posts[0].clone();
+                post.since4pass = year;
+                post.capcode = capcode;
+                let value = post_json(
+                    post,
+                    &fixture.thread,
+                    &fixture.board,
+                    0,
+                    0,
+                    None,
+                    QuoteContext {
+                        targets: &fixture.quote_targets,
+                        current_thread: Some(fixture.thread.id),
+                    },
+                )
+                .unwrap();
+                if (1..10000).contains(&year) {
+                    assert_eq!(value["since4pass"], json!(year));
+                } else {
+                    assert!(value.get("since4pass").is_none());
+                }
+                assert!(value.get("pass_id").is_none());
+                assert!(value.get("entitlement_id").is_none());
+            }
+        }
+    }
+
     #[test]
     fn retained_jpeg_metadata_exposes_mobile_presence_and_source_basename_only_when_visible() {
         let fixture = crate::native_updater_snapshot::tests::fixture();

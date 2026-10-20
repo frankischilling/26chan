@@ -13,8 +13,10 @@ struct Decision {
 /// Call for every OP, including badged staff on private boards, after trusted
 /// authorization and actor/global OP/board locks, and before any rollover.
 /// The supplied actor is transport-derived. A genuine public posting session
-/// adds forward automatic identity evidence; staff/internal callers without
-/// one retain the IP-only path. Replies must not call this function.
+/// adds forward automatic identity evidence. SQL also resolves an installed,
+/// validated Pass receipt, without consuming it, and counts the identity union
+/// once per OP. Staff/internal callers without a public session retain the
+/// IP-only path. Replies must not call this function.
 pub(crate) async fn check(
     tx: &mut Transaction<'_, Postgres>,
     actor: &PublicPostingRateIdentity,

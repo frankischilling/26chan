@@ -87,6 +87,20 @@ impl Fixture {
             .unwrap();
             ids.push(id);
         }
+        // Owned retained metadata tests erasure independently of Pass issuance.
+        sqlx::query("UPDATE content.posts SET since4pass=2020 WHERE board=$1")
+            .bind(&board)
+            .execute(&owner)
+            .await
+            .unwrap();
+        let mut membership = owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+            .execute(&mut *membership)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO verification_private.pass_posts(post_id,identity_hash) SELECT id,sha256(convert_to('owned-erasure-'||id,'UTF8')) FROM content.posts WHERE board=$1")
+            .bind(&board).execute(&mut *membership).await.unwrap();
+        membership.commit().await.unwrap();
         let account: i64 = sqlx::query_scalar(
             "INSERT INTO staff_identity.accounts(role) VALUES('moderator') RETURNING id",
         )
@@ -251,7 +265,7 @@ impl Fixture {
             let row = rows.iter().find(|p| p["id"] == *id).unwrap();
             let mut expected = json!({"id":id,"board":self.board,"thread_id":row["thread_id"],"deleted":true,"content_erased":true,
                 "name":"","subject":"","comment":"","staff_notices":[],"created_at":"1970-01-01T00:00:00+00:00", "comment_format":0,
-                "staff_authorized_limits":false,"image_spoiler":false,"file_deleted":false,"board_flag_type":"pol"});
+                "staff_authorized_limits":false,"image_spoiler":false,"file_deleted":false,"board_flag_type":"pol","since4pass":0});
             for key in [
                 "trip",
                 "poster_id",
@@ -278,6 +292,20 @@ impl Fixture {
                 "Every retained post column must be explicitly justified for tombstone {id}"
             );
         }
+        let mut membership = self.owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+            .execute(&mut *membership)
+            .await
+            .unwrap();
+        let count: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM verification_private.pass_posts WHERE post_id=ANY($1)",
+        )
+        .bind(ids)
+        .fetch_one(&mut *membership)
+        .await
+        .unwrap();
+        assert_eq!(count, 0, "erased posts retain no private Pass identity");
+        membership.rollback().await.unwrap();
         for table in [
             "post_secrets.deletion",
             "post_secrets.anonymous_posts",

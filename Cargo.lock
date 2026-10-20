@@ -349,6 +349,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "board-checkout"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "board-domain",
+ "board-store",
+ "chrono",
+ "ring",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tower",
+ "url",
+]
+
+[[package]]
 name = "board-config"
 version = "0.1.0"
 dependencies = [
@@ -572,6 +589,7 @@ dependencies = [
  "argon2",
  "askama",
  "axum",
+ "board-checkout",
  "board-config",
  "board-domain",
  "board-http",
@@ -594,6 +612,7 @@ dependencies = [
  "hyper-util",
  "proptest",
  "rand_core 0.6.4",
+ "ring",
  "roxmltree",
  "rustix",
  "serde",
@@ -681,6 +700,7 @@ dependencies = [
 name = "board-verification"
 version = "0.1.0"
 dependencies = [
+ "argon2",
  "axum",
  "base64 0.22.1",
  "board-domain",
@@ -716,6 +736,7 @@ version = "0.1.0"
 dependencies = [
  "board-domain",
  "board-store",
+ "chrono",
  "sqlx",
  "tokio",
  "url",

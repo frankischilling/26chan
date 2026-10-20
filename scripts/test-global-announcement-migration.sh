@@ -29,8 +29,13 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 "${runner[@]}" "$pg_bin/initdb" -D "$cluster/data" --username=postgres --auth=trust --encoding=UTF8 --no-locale >/dev/null
 started=1
-"${runner[@]}" "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.log" -o "-c listen_addresses='127.0.0.1' -c port=55447 -c unix_socket_directories='' -c statement_timeout=30000 -c lock_timeout=5000" -w start >/dev/null
-psql=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 55447 -U postgres)
+# Keep the owned listener below the default Linux ephemeral-port range.
+if ! "${runner[@]}" "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.log" -o "-c listen_addresses='127.0.0.1' -c port=15454 -c unix_socket_directories='' -c statement_timeout=30000 -c lock_timeout=5000" -w start >/dev/null; then
+    echo "Owned qualification database failed to start:" >&2
+    [[ ! -f "$cluster/server.log" ]] || cat "$cluster/server.log" >&2
+    exit 1
+fi
+psql=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 15454 -U postgres)
 "${psql[@]}" -d postgres -f - < deploy/roles.sql >/dev/null
 "${psql[@]}" -d postgres <<'SQL'
 CREATE DATABASE announcement_upgrade OWNER board_migrator;
@@ -88,13 +93,13 @@ DO $$ BEGIN
 END $$;
 SQL
 "${migrator[@]}" -f - < "$cluster/assertions.sql"
-"$pg_bin/pg_dump" -h 127.0.0.1 -p 55447 -U postgres -d announcement_upgrade --format=custom -f "$cluster/owned.dump"
+"$pg_bin/pg_dump" -h 127.0.0.1 -p 15454 -U postgres -d announcement_upgrade --format=custom -f "$cluster/owned.dump"
 "${psql[@]}" -d postgres <<'SQL'
 CREATE DATABASE announcement_restored OWNER board_migrator;
 REVOKE ALL ON DATABASE announcement_restored FROM PUBLIC;
 GRANT CONNECT ON DATABASE announcement_restored TO board_migrator,board_public;
 SQL
-"$pg_bin/pg_restore" -h 127.0.0.1 -p 55447 -U postgres -d announcement_restored --exit-on-error "$cluster/owned.dump"
+"$pg_bin/pg_restore" -h 127.0.0.1 -p 15454 -U postgres -d announcement_restored --exit-on-error "$cluster/owned.dump"
 "${psql[@]}" -d announcement_restored -f - < "$cluster/assertions.sql"
 for database in announcement_upgrade announcement_restored; do
     "${psql[@]}" -U board_public -d "$database" -At -c "SELECT body FROM content.published_site_pages WHERE key='announcement'" | grep -Fxq 'Owned <b>plain announcement</b>'

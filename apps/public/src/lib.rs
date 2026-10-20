@@ -17,6 +17,9 @@ mod native_thread_stats;
 mod native_updater_snapshot;
 mod output;
 pub mod paired_upload;
+mod pass_auth;
+mod pass_checkout;
+mod pass_recovery;
 mod polls;
 mod post_preferences;
 mod post_receipts;
@@ -366,6 +369,8 @@ pub fn routers_with_classifiers(
         .merge(restrictions::routes())
         .merge(blotter::routes())
         .merge(signin::routes())
+        .merge(pass_auth::routes())
+        .merge(pass_recovery::routes())
         .merge(posting_challenge::routes())
         .route("/", get(handlers::home))
         .route("/derefer", get(derefer::get))
@@ -467,4 +472,10 @@ pub fn posting_captcha_fixture_response(
     origin: &str,
 ) -> Result<axum::response::Response, String> {
     posting_challenge::fixture::response(mode, origin)
+}
+
+/// Synthetic Pass form states with production rendering, without write authority.
+#[cfg(feature = "browser-tests")]
+pub fn pass_fixture_response(mode: &str, origin: &str) -> Result<axum::response::Response, String> {
+    pass_auth::fixture_response(mode, origin)
 }

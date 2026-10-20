@@ -1,5 +1,6 @@
 import { withDeletionQuota, withPostingHistory } from './helpers/deletion-quota-fixture.js';
 import { test, expect } from '@playwright/test';
+import { PASS_COOLDOWN_HINT } from '../../apps/public/client/native-quick-reply-transport.js';
 
 const origin = 'http://127.0.0.1:3000', password = 'owned-quick-reply-password';
 
@@ -193,6 +194,13 @@ test('Quick Reply persists replies, retains failed drafts, tracks own posts and 
     await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click({ modifiers: ['Shift'] })); await expect(page.locator('#qrError')).toHaveText('Owned unavailable service');
     await expect(page.locator('#qrCom')).toHaveValue('Preserved on failure');
     expect((await (await request.get(`/fixture/thread/${id}.json`)).json()).posts).toHaveLength(2);
+    await page.unroute('**/fixture/imgboard.php');
+    await page.route('**/fixture/imgboard.php', route => route.fulfill({ status:200, contentType:'application/json', body:JSON.stringify({error:'Error: You must wait  17 seconds before posting a reply.'+PASS_COOLDOWN_HINT}) }));
+    await withPostingHistory(() => page.locator('#quickReply input[type=submit]').click({ modifiers:['Shift'] }));
+    await expect(page.locator('#qrError a')).toHaveText('Learn More');
+    await expect(page.locator('#qrError a')).toHaveAttribute('href','https://www.4chan.org/pass');
+    await expect(page.locator('#qrError a')).toHaveAttribute('rel','noopener noreferrer');
+    await expect(page.locator('#qrCom')).toHaveValue('Preserved on failure');
     await page.unroute('**/fixture/imgboard.php');
     await page.getByRole('button', { name: 'Close Quick Reply', exact: true }).click();
     await context.clearCookies(); await page.reload();

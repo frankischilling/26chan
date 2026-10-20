@@ -132,7 +132,7 @@ class StillVmTest(unittest.TestCase):
                 self.assertNotEqual(runner.returncode, 0)
                 self.assertFalse(disk.exists())
                 self.assertFalse(workspace.exists())
-                self.assertFalse(vmm.exists())
+                vm.assert_vmm_removed(vmm)
                 vm.assert_clean()
         output = self.run_job(b'inspect'.ljust(17, b' '), probe=True)
         check_probe_report(output[:4_194_816], 9)

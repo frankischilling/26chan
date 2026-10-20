@@ -5,6 +5,6 @@
 <form id="report-form" method="post" action="/{{ board }}/imgboard.php?mode=report&amp;no={{ no }}"><input type="hidden" name="board" value="{{ board }}"><input type="hidden" name="no" value="{{ no }}"><input type="hidden" name="revision" value="{{ revision }}">
 {% if !rules.is_empty() %}<label><input id="report-category-rule" type="radio" name="cat" value="" checked> Rule violation</label> <label for="report-category-select">Category</label> <select id="report-category-select" name="cat_id"><option value=""></option>{% for category in rules %}<option value="{{ category.id }}">{% if category.title.is_empty() %}Category {{ category.id }}{% else %}{{ category.title }}{% endif %}</option>{% endfor %}</select>{% endif %}
 {% if let Some(category) = illegal %}<label><input id="report-category-illegal" type="radio" name="cat" value="31"{% if rules.is_empty() %} checked{% endif %}> {% if category.title.is_empty() %}Category {{ category.id }}{% else %}{{ category.title }}{% endif %}</label>{% endif %}
-{% call captcha_markup::fields(captcha) %}{% endcall %}
+{% if captcha.member %}<div id="pass"><strong>You are using a 4chan Pass.</strong></div>{% endif %}{% call captcha_markup::fields(captcha) %}{% endcall %}
 <button id="report-submit" type="submit">Report post</button></form>
 <p><a id="report-popup-return" href="/{{ board }}/thread/{{ thread }}#p{{ no }}">Return to post</a> <button id="report-popup-close" type="button" hidden>Close window</button></p></main></body></html>

@@ -7,6 +7,7 @@ pub struct View {
     pub classic: bool,
     pub noscript_only: bool,
     pub exempt: bool,
+    pub member: bool,
     pub board: String,
     pub target: i64,
     pub purpose: &'static str,
@@ -92,6 +93,29 @@ async fn fill(
     view.enabled = policy.enabled;
     view.classic = !policy.twister;
     view.noscript_only = policy.noscript_only && !policy.twister;
+    if crate::pass_auth::posting_ready(state, headers, peer).await? {
+        let session = Session::resolve(state, headers, peer).await?;
+        state
+            .verification
+            .as_ref()
+            .ok_or_else(unavailable)?
+            .ensure_session(&crate::signin::trusted(&session, state, peer)?)
+            .await
+            .map_err(|_| unavailable())?;
+        let secret = PostingSecret::read(headers, state.production)
+            .map_err(|_| invalid())?
+            .map(Ok)
+            .unwrap_or_else(PostingSecret::generate)
+            .map_err(|_| unavailable())?;
+        view.enabled = true;
+        view.exempt = true;
+        view.member = true;
+        view.csrf = secret.nonce();
+        let mut cookies = HeaderMap::new();
+        secret.append(&mut cookies, state.production);
+        session.append(&mut cookies, state.production);
+        return Ok(cookies);
+    }
     if !policy.enabled {
         return Ok(HeaderMap::new());
     }

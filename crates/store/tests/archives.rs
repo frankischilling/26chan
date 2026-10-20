@@ -15,6 +15,22 @@ fn reader_context() -> board_store::PostingContext {
     }
 }
 
+async fn concurrent_op(public: &PgPool, slug: &str, actor: u8) -> Result<i64, StoreError> {
+    support::create_post_with_context(
+        public,
+        slug,
+        0,
+        &post(),
+        None,
+        board_store::PostingContext {
+            request_start: chrono::Utc::now(),
+            peer: Some(std::net::Ipv4Addr::new(198, 51, 100, actor).into()),
+            op_password_proof: None,
+        },
+    )
+    .await
+}
+
 fn post() -> NewPost {
     NewPost {
         name: "Anonymous".into(),
@@ -375,35 +391,98 @@ async fn archive_lifecycle(
             .archived_at
             .is_none()
     );
-    // Concurrent new OPs serialize without exceeding active capacity or losing posts.
-    // Use distinct actors: request timestamps can reach the actor gate out of
-    // order, so sharing one peer can correctly trip its cooldown even at zero
-    // delay. This scenario tests board rollover, not same-actor admission.
+    // Exercise all twelve concurrent OPs through the actual public role. Its
+    // two-second lock budget can refuse a queued request at the global OP gate.
+    // Drain the whole wave, then retry only that explicit transient refusal once;
+    // no runtime timeout is relaxed and every other failure remains an error.
+    let lock_budget: String = sqlx::query_scalar("SHOW lock_timeout")
+        .fetch_one(public)
+        .await
+        .unwrap();
+    assert_eq!(
+        lock_budget, "2s",
+        "The public lock budget must stay unchanged"
+    );
+    let before: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+        .bind(slug)
+        .fetch_one(owner)
+        .await
+        .unwrap();
     let mut tasks = tokio::task::JoinSet::new();
     for actor in 1..=12 {
         let pool = public.clone();
         let slug = slug.to_owned();
-        tasks.spawn(async move {
-            support::create_post_with_context(
-                &pool,
-                &slug,
-                0,
-                &post(),
-                None,
-                board_store::PostingContext {
-                    request_start: chrono::Utc::now(),
-                    peer: Some(std::net::Ipv4Addr::new(198, 51, 100, actor).into()),
-                    op_password_proof: None,
-                },
-            )
-            .await
-            .unwrap()
-        });
+        tasks.spawn(async move { (actor, concurrent_op(&pool, &slug, actor).await) });
+    }
+    let mut outcomes = Vec::new();
+    while let Some(result) = tasks.join_next().await {
+        outcomes.push(result);
     }
     let mut created = Vec::new();
-    while let Some(result) = tasks.join_next().await {
-        created.push(result.unwrap());
+    let mut retry = Vec::new();
+    for outcome in outcomes {
+        let (actor, result) = outcome.unwrap();
+        match result {
+            Ok(id) => created.push(id),
+            Err(StoreError::Database(sqlx::Error::Database(error)))
+                if error.code().as_deref() == Some("55P03") =>
+            {
+                retry.push(actor)
+            }
+            Err(error) => panic!("Concurrent archive posting failed: {error:?}"),
+        }
     }
+    eprintln!(
+        "Archive concurrent wave: {} committed, {} bounded lock refusals",
+        created.len(),
+        retry.len()
+    );
+    assert!(
+        !created.is_empty(),
+        "The concurrent wave must make progress"
+    );
+    assert_eq!(
+        board_store::threads(public, slug, 0, 1000)
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
+    let after_wave: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+        .bind(slug)
+        .fetch_one(owner)
+        .await
+        .unwrap();
+    assert_eq!(
+        after_wave,
+        before + created.len() as i64,
+        "Refused attempts must leave no partial posts"
+    );
+    for actor in retry {
+        created.push(
+            concurrent_op(public, slug, actor)
+                .await
+                .expect("A single drained retry must complete"),
+        );
+    }
+    assert_eq!(created.len(), 12);
+    assert_eq!(
+        created
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        12
+    );
+    let after: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+        .bind(slug)
+        .fetch_one(owner)
+        .await
+        .unwrap();
+    assert_eq!(
+        after,
+        before + 12,
+        "Retries must neither duplicate nor lose posts"
+    );
     assert_eq!(
         board_store::threads(public, slug, 0, 1000)
             .await

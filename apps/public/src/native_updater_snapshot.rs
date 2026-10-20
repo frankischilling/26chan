@@ -662,6 +662,7 @@ pub(crate) mod tests {
                 name: "<img src=x onerror=alert(1)>".into(),
                 trip: None,
                 poster_id: None,
+                since4pass: 0,
                 json_op_poster_id: None,
                 capcode: None,
                 country: None,
@@ -1056,6 +1057,34 @@ pub(crate) mod tests {
                 ),
                 "invalid preview variant {variant} must fail without a response body"
             );
+        }
+    }
+
+    #[test]
+    fn pass_badges_keep_opt_in_year_and_hide_capcoded_or_event_values() {
+        for (year, capcode, visible) in [
+            (2020, None, true),
+            (1, None, true),
+            (9999, None, true),
+            (0, None, false),
+            (-1, None, false),
+            (10000, None, false),
+            (2020, Some("admin"), false),
+            (2020, Some("unknown"), false),
+        ] {
+            let mut snapshot = fixture();
+            snapshot.posts[0].since4pass = year;
+            snapshot.posts[0].capcode = capcode.map(str::to_owned);
+            let body = encode(snapshot, "", MAX_BYTES).unwrap();
+            let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+            let html = value["posts"][0]["html"].as_str().unwrap();
+            assert_eq!(
+                html.matches("class=\"n-pu\"").count(),
+                if visible { 2 } else { 0 }
+            );
+            if visible {
+                assert!(html.contains(&format!("title=\"Pass user since {year}\"")));
+            }
         }
     }
 

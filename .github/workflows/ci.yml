@@ -21,9 +21,10 @@ jobs:
     runs-on: ubuntu-24.04
     # Rust tests include real browser-backed upload qualification.
     # Public browser suites run on separate disposable databases below.
-    # The complete database suite takes about 41 minutes on a warm runner.
-    # Leave CI scheduling headroom; individual runtime and lock limits stay fixed.
-    timeout-minutes: 60
+    # The full Pass matrix plus database and public suites exceeded one hour
+    # on a warm runner while tests were still completing successfully.
+    # This job budget includes builds; runtime, lock and browser limits stay fixed.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -89,6 +90,7 @@ jobs:
           python3 scripts/test-dev-db-env.py
           python3 scripts/test-dev-staff-db-env.py
           python3 scripts/test-dev-verification-db-env.py
+          python3 scripts/test-dev-checkout-db-env.py
           sudo bash scripts/test-role-bootstrap.sh
           sudo bash scripts/test-source-restrictions-migration.sh
           sudo bash scripts/dev-db.sh
@@ -98,6 +100,7 @@ jobs:
           sudo bash scripts/dev-monitor-db.sh
           sudo bash scripts/dev-staff-db.sh
           sudo bash scripts/dev-verification-db.sh
+          sudo bash scripts/dev-checkout-db.sh
           sudo chown -R "$(id -u):$(id -g)" .local
           source .local/database.env
           cargo run -p board-store --bin board-migrate --locked
@@ -107,14 +110,31 @@ jobs:
         run: |
           python3 scripts/test-email-verification-reference.py
           python3 scripts/test-challenge-answer-reference.py
+      - name: Qualify signed sandbox checkout and renewal idempotency
+        run: |
+          source .local/database.env
+          source .local/verification-tests.env
+          source .local/checkout-tests.env
+          cargo test -p board-checkout --all-features --locked --test sandbox_callbacks -- --ignored --exact signed_sandbox_callbacks_bind_order_and_renew_once_without_reviving_refunds
+          cargo test -p board-public --all-features --locked --lib pass_checkout::database_tests::public_renewal_quotes_are_csrf_bound_idempotent_and_wait_for_signed_payment -- --ignored --exact
+      - name: Install Pass and staff browser dependencies
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          node --test tests/helpers/pass-state-workflow.test.mjs tests/helpers/pass-state-pacing.test.mjs
+      - name: Qualify Pass states through native forms, Quick Reply, and JSON
+        run: |
+          source .local/database.env
+          source .local/verification-tests.env
+          cargo test -p board-public --all-features --locked --test pass_state_matrix -- --ignored --test-threads=1
       - name: Qualify verified client identity through the actual HTTPS proxy
         run: |
           source .local/database.env
           cargo test -p board-public --lib --test proxy_https --all-features --locked
       - name: Exercise janitor request and review forms in real browsers
         run: |
-          npm ci --ignore-scripts
-          npx playwright install --with-deps chromium
+          php -n scripts/test-pass-policy-source.php
+          php -n scripts/test-duplicate-image-cooldown.php
           node --test tests/browser/janitor-queue-state.test.mjs
           node tests/browser/janitor-queue-controls.mjs
           set -a
@@ -629,13 +649,17 @@ jobs:
       - name: Qualify staff message visibility and restored authority
         run: sudo bash scripts/test-staff-messages-migration.sh
       - name: Qualify private janitor request weight authority
-        run: sudo bash scripts/test-janitor-request-authority.sh
+        run: |
+          python3 scripts/test-janitor-request-runner.py
+          sudo bash scripts/test-janitor-request-authority.sh
+      - name: Qualify Pass lifecycle and restored sessions
+        run: sudo bash scripts/test-public-pass-lifecycle.sh
       - name: Qualify atomic janitor request capture and deletion
         run: sudo bash scripts/test-janitor-request-store.sh
       - name: Qualify request review decisions and counted outcomes
         run: sudo bash scripts/test-janitor-request-review.sh
       - name: Qualify atomic request image rules and policy contention
-        run: sudo env REQUEST_FILE_EFFECTS=1 bash scripts/test-janitor-request-review.sh
+        run: sudo env REQUEST_FILE_EFFECTS=1 REQUEST_CURRENT_SCHEMA=1 bash scripts/test-janitor-request-review.sh
       - name: Upgrade existing content for attachment-only posts
         run: sudo bash scripts/test-attachment-only-migration.sh
       - name: Upgrade existing threads from migration 0008

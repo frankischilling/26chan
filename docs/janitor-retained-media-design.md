@@ -2,7 +2,7 @@
 
 Private custody for moderation requests in issue #223. The development path
 keeps approved attachments available to scoped reviewers after public deletion.
-Full staff-history search, linked Pass history and overall visual parity remain
+Full staff-history search and overall visual parity remain
 separate unfinished work.
 
 ## Source behavior
@@ -64,8 +64,9 @@ reports must never cause a media fetch or retain supplied bytes.
 - Public deletion remains effective while scoped staff reads work; after review,
   obsolete request media URLs refuse access.
 
-This does not complete linked Pass history, staff-history search or full visual
-parity. README showcase work remains reserved for verified overall completion.
+Pass-linked request history is covered by migration 0223. Full staff-history search
+and visual parity remain open. README showcase work remains reserved for verified
+overall completion.
 
 ## Development transport
 

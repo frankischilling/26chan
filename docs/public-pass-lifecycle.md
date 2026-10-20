@@ -1,0 +1,620 @@
+# Public Pass lifecycle
+
+Issue #201 covers public membership authentication and its posting benefits.
+The source state model is qualified. Private entitlement/session storage,
+verifier-mediated login/logout, protected posting benefits, owner-email recovery
+and sandbox purchase/renewal are implemented. The full posting state matrix has
+passed hosted qualification. Source visual gaps remain open. The policy module alone grants
+no identity or posting authority; each protected write rechecks its receipt.
+
+## Source decisions
+
+`auth.php` applies a 15-minute login hold when the previous nonzero IPv4 /16
+network differs. It checks this hold before the account status. Status 0
+continues, 6 activates a new Pass, and 7 activates a delayed Pass with one year
+starting at activation. Statuses 1 through 5 distinguish expired, refunded,
+disputed, spam-revoked and illegal-content-revoked accounts.
+
+`lib/auth.php:valid_captcha_bypass` uses different rules for posting. It first
+rejects expiry at or before the request timestamp, then rejects any status
+other than 0. Its network hold is 30 minutes with an IPv4 /24 comparison.
+Same-scope use and an unset previous network bypass those holds. Future
+last-used timestamps remain inside the hold rather than wrapping the clock.
+
+Ordinary login cookies last 86,400 seconds. Remembered sessions use 31,556,900
+seconds in the supplied login code. A trusted bypass halves reply and
+duplicate-image cooldowns, rounding upward. Thread cooldowns remain unchanged.
+The `since4pass` option exposes the original purchase year. Pass-only posting
+uses the trusted bypass outcome, including the source's separately authenticated
+staff path; it does not grant staff roles to a member.
+
+The login source uses /16 and 900 seconds while posting uses /24 and 1,800
+seconds. These are distinct contracts. The native implementation must not merge
+them into a single timeout. Unknown stored statuses will fail closed rather than
+fall through the PHP switch.
+
+## Reference qualification
+
+`fixtures/pass-policy-source.json` pins the two source files and contains only
+the network/status decision fragments. Its PHP harness replaces cookie writes,
+HTTP termination and activation SQL with recorded outcomes. It uses owned
+scalar timestamps and documentation addresses, without loading the source
+application, database adapters, keys or credentials.
+
+The 1,120 cases cover all eight statuses, the different subnet boundaries,
+unset prior networks, future timestamps, exact hold boundaries and posting
+expiry. Rust compares each outcome with the executed source fragment. The
+harness does not qualify credential verification, persistent updates, cookies,
+recovery, payment callbacks or posting integration.
+
+```sh
+python3 scripts/extract-pass-policy-reference.py /path/to/4chan-old --check
+php -n scripts/test-pass-policy-source.php
+cargo test -p board-domain pass_policy --locked
+```
+
+## Integration boundaries
+
+The public listener must not read membership credential hashes or update
+entitlements directly. Authentication belongs to the isolated verifier, with
+bounded password hashing and database-controlled login attempts. Browser
+cookies carry opaque session material; network comparisons use trusted peer
+information. Neither a presentation cookie nor a browser-supplied membership
+flag can authorize a bypass.
+
+Every protected write must recheck the current entitlement and session inside
+the posting transaction. Issuing an advisory receipt must not let a revoked,
+expired or signed-out session post later. The same write captures the private
+membership identity for restrictions and staff history, while public output
+receives only the explicitly requested visible membership fields.
+
+Local provisioning must use deployment-owned test entitlements. Source tokens,
+PINs, production salts and payment accounts are never imported. Recovery and
+checkout dependencies remain part of the parent issue until they have working,
+qualified boundaries.
+
+
+## Expired authentication and renewal
+
+After a correct PIN produces the expired state, the private issuer can read that
+account's encrypted owner contact through a verifier-only function. It verifies
+the contact's identity binding and binds its renewal reference before returning
+only that reference. Wrong PINs, active accounts and restricted accounts do not
+receive it. The public role cannot query contacts. Accounts provisioned without
+an owner contact keep the plain expired message.
+
+The native error page links to the same-origin renewal form. The source XHR
+`status`/`message` contract carries the equivalent fixed link markup; the
+reference is restricted to ASCII letters, digits, hyphens and underscores before
+interpolation. Neither response includes the owner's email, Token or PIN.
+Refund and disputed-payment messages now include the source's full explanatory
+sentence. Source Terms of Use content is absent from the supplied archive, so
+revocation messages do not link to an invented policy page.
+
+Migration 0236 includes rollback and populated-restore qualification. Actual
+public/private HTTP tests cover correct and wrong PINs, native and XHR errors,
+restricted states, legacy reference binding and accounts without contacts. The
+SQL fixture checks expired-only lookup and public/mailer role denial.
+
+## Current authentication boundary
+
+The verifier reserves a failed-attempt slot before password work. Five failed
+or unfinished attempts from a peer within an hour refuse further attempts;
+correct credentials release their slot. Login completion consumes its one-use
+30-second ticket and rechecks the credential version after acquiring the account
+lock. PIN verification accepts only the fixed Argon2id profile and runs at most
+two hashes concurrently. Missing identifiers use a dummy hash with that same
+profile. Hash permits remain attached to blocking work after HTTP cancellation.
+
+Sessions are random, separately hashed tokens with host-only HttpOnly cookies.
+The source-compatible `pass_enabled` cookie is presentation only. Each account
+has at most eight active stored sessions; global inventories are bounded.
+Changing the PIN or account status advances the credential version and invalidates
+older sessions. Login/logout forms have a separate CSRF cookie and nonce purpose.
+Only the isolated verifier can call the issuer entry points; structural or
+privilege drift blocks them.
+
+IPv4 holds preserve the source /16 and /24 rules. IPv6 uses keyed /64 scopes
+instead of collapsing every address through the source's IPv4 conversion.
+Addresses and public login identifiers are HMAC-derived before database storage.
+No runtime receives table access to credential hashes or membership sessions.
+
+The supplied Pass template references an external stylesheet that is absent from
+the checkout. A retrieval attempt returned an HTML site-unavailable page, which
+was not installed as CSS. The local form stylesheet is provisional; complete
+source-pixel qualification remains open. No production entitlement, payment or
+mail account has been provisioned by these tests.
+
+
+## Local operator provisioning
+
+`board-pass-admin` reads one bounded JSON operation from standard input. It needs
+`MIGRATION_DATABASE_URL` and the same protected `VERIFICATION_KEY` used by the
+verifier. Keep that key stable and backed up: login identifier hashes cannot be
+recomputed after losing it. The CLI refuses public/runtime database identities
+and checks the sealed membership catalog before changing a row.
+
+Use `cargo run -p board-verification --bin board-pass-admin --locked` with input
+redirected from a private file outside the repository. The supported operations
+are:
+
+- `create`: identifier, PIN, status (0 active, 6 new, 7 delayed), purchase time,
+  and expiry time. Delayed accounts omit expiry until first authentication.
+- `reset_pin`: identifier and replacement PIN. Existing sessions are invalidated.
+- `status`: identifier and status 0 through 5. A status change invalidates sessions.
+- `renew`: identifier and a future expiry later than the stored expiry. It keeps
+  the original purchase time and reactivates the account.
+
+Dates use RFC 3339. Identifiers contain ten ASCII letters or digits and are
+case-insensitive. PINs contain 1 to 128 bytes. Unknown fields and fields belonging
+to another operation are refused. The result contains only the internal ID and
+status; identifiers, PINs and hashes are never printed. Protect and remove any
+input file containing credentials after use. These operator changes do not
+contact a checkout or mail provider.
+
+An eight-session inventory cannot lock out a user after a credential rotation:
+login removes stale versions before applying the session cap. The SQL suite
+checks this boundary. Provisioning tests use only a disposable database and
+owned credentials, verify that IDs and purchase history are preserved, reject
+shortening renewals and runtime-role writes, and inspect output for secret leaks.
+
+Apply migration 0216 before running these binaries. The public client also checks
+the explicit Pass readiness endpoint, so an older verifier cannot appear ready
+for membership routes it does not implement.
+
+The verification browser fixture includes Pass login, authenticated, completion
+and error pages rendered by the production template. The browser cases cover
+native form validation and POST fields on desktop and mobile, with JavaScript
+both enabled and disabled. Submission is intercepted with owned fixture data;
+these cases do not prove session issuance or posting benefits. Private issuer
+and full-router database tests cover login and revocation separately. Hosted
+browser results must pass before this work is ready to merge.
+
+Posting advice uses the source's 30-minute network hold and checks membership
+expiry before that hold. Login still uses its separate 15-minute, wider-network
+rule. The internal advice endpoint returns only a state and, when valid, a
+purchase year. It does not change the last-used network or issue a receipt.
+A protected write must recheck membership under locks before applying benefits.
+The SQL and private HTTP tests cover differing IPv4 /24 scopes, the release
+boundary, absent previous scope, expiry precedence and signed-out sessions.
+
+The private issuer can now create 30-second membership receipts bound to the
+anonymous session, peer, form, board and write purpose. It limits outstanding
+receipts to eight per Pass session and a configured global inventory. Private
+consumption rechecks the current session, credential version, expiry and network
+hold under write locks. Signout removes outstanding receipts; a failed write
+rolls consumption back. SQL tests cover wrong context, replay, expiry, rotation,
+capacity and rollback. HTTP tests check the issuer response and reject email or
+newly minted browser contexts. A two-connection test observes the duplicate
+consumer waiting on a database lock, then rejects it after the first commits.
+
+Thread and reply forms now obtain these receipts for authenticated Pass users.
+Classic, Twister and script-disabled controls keep the form nonce while hiding
+the CAPTCHA. The post insert consumes the receipt, and a private transaction-only
+handoff supplies the source's late-classifier bypass. Commit removes that
+handoff; it cannot authorize a later request. Pass posts do not earn courtesy
+CAPTCHA credits. Invalid, expired, disabled and network-held membership
+responses clear both browser Pass cookies. Issuer outages leave them intact.
+Store tests cover a real accepted post, missing proof, replay
+and revocation; public-handler tests cover the private issuer and form advice.
+
+The board policy follows `config/boards/vip.config.ini`: `/vip/` is Pass-only,
+while other boards default to ordinary admission. With CAPTCHA enabled, the
+post trigger requires a consumed Pass receipt; a solved ordinary CAPTCHA cannot
+satisfy the membership gate. The original `valid_captcha_bypass` treats
+CAPTCHA-disabled boards as bypassed, so that configuration also permits ordinary
+posts on a Pass-only board. The separate staff authority remains unchanged.
+
+Ordinary text and image replies now use ceil-half cooldowns for a current Pass
+receipt. Preflight holds the receipt, session and account locks without consuming
+the receipt; the eventual post insert repeats the same validation and consumes
+it. A refused cooldown can retry with the still-valid receipt. Thread delays are
+unchanged. CAPTCHA-disabled boards also receive the source bypass reduction.
+The ordinary full-delay SQL entry point remains available for callers that
+explicitly need ordinary timing; protected public writes use the new checked
+entry point. The public role cannot call the core function with its own discount
+flag.
+
+The exact `since4pass` option now publishes the purchase year from the consumed
+membership receipt. The source's sage removal runs first; the option remains
+case-sensitive and ASCII-space-delimited. Ordinary posts and members who did not
+opt in store zero. JSON omits zero and values at or above 10000, without exposing
+an account ID. Thread transfers preserve the year and bind it into their source
+fingerprint. Whole deletion clears it; archiving retains it.
+
+Opt-in years now render the source `n-pu` badge and its "Pass user since YEAR"
+title beside desktop and mobile names. Capcoded posts and values outside 1 through 9999
+do not receive a badge. Shared rendering carries the same field through thread
+pages, updater responses and quote previews. The client accepts only an empty
+badge span with that bounded year title, never comment-supplied membership markup.
+
+The original `minileaf.gif` is absent from the supplied archive, and its referenced
+URL returned HTML rather than an image. The badge provisionally uses the existing
+bundled 16×16 clover favicon with the source dimensions and alignment. This is a
+visible local fallback, not a claim that the original badge pixels match. The
+original bitmap and auth stylesheet are still needed for final visual comparison.
+
+Private post associations now capture the login identifier's HMAC when a Pass
+receipt is consumed. PIN changes preserve that identity; public, staff and
+verifier runtime roles cannot read the association table. A failed insert rolls
+back receipt consumption and the association together. The qualification suite
+rejects an oversized name after receipt consumption, then successfully retries
+with the same receipt.
+
+Thread transfers bind the private identity into their source fingerprint, copy
+it to the destination posts, and erase the source association. Deleting a post
+or archiving its thread removes the private identity. The opt-in public year
+still survives archiving. Tests cover transfer drift, erasure, disabled cleanup
+triggers, privilege drift and a populated database restore. Posting bans and
+member reports use these associations through their separate receipt boundaries.
+
+Public image replies now check the source's same-image timer before the ordinary
+reply timer. The comparison uses the approved normalized upload digest, the same
+board and posting identity, and the newest matching post number. Source OPs have
+`resto=0`, so an OP image can match a reply in its own thread. File-only deletion
+retains the timer; whole deletion and archiving remove the posting history.
+
+The interval is 300 seconds for ordinary posters and 150 for a checked Pass
+receipt or CAPTCHA-disabled board. A receipt preflight does not consume the
+proof. The wrapper revalidates the upload capability, and the public role cannot
+call the core with its own discount flag. Twenty-two timing cases execute the
+isolated PHP fragment. Store qualification also covers exact boundaries,
+revocation, upload reuse after refusal, digest/scope separation and file-only
+deletion. Legacy approved uploads with no normalized digest remain unknown;
+the check does not infer one from the original input or a later asset.
+
+Authenticated janitor replies use the same half-delay through a staff-only
+wrapper after their posting authority is issued. Other staff modes retain their
+separate timer policy.
+
+Posting restrictions now match private membership identity after the source's
+password branch. A valid membership skips host matches; template 124 is skipped
+only in the membership branch, after warnings and expiry. The early decision
+validates the receipt without consuming it. The final insert checks the current
+transaction's consumed handoff, so a retained historical post cannot authorize a
+new write. Refused inserts restore their receipt and leave no post association.
+
+Staff bans capture the source post's membership identity. Janitor requests
+capture it before removing the source post, and approval copies that retained
+identity into the ban. Queue summaries and the scoped history reader include
+membership-linked bans from other addresses without double-counting the same
+row. Detailed history still enforces board access and never returns the private
+membership hash. Automatic file bans
+revalidate the same receipt in the separate refusal transaction and retain that
+identity too. PIN changes and address changes do not evade those matches.
+Network and automatic-range checks use a separately checked membership boolean;
+disabling CAPTCHA alone does not grant that network exception. Public runtime
+roles cannot read membership hashes or choose a trusted ban identity.
+
+The reconstructed `/banned` controller now includes membership-linked warnings
+and bans after an address change. Status reads and warning acknowledgments use
+separate thirty-second receipts, bound to the anonymous session, board, form
+nonce and exact action. Viewing status or a warning leaves the posting-network
+hold unchanged. A status receipt cannot acknowledge a warning or post;
+a warning receipt cannot acknowledge another ID. Consumption repeats account
+expiry and credential-version checks, and replay fails.
+
+The public page keeps its separate HttpOnly CSRF cookie and private, no-store
+response. Only public restriction reasons leave the private reader. The existing
+address and anonymous-identity status behavior remains available. The original
+archive has no `/banned` controller, so this extends the documented replacement
+contract rather than claiming an exact rendering match. SQL qualification covers
+wrong-purpose and wrong-target proofs, another member's warning, revoked
+credentials, private-function grants and a populated restore. The private issuer and public
+HTTP tests pass login, membership-only warning display, CSRF rejection,
+acknowledgment, logout rejection and cookie clearing. Ordinary warning routes
+retain their identity, escaping and CSRF checks. Report membership and
+recovery/delivery are covered below.
+
+
+Non-member reply, image-reply and duplicate-image refusals now include the
+source's fixed Pass information link. The Store selects it from the locked
+CAPTCHA policy and validated membership result. Members, CAPTCHA-disabled
+boards, staff replies and thread timers omit it. This flag changes presentation
+only; it cannot select a cooldown or grant a bypass.
+
+HTML escapes the ordinary message and renders a fixed link. Source JSON keeps
+its single `error` field with the exact `S_RENZOKU_PASS` suffix. Quick Reply and
+the drawing form recognize only that suffix and construct the link with DOM
+methods; all other response text stays inert. The link retains the source's
+external information URL. It does not connect the local entitlement store to an
+external checkout. Sandbox checkout is integrated; live provider reconciliation remains under #226.
+
+The Quick Reply bundle remains within its existing 50 KiB limit. Reusing the
+unchanged upload-error string offsets the new renderer without removing guards.
+Local checks pass the ordinary, member and CAPTCHA-disabled Store paths,
+HTML/JSON responses and safe DOM rendering. Hosted browser tests cover the
+ordinary and member posting paths.
+
+Quick Reply also halves its advisory timer when CAPTCHA is disabled or the
+private endpoint confirms current Pass advice. Report exemptions and CAPTCHA
+credits do not select that reduction. A presentation cookie only starts the
+advice request; it cannot grant a bypass. Advice refreshes after submission.
+The source browser halves milliseconds, so an odd five-second policy becomes
+2.5 seconds in the advisory while the server still enforces its three-second
+ceil-half rule. Unit tests preserve this distinction. The ordinary timer tests
+remain unchanged; the CAPTCHA-disabled browser fixture projects 20/40 seconds
+and checks the resulting 10/20-second advisory.
+
+
+Pass preflight now reaches the public-board check before the ordinary Store
+lookup. Its missing/private-board result is mapped back to `NotFound`, preserving
+the existing public response. CI exposed the regression in private archive
+qualification; the owned local test reproduced it before the correction and all
+three private archive cases pass afterward. Invalid receipts and other database
+errors retain their existing failure paths.
+
+
+The historical-deletion operator's pinned guard now matches migration 0220,
+which clears the public Pass year. The old pin safely refused the current schema
+and was reproduced locally. An operator unit test compares both pins with the
+latest migration bodies. The populated CLI qualification now erases an imported
+year, preserves live and unrelated years, and rejects a guard whose year-clearing
+statement was removed. Rollback, bounded batches and administrator restore pass.
+
+The fresh-deletion HTTP fixture now uses distinct synthetic PNG pixels for its
+live, deleted and archived cases. Reusing identical images made setup hit the
+new source duplicate-image cooldown before it reached the erasure assertions.
+The corrected test passes locally with the complete migration set; media
+revocation, consumed-receipt rejection and surviving-content assertions remain
+unchanged.
+
+The attachment-restore fixture had the same setup defect. A local reproduction
+confirmed the duplicate-image refusal before the correction. Each restore case
+now has distinct synthetic pixels. The owned PostgreSQL 16 dump/file-restore
+exercise passes for seven attachments and fourteen files, exact JSON and bytes,
+four URL forms, deletion/archive visibility, one-use receipts, interrupted
+cleanup and monotonic numbering. The source database remains unchanged.
+The owned TCP qualification and hosted VM/media lane cover the restore boundary.
+
+## Active-thread limits across addresses
+
+Migration 0237 adds the source Pass branch to the existing active-thread quota.
+`imgboard.php:validate_user_thread_limit` counts an OP when its address, eligible
+UserPwd identity or Pass identity matches. The native query counts that union once,
+including when all three predicates match. Pass matching remains available when
+the automatic session is source-new and its password branch is excluded.
+
+The quota resolves the account from the installed, validated thread receipt. It
+retains the account/session locks without consuming the receipt and never returns
+the private identifier. Only the quota owner receives the private read/resolver
+permissions; public roles still cannot inspect those identities. The Pass catalog
+now attests the quota function body as well as the new grants.
+
+Board limits, strict stored-post timestamp cutoffs, zero-limit and zero-period
+rules remain unchanged. Deleted or archived OPs do not count. The board lock and
+Read Committed query serialize different addresses using the same Pass. A refused
+attempt leaves its receipt available, with no partial post or member association.
+
+The regression first reproduced the missing Pass-only match on the previous
+schema. SQL coverage includes overlapping identities, source-new sessions,
+ordinary requests, exact/future timestamp edges, zero policies, wrong form proofs,
+revocation, private-role denial and function-body drift. The real Store test races
+two addresses and sessions sharing one Pass, requires exactly one successful OP,
+then deletes it and retries the refused proof. Both posts omit the public badge
+option, proving that the quota uses private identity rather than the public year.
+
+## Private report identity foundation
+
+Migration 0225 keeps a report's validated Pass identity separate from public
+content and the reported author's identity. A consumed receipt stages a handoff
+bound to its transaction, actor, board and target. Membership insertion captures
+it once; deferred cleanup removes unused handoffs. Retiring membership removes
+the private association. Runtime roles cannot access these tables or stage a
+handoff. The Pass catalog attests the capture and foreign-key triggers.
+
+The reconstructed implementation passes the full local lifecycle suite, including
+wrong targets/actors, replay, rollback, deferred cleanup, retirement, privilege
+checks, trigger drift and populated restore with distinct author/reporter
+identities. Public report receipt admission uses the quota, ban, network and
+history boundaries described below.
+
+Migrations 0226–0228 extend the private report boundary with source quotas,
+explicit bans and network policy. Quotas combine address, automatic-session and
+Pass matches once per report, preserving duplicate precedence and strict
+15-second, hourly and daily cutoffs. Advisory GET has no consumed handoff.
+Reporting keeps address and password ban checks even for members. Only a
+matching consumed receipt or the stored CAPTCHA-off board policy skips network
+rules; neither skips quotas or explicit bans.
+
+The reconstructed SQL suite passes all lifecycle rollback and populated restore
+checks. It covers cross-address duplicates, wrong actor/session bindings,
+29/30-hourly and 79/80-daily limits, future timestamps, overlapping identities,
+global/local/inactive bans, active warnings, and an owned blocked network range.
+Ordinary Rust report regressions and the public/private HTTP fixtures cover
+these boundaries alongside retained clear-history integration.
+
+## Retained report-clear history
+
+Migration 0229 records each manually cleared report and each new report that
+inherits an existing clear. Capture runs after anonymous registration, preserving
+the reporter's final private identity. The reported author's membership cannot
+supply the reporter's identity. The history has no report foreign key, so later
+report retirement does not remove it. Reporter purge and automatic clearing do
+not invent manual-clear events.
+
+The source keeps clear logs for five days. Native recording prunes older events
+in bounded batches and limits retained rows. A full history inventory preserves
+the valid report/clear operation and records an uncertainty horizon instead of
+claiming complete history. Initial migration also starts a five-day warm-up.
+Idempotent writes preserve the first timestamp and reject changed identities.
+This foundation records identities and event counts; it does not claim an exact
+source weight, enable history filtering, or issue automatic abuse bans.
+
+Local SQL tests pass manual and inherited capture, duplicate clearing, retirement,
+capacity uncertainty, expiry, privacy and populated restore. The 17 ordinary Rust
+report challenge, group-clear, network and weight-evidence regressions pass with
+this migration. Public receipt integration is described below.
+
+Migration 0230 adds a private history decision for future report-weight integration.
+It follows `modes/report.php:is_report_filtered`: a member's Pass identity replaces
+the address branch, the retained password branch counts overlapping rows once,
+clears use a strict two-day window, and three retired template-190 bans within
+30 days meet the ban-history threshold. New-password requests omit the password
+history branch. Positive retained matches remain usable during warm-up; a negative
+result requires complete clear history and a verified, unchanged identity epoch.
+Missing context or incomplete history returns unknown. Disabled thresholds return
+false without consulting history.
+
+The owned SQL matrix passes identity selection, overlap, new-password exclusion,
+window edges, future timestamps, active/wrong-template exclusions, epoch changes,
+runtime denial, migration rollback and populated restore. This helper does not
+change effective weights or grant report admission by itself.
+
+## Public member reports
+
+Migration 0231 connects the purpose-bound receipt to ordinary and categorical
+report admission. A recognized Pass receipt is validated before optional CAPTCHA
+exemptions, including on CAPTCHA-off boards. The transaction then enforces the
+same target, quota, explicit-ban and network checks, captures reporter identity,
+and registers anonymous activity. A later quota failure restores the receipt and
+leaves no handoff. Pass reporting neither spends nor grants CAPTCHA credits.
+
+Classic and Twister report forms now obtain private membership advice, retain
+CSRF/session binding and show the source's Pass message. A presentation cookie
+alone grants nothing. Authentication, report form rendering, bad-CSRF refusal,
+successful CAPTCHA-free submission, private identity capture, duplicate refusal,
+logout rejection and cookie clearing pass through the actual HTTP handlers and
+private issuer. Both explicitly invoked public database tests pass, along with
+the ordinary report challenge/network regressions. The full SQL lifecycle suite
+passes public receipt admission, disabled/expired-state refusal, CAPTCHA-off
+identity capture, late-quota rollback and populated restore. Strict public/Store
+Clippy and formatting pass.
+
+Public receipt admission is now connected. Retained-history helpers still do not
+establish arbitrary effective weights or enable automatic abuse bans; those
+report-weight limitations remain documented separately. Mail, recovery and native
+sandbox checkout are described below and in `checkout-source-inventory.md`.
+
+## Mail and recovery preparation
+
+The supplied mail task selects active/new accounts within seven days of expiry,
+prefers a nonempty gift recipient, sends an expiry notice at the exact expiry
+boundary, and updates sent flags only after delivery succeeds. Its reset-PIN
+link points to a separate `/pass?reset` controller that is absent from the
+archive. The native recovery workflow therefore needs an explicit replacement
+contract; its exact legacy form and token flow cannot be claimed from this code.
+
+The new mail types preserve the notice decision and bound recipient, public
+identifier and renewal-reference fields. Pass delivery accepts safe ASCII
+mailboxes and subaddresses without inheriting the unrelated email-verification
+provider allowlist. Gift-address validation never silently falls back to another
+recipient. Delivery preserves local-part case; private recovery equality folds
+ASCII case without provider-specific dot or subaddress rules.
+
+Contact/notice envelopes use authenticated encryption with a distinct Pass-mail
+version and context. They cannot be substituted for browser-verification mail.
+Four domain tests pass policy edges, safe mailbox parsing, typed payload bounds,
+fresh nonces and rejection of altered/truncated/wrong-context envelopes. The delivery integration and native recovery form are described below.
+
+
+## Encrypted notice delivery
+
+Migration 0232 adds encrypted contacts and a bounded notice outbox. The operator's
+`board-pass-admin` contact operation takes an email, optional gift email and renewal
+reference on standard input. It requires distinct identity and mail keys. Only the
+private verifier can read encrypted candidates and queue notices. The mailer can
+claim and acknowledge delivery; it cannot enumerate contacts or read private tables.
+
+`board-pass-notices` processes at most 100 candidates per invocation. It decrypts and
+checks each contact's identifier and recipient hashes before sealing a notice under
+a fresh delivery context. Invalid contacts produce a generic failure without
+printing their contents. A second run cannot duplicate a pending notice for the
+same account, expiry and notice kind. Outbox capacity is enforced under the policy
+lock. Entries expire after an hour and can then be regenerated if still due.
+
+The mailer alternates browser-verification and Pass queues, claims one message at
+a time and accepts only a configured loopback SMTP relay. A final SMTP 250 reply
+is required before sent flags change. Failure releases the lease and schedules a
+retry after 60 seconds; it cannot expire the Pass. Successful expiry mail changes
+an active/new account to expired only if its contact version and expiry still
+match the queued notice. A late acknowledgement cannot expire a renewed Pass.
+Pass messages retain the source's three-second delivery spacing.
+
+Reminder and expired messages use the source subjects and include the public
+identifier and renewal reference. Renewal links use the configured public origin.
+The `/pass?renew=...` route now connects to native sandbox renewal checkout.
+Live payment-provider integration remains open. No external email was sent during
+testing.
+
+Local tests pass the actual operator contact command, private producer, gift-owner
+selection, encrypted payload round-trip and duplicate suppression. Owned SMTP
+accept/reject fixtures pass for both browser verification and Pass expiry, including
+retry and account-state assertions. SQL tests cover eligibility, lease fencing,
+contact changes, renewal races, role separation, migration rollback and populated
+contact/outbox restore. Final hosted qualification remains open.
+
+## Native PIN recovery
+
+The native `/pass?reset` form replaces the reset controller missing from the
+archive. It requires the ten-character public Token and the current owner email;
+gift recipients use their own email. Known, unknown and throttled requests return
+the same public confirmation. The private issuer allows three requests per peer
+and recipient per hour, with a 60-second repeat delay for the same Token/recipient.
+Attempt and recovery inventories are bounded; full inventories refuse new work.
+
+Recovery mail contains a random, purpose-separated link that expires after
+30 minutes. The database stores its hash and encrypted delivery payload. Only a
+successfully acknowledged delivery enables the link. Viewing the form does not
+consume it. Changing the PIN requires the recovery form's separate HttpOnly CSRF
+cookie and a POST containing matching PIN fields. The new PIN is hashed with
+Argon2id under the same bounded hashing budget as login.
+
+The update is atomic and single-use. It advances the credential version, revokes
+old sessions and preserves the account's restriction status. Contact changes and
+credential changes invalidate outstanding links. A request prepared before a
+contact change cannot queue mail for the old owner. Public handlers never receive
+contact records or run entitlement SQL. Recovery pages use an origin-only referrer
+policy so link tokens do not enter referrer headers.
+
+Local SQL tests pass unknown/wrong-owner refusal, request throttling, inventory
+limits, preparation replay, failed delivery, retry fencing, expired tokens,
+contact changes, credential rotation and role denial. The actual public/private
+HTTP flow passes matching public responses, CSRF refusal, delivery gating,
+GET-only viewing, reset replay, session revocation and login with the new PIN.
+Owned SMTP fixtures pass accepted and rejected recovery delivery without changing
+entitlement status. Desktop/mobile rendering and native submission tests are
+qualified on hosted browsers with scripts enabled and disabled. No recovery
+email was sent outside the owned fixtures.
+
+
+## Read-only report advice
+
+The Pass report identity lookup returns immediately when the transaction has no
+assigned ID or no consumed handoff. Advisory report checks therefore remain valid
+inside a read-only transaction and do not allocate an ID or acquire a Pass catalog
+row lock. A real consumed handoff still requires the guarded private lookup.
+The regression calls that helper directly as the restricted report owner, so an
+empty membership join cannot let the planner hide an accidental write dependency.
+All 32 Store report-admission cases pass locally, including CAPTCHA-enabled network
+rules with actual verifier-issued proofs and the unchanged no-partial-report checks.
+
+## Posting state matrix
+
+The owned matrix provisions new, active, expired, refunded, chargeback,
+spam-revoked, content-revoked, delayed and renewed accounts. Each client has only
+public HTTP credentials. The supervisor retains database access and checks the
+stored post year, private account association, total post count and absence of
+CAPTCHA courtesy credits before deleting its fixture data.
+
+The HTTP matrices cover an ordinary CAPTCHA-enabled board and a Pass-only board,
+with real login, OP submission, a JSON reply and the separate JSON listener. Only
+the four eligible states bypass CAPTCHA. A forged `pass_enabled` presentation
+cookie does not grant that bypass to other states; ordinary nonmember CAPTCHA
+admission remains covered separately. Opting out of `since4pass` leaves the
+reply's year out of JSON. Script-enabled native forms/Quick Reply and
+script-disabled native forms run against the same private issuer and real
+posting routes. All four matrices passed hosted qualification at c40a4a95.
+
+The browser client reserves room for automatic CAPTCHA requests and waits for
+the real per-peer write window between cases. It neither raises the runtime
+limit nor retries a potentially committed write. The supervisor checks stored
+results and cleans up each owned fixture even when a client assertion fails.
+
+
+The auth template now also preserves the supplied title/header wording, local
+favicon, logout fieldset and button labels. Success and logout screens retain the
+source's completion text without extra navigation links; errors retain the
+bracketed Return link and empty-error fallback. CSRF fields, escaped messages,
+accessible labels and same-origin destinations remain native security changes.
+The missing external stylesheet still prevents a complete source-pixel claim.
