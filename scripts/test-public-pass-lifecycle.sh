@@ -183,6 +183,12 @@ DO $$ BEGIN IF to_regprocedure('content.pass_report_history_filtered(text,bigint
  THEN RAISE EXCEPTION 'History decision rollback changed authority'; END IF; END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0230_pass_report_history_decisions.sql
+"${migrator[@]}" -c BEGIN -f migrations/0231_pass_report_admission.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN IF content.public_pass_ready() IS DISTINCT FROM true OR content.public_challenge_ready() IS DISTINCT FROM true
+ OR content.restrictions_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Report receipt rollback changed authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0231_pass_report_admission.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-identity.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-quotas.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-restrictions.sql

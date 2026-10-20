@@ -129,6 +129,14 @@ async fn public_pass_forms_use_private_issuer_and_ignore_forged_presentation_coo
         country_database: None,
     };
     let app = routes()
+        .route(
+            "/{board}/imgboard.php",
+            axum::routing::get(crate::legacy_report::get),
+        )
+        .route(
+            "/{board}/report",
+            axum::routing::post(crate::handlers::report),
+        )
         .merge(crate::restrictions::routes())
         .merge(crate::ui_assets::routes())
         .layer(middleware::from_fn_with_state(
@@ -207,6 +215,7 @@ async fn public_pass_forms_use_private_issuer_and_ignore_forged_presentation_coo
         assert!(!html.contains("p1_"));
         assert!(!html.contains("owned-public-pin"));
         check_member_warning(&app, &work_owner, &session_cookie, &token_hash).await;
+        check_member_report(&app, &work_owner, &session_cookie, &token_hash).await;
         let response = app
             .clone()
             .oneshot(request("/auth", &session_cookie, None))
@@ -441,4 +450,125 @@ async fn check_member_warning(
         .await
         .unwrap();
     tx.commit().await.unwrap();
+}
+
+async fn check_member_report(
+    app: &Router,
+    owner: &sqlx::PgPool,
+    pass_cookie: &str,
+    identity: &[u8],
+) {
+    let board: String =
+        sqlx::query_scalar("SELECT 'rp'||substr(replace(gen_random_uuid()::text,'-',''),1,8)")
+            .fetch_one(owner)
+            .await
+            .unwrap();
+    sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,captcha_enabled) VALUES($1,'Owned member reports','',2000,100,100,100,10,true)")
+        .bind(&board).execute(owner).await.unwrap();
+    let post: i64 =
+        sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
+            .bind(&board)
+            .fetch_one(owner)
+            .await
+            .unwrap();
+    sqlx::query("INSERT INTO content.posts(id,board,thread_id,name,subject,comment) VALUES($1,$2,$1,'Anonymous','Owned report target','Synthetic')")
+        .bind(post).bind(&board).execute(owner).await.unwrap();
+    let response = app
+        .clone()
+        .oneshot(request(
+            &format!("/{board}/imgboard.php?mode=report&no={post}"),
+            pass_cookie,
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let combined = format!("{pass_cookie}; {}", cookie(&response));
+    let html = body(response).await;
+    assert!(html.contains("data-exempt=\"true\""));
+    assert!(html.contains("You are using a 4chan Pass."));
+    let csrf = html
+        .split("name=\"captcha-csrf\" value=\"")
+        .nth(1)
+        .unwrap()
+        .split('"')
+        .next()
+        .unwrap();
+    assert!(!csrf.is_empty());
+    let post = post.to_string();
+    let path = format!("/{board}/report");
+    let invalid = app
+        .clone()
+        .oneshot(request(
+            &path,
+            &combined,
+            Some(&[
+                ("no", &post),
+                ("reason", "Owned report"),
+                ("captcha-csrf", "wrong"),
+            ]),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(invalid.status(), StatusCode::FORBIDDEN);
+    let fields = [
+        ("no", post.as_str()),
+        ("reason", "Owned report"),
+        ("captcha-csrf", csrf),
+    ];
+    let response = app
+        .clone()
+        .oneshot(request(&path, &combined, Some(&fields)))
+        .await
+        .unwrap();
+    let status = response.status();
+    let output = body(response).await;
+    assert_eq!(status, StatusCode::OK, "{output}");
+    assert!(
+        !output.contains("identity_hash")
+            && !output.contains("peer_hash")
+            && !output.contains("context_hash")
+    );
+    let report: i64 = sqlx::query_scalar("SELECT id FROM content.reports WHERE board=$1")
+        .bind(&board)
+        .fetch_one(owner)
+        .await
+        .unwrap();
+    let mut tx = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let actual: Vec<u8> = sqlx::query_scalar(
+        "SELECT identity_hash FROM verification_private.pass_reports WHERE report_id=$1",
+    )
+    .bind(report)
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap();
+    assert_eq!(actual, identity);
+    tx.rollback().await.unwrap();
+    let repeated = app
+        .clone()
+        .oneshot(request(&path, &combined, Some(&fields)))
+        .await
+        .unwrap();
+    assert_eq!(repeated.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(
+        body(repeated)
+            .await
+            .contains("You have already reported this post.")
+    );
+    for statement in [
+        "DELETE FROM content.reports WHERE board=$1",
+        "DELETE FROM content.posts WHERE board=$1",
+        "DELETE FROM content.threads WHERE board=$1",
+        "DELETE FROM content.boards WHERE slug=$1",
+    ] {
+        sqlx::query(statement)
+            .bind(&board)
+            .execute(owner)
+            .await
+            .unwrap();
+    }
 }

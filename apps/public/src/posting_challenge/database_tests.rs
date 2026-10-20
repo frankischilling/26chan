@@ -223,12 +223,27 @@ async fn public_captcha_requests_keep_private_scope_and_source_report_opt_out() 
             let html=ClassicForm{captcha:view}.render().unwrap();assert!(html.contains("data-exempt=\"true\""));assert!(!html.contains(&pass_token.encode()));
             let finished=page::finish(StatusCode::OK.into_response(),&context);assert!(finished.headers().contains_key(header::SET_COOKIE));
         }
+        // Report controls use the same private issuer and retain purpose/target binding.
+        let report_scope=|| Scope{board:board.clone(),target:target.parse().unwrap(),purpose:protocol::Purpose::Report};
+        let response=request(State(state.clone()),Extension(RequestPeer(Some(peer))),member_headers.clone(),encoded(&[("action","challenge"),("board",&board),("purpose","report"),("target",&target),("csrf",nonce)])).await.unwrap();
+        assert_eq!(decoded(response).await["challenge"]["state"],"disabled");
+        assert!(proof(&state,&member_headers,&current,Some(peer),report_scope(),&input).await.unwrap().is_some());
+        for twister in [false,true] {
+            sqlx::query("UPDATE content.boards SET captcha_twister=$2 WHERE slug=$1").bind(&board).bind(twister).execute(&owner).await.unwrap();
+            let (view,context)=page::prepare(&state,&member_headers,Some(peer),report_scope()).await;
+            assert!(view.enabled && view.exempt);assert!(!view.csrf.is_empty());assert!(view.token.is_empty() && view.image.is_empty());
+            let html=ClassicForm{captcha:view}.render().unwrap();assert!(html.contains("data-exempt=\"true\""));assert!(!html.contains(&pass_token.encode()));
+            let response=page::finish(StatusCode::OK.into_response(),&context);assert!(response.headers().contains_key(header::SET_COOKIE));
+        }
         state.verification.as_ref().unwrap().pass_signout(&protocol::PassSession{token:pass_token.encode()}).await.unwrap();
         let rejected=proof(&state,&member_headers,&current,Some(peer),Scope{board:board.clone(),target:0,purpose:protocol::Purpose::Thread},&input).await.err().unwrap().into_response();
         assert_eq!(rejected.status(),StatusCode::BAD_REQUEST);
         let cleared:Vec<_>=rejected.headers().get_all(header::SET_COOKIE).iter().map(|value|value.to_str().unwrap()).collect();
         assert_eq!(cleared.len(),2);assert!(cleared.iter().all(|value|value.contains("Max-Age=0")));
         assert!(cleared.iter().any(|value|value.starts_with("board-pass=")));assert!(cleared.iter().any(|value|value.starts_with("pass_enabled=")));
+        let rejected_report=proof(&state,&member_headers,&current,Some(peer),report_scope(),&input).await.err().unwrap().into_response();
+        assert_eq!(rejected_report.status(),StatusCode::BAD_REQUEST);
+        assert!(rejected_report.headers().get_all(header::SET_COOKIE).iter().any(|value|value.to_str().unwrap().starts_with("board-pass=; Path=/; Max-Age=0;")));
         sqlx::query("UPDATE content.boards SET captcha_enabled=false WHERE slug=$1").bind(&board).execute(&owner).await.unwrap();
         let mut offline=state.clone();offline.verification=None;
         let response=request(State(offline),Extension(RequestPeer(Some(peer))),headers,encoded(&[("action","challenge"),("board",&board),("purpose","thread"),("target","0"),("csrf",nonce)])).await.unwrap();assert_eq!(decoded(response).await["challenge"]["state"],"disabled");

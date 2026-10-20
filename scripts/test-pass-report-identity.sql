@@ -1,4 +1,4 @@
--- Owned report identities; public receipt admission remains disconnected.
+-- Owned report identity, public receipt admission and private authority checks.
 BEGIN;
 SET LOCAL ROLE board_migrator;
 INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,captcha_enabled)
@@ -24,16 +24,43 @@ UPDATE content.boards SET captcha_enabled=true WHERE slug='qpassrpt';
 SET LOCAL ROLE board_public;
 SELECT set_config('board.challenge_context',jsonb_build_object('receipt',encode(sha256('rpt-proof'),'hex'),'peer',encode(sha256('peer'),'hex'),'session',encode(sha256('rpt-anon'),'hex'),'context',encode(sha256('form'),'hex'))::text,true);
 DO $$ BEGIN
- BEGIN
-  PERFORM content.admit_report('qpassrpt',current_setting('board.fixture_report_post')::bigint,'Owned disconnected proof',sha256('rpt-actor'),sha256('rpt-anon'),sha256('network'),sha256('address'),sha256('environment'),false,floor(extract(epoch FROM clock_timestamp()))::bigint);
-  RAISE EXCEPTION 'Public report bypass was enabled before its checks';
- EXCEPTION WHEN SQLSTATE 'P0166' THEN NULL; END;
+ PERFORM content.admit_report('qpassrpt',current_setting('board.fixture_report_post')::bigint,'Owned public membership proof',sha256('rpt-actor'),sha256('rpt-anon'),sha256('network'),sha256('address'),sha256('environment'),false,floor(extract(epoch FROM clock_timestamp()))::bigint);
  BEGIN
   PERFORM verification_private.pass_consume_report_receipt(sha256('rpt-actor'),'qpassrpt',current_setting('board.fixture_report_post')::bigint,sha256('rpt-anon'),sha256('rpt-proof'),sha256('peer'),sha256('form'));
   RAISE EXCEPTION 'Public runtime staged private report authority';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $$;
+SET LOCAL ROLE board_anonymous_owner;
+DO $$ BEGIN IF (SELECT count(*) FROM verification_private.pass_reports WHERE identity_hash=sha256('rpt-account'))<>1 OR EXISTS(SELECT 1 FROM verification_private.pass_report_handoffs) THEN RAISE EXCEPTION 'Public report did not consume membership'; END IF; END $$;
 ROLLBACK TO public_boundary;
+SAVEPOINT revoked_public;
+SET LOCAL ROLE board_anonymous_owner;
+UPDATE verification_private.pass_entitlements SET status=1 WHERE token_hash=sha256('rpt-account');
+SET LOCAL ROLE board_public;
+SELECT set_config('board.challenge_context',jsonb_build_object('receipt',encode(sha256('rpt-proof'),'hex'),'peer',encode(sha256('peer'),'hex'),'session',encode(sha256('rpt-anon'),'hex'),'context',encode(sha256('form'),'hex'))::text,true);
+DO $$ BEGIN
+ BEGIN PERFORM content.admit_report('qpassrpt',current_setting('board.fixture_report_post')::bigint,'Owned public report state',sha256('rpt-actor'),sha256('rpt-anon'),sha256('network'),sha256('address'),sha256('environment'),false,floor(extract(epoch FROM clock_timestamp()))::bigint); RAISE EXCEPTION 'Revoked report membership was accepted';
+ EXCEPTION WHEN SQLSTATE 'P0166' THEN NULL; END;
+END $$;
+ROLLBACK TO revoked_public;
+SAVEPOINT revoked_public;
+SET LOCAL ROLE board_anonymous_owner;
+UPDATE verification_private.pass_entitlements SET status=4 WHERE token_hash=sha256('rpt-account');
+SET LOCAL ROLE board_public;
+SELECT set_config('board.challenge_context',jsonb_build_object('receipt',encode(sha256('rpt-proof'),'hex'),'peer',encode(sha256('peer'),'hex'),'session',encode(sha256('rpt-anon'),'hex'),'context',encode(sha256('form'),'hex'))::text,true);
+DO $$ BEGIN
+ BEGIN PERFORM content.admit_report('qpassrpt',current_setting('board.fixture_report_post')::bigint,'Owned public report state',sha256('rpt-actor'),sha256('rpt-anon'),sha256('network'),sha256('address'),sha256('environment'),false,floor(extract(epoch FROM clock_timestamp()))::bigint); RAISE EXCEPTION 'Revoked report membership was accepted';
+ EXCEPTION WHEN SQLSTATE 'P0166' THEN NULL; END;
+END $$;
+ROLLBACK TO revoked_public;
+SAVEPOINT disabled_board_member;
+SET LOCAL ROLE board_public;
+SELECT set_config('board.challenge_context',jsonb_build_object('receipt',encode(sha256('rpt-proof'),'hex'),'peer',encode(sha256('peer'),'hex'),'session',encode(sha256('rpt-anon'),'hex'),'context',encode(sha256('form'),'hex'))::text,true);
+SELECT content.admit_report('qpassrpt',current_setting('board.fixture_report_post')::bigint,'Owned public report state',sha256('rpt-actor'),sha256('rpt-anon'),sha256('network'),sha256('address'),sha256('environment'),false,floor(extract(epoch FROM clock_timestamp()))::bigint);
+SET LOCAL ROLE board_anonymous_owner;
+DO $$ BEGIN IF (SELECT count(*) FROM verification_private.pass_reports WHERE identity_hash=sha256('rpt-account'))<>1 THEN RAISE EXCEPTION 'CAPTCHA-off report discarded valid membership'; END IF; END $$;
+ROLLBACK TO disabled_board_member;
+
 SET LOCAL ROLE board_anonymous_owner;
 DO $$ BEGIN
  BEGIN
@@ -68,6 +95,16 @@ DO $$ BEGIN
  OR has_table_privilege('board_verifier','verification_private.pass_reports','SELECT,INSERT,UPDATE,DELETE')
  OR has_function_privilege('board_report_admission_owner','verification_private.pass_consume_report_receipt(bytea,text,bigint,bytea,bytea,bytea,bytea)','EXECUTE') THEN RAISE EXCEPTION 'Report membership authority leaked'; END IF;
 END $$;
+SET LOCAL ROLE board_verifier;
+DO $$ BEGIN IF (SELECT status FROM content.pass_write_receipt(sha256('rpt-member'),sha256('rpt-second-proof'),sha256('peer'),sha256('login'),sha256('posting'),sha256('rpt-anon'),sha256('form'),'report','qpassrpt',current_setting('board.fixture_report_post')::bigint))<>'ready' THEN RAISE EXCEPTION 'Second report receipt unavailable'; END IF; END $$;
+SET LOCAL ROLE board_public;
+SELECT set_config('board.challenge_context',jsonb_build_object('receipt',encode(sha256('rpt-second-proof'),'hex'),'peer',encode(sha256('peer'),'hex'),'session',encode(sha256('rpt-anon'),'hex'),'context',encode(sha256('form'),'hex'))::text,true);
+DO $$ BEGIN
+ BEGIN PERFORM content.admit_report('qpassrpt',current_setting('board.fixture_report_post')::bigint,'Owned public report state',sha256('rpt-actor'),sha256('rpt-anon'),sha256('network'),sha256('address'),sha256('environment'),false,floor(extract(epoch FROM clock_timestamp()))::bigint); RAISE EXCEPTION 'Duplicate Pass report admitted';
+ EXCEPTION WHEN SQLSTATE 'P0001' THEN IF SQLERRM<>'You have already reported this post.' THEN RAISE; END IF; END;
+END $$;
+SET LOCAL ROLE board_anonymous_owner;
+DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM verification_private.pass_receipts WHERE token_hash=sha256('rpt-second-proof')) OR EXISTS(SELECT 1 FROM verification_private.pass_report_handoffs) THEN RAISE EXCEPTION 'Quota failure consumed or retained partial membership'; END IF; END $$;
 SAVEPOINT retirement;
 SET LOCAL ROLE board_report_admission_owner;
 DELETE FROM post_secrets.report_membership WHERE report_id=current_setting('board.fixture_report_id')::bigint;

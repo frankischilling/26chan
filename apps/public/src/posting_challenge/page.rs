@@ -7,6 +7,7 @@ pub struct View {
     pub classic: bool,
     pub noscript_only: bool,
     pub exempt: bool,
+    pub member: bool,
     pub board: String,
     pub target: i64,
     pub purpose: &'static str,
@@ -92,9 +93,7 @@ async fn fill(
     view.enabled = policy.enabled;
     view.classic = !policy.twister;
     view.noscript_only = policy.noscript_only && !policy.twister;
-    if scope.purpose != protocol::Purpose::Report
-        && crate::pass_auth::posting_ready(state, headers, peer).await?
-    {
+    if crate::pass_auth::posting_ready(state, headers, peer).await? {
         let session = Session::resolve(state, headers, peer).await?;
         state
             .verification
@@ -110,6 +109,7 @@ async fn fill(
             .map_err(|_| unavailable())?;
         view.enabled = true;
         view.exempt = true;
+        view.member = true;
         view.csrf = secret.nonce();
         let mut cookies = HeaderMap::new();
         secret.append(&mut cookies, state.production);

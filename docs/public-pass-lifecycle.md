@@ -405,3 +405,28 @@ The owned SQL matrix passes identity selection, overlap, new-password exclusion,
 window edges, future timestamps, active/wrong-template exclusions, epoch changes,
 runtime denial, migration rollback and populated restore. This helper does not
 change effective weights or grant report admission by itself.
+
+## Public member reports
+
+Migration 0231 connects the purpose-bound receipt to ordinary and categorical
+report admission. A recognized Pass receipt is validated before optional CAPTCHA
+exemptions, including on CAPTCHA-off boards. The transaction then enforces the
+same target, quota, explicit-ban and network checks, captures reporter identity,
+and registers anonymous activity. A later quota failure restores the receipt and
+leaves no handoff. Pass reporting neither spends nor grants CAPTCHA credits.
+
+Classic and Twister report forms now obtain private membership advice, retain
+CSRF/session binding and show the source's Pass message. A presentation cookie
+alone grants nothing. Authentication, report form rendering, bad-CSRF refusal,
+successful CAPTCHA-free submission, private identity capture, duplicate refusal,
+logout rejection and cookie clearing pass through the actual HTTP handlers and
+private issuer. Both explicitly invoked public database tests pass, along with
+the ordinary report challenge/network regressions. The full SQL lifecycle suite
+passes public receipt admission, disabled/expired-state refusal, CAPTCHA-off
+identity capture, late-quota rollback and populated restore. Strict public/Store
+Clippy and formatting pass.
+
+Public receipt admission is now connected. Retained-history helpers still do not
+establish arbitrary effective weights or enable automatic abuse bans; those
+report-weight limitations remain documented separately. Complete browser coverage,
+Pass recovery/delivery, checkout integration and final hosted CI remain unfinished.

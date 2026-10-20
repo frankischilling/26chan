@@ -223,11 +223,7 @@ pub(crate) async fn proof(
     scope: Scope,
     input: &FormInput,
 ) -> Result<Option<board_store::WriteChallengeProof>, ProofError> {
-    let pass = if scope.purpose != protocol::Purpose::Report {
-        crate::pass_auth::read_cookie(headers, state.production)?
-    } else {
-        None
-    };
+    let pass = crate::pass_auth::read_cookie(headers, state.production)?;
     // Presence is retained for request observations. Verification still treats
     // absent and empty values alike and derives authority only from the issuer.
     let challenge = input.challenge.as_deref().unwrap_or_default();
@@ -477,8 +473,7 @@ async fn request(
     } else {
         false
     };
-    let pass_exempt = scope.purpose != protocol::Purpose::Report
-        && crate::pass_auth::posting_ready(&state, &headers, peer).await?;
+    let pass_exempt = crate::pass_auth::posting_ready(&state, &headers, peer).await?;
     if pass_exempt {
         state
             .verification
