@@ -390,3 +390,18 @@ Local SQL tests pass manual and inherited capture, duplicate clearing, retiremen
 capacity uncertainty, expiry, privacy and populated restore. The 17 ordinary Rust
 report challenge, group-clear, network and weight-evidence regressions pass with
 this migration. Hosted qualification and public receipt integration remain pending.
+
+Migration 0230 adds a private history decision for future report-weight integration.
+It follows `modes/report.php:is_report_filtered`: a member's Pass identity replaces
+the address branch, the retained password branch counts overlapping rows once,
+clears use a strict two-day window, and three retired template-190 bans within
+30 days meet the ban-history threshold. New-password requests omit the password
+history branch. Positive retained matches remain usable during warm-up; a negative
+result requires complete clear history and a verified, unchanged identity epoch.
+Missing context or incomplete history returns unknown. Disabled thresholds return
+false without consulting history.
+
+The owned SQL matrix passes identity selection, overlap, new-password exclusion,
+window edges, future timestamps, active/wrong-template exclusions, epoch changes,
+runtime denial, migration rollback and populated restore. This helper does not
+change effective weights or grant report admission by itself.
