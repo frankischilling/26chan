@@ -137,6 +137,19 @@ fn pass_message(
         return Err(());
     }
     let domain = origin.host_str().ok_or(())?;
+    if let Payload::Setup { contact, token } = payload {
+        let mut link = origin.join("pass").map_err(|_| ())?;
+        link.query_pairs_mut().append_pair("reset", &token.encode());
+        let message = format!(
+            "From: Pass <noreply@{domain}>\r\nTo: {}\r\nSubject: Set up your 4chan Pass\r\nMessage-ID: <pass-{id}@{domain}>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nYour Pass Token is: {}\r\nChoose your PIN using this link: {link}\r\n\r\nThis setup link expires in 30 minutes and can be used once. If it expires, request a new PIN recovery link using your Token and owner email.\r\n.\r\n",
+            contact.recipient(),
+            contact.identifier()
+        );
+        if message.len() > 2048 {
+            return Err(());
+        }
+        return Ok((domain.to_owned(), contact.recipient().to_owned(), message));
+    }
     if let Payload::Recovery { recipient, token } = payload {
         let mut link = origin.join("pass").map_err(|_| ())?;
         link.query_pairs_mut().append_pair("reset", &token.encode());

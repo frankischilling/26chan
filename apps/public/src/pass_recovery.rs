@@ -75,6 +75,10 @@ pub(crate) fn routes() -> Router<AppState> {
             "/pass/renew",
             axum::routing::post(crate::pass_checkout::submit),
         )
+        .route(
+            "/pass/purchase",
+            axum::routing::post(crate::pass_checkout::purchase),
+        )
         .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY))
 }
 pub(crate) async fn page(

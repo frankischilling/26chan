@@ -7,6 +7,7 @@ pub mod config;
 mod handlers;
 mod pass;
 mod pass_checkout;
+mod pass_purchase;
 mod pass_recovery;
 use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use axum::{Router, extract::DefaultBodyLimit, http::StatusCode, middleware, routing::post};
@@ -54,6 +55,11 @@ pub fn router(state: AppState) -> Router {
         .route("/readyz", post(handlers::ready))
         .route("/v1/session", post(handlers::ensure_session))
         .route("/v1/pass/ready", post(handlers::ready))
+        .route(
+            "/v1/pass/checkout/purchase-offer",
+            post(pass_purchase::offer),
+        )
+        .route("/v1/pass/checkout/purchase", post(pass_purchase::create))
         .route("/v1/pass/checkout/offer", post(pass_checkout::offer))
         .route("/v1/pass/checkout/renewal", post(pass_checkout::renewal))
         .route("/v1/pass/checkout/state", post(pass_checkout::status))

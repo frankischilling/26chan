@@ -123,6 +123,31 @@ for (const javaScriptEnabled of [true, false]) {
   test.describe(`Pass sandbox checkout, scripts ${javaScriptEnabled ? 'enabled' : 'disabled'}`, () => {
     test.use({ javaScriptEnabled });
     for (const width of [1280, 390]) {
+      test(`purchase and delayed gift form works without payment scripts at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto('/fixture/pass/checkout-purchase');
+        await expect(page.getByRole('heading', { name: 'Purchase a Pass' })).toBeVisible();
+        await expect(page.locator('script, iframe, input[autocomplete^="cc-"]')).toHaveCount(0);
+        await page.locator('[name="email"]').fill('buyer@example.org');
+        await page.locator('[name="email_confirm"]').fill('buyer@example.org');
+        await page.locator('[name="gift_email"]').fill('gift@example.org');
+        await page.locator('[name="gift_confirm"]').fill('gift@example.org');
+        await page.locator('[name="delayed"]').check();
+        const csrf = await page.locator('[name="csrf"]').inputValue();
+        const bounds = await page.locator('#content').boundingBox();
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+        await page.screenshot({ path: `.local/verification-review/pass-purchase-${width}-${javaScriptEnabled}.png`, fullPage: true });
+        let sent;
+        await page.route('**/pass/purchase', async route => {
+          sent = route.request();
+          await route.fulfill({ contentType: 'text/html', body: '<p>Owned gift checkout request received.</p>' });
+        });
+        await page.getByRole('button', { name: 'Continue to sandbox checkout' }).click();
+        await expect(page.getByText('Owned gift checkout request received.')).toBeVisible();
+        expect(sent.method()).toBe('POST');
+        expect(Object.fromEntries(new URLSearchParams(sent.postData()))).toEqual({ csrf, email: 'buyer@example.org', email_confirm: 'buyer@example.org', gift_email: 'gift@example.org', gift_confirm: 'gift@example.org', delayed: '1', amount_minor: '2000', currency: 'usd' });
+      });
       test(`renewal quote uses native forms without card collection at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         const response = await page.goto('/fixture/pass/checkout-renew');

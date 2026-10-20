@@ -204,9 +204,15 @@ SQL
 DO $$ BEGIN IF to_regclass('verification_private.pass_checkout_orders') IS NOT NULL OR content.public_pass_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Checkout rollback changed authority'; END IF; END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0234_pass_checkout_renewals.sql
+"${migrator[@]}" -c BEGIN -f migrations/0235_pass_checkout_purchases.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN IF to_regprocedure('content.pass_purchase_offer()') IS NOT NULL OR content.public_pass_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Purchase rollback changed authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0235_pass_checkout_purchases.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-notice-outbox.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-pin-recovery.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-checkout-renewals.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-checkout-purchases.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-identity.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-quotas.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-restrictions.sql

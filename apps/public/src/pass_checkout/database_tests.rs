@@ -284,6 +284,7 @@ async fn public_renewal_quotes_are_csrf_bound_idempotent_and_wait_for_signed_pay
         .map(|b| format!("{b:02x}"))
         .collect::<String>();
     let callback_response = callback
+        .clone()
         .oneshot(
             Request::post("/events/sandbox")
                 .header("content-type", "application/json")
@@ -300,6 +301,224 @@ async fn public_renewal_quotes_are_csrf_bound_idempotent_and_wait_for_signed_pay
         .await
         .unwrap();
     assert!(body(paid).await.contains("Your Pass has been renewed"));
+    // New and delayed gift purchases use the same actual HTTP issuer and signed
+    // payment adapter. Neither checkout creation nor a browser return grants a Pass.
+    let mut tx = owner.begin().await.unwrap();
+    sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE verification_private.pass_checkout_policy SET purchase_enabled=true,purchase_amount_minor=2300 WHERE singleton").execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let private_client = VerificationClient::new(endpoint, "11".repeat(32)).unwrap();
+    let mail_store = board_store::verification::mail::MailStore::connect(
+        &std::env::var("TEST_VERIFICATION_MAIL_DATABASE_URL").unwrap(),
+    )
+    .await
+    .unwrap();
+    let mut purchased = Vec::new();
+    for delayed in [false, true] {
+        let response = app
+            .clone()
+            .oneshot(request("/pass", "", None))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let purchase_cookie = cookie(&response);
+        let purchase_nonce = nonce(&purchase_cookie);
+        let html = body(response).await;
+        assert!(html.contains("23.00 USD") && html.contains("name=\"gift_email\""));
+        let form = [
+            ("csrf", purchase_nonce.as_str()),
+            ("email", "buyer@example.org"),
+            ("email_confirm", "buyer@example.org"),
+            ("gift_email", "gift@example.org"),
+            ("gift_confirm", "gift@example.org"),
+            ("delayed", if delayed { "1" } else { "" }),
+            ("amount_minor", "2300"),
+            ("currency", "usd"),
+        ];
+        let mut wrong = form;
+        wrong[0] = ("csrf", "wrong");
+        assert_eq!(
+            app.clone()
+                .oneshot(request("/pass/purchase", &purchase_cookie, Some(&wrong)))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        wrong = form;
+        wrong[4] = ("gift_confirm", "someone-else@example.org");
+        assert_eq!(
+            app.clone()
+                .oneshot(request("/pass/purchase", &purchase_cookie, Some(&wrong)))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::BAD_REQUEST
+        );
+        let mut cross = request("/pass/purchase", &purchase_cookie, Some(&form));
+        cross
+            .headers_mut()
+            .insert("origin", "https://outside.example".parse().unwrap());
+        cross
+            .headers_mut()
+            .insert("sec-fetch-site", "cross-site".parse().unwrap());
+        assert_eq!(
+            app.clone().oneshot(cross).await.unwrap().status(),
+            StatusCode::FORBIDDEN
+        );
+        let (first, second) = tokio::join!(
+            app.clone()
+                .oneshot(request("/pass/purchase", &purchase_cookie, Some(&form))),
+            app.clone()
+                .oneshot(request("/pass/purchase", &purchase_cookie, Some(&form))),
+        );
+        let (first, second) = (first.unwrap(), second.unwrap());
+        let (created, concurrent) = if first.status() == StatusCode::SEE_OTHER {
+            (first, second)
+        } else {
+            (second, first)
+        };
+        assert_eq!(created.status(), StatusCode::SEE_OTHER);
+        let location = created.headers()[header::LOCATION]
+            .to_str()
+            .unwrap()
+            .to_owned();
+        // The preparation lease may reject the other in-flight request; once
+        // preparation finishes, the same form must resolve to the same order.
+        if concurrent.status() == StatusCode::SEE_OTHER {
+            assert_eq!(concurrent.headers()[header::LOCATION], location);
+        } else {
+            assert_eq!(concurrent.status(), StatusCode::SERVICE_UNAVAILABLE);
+        }
+        let retry = app
+            .clone()
+            .oneshot(request("/pass/purchase", &purchase_cookie, Some(&form)))
+            .await
+            .unwrap();
+        assert_eq!(retry.headers()[header::LOCATION], location);
+        let parsed = url::Url::parse(&format!("http://127.0.0.1:3000{location}")).unwrap();
+        let order = parsed
+            .query_pairs()
+            .find(|(key, _)| key == "order")
+            .unwrap()
+            .1
+            .into_owned();
+        let pending = app
+            .clone()
+            .oneshot(request(&location, "", None))
+            .await
+            .unwrap();
+        assert!(body(pending).await.contains("No Pass has been created"));
+        let mut tx = owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        let unpaid: Option<i64> = sqlx::query_scalar("SELECT entitlement_id FROM verification_private.pass_checkout_orders WHERE id=$1::text::uuid").bind(&order).fetch_one(&mut *tx).await.unwrap();
+        assert!(unpaid.is_none());
+        tx.rollback().await.unwrap();
+        assert_eq!(
+            send_payment(&callback, callback_key, &order, "pass_purchase", 2301).await,
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            send_payment(&callback, callback_key, &order, "pass_purchase", 2300).await,
+            StatusCode::NO_CONTENT
+        );
+        let paid = app
+            .clone()
+            .oneshot(request(&location, "", None))
+            .await
+            .unwrap();
+        let paid = body(paid).await;
+        assert!(paid.contains("one-use PIN setup link") && !paid.contains("gift@example.org"));
+        let mut tx = owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        let row: (i64, i16, Option<chrono::DateTime<chrono::Utc>>, Vec<u8>, Vec<u8>) = sqlx::query_as("SELECT e.id,e.status,e.expires_at,e.token_hash,c.encrypted_contact FROM verification_private.pass_checkout_orders o JOIN verification_private.pass_entitlements e ON e.id=o.entitlement_id JOIN verification_private.pass_contacts c ON c.entitlement_id=e.id WHERE o.id=$1::text::uuid").bind(&order).fetch_one(&mut *tx).await.unwrap();
+        assert_eq!(row.1, if delayed { 7 } else { 6 });
+        assert_eq!(row.2.is_none(), delayed);
+        let identity: [u8; 32] = row.3.try_into().unwrap();
+        let Some(Payload::Contact(contact)) = mail_key.open_pass(&identity, &row.4) else {
+            panic!("Invalid purchase contact")
+        };
+        assert_eq!(contact.recipient(), "gift@example.org");
+        assert!(paid.contains(contact.identifier()));
+        tx.commit().await.unwrap();
+        let lease = board_domain::challenge_secrets::ReceiptToken::generate()
+            .unwrap()
+            .storage_hash();
+        let jobs = mail_store.claim_recovery(&lease, 10).await.unwrap();
+        let job = jobs.iter().find(|job| job.request_id == order).unwrap();
+        let setup_hash: [u8; 32] = job.token_hash.as_slice().try_into().unwrap();
+        let Some(Payload::Setup {
+            contact: mailed,
+            token,
+        }) = mail_key.open_pass(&setup_hash, &job.encrypted_payload)
+        else {
+            panic!("Invalid setup mail")
+        };
+        assert_eq!(mailed.recipient(), "gift@example.org");
+        assert_eq!(mailed.identifier(), contact.identifier());
+        let setup = protocol::PassSession {
+            token: token.encode(),
+        };
+        assert!(matches!(
+            private_client.pass_recovery_state(&setup).await.unwrap(),
+            protocol::PassRecoveryResult::Rejected {}
+        ));
+        // A restricted delivery acknowledgement enables the one-use setup token.
+        // The SMTP acceptance/rejection boundary is exercised by mailer tests.
+        assert!(
+            mail_store
+                .finish_recovery(&order, &lease, true)
+                .await
+                .unwrap()
+        );
+        assert!(matches!(
+            private_client.pass_recovery_state(&setup).await.unwrap(),
+            protocol::PassRecoveryResult::Ready {}
+        ));
+        let reset = protocol::PassRecoveryComplete {
+            token: token.encode(),
+            pin: "owned-gift-pin".into(),
+        };
+        assert!(matches!(
+            private_client.pass_recovery_complete(&reset).await.unwrap(),
+            protocol::PassRecoveryResult::Complete {}
+        ));
+        assert!(matches!(
+            private_client.pass_recovery_complete(&reset).await.unwrap(),
+            protocol::PassRecoveryResult::Rejected {}
+        ));
+        assert!(matches!(
+            private_client
+                .pass_login(&protocol::PassLogin {
+                    identifier: contact.identifier().into(),
+                    pin: "owned-gift-pin".into(),
+                    peer: "192.0.2.29".parse().unwrap(),
+                    remember: false
+                })
+                .await
+                .unwrap(),
+            protocol::PassLoginResult::Ready { .. }
+        ));
+        let mut tx = owner.begin().await.unwrap();
+        sqlx::query("SET LOCAL ROLE board_anonymous_owner")
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+        let active: (i16, bool) = sqlx::query_as("SELECT status,expires_at IS NOT NULL FROM verification_private.pass_entitlements WHERE id=$1").bind(row.0).fetch_one(&mut *tx).await.unwrap();
+        assert_eq!(active, (0, true));
+        tx.commit().await.unwrap();
+        purchased.push(row.0);
+    }
+    mail_store.close().await;
     let mut tx = owner.begin().await.unwrap();
     sqlx::query("SET LOCAL ROLE board_anonymous_owner")
         .execute(&mut *tx)
@@ -331,7 +550,21 @@ async fn public_renewal_quotes_are_csrf_bound_idempotent_and_wait_for_signed_pay
         .execute(&mut *tx)
         .await
         .unwrap();
-    sqlx::query("UPDATE verification_private.pass_checkout_policy SET enabled=false,amount_minor=0 WHERE singleton").execute(&mut *tx).await.unwrap();
+    for account in purchased {
+        sqlx::query(
+            "DELETE FROM verification_private.pass_checkout_orders WHERE entitlement_id=$1",
+        )
+        .bind(account)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+        sqlx::query("DELETE FROM verification_private.pass_entitlements WHERE id=$1")
+            .bind(account)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+    }
+    sqlx::query("UPDATE verification_private.pass_checkout_policy SET enabled=false,amount_minor=0,purchase_enabled=false,purchase_amount_minor=0 WHERE singleton").execute(&mut *tx).await.unwrap();
     tx.commit().await.unwrap();
     serving.abort();
     let _ = serving.await;
@@ -339,4 +572,39 @@ async fn public_renewal_quotes_are_csrf_bound_idempotent_and_wait_for_signed_pay
     issuer.close().await;
     public.close().await;
     owner.close().await;
+}
+
+async fn send_payment(
+    callback: &axum::Router,
+    key: &str,
+    order: &str,
+    product: &str,
+    amount: i64,
+) -> StatusCode {
+    let stamp = chrono::Utc::now().timestamp();
+    let event = serde_json::to_vec(&serde_json::json!({"event":format!("paid_{order}_{amount}"),"order":order,"provider_object":format!("sandbox_{order}"),"product":product,"amount_minor":amount,"currency":"usd","kind":"paid","occurred_at":stamp})).unwrap();
+    let mut signed = b"26chan:checkout-sandbox:v1\0".to_vec();
+    signed.extend_from_slice(format!("{stamp}.").as_bytes());
+    signed.extend_from_slice(&event);
+    let signature = ring::hmac::sign(
+        &ring::hmac::Key::new(ring::hmac::HMAC_SHA256, key.as_bytes()),
+        &signed,
+    );
+    let signature: String = signature
+        .as_ref()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    callback
+        .clone()
+        .oneshot(
+            Request::post("/events/sandbox")
+                .header("content-type", "application/json")
+                .header("x-checkout-signature", format!("t={stamp},v1={signature}"))
+                .body(Body::from(event))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+        .status()
 }

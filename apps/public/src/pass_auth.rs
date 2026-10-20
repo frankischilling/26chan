@@ -374,9 +374,9 @@ pub(crate) fn fixture_response(mode: &str, origin: &str) -> Result<Response, Str
         "error" => (-1, "Incorrect Token or PIN."),
         "escaped" => (-1, "<script>owned fixture</script>"),
         "recovery-request" | "recovery-reset" | "recovery-complete" | "recovery-escaped" => (0, ""),
-        "checkout-renew" | "checkout-pending" | "checkout-paid" | "checkout-declined"
-        | "checkout-cancelled" | "checkout-refunded" | "checkout-disputed" | "checkout-expired"
-        | "checkout-escaped" => (0, ""),
+        "checkout-purchase" | "checkout-renew" | "checkout-pending" | "checkout-paid"
+        | "checkout-declined" | "checkout-cancelled" | "checkout-refunded"
+        | "checkout-disputed" | "checkout-expired" | "checkout-escaped" => (0, ""),
         _ => return Err("Invalid Pass fixture.".into()),
     };
     let state = AppState {

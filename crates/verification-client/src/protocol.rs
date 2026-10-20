@@ -351,6 +351,8 @@ pub enum CheckoutStatus {
 pub enum CheckoutState {
     Ready {
         status: CheckoutStatus,
+        product: String,
+        identifier: Option<String>,
         provider: String,
         amount_minor: i64,
         currency: String,
@@ -358,4 +360,16 @@ pub enum CheckoutState {
         review_required: bool,
     },
     Missing {},
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CheckoutPurchase {
+    pub email: String,
+    pub gift_email: Option<String>,
+    pub delayed: bool,
+    pub nonce: String,
+    pub peer: IpAddr,
+    pub amount_minor: i64,
+    pub currency: String,
 }

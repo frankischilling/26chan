@@ -69,7 +69,8 @@ native policy because the original payment controller is missing.
 The sandbox adapter accepts only an explicit development configuration and a
 loopback listener. It does not collect card data or contact Stripe, PayPal or
 Coinbase. A valid Stripe signature helper does not make a live provider adapter;
-provider reconciliation and live checkout remain unfinished. New-Pass purchases, donations and ad publication are still open.
+provider reconciliation and live checkout remain unfinished. Native sandbox purchases
+are under qualification below; donations and ad publication are still open.
 
 Local checks pass raw-body authentication, stale/wrong-provider signatures,
 product/amount refusal, concurrent callback replay, exact renewal, refund holds,
@@ -126,3 +127,37 @@ private index; it sends no mail and changes neither the PIN nor account status.
 This covers expired and delayed Passes that the reminder producer does not select.
 A wrong key or invalid contact aborts the batch. Run this before enabling checkout
 on an upgraded installation.
+
+## Native purchase flow under qualification
+
+Migration 0235 adds a separately disabled purchase quote. An operator must set
+`purchase_amount_minor` and `purchase_enabled`; the renewal switch does not enable
+sales. `/pass` collects a confirmed owner email, an optional confirmed gift email,
+and a delayed-activation choice. Gift mail goes to the gift recipient. The native
+form and initial PIN setup are not verified reproductions of the missing sales
+controller.
+
+The issuer reserves a bounded order before hashing a random initial secret. A
+30-second preparation lease permits at most five attempts on the same order.
+Prepared contact and setup-mail envelopes are encrypted; no usable initial PIN is
+returned or mailed. Only a matching signed sandbox payment creates the account,
+contact and one-use setup-mail job in one transaction. Normal purchases start a
+12-month period at capture; delayed purchases start it on first sign-in. Duplicate
+payment delivery cannot create a second account. The preparation envelopes are
+cleared after fulfillment or an unpaid terminal outcome.
+
+Account or setup-mail capacity exhaustion returns a retryable service failure
+without acknowledging the payment event. Retry that same signed event after
+capacity is restored. There is no live payment provider retry service in this
+build. A restricted mailer acknowledgement enables the 30-minute setup link;
+completing setup changes the PIN once and retains delayed/normal account status.
+The protected purchase receipt shows the public Pass token so the owner can use
+PIN recovery if setup mail expires. It does not show the owner's email or PIN.
+
+Local migration checks pass purchase fulfillment, replay, wrong-amount refusal,
+capacity backpressure/retry, delayed activation and refund holds. The HTTP fixture
+passes concurrent form retries, gift ownership, signed payment, setup-link delivery
+acknowledgement, one-use PIN selection and first login for normal and delayed
+purchases. The mailer fixture passes SMTP acceptance and rejection for setup mail.
+Browser qualification is still pending in CI. Donations, ad fulfillment and
+production provider reconciliation remain open.

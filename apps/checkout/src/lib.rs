@@ -117,7 +117,7 @@ async fn event(State(state): State<AppState>, headers: HeaderMap, body: Bytes) -
     if !uuid(&input.order)
         || !identifier(&input.event, 128)
         || !identifier(&input.provider_object, 255)
-        || input.product != "pass_renewal"
+        || !matches!(input.product.as_str(), "pass_renewal" | "pass_purchase")
         || Money::new(input.amount_minor, &input.currency).is_none()
     {
         return response(StatusCode::BAD_REQUEST);
@@ -145,6 +145,7 @@ async fn event(State(state): State<AppState>, headers: HeaderMap, body: Bytes) -
         Ok(state) if matches!(state.as_str(), "applied" | "duplicate" | "review") => {
             response(StatusCode::NO_CONTENT)
         }
+        Ok(state) if state == "capacity" => response(StatusCode::SERVICE_UNAVAILABLE),
         Ok(_) => response(StatusCode::BAD_REQUEST),
         Err(_) => response(StatusCode::SERVICE_UNAVAILABLE),
     }

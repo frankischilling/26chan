@@ -71,6 +71,17 @@ impl VerificationKey {
         ))
     }
 
+    pub fn checkout_purchase_view(
+        &self,
+        nonce: &str,
+        recipient: &[u8; 32],
+    ) -> Option<CheckoutToken> {
+        let nonce = decode(nonce)?;
+        Some(CheckoutToken(
+            self.digest(b"checkout-purchase-view", &[&nonce, recipient]),
+        ))
+    }
+
     pub fn pass_networks(&self, address: std::net::IpAddr) -> Option<PassNetworks> {
         use std::net::IpAddr;
         let address = match address {

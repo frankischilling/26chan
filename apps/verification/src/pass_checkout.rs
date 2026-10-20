@@ -130,8 +130,31 @@ pub(crate) async fn status(
         "expired" => CheckoutStatus::Expired,
         _ => return unavailable(),
     };
+    let identifier = if row.product == "pass_purchase" && row.fulfilled {
+        let contact = match state
+            .store
+            .purchase_contact(&input.order, &view.storage_hash())
+            .await
+        {
+            Ok(Some(bytes)) => bytes,
+            _ => return unavailable(),
+        };
+        // The narrow view-bound function prefixes the encrypted contact with
+        // its identity AAD. Only the public identifier leaves this service.
+        let Some((identity, contact)) = decode_purchase_contact(&state, contact) else {
+            return unavailable();
+        };
+        if state.key.pass_identifier(contact.identifier()) != Some(identity) {
+            return unavailable();
+        }
+        Some(contact.identifier().to_owned())
+    } else {
+        None
+    };
     Json(CheckoutState::Ready {
         status,
+        product: row.product,
+        identifier,
         provider: row.provider,
         amount_minor: row.amount_minor,
         currency: row.currency,
@@ -139,4 +162,17 @@ pub(crate) async fn status(
         review_required: row.review_required,
     })
     .into_response()
+}
+
+fn decode_purchase_contact(
+    state: &AppState,
+    bytes: Vec<u8>,
+) -> Option<([u8; 32], board_domain::pass_mail::Contact)> {
+    let identity: [u8; 32] = bytes.get(..32)?.try_into().ok()?;
+    let board_domain::pass_mail::Payload::Contact(contact) =
+        state.mail_key.open_pass(&identity, bytes.get(32..)?)?
+    else {
+        return None;
+    };
+    Some((identity, contact))
 }

@@ -105,6 +105,25 @@ impl Binding<'_> {
             })
     }
 }
+/// Source-compatible public identifier; authentication still requires its PIN.
+pub fn new_pass_identifier() -> Result<String, ring::error::Unspecified> {
+    use ring::rand::{SecureRandom, SystemRandom};
+    const ALPHABET: &[u8; 36] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let mut random = [0; 64];
+    SystemRandom::new().fill(&mut random)?;
+    let text: String = random
+        .into_iter()
+        .filter(|byte| *byte < 252)
+        .take(10)
+        .map(|byte| char::from(ALPHABET[usize::from(byte % 36)]))
+        .collect();
+    if text.len() == 10 {
+        Ok(text)
+    } else {
+        Err(ring::error::Unspecified)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -132,6 +151,34 @@ mod tests {
         assert!(PassSessionToken::parse(&first.encode()).is_none());
         assert!(PassRecoveryToken::parse(&first.encode()).is_none());
         assert!(key.checkout_view("wrong", &[1; 32]).is_none());
+        let purchase = key.checkout_purchase_view(&nonce, &[1; 32]).unwrap();
+        assert_ne!(purchase.storage_hash(), first.storage_hash());
+        assert_eq!(
+            purchase.storage_hash(),
+            key.checkout_purchase_view(&nonce, &[1; 32])
+                .unwrap()
+                .storage_hash()
+        );
+        assert_ne!(
+            purchase.storage_hash(),
+            key.checkout_purchase_view(&nonce, &[2; 32])
+                .unwrap()
+                .storage_hash()
+        );
+        assert!(key.checkout_purchase_view("wrong", &[1; 32]).is_none());
+    }
+
+    #[test]
+    fn purchase_identifiers_use_the_public_ten_character_alphabet() {
+        for _ in 0..64 {
+            let identifier = new_pass_identifier().unwrap();
+            assert_eq!(identifier.len(), 10);
+            assert!(
+                identifier
+                    .bytes()
+                    .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit())
+            );
+        }
     }
 
     #[test]

@@ -159,6 +159,56 @@ pub(crate) async fn page(
                 status,
                 fulfilled,
                 review_required,
+                product,
+                identifier,
+                ..
+            } if product == "pass_purchase"
+                && matches!(status, CheckoutStatus::Paid)
+                && fulfilled
+                && !review_required =>
+            {
+                let identifier = identifier
+                    .filter(|value| {
+                        value.len() == 10 && value.bytes().all(|b| b.is_ascii_alphanumeric())
+                    })
+                    .ok_or_else(unavailable)?;
+                message(
+                    &state,
+                    &secret,
+                    &format!(
+                        "Payment Success. Your Pass token is {identifier}. A one-use PIN setup link has been queued for the owner's email address. If it expires, use PIN recovery with this token and that address."
+                    ),
+                )
+            }
+            CheckoutState::Ready {
+                product, status, ..
+            } if product == "pass_purchase" => message(
+                &state,
+                &secret,
+                match status {
+                    CheckoutStatus::Pending => {
+                        "Sandbox payment pending. No Pass has been created and no real charge has been made."
+                    }
+                    CheckoutStatus::Paid => {
+                        "Payment recorded. This purchase requires operator review."
+                    }
+                    CheckoutStatus::Declined => "Payment Declined. No Pass was created.",
+                    CheckoutStatus::Cancelled => "Payment cancelled. No Pass was created.",
+                    CheckoutStatus::Refunded => {
+                        "Payment refunded. The associated Pass may be on a payment hold."
+                    }
+                    CheckoutStatus::Disputed => {
+                        "Payment disputed. The associated Pass may be on a payment hold."
+                    }
+                    CheckoutStatus::Expired => {
+                        "Checkout expired. Open a new purchase form to try again."
+                    }
+                },
+            ),
+            CheckoutState::Ready {
+                status,
+                fulfilled,
+                review_required,
                 ..
             } => message(
                 &state,
@@ -188,19 +238,50 @@ pub(crate) async fn page(
             ),
         }
     } else {
-        render(
-            &state,
-            &secret,
-            &Page {
-                csrf: "",
-                reference: "",
-                mode: "intro",
-                message: "",
-                amount_minor: 0,
-                currency: "",
-                price: "",
-            },
-        )
+        match client(&state)?
+            .purchase_offer()
+            .await
+            .map_err(|_| unavailable())?
+        {
+            CheckoutOffer::Ready {
+                provider,
+                amount_minor,
+                currency,
+            } if provider == "sandbox" && Money::new(amount_minor, &currency).is_some() => {
+                let price = format!(
+                    "{}.{:02} {}",
+                    amount_minor / 100,
+                    amount_minor % 100,
+                    currency.to_ascii_uppercase()
+                );
+                render(
+                    &state,
+                    &secret,
+                    &Page {
+                        csrf: &secret.nonce(),
+                        reference: "",
+                        mode: "purchase",
+                        message: "Sandbox checkout only. No real payment will be collected.",
+                        amount_minor,
+                        currency: &currency,
+                        price: &price,
+                    },
+                )
+            }
+            _ => render(
+                &state,
+                &secret,
+                &Page {
+                    csrf: "",
+                    reference: "",
+                    mode: "intro",
+                    message: "",
+                    amount_minor: 0,
+                    currency: "",
+                    price: "",
+                },
+            ),
+        }
     }
 }
 pub(crate) async fn submit(
@@ -296,6 +377,118 @@ pub(crate) async fn submit(
     }
 }
 
+pub(crate) async fn purchase(
+    State(state): State<AppState>,
+    Extension(RequestPeer(peer)): Extension<RequestPeer>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response, AppError> {
+    if headers.get_all(header::CONTENT_TYPE).iter().count() != 1
+        || headers
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_none_or(|v| {
+                !matches!(
+                    v,
+                    "application/x-www-form-urlencoded"
+                        | "application/x-www-form-urlencoded;charset=UTF-8"
+                        | "application/x-www-form-urlencoded; charset=UTF-8"
+                )
+            })
+    {
+        return Err(invalid());
+    }
+    let fields = Fields::parse(
+        &body,
+        &[
+            "csrf",
+            "email",
+            "email_confirm",
+            "gift_email",
+            "gift_confirm",
+            "delayed",
+            "amount_minor",
+            "currency",
+        ],
+        MAX_BODY,
+    )
+    .map_err(|_| invalid())?;
+    let secret = CheckoutSecret::read(&headers, state.production)
+        .map_err(|_| invalid())?
+        .ok_or_else(invalid)?;
+    if !secret.matches(fields.get("csrf")) {
+        return Err(AppError(
+            StatusCode::FORBIDDEN,
+            "This checkout form has expired. Reload the page.",
+        ));
+    }
+    let amount = fields
+        .get("amount_minor")
+        .parse::<i64>()
+        .map_err(|_| invalid())?;
+    if amount.to_string() != fields.get("amount_minor")
+        || Money::new(amount, fields.get("currency")).is_none()
+        || fields.get("email") != fields.get("email_confirm")
+        || fields.get("gift_email") != fields.get("gift_confirm")
+        || !matches!(fields.get("delayed"), "" | "1")
+        || board_domain::pass_mail::Recipient::parse(fields.get("email")).is_none()
+        || board_domain::pass_mail::Recipient::owner(
+            fields.get("email"),
+            Some(fields.get("gift_email")),
+        )
+        .is_none()
+    {
+        return Err(invalid());
+    }
+    let peer = peer
+        .filter(|ip| !ip.is_unspecified() && !ip.is_multicast())
+        .ok_or_else(unavailable)?;
+    let result = client(&state)?
+        .checkout_purchase(&protocol::CheckoutPurchase {
+            email: fields.get("email").into(),
+            gift_email: fields
+                .has("gift_email")
+                .then(|| fields.get("gift_email").into()),
+            delayed: fields.get("delayed") == "1",
+            nonce: secret.nonce(),
+            peer,
+            amount_minor: amount,
+            currency: fields.get("currency").into(),
+        })
+        .await
+        .map_err(|_| unavailable())?;
+    match result {
+        CheckoutCreated::Ready { order, view } => {
+            // Values are encoded even though the private protocol uses canonical tokens.
+            let query = url::form_urlencoded::Serializer::new(String::new())
+                .append_pair("order", &order)
+                .append_pair("view", &view)
+                .finish();
+            let mut response = Redirect::to(&format!("/pass?{query}")).into_response();
+            response.headers_mut().insert(
+                header::CACHE_CONTROL,
+                HeaderValue::from_static("private, no-store"),
+            );
+            response.extensions_mut().insert(CheckoutPage);
+            Ok(response)
+        }
+        CheckoutCreated::PriceChanged {} => message(
+            &state,
+            &secret,
+            "The purchase price has changed. Reload the purchase page before continuing.",
+        ),
+        CheckoutCreated::Flood {} => message(
+            &state,
+            &secret,
+            "Too many checkout attempts. Try again later.",
+        ),
+        CheckoutCreated::Unavailable {} => {
+            message(&state, &secret, "Pass purchases are currently unavailable.")
+        }
+        CheckoutCreated::Capacity {} => Err(unavailable()),
+    }
+}
+
 #[cfg(all(test, feature = "database-tests"))]
 mod database_tests;
 
@@ -303,7 +496,9 @@ mod database_tests;
 pub(crate) fn fixture_response(state: &AppState, mode: &str) -> Result<Response, String> {
     let secret = CheckoutSecret::generate().map_err(|_| "Fixture secret unavailable.")?;
     let message = match mode {
-        "checkout-renew" => "Sandbox checkout only. No real payment will be collected.",
+        "checkout-renew" | "checkout-purchase" => {
+            "Sandbox checkout only. No real payment will be collected."
+        }
         "checkout-pending" => "Sandbox payment pending. No real charge has been made.",
         "checkout-paid" => "Payment Success. Your Pass has been renewed.",
         "checkout-declined" => "Payment Declined. Your Pass has not been renewed.",
@@ -317,7 +512,9 @@ pub(crate) fn fixture_response(state: &AppState, mode: &str) -> Result<Response,
     let page = Page {
         csrf: &secret.nonce(),
         reference: "owned-renewal",
-        mode: if mode == "checkout-renew" {
+        mode: if mode == "checkout-purchase" {
+            "purchase"
+        } else if mode == "checkout-renew" {
             "renew"
         } else {
             "message"

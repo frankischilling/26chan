@@ -369,7 +369,14 @@ mod delivery_tests {
         let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
             .await
             .unwrap();
-        for (accepted, recovery) in [(false, false), (true, false), (false, true), (true, true)] {
+        for (accepted, recovery, setup) in [
+            (false, false, false),
+            (true, false, false),
+            (false, true, false),
+            (true, true, false),
+            (false, true, true),
+            (true, true, true),
+        ] {
             let material = ReceiptToken::generate().unwrap().encode();
             let bytes = &material[3..35];
             let id = format!(
@@ -402,7 +409,17 @@ mod delivery_tests {
                 board_domain::challenge_secrets::PassRecoveryToken::generate().unwrap();
             let recovery_text = recovery_token.encode();
             let recovery_hash = recovery_token.storage_hash();
-            let payload = if recovery {
+            let payload = if setup {
+                Payload::Setup {
+                    contact: Contact::new(
+                        Recipient::parse("owned.pass.fixture@example.org").unwrap(),
+                        "ABCDEFGHIJ",
+                        "owned_renewal",
+                    )
+                    .unwrap(),
+                    token: recovery_token,
+                }
+            } else if recovery {
                 Payload::Recovery {
                     recipient: Recipient::parse("owned.pass.fixture@example.org").unwrap(),
                     token: recovery_token,
@@ -536,7 +553,14 @@ mod delivery_tests {
             assert_eq!(marked, accepted);
             assert_eq!(retry, !accepted);
             if recovery {
-                assert!(mail.contains("Subject: Reset your Pass PIN"));
+                assert!(mail.contains(if setup {
+                    "Subject: Set up your 4chan Pass"
+                } else {
+                    "Subject: Reset your Pass PIN"
+                }));
+                if setup {
+                    assert!(mail.contains("Your Pass Token is: ABCDEFGHIJ"));
+                }
                 assert!(mail.contains(&format!("/pass?reset={recovery_text}")));
             } else {
                 assert!(mail.contains("Subject: Your 4chan Pass has expired!"));

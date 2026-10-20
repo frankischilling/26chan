@@ -118,6 +118,10 @@ impl Contact {
 
 pub enum Payload {
     Contact(Contact),
+    Setup {
+        contact: Contact,
+        token: crate::challenge_secrets::PassRecoveryToken,
+    },
     Recovery {
         recipient: Recipient,
         token: crate::challenge_secrets::PassRecoveryToken,
@@ -149,6 +153,7 @@ impl Payload {
         let (tag, contact, expires) = match self {
             Self::Recovery { .. } => unreachable!("handled separately"),
             Self::Contact(contact) => (1, contact, 0i64),
+            Self::Setup { contact, .. } => (5, contact, 0i64),
             Self::Notice {
                 contact,
                 kind: Notice::Reminder,
@@ -170,6 +175,9 @@ impl Payload {
         out.extend_from_slice(contact.identifier.as_bytes());
         out.push(contact.renewal.len() as u8);
         out.extend_from_slice(contact.renewal.as_bytes());
+        if let Self::Setup { token, .. } = self {
+            out.extend_from_slice(token.encode().as_bytes());
+        }
         Some(out)
     }
     pub(crate) fn decode(bytes: &[u8]) -> Option<Self> {
@@ -197,11 +205,22 @@ impl Payload {
         let identifier =
             std::str::from_utf8(bytes.get(11 + recipient_len..21 + recipient_len)?).ok()?;
         let renewal_len = usize::from(*bytes.get(21 + recipient_len)?);
-        if bytes.len() != 22 + recipient_len + renewal_len {
+        let contact_end = 22 + recipient_len + renewal_len;
+        let expected = contact_end + if bytes[0] == 5 { 68 } else { 0 };
+        if bytes.len() != expected {
             return None;
         }
-        let renewal = std::str::from_utf8(bytes.get(22 + recipient_len..)?).ok()?;
+        let renewal = std::str::from_utf8(bytes.get(22 + recipient_len..contact_end)?).ok()?;
         let contact = Contact::new(recipient, identifier, renewal)?;
+        if bytes[0] == 5 {
+            if expires != 0 {
+                return None;
+            }
+            let token = crate::challenge_secrets::PassRecoveryToken::parse(
+                std::str::from_utf8(bytes.get(contact_end..)?).ok()?,
+            )?;
+            return Some(Self::Setup { contact, token });
+        }
         match bytes[0] {
             1 if expires == 0 => Some(Self::Contact(contact)),
             2 => Self::notice(contact, Notice::Reminder, expires),
@@ -214,6 +233,43 @@ impl Payload {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn initial_setup_mail_is_typed_bounded_and_contains_no_initial_pin() {
+        use crate::{challenge_secrets::PassRecoveryToken, verification_mail::MailKey};
+        let address = format!(
+            "{}@{}.{}.{}",
+            "a".repeat(64),
+            "b".repeat(63),
+            "c".repeat(63),
+            "d".repeat(61)
+        );
+        assert_eq!(address.len(), 254);
+        let contact = Contact::new(
+            Recipient::parse(&address).unwrap(),
+            "ABCDEFGHIJ",
+            &"r".repeat(128),
+        )
+        .unwrap();
+        let token = PassRecoveryToken::generate().unwrap();
+        let context = token.storage_hash();
+        let payload = Payload::Setup { contact, token };
+        let key = MailKey::parse(&"33".repeat(32)).unwrap();
+        let encrypted = key.seal_pass(&context, &payload).unwrap();
+        assert_eq!(encrypted.len(), 501);
+        let Some(Payload::Setup { contact, token }) = key.open_pass(&context, &encrypted) else {
+            panic!("setup payload expected")
+        };
+        assert_eq!(contact.identifier(), "ABCDEFGHIJ");
+        assert_eq!(token.storage_hash(), context);
+        let bytes = payload.encode().unwrap();
+        for len in 0..bytes.len() {
+            assert!(Payload::decode(&bytes[..len]).is_none());
+        }
+        let mut extra = bytes;
+        extra.push(0);
+        assert!(Payload::decode(&extra).is_none());
+    }
+
     #[test]
     fn recovery_material_is_distinct_and_roundtrips_without_session_authority() {
         use crate::challenge_secrets::{PassRecoveryToken, PassSessionToken, ReceiptToken};
