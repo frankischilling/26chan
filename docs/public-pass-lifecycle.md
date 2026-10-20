@@ -3,8 +3,8 @@
 Issue #201 covers public membership authentication and its posting benefits.
 The source state model is qualified. Private entitlement/session storage,
 verifier-mediated login/logout, protected posting benefits, owner-email recovery
-and sandbox purchase/renewal are implemented. Full browser state-matrix
-qualification and source visual gaps remain open. The policy module alone grants
+and sandbox purchase/renewal are implemented. The full posting state matrix has
+passed hosted qualification. Source visual gaps remain open. The policy module alone grants
 no identity or posting authority; each protected write rechecks its receipt.
 
 ## Source decisions
@@ -222,8 +222,8 @@ opt in store zero. JSON omits zero and values at or above 10000, without exposin
 an account ID. Thread transfers preserve the year and bind it into their source
 fingerprint. Whole deletion clears it; archiving retains it.
 
-Opt-in years now render the source `n-pu` badge and its “Pass user since YEAR”
-title beside desktop and mobile names. Capcoded posts and values outside 1–9999
+Opt-in years now render the source `n-pu` badge and its "Pass user since YEAR"
+title beside desktop and mobile names. Capcoded posts and values outside 1 through 9999
 do not receive a badge. Shared rendering carries the same field through thread
 pages, updater responses and quote previews. The client accepts only an empty
 badge span with that bounded year title, never comment-supplied membership markup.
@@ -245,7 +245,8 @@ Thread transfers bind the private identity into their source fingerprint, copy
 it to the destination posts, and erase the source association. Deleting a post
 or archiving its thread removes the private identity. The opt-in public year
 still survives archiving. Tests cover transfer drift, erasure, disabled cleanup
-triggers, privilege drift and a populated database restore. Posting bans now use these associations; report matching still needs integration.
+triggers, privilege drift and a populated database restore. Posting bans and
+member reports use these associations through their separate receipt boundaries.
 
 Public image replies now check the source's same-image timer before the ordinary
 reply timer. The comparison uses the approved normalized upload digest, the same
@@ -302,10 +303,8 @@ wrong-purpose and wrong-target proofs, another member's warning, revoked
 credentials, private-function grants and a populated restore. The private issuer and public
 HTTP tests pass login, membership-only warning display, CSRF rejection,
 acknowledgment, logout rejection and cookie clearing. Ordinary warning routes
-still pass their identity, escaping and CSRF checks. Complete browser coverage
-and hosted CI remain pending.
-Report membership and recovery/delivery are covered below. The complete posting
-state matrix still needs hosted browser qualification.
+retain their identity, escaping and CSRF checks. Report membership and
+recovery/delivery are covered below.
 
 
 Non-member reply, image-reply and duplicate-image refusals now include the
@@ -324,8 +323,8 @@ external checkout. Sandbox checkout is integrated; live provider reconciliation 
 The Quick Reply bundle remains within its existing 50 KiB limit. Reusing the
 unchanged upload-error string offsets the new renderer without removing guards.
 Local checks pass the ordinary, member and CAPTCHA-disabled Store paths,
-HTML/JSON responses and safe DOM rendering. The added browser cases still need
-hosted qualification.
+HTML/JSON responses and safe DOM rendering. Hosted browser tests cover the
+ordinary and member posting paths.
 
 Quick Reply also halves its advisory timer when CAPTCHA is disabled or the
 private endpoint confirms current Pass advice. Report exemptions and CAPTCHA
@@ -358,16 +357,15 @@ live, deleted and archived cases. Reusing identical images made setup hit the
 new source duplicate-image cooldown before it reached the erasure assertions.
 The corrected test passes locally with the complete migration set; media
 revocation, consumed-receipt rejection and surviving-content assertions remain
-unchanged. The separate attachment-restore CI failure is still under investigation.
+unchanged.
 
 The attachment-restore fixture had the same setup defect. A local reproduction
 confirmed the duplicate-image refusal before the correction. Each restore case
 now has distinct synthetic pixels. The owned PostgreSQL 16 dump/file-restore
 exercise passes for seven attachments and fourteen files, exact JSON and bytes,
 four URL forms, deletion/archive visibility, one-use receipts, interrupted
-cleanup and monotonic numbering. The source database remains unchanged. Local
-qualification used an owned TCP cluster; the standard hosted wrapper still needs
-CI qualification.
+cleanup and monotonic numbering. The source database remains unchanged.
+The owned TCP qualification and hosted VM/media lane cover the restore boundary.
 
 ## Private report identity foundation
 
@@ -381,8 +379,8 @@ handoff. The Pass catalog attests the capture and foreign-key triggers.
 The reconstructed implementation passes the full local lifecycle suite, including
 wrong targets/actors, replay, rollback, deferred cleanup, retirement, privilege
 checks, trigger drift and populated restore with distinct author/reporter
-identities. Public report receipt admission remains disconnected until the
-remaining quota, ban, network and history integration is qualified.
+identities. Public report receipt admission uses the quota, ban, network and
+history boundaries described below.
 
 Migrations 0226–0228 extend the private report boundary with source quotas,
 explicit bans and network policy. Quotas combine address, automatic-session and
@@ -396,8 +394,8 @@ The reconstructed SQL suite passes all lifecycle rollback and populated restore
 checks. It covers cross-address duplicates, wrong actor/session bindings,
 29/30-hourly and 79/80-daily limits, future timestamps, overlapping identities,
 global/local/inactive bans, active warnings, and an owned blocked network range.
-Ordinary Rust report regressions are being rerun. Public report receipt admission
-still waits for retained clear-history integration and full end-to-end tests.
+Ordinary Rust report regressions and the public/private HTTP fixtures cover
+these boundaries alongside retained clear-history integration.
 
 ## Retained report-clear history
 
@@ -419,7 +417,7 @@ source weight, enable history filtering, or issue automatic abuse bans.
 Local SQL tests pass manual and inherited capture, duplicate clearing, retirement,
 capacity uncertainty, expiry, privacy and populated restore. The 17 ordinary Rust
 report challenge, group-clear, network and weight-evidence regressions pass with
-this migration. Hosted qualification and public receipt integration remain pending.
+this migration. Public receipt integration is described below.
 
 Migration 0230 adds a private history decision for future report-weight integration.
 It follows `modes/report.php:is_report_filtered`: a member's Pass identity replaces
@@ -458,9 +456,8 @@ Clippy and formatting pass.
 
 Public receipt admission is now connected. Retained-history helpers still do not
 establish arbitrary effective weights or enable automatic abuse bans; those
-report-weight limitations remain documented separately. Complete browser coverage,
-final hosted CI remain unfinished. Mail, recovery and native sandbox checkout
-are implemented as described below and in `checkout-source-inventory.md`.
+report-weight limitations remain documented separately. Mail, recovery and native
+sandbox checkout are described below and in `checkout-source-inventory.md`.
 
 ## Mail and recovery preparation
 
@@ -550,8 +547,8 @@ HTTP flow passes matching public responses, CSRF refusal, delivery gating,
 GET-only viewing, reset replay, session revocation and login with the new PIN.
 Owned SMTP fixtures pass accepted and rejected recovery delivery without changing
 entitlement status. Desktop/mobile rendering and native submission tests are
-registered with scripts enabled and disabled; hosted browser qualification is
-still pending. No recovery email was sent outside the owned fixtures.
+qualified on hosted browsers with scripts enabled and disabled. No recovery
+email was sent outside the owned fixtures.
 
 
 ## Read-only report advice
@@ -565,9 +562,9 @@ empty membership join cannot let the planner hide an accidental write dependency
 All 32 Store report-admission cases pass locally, including CAPTCHA-enabled network
 rules with actual verifier-issued proofs and the unchanged no-partial-report checks.
 
-## Posting state matrix under qualification
+## Posting state matrix
 
-The new owned matrix provisions new, active, expired, refunded, chargeback,
+The owned matrix provisions new, active, expired, refunded, chargeback,
 spam-revoked, content-revoked, delayed and renewed accounts. Each client has only
 public HTTP credentials. The supervisor retains database access and checks the
 stored post year, private account association, total post count and absence of
@@ -578,14 +575,14 @@ with real login, OP submission, a JSON reply and the separate JSON listener. Onl
 the four eligible states bypass CAPTCHA. A forged `pass_enabled` presentation
 cookie does not grant that bypass to other states; ordinary nonmember CAPTCHA
 admission remains covered separately. Opting out of `since4pass` leaves the
-reply's year out of JSON. Script-enabled native
-forms/Quick Reply and script-disabled native forms are registered for hosted
-browser qualification. The script-disabled matrix passed at c23814a8. The scripted
-matrix reached real native and Quick Reply writes before its shared loopback peer
-hit the unchanged 30-write/minute limit. Its client now reserves room for automatic
-CAPTCHA requests and waits for the real window between cases; it neither raises
-the runtime limit nor retries a potentially committed write. Full scripted
-qualification remains pending.
+reply's year out of JSON. Script-enabled native forms/Quick Reply and
+script-disabled native forms run against the same private issuer and real
+posting routes. All four matrices passed hosted qualification at c40a4a95.
+
+The browser client reserves room for automatic CAPTCHA requests and waits for
+the real per-peer write window between cases. It neither raises the runtime
+limit nor retries a potentially committed write. The supervisor checks stored
+results and cleans up each owned fixture even when a client assertion fails.
 
 
 The auth template now also preserves the supplied title/header wording, local

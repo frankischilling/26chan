@@ -69,15 +69,16 @@ native policy because the original payment controller is missing.
 The sandbox adapter accepts only an explicit development configuration and a
 loopback listener. It does not collect card data or contact Stripe, PayPal or
 Coinbase. A valid Stripe signature helper does not make a live provider adapter;
-provider reconciliation and live checkout remain unfinished. Native sandbox purchases
-are under qualification below; donations and ad publication are still open.
+provider reconciliation and live checkout remain unfinished. Native sandbox
+purchases are described below; donations and ad publication remain open.
 
 Local checks pass raw-body authentication, stale/wrong-provider signatures,
 product/amount refusal, concurrent callback replay, exact renewal, refund holds,
 late-success refusal, private-role checks and migration rollback. The ordinary
 Pass lifecycle and populated restore suite also passes after the content-schema
-permission change is recorded in its classifier/report catalogs. Hosted checks
-remain pending. No payment account, real order or external charge was created.
+permission change is recorded in its classifier/report catalogs. Hosted
+qualification covers signed callbacks and the public purchase/renewal flow.
+No payment account, real order or external charge was created.
 
 ## Local adapter setup
 
@@ -115,7 +116,7 @@ The owned public/private HTTP test passes quote rendering, wrong-origin and CSRF
 refusal, price mismatch, concurrent order retries, pending status, a signed sandbox
 callback and the final renewed state. Rendering-only browser tests cover native
 submission and all result states on desktop/mobile with scripts enabled and
-disabled. Those hosted browser checks are still pending.
+disabled. Those cases have passed on hosted browsers.
 
 
 Contacts created before migration 0234 need a renewal-reference index before old
@@ -128,7 +129,7 @@ This covers expired and delayed Passes that the reminder producer does not selec
 A wrong key or invalid contact aborts the batch. Run this before enabling checkout
 on an upgraded installation.
 
-## Native purchase flow under qualification
+## Native purchase flow
 
 Migration 0235 adds a separately disabled purchase quote. An operator must set
 `purchase_amount_minor` and `purchase_enabled`; the renewal switch does not enable
@@ -159,5 +160,6 @@ capacity backpressure/retry, delayed activation and refund holds. The HTTP fixtu
 passes concurrent form retries, gift ownership, signed payment, setup-link delivery
 acknowledgement, one-use PIN selection and first login for normal and delayed
 purchases. The mailer fixture passes SMTP acceptance and rejection for setup mail.
-Browser qualification is still pending in CI. Donations, ad fulfillment and
-production provider reconciliation remain open.
+Hosted browser tests cover desktop/mobile forms with scripts enabled and
+disabled. Donations, ad fulfillment and production provider reconciliation
+remain open.
