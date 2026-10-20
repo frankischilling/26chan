@@ -179,6 +179,7 @@ test('quote lifecycle cleanup preserves primary failures and never turns teardow
 
 test('opt-in Pass badges survive remote and local quote recipes without broadening markup', async () => {
   const released = await import('../../apps/public/static/native-filter.v1.js');
+  const searchRelease = await import('../../apps/public/static/global-search.v1.js');
   for (const year of [1, 2020, 9999]) {
     const value = post('Owned member');
     value.html = value.html.replace('<span class="name">Anonymous</span>', `<span class="name">Anonymous</span> <span title="Pass user since ${year}" class="n-pu"></span>`);
@@ -193,6 +194,8 @@ test('opt-in Pass badges survive remote and local quote recipes without broadeni
     }
     assert.equal(parseQuotePreviewSnapshot(JSON.stringify(preview(value)), { ...context, post: no }).status, 'ok');
     assert.equal(parseBoardPageSnapshot(JSON.stringify(page(value)), { ...context, page: 0 }).status, 'ok');
+    assert.doesNotThrow(() => parseSearchPayload(JSON.stringify(search(value)), context));
+    assert.doesNotThrow(() => searchRelease.parseSearchPayload(JSON.stringify(search(value)), context));
   }
   for (const badge of [
     '<span title="Pass user since 0" class="n-pu"></span>',
