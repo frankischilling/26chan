@@ -367,6 +367,33 @@ four URL forms, deletion/archive visibility, one-use receipts, interrupted
 cleanup and monotonic numbering. The source database remains unchanged.
 The owned TCP qualification and hosted VM/media lane cover the restore boundary.
 
+## Active-thread limits across addresses
+
+Migration 0237 adds the source Pass branch to the existing active-thread quota.
+`imgboard.php:validate_user_thread_limit` counts an OP when its address, eligible
+UserPwd identity or Pass identity matches. The native query counts that union once,
+including when all three predicates match. Pass matching remains available when
+the automatic session is source-new and its password branch is excluded.
+
+The quota resolves the account from the installed, validated thread receipt. It
+retains the account/session locks without consuming the receipt and never returns
+the private identifier. Only the quota owner receives the private read/resolver
+permissions; public roles still cannot inspect those identities. The Pass catalog
+now attests the quota function body as well as the new grants.
+
+Board limits, strict stored-post timestamp cutoffs, zero-limit and zero-period
+rules remain unchanged. Deleted or archived OPs do not count. The board lock and
+Read Committed query serialize different addresses using the same Pass. A refused
+attempt leaves its receipt available, with no partial post or member association.
+
+The regression first reproduced the missing Pass-only match on the previous
+schema. SQL coverage includes overlapping identities, source-new sessions,
+ordinary requests, exact/future timestamp edges, zero policies, wrong form proofs,
+revocation, private-role denial and function-body drift. The real Store test races
+two addresses and sessions sharing one Pass, requires exactly one successful OP,
+then deletes it and retries the refused proof. Both posts omit the public badge
+option, proving that the quota uses private identity rather than the public year.
+
 ## Private report identity foundation
 
 Migration 0225 keeps a report's validated Pass identity separate from public

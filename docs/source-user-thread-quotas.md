@@ -5,11 +5,13 @@ quota. `4chan-old/imgboard.php:5691-5697,9537-9571` checks every new thread,
 including authenticated staff and private-board posts. Replies do not consume
 the quota. There is no capcode, role or private-board exemption.
 
-This slice matches only trusted transport-derived IP history. The source also
-matches existing UserPwd/password or Pass identity with `OR`; those branches
-remain unimplemented. This is not full per-user or posting-admission parity
-under [issue #213](https://github.com/frankischilling/26chan/issues/213).
-The source was read as text, not executed.
+This document describes the original IP-only migration. Current public writes
+also include [registered automatic-session equality](automatic-admission-identity.md)
+from migration 0096 and [validated Pass identity](public-pass-lifecycle.md#active-thread-limits-across-addresses)
+from migration 0237. Those matches form one union, not separate quotas. The
+IP-only overload remains for callers without a genuine public session. Complete
+posting-admission parity remains under [issue #213](https://github.com/frankischilling/26chan/issues/213).
+The original quota source was read as text, not executed.
 
 ## Count and board policy
 

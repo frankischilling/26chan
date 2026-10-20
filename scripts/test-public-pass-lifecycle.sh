@@ -214,6 +214,12 @@ SQL
 DO $$ BEGIN IF to_regprocedure('content.pass_expired_contact(bytea)') IS NOT NULL OR content.public_pass_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Expired renewal rollback changed authority'; END IF; END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0236_pass_expired_renewal.sql
+"${migrator[@]}" -c BEGIN -f migrations/0237_pass_thread_quota.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN IF content.public_pass_ready() IS DISTINCT FROM true OR has_function_privilege('board_posting_cooldown_owner','verification_private.pass_posting_identity(text,bigint,bytea)','EXECUTE') THEN RAISE EXCEPTION 'Pass thread quota rollback changed authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0237_pass_thread_quota.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-thread-quota.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-expired-renewal.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-notice-outbox.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-pin-recovery.sql
