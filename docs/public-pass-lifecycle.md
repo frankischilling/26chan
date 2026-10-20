@@ -353,3 +353,18 @@ wrong targets/actors, replay, rollback, deferred cleanup, retirement, privilege
 checks, trigger drift and populated restore with distinct author/reporter
 identities. Public report receipt admission remains disconnected until the
 remaining quota, ban, network and history integration is qualified.
+
+Migrations 0226–0228 extend the private report boundary with source quotas,
+explicit bans and network policy. Quotas combine address, automatic-session and
+Pass matches once per report, preserving duplicate precedence and strict
+15-second, hourly and daily cutoffs. Advisory GET has no consumed handoff.
+Reporting keeps address and password ban checks even for members. Only a
+matching consumed receipt or the stored CAPTCHA-off board policy skips network
+rules; neither skips quotas or explicit bans.
+
+The reconstructed SQL suite passes all lifecycle rollback and populated restore
+checks. It covers cross-address duplicates, wrong actor/session bindings,
+29/30-hourly and 79/80-daily limits, future timestamps, overlapping identities,
+global/local/inactive bans, active warnings, and an owned blocked network range.
+Ordinary Rust report regressions are being rerun. Public report receipt admission
+still waits for retained clear-history integration and full end-to-end tests.

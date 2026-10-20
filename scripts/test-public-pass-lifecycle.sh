@@ -148,7 +148,31 @@ DO $$ BEGIN IF to_regclass('verification_private.pass_reports') IS NOT NULL
  THEN RAISE EXCEPTION 'Report identity rollback changed authority'; END IF; END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0225_private_pass_report_identity.sql
+"${migrator[@]}" -c BEGIN -f migrations/0226_pass_report_quotas.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN IF to_regprocedure('content.pass_report_ids(bytea,text,bigint)') IS NOT NULL
+ OR content.public_pass_ready() IS DISTINCT FROM true OR content.report_profile_ready() IS DISTINCT FROM true
+ THEN RAISE EXCEPTION 'Report quota rollback changed authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0226_pass_report_quotas.sql
+"${migrator[@]}" -c BEGIN -f migrations/0227_pass_report_restrictions.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN IF to_regprocedure('verification_private.pass_report_identity(bytea,bytea,text,bigint)') IS NOT NULL
+ OR content.public_pass_ready() IS DISTINCT FROM true OR content.restrictions_ready() IS DISTINCT FROM true
+ THEN RAISE EXCEPTION 'Report boundary rollback changed authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0227_pass_report_restrictions.sql
+"${migrator[@]}" -c BEGIN -f migrations/0228_pass_report_network.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN IF to_regprocedure('content.pass_report_network_bypass(bytea,bytea,text,bigint)') IS NOT NULL
+ OR content.public_pass_ready() IS DISTINCT FROM true OR content.restrictions_ready() IS DISTINCT FROM true
+ THEN RAISE EXCEPTION 'Report boundary rollback changed authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0228_pass_report_network.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-identity.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-quotas.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-restrictions.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-network.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-warning-receipts.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-restrictions.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-public-pass-lifecycle.sql
