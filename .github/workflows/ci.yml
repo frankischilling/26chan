@@ -648,7 +648,9 @@ jobs:
       - name: Qualify staff message visibility and restored authority
         run: sudo bash scripts/test-staff-messages-migration.sh
       - name: Qualify private janitor request weight authority
-        run: sudo bash scripts/test-janitor-request-authority.sh
+        run: |
+          python3 scripts/test-janitor-request-runner.py
+          sudo bash scripts/test-janitor-request-authority.sh
       - name: Qualify Pass lifecycle and restored sessions
         run: sudo bash scripts/test-public-pass-lifecycle.sh
       - name: Qualify atomic janitor request capture and deletion
