@@ -9,6 +9,8 @@ for (const javaScriptEnabled of [true, false]) {
       test(`credential form and explicit logout at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         const response = await page.goto('/fixture/pass/login');
+        await expect(page).toHaveTitle('4chan Pass - Authenticate');
+        await expect(page.locator('#title')).toHaveText('4chan Pass');
         expect(response.headers()['cache-control']).toBe('private, no-store');
         expect(response.headers()['content-security-policy']).toContain("frame-ancestors 'none'");
         await expect(page.getByRole('link', { name: 'Go here', exact: true })).toHaveAttribute('href', '/pass?reset');
@@ -65,7 +67,8 @@ for (const javaScriptEnabled of [true, false]) {
           ? page.getByRole('alert')
           : page.getByRole('heading', { level: 2 })).toHaveText(text);
         await expect(page.locator('input[name="pin"], input[name="id"], script')).toHaveCount(0);
-        await expect(page.locator('a[href="/auth"]')).toBeVisible();
+        if (mode === 'error' || mode === 'escaped') await expect(page.locator('a[href="/auth"]')).toBeVisible();
+        else await expect(page.locator('a[href="/auth"]')).toHaveCount(0);
       }
     });
   });

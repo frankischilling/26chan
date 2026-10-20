@@ -411,3 +411,33 @@ pub(crate) fn fixture_response(mode: &str, origin: &str) -> Result<Response, Str
         response, &state,
     ))
 }
+
+#[cfg(test)]
+mod source_markup_tests {
+    use super::*;
+    #[test]
+    fn source_auth_chrome_and_status_navigation_are_preserved() {
+        for status in [0, 1, 2, 4, -1] {
+            let html = Page {
+                csrf: "owned-csrf",
+                status,
+                message: "",
+            }
+            .render()
+            .unwrap();
+            assert!(html.contains("<title>4chan Pass - Authenticate</title>"));
+            assert!(html.contains("<h1 id=\"title\">4chan Pass</h1>"));
+            assert!(html.contains("/static/notifications/favicon.ico"));
+            if matches!(status, 1 | 4) {
+                assert!(!html.contains("href=\"/auth\""));
+            }
+            if status == -1 {
+                assert!(html.contains("Something went wrong."));
+                assert!(html.contains("[<a href=\"/auth\">Return</a>]"));
+            }
+            if status == 2 {
+                assert!(html.contains("id=\"logout-fields\""));
+            }
+        }
+    }
+}

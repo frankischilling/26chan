@@ -538,7 +538,7 @@ rules with actual verifier-issued proofs and the unchanged no-partial-report che
 ## Posting state matrix under qualification
 
 The new owned matrix provisions new, active, expired, refunded, chargeback,
-disabled, spam-restricted, delayed and renewed accounts. Each client has only
+spam-revoked, content-revoked, delayed and renewed accounts. Each client has only
 public HTTP credentials. The supervisor retains database access and checks the
 stored post year, private account association, total post count and absence of
 CAPTCHA courtesy credits before deleting its fixture data.
@@ -551,3 +551,11 @@ admission remains covered separately. Opting out of `since4pass` leaves the
 reply's year out of JSON. Script-enabled native
 forms/Quick Reply and script-disabled native forms are registered for hosted
 browser qualification. Those browser cases have not passed yet.
+
+
+The auth template now also preserves the supplied title/header wording, local
+favicon, logout fieldset and button labels. Success and logout screens retain the
+source's completion text without extra navigation links; errors retain the
+bracketed Return link and empty-error fallback. CSRF fields, escaped messages,
+accessible labels and same-origin destinations remain native security changes.
+The missing external stylesheet still prevents a complete source-pixel claim.

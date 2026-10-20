@@ -111,8 +111,8 @@ async fn exercise(mode: &str, pass_only: bool) {
         ("expired", 1),
         ("refunded", 2),
         ("chargeback", 3),
-        ("disabled", 4),
-        ("spam", 5),
+        ("spam_revoked", 4),
+        ("content_revoked", 5),
         ("delayed", 7),
         ("renewed", 0),
     ] {
