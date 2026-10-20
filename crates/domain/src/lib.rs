@@ -16,6 +16,7 @@ pub mod file_name;
 pub mod identity;
 pub mod name_trip_admission;
 pub mod page_title;
+pub mod pass_mail;
 pub mod pass_policy;
 pub mod php_scalar;
 pub mod poll_voting;

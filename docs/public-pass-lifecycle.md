@@ -430,3 +430,25 @@ Public receipt admission is now connected. Retained-history helpers still do not
 establish arbitrary effective weights or enable automatic abuse bans; those
 report-weight limitations remain documented separately. Complete browser coverage,
 Pass recovery/delivery, checkout integration and final hosted CI remain unfinished.
+
+## Mail and recovery preparation
+
+The supplied mail task selects active/new accounts within seven days of expiry,
+prefers a nonempty gift recipient, sends an expiry notice at the exact expiry
+boundary, and updates sent flags only after delivery succeeds. Its reset-PIN
+link points to a separate `/pass?reset` controller that is absent from the
+archive. The native recovery workflow therefore needs an explicit replacement
+contract; its exact legacy form and token flow cannot be claimed from this code.
+
+The new mail types preserve the notice decision and bound recipient, public
+identifier and renewal-reference fields. Pass delivery accepts safe ASCII
+mailboxes and subaddresses without inheriting the unrelated email-verification
+provider allowlist. Gift-address validation never silently falls back to another
+recipient. Delivery preserves local-part case; private recovery equality folds
+ASCII case without provider-specific dot or subaddress rules.
+
+Contact/notice envelopes use authenticated encryption with a distinct Pass-mail
+version and context. They cannot be substituted for browser-verification mail.
+Four domain tests pass policy edges, safe mailbox parsing, typed payload bounds,
+fresh nonces and rejection of altered/truncated/wrong-context envelopes. No
+contact, outbox, SMTP delivery or recovery endpoint is connected by this step.

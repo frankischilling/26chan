@@ -47,6 +47,11 @@ impl VerificationKey {
         Some(self.digest(b"pass-identifier", &[value.to_ascii_uppercase().as_bytes()]))
     }
 
+    pub fn pass_recipient(&self, value: &str) -> Option<[u8; 32]> {
+        let recipient = crate::pass_mail::Recipient::parse(value)?;
+        Some(self.digest(b"pass-recipient", &[recipient.identity().as_bytes()]))
+    }
+
     pub fn pass_networks(&self, address: std::net::IpAddr) -> Option<PassNetworks> {
         use std::net::IpAddr;
         let address = match address {
