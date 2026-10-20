@@ -30,6 +30,24 @@ pub fn valid_token(value: &str) -> bool {
 }
 
 impl VerificationClient {
+    pub async fn vip_ready(&self) -> Result<(), Error> {
+        let result: protocol::Readiness = self
+            .exchange("/v1/vip/ready", &serde_json::json!({}))
+            .await?;
+        if result.ready {
+            Ok(())
+        } else {
+            Err(Error::Unavailable)
+        }
+    }
+
+    pub async fn vip_write_receipt(
+        &self,
+        input: &protocol::VipWriteRequest,
+    ) -> Result<protocol::VipWriteResult, Error> {
+        self.exchange("/v1/vip/receipt", input).await
+    }
+
     pub fn new(endpoint: SocketAddr, token: String) -> Result<Self, Error> {
         if endpoint.port() == 0 || !endpoint.ip().is_loopback() || !valid_token(&token) {
             return Err(Error::Unavailable);

@@ -3,6 +3,36 @@
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 
+/// Contains a password; never derive Debug or persist a request body.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VipWriteRequest {
+    pub session: Session,
+    pub board: String,
+    pub target: i64,
+    pub options: String,
+    pub pass_proof: Option<VipPassProof>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VipPassProof {
+    pub receipt_hash: [u8; 32],
+    pub context_hash: [u8; 32],
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum VipWriteResult {
+    None {},
+    Ready {
+        receipt: String,
+        peer_hash: [u8; 32],
+        context_hash: [u8; 32],
+    },
+    Capacity {},
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Fingerprints {

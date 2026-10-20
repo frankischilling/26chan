@@ -1,8 +1,9 @@
 # Verified VIP posting
 
 Issue #222 includes the source's separate VIP credential and `verified` badge.
-This work is in progress. The option parser and source qualification do not
-enable verified posts, create credentials or grant authority.
+This work is in progress. Private credential storage and receipt issuance are
+implemented, but public posting does not consume those receipts yet. Parsing
+the option alone grants no authority.
 
 The preference boundary already discards VIP-looking options instead of saving
 them in a cookie, and clears an existing options cookie after such a submission.
@@ -60,9 +61,51 @@ php -n scripts/test-vip-capcode-source.php
 cargo test -p board-domain vip_capcode --locked
 ```
 
-Private credential storage, bounded hashing and attempts, one-use posting
-receipts, operator provisioning, public/native/Quick Reply projections and
-transactional revocation checks remain to be implemented and qualified.
-Credentials must not enter post rows, logs, URLs or persistent browser
-preferences. The existing staff credential and posting boundaries must remain
-independent.
+## Private issuer
+
+Migration 0238 stores keyed identifier hashes and Argon2id password hashes behind
+the isolated verifier. No runtime has raw table access. VIP identifiers use
+exact UTF-8 spelling; the reconstructed schema's inferred collation is not
+treated as evidence of the original matching behavior.
+
+The issuer reserves an attempt before hashing and shares the existing
+two-worker password budget with Pass login. Missing and inactive identities use
+a dummy hash with the same bounded profile. Failed and interrupted attempts count
+toward three attempts per peer in an hour; correct credentials release their
+reservation. Global account, attempt and receipt inventories are finite.
+
+CAPTCHA-disabled boards qualify directly. On CAPTCHA-enabled boards the issuer
+checks an unconsumed current Pass receipt, including its peer, anonymous session,
+form context, board and target. An ordinary CAPTCHA receipt does not qualify.
+VIP authentication does not consume or replace the Pass receipt.
+
+Completion checks the attempt's 30-second deadline and current credential
+version before issuing a separate 30-second receipt. A name, password or active
+state change advances that version. Receipts bind the account version to the
+peer, anonymous session, board and target. The private response contains only
+the opaque receipt and context hashes, with no password, identifier or name.
+Posting-time consumption and its final revocation checks are still unfinished.
+
+Local SQL qualification covers role denial, failure limits, changed credentials,
+expired attempts, actual Pass receipt binding and revocation, catalog privilege
+drift, migration rollback and populated restore. Private HTTP tests cover real
+password verification and authenticated routing. Eight concurrent reservation
+requests admit exactly three before refusing the rest.
+
+`board-vip-admin` accepts a bounded JSON operation on stdin using
+`MIGRATION_DATABASE_URL` and `VERIFICATION_KEY`. `create` requires `identifier`,
+`name` and `password`; `active` defaults to true. `update` requires the identifier
+and at least one of `name`, `password` or `active`. Its confirmation contains only
+the internal account ID. Keep input outside the repository and protect it as
+credential material. Identifiers are immutable and the verification key must
+remain stable.
+
+The provisioning command refuses credentials that cannot survive the source's
+sage removal or fit its 100-byte options field. It rejects control characters
+and does not put secrets in command-line arguments or output. The actual CLI tests cover create, password/name changes, deactivation,
+runtime-role refusal and secret-free confirmation.
+
+Public/native/Quick Reply rendering, receipt consumption and the source's
+badge-specific admission predicates remain unfinished. Credentials must not
+enter post rows, logs, URLs or persistent browser preferences. Staff credential
+and posting authority remain separate.

@@ -4,6 +4,7 @@ pub mod checkout;
 pub mod mail;
 pub mod pass;
 pub mod pass_recovery;
+pub mod vip;
 
 use crate::{StoreError, anonymous_session::Snapshot};
 use board_domain::anonymous_session::Fingerprints;
@@ -193,6 +194,7 @@ impl VerificationStore {
             "SELECT current_user='board_verifier' AND session_user='board_verifier'
              AND content.public_challenge_ready()
              AND content.public_pass_ready()
+             AND content.public_vip_ready()
              AND coalesce(pg_get_function_result(to_regprocedure('content.verification_credit_receipt(bytea,bytea,bytea,bytea,bytea,bytea,text,bigint,text,bytea,bigint)'))='TABLE(status text, remaining smallint, ttl_seconds integer)',false)
              AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
              AND NOT rolreplication AND NOT rolbypassrls
