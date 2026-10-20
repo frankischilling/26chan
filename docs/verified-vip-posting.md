@@ -40,6 +40,14 @@ manually assigned identities; it contains no VIP account-enrollment interface.
 Those declarations do not establish the original database's identifier matching
 rules.
 
+The badge also changes particular posting predicates. The source's exact-file
+blacklist, infrequent duplicate-image checks and Robot9000 check skip capcoded
+posts. Ordinary content/network checks still run for a non-staff VIP, and the
+retained banned-upload check still runs for every badge. Actor cooldowns,
+thread quotas, ordinary bounds and staff privileges must not be inferred from
+the badge alone. JPEG metadata stripping on `/p/` also depends on badge state;
+its upload context must agree with the protected posting context.
+
 ## Qualification
 
 The extractor pins `imgboard.php` by SHA-256 and retains only the VIP lookup,
@@ -105,7 +113,24 @@ sage removal or fit its 100-byte options field. It rejects control characters
 and does not put secrets in command-line arguments or output. The actual CLI tests cover create, password/name changes, deactivation,
 runtime-role refusal and secret-free confirmation.
 
-Public/native/Quick Reply rendering, receipt consumption and the source's
+Public posting and Quick Reply submission, receipt consumption and the source's
 badge-specific admission predicates remain unfinished. Credentials must not
 enter post rows, logs, URLs or persistent browser preferences. Staff credential
 and posting authority remain separate.
+
+## Saved badge presentation
+
+The renderer now distinguishes saved public badges from selectable staff
+capcodes. `verified` is accepted by the public presentation type and remains
+rejected by the staff-selection type. Desktop/mobile headers emit the source
+label and title, without a staff icon, administrator highlight or Pass-year
+decoration. Six pinned source stylesheets use `#007FFF` for the verified name,
+trip and badge.
+
+The shared updater/quote/search parser accepts the icon-free recipe and rejects
+invented icons, substituted staff labels/classes, misplaced badges and
+administrator highlighting. The filter and search bundles remain within their
+existing release budgets. Local renderer and parser tests pass. Real-browser
+highlight and inert-preview cases are written but cannot run in this workspace
+because its pinned Chromium executable is absent; hosted qualification remains
+required. This presentation work does not enable public VIP posting.

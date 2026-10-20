@@ -304,6 +304,35 @@ test('isolated DOM quote preview contracts', async t => {
     }
 
     for (const currentSource of [false, true]) {
+      await t.test(`${currentSource ? 'source' : 'release'} Verified previews have no identity icon or staff controls`, async () => {
+        const { page, context, requests } = await setup({ currentSource });
+        try {
+          const result = await page.evaluate(() => {
+            const info = document.getElementById('pi101');
+            document.getElementById('p101').style.top = '1300px';
+            const block = document.createElement('span'); block.className = 'nameBlock capcodeVerified';
+            const name = document.createElement('span'); name.className = 'name'; name.textContent = 'Owned <VIP>';
+            const badge = document.createElement('strong'); badge.className = 'capcode hand id_verified';
+            badge.title = 'Highlight posts by Verified Users'; badge.textContent = '## Verified';
+            badge.setAttribute('role', 'button'); badge.tabIndex = 0; badge.setAttribute('aria-pressed', 'true');
+            block.append(name, ' ', badge); info.querySelector('.name').replaceWith(block);
+            window.over();
+            const preview = document.getElementById('quote-preview'), copy = preview.querySelector('.capcode');
+            return { name: preview.querySelector('.name').textContent, label: copy.textContent,
+              title: copy.title, controls: [...copy.attributes].map(attr => attr.name).sort(),
+              icons: preview.querySelectorAll('.identityIcon').length,
+              pending: window.pending.length, originalPressed: badge.getAttribute('aria-pressed') };
+          });
+          assert.deepEqual(result, { name: 'Owned <VIP>', label: '## Verified',
+            title: 'Highlight posts by Verified Users', controls: ['class', 'title'],
+            icons: 0, pending: 0, originalPressed: 'true' });
+          assert.deepEqual(requests.filter(request => ![`${origin}/favicon.ico`,
+            `${origin}/static/themes/fade.png`].includes(request.url)), []);
+        } finally { await context.close(); }
+      });
+    }
+
+    for (const currentSource of [false, true]) {
       for (const [classes, title] of [['flag flag-gb', 'United Kingdom'], ['bfl bfl-pr', 'Pirate']]) {
         await t.test(`${currentSource ? 'source' : 'release'} local previews retain ${classes} and reject malformed flag recipes`, async () => {
           const { page, context, requests } = await setup({ currentSource });

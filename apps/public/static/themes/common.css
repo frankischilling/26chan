@@ -32,6 +32,7 @@ hr, .thread, .boardDirectory article { border-color: var(--edge); }
 .nameBlock.capcodeMod .name, .nameBlock.capcodeMod .capcode { color: var(--capcode-mod, #800080) !important; }
 .nameBlock.capcodeDeveloper .name, .nameBlock.capcodeDeveloper .capcode { color: #0000f0 !important; }
 .nameBlock.capcodeManager .name, .nameBlock.capcodeManager .capcode { color: #ff0080 !important; }
+.nameBlock.capcodeVerified .name, .nameBlock.capcodeVerified .name a, .nameBlock.capcodeVerified .postertrip, .nameBlock.capcodeVerified .capcode { color: #007fff !important; }
 .highlightPost:not(.op) { background: var(--capcode-highlight, #f0d6d6) !important; border-color: var(--capcode-highlight-edge, #d69595) !important; }
 .quote { color: var(--quote); }
 .quotelink { color: var(--quote-link); }

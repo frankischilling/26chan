@@ -169,9 +169,10 @@ const capcodes = [
   ['Manager', 'capcodeManager', 'id_manager', 'Highlight posts by Managers', 'managericon', 'This user is a board Manager.'],
   ['Developer', 'capcodeDeveloper', 'id_developer', 'Highlight posts by Developers', 'developericon', 'This user is a board Developer.'],
   ['Founder', 'capcodeAdmin', 'id_admin', 'Highlight posts by the Founder', 'foundericon', "This user is the board's Founder."],
+  ['Verified', 'capcodeVerified', 'id_verified', 'Highlight posts by Verified Users'],
 ];
 function badgeHtml([label, nameClass, group, title, icon, iconTitle]) {
-  return `<span class="nameBlock ${nameClass}"><span class="name">Owned &lt;staff&gt;</span> <strong class="capcode hand ${group}" title="${title}">## ${label}</strong> <img class="identityIcon" src="/static/identity/${icon}.gif"${icon === 'foundericon' ? '' : ` srcset="/static/identity/${icon}@2x.gif 2x"`} alt="${iconTitle}" title="${iconTitle}" width="16" height="16"></span>`;
+  return `<span class="nameBlock ${nameClass}"><span class="name">Owned &lt;staff&gt;</span> <strong class="capcode hand ${group}" title="${title}">## ${label}</strong>${icon ? ` <img class="identityIcon" src="/static/identity/${icon}.gif"${icon === 'foundericon' ? '' : ` srcset="/static/identity/${icon}@2x.gif 2x"`} alt="${iconTitle}" title="${iconTitle}" width="16" height="16">` : ''}</span>`;
 }
 function capcodeSnapshot(def = capcodes[0], highlighted = false) {
   const value = snapshot();
@@ -179,6 +180,24 @@ function capcodeSnapshot(def = capcodes[0], highlighted = false) {
   if (highlighted) value.posts[1].html = value.posts[1].html.replace('class="post reply"', 'class="post reply highlightPost"');
   return value;
 }
+
+test('Verified recipes reject invented icons, staff classes and comment badges', () => {
+  const verified = capcodes.find(def => def[0] === 'Verified');
+  const valid = capcodeSnapshot(verified);
+  assert.equal(parse(valid).status, 'ok');
+  for (const [before, after] of [
+    ['capcodeVerified', 'capcodeMod'],
+    ['id_verified', 'id_mod'],
+    ['## Verified', '## Admin'],
+    ['Highlight posts by Verified Users', 'Highlight posts by Administrators'],
+    ['## Verified</strong>', '## Verified</strong> <img class="identityIcon" src="/static/identity/modicon.gif" srcset="/static/identity/modicon@2x.gif 2x" alt="This user is a board Moderator." title="This user is a board Moderator." width="16" height="16">'],
+  ]) {
+    const hostile = structuredClone(valid);
+    hostile.posts[1].html = hostile.posts[1].html.replace(before, after);
+    assert.equal(parse(hostile).status, 'invalid-snapshot');
+  }
+  assert.equal(parse(snapshot(badgeHtml(verified))).status, 'invalid-snapshot');
+});
 
 test('staff badges admit only complete pinned header recipes and fixed icon fetches', () => {
   for (const def of capcodes) assert.equal(parse(capcodeSnapshot(def)).status, 'ok', def[0]);

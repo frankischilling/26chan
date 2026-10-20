@@ -359,6 +359,7 @@ export function mountNativePosterIdActions({ root, settings, thread = false }) {
         ['Founder', 'capcodeAdmin', 'id_admin', 'Highlight posts by the Founder'],
         ['Developer', 'capcodeDeveloper', 'id_developer', 'Highlight posts by Developers'],
         ['Manager', 'capcodeManager', 'id_manager', 'Highlight posts by Managers'],
+        ['Verified', 'capcodeVerified', 'id_verified', 'Highlight posts by Verified Users'],
       ].find(([label, nameClass, group, title]) => element.textContent === `## ${label}`
         && element.className === `capcode hand ${group}` && element.title === title
         && element.parentElement?.className === `nameBlock ${nameClass}`

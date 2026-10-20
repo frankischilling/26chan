@@ -195,7 +195,9 @@ test('staff labels highlight their finite groups without ID tooltips or preview 
       staffPost(900) + staffPost(901) + staffPost(902, 'Admin', 'capcodeAdmin', 'id_admin', 'Highlight posts by Administrators')
       + staffPost(903, 'Founder', 'capcodeAdmin', 'id_admin', 'Highlight posts by the Founder')
       + staffPost(904, 'Developer', 'capcodeDeveloper', 'id_developer', 'Highlight posts by Developers')
-      + staffPost(905, 'Manager', 'capcodeManager', 'id_manager', 'Highlight posts by Managers'));
+      + staffPost(905, 'Manager', 'capcodeManager', 'id_manager', 'Highlight posts by Managers')
+      + staffPost(906, 'Verified', 'capcodeVerified', 'id_verified', 'Highlight posts by Verified Users')
+      + staffPost(907, 'Verified', 'capcodeVerified', 'id_verified', 'Highlight posts by Verified Users'));
     const first = page.locator('#p900 .capcode'), admin = page.locator('#p902 .capcode');
     await expect(first).toHaveAttribute('role', 'button'); await expect(first).toHaveAttribute('tabindex', '0');
     await first.click();
@@ -220,10 +222,16 @@ test('staff labels highlight their finite groups without ID tooltips or preview 
     await expect(page.locator('#p902')).toHaveClass(/highlightPost/);
     await page.locator('#p905 .capcode').click();
     await expect(page.locator('#p905')).toHaveClass(/poster-id-highlight/);
+    await page.locator('#p906 .capcode').click();
+    await expect(page.locator('#p906')).toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p907')).toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p905')).not.toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p900')).not.toHaveClass(/poster-id-highlight/);
     await page.evaluate(() => controller.destroy());
     await expect(first).not.toHaveAttribute('role', 'button');
     await expect(first).toHaveAttribute('title', 'Highlight posts by Moderators');
     await expect(page.locator('#p905')).not.toHaveClass(/poster-id-highlight/);
+    await expect(page.locator('#p906')).not.toHaveClass(/poster-id-highlight/);
     await expect(page.locator('#p902')).toHaveClass(/highlightPost/);
   });
 });
