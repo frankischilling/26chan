@@ -338,3 +338,18 @@ four URL forms, deletion/archive visibility, one-use receipts, interrupted
 cleanup and monotonic numbering. The source database remains unchanged. Local
 qualification used an owned TCP cluster; the standard hosted wrapper still needs
 CI qualification.
+
+## Private report identity foundation
+
+Migration 0225 keeps a report's validated Pass identity separate from public
+content and the reported author's identity. A consumed receipt stages a handoff
+bound to its transaction, actor, board and target. Membership insertion captures
+it once; deferred cleanup removes unused handoffs. Retiring membership removes
+the private association. Runtime roles cannot access these tables or stage a
+handoff. The Pass catalog attests the capture and foreign-key triggers.
+
+The reconstructed implementation passes the full local lifecycle suite, including
+wrong targets/actors, replay, rollback, deferred cleanup, retirement, privilege
+checks, trigger drift and populated restore with distinct author/reporter
+identities. Public report receipt admission remains disconnected until the
+remaining quota, ban, network and history integration is qualified.

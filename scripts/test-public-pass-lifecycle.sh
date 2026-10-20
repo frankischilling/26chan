@@ -141,6 +141,14 @@ DO $$ BEGIN
 END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0224_pass_warning_receipts.sql
+"${migrator[@]}" -c BEGIN -f migrations/0225_private_pass_report_identity.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN IF to_regclass('verification_private.pass_reports') IS NOT NULL
+ OR content.public_pass_ready() IS DISTINCT FROM true OR content.report_profile_ready() IS DISTINCT FROM true
+ THEN RAISE EXCEPTION 'Report identity rollback changed authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0225_private_pass_report_identity.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-identity.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-warning-receipts.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-restrictions.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-public-pass-lifecycle.sql
@@ -174,9 +182,22 @@ DO $$ BEGIN
 END $$;
 RESET ROLE;
 SQL
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+SET ROLE board_staff;
+SELECT content.admit_report('passrst',(SELECT id FROM content.posts WHERE board='passrst' ORDER BY id LIMIT 1),'Owned report restore',sha256('owned-restored-reporter'));
+RESET ROLE;
+INSERT INTO verification_private.pass_reports(report_id,identity_hash)
+ SELECT id,sha256('owned-restored-report-pass') FROM content.reports WHERE board='passrst';
+SQL
 "$pg_bin/pg_dump" -h 127.0.0.1 -p 15453 -U postgres -d pass_lifecycle --format=custom -f "$cluster/owned.dump"
 "${psql[@]}" -d postgres -c 'CREATE DATABASE pass_restored OWNER board_migrator'
 "$pg_bin/pg_restore" -h 127.0.0.1 -p 15453 -U postgres -d pass_restored --exit-on-error "$cluster/owned.dump"
+"${psql[@]}" -d pass_restored <<'SQL'
+SET ROLE board_anonymous_owner;
+DO $$ BEGIN IF (SELECT count(*) FROM verification_private.pass_reports WHERE identity_hash=sha256('owned-restored-report-pass'))<>1
+ OR EXISTS(SELECT 1 FROM verification_private.pass_report_handoffs) THEN RAISE EXCEPTION 'Restored report identity differs'; END IF; END $$;
+RESET ROLE;
+SQL
 "${psql[@]}" -d pass_restored -f scripts/test-pass-warning-receipts.sql
 "${psql[@]}" -d pass_restored <<'SQL'
 DO $$ BEGIN IF content.public_pass_ready() IS DISTINCT FROM true THEN
