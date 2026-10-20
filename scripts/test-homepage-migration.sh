@@ -29,8 +29,13 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 "${runner[@]}" "$pg_bin/initdb" -D "$cluster/data" --username=postgres --auth=trust --encoding=UTF8 --no-locale >/dev/null
 started=1
-"${runner[@]}" "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.log" -o "-c listen_addresses='127.0.0.1' -c port=55446 -c unix_socket_directories='' -c statement_timeout=30000 -c lock_timeout=5000" -w start >/dev/null
-psql=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 55446 -U postgres)
+# Keep the owned listener below the default Linux ephemeral-port range.
+if ! "${runner[@]}" "$pg_bin/pg_ctl" -D "$cluster/data" -l "$cluster/server.log" -o "-c listen_addresses='127.0.0.1' -c port=15446 -c unix_socket_directories='' -c statement_timeout=30000 -c lock_timeout=5000" -w start >/dev/null; then
+    echo "Owned qualification database failed to start:" >&2
+    [[ ! -f "$cluster/server.log" ]] || cat "$cluster/server.log" >&2
+    exit 1
+fi
+psql=("$pg_bin/psql" -Xq -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 15446 -U postgres)
 "${psql[@]}" -d postgres -f - < deploy/roles.sql >/dev/null
 "${psql[@]}" -d postgres <<'SQL'
 CREATE DATABASE homepage_upgrade OWNER board_migrator;
@@ -76,13 +81,13 @@ DO $$ BEGIN
 END $$;
 SQL
 "${migrator[@]}" -f - < "$cluster/assertions.sql"
-"$pg_bin/pg_dump" -h 127.0.0.1 -p 55446 -U postgres -d homepage_upgrade --format=custom -f "$cluster/owned.dump"
+"$pg_bin/pg_dump" -h 127.0.0.1 -p 15446 -U postgres -d homepage_upgrade --format=custom -f "$cluster/owned.dump"
 "${psql[@]}" -d postgres <<'SQL'
 CREATE DATABASE homepage_restored OWNER board_migrator;
 REVOKE ALL ON DATABASE homepage_restored FROM PUBLIC;
 GRANT CONNECT ON DATABASE homepage_restored TO board_migrator,board_public;
 SQL
-"$pg_bin/pg_restore" -h 127.0.0.1 -p 55446 -U postgres -d homepage_restored --exit-on-error "$cluster/owned.dump"
+"$pg_bin/pg_restore" -h 127.0.0.1 -p 15446 -U postgres -d homepage_restored --exit-on-error "$cluster/owned.dump"
 "${psql[@]}" -d homepage_restored -f - < "$cluster/assertions.sql"
 # The current reader requires the later notice projection. Check that it does
 # not silently accept the historical view, then qualify the complete upgrade.
@@ -106,13 +111,13 @@ DO $$ BEGIN IF EXISTS(SELECT 1 FROM content.posts WHERE since4pass<>0) THEN
 SQL
     "${psql[@]}" -d "$database" -f - < "$cluster/assertions.sql"
 done
-"$pg_bin/pg_dump" -h 127.0.0.1 -p 55446 -U postgres -d homepage_upgrade --format=custom -f "$cluster/current.dump"
+"$pg_bin/pg_dump" -h 127.0.0.1 -p 15446 -U postgres -d homepage_upgrade --format=custom -f "$cluster/current.dump"
 "${psql[@]}" -d postgres <<'SQL'
 CREATE DATABASE homepage_current_restored OWNER board_migrator;
 REVOKE ALL ON DATABASE homepage_current_restored FROM PUBLIC;
 GRANT CONNECT ON DATABASE homepage_current_restored TO board_migrator,board_public;
 SQL
-"$pg_bin/pg_restore" -h 127.0.0.1 -p 55446 -U postgres -d homepage_current_restored --exit-on-error "$cluster/current.dump"
+"$pg_bin/pg_restore" -h 127.0.0.1 -p 15446 -U postgres -d homepage_current_restored --exit-on-error "$cluster/current.dump"
 for database in homepage_upgrade homepage_restored homepage_current_restored; do
     "${psql[@]}" -d "$database" -f - < "$cluster/assertions.sql"
     for mutation in \
