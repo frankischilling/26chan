@@ -169,10 +169,18 @@ DO $$ BEGIN IF to_regprocedure('content.pass_report_network_bypass(bytea,bytea,t
  THEN RAISE EXCEPTION 'Report boundary rollback changed authority'; END IF; END $$;
 SQL
 "${migrator[@]}" --single-transaction -f migrations/0228_pass_report_network.sql
+"${migrator[@]}" -c BEGIN -f migrations/0229_pass_report_clear_history.sql -c ROLLBACK
+"${psql[@]}" -d pass_lifecycle <<'SQL'
+DO $$ BEGIN IF to_regclass('verification_private.pass_report_clear_events') IS NOT NULL
+ OR content.public_pass_ready() IS DISTINCT FROM true OR content.report_profile_ready() IS DISTINCT FROM true
+ THEN RAISE EXCEPTION 'Clear history rollback changed authority'; END IF; END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0229_pass_report_clear_history.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-identity.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-quotas.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-restrictions.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-network.sql
+"${psql[@]}" -d pass_lifecycle -f scripts/test-pass-report-clear-history.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-warning-receipts.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-pass-restrictions.sql
 "${psql[@]}" -d pass_lifecycle -f scripts/test-public-pass-lifecycle.sql
@@ -212,6 +220,10 @@ SELECT content.admit_report('passrst',(SELECT id FROM content.posts WHERE board=
 RESET ROLE;
 INSERT INTO verification_private.pass_reports(report_id,identity_hash)
  SELECT id,sha256('owned-restored-report-pass') FROM content.reports WHERE board='passrst';
+SELECT set_config('board.fixture_restore_report',(SELECT id::text FROM content.reports WHERE board='passrst'),false);
+SET ROLE board_report_admission_owner;
+SELECT content.pass_record_report_clears(ARRAY[current_setting('board.fixture_restore_report')::bigint],ARRAY[sha256('owned-restored-reporter')],ARRAY[NULL::uuid],clock_timestamp());
+RESET ROLE;
 SQL
 "$pg_bin/pg_dump" -h 127.0.0.1 -p 15453 -U postgres -d pass_lifecycle --format=custom -f "$cluster/owned.dump"
 "${psql[@]}" -d postgres -c 'CREATE DATABASE pass_restored OWNER board_migrator'
@@ -219,6 +231,7 @@ SQL
 "${psql[@]}" -d pass_restored <<'SQL'
 SET ROLE board_anonymous_owner;
 DO $$ BEGIN IF (SELECT count(*) FROM verification_private.pass_reports WHERE identity_hash=sha256('owned-restored-report-pass'))<>1
+ OR (SELECT count(*) FROM verification_private.pass_report_clear_events WHERE identity_hash=sha256('owned-restored-report-pass') AND actor_hash=sha256('owned-restored-reporter'))<>1
  OR EXISTS(SELECT 1 FROM verification_private.pass_report_handoffs) THEN RAISE EXCEPTION 'Restored report identity differs'; END IF; END $$;
 RESET ROLE;
 SQL

@@ -368,3 +368,25 @@ checks. It covers cross-address duplicates, wrong actor/session bindings,
 global/local/inactive bans, active warnings, and an owned blocked network range.
 Ordinary Rust report regressions are being rerun. Public report receipt admission
 still waits for retained clear-history integration and full end-to-end tests.
+
+## Retained report-clear history
+
+Migration 0229 records each manually cleared report and each new report that
+inherits an existing clear. Capture runs after anonymous registration, preserving
+the reporter's final private identity. The reported author's membership cannot
+supply the reporter's identity. The history has no report foreign key, so later
+report retirement does not remove it. Reporter purge and automatic clearing do
+not invent manual-clear events.
+
+The source keeps clear logs for five days. Native recording prunes older events
+in bounded batches and limits retained rows. A full history inventory preserves
+the valid report/clear operation and records an uncertainty horizon instead of
+claiming complete history. Initial migration also starts a five-day warm-up.
+Idempotent writes preserve the first timestamp and reject changed identities.
+This foundation records identities and event counts; it does not claim an exact
+source weight, enable history filtering, or issue automatic abuse bans.
+
+Local SQL tests pass manual and inherited capture, duplicate clearing, retirement,
+capacity uncertainty, expiry, privacy and populated restore. The 17 ordinary Rust
+report challenge, group-clear, network and weight-evidence regressions pass with
+this migration. Hosted qualification and public receipt integration remain pending.
