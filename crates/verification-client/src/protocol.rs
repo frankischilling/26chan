@@ -188,11 +188,20 @@ pub struct PassSession {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PassLoginResult {
-    Ready { token: String, ttl_seconds: u32 },
+    Ready {
+        token: String,
+        ttl_seconds: u32,
+    },
     Rejected {},
     Flood {},
-    InUse { seconds: u32 },
-    Disabled { status: u8, renewal: Option<String> },
+    InUse {
+        seconds: u32,
+    },
+    Disabled {
+        status: u8,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        renewal: Option<String>,
+    },
     Capacity {},
 }
 #[derive(Serialize, Deserialize)]
@@ -372,4 +381,43 @@ pub struct CheckoutPurchase {
     pub peer: IpAddr,
     pub amount_minor: i64,
     pub currency: String,
+}
+
+#[cfg(test)]
+mod pass_login_tests {
+    use super::PassLoginResult;
+    use serde_json::json;
+
+    #[test]
+    fn disabled_login_omits_absent_renewal_and_preserves_present_reference() {
+        for status in 1..=5 {
+            let expected = json!({"state":"disabled", "status":status});
+            let response = PassLoginResult::Disabled {
+                status,
+                renewal: None,
+            };
+            assert_eq!(serde_json::to_value(response).unwrap(), expected);
+            assert!(matches!(
+                serde_json::from_value::<PassLoginResult>(expected).unwrap(),
+                PassLoginResult::Disabled { renewal: None, .. }
+            ));
+        }
+        let expected = json!({"state":"disabled", "status":1, "renewal":"owned-reference"});
+        let response = PassLoginResult::Disabled {
+            status: 1,
+            renewal: Some("owned-reference".into()),
+        };
+        assert_eq!(serde_json::to_value(response).unwrap(), expected);
+        assert!(matches!(
+            serde_json::from_value::<PassLoginResult>(expected).unwrap(),
+            PassLoginResult::Disabled { renewal: Some(reference), .. }
+                if reference == "owned-reference"
+        ));
+        assert!(
+            serde_json::from_value::<PassLoginResult>(
+                json!({"state":"disabled", "status":4, "unexpected":true})
+            )
+            .is_err()
+        );
+    }
 }
