@@ -106,6 +106,9 @@ def assert_no_processes(units, vmm_uid=None):
             membership = (process / 'cgroup').read_text()
             for line in membership.splitlines():
                 path = line.split(':', 2)[2]
+                # Linux retains membership while a dying process outlives its
+                # cgroup. The suffix is kernel metadata, not part of the unit.
+                path = path.removesuffix(' (deleted)')
                 if units.intersection(path.split('/')):
                     raise JobProcessesRemain('media service still has a process')
             if vmm_uid is not None:

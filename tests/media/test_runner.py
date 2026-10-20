@@ -335,6 +335,41 @@ class OperatorDiagnosticsTest(unittest.TestCase):
 
 
 class ProcessDrainTest(unittest.TestCase):
+    def test_deleted_cgroup_membership_remains_owned_until_process_disappears(self):
+        sys.path.insert(0, str(REPO / 'scripts/media'))
+        try:
+            import job_lifecycle as lifecycle
+        finally:
+            sys.path.pop(0)
+        unit = '26chan-media-' + 'a' * 32 + '.service'
+        with tempfile.TemporaryDirectory() as name:
+            process = pathlib.Path(name) / '123'
+            process.mkdir()
+            membership = process / 'cgroup'
+            for path, owned in (
+                    ('/system.slice/' + unit, True),
+                    ('/system.slice/' + unit + ' (deleted)', True),
+                    ('/system.slice/' + unit + '/child (deleted)', True),
+                    ('/system.slice/prefix-' + unit + ' (deleted)', False),
+                    ('/system.slice/' + unit + '-suffix (deleted)', False),
+                    ('/system.slice/unrelated.service (deleted)', False)):
+                with self.subTest(path=path):
+                    membership.write_text('0::' + path + '\n')
+                    with mock.patch.object(pathlib.Path, 'iterdir', return_value=iter([process])):
+                        if owned:
+                            with self.assertRaises(lifecycle.JobProcessesRemain):
+                                lifecycle.assert_no_processes({unit})
+                        else:
+                            lifecycle.assert_no_processes({unit})
+            membership.unlink()
+            with mock.patch.object(pathlib.Path, 'iterdir', return_value=iter([process])):
+                lifecycle.assert_no_processes({unit})
+            membership.write_text('0::/system.slice/' + unit + ' (deleted)\n')
+            with mock.patch.object(pathlib.Path, 'iterdir', side_effect=lambda: iter([process])):
+                with self.assertRaises(lifecycle.JobProcessesRemain):
+                    lifecycle.wait_for_no_processes({unit}, timeout=0.03)
+                self.assertTrue(membership.exists(), 'timeout must retain process evidence')
+
     def test_transient_process_must_disappear_before_drain_succeeds(self):
         sys.path.insert(0, str(REPO / 'scripts/media'))
         try:
