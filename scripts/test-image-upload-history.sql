@@ -10,6 +10,18 @@ DO $$ DECLARE role_name text; BEGIN
  OR has_function_privilege('board_staff','content.expire_image_upload_history()','EXECUTE') THEN
   RAISE EXCEPTION 'Unexpected image expiry authority'; END IF;
 END $$;
+-- A volatile per-row clock would move the boundary during a scan and prevent
+-- the expiry index from supplying the bounded oldest-first candidate window.
+DO $$ DECLARE definition text; BEGIN
+ definition:=pg_get_functiondef('content.expire_image_upload_history()'::regprocedure);
+ IF (length(definition)-length(replace(definition,'clock_timestamp()','')))/length('clock_timestamp()')<>1
+ OR position('WHERE accepted_at<cutoff' IN definition)=0 THEN
+  RAISE EXCEPTION 'Image expiry must capture one indexed cutoff'; END IF;
+ definition:=pg_get_functiondef('content.image_duplicate_candidate(text,text,text,bigint,boolean,boolean)'::regprocedure);
+ IF (length(definition)-length(replace(definition,'clock_timestamp()','')))/length('clock_timestamp()')<>1
+ OR position('h.accepted_at>observed-' IN definition)=0 THEN
+  RAISE EXCEPTION 'Image duplicate history must capture one lookup clock'; END IF;
+END $$;
 INSERT INTO post_secrets.image_upload_history(post_id,scope,digest,accepted_at)
  SELECT 9000000000+i,'f_md5',decode(repeat('ab',16),'hex'),clock_timestamp()-interval '49 hours'
  FROM generate_series(1,1002) i;

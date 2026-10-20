@@ -61,7 +61,7 @@ CREATE OR REPLACE FUNCTION content.image_duplicate_candidate(
  p_job text,p_capability text,p_board text,p_target bigint,p_authorized boolean,p_badged boolean
 ) RETURNS TABLE(post_id bigint,thread_id bigint)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE metadata record; candidate record; maximum integer; hits bigint; v_scope text;
+DECLARE metadata record; candidate record; maximum integer; hits bigint; v_scope text; observed timestamptz;
 BEGIN
  IF content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
   RAISE EXCEPTION 'Duplicate image authority is unavailable' USING ERRCODE='P0241'; END IF;
@@ -94,9 +94,10 @@ BEGIN
  IF v_scope IS NOT NULL THEN
   PERFORM s.scope FROM post_secrets.image_history_scopes s WHERE s.scope=v_scope FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Image history scope is unavailable' USING ERRCODE='P0242'; END IF;
+  observed:=date_trunc('second',clock_timestamp());
   IF EXISTS(SELECT 1 FROM post_secrets.image_upload_history h WHERE h.scope=v_scope
    AND h.digest=decode(metadata.normalized_md5,'hex')
-   AND h.accepted_at>date_trunc('second',clock_timestamp())-interval '24 hours') THEN
+   AND h.accepted_at>observed-interval '24 hours') THEN
    post_id:=-1;thread_id:=-1;RETURN NEXT;
   END IF;
  END IF;
@@ -133,13 +134,14 @@ REVOKE ALL ON FUNCTION content.record_image_upload_history() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION content.record_image_upload_history() TO board_migrator;
 CREATE FUNCTION content.expire_image_upload_history() RETURNS bigint
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE removed bigint;
+DECLARE removed bigint; cutoff timestamptz;
 BEGIN
  IF session_user<>'board_moderation_retention' OR current_setting('transaction_isolation')<>'read committed'
  OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
   RAISE EXCEPTION 'Image history expiry unavailable' USING ERRCODE='42501'; END IF;
+ cutoff:=date_trunc('second',clock_timestamp())-interval '48 hours';
  WITH candidates AS (SELECT post_id FROM post_secrets.image_upload_history
-  WHERE accepted_at<date_trunc('second',clock_timestamp())-interval '48 hours'
+  WHERE accepted_at<cutoff
   ORDER BY accepted_at,post_id LIMIT 1000 FOR UPDATE SKIP LOCKED),
  deleted AS (DELETE FROM post_secrets.image_upload_history h USING candidates c
   WHERE h.post_id=c.post_id RETURNING 1)
