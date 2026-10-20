@@ -1186,6 +1186,9 @@ pub async fn post_message(
         board_store::StoreError::PostingCooldownRejected(rejection) => {
             AppError::Posting(rejection.source_message())
         }
+        board_store::StoreError::ImageDuplicate(_) => {
+            AppError::Posting(board_domain::image_duplicates::DUPLICATE.into())
+        }
         board_store::StoreError::AutomaticRangeRejected { .. } => {
             AppError::Posting(board_store::AUTOMATIC_RANGE_REJECTION.into())
         }

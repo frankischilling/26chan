@@ -115,9 +115,7 @@ pub(super) async fn exercise(f: &Fixture) {
             .unwrap();
     assert!(erased);
 
-    let legacy = f.reserve().await;
-    f.approve(&legacy).await;
-    let legacy_post = f.insert(0, &legacy).await.unwrap();
+    let legacy_post = legacy_metadata_stays_unknown(f).await;
     assert_eq!(
         digest(f, legacy_post).await,
         None,

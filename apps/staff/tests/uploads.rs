@@ -223,7 +223,7 @@ impl Fixture {
         assert_eq!(job.id, id, "requires isolated disposable media queue");
         let lease = job.lease_token.unwrap();
         let asset = queue
-            .prepare_output(
+            .prepare_output_with_variants(
                 id,
                 &lease,
                 &OutputMetadata {
@@ -232,6 +232,16 @@ impl Fixture {
                     width: 10,
                     height: 20,
                 },
+                Some(&OutputVariants {
+                    // Synthetic manifest for this independent owned upload.
+                    md5: id.into(),
+                    thumbnail: OutputMetadata {
+                        sha256: "b".repeat(64),
+                        bytes: 50,
+                        width: 10,
+                        height: 20,
+                    },
+                }),
             )
             .await
             .unwrap();

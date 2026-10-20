@@ -93,6 +93,10 @@ impl From<StoreError> for AppError {
                     "VIP verification changed. Please submit again.",
                 )
             }
+            StoreError::ImageDuplicate(_) => Self(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                board_domain::image_duplicates::DUPLICATE,
+            ),
             StoreError::Invalid(message) => Self(StatusCode::UNPROCESSABLE_ENTITY, message),
             StoreError::Conflict(message) => Self(StatusCode::CONFLICT, message),
             StoreError::PublicDeletionRejected(message) => Self(StatusCode::FORBIDDEN, message),
@@ -1036,7 +1040,11 @@ pub async fn post(
     form: Result<crate::posting_form::PostingForm, crate::posting_form::Rejection>,
 ) -> Response {
     let format = crate::posting_response::Format::from_headers(&headers);
-    let response = match form {
+    let private_options = form
+        .as_ref()
+        .is_ok_and(|form| board_domain::vip_capcode::private_preference(&form.0.email));
+    let production = state.production;
+    let mut response = match form {
         Ok(crate::posting_form::PostingForm(form)) => {
             let hints = board_http::network_hints::derive(
                 &headers,
@@ -1066,6 +1074,9 @@ pub async fn post(
         }
         Err(error) => format.invalid_form(error),
     };
+    if private_options {
+        crate::post_preferences::erase_private_options(response.headers_mut(), production);
+    }
     format.finish(response)
 }
 
@@ -1333,6 +1344,9 @@ async fn submit_post(
     .await;
     let id = match id {
         Ok(id) => id,
+        Err(StoreError::ImageDuplicate(rejection)) => {
+            return Ok(format.image_duplicate_error(&board, &rejection));
+        }
         Err(StoreError::PostingCooldownRejected(rejection)) => {
             return Ok(format.cooldown_error(&rejection));
         }

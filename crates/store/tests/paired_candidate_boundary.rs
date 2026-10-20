@@ -119,6 +119,7 @@ async fn candidate_claim_skips_locked_jobs_and_finish_rechecks_expiry_after_wait
             StoreError::AuthorizationChanged => "AuthorizationChanged",
             StoreError::ContentRejected(_) => "ContentRejected",
             StoreError::FileRejected(_) => "FileRejected",
+            StoreError::ImageDuplicate(_) => "ImageDuplicate",
             StoreError::ContentQuiet { .. } => "ContentQuiet",
             StoreError::PostingClassifierRejected(_) => "PostingClassifierRejected",
             StoreError::AutomaticRangeRejected { .. } => "AutomaticRangeRejected",

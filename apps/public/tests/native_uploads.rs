@@ -11,7 +11,7 @@ use axum::{
 };
 use board_store::{
     media::{Failure, MediaQueue},
-    media_assets::OutputMetadata,
+    media_assets::{OutputMetadata, OutputVariants},
     media_intake::IntakeStore,
 };
 use serde_json::{Value, json};
@@ -397,7 +397,7 @@ impl Fixture {
         assert_eq!(self.status(&body, StatusCode::OK).await, expected);
         let output = self
             .queue
-            .prepare_output(
+            .prepare_output_with_variants(
                 id,
                 &token,
                 &OutputMetadata {
@@ -406,6 +406,16 @@ impl Fixture {
                     width: 10,
                     height: 20,
                 },
+                Some(&OutputVariants {
+                    // Distinct synthetic normalized files for this transport fixture.
+                    md5: id.into(),
+                    thumbnail: OutputMetadata {
+                        sha256: "b".repeat(64),
+                        bytes: 50,
+                        width: 10,
+                        height: 20,
+                    },
+                }),
             )
             .await
             .unwrap();

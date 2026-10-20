@@ -284,3 +284,18 @@ pub async fn reset_posting_history(owner: &PgPool, board: &str) {
     }
     cleanup_posting(owner, board).await;
 }
+
+/// Declared normalized metadata for independent synthetic upload fixtures.
+/// These tests do not decode bytes; real worker manifests are tested separately.
+pub fn synthetic_upload_variants(job: &str) -> board_store::media_assets::OutputVariants {
+    assert!(job.len() == 32 && job.bytes().all(|b| b.is_ascii_hexdigit()));
+    board_store::media_assets::OutputVariants {
+        md5: job.into(),
+        thumbnail: board_store::media_assets::OutputMetadata {
+            sha256: "e".repeat(64),
+            bytes: 50,
+            width: 1,
+            height: 1,
+        },
+    }
+}

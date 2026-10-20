@@ -39,6 +39,7 @@ mod comment_unicode;
 pub use comment_spacing::{CommentSpacing, prepare_post_comment, prepare_post_comment_with_limits};
 pub mod filtered_formatting;
 pub mod formatting;
+pub mod image_duplicates;
 pub mod image_limit;
 pub mod op_bump;
 mod post_content;

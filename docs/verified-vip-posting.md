@@ -7,7 +7,8 @@ the option alone grants no authority. The full source-behavior audit and final
 CI qualification are still open.
 
 The preference boundary already discards VIP-looking options instead of saving
-them in a cookie, and clears an existing options cookie after such a submission.
+them in a cookie, and clears an existing options cookie after a parsed submission,
+including a posting refusal.
 Native forms and Quick Reply also refuse to restore those values from old
 cookies. This deliberately differs from the source's seven-day options cookie:
 an identifier/password pair must not become a persistent display preference.
@@ -153,7 +154,9 @@ source-context upload test checks both hint values and one-use capability
 handling. A separate metadata matrix checks actual VIP receipts with PNG/JPEG
 on `/g/` and `/p/`, including refusal of staff-only attachment bounds. Actual
 `/p/` JPEG processing and posting still need end-to-end qualification. The
-source's infrequent duplicate-image predicates remain a separate posting gap.
+active-post duplicate scopes and board-wide repost limits are implemented in
+migration 0241, with checked badge exemptions. Persistent upload-board history
+remains open; see [image duplicate admission](image-duplicate-admission.md).
 
 ## Saved badge presentation
 

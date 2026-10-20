@@ -84,6 +84,35 @@ impl<'a> Preflight<'a> {
         })
     }
 
+    pub async fn duplicate(
+        &self,
+        connection: &mut PgConnection,
+    ) -> Result<Option<crate::ImageDuplicateRefusal>, StoreError> {
+        let row: Option<(i64, i64)> = sqlx::query_as(
+            "SELECT post_id,thread_id FROM content.image_duplicate_candidate($1,$2,$3,$4,$5,$6)",
+        )
+        .bind(&self.attachment.upload.id)
+        .bind(&self.attachment.upload.capability)
+        .bind(self.target.board)
+        .bind(self.target.parent)
+        .bind(self.target.authorized)
+        .bind(self.target.badged)
+        .fetch_optional(connection)
+        .await?;
+        match row {
+            None => Ok(None),
+            Some((0, 0)) => Ok(Some(crate::ImageDuplicateRefusal { existing: None })),
+            Some((post, thread)) if post > 0 && thread > 0 => {
+                Ok(Some(crate::ImageDuplicateRefusal {
+                    existing: Some((post, thread)),
+                }))
+            }
+            _ => Err(StoreError::Database(sqlx::Error::Protocol(
+                "Invalid image duplicate result.".into(),
+            ))),
+        }
+    }
+
     pub fn filename(&self) -> &str {
         &self.metadata.0
     }

@@ -1,4 +1,5 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
 use board_domain::{anonymous_session::Capability, capcode::Capcode, poster_id::PosterIdKey};
 use board_store::{
@@ -777,9 +778,9 @@ async fn retirement_preserves_anonymous_derivatives_actions_and_consumed_media()
         let claim=queue.claim().await.unwrap().expect("Owned fixture job must be claimable");
         assert_eq!(claim.id,upload.id,"Requires an idle owned qualification queue");
         let lease=claim.lease_token.unwrap();
-        let output=queue.prepare_output(&claim.id,&lease,&board_store::media_assets::OutputMetadata {
+        let output=queue.prepare_output_with_variants(&claim.id,&lease,&board_store::media_assets::OutputMetadata {
             sha256:"b".repeat(64),bytes:123,width:10,height:20,
-        }).await.unwrap();
+        },Some(&support::synthetic_upload_variants(&claim.id))).await.unwrap();
         queue.approve_output(&claim.id,&lease,&output.id).await.unwrap();
         let attachment=board_store::post_media::NewAttachment { upload,spoiler:false };
         let key=PosterIdKey::parse(&f.key).unwrap();

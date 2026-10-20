@@ -47,6 +47,11 @@ async fn vip_credentials_flow_through_public_forms_without_persistence() {
             .unwrap();
     sqlx::query("INSERT INTO content.boards(slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,text_only,captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,user_thread_limit,robot9000) VALUES($1,'Owned VIP','Synthetic',2000,100,100,100,10,true,false,0,0,0,100,true)")
         .bind(&board).execute(&owner).await.unwrap();
+    sqlx::query("INSERT INTO admission.rules(board,pattern) VALUES($1,'ownedblockedvip')")
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
     let target: i64 =
         sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
             .bind(&board)
@@ -191,6 +196,45 @@ async fn vip_credentials_flow_through_public_forms_without_persistence() {
                     ("Owned Verified".into(), Some("verified".into()), false)
                 );
             }
+            let rejected_body = url::form_urlencoded::Serializer::new(String::new())
+                .append_pair("resto", &target.to_string())
+                .append_pair("com", "ownedblockedvip")
+                .append_pair("email", &format!("capcode_!owned-public-vip!{password}"))
+                .finish();
+            let rejected = app
+                .clone()
+                .oneshot(
+                    Request::post(format!("/{board}/post"))
+                        .header("origin", "http://127.0.0.1:3000")
+                        .header("accept", "application/json")
+                        .header("content-type", "application/x-www-form-urlencoded")
+                        .header(
+                            header::COOKIE,
+                            format!("{cookie}; options=capcode_!owned-public-vip!{password}"),
+                        )
+                        .extension(axum::extract::ConnectInfo(
+                            "192.0.2.145:12345".parse::<std::net::SocketAddr>().unwrap(),
+                        ))
+                        .body(Body::from(rejected_body))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(rejected.status(), StatusCode::OK);
+            assert!(
+                rejected
+                    .headers()
+                    .get_all(header::SET_COOKIE)
+                    .iter()
+                    .any(|value| value
+                        .to_str()
+                        .unwrap()
+                        .starts_with("options=; Path=/; Max-Age=0;"))
+            );
+            let bytes = to_bytes(rejected.into_body(), 65536).await.unwrap();
+            let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert!(value["error"].as_str().unwrap().contains("spam"));
+            assert!(!String::from_utf8_lossy(&bytes).contains(password));
             for (router, path) in [
                 (&app, format!("/{board}/thread/{target}")),
                 (&api, format!("/{board}/thread/{target}.json")),
@@ -227,6 +271,12 @@ async fn vip_credentials_flow_through_public_forms_without_persistence() {
         .unwrap();
     sqlx::query("DELETE FROM post_secrets.anonymous_sessions WHERE token_hash IN (SELECT a.token_hash FROM post_secrets.anonymous_posts a JOIN content.posts p ON p.id=a.post_id WHERE p.board=$1)")
         .bind(&board).execute(&mut *tx).await.unwrap();
+    sqlx::query("DELETE FROM admission.hits WHERE rule_id IN(SELECT id FROM admission.rules WHERE board=$1)").bind(&board).execute(&mut *tx).await.unwrap();
+    sqlx::query("DELETE FROM admission.rules WHERE board=$1")
+        .bind(&board)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
     for statement in [
         "DELETE FROM post_secrets.deletion WHERE post_id IN(SELECT id FROM content.posts WHERE board=$1)",
         "DELETE FROM content.posts WHERE board=$1",

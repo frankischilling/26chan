@@ -308,3 +308,20 @@ test('the fixed Pass cooldown hint becomes a safe link without parsing arbitrary
   renderQuickReplyError(element,'');
   assert.equal(element.textContent,''); assert.equal(element.children.length,0);
 });
+
+test('duplicate-file errors render only the exact local numeric post link', () => {
+  const document = { createElement(tag) { return { tag }; } };
+  const element = { ownerDocument: document, children: [], value: '', append(...nodes) { this.children.push(...nodes); },
+    set textContent(value) { this.value=value; this.children=[]; }, get textContent() { return this.value; },
+    set innerHTML(_) { throw new Error('No HTML parser'); } };
+  const message = href => `Error: Duplicate file exists. <a href="${href}">here</a>.`;
+  renderQuickReplyError(element,message('/g/thread/9007199254740992#p9223372036854775807'));
+  assert.equal(element.textContent,'Error: Duplicate file exists. ');
+  assert.deepEqual(element.children,[{tag:'a',href:'/g/thread/9007199254740992#p9223372036854775807',textContent:'here'},'.']);
+  for(const href of ['//elsewhere.invalid/g/thread/1#p2','javascript:alert(1)','/g/thread/01#p2','/g/thread/1#p9223372036854775808','/g/thread/1#p0','/g/thread/1#p2?x=1','/G/thread/1#p2']) {
+    const input=message(href); renderQuickReplyError(element,input);
+    assert.equal(element.textContent,input);assert.equal(element.children.length,0);
+  }
+  const injected=message('/g/thread/1#p2')+'<img src=x onerror=owned()>';
+  renderQuickReplyError(element,injected);assert.equal(element.textContent,injected);assert.equal(element.children.length,0);
+});

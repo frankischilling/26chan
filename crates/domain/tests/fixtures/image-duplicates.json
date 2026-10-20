@@ -1,0 +1,2594 @@
+[
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "op",
+        "result": "duplicate",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_active",
+        "result": "duplicate",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "op",
+        "result": "duplicate",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "ordinary",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "op",
+        "result": "duplicate",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_active",
+        "result": "duplicate",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "op",
+        "result": "duplicate",
+        "queries": 1
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_exact",
+        "result": "repost",
+        "queries": 2
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_above",
+        "result": "repost",
+        "queries": 2
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "repost",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 0,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "none",
+        "target": 10,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": false,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "op",
+        "result": "duplicate",
+        "queries": 1
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "recent_history",
+        "result": "recent",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 0,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_active",
+        "result": "duplicate",
+        "queries": 1
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "op",
+        "result": "duplicate",
+        "queries": 1
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "recent_history",
+        "result": "recent",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "none",
+        "target": 10,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 2
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 0,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "empty",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_active",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_archived",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "same_deleted",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "other_thread",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "op",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_below",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_exact",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "count_above",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "recent_history",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "history_boundary",
+        "result": "allow",
+        "queries": 0
+    },
+    {
+        "profile": "history",
+        "image": true,
+        "badge": "verified",
+        "target": 10,
+        "scenario": "history_old",
+        "result": "allow",
+        "queries": 0
+    }
+]

@@ -66,6 +66,17 @@ SQL
 "${migrator[@]}" --single-transaction -f migrations/0239_vip_posting_receipts.sql
 "${migrator[@]}" -c BEGIN -f migrations/0240_vip_attachment_admission.sql -c ROLLBACK
 "${migrator[@]}" --single-transaction -f migrations/0240_vip_attachment_admission.sql
+"${migrator[@]}" -c BEGIN -f migrations/0241_source_image_duplicates.sql -c ROLLBACK
+"${psql[@]}" -d vip_credentials <<'SQL'
+DO $$ BEGIN
+ IF to_regprocedure('content.image_duplicate_candidate(text,text,text,bigint,boolean,boolean)') IS NOT NULL
+  OR EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='content.boards'::regclass AND attname='image_repost_limit' AND NOT attisdropped)
+  OR content.text_thread_transfer_ready() IS DISTINCT FROM true
+  OR post_secrets.classifier_history_ready() IS DISTINCT FROM true THEN
+  RAISE EXCEPTION 'Image duplicate rollback changed existing authority'; END IF;
+END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0241_source_image_duplicates.sql
 "${psql[@]}" -d vip_credentials -f scripts/test-vip-credentials.sql
 "$pg_bin/pg_dump" -h 127.0.0.1 -p 15455 -U postgres -d vip_credentials -Fc -f "$cluster/vip.dump"
 "${psql[@]}" -d postgres -c 'CREATE DATABASE vip_restored OWNER board_migrator'

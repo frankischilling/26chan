@@ -57,6 +57,26 @@ pub(crate) fn append(
     }
 }
 
+/// A processed VIP attempt clears the old preference even when posting fails.
+/// Never copy the submitted value into a response cookie.
+pub(crate) fn erase_private_options(output: &mut HeaderMap, production: bool) {
+    if output
+        .get_all(header::SET_COOKIE)
+        .iter()
+        .any(|value| value.as_bytes().starts_with(b"options="))
+    {
+        return;
+    }
+    output.append(
+        header::SET_COOKIE,
+        HeaderValue::from_static(if production {
+            "options=; Path=/; Max-Age=0; SameSite=Strict; Secure"
+        } else {
+            "options=; Path=/; Max-Age=0; SameSite=Strict"
+        }),
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

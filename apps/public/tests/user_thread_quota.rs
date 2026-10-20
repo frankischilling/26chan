@@ -195,7 +195,7 @@ async fn exercise(owner: PgPool, public: PgPool, board: String, filename: String
     assert_eq!(claim.id, upload.id);
     let lease = claim.lease_token.unwrap();
     let output = queue
-        .prepare_output(
+        .prepare_output_with_variants(
             &upload.id,
             &lease,
             &OutputMetadata {
@@ -204,6 +204,16 @@ async fn exercise(owner: PgPool, public: PgPool, board: String, filename: String
                 width: 10,
                 height: 10,
             },
+            Some(&board_store::media_assets::OutputVariants {
+                // Declared synthetic normalized output, distinct per owned job.
+                md5: upload.id.clone(),
+                thumbnail: OutputMetadata {
+                    sha256: "b".repeat(64),
+                    bytes: 50,
+                    width: 1,
+                    height: 1,
+                },
+            }),
         )
         .await
         .unwrap();

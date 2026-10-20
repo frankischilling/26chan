@@ -1,4 +1,4 @@
-import { postId } from '../static/thread-watcher-core.v1.js';
+import { postId } from './native-post-numbers.js';
 
 export const uploadFields = Object.freeze(['upload_id', 'upload_capability']);
 
@@ -333,6 +333,12 @@ async function sendPost({ board, thread, fields, signal, origin = location.origi
 const passInfoUrl = 'https://www.4chan.org/pass', passInfoText = '4chan Pass users have lower cooldowns. [';
 export const PASS_COOLDOWN_HINT = `<br>${passInfoText}<a href="${passInfoUrl}" target="_blank">Learn More</a>]`;
 export function renderQuickReplyError(element, text) {
+  const duplicate = /^Error: Duplicate file exists\. <a href="(\/[a-z0-9]{1,10}\/thread\/(\d+)#p(\d+))">here<\/a>\.$/.exec(text);
+  if (duplicate && postId(duplicate[2]) && postId(duplicate[3])) {
+    element.textContent = 'Error: Duplicate file exists. ';
+    element.append(Object.assign(element.ownerDocument.createElement('a'), { href: duplicate[1], textContent: 'here' }), '.');
+    return;
+  }
   const offered = text.endsWith(PASS_COOLDOWN_HINT);
   element.textContent = offered ? text.slice(0, -PASS_COOLDOWN_HINT.length) : text;
   if (!offered) return;

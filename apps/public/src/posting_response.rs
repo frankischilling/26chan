@@ -37,6 +37,12 @@ struct CooldownMessage<'a> {
     message: &'a str,
 }
 
+#[derive(Template)]
+#[template(path = "posting_duplicate_error.html")]
+struct DuplicateMessage<'a> {
+    location: &'a str,
+}
+
 impl Format {
     pub(crate) fn from_headers(headers: &HeaderMap) -> Self {
         let mut accept = headers.get_all(ACCEPT).iter();
@@ -85,6 +91,39 @@ impl Format {
                 crate::handlers::message_response(StatusCode::UNPROCESSABLE_ENTITY, message)
             }
             Self::Json => Json(Failed { error: message }).into_response(),
+        }
+    }
+
+    pub(crate) fn image_duplicate_error(
+        self,
+        board: &str,
+        rejection: &board_store::ImageDuplicateRefusal,
+    ) -> Response {
+        let Some((post, thread)) = rejection
+            .existing
+            .filter(|(post, thread)| *post > 0 && *thread > 0)
+        else {
+            return self.rule_error(board_domain::image_duplicates::DUPLICATE);
+        };
+        if board_domain::BoardSlug::parse(board).is_err() {
+            return self.rule_error(board_domain::image_duplicates::DUPLICATE);
+        }
+        let location = format!("/{board}/thread/{thread}#p{post}");
+        match self {
+            Self::Html => match (DuplicateMessage {
+                location: &location,
+            })
+            .render()
+            {
+                Ok(html) => {
+                    (StatusCode::UNPROCESSABLE_ENTITY, axum::response::Html(html)).into_response()
+                }
+                Err(_) => self.rule_error(board_domain::image_duplicates::DUPLICATE),
+            },
+            Self::Json => Json(Failed {
+                error: &format!("Error: Duplicate file exists. <a href=\"{location}\">here</a>."),
+            })
+            .into_response(),
         }
     }
 
@@ -162,6 +201,47 @@ mod tests {
         repeated.append(ACCEPT, HeaderValue::from_static("application/json"));
         repeated.append(ACCEPT, HeaderValue::from_static("text/html"));
         assert!(matches!(Format::from_headers(&repeated), Format::Html));
+    }
+
+    #[tokio::test]
+    async fn duplicate_file_links_use_only_checked_local_targets() {
+        let refusal = board_store::ImageDuplicateRefusal {
+            existing: Some((i64::MAX, 9007199254740992)),
+        };
+        let expected = "/g/thread/9007199254740992#p9223372036854775807";
+        for format in [Format::Html, Format::Json] {
+            let response = format.image_duplicate_error("g", &refusal);
+            assert_eq!(
+                response.status(),
+                if matches!(format, Format::Json) {
+                    StatusCode::OK
+                } else {
+                    StatusCode::UNPROCESSABLE_ENTITY
+                }
+            );
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            let body = String::from_utf8(bytes.to_vec()).unwrap();
+            if matches!(format, Format::Json) {
+                let value: serde_json::Value = serde_json::from_str(&body).unwrap();
+                assert_eq!(
+                    value["error"],
+                    format!("Error: Duplicate file exists. <a href=\"{expected}\">here</a>.")
+                );
+            } else {
+                assert!(body.contains(expected));
+            }
+        }
+        for (board, existing) in [
+            ("../outside", Some((1, 1))),
+            ("g", Some((0, 1))),
+            ("g", None),
+        ] {
+            let response = Format::Json
+                .image_duplicate_error(board, &board_store::ImageDuplicateRefusal { existing });
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(value["error"], board_domain::image_duplicates::DUPLICATE);
+        }
     }
 
     #[tokio::test]

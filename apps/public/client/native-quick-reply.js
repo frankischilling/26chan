@@ -1,5 +1,5 @@
 import { createPostingCaptcha, mountPostingCaptcha } from '../static/posting-captcha.v1.js';
-import { postId } from '../static/thread-watcher-core.v1.js';
+import { postId } from './native-post-numbers.js';
 import { cancelQuickReplyUpload, checkQuickReplyUpload, commentLengthWarning, quoteInsertion, sendQuickReply, schedulePostingRedirect,
   uploadQuickReplyFile, uploadDrawingFile, renderQuickReplyError, uploadFields } from './native-quick-reply-transport.js';
 import { mountNativePostForm } from './native-post-form.js';
@@ -257,7 +257,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     } else if (!sourceApproval() && uploadSourceInput) {
       const row = node('div', undefined, 'qr-file-row');
       uploadInput = node('input'); uploadInput.type = 'file'; uploadInput.id = 'qrFile'; uploadInput.name = 'upfile';
-      uploadInput.size = 19; uploadInput.accept = uploadSourceInput.accept; uploadInput.title = 'Choose one file; choose again to replace it. Shift-click to remove the current file.';
+      uploadInput.size = 19; uploadInput.accept = uploadSourceInput.accept; uploadInput.title = 'Choose a file to replace it; Shift-click to remove it.';
       const spoiler = source.dataset.spoilers === 'true' ? node('span') : null;
       if (spoiler) {
         const spoilerLabel = node('label'); uploadSpoiler = node('input'); uploadSpoiler.type = 'checkbox'; uploadSpoiler.name = 'spoiler';

@@ -75,7 +75,8 @@ impl Fixture {
     }
 
     async fn approve(&self, a: &NewAttachment) -> String {
-        Box::pin(self.approve_with_variants(a, None)).await
+        let variants = support::synthetic_upload_variants(&a.upload.id);
+        Box::pin(self.approve_with_variants(a, Some(&variants))).await
     }
 
     async fn approve_with_variants(
@@ -505,6 +506,7 @@ async fn exercise(f: &Fixture) {
             'content.require_attachment_for_empty_post()'::regprocedure,
             'content.attachment_upload_filename(text,text)'::regprocedure,
             'content.attachment_upload_filter_metadata(text,text,text,bigint,boolean,boolean)'::regprocedure,
+            'content.image_duplicate_candidate(text,text,text,bigint,boolean,boolean)'::regprocedure,
             'content.file_effect_upload_metadata(text,text,text,bigint,boolean)'::regprocedure,
             'content.retain_attachment_digest()'::regprocedure,
             'content.prior_ban_upload_digest(text,text,text,bigint,boolean,boolean)'::regprocedure,
@@ -531,6 +533,12 @@ async fn exercise(f: &Fixture) {
     assert!(
         functions_safe,
         "Attachment owner must have exactly the reviewed function set"
+    );
+    let duplicate_grants: bool = sqlx::query_scalar("SELECT has_function_privilege('board_public',p.oid,'EXECUTE') AND has_function_privilege('board_staff',p.oid,'EXECUTE') AND NOT EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE a.privilege_type='EXECUTE' AND (a.is_grantable OR a.grantee NOT IN(p.proowner,'board_public'::regrole,'board_staff'::regrole))) FROM pg_proc p WHERE p.oid='content.image_duplicate_candidate(text,text,text,bigint,boolean,boolean)'::regprocedure")
+        .fetch_one(&f.admin).await.unwrap();
+    assert!(
+        duplicate_grants,
+        "Duplicate lookup grants only the reviewed runtime entry points"
     );
     let metadata_grants: bool = sqlx::query_scalar(
         "SELECT has_function_privilege('board_public',p.oid,'EXECUTE')
@@ -731,15 +739,23 @@ async fn exercise(f: &Fixture) {
         f.reader.get_post("wrong", saved.tim, false).await,
         Err(StoreError::NotFound)
     ));
-    assert!(
-        matches!(
-            f.reader.get_post(&f.board, saved.tim, true).await,
-            Err(StoreError::NotFound)
-        ),
-        "Legacy metadata must not invent a thumbnail"
+    assert_eq!(
+        f.reader
+            .get_post(&f.board, saved.tim, true)
+            .await
+            .unwrap()
+            .sha256,
+        "e".repeat(64)
     );
-    assert!(
-        saved.md5.is_none() && saved.thumbnail_width.is_none() && saved.thumbnail_height.is_none()
+    let expected_md5: String = sqlx::query_scalar("SELECT encode(decode($1,'hex'),'base64')")
+        .bind(&a.upload.id)
+        .fetch_one(&f.admin)
+        .await
+        .unwrap();
+    assert_eq!(saved.md5.as_deref(), Some(expected_md5.as_str()));
+    assert_eq!(
+        (saved.thumbnail_width, saved.thumbnail_height),
+        (Some(1), Some(1))
     );
     assert_eq!(
         board_store::thread(&f.public, &f.board, thread)
@@ -3138,4 +3154,43 @@ async fn qualify_file_effect_metadata_grants(f: &Fixture) {
         assert!(!accepted, "File metadata grant guard accepted {mutation}");
         tx.rollback().await.unwrap();
     }
+}
+
+async fn legacy_metadata_stays_unknown(f: &Fixture) -> i64 {
+    // Imported historical posts can lack a normalized manifest. Seed that old
+    // state through the existing scoped SQL writer, without disabling guards;
+    // new browser uploads with missing identity are separately refused.
+    let legacy = f.reserve().await;
+    let asset = f.approve_with_variants(&legacy, None).await;
+    let mut tx = f.public.begin().await.unwrap();
+    f.prepare_direct_post(&mut tx, 0).await;
+    let id: i64 = sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
+        .bind(&f.board)
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    sqlx::query("SELECT content.insert_post_attachment($1,$2,$3,'Anonymous','Owned legacy','Owned historical metadata',$4,$5,false,date_trunc('second',clock_timestamp()))")
+        .bind(id).bind(&f.board).bind(id).bind(&legacy.upload.id).bind(&legacy.upload.capability)
+        .execute(&mut *tx).await.unwrap();
+    tx.commit().await.unwrap();
+    let saved = attachment(&f.public, id).await.unwrap().unwrap();
+    assert_eq!(
+        f.reader
+            .get_post(&f.board, saved.tim, false)
+            .await
+            .unwrap()
+            .id,
+        asset
+    );
+    assert!(
+        matches!(
+            f.reader.get_post(&f.board, saved.tim, true).await,
+            Err(StoreError::NotFound)
+        ),
+        "Legacy metadata must not invent a thumbnail"
+    );
+    assert!(
+        saved.md5.is_none() && saved.thumbnail_width.is_none() && saved.thumbnail_height.is_none()
+    );
+    id
 }

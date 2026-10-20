@@ -769,9 +769,9 @@ async fn rejected_attachment_op_leaves_capability_media_clock_and_content_untouc
         let claim = queue.claim().await.unwrap().expect("owned qualification queue is idle");
         assert_eq!(claim.id, upload.id);
         let lease = claim.lease_token.unwrap();
-        let output = queue.prepare_output(&claim.id, &lease, &OutputMetadata {
+        let output = queue.prepare_output_with_variants(&claim.id, &lease, &OutputMetadata {
             sha256: "a".repeat(64), bytes: 100, width: 10, height: 10,
-        }).await.unwrap();
+        },Some(&support::synthetic_upload_variants(&claim.id))).await.unwrap();
         queue.approve_output(&claim.id, &lease, &output.id).await.unwrap();
         let attachment = NewAttachment { upload, spoiler: false };
         let before = f.snapshot().await;

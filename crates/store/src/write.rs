@@ -1445,6 +1445,11 @@ async fn create_post_in_context(
             crate::posting_cooldown::with_pass_offer(error, late_enabled && !member_network_bypass)
         })?;
     }
+    if let Some(metadata) = &attachment_admission
+        && let Some(rejection) = metadata.duplicate(&mut tx).await?
+    {
+        return Err(StoreError::ImageDuplicate(rejection));
+    }
     // Keep the locked policy outside the savepoint. A rejected post rolls back
     // rollover, counters, attachments and secrets, then persists only its mute.
     let robot_applies = vip_name.is_none()

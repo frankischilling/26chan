@@ -233,7 +233,7 @@ async fn run_scenario(
         assert_eq!(claim.id, upload.id);
         let lease = claim.lease_token.unwrap();
         let output = queue
-            .prepare_output(
+            .prepare_output_with_variants(
                 &upload.id,
                 &lease,
                 &OutputMetadata {
@@ -242,6 +242,7 @@ async fn run_scenario(
                     width: 10,
                     height: 20,
                 },
+                Some(&support::synthetic_upload_variants(&upload.id)),
             )
             .await
             .unwrap();
