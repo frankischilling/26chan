@@ -9,7 +9,7 @@ fn new_post() -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: String::new(),
-        comment: "Owned quote target".into(),
+        comment: support::distinct_comment("Owned quote target"),
         deletion_hash: "owned-fixture-password-hash".into(),
         sage: false,
     }

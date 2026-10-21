@@ -117,15 +117,15 @@ async fn unlimited_policy_preserves_rollover_autoarchive_and_disabled_storage() 
     let result = tokio::spawn(async move {
         sqlx::query("UPDATE content.boards SET archive_retention_seconds=-1,autoarchive_cap=2,reply_limit=2,bump_limit=2 WHERE slug=$1")
             .bind(&b).execute(&o).await.unwrap();
-        let post = NewPost { name: "Anonymous".into(), subject: "Owned unlimited archive".into(),
-            comment: "Synthetic archive policy".into(), deletion_hash: "owned-fixture".into(), sage: false };
-        let first = support::create_post(&p, &b, 0, &post).await.unwrap();
-        let second = support::create_post(&p, &b, 0, &post).await.unwrap();
+        let post = || NewPost { name: "Anonymous".into(), subject: "Owned unlimited archive".into(),
+            comment: support::distinct_comment("Synthetic archive policy"), deletion_hash: "owned-fixture".into(), sage: false };
+        let first = support::create_post(&p, &b, 0, &post()).await.unwrap();
+        let second = support::create_post(&p, &b, 0, &post()).await.unwrap();
         let archived = board_store::thread(&p, &b, first).await.unwrap();
         assert!(archived.archived_at.is_some());
         assert!(archived.archive_expires_at.is_none());
-        support::create_post(&p, &b, second, &post).await.unwrap();
-        support::create_post(&p, &b, second, &post).await.unwrap();
+        support::create_post(&p, &b, second, &post()).await.unwrap();
+        support::create_post(&p, &b, second, &post()).await.unwrap();
         let archived = board_store::thread(&p, &b, second).await.unwrap();
         assert!(archived.archived_at.is_some());
         assert!(archived.archive_expires_at.is_none());
@@ -133,7 +133,7 @@ async fn unlimited_policy_preserves_rollover_autoarchive_and_disabled_storage() 
         assert_eq!(board_store::archive_snapshot(&p, &b).await.unwrap().entries.len(), 2);
         sqlx::query("UPDATE content.boards SET archive_retention_seconds=0 WHERE slug=$1")
             .bind(&b).execute(&o).await.unwrap();
-        support::create_post(&p, &b, 0, &post).await.unwrap();
+        support::create_post(&p, &b, 0, &post()).await.unwrap();
         assert!(matches!(board_store::archive_snapshot(&p, &b).await, Err(StoreError::NotFound)));
         sqlx::query("UPDATE content.boards SET archive_retention_seconds=3600 WHERE slug=$1")
             .bind(&b).execute(&o).await.unwrap();

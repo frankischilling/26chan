@@ -91,8 +91,8 @@ async fn selected_thread_body_budgets_are_checked_before_rows_transfer() {
         sqlx::query("UPDATE content.boards SET word_filter_enabled=true,json_tail_size=1 WHERE slug=$1")
             .bind(&b).execute(&a).await.unwrap();
         let id = support::create_post(&p, &b, 0, &post("soy fam CUCK")).await.unwrap();
-        for _ in 0..2 {
-            support::create_post(&p, &b, id, &post(&"owned ".repeat(100))).await.unwrap();
+        for n in 0..2 {
+            support::create_post(&p, &b, id, &post(&format!("{} {n}", "owned ".repeat(100)))).await.unwrap();
         }
         let before = counts(&a, &b).await;
         let bytes: i64 = sqlx::query_scalar("SELECT sum(octet_length(comment)+octet_length(wordfilter_payload)+octet_length(wordfilter_search))::bigint FROM content.posts WHERE board=$1 AND thread_id=$2")
@@ -167,7 +167,7 @@ async fn source_profiles_field_scope_once_only_results_and_atomic_failure_are_pe
         sqlx::query("UPDATE content.boards SET word_filter_enabled=false,word_filter_profile=0,comment_code_spacing=false,comment_spoiler_cleanup=false,op_markup=false WHERE slug=$1").bind(&b).execute(&a).await.unwrap();
         let unchanged=board_store::find_post(&p,&b,id).await.unwrap();
         assert_eq!(board_domain::filtered_formatting::source_projection(&unchanged.formatted_lines()),projection);
-        let next=support::create_post(&p,&b,0,&post(input)).await.unwrap();
+        let next=support::create_post_with_context(&p,&b,0,&post(input),None,PostingContext { request_start:Utc::now(), peer:Some("192.0.2.240".parse().unwrap()),op_password_proof:None }).await.unwrap();
         assert_eq!(board_store::find_post(&p,&b,next).await.unwrap().comment,input);
         sqlx::query("UPDATE content.boards SET word_filter_enabled=true,word_filter_profile=2 WHERE slug=$1").bind(&b).execute(&a).await.unwrap();
         let expanded=support::create_post(&p,&b,0,&post(&"finna".repeat(400))).await.unwrap();
@@ -209,7 +209,7 @@ async fn locked_policy_changes_and_filtered_robot_duplicates_have_atomic_orderin
         sqlx::query("UPDATE content.boards SET word_filter_profile=0,robot9000=true,thread_limit=1 WHERE slug=$1").bind(&b).execute(&a).await.unwrap();
         let key=support::key(&b);
         for (index,comment) in ["CUCK original comment","KEK original comment"].into_iter().enumerate() {
-            let result=support::create_post_with_metadata(&p,&b,0,&post(comment),None,PostingContext { request_start:Utc::now(), peer:Some("192.0.2.23".parse().unwrap()),op_password_proof:None },PostMetadata { drawing: None, spoiler: false,keys:PostIdentityKeys {tripcode:None,poster_id:Some(&key)},country_database:None,flag:"",options:""}).await;
+            let result=support::create_post_with_metadata(&p,&b,0,&post(comment),None,PostingContext { request_start:Utc::now(), peer:Some(format!("192.0.2.{}", 23 + index).parse().unwrap()),op_password_proof:None },PostMetadata { drawing: None, spoiler: false,keys:PostIdentityKeys {tripcode:None,poster_id:Some(&key)},country_database:None,flag:"",options:""}).await;
             if index==0 { assert!(result.is_ok()); }
             else { assert!(matches!(result,Err(StoreError::Robot9000Rejected(ref message)) if message=="You have been muted for 2 seconds, because your comment was not original.")); }
         }

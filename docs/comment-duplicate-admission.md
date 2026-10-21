@@ -55,7 +55,6 @@ The browser case is written but has not run locally because the pinned Chromium
 is unavailable. Hosted CI and remaining posting paths still need qualification;
 issue #213 remains open.
 
-
 Staff OP quota now runs before terminal content filters, matching the original
 call order. The preliminary identity read does not issue posting authority.
 Quota refusal revalidates session, CSRF, recent authentication and board access
@@ -77,9 +76,16 @@ known-projection posts. The command never deletes posts or attachments.
 
 The existing `registration_xid` stamp identifies the top-level PostgreSQL
 transaction. It remains valid inside nested posting savepoints; historical and
-transferred rows keep their existing historical or NULL stamp. Registration cannot use an earlier
-transaction's history to invent a projection for an old post.
+transferred rows keep their existing historical or NULL stamp. Registration
+cannot use an earlier transaction's history to invent a projection for an old post.
 
 Transferred comments change their saved projection. Recomputing their new
 comparison history within the sealed transfer authority remains separate work;
 this migration does not reconstruct unknown projections from rendered HTML.
+
+Independent database fixtures now use distinct comments where their purpose is
+archive, identity, quota or attachment behavior. Exact formatting cases retain
+their input and expected output while using separate synthetic peers. Robot9000
+cases keep the original text in originality history and age its post beyond the
+five-minute duplicate window. The shared production posting helpers do not
+rewrite comments or clear comparison history.

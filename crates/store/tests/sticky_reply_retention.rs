@@ -14,7 +14,7 @@ fn post() -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: "Source retention fixture".into(),
-        comment: "Synthetic, independently owned retention text".into(),
+        comment: support::distinct_comment("Synthetic, independently owned retention text"),
         deletion_hash: "retention-fixture-hash".into(),
         sage: false,
     }
@@ -460,15 +460,24 @@ async fn robot9000_rejection_restores_the_old_window_and_private_evidence() {
         .execute(&fixture.owner)
         .await
         .unwrap();
-    let first = support::create_post(&fixture.public, &fixture.board, fixture.op, &post())
+    let original = post();
+    let first = support::create_post(&fixture.public, &fixture.board, fixture.op, &original)
         .await
         .unwrap();
+    // Robot9000 retains originality beyond the short same-author duplicate window.
+    sqlx::query(
+        "UPDATE content.posts SET created_at=clock_timestamp()-interval '301 seconds' WHERE id=$1",
+    )
+    .bind(first)
+    .execute(&fixture.owner)
+    .await
+    .unwrap();
     let before = fixture.state().await;
     assert_eq!(before.0, [earlier, vec![first]].concat());
     let hash_before: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.deletion d JOIN content.posts p ON p.id=d.post_id WHERE p.board=$1")
         .bind(&fixture.board).fetch_one(&fixture.owner).await.unwrap();
     assert!(matches!(
-        support::create_post(&fixture.public, &fixture.board, fixture.op, &post()).await,
+        support::create_post(&fixture.public, &fixture.board, fixture.op, &original).await,
         Err(StoreError::Robot9000Rejected(_))
     ));
     assert_eq!(fixture.state().await, before);

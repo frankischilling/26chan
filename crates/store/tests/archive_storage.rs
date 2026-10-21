@@ -45,7 +45,7 @@ fn post() -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: "Owned rollover".into(),
-        comment: "Synthetic archive storage".into(),
+        comment: support::distinct_comment("Synthetic archive storage"),
         deletion_hash: "owned-fixture".into(),
         sage: false,
     }

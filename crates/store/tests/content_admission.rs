@@ -565,7 +565,7 @@ async fn fixed_trip_checks_follow_configured_actions_without_reading_private_pas
     }
     assert_eq!(f.count("posts").await, 0);
     for name in ["moot#Ep8pui8Vw2", "moot#l0l1c0m"] {
-        f.create_named(0, 0, name, "", "ordinary content")
+        f.create_named(0, 0, name, "", &format!("ordinary content {name}"))
             .await
             .unwrap();
     }
@@ -594,7 +594,10 @@ async fn fixed_trip_checks_follow_configured_actions_without_reading_private_pas
             .execute(&f.owner)
             .await
             .unwrap();
-        let allowed = f.create_named(0, 0, "moot", "", "ordinary").await.unwrap();
+        let allowed = f
+            .create_named(0, 0, "moot", "", &format!("ordinary {autosage}"))
+            .await
+            .unwrap();
         assert_eq!(
             sqlx::query_scalar::<_, bool>("SELECT permasage FROM content.threads WHERE id=$1")
                 .bind(allowed)
@@ -717,7 +720,10 @@ async fn rules_precede_final_blank_checks_but_follow_required_subject_and_line_c
             .execute(&f.owner)
             .await
             .unwrap();
-        let allowed = f.create(0, 0, "", "valid content").await.unwrap();
+        let allowed = f
+            .create(0, 0, "", &format!("valid content {autosage}"))
+            .await
+            .unwrap();
         assert_eq!(
             sqlx::query_scalar::<_, bool>("SELECT permasage FROM content.threads WHERE id=$1")
                 .bind(allowed)
@@ -894,7 +900,9 @@ async fn exhausted_log_capacity_rolls_back_hit_update_and_post() {
             .unwrap(),
         1
     );
-    f.create(0, 0, "", "paper").await.unwrap();
+    f.create(0, 0, "", "paper after capacity recovery")
+        .await
+        .unwrap();
     assert_eq!(
         sqlx::query_scalar::<_, i64>("SELECT count FROM admission.hits WHERE rule_id=$1")
             .bind(rule)
@@ -1559,7 +1567,7 @@ async fn leniency_uses_locked_anonymous_state_and_survives_cross_board_concurren
                 &NewPost {
                     name: "Anonymous".into(),
                     subject: "".into(),
-                    comment: "paper".into(),
+                    comment: support::distinct_comment("paper"),
                     deletion_hash: "owned".into(),
                     sage: false,
                 },

@@ -9,7 +9,7 @@ fn post() -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: "Owned autoarchive".into(),
-        comment: "Synthetic reply".into(),
+        comment: support::distinct_comment("Synthetic reply"),
         deletion_hash: "fixture-hash".into(),
         sage: true,
     }

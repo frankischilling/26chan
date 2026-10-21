@@ -73,7 +73,7 @@ impl Fixture {
             &NewPost {
                 name: "Anonymous".into(),
                 subject: "Owned anonymous session".into(),
-                comment: "Owned anonymous session content".into(),
+                comment: support::distinct_comment("Owned anonymous session content"),
                 deletion_hash: "owned-private-deletion-hash".into(),
                 sage: false,
             },

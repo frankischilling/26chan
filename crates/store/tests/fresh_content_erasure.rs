@@ -332,7 +332,7 @@ fn post() -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: "Fresh erasure sentinel".into(),
-        comment: "Fresh author and content sentinel".into(),
+        comment: support::distinct_comment("Fresh author and content sentinel"),
         deletion_hash: "fresh-erasure-password-sentinel".into(),
         sage: false,
     }

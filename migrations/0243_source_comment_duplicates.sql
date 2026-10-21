@@ -1,36 +1,36 @@
--- Persist the source upload-board duplicate window independently of live posts.
--- Scope ordinary duplicate images to active posts and the source board limit.
+-- Record versioned source comment comparisons for the same-author duplicate window.
+-- Keep the private admission history separate from rendered post content.
 SET LOCAL ROLE board_thread_transfer_owner;
 DO $$ BEGIN
  PERFORM singleton FROM post_secrets.thread_transfer_catalog WHERE singleton FOR UPDATE;
- IF NOT FOUND OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Transfer authority drifted before upload image history'; END IF;
+ IF NOT FOUND OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Transfer authority drifted before comment comparison history'; END IF;
 END $$;
 RESET ROLE;
 SET LOCAL ROLE board_report_snapshot_owner;
 DO $$ BEGIN
  PERFORM singleton FROM post_secrets.report_snapshot_catalog WHERE singleton FOR UPDATE;
- IF NOT FOUND OR content.report_snapshots_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Snapshot authority drifted before upload image history'; END IF;
+ IF NOT FOUND OR content.report_snapshots_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Snapshot authority drifted before comment comparison history'; END IF;
 END $$;
 RESET ROLE;
 SET LOCAL ROLE board_restriction_owner;
 DO $$ BEGIN
  PERFORM singleton FROM restrictions.catalog WHERE singleton FOR UPDATE;
- IF NOT FOUND OR content.restrictions_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Restriction authority drifted before upload image history'; END IF;
+ IF NOT FOUND OR content.restrictions_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Restriction authority drifted before comment comparison history'; END IF;
 END $$;
 RESET ROLE;
 SET LOCAL ROLE board_anonymous_owner;
 DO $$ BEGIN
  PERFORM singleton FROM verification_private.pass_catalog WHERE singleton FOR UPDATE;
  IF NOT FOUND OR content.public_pass_ready() IS DISTINCT FROM true OR content.public_challenge_ready() IS DISTINCT FROM true
- OR post_secrets.classifier_history_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Posting authority drifted before upload image history'; END IF;
+ OR post_secrets.classifier_history_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Posting authority drifted before comment comparison history'; END IF;
 END $$;
 RESET ROLE;
-DO $$ BEGIN IF content.report_profile_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Report profile drifted before upload image history'; END IF; END $$;
+DO $$ BEGIN IF content.report_profile_ready() IS DISTINCT FROM true THEN RAISE EXCEPTION 'Report profile drifted before comment comparison history'; END IF; END $$;
 SET LOCAL ROLE board_anonymous_owner;
 DO $$ BEGIN
  PERFORM singleton FROM verification_private.vip_catalog WHERE singleton FOR UPDATE;
  IF NOT FOUND OR content.public_vip_ready() IS DISTINCT FROM true THEN
-  RAISE EXCEPTION 'VIP authority drifted before upload image history'; END IF;
+  RAISE EXCEPTION 'VIP authority drifted before comment comparison history'; END IF;
 END $$;
 RESET ROLE;
 SELECT singleton FROM post_secrets.classifier_history_catalog WHERE singleton FOR UPDATE;

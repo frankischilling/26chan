@@ -239,7 +239,7 @@ fn post() -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: "Owned private rollover".into(),
-        comment: "Synthetic private active and archive fixture".into(),
+        comment: support::distinct_comment("Synthetic private active and archive fixture"),
         deletion_hash: "synthetic-not-a-password".into(),
         sage: false,
     }
