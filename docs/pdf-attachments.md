@@ -56,7 +56,11 @@ builder checks the exact bounded bytes against the reviewed digests instead.
 Missing resources or different contents fail the build. The packager includes only
 that reviewed inventory, not the host's extra font hooks or configuration files.
 These pins currently match Ubuntu 24.04's listed packages; a different resource
-package revision needs a reviewed manifest update. Executables and shared
+package revision needs a reviewed manifest update. The Ghostscript resource pins
+cover Ubuntu revision `10.02.1~dfsg1-0ubuntu7.10`. Its only changed pinned file,
+`gs_fonts.ps`, adds operand-type checks to `.putgstringcopy`; both package archives
+were checked against the official noble-security index before updating the hash.
+Executables and shared
 libraries still require trusted parent directories. Identical read-only resource
 files share one stored copy through guest-local symlinks; the complete initramfs
 still has the same 64 MiB cap. Adobe Font Metrics sidecars are omitted; PDF

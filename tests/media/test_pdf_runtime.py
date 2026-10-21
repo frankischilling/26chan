@@ -42,7 +42,7 @@ class PdfRuntimeTest(unittest.TestCase):
             self.assertEqual(runtime.pinned_resource_bytes(path, expected), data)
             for changed in (data[:-1], data + b'x', b'x' * len(data)):
                 path.write_bytes(changed)
-                with self.assertRaises(ValueError):
+                with self.assertRaisesRegex(ValueError, r"font\.ttf"):
                     runtime.pinned_resource_bytes(path, expected)
 
     def test_symlink_directory_fifo_and_oversize_are_rejected(self):

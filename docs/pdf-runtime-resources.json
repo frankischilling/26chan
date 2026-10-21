@@ -1,8 +1,9 @@
 {
-  "provenance": "Archives retrieved from Ubuntu over HTTPS. Archive SHA-256 values matched the noble and noble-updates package indexes. Resource sizes and SHA-256 values were measured from regular archive members without installing or executing them. Package symlink aliases bind their archive paths to the pinned target file bytes. Adobe Font Metrics sidecars are omitted; the Type 1 font programs remain included.",
+  "provenance": "Archives retrieved from Ubuntu over HTTPS. Archive SHA-256 values matched the noble, noble-updates and noble-security package indexes. Resource sizes and SHA-256 values were measured from regular archive members without installing or executing them. Package symlink aliases bind their archive paths to the pinned target file bytes. Adobe Font Metrics sidecars are omitted; the Type 1 font programs remain included.",
   "indexes": [
     "https://archive.ubuntu.com/ubuntu/dists/noble/main/binary-amd64/Packages.xz",
-    "https://archive.ubuntu.com/ubuntu/dists/noble-updates/main/binary-amd64/Packages.xz"
+    "https://archive.ubuntu.com/ubuntu/dists/noble-updates/main/binary-amd64/Packages.xz",
+    "https://security.ubuntu.com/ubuntu/dists/noble-security/main/binary-amd64/Packages.xz"
   ],
   "packages": {
     "fonts-droid-fallback": {
@@ -16,14 +17,14 @@
       "sha256": "46e75490faa7fd6fddbc8df234d14e0f7b60ea5e98563227a24d6bf5e5008647"
     },
     "libgs-common": {
-      "version": "10.02.1~dfsg1-0ubuntu7.9",
-      "url": "https://archive.ubuntu.com/ubuntu/pool/main/g/ghostscript/libgs-common_10.02.1~dfsg1-0ubuntu7.9_all.deb",
-      "sha256": "c45d0534100c2f74435a21560cc5eff6a6c26bc2757d26be8912d2c0d372f12a"
+      "version": "10.02.1~dfsg1-0ubuntu7.10",
+      "url": "https://security.ubuntu.com/ubuntu/pool/main/g/ghostscript/libgs-common_10.02.1~dfsg1-0ubuntu7.10_all.deb",
+      "sha256": "308062f75bc23d651aff129d76a512e88da2d74df31471980e1cef50b0e329ab"
     },
     "libgs10-common": {
-      "version": "10.02.1~dfsg1-0ubuntu7.9",
-      "url": "https://archive.ubuntu.com/ubuntu/pool/main/g/ghostscript/libgs10-common_10.02.1~dfsg1-0ubuntu7.9_all.deb",
-      "sha256": "26d4f70b2ce6c1aceb745c0931e4d9d1b39bd5a089aa2893bf756be833d53792"
+      "version": "10.02.1~dfsg1-0ubuntu7.10",
+      "url": "https://security.ubuntu.com/ubuntu/pool/main/g/ghostscript/libgs10-common_10.02.1~dfsg1-0ubuntu7.10_all.deb",
+      "sha256": "96510078dc0d53cd1c1dd1b77e977593be2248cf055b79f4f103e30166bf9a69"
     }
   },
   "files": {
@@ -724,8 +725,8 @@
       "package": "libgs10-common"
     },
     "/usr/share/ghostscript/10.02.1/Resource/Init/gs_fonts.ps": {
-      "size": 48905,
-      "sha256": "2a5bc3f49b92b8a46d2ba4365a9f6251fc68fb9ad4ebe9d808e87aa48658060a",
+      "size": 49104,
+      "sha256": "79214be64a1e8a421ac9fd27e90e9303258b27a490e8c762dc3e5bfea21a55f6",
       "package": "libgs10-common"
     },
     "/usr/share/ghostscript/10.02.1/Resource/Init/gs_frsd.ps": {

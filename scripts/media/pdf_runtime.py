@@ -38,10 +38,11 @@ def pinned_resource_bytes(path, expected):
     with os.fdopen(descriptor, 'rb') as stream:
         info = os.fstat(stream.fileno())
         if not stat.S_ISREG(info.st_mode) or info.st_size != size or size > MAX_FILE:
-            raise ValueError('Pinned PDF resource is not a bounded regular file')
+            raise ValueError(f'Pinned PDF resource is not a bounded regular file: {path} '
+                             f'(expected {size} bytes, found {info.st_size})')
         data = stream.read(size + 1)
     if len(data) != size or hashlib.sha256(data).hexdigest() != digest:
-        raise ValueError('Pinned PDF resource differs from the reviewed package')
+        raise ValueError(f'Pinned PDF resource differs from the reviewed package: {path}')
     return data
 
 
