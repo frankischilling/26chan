@@ -62,3 +62,20 @@ Quota refusal revalidates session, CSRF, recent authentication and board access
 under locks, including private boards, then rolls back. Accepted posts still
 require the independent body-bound proof and the later quota check. The existing
 public-board-only filter refusal validator is unchanged.
+
+## Deployment
+
+Apply migration 0243 before starting the updated public or staff binary. Their
+readiness checks reject a missing comparison boundary. Build
+`board-comment-history-retention`, install it under `/opt/paperboard/bin/`, and
+install `deploy/comment-history-retention.service` and its timer. The service
+reads the existing `/etc/paperboard/moderation-retention.env`; its
+`MODERATION_RETENTION_DATABASE_URL` must use `board_moderation_retention`.
+Enable the timer through the deployment's normal service-management procedure.
+Without expiry, the per-board 100,000-row history budget eventually refuses new
+known-projection posts. The command never deletes posts or attachments.
+
+The origin transaction stamp is assigned on history insertion using the
+top-level PostgreSQL transaction ID. It remains valid inside nested posting
+savepoints, while old rows retain NULL. Registration cannot use an earlier
+transaction's history to invent a projection for an old post.

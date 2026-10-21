@@ -35,6 +35,22 @@ END $$;
 RESET ROLE;
 SELECT singleton FROM post_secrets.classifier_history_catalog WHERE singleton FOR UPDATE;
 SELECT singleton FROM post_secrets.report_profile_catalog WHERE singleton FOR UPDATE;
+-- A top-level transaction stamp survives nested posting savepoints. xmin is
+-- a subtransaction identifier and cannot identify the writer's transaction.
+-- Existing rows remain NULL; no historical transaction identity is invented.
+ALTER TABLE post_secrets.posting_history ADD COLUMN origin_transaction xid8;
+CREATE FUNCTION content.stamp_posting_history_transaction() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ NEW.origin_transaction:=pg_current_xact_id();
+ RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION content.stamp_posting_history_transaction() FROM PUBLIC;
+CREATE TRIGGER stamp_posting_history_transaction BEFORE INSERT ON post_secrets.posting_history
+ FOR EACH ROW EXECUTE FUNCTION content.stamp_posting_history_transaction();
+GRANT CREATE ON SCHEMA content TO board_posting_cooldown_owner;
+ALTER FUNCTION content.stamp_posting_history_transaction() OWNER TO board_posting_cooldown_owner;
+REVOKE CREATE ON SCHEMA content FROM board_posting_cooldown_owner;
 -- Comparison history is forward-only. Existing rendered comments cannot be
 -- reconstructed into the original pre-insert comparison representation.
 CREATE TABLE post_secrets.comment_history (
@@ -80,7 +96,7 @@ BEGIN
  IF v_invoker NOT IN ('board_public','board_staff','board_migrator') OR current_setting('transaction_isolation')<>'read committed'
  OR p_actor IS NULL OR octet_length(p_actor)<>32 OR p_hash IS NULL OR octet_length(p_hash)<>32 THEN
   RAISE EXCEPTION 'Invalid comment projection' USING ERRCODE='23514'; END IF;
- SELECT h.board INTO v_board FROM post_secrets.posting_history h WHERE h.post_id=p_post AND h.actor_hash=p_actor AND h.xmin::text=pg_current_xact_id()::text;
+ SELECT h.board INTO v_board FROM post_secrets.posting_history h WHERE h.post_id=p_post AND h.actor_hash=p_actor AND h.origin_transaction=pg_current_xact_id();
  IF NOT FOUND THEN RAISE EXCEPTION 'Posting identity unavailable' USING ERRCODE='P0243'; END IF;
  SELECT staff_only INTO v_private FROM content.boards WHERE slug=v_board FOR UPDATE;
  IF NOT FOUND OR (v_private AND v_invoker='board_public') THEN
@@ -90,7 +106,7 @@ BEGIN
  JOIN content.posts p ON p.id=h.post_id AND p.board=h.board
  JOIN content.threads t ON t.id=p.thread_id AND t.board=p.board
  WHERE h.post_id=p_post AND h.board=v_board AND h.actor_hash=p_actor
- AND h.xmin::text=pg_current_xact_id()::text AND NOT p.deleted AND NOT t.deleted;
+ AND h.origin_transaction=pg_current_xact_id() AND NOT p.deleted AND NOT t.deleted;
  IF NOT FOUND THEN RAISE EXCEPTION 'Posting identity changed' USING ERRCODE='P0243'; END IF;
  IF (SELECT count(*) FROM (SELECT 1 FROM post_secrets.comment_history WHERE board=v_board LIMIT 100000) bounded)>=100000 THEN
   RAISE EXCEPTION 'Comment history capacity exhausted' USING ERRCODE='P0243'; END IF;

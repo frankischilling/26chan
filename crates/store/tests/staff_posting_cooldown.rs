@@ -269,10 +269,14 @@ fn peer(n: u8) -> IpAddr {
     IpAddr::from([192, 0, 2, n])
 }
 fn post() -> NewPost {
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     NewPost {
         name: "Anonymous".into(),
         subject: "Owned staff timer".into(),
-        comment: "Owned text-only staff timer fixture".into(),
+        comment: format!(
+            "Owned text-only staff timer fixture {}",
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ),
         deletion_hash: "synthetic-not-a-password".into(),
         sage: false,
     }

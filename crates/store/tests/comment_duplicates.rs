@@ -98,6 +98,26 @@ async fn source_boundaries_scope_concurrency_and_post_clock() {
     } else {
         refused(two, 300);
     }
+    sqlx::query("UPDATE content.boards SET robot9000=true WHERE slug=$1")
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
+    write(
+        &public,
+        &board,
+        op,
+        "Owned nested savepoint registration",
+        5,
+        now,
+    )
+    .await
+    .unwrap();
+    sqlx::query("UPDATE content.boards SET robot9000=false WHERE slug=$1")
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
     let key = support::key(&board);
     let actor = key.public_posting_rate_identity([192, 0, 2, 1].into());
     let mut registration = public.begin().await.unwrap();
