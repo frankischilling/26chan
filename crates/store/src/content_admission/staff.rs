@@ -1,7 +1,7 @@
 //! Source network bypass requires a current staff identity, not a badge.
 use crate::{StaffPostAuthority, StoreError};
 
-pub(crate) async fn network_bypass(
+pub(crate) async fn validate_identity(
     authority: &StaffPostAuthority<'_>,
     board: &str,
 ) -> Result<bool, StoreError> {
@@ -11,7 +11,7 @@ pub(crate) async fn network_bypass(
     {
         return Err(StoreError::AuthorizationChanged);
     }
-    // This read grants only the range-filter exemption. The independently
+    // This read validates the preliminary identity without holding auth locks. The independently
     // issued, row-bound posting proof still rechecks authority after content
     // locks and before a post can commit. Holding these auth locks here would
     // conflict with that issuer's separate transaction.
@@ -47,6 +47,34 @@ pub(crate) async fn revalidate_refusal(
     board: &str,
 ) -> Result<(), StoreError> {
     sqlx::query("SELECT content.revalidate_staff_refusal($1,$2,$3,$4)")
+        .bind(authority.session_hash)
+        .bind(authority.csrf_hash)
+        .bind(authority.idle_seconds)
+        .bind(board)
+        .execute(connection)
+        .await
+        .map_err(|error| {
+            if error
+                .as_database_error()
+                .and_then(|error| error.code())
+                .as_deref()
+                == Some("28000")
+            {
+                StoreError::AuthorizationChanged
+            } else {
+                StoreError::Database(error)
+            }
+        })?;
+    Ok(())
+}
+
+/// Quota refusals also cover private discussion boards and have no filter effects.
+pub(crate) async fn revalidate_quota_refusal(
+    connection: &mut sqlx::PgConnection,
+    authority: &StaffPostAuthority<'_>,
+    board: &str,
+) -> Result<(), StoreError> {
+    sqlx::query("SELECT content.revalidate_staff_quota_refusal($1,$2,$3,$4)")
         .bind(authority.session_hash)
         .bind(authority.csrf_hash)
         .bind(authority.idle_seconds)

@@ -163,7 +163,8 @@ export async function withDeletionQuota(callback) {
 }
 
 // An explicit independent posting action starts with only this run's history
-// cleared. Identity, deletion quota and Robot9000 state remain unchanged. Keep
+// cleared, including duplicate-comment comparison keys. Identity, deletion
+// quota and Robot9000 state remain unchanged. Keep
 // actual cooldown scenarios together inside one callback, without inner scopes.
 const postingContext = new AsyncLocalStorage();
 let postingQueue = Promise.resolve();

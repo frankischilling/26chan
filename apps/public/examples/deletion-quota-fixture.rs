@@ -273,7 +273,7 @@ async fn apply_command(
     .await?;
     if command == "init" {
         let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM post_secrets.public_deletion_actors WHERE actor_hash=$1) OR EXISTS(SELECT 1 FROM post_secrets.posting_history WHERE actor_hash=$2) OR EXISTS(SELECT 1 FROM post_secrets.posting_thread_actions WHERE actor_hash=$2)",
+            "SELECT EXISTS(SELECT 1 FROM post_secrets.public_deletion_actors WHERE actor_hash=$1) OR EXISTS(SELECT 1 FROM post_secrets.posting_history WHERE actor_hash=$2) OR EXISTS(SELECT 1 FROM post_secrets.posting_thread_actions WHERE actor_hash=$2) OR EXISTS(SELECT 1 FROM post_secrets.comment_history WHERE actor_hash=$2)",
         )
         .bind(actor.as_slice())
         .bind(posting_actor.as_slice())
@@ -439,6 +439,10 @@ async fn catalog_command(
 }
 
 async fn remove_posting_actor(tx: &mut Transaction<'_, Postgres>, actor: &[u8; 32]) -> Result<()> {
+    sqlx::query("DELETE FROM post_secrets.comment_history WHERE actor_hash=$1")
+        .bind(actor.as_slice())
+        .execute(&mut **tx)
+        .await?;
     sqlx::query("DELETE FROM post_secrets.posting_history WHERE actor_hash=$1")
         .bind(actor.as_slice())
         .execute(&mut **tx)
@@ -846,6 +850,8 @@ mod tests {
             for (m, (post, thread)) in [&own, &foreign].into_iter().zip(posts) {
                 sqlx::query("INSERT INTO post_secrets.posting_history(post_id,board,thread_id,actor_hash,request_at) VALUES($1,'demo',$2,$3,123)")
                     .bind(post).bind(thread).bind(m.posting_actor().unwrap().as_slice()).execute(&pool).await.unwrap();
+                sqlx::query("INSERT INTO post_secrets.comment_history(post_id,board,actor_hash,projection_hash,projection_version,request_at) VALUES($1,'demo',$2,decode(repeat('33',32),'hex'),1,123)")
+                    .bind(post).bind(m.posting_actor().unwrap().as_slice()).execute(&pool).await.unwrap();
                 sqlx::query("INSERT INTO post_secrets.posting_thread_actions(actor_hash,board,request_at) VALUES($1,'demo',123)")
                     .bind(m.posting_actor().unwrap().as_slice()).execute(&pool).await.unwrap();
             }
@@ -897,6 +903,20 @@ mod tests {
             .unwrap();
             assert_eq!(foreign_history, vec![123]);
             assert_eq!(foreign_actions, vec![123]);
+            for (m, expected) in [(&own, 0_i64), (&foreign, 1)] {
+                let comments: i64 = sqlx::query_scalar(
+                    "SELECT count(*) FROM post_secrets.comment_history WHERE actor_hash=$1",
+                )
+                .bind(m.posting_actor().unwrap().as_slice())
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+                assert_eq!(
+                    comments, expected,
+                    "only the proven run's comparison history resets"
+                );
+            }
+
             let preserved_deletion: Vec<i64> = sqlx::query_scalar(
                 "SELECT events FROM post_secrets.public_deletion_actors WHERE actor_hash=$1",
             )

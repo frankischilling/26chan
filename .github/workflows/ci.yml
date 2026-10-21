@@ -662,6 +662,14 @@ jobs:
         run: |
           cargo build -p board-store --bin board-image-history-retention --locked
           sudo bash scripts/test-vip-credentials.sh
+      - name: Qualify source comment history and bounded retention
+        run: |
+          php -n scripts/test-comment-duplicate-source.php
+          cargo build -p board-store --bin board-comment-history-retention --locked
+          sudo bash scripts/test-comment-history.sh
+          sudo install -d /opt/paperboard/bin
+          sudo install -m 0755 target/debug/board-comment-history-retention /opt/paperboard/bin/board-comment-history-retention
+          systemd-analyze verify deploy/comment-history-retention.service deploy/comment-history-retention.timer
       - name: Qualify atomic janitor request capture and deletion
         run: sudo bash scripts/test-janitor-request-store.sh
       - name: Qualify request review decisions and counted outcomes
