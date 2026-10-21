@@ -17,7 +17,8 @@ SELECT
    WHERE a.privilege_type='EXECUTE' AND (a.grantee=0 OR
     (pg_get_userbyid(a.grantee)::text<>ALL(e.grantees || ARRAY[e.owner_name,'board_migrator']))))
  OR EXISTS (SELECT 1 FROM unnest(e.grantees) g WHERE NOT has_function_privilege(g,p.oid,'EXECUTE')))
- AND EXISTS (SELECT 1 FROM pg_class c WHERE c.oid=to_regclass('post_secrets.comment_history')
+ AND EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='post_secrets' AND c.relname='comment_history'
   AND c.relowner='board_migrator'::regrole AND c.relkind='r' AND c.relpersistence='p'
   AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname NOT IN('board_migrator','board_posting_cooldown_owner')
     AND left(r.rolname,3)<>'pg_' AND NOT r.rolsuper AND (has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')

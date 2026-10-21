@@ -50,6 +50,26 @@ async fn source_boundaries_scope_concurrency_and_post_clock() {
     let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
         .await
         .unwrap();
+    let staff = PgPool::connect(&std::env::var("STAFF_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    assert!(
+        sqlx::query_scalar::<_, bool>(board_store::COMMENT_DUPLICATE_READINESS_SQL)
+            .fetch_one(&staff)
+            .await
+            .unwrap(),
+        "Staff readiness must not require private schema usage"
+    );
+    assert!(
+        !sqlx::query_scalar::<_, bool>(
+            "SELECT has_schema_privilege(current_user,'post_secrets','USAGE')"
+        )
+        .fetch_one(&staff)
+        .await
+        .unwrap(),
+        "Readiness must not expand staff authority"
+    );
+    staff.close().await;
     let seed: String = sqlx::query_scalar("SELECT replace(gen_random_uuid()::text,'-','')")
         .fetch_one(&owner)
         .await

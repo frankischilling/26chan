@@ -10,6 +10,7 @@ import { assertViewportFit, qualifyOverflowGuard } from './helpers/viewport-fit.
 const origin = new URL(process.argv[2]);
 const board = process.argv[3];
 const source = process.argv[4];
+const fixtureTag = createHash('sha256').update(path.basename(source)).digest('hex').slice(0, 12);
 const outputExtension = ['.gif','.webm','.mp4'].includes(path.extname(source)) ? path.extname(source) : '.png';
 const video = ['.webm','.mp4'].includes(outputExtension);
 const outputMime = video ? `video/${outputExtension.slice(1)}` : outputExtension === '.gif' ? 'image/gif' : 'image/png';
@@ -101,7 +102,7 @@ try {
   await page.getByLabel('Name', { exact: true }).fill('Synthetic browser');
   await page.getByLabel('Subject', { exact: true }).fill('Isolated upload');
   if (!attachmentOnly) {
-    await page.getByLabel('Comment', { exact: true }).fill(`A synthetic one-pixel image, posted ${javascript ? 'with' : 'without'} site JavaScript.`);
+    await page.getByLabel('Comment', { exact: true }).fill(`A synthetic one-pixel image, posted ${javascript ? 'with' : 'without'} site JavaScript: ${fixtureTag}.`);
   }
   await expect(page.locator('#postPassword')).toHaveValue('');
   if (attachmentOnly) await page.getByLabel('Spoiler image', { exact: true }).check();
@@ -222,7 +223,7 @@ try {
     await expect(page.locator('form.postEditor input[name=track]')).toHaveValue('1');
     await expect(page.locator('form.postEditor input[name=awt]')).toHaveCount(0);
     await page.locator('#togglePostFormLink a').click();
-    await page.locator('#com').fill('Owned reply to an approved upload');
+    await page.locator('#com').fill(`Owned reply to an approved upload ${fixtureTag}`);
     await expect(page.locator('#postPassword')).toHaveValue('');
     await page.locator('#email').fill('nonoko');
     const replied = page.waitForResponse(response => response.request().method() === 'POST'

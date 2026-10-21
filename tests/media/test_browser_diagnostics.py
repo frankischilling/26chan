@@ -2,8 +2,9 @@
 import subprocess
 import sys
 import unittest
+from unittest import mock
 
-from public_upload_fixture import finish_browser
+from public_upload_fixture import finish_browser, require_running_browser
 
 
 class BrowserDiagnostics(unittest.TestCase):
@@ -108,6 +109,24 @@ class BrowserDiagnostics(unittest.TestCase):
                 finish_browser(self.process(error), 'drawing-upload.mjs')
             self.assertEqual(str(result.exception), 'owned upload browser rejected at drawing-upload.mjs:39:5'
                              + f' (HTTP {status.decode()}, {category.decode()}, owner-thread, http)')
+
+    def test_running_browser_is_not_consumed(self):
+        process = mock.Mock()
+        process.poll.return_value = None
+        require_running_browser(process, 'quick-reply-upload.mjs')
+        process.communicate.assert_not_called()
+
+    def test_early_exit_preserves_only_the_safe_location(self):
+        process = self.process(b'private-capability\n at file:///owned/tests/browser/quick-reply-upload.mjs:33:10\n')
+        process.wait(timeout=5)
+        with self.assertRaisesRegex(AssertionError, r'^owned upload browser rejected at quick-reply-upload\.mjs:33:10$'):
+            require_running_browser(process, 'quick-reply-upload.mjs')
+
+    def test_early_success_is_not_a_queued_upload(self):
+        process = self.process(b'private warning', 0)
+        process.wait(timeout=5)
+        with self.assertRaisesRegex(AssertionError, '^public upload browser completed before queueing$'):
+            require_running_browser(process, 'quick-reply-upload.mjs')
 
     def test_unknown_diagnostic_script_is_rejected_before_child_access(self):
         with self.assertRaises(AssertionError):

@@ -50,6 +50,12 @@ def finish_browser(process, script):
     return output
 
 
+def require_running_browser(process, script):
+    if process.poll() is not None:
+        finish_browser(process, script)
+        raise AssertionError("public upload browser completed before queueing")
+
+
 class PublicUnit(UnitProcess):
     def __init__(self, token):
         assert re.fullmatch('[a-z0-9_]{8}', token)
@@ -315,7 +321,7 @@ class PublicUpload:
         self.browser = process
         query = f"SELECT j.id FROM media.jobs j WHERE j.filename='{filename}' AND j.state='queued';"
         def queued():
-            assert process.poll() is None, 'public upload browser exited before queueing'
+            require_running_browser(process, script)
             return bool(sql(query))
         wait_until(queued, seconds=25)
         job = sql(query)
