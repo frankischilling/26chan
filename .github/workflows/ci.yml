@@ -134,6 +134,8 @@ jobs:
       - name: Exercise janitor request and review forms in real browsers
         run: |
           php -n scripts/test-pass-policy-source.php
+          php -n scripts/test-vip-capcode-source.php
+          php -n scripts/test-image-duplicate-source.php
           php -n scripts/test-duplicate-image-cooldown.php
           node --test tests/browser/janitor-queue-state.test.mjs
           node tests/browser/janitor-queue-controls.mjs
@@ -292,6 +294,7 @@ jobs:
           sudo bash scripts/dev-intake-db.sh
           sudo bash scripts/dev-monitor-db.sh
           sudo bash scripts/dev-staff-db.sh
+          sudo bash scripts/dev-verification-db.sh
           sudo chown -R "$(id -u):$(id -g)" .local
           source .local/database.env
           cargo run -p board-store --bin board-migrate --locked
@@ -351,6 +354,7 @@ jobs:
           python3 -m unittest discover -s tests/media -p test_identity_environment.py
           python3 -m unittest discover -s tests/media -p test_browser_diagnostics.py -v
           python3 -m unittest discover -s tests/media -p test_public_upload_fixture.py -v
+          python3 -m unittest discover -s tests/media -p test_public_vip_jpeg_fixture.py -v
           python3 -m unittest discover -s tests/media -p test_public_drawing_fixture.py -v
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin python3 scripts/media/provision-test.py /tmp/26chan-media-ci "$PWD/target/x86_64-unknown-linux-musl/release"
           sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
@@ -654,6 +658,10 @@ jobs:
           sudo bash scripts/test-janitor-request-authority.sh
       - name: Qualify Pass lifecycle and restored sessions
         run: sudo bash scripts/test-public-pass-lifecycle.sh
+      - name: Qualify isolated VIP credentials and restored authority
+        run: |
+          cargo build -p board-store --bin board-image-history-retention --locked
+          sudo bash scripts/test-vip-credentials.sh
       - name: Qualify atomic janitor request capture and deletion
         run: sudo bash scripts/test-janitor-request-store.sh
       - name: Qualify request review decisions and counted outcomes

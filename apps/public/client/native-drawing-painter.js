@@ -1,6 +1,6 @@
 import { drawingDimensions, drawingPngFile } from './native-drawing-core.js';
 import { drawingReplayFile } from './native-drawing-replay.js';
-import { postId } from '../static/thread-watcher-core.v1.js';
+import { postId } from './native-post-numbers.js';
 
 // Own browser download URLs without exposing them to upload/posting state.
 export function createDrawingDownload({ exportFile = drawingPngFile,

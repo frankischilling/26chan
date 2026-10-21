@@ -37,7 +37,9 @@ pub mod post_media;
 pub mod posting_challenge;
 pub mod posting_classifiers;
 pub use report_admission::request::RequestFacts as ReportRequestFacts;
+mod image_duplicates;
 mod posting_cooldown;
+pub use image_duplicates::ImageDuplicateRefusal;
 pub use posting_cooldown::{PostingCooldownReason, PostingCooldownRejection};
 mod public_deletion;
 pub use public_deletion::{
@@ -67,6 +69,7 @@ pub mod thread_transfer;
 pub mod verification;
 mod write;
 mod write_challenge;
+mod write_vip;
 pub use board_snapshot::*;
 use chrono::{DateTime, Utc};
 pub use read::*;
@@ -96,6 +99,8 @@ pub enum StoreError {
     ContentRejected(String),
     #[error("{0}")]
     FileRejected(FileRefusal),
+    #[error("{0}")]
+    ImageDuplicate(ImageDuplicateRefusal),
     #[error("{0}")]
     PostingClassifierRejected(posting_classifiers::Refusal),
     #[error("{}", AUTOMATIC_RANGE_REJECTION)]

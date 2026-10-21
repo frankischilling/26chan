@@ -186,6 +186,8 @@ test('QR file picker combines drawing load/export with upload, status, cancel, a
   const drawingSource = await readFile(new URL('../../apps/public/client/native-drawing.js', import.meta.url), 'utf8');
   const controls = drawingSource.slice(drawingSource.indexOf('  function controlsFor('),
     drawingSource.indexOf('  const fileInput = ', drawingSource.indexOf('  function controlsFor(')));
+  const failures = source.slice(source.indexOf('const uploadFailures = '), source.indexOf('export function mountNativeQuickReply'));
+  assert.match(failures, /^const uploadFailures = Object\.freeze/);
   const render = source.slice(source.indexOf('  function renderUpload()'), source.indexOf('  function resetInlineUpload()'));
   const mount = source.slice(source.indexOf('  function mountDrawing()'), source.indexOf('  function insert('));
   assert.match(controls, /function controlsFor/);
@@ -214,7 +216,7 @@ test('QR file picker combines drawing load/export with upload, status, cancel, a
     closed: () => false, disabled: () => false, cancelAuto() {}, sync() {},
     cancelInlineUpload: async () => true, selectUpload: async () => true,
   };
-  vm.runInNewContext(`${controls}\n${render}\n${mount}`, context, { timeout: 100 });
+  vm.runInNewContext(`${failures}\n${controls}\n${render}\n${mount}`, context, { timeout: 100 });
   context.drawing = { mountQuickReply: options => context.controlsFor(context.form,
     { querySelector: selector => buttons.get(selector) }, options) };
   context.mountDrawing();

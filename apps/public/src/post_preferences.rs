@@ -30,6 +30,11 @@ pub(crate) fn append(
     production: bool,
 ) {
     let name = name.map(|name| name.split('#').next().unwrap_or_default().trim());
+    let options = if board_domain::vip_capcode::private_preference(options) {
+        ""
+    } else {
+        options
+    };
     for (key, value) in [("4chan_name", name), ("options", Some(options))] {
         let Some(value) = value else { continue };
         if value.len() > board_domain::MAX_PUBLIC_FIELD_BYTES || value.chars().any(char::is_control)
@@ -50,6 +55,26 @@ pub(crate) fn append(
             HeaderValue::from_str(&cookie).expect("bounded encoded preference"),
         );
     }
+}
+
+/// A processed VIP attempt clears the old preference even when posting fails.
+/// Never copy the submitted value into a response cookie.
+pub(crate) fn erase_private_options(output: &mut HeaderMap, production: bool) {
+    if output
+        .get_all(header::SET_COOKIE)
+        .iter()
+        .any(|value| value.as_bytes().starts_with(b"options="))
+    {
+        return;
+    }
+    output.append(
+        header::SET_COOKIE,
+        HeaderValue::from_static(if production {
+            "options=; Path=/; Max-Age=0; SameSite=Strict; Secure"
+        } else {
+            "options=; Path=/; Max-Age=0; SameSite=Strict"
+        }),
+    );
 }
 
 #[cfg(test)]
@@ -121,6 +146,27 @@ mod tests {
             let mut output = HeaderMap::new();
             append(&mut output, &HeaderMap::new(), Some(value), value, true);
             assert!(output.is_empty());
+        }
+    }
+
+    #[test]
+    fn vip_credentials_are_not_saved_and_old_options_are_cleared() {
+        for options in [
+            "capcode_!owner!owned-secret",
+            "sageCAPCODE_!owner!owned-secret",
+            " capcode_!owner!owned-secret",
+            "capsagecode_!owner!owned-secret",
+        ] {
+            let mut output = HeaderMap::new();
+            append(&mut output, &HeaderMap::new(), None, options, false);
+            assert!(output.is_empty());
+            let mut request = HeaderMap::new();
+            request.insert(header::COOKIE, "options=old-value".parse().unwrap());
+            append(&mut output, &request, None, options, true);
+            assert_eq!(
+                values(&output),
+                ["options=; Path=/; Max-Age=0; SameSite=Strict; Secure"]
+            );
         }
     }
 }

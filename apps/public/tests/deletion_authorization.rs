@@ -109,7 +109,7 @@ impl Fixture {
             let token = claim.lease_token.unwrap();
             let output = self
                 .queue
-                .prepare_output(
+                .prepare_output_with_variants(
                     &claim.id,
                     &token,
                     &OutputMetadata {
@@ -118,6 +118,16 @@ impl Fixture {
                         width: 10,
                         height: 20,
                     },
+                    Some(&board_store::media_assets::OutputVariants {
+                        // Declared synthetic normalized output, distinct per owned job.
+                        md5: claim.id.clone(),
+                        thumbnail: OutputMetadata {
+                            sha256: "b".repeat(64),
+                            bytes: 50,
+                            width: 1,
+                            height: 1,
+                        },
+                    }),
                 )
                 .await
                 .unwrap();

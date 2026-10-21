@@ -10,7 +10,7 @@ use axum::{
 use board_domain::challenge_secrets::PassSessionToken;
 use board_verification_client::protocol;
 
-fn bounded_hash(encoded: &str) -> bool {
+pub(crate) fn bounded_hash(encoded: &str) -> bool {
     encoded.len() <= 256
         && PasswordHash::new(encoded).is_ok_and(|hash| {
             hash.algorithm.as_str() == "argon2id"
@@ -25,7 +25,7 @@ fn bounded_hash(encoded: &str) -> bool {
                 && hash.hash.as_ref().is_some_and(|value| value.len() == 32)
         })
 }
-fn verify(pin: &str, encoded: &str) -> bool {
+pub(crate) fn verify(pin: &str, encoded: &str) -> bool {
     PasswordHash::new(encoded).is_ok_and(|hash| {
         Argon2::default()
             .verify_password(pin.as_bytes(), &hash)

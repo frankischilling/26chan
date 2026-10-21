@@ -47,6 +47,18 @@ impl VerificationKey {
         Some(self.digest(b"pass-identifier", &[value.to_ascii_uppercase().as_bytes()]))
     }
 
+    /// Deployment-owned VIP identifiers use exact UTF-8 spelling. The supplied
+    /// reconstructed schema does not establish the original SQL collation.
+    pub fn vip_identifier(&self, value: &str) -> Option<[u8; 32]> {
+        if matches!(value, "" | "0")
+            || value.len() > crate::MAX_PUBLIC_FIELD_BYTES
+            || value.contains('!')
+        {
+            return None;
+        }
+        Some(self.digest(b"vip-identifier", &[value.as_bytes()]))
+    }
+
     pub fn pass_recipient(&self, value: &str) -> Option<[u8; 32]> {
         let recipient = crate::pass_mail::Recipient::parse(value)?;
         Some(self.digest(b"pass-recipient", &[recipient.identity().as_bytes()]))
@@ -648,6 +660,21 @@ mod tests {
 #[cfg(test)]
 mod pass_secret_tests {
     use super::*;
+    #[test]
+    fn vip_identity_is_separate_and_preserves_exact_owned_spelling() {
+        let key = VerificationKey::parse(&"12".repeat(32)).unwrap();
+        assert_ne!(
+            key.vip_identifier("ABC123XYZ0"),
+            key.pass_identifier("ABC123XYZ0")
+        );
+        assert_ne!(key.vip_identifier("Owner"), key.vip_identifier("owner"));
+        assert_ne!(key.vip_identifier("é"), key.vip_identifier("e\u{301}"));
+        assert!(key.vip_identifier("名前").is_some());
+        for value in ["", "0", "owner!other", &"x".repeat(101)] {
+            assert!(key.vip_identifier(value).is_none());
+        }
+    }
+
     #[test]
     fn pass_tokens_and_identity_hashes_are_separate_and_canonical() {
         let key = VerificationKey::parse(&"12".repeat(32)).unwrap();

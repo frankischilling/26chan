@@ -20,6 +20,7 @@ from dispatch_service_fixture import UnitProcess, systemctl
 from owned_process import cancel_test, protected_cleanup
 from public_upload_fixture import PublicUpload
 from public_source_gif_fixture import PublicSourceGif
+from public_vip_jpeg_fixture import PublicVipJpeg
 from test_dispatch import HEX, PG, REPO, SAFE, account, sql, wait_until
 from test_http_service import MediaHttpExercise
 from test_vm import red_png
@@ -45,6 +46,7 @@ class IntakeExercise(MediaHttpExercise):
         self.connections = []
         self.public_upload = PublicUpload(self)
         self.public_source_gif = PublicSourceGif(self.public_upload)
+        self.public_vip_jpeg = PublicVipJpeg(self.public_upload)
 
     def setup(self):
         super().setup()
@@ -221,9 +223,13 @@ class IntakeExercise(MediaHttpExercise):
         original = (REPO / 'tests/media/fixtures/jpeg/baseline.jpg').read_bytes()
         metadata = b'Exif\0\0OWNED-STILL-HTTP-METADATA'
         tagged = original[:2] + b'\xff\xe1' + (len(metadata) + 2).to_bytes(2, 'big') + metadata + original[2:]
-        for board, extension, payload in [('aco', 'png', red_png()), ('aco', 'jpg', tagged), ('p', 'jpg', tagged)]:
+        # The intake flag selects processing only. Separate posting tests require
+        # an actual VIP receipt matching this context before publication as a post.
+        for board, extension, payload, badged in [
+                ('aco', 'png', red_png(), False), ('aco', 'jpg', tagged, False),
+                ('p', 'jpg', tagged, False), ('p', 'jpg', tagged, True)]:
             request = {'filename': 'owned-still.' + extension,
-                       'image_context': {'board': board, 'thread_id': 0, 'capcode': False}}
+                       'image_context': {'board': board, 'thread_id': 0, 'capcode': badged}}
             status, reservation = self.call('/v1/reservations', 'POST', json.dumps(request).encode(),
                                              {'Content-Type': 'application/json'})
             assert status == 201 and reservation['state'] == 'receiving'
@@ -239,7 +245,7 @@ class IntakeExercise(MediaHttpExercise):
             assert status == 200 and headers['content-type'] == ('image/png' if extension == 'png' else 'image/jpeg')
             assert retained == (self.objects / f'{asset}.{extension}').read_bytes()
             assert sql(f"SELECT source_profile||':'||md5||':'||bytes FROM media.assets WHERE id='{asset}'") == 'still-v6:' + hashlib.md5(retained).hexdigest() + ':' + str(len(retained))
-            if extension == 'png' or board == 'p':
+            if extension == 'png' or (board == 'p' and not badged):
                 assert retained == payload
             else:
                 assert metadata not in retained
@@ -249,7 +255,7 @@ class IntakeExercise(MediaHttpExercise):
             assert self.http(f'/media/{asset}.thumb.png')[0] == 404
             assert self.http(f'/media/{asset}.mobile.jpg')[0] == 404
             assert self.call(f'/v1/uploads/{job}', headers={'Upload-Capability': capability})[1]['state'] == 'published'
-        print('PASS contextual PNG/JPEG intake -> real still VM -> retained-byte checksums and JPEG HTTP thumbnails, including /p/ metadata retention', flush=True)
+        print('PASS contextual PNG/JPEG intake -> real still VM -> retained-byte checksums and JPEG HTTP thumbnails, including /p/ metadata retention and badge-context stripping', flush=True)
 
     def exercise_source_gifs(self):
         original = (REPO / 'tests/media/fixtures/gif/animated.gif').read_bytes()
@@ -308,6 +314,10 @@ class IntakeExercise(MediaHttpExercise):
             self.public_source_gif.exercise()
         finally:
             self.public_source_gif.cleanup()
+        try:
+            self.public_vip_jpeg.exercise()
+        finally:
+            self.public_vip_jpeg.cleanup()
         self.public_upload.exercise_video()
         self.public_upload.exercise()
 
@@ -439,6 +449,7 @@ class IntakeExercise(MediaHttpExercise):
                 assert sock.connect_ex(('127.0.0.1', port)) != 0
 
     def cleanup(self):
+        self.public_vip_jpeg.cleanup()
         self.public_source_gif.cleanup()
         self.public_upload.cleanup()
         for connection in self.connections:

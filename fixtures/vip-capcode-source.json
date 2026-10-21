@@ -1,0 +1,41 @@
+{
+  "source": {
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445"
+  },
+  "lookup_php": "function parse_vip_capcode($capcode) {\n    // Flood check\n    $longip = ip2long($_SERVER['REMOTE_ADDR']);\n    \n    $query = <<<SQL\nSELECT COUNT(*) FROM user_actions\nWHERE ip = %d AND action = 'fail_login'\nAND time >= SUBDATE(NOW(), INTERVAL 1 HOUR)\nSQL;\n    \n    $res = mysql_global_call($query, $longip);\n    \n    if (!$res) {\n      return false;\n    }\n    \n    $count = mysql_fetch_row($res)[0];\n    \n    if ($count >= 3) {\n      return false;\n    }\n    \n    // Now check the capcode\n    list($_, $user_id, $user_key) = explode('!', $capcode, 3);\n    \n    if (!$user_id || !$user_key) {\n      return false;\n    }\n    \n    $query = \"SELECT name, user_key FROM vip_capcodes WHERE active = 1 AND user_id = '%s' LIMIT 1\";\n    \n    $res = mysql_global_call($query, $user_id);\n    \n    if (!$res) {\n      return false;\n    }\n    \n    $user = mysql_fetch_assoc($res);\n    \n    if ($user && password_verify($user_key, $user['user_key'])) {\n      $query = \"UPDATE vip_capcodes SET last_used = %d, last_ip = '%s' WHERE user_id = '%s' LIMIT 1\";\n      mysql_global_call($query, $_SERVER['REQUEST_TIME'], $_SERVER['REMOTE_ADDR'], $user_id);\n      return $user['name'];\n    }\n    \n    // Log the failure\n    $query = <<<SQL\nINSERT INTO user_actions (ip, board, action, time)\nVALUES (%d, '', 'fail_login', NOW())\nSQL;\n    \n    mysql_global_call($query, $longip);\n    \n    return false;\n}\n",
+  "dispatch_php": "function parse_capcode($capcode, &$name = null)\n{\n  if ($name !== null && strpos($capcode, 'capcode_!') === 0) {\n    $vip_name = parse_vip_capcode($capcode);\n    \n    if ($vip_name !== false) {\n      $name = $vip_name;\n      return 'verified';\n    }\n    \n    return 'none';\n  }\n  \n  return 'none';\n}\n",
+  "markup_php": "\n\t\t\t$capcodeStart  = ' <strong class=\"capcode hand id_verified\" title=\"Highlight posts by Verified Users\">## Verified</strong>';\n\t\t\t$capcode_class = ' capcodeVerified';\n\n\t\t\t$capcode   = '';\n\t\t\t$highlight = '';\n\t\t\tbreak;\n",
+  "styles": {
+    "css/futabanew.css": {
+      "sha256": "8beb159cfcf83d042a68b1037997511c7b0bb959289eb1b5757036cdd7aa0945",
+      "rule": "span.capcodeVerified span.name, span.capcodeVerified span.name a, span.capcodeVerified span.postertrip, span.capcodeVerified strong.capcode {\n  color: #007FFF !important;\n}"
+    },
+    "css/yotsubanew.css": {
+      "sha256": "05d61b9a886aca60bd418b63a5b86d2ef3050d1d90c640da64f2206dda740db9",
+      "rule": ".nameBlock.capcodeVerified span.name, span.capcodeVerified span.name a, span.capcodeVerified span.postertrip, span.capcodeVerified strong.capcode {\n  color: #007FFF !important;\n}"
+    },
+    "css/tomorrow.css": {
+      "sha256": "40b4c474a93e87737811c77a50cce9af4fadc9b025a3863e126ca418a8f33a4a",
+      "rule": "span.capcodeVerified span.name, span.capcodeVerified span.name a, span.capcodeVerified span.postertrip, span.capcodeVerified strong.capcode {\n  color: #007FFF !important;\n}"
+    },
+    "css/photon.css": {
+      "sha256": "a4741759760d959b4a2e29d9622ab63a91d1cdc49f10679335b71f5b16e9575d",
+      "rule": "span.capcodeVerified span.name, span.capcodeVerified span.name a, span.capcodeVerified span.postertrip, span.capcodeVerified strong.capcode {\n  color: #007FFF !important;\n}"
+    },
+    "css/0ch.css": {
+      "sha256": "a2ab0e9aa588564cfdf81d997cc82492749894f723e6ca6969e0aa419607b333",
+      "rule": "span.capcodeVerified span.name, span.capcodeVerified span.name a, span.capcodeVerified span.postertrip, span.capcodeVerified strong.capcode {\n  color: #007FFF !important;\n}"
+    },
+    "css/spooky2017.css": {
+      "sha256": "010e148d0070d97f9fba04d9e54a302af007a09151d92ca39f5b439e5d7d1690",
+      "rule": ".nameBlock.capcodeVerified span.name, span.capcodeVerified span.name a, span.capcodeVerified span.postertrip, span.capcodeVerified strong.capcode {\n  color: #007FFF !important;\n}"
+    }
+  },
+  "boundaries": [
+    "Owned documentation IPv4 peer and fixed request timestamp.",
+    "Database calls are replaced with explicit synthetic rows and recorded effects.",
+    "Only the VIP branch of parse_capcode is retained; staff branches are not executed.",
+    "Caller supplies the name reference only when CAPTCHA bypass is true.",
+    "Passwords and hashes are synthetic; no source configuration is loaded."
+  ]
+}

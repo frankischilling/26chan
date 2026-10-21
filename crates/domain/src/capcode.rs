@@ -9,6 +9,73 @@ pub enum Capcode {
     Founder,
 }
 
+/// Saved public presentation, separate from selectable staff authority.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PublicCapcode {
+    Staff(Capcode),
+    Verified,
+}
+
+impl PublicCapcode {
+    pub fn parse(value: &str) -> Option<Self> {
+        if value == "verified" {
+            Some(Self::Verified)
+        } else {
+            Capcode::parse(value).map(Self::Staff)
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Staff(value) => value.label(),
+            Self::Verified => "Verified",
+        }
+    }
+
+    pub fn name_class(self) -> &'static str {
+        match self {
+            Self::Staff(value) => value.name_class(),
+            Self::Verified => "capcodeVerified",
+        }
+    }
+
+    pub fn highlight_id(self) -> &'static str {
+        match self {
+            Self::Staff(value) => value.highlight_id(),
+            Self::Verified => "id_verified",
+        }
+    }
+
+    pub fn highlight_title(self) -> &'static str {
+        match self {
+            Self::Staff(value) => value.highlight_title(),
+            Self::Verified => "Highlight posts by Verified Users",
+        }
+    }
+
+    pub fn icon(self) -> Option<&'static str> {
+        match self {
+            Self::Staff(value) => Some(value.icon()),
+            Self::Verified => None,
+        }
+    }
+
+    pub fn icon_title(self) -> &'static str {
+        match self {
+            Self::Staff(value) => value.icon_title(),
+            Self::Verified => "",
+        }
+    }
+
+    pub fn retina_icon(self) -> bool {
+        matches!(self, Self::Staff(value) if value != Capcode::Founder)
+    }
+
+    pub fn highlighted(self) -> bool {
+        matches!(self, Self::Staff(Capcode::HighlightedAdministrator))
+    }
+}
+
 impl Capcode {
     pub fn parse(value: &str) -> Option<Self> {
         Some(match value {
@@ -175,6 +242,36 @@ pub fn capcode_reply_groups<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn verified_presentation_does_not_become_a_staff_selection() {
+        assert_eq!(Capcode::parse("verified"), None);
+        let badge = PublicCapcode::parse("verified").unwrap();
+        assert_eq!(badge.label(), "Verified");
+        assert_eq!(badge.name_class(), "capcodeVerified");
+        assert_eq!(badge.highlight_id(), "id_verified");
+        assert_eq!(badge.highlight_title(), "Highlight posts by Verified Users");
+        assert_eq!(badge.icon(), None);
+        assert!(!badge.highlighted());
+        assert!(!badge.retina_icon());
+        let source: serde_json::Value =
+            serde_json::from_str(include_str!("../../../fixtures/vip-capcode-source.json"))
+                .unwrap();
+        let markup = source["markup_php"].as_str().unwrap();
+        for expected in [
+            badge.label(),
+            badge.name_class(),
+            badge.highlight_id(),
+            badge.highlight_title(),
+            "$capcode   = '';",
+            "$highlight = '';",
+        ] {
+            assert!(markup.contains(expected));
+        }
+        for value in ["Verified", "capcode_!", "none", "unknown", ""] {
+            assert_eq!(PublicCapcode::parse(value), None);
+        }
+    }
 
     #[test]
     fn json_identity_and_groups_match_the_pinned_source_blocks() {

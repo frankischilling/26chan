@@ -1,4 +1,5 @@
 import { postId } from '../static/thread-watcher-core.v1.js';
+export { postId };
 
 export const POST_NUMBER_TITLES = Object.freeze(['Link to this post', 'Reply to this post']);
 const exact = (attrs, expected) => Object.keys(attrs).sort().join(',') === Object.keys(expected).sort().join(',')

@@ -352,11 +352,11 @@ impl PostView {
         .then_some(self.post.since4pass)
     }
 
-    pub fn capcode(&self) -> Option<board_domain::capcode::Capcode> {
+    pub fn capcode(&self) -> Option<board_domain::capcode::PublicCapcode> {
         self.post
             .capcode
             .as_deref()
-            .and_then(board_domain::capcode::Capcode::parse)
+            .and_then(board_domain::capcode::PublicCapcode::parse)
     }
     pub fn flag(&self, board: &Board) -> Option<(String, &str)> {
         if !board.board_flags.is_empty()

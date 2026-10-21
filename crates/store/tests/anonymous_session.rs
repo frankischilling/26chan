@@ -185,7 +185,7 @@ async fn attachment_consumption_and_image_activity_commit_only_with_anonymous_me
         assert_eq!(claim.id, upload.id, "Requires an idle owned media queue");
         let lease = claim.lease_token.unwrap();
         let output = queue
-            .prepare_output(
+            .prepare_output_with_variants(
                 &claim.id,
                 &lease,
                 &board_store::media_assets::OutputMetadata {
@@ -194,6 +194,7 @@ async fn attachment_consumption_and_image_activity_commit_only_with_anonymous_me
                     width: 10,
                     height: 20,
                 },
+                Some(&support::synthetic_upload_variants(&claim.id)),
             )
             .await
             .unwrap();

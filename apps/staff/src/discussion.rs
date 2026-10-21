@@ -82,6 +82,9 @@ fn store_error(error: StoreError) -> AppError {
             AppError::Posting(rejection.source_message())
         }
         StoreError::ContentRejected(message) => AppError::Posting(message),
+        StoreError::ImageDuplicate(rejection) => {
+            AppError::Posting(rejection.source_message().into())
+        }
         StoreError::FileRejected(_)
         | StoreError::Robot9000Rejected(_)
         | StoreError::PublicDeletionRejected(_)

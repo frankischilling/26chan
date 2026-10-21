@@ -358,7 +358,7 @@ async fn exercise(
     assert_eq!(job.id, id, "Requires an idle disposable queue");
     let token = job.lease_token.unwrap();
     let asset = queue
-        .prepare_output(
+        .prepare_output_with_variants(
             &id,
             &token,
             &OutputMetadata {
@@ -367,6 +367,16 @@ async fn exercise(
                 width: 10,
                 height: 20,
             },
+            Some(&board_store::media_assets::OutputVariants {
+                // Declared synthetic normalized output, distinct per owned job.
+                md5: id.clone(),
+                thumbnail: OutputMetadata {
+                    sha256: "b".repeat(64),
+                    bytes: 50,
+                    width: 1,
+                    height: 1,
+                },
+            }),
         )
         .await
         .unwrap();
@@ -461,8 +471,8 @@ async fn exercise(
         ),
         (
             "on",
-            format!("http://localhost:3002/{board}/{tim}.png"),
-            "width=\"10\" height=\"20\"",
+            format!("http://localhost:3002/{board}/{tim}s.jpg"),
+            "width=\"1\" height=\"1\"",
         ),
     ] {
         let page = html(
@@ -506,6 +516,11 @@ async fn exercise(
         format!("/{board}/"),
         format!("/{board}/catalog"),
     ] {
+        let media_path = if path.ends_with("/catalog") {
+            format!("http://localhost:3002/{board}/{tim}s.jpg")
+        } else {
+            format!("http://localhost:3002/{board}/{tim}.png")
+        };
         let page = html(
             app.clone()
                 .oneshot(Request::get(path).body(Body::empty()).unwrap())
@@ -514,7 +529,7 @@ async fn exercise(
             StatusCode::OK,
         )
         .await;
-        assert!(page.contains(&format!("http://localhost:3002/{board}/{tim}.png")));
+        assert!(page.contains(&media_path));
         assert!(
             page.contains(&format!("&#60;b&#62;{board}&#60;/b&#62;.png")),
             "Filename must be escaped"
@@ -1125,7 +1140,7 @@ async fn image_admission_http(
         let job = queue.claim().await.unwrap().unwrap();
         assert_eq!(job.id, upload.id);
         let asset = queue
-            .prepare_output(
+            .prepare_output_with_variants(
                 &job.id,
                 job.lease_token.as_deref().unwrap(),
                 &OutputMetadata {
@@ -1134,6 +1149,16 @@ async fn image_admission_http(
                     width: 10,
                     height: 20,
                 },
+                Some(&board_store::media_assets::OutputVariants {
+                    // Declared synthetic normalized output, distinct per owned job.
+                    md5: job.id.clone(),
+                    thumbnail: OutputMetadata {
+                        sha256: "b".repeat(64),
+                        bytes: 50,
+                        width: 1,
+                        height: 1,
+                    },
+                }),
             )
             .await
             .unwrap();
@@ -1404,6 +1429,7 @@ async fn image_reply_contract(
         };
         if thread == 0 {
             thread = id;
+            duplicate_response_contract(app, board, thread, queue, intake, &public).await;
         }
         posts.push(id);
         let file = board_store::post_media::attachment(&public, id)
@@ -1680,4 +1706,111 @@ async fn image_reply_contract(
         .await
         .unwrap();
     public.close().await;
+}
+
+// The second actor reaches the content duplicate gate without the separate
+// same-actor image cooldown taking precedence. Both formats use real routes.
+async fn duplicate_response_contract(
+    app: &Router,
+    board: &str,
+    thread: i64,
+    queue: &MediaQueue,
+    intake: &IntakeStore,
+    public: &PgPool,
+) {
+    let upload = intake
+        .reserve(&format!("<b>{board}</b>.png"))
+        .await
+        .unwrap();
+    intake
+        .begin_upload(&upload.id, &upload.capability)
+        .await
+        .unwrap();
+    intake
+        .finish_upload(&upload.id, &upload.capability, 100)
+        .await
+        .unwrap();
+    let job = queue.claim().await.unwrap().unwrap();
+    assert_eq!(job.id, upload.id);
+    let lease = job.lease_token.as_deref().unwrap();
+    let output = queue
+        .prepare_output_with_variants(
+            &job.id,
+            lease,
+            &OutputMetadata {
+                sha256: "c".repeat(64),
+                bytes: 123,
+                width: 500,
+                height: 300,
+            },
+            Some(&OutputVariants {
+                md5: "0".repeat(32),
+                thumbnail: OutputMetadata {
+                    sha256: "d".repeat(64),
+                    bytes: 80,
+                    width: 250,
+                    height: 150,
+                },
+            }),
+        )
+        .await
+        .unwrap();
+    queue
+        .approve_output(&job.id, lease, &output.id)
+        .await
+        .unwrap();
+    let expected = format!(
+        "Error: Duplicate file exists. <a href=\"/{board}/thread/{thread}#p{thread}\">here</a>."
+    );
+    for json in [false, true] {
+        let route = if json { "imgboard.php" } else { "post" };
+        let mut request = post_request(
+            &format!("/{board}/{route}"),
+            format!(
+                "mode=regist&resto={thread}&upload_id={}&upload_capability={}&pwd=synthetic-password-123",
+                upload.id, upload.capability
+            ),
+        );
+        request.extensions_mut().insert(axum::extract::ConnectInfo(
+            "192.0.2.202:40000".parse::<std::net::SocketAddr>().unwrap(),
+        ));
+        if json {
+            request
+                .headers_mut()
+                .insert("accept", "application/json".parse().unwrap());
+        }
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(
+            response.status(),
+            if json {
+                StatusCode::OK
+            } else {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
+        );
+        let bytes = to_bytes(response.into_body(), 262_144).await.unwrap();
+        if json {
+            let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(value, serde_json::json!({"error": expected}));
+        } else {
+            assert!(
+                String::from_utf8(bytes.to_vec())
+                    .unwrap()
+                    .contains(&expected)
+            );
+        }
+        board_store::post_media::check_upload(public, &upload.id, &upload.capability)
+            .await
+            .unwrap();
+        assert_eq!(
+            board_store::thread(public, board, thread)
+                .await
+                .unwrap()
+                .reply_count,
+            0
+        );
+    }
+    board_store::post_media::cancel_upload(public, &upload.id, &upload.capability)
+        .await
+        .unwrap();
 }

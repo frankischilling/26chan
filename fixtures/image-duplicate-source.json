@@ -1,0 +1,42 @@
+{
+  "source": {
+    "admin.php": "4415d6684931efb93a9cc044bd69f770bd7bf1dc7b217e6f8cfffa0fe60418eb",
+    "yotsuba_config.php": "c029e1d016e9b6e575c796784d0c7ccb3b89f80bceac0983d4468fcdf1a1e562",
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+    "config/global_config.ini": "8bebeedec119b30559cba4fdccfef416653294cf62118d10288434be99a3034d",
+    "config/global_strings.ini": "3b3b60083db74fb1693af6f0824cccd6ec3ca446242474008cf9be474c65cd17",
+    "config/boards/f.config.ini": "d9860308ce998306e08cb39a98420818f0a078da200e6a1e617672d0e169fa3a",
+    "config/boards/test.config.ini": "72f1ddef8a63944bfb40e5d2e368c8ffeb42bef4c18b02a04d3638186a98b683",
+    "config/boards/wsg.config.ini": "b8d30a18b219eaaa6f2ac1d1ae0a04ad2fe70ddaf39b63a3d8b3bb2e89e796e9"
+  },
+  "gate_php": "function source_image_duplicate($has_image, $capcode, $resto, $md5, $dest) {\n\t\tif( $has_image && (!$capcode || $capcode === 'none')) {\n\t\t\tif ($resto) {\n\t\t\t  $result = mysql_board_call(\"SELECT sql_no_cache `no`,`resto` FROM `\" . SQLLOG . \"` WHERE archived = 0 and (resto = %d OR no = %d) AND `md5`='%s' AND filedeleted=0 limit 1\", $resto, $resto, $md5);\n\t\t\t}\n\t\t\telse {\n\t\t\t  $result = mysql_board_call(\"SELECT sql_no_cache `no`,`resto` FROM `\" . SQLLOG . \"` WHERE archived = 0 AND resto = 0 AND `md5`='%s' AND filedeleted=0 limit 1\", $md5);\n\t\t\t}\n\t\t\t\n\t\t\tif( mysql_num_rows( $result ) ) {\n\t\t\t\tlist( $dupeno, $duperesto ) = mysql_fetch_row( $result );\n\t\t\t\tif( !$duperesto ) $duperesto = $dupeno;\n\t\t\t\terror( '' . S_DUPE . ' <a href=\"//boards.' . L::d(BOARD_DIR) . '/' . BOARD_DIR . \"/thread/\" . $duperesto . PHP_EXT2 . '#p' . $dupeno . '\">here</a>.', $dest );\n\t\t\t}\n\t\t\t\n\t\t\tif ($resto && MAX_IMG_REPOST_COUNT > 0) {\n\t\t\t\t$_query = 'SELECT COUNT(*) FROM `' . SQLLOG . \"` WHERE archived = 0 AND resto != 0 AND `md5` = '%s' AND filedeleted = 0\";\n\t\t\t\t\n\t\t\t\t$result = mysql_board_call($_query, $md5);\n\t\t\t\t\n\t\t\t\tif ($result) {\n\t\t\t\t\t$_count = (int)mysql_fetch_row($result)[0];\n\t\t\t\t\t\n\t\t\t\t\tif ($_count >= MAX_IMG_REPOST_COUNT) {\n\t\t\t\t\t\terror(S_DUPE);\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t\t\n\t\t\tif ( defined('SQLLOGMD5') ) {\n\t\t\t\t// TODO: There's a race here. This should just be INSERT and check for failure!\n\t\t\t\t$result = mysql_board_call(\"SELECT sql_no_cache * FROM `%s` WHERE md5='%s' AND now > DATE_SUB(NOW(), INTERVAL 1 DAY) limit 1\", SQLLOGMD5, $md5);\n\t\t\t\tif ( mysql_num_rows( $result ) ) {\n\t\t\t\t\tlist( $dc_now, $dc_filename, $dc_md5p ) = mysql_fetch_row( $result );\n\t\t\t\t\t\n\t\t\t\t\tif( $dc_now ) {\n\t\t\t\t\t\terror('Error: You must wait longer before reposting this file.', $dest );\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n}\n",
+  "record_php": "if (UPLOAD_BOARD && $md5 ) {\n\t\t\t$result = mysql_board_call( \"insert ignore into `%s` (filename,md5) values('%s','%s')\", SQLLOGMD5, $insfile, $md5 );\n}\n",
+  "retention_php": "mysql_board_call( \"DELETE FROM f_md5 WHERE now < DATE_SUB(NOW(), INTERVAL 2 DAY)\" );\n",
+  "database_mapping_php": "\n\t$query = mysql_global_call( \"SELECT name, db FROM boardlist WHERE dir=?\", $board );\n\t$row   = $query->fetch();\n}\nelse {\n\t$query = mysql_global_call( \"SELECT name,db from boardlist WHERE dir = '%s'\", $board );\n\t$row   = mysql_fetch_assoc( $query );\n}\n\nif( !$row ) {\n\t$row = array( 'db' => 1 );\n}\n//maybe get our default board title from DB\nif( isset( $row[ 'name' ] ) ) {\n\t$title                = $row[ 'name' ];\n\t$constants[ 'TITLE' ] = \"/$board/ - $title\";\n}\nif( !defined( 'SQLHOST' ) ) {\n\t$constants[ 'SQLHOST' ] = \"db-ena.int\";\n} // was db$row['db']\nif( !defined( 'SQLDB' ) ) {\n\t$constants[ 'SQLDB' ] = \"img{$row[ 'db' ]}\";\n}\n\n",
+  "settings": {
+    "config/global_config.ini": [
+      "UPLOAD_BOARD = no",
+      "MAX_IMG_REPOST_COUNT = 0"
+    ],
+    "config/global_strings.ini": [
+      "S_DUPE = Error: Duplicate file exists."
+    ],
+    "config/boards/f.config.ini": [
+      "UPLOAD_BOARD = yes",
+      "SQLLOGMD5 = f_md5"
+    ],
+    "config/boards/test.config.ini": [
+      "MAX_IMG_REPOST_COUNT = 0",
+      "SQLLOGMD5 = f_md5"
+    ],
+    "config/boards/wsg.config.ini": [
+      "MAX_IMG_REPOST_COUNT = 3"
+    ]
+  },
+  "boundaries": [
+    "Only the pinned duplicate gate executes; no original application or credentials are loaded.",
+    "Owned database rows model query scopes and the strict one-day history predicate.",
+    "The source's LIMIT 1 query has no ORDER BY; a particular duplicate-link choice is not guaranteed.",
+    "Actor cooldowns, exact-file blacklist and Robot9000 are separate predicates."
+  ]
+}

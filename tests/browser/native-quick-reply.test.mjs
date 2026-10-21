@@ -165,6 +165,21 @@ test('inline selection streams one bounded file to the fixed board upload endpoi
   assert.equal(oversizedCalls, 0);
 });
 
+test('verified-image processing sends only a hint before the file, never credentials', async () => {
+  const file = new File([new Uint8Array([1, 2, 3])], 'owned.jpg', { type: 'image/jpeg' });
+  const result = await uploadQuickReplyFile({ origin: 'https://board.example', board: 'p', thread: '10', file, badged: true,
+    fetcher: async (url, options) => {
+      assert.equal(url, 'https://board.example/p/upload');
+      assert.deepEqual([...options.body.keys()], ['resto', 'vip_image', 'upfile']);
+      assert.equal(options.body.get('vip_image'), '1');
+      assert.equal(options.body.has('email'), false);
+      assert.equal(options.body.has('password'), false);
+      return uploadResponse(upload);
+    },
+  });
+  assert.deepEqual(result, upload);
+});
+
 test('status and cancel retain the exact capability, use fixed current-board paths and never retry malformed responses', async () => {
   let statusCalls = 0;
   const approved = await checkQuickReplyUpload({
@@ -292,4 +307,21 @@ test('the fixed Pass cooldown hint becomes a safe link without parsing arbitrary
   assert.equal(link.target,'_blank'); assert.equal(link.rel,'noopener noreferrer'); assert.equal(link.textContent,'Learn More');
   renderQuickReplyError(element,'');
   assert.equal(element.textContent,''); assert.equal(element.children.length,0);
+});
+
+test('duplicate-file errors render only the exact local numeric post link', () => {
+  const document = { createElement(tag) { return { tag }; } };
+  const element = { ownerDocument: document, children: [], value: '', append(...nodes) { this.children.push(...nodes); },
+    set textContent(value) { this.value=value; this.children=[]; }, get textContent() { return this.value; },
+    set innerHTML(_) { throw new Error('No HTML parser'); } };
+  const message = href => `Error: Duplicate file exists. <a href="${href}">here</a>.`;
+  renderQuickReplyError(element,message('/g/thread/9007199254740992#p9223372036854775807'));
+  assert.equal(element.textContent,'Error: Duplicate file exists. ');
+  assert.deepEqual(element.children,[{tag:'a',href:'/g/thread/9007199254740992#p9223372036854775807',textContent:'here'},'.']);
+  for(const href of ['//elsewhere.invalid/g/thread/1#p2','javascript:alert(1)','/g/thread/01#p2','/g/thread/1#p9223372036854775808','/g/thread/1#p0','/g/thread/1#p2?x=1','/G/thread/1#p2']) {
+    const input=message(href); renderQuickReplyError(element,input);
+    assert.equal(element.textContent,input);assert.equal(element.children.length,0);
+  }
+  const injected=message('/g/thread/1#p2')+'<img src=x onerror=owned()>';
+  renderQuickReplyError(element,injected);assert.equal(element.textContent,injected);assert.equal(element.children.length,0);
 });

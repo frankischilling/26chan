@@ -258,16 +258,14 @@ async fn rejected_posts_do_not_consume_an_approved_attachment() {
         assert_eq!(claim.id, upload.id, "Requires an idle owned media queue");
         let token = claim.lease_token.unwrap();
         let output = queue
-            .prepare_output(
-                &claim.id,
+            .prepare_output_with_variants(&claim.id,
                 &token,
                 &board_store::media_assets::OutputMetadata {
                     sha256: "a".repeat(64),
                     bytes: 123,
                     width: 10,
                     height: 20,
-                },
-            )
+                },Some(&support::synthetic_upload_variants(&claim.id)))
             .await
             .unwrap();
         queue

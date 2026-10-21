@@ -1,13 +1,15 @@
 import { createPostingCaptcha, mountPostingCaptcha } from '../static/posting-captcha.v1.js';
-import { postId } from '../static/thread-watcher-core.v1.js';
+import { postId } from './native-post-numbers.js';
 import { cancelQuickReplyUpload, checkQuickReplyUpload, commentLengthWarning, quoteInsertion, sendQuickReply, schedulePostingRedirect,
-  uploadQuickReplyFile, uploadDrawingFile, renderQuickReplyError } from './native-quick-reply-transport.js';
+  uploadQuickReplyFile, uploadDrawingFile, renderQuickReplyError, uploadFields } from './native-quick-reply-transport.js';
 import { mountNativePostForm } from './native-post-form.js';
 import { quickReplyPosition } from './native-quick-reply-position.js';
 import { restorePostPreferences, mountBoardFlagPreference } from './native-post-preferences.js';
 import { postNumberReply } from './native-post-numbers.js';
 import { createQuickReplyCooldown } from './native-quick-reply-cooldown.js';
 import { mountNativeDrawing, mountDrawingEditLinks } from './native-drawing.js';
+
+const uploadFailures = Object.freeze({ failed: 'Processing failed. Cancel this upload or choose another file.', incomplete: 'The upload is incomplete. Cancel it or choose the file again.' });
 
 export function mountNativeQuickReply({ board, thread, settings, savePosition, committed, math }) {
   const source = document.querySelector('form.postEditor');
@@ -72,7 +74,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   }
   function removeSourceApproval(uncertain = false) {
     if (!sourceApproval()) return;
-    for (const key of ['upload_id', 'upload_capability']) source.elements.namedItem(key)?.remove();
+    for (const key of uploadFields) source.elements.namedItem(key)?.remove();
     source.elements.namedItem('spoiler')?.closest('tr')?.remove();
     const nativeComment = source.elements.namedItem('com'); if (nativeComment) nativeComment.required = !generatedContent;
     for (const button of source.querySelectorAll('button[type=submit], button:not([type])')) button.textContent = 'Post';
@@ -91,7 +93,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
   }
   function addInlineCapability(receipt) {
     removeInlineCapability();
-    for (const key of ['upload_id', 'upload_capability']) {
+    for (const key of uploadFields) {
       const input = node('input'); input.type = 'hidden'; input.name = key; input.value = receipt[key];
       input.dataset.qrUploadCapability = 'true'; form.append(input);
     }
@@ -107,8 +109,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     const labels = {
       empty: '', uploading: `Uploading ${uploadName}…`, queued: `${uploadName} queued for processing.`,
       processing: `${uploadName} is processing.`, approved: `${uploadName} is approved.`,
-      failed: 'Processing failed. Cancel this upload or choose another file.',
-      incomplete: 'The upload is incomplete. Cancel it or choose the file again.',
+      ...uploadFailures,
       checking: `Checking ${uploadName}…`,
     };
     uploadStatus.textContent = labels[state] ?? '';
@@ -246,7 +247,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     const password = node('input'); password.type = 'hidden'; password.name = 'pwd'; password.id = 'qr-pwd';
     password.value = source.elements.pwd?.value ?? ''; form.append(password);
     // Approved capabilities are available only on the isolated upload result page.
-    for (const key of ['upload_id', 'upload_capability']) {
+    for (const key of uploadFields) {
       const value = sourceApproval() ? source.elements.namedItem(key)?.value : null;
       if (value) { const input = node('input'); input.type = 'hidden'; input.name = key; input.value = value; form.append(input); }
     }
@@ -256,7 +257,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     } else if (!sourceApproval() && uploadSourceInput) {
       const row = node('div', undefined, 'qr-file-row');
       uploadInput = node('input'); uploadInput.type = 'file'; uploadInput.id = 'qrFile'; uploadInput.name = 'upfile';
-      uploadInput.size = 19; uploadInput.accept = uploadSourceInput.accept; uploadInput.title = 'Choose one file; choose again to replace it. Shift-click to remove the current file.';
+      uploadInput.size = 19; uploadInput.accept = uploadSourceInput.accept; uploadInput.title = 'Choose a file to replace it; Shift-click to remove it.';
       const spoiler = source.dataset.spoilers === 'true' ? node('span') : null;
       if (spoiler) {
         const spoilerLabel = node('label'); uploadSpoiler = node('input'); uploadSpoiler.type = 'checkbox'; uploadSpoiler.name = 'spoiler';
@@ -373,7 +374,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       const saved = Promise.resolve().then(() => committed?.(id, result.post)).catch(() => {});
       if (settings().persistentQR === true) {
         comment.value = ''; form.querySelector('.qr-approved-image')?.remove();
-        for (const key of ['upload_id', 'upload_capability']) form.elements.namedItem(key)?.remove();
+        for (const key of uploadFields) form.elements.namedItem(key)?.remove();
       } else close();
       await saved;
       const event = new Event('4chanQRPostSuccess'); event.detail = { threadId: id, postId: result.post }; document.dispatchEvent(event);
@@ -403,8 +404,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
       if (active !== uploadEpoch || !dialog || current !== id) return false;
       uploadReceipt = next; uploadPhase = next.state; uploadBusy = false; uploadController = null;
       if (next.state === 'approved') { addInlineCapability(next); message(''); }
-      else if (next.state === 'failed') message('Processing failed. Cancel this upload or choose another file.', 'upload');
-      else if (next.state === 'incomplete') message('The upload is incomplete. Cancel it or choose the file again.', 'upload');
+      else if (Object.hasOwn(uploadFailures, next.state)) message(uploadFailures[next.state], 'upload');
       else if (automatic) scheduleUploadCheck();
       else uploadCanCheck = true;
       renderUpload(); return true;
@@ -459,7 +459,7 @@ export function mountNativeQuickReply({ board, thread, settings, savePosition, c
     const active = ++uploadEpoch, id = current; uploadName = file.name; uploadPhase = 'uploading'; uploadCanCheck = false; uploadPolls = 0;
     removeInlineCapability(); uploadController = new AbortController(); uploadBusy = true; message(''); renderUpload();
     try {
-      const receipt = await (fromDrawing && replay !== null ? uploadDrawingFile : uploadQuickReplyFile)({ board, thread: id, file, ...(fromDrawing ? { replay } : {}), signal: uploadController.signal });
+      const receipt = await (fromDrawing && replay !== null ? uploadDrawingFile : uploadQuickReplyFile)({ board, thread: id, file, badged: /^capcode_!/.test(form.elements.email.value.replace(/sage/gi, '')), ...(fromDrawing ? { replay } : {}), signal: uploadController.signal });
       if (active !== uploadEpoch || !dialog || current !== id) {
         void cancelQuickReplyUpload({ board, thread: id, receipt, keepalive: true }).catch(() => {}); return;
       }

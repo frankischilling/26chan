@@ -144,7 +144,7 @@ async fn approved(intake: &IntakeStore, queue: &MediaQueue, filename: &str) -> I
     assert_eq!(claim.id, upload.id, "Requires an idle disposable queue");
     let token = claim.lease_token.unwrap();
     let output = queue
-        .prepare_output(
+        .prepare_output_with_variants(
             &claim.id,
             &token,
             &OutputMetadata {
@@ -153,6 +153,16 @@ async fn approved(intake: &IntakeStore, queue: &MediaQueue, filename: &str) -> I
                 width: 1,
                 height: 1,
             },
+            Some(&board_store::media_assets::OutputVariants {
+                // Declared synthetic normalized output, distinct per owned job.
+                md5: claim.id.clone(),
+                thumbnail: OutputMetadata {
+                    sha256: "b".repeat(64),
+                    bytes: 50,
+                    width: 1,
+                    height: 1,
+                },
+            }),
         )
         .await
         .unwrap();

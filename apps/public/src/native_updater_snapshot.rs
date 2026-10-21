@@ -1061,6 +1061,35 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn verified_headers_have_the_source_badge_without_staff_icons_or_highlight() {
+        let mut snapshot = fixture();
+        snapshot.posts[0].capcode = Some("verified".into());
+        snapshot.posts[0].name = "Owned <VIP>".into();
+        snapshot.posts[0].poster_id = Some("Verified".into());
+        snapshot.posts[0].since4pass = 2020;
+        let body = encode(snapshot, "", MAX_BYTES).unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let html = value["posts"][0]["html"].as_str().unwrap();
+        assert_eq!(html.matches("## Verified</strong>").count(), 2);
+        assert_eq!(html.matches("nameBlock capcodeVerified").count(), 2);
+        assert_eq!(
+            html.matches("title=\"Highlight posts by Verified Users\"")
+                .count(),
+            2
+        );
+        assert!(html.contains("Owned &#60;VIP&#62;"));
+        for absent in [
+            "identityIcon",
+            "/static/identity/",
+            "highlightPost",
+            "posteruid",
+            "class=\"n-pu\"",
+        ] {
+            assert!(!html.contains(absent), "{absent}");
+        }
+    }
+
+    #[test]
     fn pass_badges_keep_opt_in_year_and_hide_capcoded_or_event_values() {
         for (year, capcode, visible) in [
             (2020, None, true),

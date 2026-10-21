@@ -306,7 +306,7 @@ async fn exercise(owner: &PgPool, board: &str, destination_board: &str, ids: &Mu
     drop(guard);
     let (dispatched, _) = insert_legacy(owner, board, &store, &output, ids).await;
     cli_dispatch(temp.path(), &root, &dispatched, frame(50)).await;
-    posting_during_upgrade(owner, board, &store, &files, &output, ids).await;
+    historical_attachment_during_upgrade(owner, board, &store, &files, &output, ids).await;
     for destination in [destination_board, board] {
         ownership_during_upgrade(owner, board, destination, &store, &files, &output, ids).await;
     }
@@ -514,7 +514,7 @@ async fn blocked(owner: &PgPool, role: &str) -> bool {
     false
 }
 
-async fn posting_during_upgrade(
+async fn historical_attachment_during_upgrade(
     owner: &PgPool,
     board: &str,
     store: &PublicationStore,
@@ -572,18 +572,6 @@ async fn posting_during_upgrade(
         .await
         .unwrap();
     let before = admin.get(&asset.id).await.unwrap();
-    let mut job_lock = owner.begin().await.unwrap();
-    sqlx::query("SELECT id FROM media.jobs WHERE id=$1 FOR UPDATE")
-        .bind(&claim.id)
-        .fetch_one(&mut *job_lock)
-        .await
-        .unwrap();
-    let mut asset_lock = owner.begin().await.unwrap();
-    sqlx::query("SELECT id FROM media.assets WHERE id=$1 FOR UPDATE")
-        .bind(&asset.id)
-        .fetch_one(&mut *asset_lock)
-        .await
-        .unwrap();
     let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -601,33 +589,86 @@ async fn posting_during_upgrade(
         ObjectId::generate().unwrap()
     ))
     .unwrap();
-    let posting = tokio::spawn(async move {
-        board_store::create_post_with_identity_keys(
-            &public,
-            &posting_board,
-            0,
-            &board_store::NewPost {
-                name: "Anonymous".into(),
-                subject: String::new(),
-                comment: "Concurrent legacy attachment".into(),
-                deletion_hash: "synthetic-unused".into(),
-                sage: false,
-            },
-            Some(&NewAttachment {
-                upload,
-                spoiler: false,
-            }),
-            board_store::PostingContext {
-                request_start: chrono::Utc::now(),
-                peer: Some(peer.ip()),
-                op_password_proof: None,
-            },
-            board_store::PostIdentityKeys {
-                tripcode: None,
-                poster_id: Some(&key),
-            },
-        )
+    // New ordinary submissions must reject unknown normalized identity. The
+    // controlled race below models an already-authorized historical SQL writer,
+    // not permission for the current public posting path to admit unknown files.
+    let attachment = NewAttachment {
+        upload,
+        spoiler: false,
+    };
+    let denied = board_store::create_post_with_identity_keys(
+        &public,
+        &posting_board,
+        0,
+        &board_store::NewPost {
+            name: "Anonymous".into(),
+            subject: String::new(),
+            comment: "Concurrent legacy attachment".into(),
+            deletion_hash: "synthetic-unused".into(),
+            sage: false,
+        },
+        Some(&attachment),
+        board_store::PostingContext {
+            request_start: chrono::Utc::now(),
+            peer: Some(peer.ip()),
+            op_password_proof: None,
+        },
+        board_store::PostIdentityKeys {
+            tripcode: None,
+            poster_id: Some(&key),
+        },
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        matches!(denied, board_store::StoreError::Database(ref error)
+        if error.as_database_error().and_then(|e| e.code()).as_deref() == Some("P0241")),
+        "{denied:?}"
+    );
+    let mut job_lock = owner.begin().await.unwrap();
+    sqlx::query("SELECT id FROM media.jobs WHERE id=$1 FOR UPDATE")
+        .bind(&claim.id)
+        .fetch_one(&mut *job_lock)
         .await
+        .unwrap();
+    let mut asset_lock = owner.begin().await.unwrap();
+    sqlx::query("SELECT id FROM media.assets WHERE id=$1 FOR UPDATE")
+        .bind(&asset.id)
+        .fetch_one(&mut *asset_lock)
+        .await
+        .unwrap();
+    let posting = tokio::spawn(async move {
+        let actor = key.public_posting_rate_identity(peer.ip());
+        let mut tx = public.begin().await?;
+        sqlx::query("SELECT content.lock_posting_actor($1,true)")
+            .bind(actor.as_bytes().as_slice())
+            .execute(&mut *tx)
+            .await?;
+        let encoded: String = actor
+            .as_bytes()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        sqlx::query(
+            "SELECT set_config('board.posting_actor',$1,true),set_config('board.peer',$2,true)",
+        )
+        .bind(encoded)
+        .bind(peer.ip().to_string())
+        .execute(&mut *tx)
+        .await?;
+        let id: i64 =
+            sqlx::query_scalar("INSERT INTO content.threads(board) VALUES($1) RETURNING id")
+                .bind(&posting_board)
+                .fetch_one(&mut *tx)
+                .await?;
+        let label = key.label(&posting_board, id, peer.ip()).unwrap();
+        let counts = key.count_context(&posting_board, id, peer.ip()).unwrap();
+        sqlx::query("SELECT set_config('board.poster_id',$1,true),set_config('board.post_sage','false',true),set_config('board.poster_fingerprint',$2,true),set_config('board.poster_epoch',$3,true)")
+            .bind(label).bind(counts.fingerprint).bind(counts.epoch).execute(&mut *tx).await?;
+        sqlx::query("SELECT content.insert_post_attachment($1,$2,$1,'Anonymous','','Concurrent historical attachment',$3,$4,false,date_trunc('second',clock_timestamp()))")
+            .bind(id).bind(&posting_board).bind(&attachment.upload.id).bind(&attachment.upload.capability).execute(&mut *tx).await?;
+        tx.commit().await?;
+        Ok::<i64, sqlx::Error>(id)
     });
     let public_waited = blocked(owner, "board_public").await;
     let upgrade = complete_backfill(&admin, &guard, files, &before, output);
@@ -635,6 +676,16 @@ async fn posting_during_upgrade(
         let upgrade_waited = blocked(owner, "board_migrator").await;
         job_lock.commit().await.unwrap();
         let post = posting.await.unwrap().unwrap();
+        let digest: Option<Vec<u8>> =
+            sqlx::query_scalar("SELECT normalized_md5 FROM content.post_media WHERE post_id=$1")
+                .bind(post)
+                .fetch_one(owner)
+                .await
+                .unwrap();
+        assert!(
+            digest.is_none(),
+            "Historical identity stays unknown before backfill"
+        );
         let prior: String =
             sqlx::query_scalar("SELECT modified_at::text FROM content.threads WHERE id=$1")
                 .bind(post)

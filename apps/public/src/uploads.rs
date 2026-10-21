@@ -294,6 +294,28 @@ async fn receive(
         .await
         .map_err(|_| invalid())?
         .ok_or_else(invalid)?;
+    // Processing hint only: /p JPEG metadata must match the final checked
+    // badge. This flag cannot grant a badge or any privileged posting limit.
+    let mut capcode = false;
+    if field.name() == Some("vip_image") && field.file_name().is_none() {
+        let mut value = Vec::new();
+        while let Some(chunk) = field.chunk().await.map_err(|_| invalid())? {
+            if value.len() + chunk.len() > 1 {
+                return Err(invalid());
+            }
+            value.extend_from_slice(&chunk);
+        }
+        if value != b"1" {
+            return Err(invalid());
+        }
+        capcode = true;
+        drop(field);
+        field = multipart
+            .next_field()
+            .await
+            .map_err(|_| invalid())?
+            .ok_or_else(invalid)?;
+    }
     if field.name() != Some("upfile") {
         return Err(invalid());
     }
@@ -304,7 +326,9 @@ async fn receive(
         .to_owned();
     let source_image = board_domain::still_image_policy::configured(board);
     let reservation = if source_image {
-        media.reserve_image(&filename, board, resto, false).await?
+        media
+            .reserve_image(&filename, board, resto, capcode)
+            .await?
     } else {
         media.reserve(&filename).await?
     };

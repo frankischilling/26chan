@@ -81,6 +81,21 @@ impl From<StoreError> for AppError {
                     "Error: Only Pass users can post on this board.",
                 )
             }
+            StoreError::Database(ref error)
+                if error
+                    .as_database_error()
+                    .and_then(|error| error.code())
+                    .as_deref()
+                    == Some("P0239") =>
+            {
+                Self(
+                    StatusCode::CONFLICT,
+                    "VIP verification changed. Please submit again.",
+                )
+            }
+            StoreError::ImageDuplicate(rejection) => {
+                Self(StatusCode::UNPROCESSABLE_ENTITY, rejection.source_message())
+            }
             StoreError::Invalid(message) => Self(StatusCode::UNPROCESSABLE_ENTITY, message),
             StoreError::Conflict(message) => Self(StatusCode::CONFLICT, message),
             StoreError::PublicDeletionRejected(message) => Self(StatusCode::FORBIDDEN, message),
@@ -1024,7 +1039,11 @@ pub async fn post(
     form: Result<crate::posting_form::PostingForm, crate::posting_form::Rejection>,
 ) -> Response {
     let format = crate::posting_response::Format::from_headers(&headers);
-    let response = match form {
+    let private_options = form
+        .as_ref()
+        .is_ok_and(|form| board_domain::vip_capcode::private_preference(&form.0.email));
+    let production = state.production;
+    let mut response = match form {
         Ok(crate::posting_form::PostingForm(form)) => {
             let hints = board_http::network_hints::derive(
                 &headers,
@@ -1054,6 +1073,9 @@ pub async fn post(
         }
         Err(error) => format.invalid_form(error),
     };
+    if private_options {
+        crate::post_preferences::erase_private_options(response.headers_mut(), production);
+    }
     format.finish(response)
 }
 
@@ -1210,6 +1232,19 @@ async fn submit_post(
         Ok(challenge) => challenge,
         Err(error) => return Ok(error.render_with(|error| format.error(error))),
     };
+    let vip = crate::posting_vip::proof(
+        &state,
+        &session,
+        context.peer,
+        &board,
+        form.resto,
+        &form.email,
+        challenge.as_ref(),
+    )
+    .await?;
+    // Preserve the independently parsed behavior, never transport credentials
+    // into database options, filter context or persistent preferences.
+    let stored_options = crate::posting_vip::public_options(&form.email);
     let password = session.password(&form.password);
     // The operator may enable OP markup while this request waits on the board
     // lock. Capture proof independently of the earlier policy snapshot.
@@ -1266,29 +1301,32 @@ async fn submit_post(
         deletion_hash: hash,
         sage: options.sage,
     };
-    let id = board_store::create_protected_post_with_network(
+    let id = board_store::create_verified_post_with_network(
         &state.pool,
         &board,
         form.resto,
         &post,
         attachment.as_ref(),
-        board_store::NetworkPostingContext {
-            hints: Some(&hints),
-            asn_database: state.asn_database.as_deref(),
-            posting: board_store::ProtectedPostingContext {
-                request_facts: Some(request_facts),
-                anonymous: board_store::AnonymousPostingContext {
-                    posting: context,
-                    session: session.posting,
+        board_store::VerifiedPostingContext {
+            vip,
+            network: board_store::NetworkPostingContext {
+                hints: Some(&hints),
+                asn_database: state.asn_database.as_deref(),
+                posting: board_store::ProtectedPostingContext {
+                    request_facts: Some(request_facts),
+                    anonymous: board_store::AnonymousPostingContext {
+                        posting: context,
+                        session: session.posting,
+                    },
+                    challenge,
                 },
-                challenge,
             },
         },
         board_store::PostMetadata {
             spoiler: form.spoiler,
             country_database: state.country_database.as_deref(),
             flag: &form.flag,
-            options: &form.email,
+            options: &stored_options,
             drawing: form
                 .oe_time
                 .as_deref()
@@ -1305,6 +1343,9 @@ async fn submit_post(
     .await;
     let id = match id {
         Ok(id) => id,
+        Err(StoreError::ImageDuplicate(rejection)) => {
+            return Ok(format.image_duplicate_error(&board, &rejection));
+        }
         Err(StoreError::PostingCooldownRejected(rejection)) => {
             return Ok(format.cooldown_error(&rejection));
         }
@@ -2321,6 +2362,18 @@ mod storage_diagnostic_tests {
             error.1,
             "CAPTCHA verification is required. Please reload the CAPTCHA."
         );
+        assert!(log.is_empty());
+    }
+
+    #[test]
+    fn vip_rejection_hides_private_database_diagnostics() {
+        let (error, log) = convert_with_log(StoreError::Database(sqlx::Error::Database(Box::new(
+            FakeDatabaseError {
+                code: Some("P0239"),
+            },
+        ))));
+        assert_eq!(error.0, StatusCode::CONFLICT);
+        assert_eq!(error.1, "VIP verification changed. Please submit again.");
         assert!(log.is_empty());
     }
 

@@ -1,4 +1,5 @@
 pub use crate::write_challenge::WriteChallengeProof;
+pub use crate::write_vip::WriteVipProof;
 use crate::*;
 use chrono::Timelike;
 use sha2::{Digest, Sha256};
@@ -31,6 +32,11 @@ pub struct ProtectedPostingContext {
     pub request_facts: Option<crate::posting_classifiers::RequestFacts>,
     pub anonymous: AnonymousPostingContext,
     pub challenge: Option<WriteChallengeProof>,
+}
+
+pub struct VerifiedPostingContext<'a> {
+    pub network: NetworkPostingContext<'a, ProtectedPostingContext>,
+    pub vip: Option<WriteVipProof>,
 }
 
 /// Server-owned providers are resolved against this posting context's trusted
@@ -209,6 +215,7 @@ pub async fn create_post_with_metadata(
             staff: None,
             anonymous: None,
             challenge: None,
+            vip: None,
         },
     )
     .await
@@ -238,6 +245,7 @@ pub async fn create_post_with_anonymous_session(
             staff: None,
             anonymous: Some(context.session),
             challenge: None,
+            vip: None,
         },
     )
     .await
@@ -277,11 +285,36 @@ pub async fn create_protected_post_with_network(
     context: NetworkPostingContext<'_, ProtectedPostingContext>,
     metadata: PostMetadata<'_>,
 ) -> Result<i64, StoreError> {
+    create_verified_post_with_network(
+        pool,
+        slug,
+        parent,
+        post,
+        attachment,
+        VerifiedPostingContext {
+            network: context,
+            vip: None,
+        },
+        metadata,
+    )
+    .await
+}
+
+pub async fn create_verified_post_with_network(
+    pool: &PgPool,
+    slug: &str,
+    parent: i64,
+    post: &NewPost,
+    attachment: Option<&post_media::NewAttachment>,
+    context: VerifiedPostingContext<'_>,
+    metadata: PostMetadata<'_>,
+) -> Result<i64, StoreError> {
+    let VerifiedPostingContext { network, vip } = context;
     let NetworkPostingContext {
         hints,
         posting: context,
         asn_database,
-    } = context;
+    } = network;
     create_post_in_context(
         pool,
         slug,
@@ -297,6 +330,7 @@ pub async fn create_protected_post_with_network(
             staff: None,
             anonymous: Some(context.anonymous.session),
             challenge: context.challenge,
+            vip,
         },
     )
     .await
@@ -466,6 +500,7 @@ pub async fn create_staff_post_with_network(
             staff: Some(authority),
             anonymous: None,
             challenge: None,
+            vip: None,
         },
     )
     .await;
@@ -581,6 +616,7 @@ pub async fn create_ordinary_staff_post_with_network(
             staff: Some(authority),
             anonymous: None,
             challenge: None,
+            vip: None,
         },
     )
     .await;
@@ -618,6 +654,7 @@ struct PostWriteOptions<'a> {
     staff: Option<StaffPostAuthority<'a>>,
     anonymous: Option<anonymous_session::PostingSession>,
     challenge: Option<WriteChallengeProof>,
+    vip: Option<WriteVipProof>,
 }
 
 async fn create_post_in_context(
@@ -637,6 +674,7 @@ async fn create_post_in_context(
         staff,
         anonymous,
         challenge,
+        vip,
     } = options;
     // The source posting entry point hides /test/ from unauthenticated users.
     // Its authenticated moderator/developer gate is checked by the auth read
@@ -716,6 +754,7 @@ async fn create_post_in_context(
         .execute(&mut *tx)
         .await?;
     crate::write_challenge::install(&mut tx, challenge.as_ref(), anonymous.as_ref()).await?;
+    crate::write_vip::install(&mut tx, vip.as_ref(), anonymous.as_ref()).await?;
     sqlx::query("SELECT set_config('board.pass_year_requested',$1,true)")
         .bind(
             if board_domain::posting_options::pass_year_requested(&prepared_options) {
@@ -950,6 +989,19 @@ async fn create_post_in_context(
     };
     let op_markup =
         board.op_markup && (parent == 0 || own_reply || password_matches || session_matches);
+    let vip_name = if vip.is_some() {
+        Some(
+            crate::write_vip::posting_name(
+                &mut tx,
+                slug,
+                parent,
+                anonymous.as_ref().ok_or(StoreError::AuthorizationChanged)?,
+            )
+            .await?,
+        )
+    } else {
+        None
+    };
     // Source clears identity before required-subject and final content checks.
     // Retain the raw input bounds even when these fields will be discarded.
     let (post_name, post_subject) = if board.forced_anon {
@@ -977,7 +1029,12 @@ async fn create_post_in_context(
         (post.name.as_str(), post.subject.as_str())
     };
     let mut masked_legacy_trip = None;
-    let identity = if let Some(source) = staff.as_ref().and_then(|authority| authority.identity) {
+    let identity = if let Some(name) = &vip_name {
+        board_domain::identity::Identity {
+            name: name.clone(),
+            trip: None,
+        }
+    } else if let Some(source) = staff.as_ref().and_then(|authority| authority.identity) {
         let prepared = board_domain::identity::prepare_for_board_with_limits(
             post_name,
             keys.tripcode,
@@ -1097,10 +1154,11 @@ async fn create_post_in_context(
                     board: slug,
                     parent,
                     authorized: authorized_staff,
-                    badged: staff
-                        .as_ref()
-                        .and_then(|authority| authority.identity)
-                        .is_some_and(|identity| identity.capcode.is_some()),
+                    badged: vip_name.is_some()
+                        || staff
+                            .as_ref()
+                            .and_then(|authority| authority.identity)
+                            .is_some_and(|identity| identity.capcode.is_some()),
                 },
             )
             .await?,
@@ -1387,21 +1445,30 @@ async fn create_post_in_context(
             crate::posting_cooldown::with_pass_offer(error, late_enabled && !member_network_bypass)
         })?;
     }
+    if let Some(metadata) = &attachment_admission
+        && let Some(rejection) = metadata.duplicate(&mut tx).await?
+    {
+        return Err(StoreError::ImageDuplicate(rejection));
+    }
     // Keep the locked policy outside the savepoint. A rejected post rolls back
     // rollover, counters, attachments and secrets, then persists only its mute.
-    let robot_applies = match staff.as_ref() {
-        None => {
-            board_domain::robot9000::applies_to_post(board.robot9000, None, metadata.options, false)
-        }
-        Some(authority) => authority.identity.is_some_and(|identity| {
-            board_domain::robot9000::applies_to_post(
+    let robot_applies = vip_name.is_none()
+        && match staff.as_ref() {
+            None => board_domain::robot9000::applies_to_post(
                 board.robot9000,
-                identity.capcode,
-                &prepared_options,
-                true,
-            )
-        }),
-    };
+                None,
+                metadata.options,
+                false,
+            ),
+            Some(authority) => authority.identity.is_some_and(|identity| {
+                board_domain::robot9000::applies_to_post(
+                    board.robot9000,
+                    identity.capcode,
+                    &prepared_options,
+                    true,
+                )
+            }),
+        };
     let robot_actor = if robot_applies {
         let key = keys
             .poster_id
