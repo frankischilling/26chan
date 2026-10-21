@@ -75,7 +75,11 @@ Enable the timer through the deployment's normal service-management procedure.
 Without expiry, the per-board 100,000-row history budget eventually refuses new
 known-projection posts. The command never deletes posts or attachments.
 
-The origin transaction stamp is assigned on history insertion using the
-top-level PostgreSQL transaction ID. It remains valid inside nested posting
-savepoints, while old rows retain NULL. Registration cannot use an earlier
+The existing `registration_xid` stamp identifies the top-level PostgreSQL
+transaction. It remains valid inside nested posting savepoints; historical and
+transferred rows keep their existing historical or NULL stamp. Registration cannot use an earlier
 transaction's history to invent a projection for an old post.
+
+Transferred comments change their saved projection. Recomputing their new
+comparison history within the sealed transfer authority remains separate work;
+this migration does not reconstruct unknown projections from rendered HTML.

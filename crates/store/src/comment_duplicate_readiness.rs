@@ -4,7 +4,6 @@ WITH expected(signature, grantees, owner_name) AS (VALUES
  ('content.comment_duplicate_remaining(bytea,text,bytea,bigint)', ARRAY['board_public','board_staff']::text[], 'board_posting_cooldown_owner'),
  ('content.record_comment_projection(bigint,bytea,bytea)', ARRAY['board_public','board_staff']::text[], 'board_posting_cooldown_owner'),
  ('content.expire_comment_history()', ARRAY['board_moderation_retention']::text[], 'board_posting_cooldown_owner'),
- ('content.stamp_posting_history_transaction()', ARRAY[]::text[], 'board_posting_cooldown_owner'),
  ('content.remove_comment_history()', ARRAY[]::text[], 'board_posting_cooldown_owner'),
  ('content.remove_thread_comment_history()', ARRAY[]::text[], 'board_posting_cooldown_owner'),
  ('content.revalidate_staff_quota_refusal(bytea,bytea,integer,text)', ARRAY['board_staff']::text[], 'board_staff_post_owner')

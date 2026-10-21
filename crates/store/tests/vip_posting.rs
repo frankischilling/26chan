@@ -301,6 +301,27 @@ async fn qualify_posting(enabled: bool, images: bool) {
                 sqlx::query("INSERT INTO admission.file_rules(board,digest,active,mode,ban_days,public_reason,description) VALUES($1,$2,true,0,0,'Owned rejection','Owned VIP exemption')")
                     .bind(&board).bind(vec![7_u8;16]).execute(&owner).await.unwrap();
             }
+            // VIP and Pass do not exempt the earlier five-minute comment gate.
+            // The refused attempt must leave both proofs and any upload usable.
+            let duplicate = submit(
+                op,
+                "Owned duplicate originality control",
+                proof(),
+                challenge(),
+                upload.clone(),
+                "fixture".into(),
+            )
+            .await
+            .unwrap_err();
+            assert!(
+                matches!(duplicate, StoreError::ContentRejected(ref message)
+                if message.ends_with("before posting a duplicate reply.")),
+                "{duplicate:?}"
+            );
+            // Keep the original R9K originality record, but age the source
+            // duplicate-comment candidate beyond its separate finite window.
+            sqlx::query("UPDATE content.posts SET created_at=clock_timestamp()-interval '301 seconds' WHERE id=$1 AND board=$2")
+                .bind(op).bind(&board).execute(&owner).await.unwrap();
             // The post INSERT consumes its receipt before deletion storage. This
             // deliberately oversized owned hash causes a later SQL failure.
             let late = submit(
