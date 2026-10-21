@@ -4,13 +4,13 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { chromium, expect } from '@playwright/test';
+import { uploadFixtureTag } from './helpers/upload-fixture-tag.js';
 import { saveWatcherSettings } from './helpers/watcher-settings.js';
 import { assertViewportFit, qualifyOverflowGuard } from './helpers/viewport-fit.js';
 
 const origin = new URL(process.argv[2]);
 const board = process.argv[3];
 const source = process.argv[4];
-const fixtureTag = createHash('sha256').update(path.basename(source)).digest('hex').slice(0, 12);
 const outputExtension = ['.gif','.webm','.mp4'].includes(path.extname(source)) ? path.extname(source) : '.png';
 const video = ['.webm','.mp4'].includes(outputExtension);
 const outputMime = video ? `video/${outputExtension.slice(1)}` : outputExtension === '.gif' ? 'image/gif' : 'image/png';
@@ -19,6 +19,7 @@ assert.ok(flags.length <= 2 && new Set(flags).size === flags.length
   && flags.every(flag => ['--attachment-only', '--javascript'].includes(flag)));
 const attachmentOnly = flags.includes('--attachment-only');
 const javascript = flags.includes('--javascript');
+const fixtureTag = uploadFixtureTag(source, flags);
 const screenshots = process.env.PUBLIC_UPLOAD_SCREENSHOTS;
 if (screenshots) assert.ok(path.isAbsolute(screenshots));
 assert.equal(origin.hostname, '127.0.0.1');

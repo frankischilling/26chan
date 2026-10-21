@@ -12,6 +12,7 @@ const boundedDrawing = `timeout 300s ${drawing}`;
 const prerequisites = [
   'cargo build --workspace --examples --bins --locked',
   'cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked',
+  'cargo test -p board-public --all-features --locked --test upload_browser',
   'cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture',
   'cargo test -p board-store -p board-verification --all-features --locked',
   'cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact', 'cargo test -p board-verification-mailer --all-features --locked delivery_tests::pass_delivery_changes_expiry_state_only_after_relay_acceptance -- --ignored --exact',
@@ -62,12 +63,13 @@ timeout 300s npm run test:math
 npm run test:math
 python3 scripts/check-windows-test-exits.py
 npm run test:settings-categories
-node --test tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs tests/helpers/viewport-fit.test.mjs
+node --test tests/browser/upload-fixture-tag.test.mjs tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs tests/helpers/viewport-fit.test.mjs
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 python3 scripts/check-media-parser-dependencies.py
 cargo build --workspace --examples --bins --locked
 cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked
+cargo test -p board-public --all-features --locked --test upload_browser
 cargo test -p board-public --all-features --locked --test vip_posting -- --ignored --nocapture
 cargo test -p board-store -p board-verification --all-features --locked
 cargo test -p board-verification-mailer --all-features --locked delivery_tests::delivery_acknowledges_only_accepted_local_mail -- --ignored --exact

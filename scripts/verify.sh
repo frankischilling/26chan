@@ -57,12 +57,14 @@ early_browser_checks() {
 }
 
 rust_checks() {
-  node --test tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs tests/helpers/viewport-fit.test.mjs
+  node --test tests/browser/upload-fixture-tag.test.mjs tests/browser/posting-captcha-state.test.mjs tests/browser/posting-captcha.test.mjs tests/browser/staff-auth-budget.test.mjs tests/browser/owned-upload-response.test.mjs tests/browser/deletion-quota-fixture.test.mjs tests/helpers/verify-runner.test.mjs tests/helpers/source-link-page.test.mjs tests/helpers/viewport-fit.test.mjs
   cargo fmt --all -- --check
   cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
   python3 scripts/check-media-parser-dependencies.py
   cargo build --workspace --examples --bins --locked
   cargo build -p board-public --example deletion-quota-fixture --features browser-tests --locked
+  # Catch the six upload-mode browser workflows before the longer database suite.
+  cargo test -p board-public --all-features --locked --test upload_browser
   # Only these explicit verification fixtures receive the isolated issuer and delivery roles.
   (
     source .local/verification-tests.env

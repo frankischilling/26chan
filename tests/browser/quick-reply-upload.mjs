@@ -2,7 +2,7 @@
 // HTTP authority and the one-use approval issued to its own upload.
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
+import { uploadFixtureTag } from './helpers/upload-fixture-tag.js';
 import { chromium, expect } from '@playwright/test';
 import { observeOwnedDeletionResponse, observeOwnedUploadResponse } from './owned-upload-response.mjs';
 
@@ -19,7 +19,7 @@ for (const name of Object.keys(process.env)) {
     'browser qualification must not inherit service credentials');
 }
 const password = 'owned-quick-reply-upload-password';
-const fixtureTag = createHash('sha256').update(path.basename(source)).digest('hex').slice(0, 12);
+const fixtureTag = uploadFixtureTag(source, flags);
 const threadComment = `Owned image Quick Reply thread ${fixtureTag}`;
 const followupComment = `Text after the consumed image ${fixtureTag}`;
 let browser;
