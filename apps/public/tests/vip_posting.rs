@@ -130,15 +130,28 @@ async fn qualify_public_vip(browser: bool) {
             let mut cookie = String::new();
             let mut posted = Vec::new();
             for (number, multipart) in [false, true, false].into_iter().enumerate() {
+                // Keep identical Robot9000 normalization without reusing exact
+                // source projection bytes inside the separate five-minute gate.
+                let comment = format!(
+                    "Same original comment is allowed only for verified badges{}",
+                    "!".repeat(number)
+                );
+                assert_eq!(
+                    board_domain::robot9000::prepare(&comment)
+                        .unwrap()
+                        .normalized,
+                    board_domain::robot9000::prepare(
+                        "Same original comment is allowed only for verified badges"
+                    )
+                    .unwrap()
+                    .normalized
+                );
                 let target = target.to_string();
                 let options = format!("capcode_!owned-public-vip!{password}");
                 let fields = [
                     ("resto", target.as_str()),
                     ("name", "Untrusted name"),
-                    (
-                        "com",
-                        "Same original comment is allowed only for verified badges",
-                    ),
+                    ("com", comment.as_str()),
                     ("email", options.as_str()),
                     ("mode", "regist"),
                 ];
@@ -211,7 +224,9 @@ async fn qualify_public_vip(browser: bool) {
                         .unwrap()
                 } else {
                     let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-                    json["pid"].as_i64().unwrap()
+                    json["pid"]
+                        .as_i64()
+                        .expect("Verified posting must reach successful admission")
                 };
                 posted.push(id);
                 let row: (String, Option<String>, bool) = sqlx::query_as(

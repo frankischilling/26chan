@@ -1,4 +1,6 @@
 #![cfg(feature = "database-tests")]
+#[path = "support/posting.rs"]
+mod posting_fixture;
 
 use axum::{
     Router,
@@ -41,6 +43,7 @@ async fn post(app: &Router, board: &str, parent: i64, peer: &str) -> i64 {
     serde_json::from_slice::<Value>(&to_bytes(response.into_body(), 8192).await.unwrap()).unwrap()["pid"].as_i64().unwrap()
 }
 fn post_request(board: &str, parent: i64, peer: Option<&str>) -> Request<Body> {
+    let comment = posting_fixture::distinct_comment("Owned count").replace(' ', "+");
     let mut request = Request::post(format!("/{board}/post"))
         .header("origin", "https://boards.example.com")
         .header("content-type", "application/x-www-form-urlencoded")
@@ -48,7 +51,7 @@ fn post_request(board: &str, parent: i64, peer: Option<&str>) -> Request<Body> {
         .header("x-forwarded-for", "198.51.100.200")
         .header("x-board-client-ip", "198.51.100.201")
         .body(Body::from(format!(
-            "resto={parent}&name=Owned&sub=Owned&com=Owned+count&pwd=owned-counter-password"
+            "resto={parent}&name=Owned&sub=Owned&com={comment}&pwd=owned-counter-password"
         )))
         .unwrap();
     if let Some(peer) = peer {

@@ -27,7 +27,7 @@ struct Fixture {
 
 impl Fixture {
     async fn post(&self, parent: i64) -> i64 {
-        posting::create_post(
+        posting::create_independent_post(
             &self.public,
             &self.board,
             parent,

@@ -57,7 +57,7 @@ async fn spoiler_choice_uses_policy_after_an_observed_board_lock_wait() {
             let mut blocker=owned.begin().await.unwrap();
             let pid:i32=sqlx::query_scalar("SELECT pg_backend_pid()").fetch_one(&mut *blocker).await.unwrap();
             sqlx::query("SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE").bind(&run_board).fetch_one(&mut *blocker).await.unwrap();
-            let request=form(&run_board,"imgboard.php",&[("resto",op.to_string()),("pwd","owned-policy-wait-password".into()),("com","Owned policy wait reply".into()),("spoiler","on".into())],true);
+            let request=form(&run_board,"imgboard.php",&[("resto",op.to_string()),("pwd","owned-policy-wait-password".into()),("com",posting::distinct_comment("Owned policy wait reply")),("spoiler","on".into())],true);
             let sender=tokio::spawn(app.clone().oneshot(request));
             tokio::time::timeout(std::time::Duration::from_secs(10),async {
                 loop {
@@ -298,7 +298,10 @@ async fn public_spoilers_match_source_scalar_policy_and_attachment_independence(
                 ("mode", "regist".into()),
                 ("pwd", "owned-spoiler-password".into()),
                 ("sub", case["subject"].as_str().unwrap().into()),
-                ("com", "Owned synthetic spoiler body".into()),
+                (
+                    "com",
+                    posting::distinct_comment("Owned synthetic spoiler body"),
+                ),
             ];
             if let Some(value) = case["raw_flag"].as_str() {
                 fields.push(("spoiler", value.into()));

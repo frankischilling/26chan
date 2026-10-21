@@ -17,7 +17,7 @@ fn post(sage: bool) -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: String::new(),
-        comment: "Owned OP bump fixture".into(),
+        comment: posting_fixture::distinct_comment("Owned OP bump fixture"),
         deletion_hash: "unused-fixture-hash".into(),
         sage,
     }
@@ -204,7 +204,9 @@ impl Fixture {
                             .header("x-forwarded-for", "203.0.113.99")
                             .header("forwarded", "for=203.0.113.99")
                             .body(Body::from(format!(
-                                "resto={parent}&com=Owned+HTTP+fixture&pwd=owned-secret"
+                                "resto={parent}&com={}&pwd=owned-secret",
+                                posting_fixture::distinct_comment("Owned HTTP fixture")
+                                    .replace(' ', "+")
                             )))
                             .unwrap(),
                     )

@@ -26,7 +26,14 @@ async fn submit(
         ("resto", parent.to_string()),
         ("name", "Owned <name>#trip".to_owned()),
         ("sub", "Owned subject".to_owned()),
-        ("com", comment.to_owned()),
+        (
+            "com",
+            if comment.is_empty() {
+                String::new()
+            } else {
+                posting_fixture::distinct_comment(comment)
+            },
+        ),
         ("pwd", "owned-password".to_owned()),
     ];
     let (kind, body) = if index & 1 == 0 {

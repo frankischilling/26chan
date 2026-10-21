@@ -27,7 +27,7 @@ fn post(comment: &str) -> NewPost {
 }
 
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-    let thread = posting_fixture::create_post(&public, &slug, 0, &post("Owned OP"))
+    let thread = posting_fixture::create_independent_post(&public, &slug, 0, &post("Owned OP"))
         .await
         .unwrap();
     // Policy changes apply only to new posts, including an existing unnormalized row.
@@ -65,7 +65,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     {
         sqlx::query("UPDATE content.boards SET comment_code_spacing=$2,comment_sjis_spacing=$3 WHERE slug=$1")
             .bind(&slug).bind(code).bind(sjis).execute(&owner).await.unwrap();
-        let id = posting_fixture::create_post(&public, &slug, thread, &post(raw))
+        let id = posting_fixture::create_independent_post(&public, &slug, thread, &post(raw))
             .await
             .unwrap();
         assert_eq!(
@@ -104,6 +104,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .clone()
             .oneshot(
                 Request::post(format!("/{slug}/{route}"))
+                    .extension(posting_fixture::distinct_transport(&slug))
                     .header("origin", "http://127.0.0.1:3000")
                     .header("accept", "application/json")
                     .header("content-type", content_type)
@@ -200,7 +201,8 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             let public = public.clone();
             let slug = slug.clone();
             tokio::spawn(async move {
-                posting_fixture::create_post(&public, &slug, thread, &post("Ａ\t  B😀")).await
+                posting_fixture::create_independent_post(&public, &slug, thread, &post("Ａ\t  B😀"))
+                    .await
             })
         };
         let observed = tokio::time::timeout(Duration::from_secs(5), async {
@@ -231,7 +233,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     .execute(&owner)
     .await
     .unwrap();
-    let id = posting_fixture::create_post(&public, &slug, thread, &post("A\tB"))
+    let id = posting_fixture::create_independent_post(&public, &slug, thread, &post("A\tB"))
         .await
         .unwrap();
     assert_eq!(
@@ -241,7 +243,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .comment,
         "A    B"
     );
-    let id = posting_fixture::create_post(&public, &slug, thread, &post("😀X"))
+    let id = posting_fixture::create_independent_post(&public, &slug, thread, &post("😀X"))
         .await
         .unwrap();
     assert_eq!(
@@ -266,6 +268,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .clone()
                 .oneshot(
                     Request::post(format!("/{slug}/{route}"))
+                        .extension(posting_fixture::distinct_transport(&slug))
                         .header("origin", "http://127.0.0.1:3000")
                         .header("content-type", "application/x-www-form-urlencoded")
                         .body(Body::from(body))
@@ -277,7 +280,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         }
     }
     assert!(matches!(
-        posting_fixture::create_post(&public, &slug, thread, &post(" A  ")).await,
+        posting_fixture::create_independent_post(&public, &slug, thread, &post(" A  ")).await,
         Err(StoreError::Invalid(_))
     ));
     sqlx::query("UPDATE content.boards SET max_comment_chars=16000 WHERE slug=$1")
@@ -286,7 +289,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
     assert!(matches!(
-        posting_fixture::create_post(
+        posting_fixture::create_independent_post(
             &public,
             &slug,
             thread,
@@ -313,9 +316,10 @@ async fn local_quotes(
     slug: &str,
     thread: i64,
 ) {
-    let target = posting_fixture::create_post(public, slug, thread, &post("Owned quote target"))
-        .await
-        .unwrap();
+    let target =
+        posting_fixture::create_independent_post(public, slug, thread, &post("Owned quote target"))
+            .await
+            .unwrap();
     let raw = format!(
         "See >>>/{slug}/{target} and >>>/other/{target}.\n[spoiler]>>>/{slug}/{target}[/spoiler]\n>>>/{slug}/0000 >>>/{slug}/-1"
     );
@@ -365,6 +369,7 @@ async fn local_quotes(
             .clone()
             .oneshot(
                 Request::post(format!("/{slug}/{route}"))
+                    .extension(posting_fixture::distinct_transport(slug))
                     .header("origin", "http://127.0.0.1:3000")
                     .header("accept", "application/json")
                     .header("content-type", content_type)
@@ -451,7 +456,13 @@ async fn local_quotes(
         .unwrap();
     let before = board_store::thread(public, slug, thread).await.unwrap();
     assert!(matches!(
-        posting_fixture::create_post(public, slug, thread, &post(&format!(">>>/{slug}/1"))).await,
+        posting_fixture::create_independent_post(
+            public,
+            slug,
+            thread,
+            &post(&format!(">>>/{slug}/1"))
+        )
+        .await,
         Err(StoreError::Invalid(_))
     ));
     let after = board_store::thread(public, slug, thread).await.unwrap();
@@ -567,7 +578,7 @@ async fn line_rules(app: &axum::Router, owner: &PgPool, public: &PgPool, slug: &
                     assert!(html.contains(error));
                 }
                 assert!(
-                    matches!(posting_fixture::create_post(public, slug, thread, &post(&raw)).await, Err(StoreError::Invalid(message)) if message == error)
+                    matches!(posting_fixture::create_independent_post(public, slug, thread, &post(&raw)).await, Err(StoreError::Invalid(message)) if message == error)
                 );
             }
             let after = board_store::thread(public, slug, thread).await.unwrap();
@@ -606,7 +617,7 @@ async fn line_rules(app: &axum::Router, owner: &PgPool, public: &PgPool, slug: &
             let public = public.clone();
             let slug = slug.to_owned();
             tokio::spawn(async move {
-                posting_fixture::create_post(
+                posting_fixture::create_independent_post(
                     &public,
                     &slug,
                     thread,
@@ -701,6 +712,7 @@ async fn line_request(
     app.clone()
         .oneshot(
             Request::post(format!("/{slug}/{route}"))
+                .extension(posting_fixture::distinct_transport(slug))
                 .header("origin", "http://127.0.0.1:3000")
                 .header("accept", accept)
                 .header("content-type", kind)

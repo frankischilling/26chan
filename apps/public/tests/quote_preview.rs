@@ -184,13 +184,13 @@ mod database {
             deletion_hash: "private-preview-fixture-hash".into(),
             sage: false,
         };
-        let thread = posting_fixture::create_post(&public, &slug, 0, &draft)
+        let thread = posting_fixture::create_independent_post(&public, &slug, 0, &draft)
             .await
             .unwrap();
-        let reply = posting_fixture::create_post(&public, &slug, thread, &draft)
+        let reply = posting_fixture::create_independent_post(&public, &slug, thread, &draft)
             .await
             .unwrap();
-        let sibling = posting_fixture::create_post(&public, &slug, thread, &draft)
+        let sibling = posting_fixture::create_independent_post(&public, &slug, thread, &draft)
             .await
             .unwrap();
         coherent_during_commit(&owner, &slug, thread).await;

@@ -47,7 +47,7 @@ async fn add(pool: &sqlx::PgPool, slug: &str, parent: i64) -> i64 {
         &board_store::NewPost {
             name: "Anonymous".into(),
             subject: "Owned tail test".into(),
-            comment: "Synthetic tail reply".into(),
+            comment: posting_fixture::distinct_comment("Synthetic tail reply"),
             deletion_hash: "owned-fixture-not-a-password-hash".into(),
             sage: false,
         },

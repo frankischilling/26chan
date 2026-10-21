@@ -93,7 +93,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     ];
     let mut ids = Vec::new();
     for (subject, comment, expected) in cases {
-        let id = posting_fixture::create_post(
+        let id = posting_fixture::create_independent_post(
             &public,
             &slug,
             0,
@@ -118,7 +118,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 .await
                 .unwrap();
         }
-        let reply = posting_fixture::create_post(
+        let reply = posting_fixture::create_independent_post(
             &public,
             &slug,
             id,
@@ -133,7 +133,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         .await
         .unwrap();
         // Tail publication starts at twice the configured tail size.
-        posting_fixture::create_post(
+        posting_fixture::create_independent_post(
             &public,
             &slug,
             id,
@@ -153,7 +153,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     // preview by one. The omission link stays canonical even when the OP's
     // Reply link carries source context.
     for _ in 0..4 {
-        posting_fixture::create_post(
+        posting_fixture::create_independent_post(
             &public,
             &slug,
             ids[0].0,

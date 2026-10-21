@@ -37,13 +37,13 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         deletion_hash: "owned-link-hash".into(),
         sage: false,
     };
-    let thread = posting_fixture::create_post(&public, &slug, 0, &draft)
+    let thread = posting_fixture::create_independent_post(&public, &slug, 0, &draft)
         .await
         .unwrap();
-    let reply = posting_fixture::create_post(&public, &slug, thread, &draft)
+    let reply = posting_fixture::create_independent_post(&public, &slug, thread, &draft)
         .await
         .unwrap();
-    let other = posting_fixture::create_post(&public, &slug, 0, &draft)
+    let other = posting_fixture::create_independent_post(&public, &slug, 0, &draft)
         .await
         .unwrap();
     let (app, api) = posting_fixture::routers(public, &slug, "http://127.0.0.1:3000".into(), false);

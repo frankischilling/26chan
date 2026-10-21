@@ -37,7 +37,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     let post = NewPost {
         name: "Anonymous".into(),
         subject: "Owned clocks".into(),
-        comment: "Owned timestamp fixture".into(),
+        comment: posting_fixture::distinct_comment("Owned timestamp fixture"),
         deletion_hash: "unused-owned-hash".into(),
         sage: false,
     };

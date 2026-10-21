@@ -43,7 +43,7 @@ pub async fn exercise(app: &Router, owner: &PgPool, public: &PgPool, slug: &str,
         let fields = [
             ("mode", "regist".to_owned()),
             ("resto", thread.to_string()),
-            ("com", "Owned subject reply".to_owned()),
+            ("com", format!("Owned subject reply {index}")),
             ("sub", raw.to_owned()),
             ("pwd", "owned-password".to_owned()),
         ];

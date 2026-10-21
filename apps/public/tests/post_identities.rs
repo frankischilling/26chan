@@ -1,4 +1,6 @@
 #![cfg(feature = "database-tests")]
+#[path = "support/posting.rs"]
+mod posting_fixture;
 
 use axum::{
     Router,
@@ -242,7 +244,10 @@ async fn post(app: &Router, board: &str, parent: i64, name: &str, index: usize) 
         ("resto", parent.to_string()),
         ("name", name.to_owned()),
         ("sub", "Owned identity".into()),
-        ("com", "Owned harmless comment".into()),
+        (
+            "com",
+            posting_fixture::distinct_comment("Owned harmless comment"),
+        ),
         ("pwd", "owned-deletion-password".into()),
     ];
     let (kind, body) = if index & 1 == 0 {

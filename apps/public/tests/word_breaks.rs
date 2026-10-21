@@ -1,13 +1,13 @@
 #![cfg(feature = "database-tests")]
+#[path = "support/posting.rs"]
+mod posting_fixture;
 use axum::{
     Router,
     body::{Body, to_bytes},
-    extract::ConnectInfo,
     http::Request,
 };
 use rand_core::{OsRng, RngCore};
 use sqlx::PgPool;
-use std::net::SocketAddr;
 use tower::ServiceExt;
 
 fn comment() -> String {
@@ -63,9 +63,7 @@ async fn submit(app: &Router, slug: &str, parent: i64, mode: usize) -> i64 {
                         "text/html"
                     },
                 )
-                .extension(ConnectInfo(
-                    "192.0.2.10:1234".parse::<SocketAddr>().unwrap(),
-                ))
+                .extension(posting_fixture::distinct_transport(slug))
                 .body(Body::from(body))
                 .unwrap(),
         )

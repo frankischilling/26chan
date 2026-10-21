@@ -77,7 +77,7 @@ async fn sticky_window_admits_upload_preflight_and_publishes_surviving_json_on_b
         deletion_hash: "synthetic-password-proof".into(),
         sage: false,
     };
-    let op = posting::create_post(&public, &board, 0, &post)
+    let op = posting::create_independent_post(&public, &board, 0, &post)
         .await
         .unwrap();
     sqlx::query("UPDATE content.threads SET sticky=true,undead=true WHERE board=$1 AND id=$2")
@@ -89,7 +89,7 @@ async fn sticky_window_admits_upload_preflight_and_publishes_surviving_json_on_b
     let mut ids = Vec::new();
     for _ in 0..3 {
         ids.push(
-            posting::create_post(&public, &board, op, &post)
+            posting::create_independent_post(&public, &board, op, &post)
                 .await
                 .unwrap(),
         );
@@ -120,7 +120,7 @@ async fn sticky_window_admits_upload_preflight_and_publishes_surviving_json_on_b
         upload_preflight(&web, &board, op).await,
         StatusCode::UNPROCESSABLE_ENTITY
     );
-    let next = posting::create_post(&public, &board, op, &post)
+    let next = posting::create_independent_post(&public, &board, op, &post)
         .await
         .unwrap();
     ids.remove(0);

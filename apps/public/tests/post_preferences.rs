@@ -1,4 +1,6 @@
 #![cfg(feature = "database-tests")]
+#[path = "support/posting.rs"]
+mod posting_fixture;
 
 use axum::{
     Router,
@@ -31,7 +33,10 @@ async fn submit(
         ("resto", thread.to_string()),
         ("name", name.to_string()),
         ("email", options.to_string()),
-        ("com", "Owned preference integration".into()),
+        (
+            "com",
+            posting_fixture::distinct_comment("Owned preference integration"),
+        ),
         ("sub", "Owned preferences".into()),
         ("pwd", "owned-preferences-password".into()),
     ];

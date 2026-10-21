@@ -1,4 +1,6 @@
 #![cfg(feature = "database-tests")]
+#[path = "support/posting.rs"]
+mod posting_fixture;
 
 use axum::{
     Router,
@@ -26,7 +28,7 @@ async fn submit_response(
         ("mode", "regist".into()),
         ("resto", parent.to_string()),
         ("sub", "Owned OP markup".into()),
-        ("com", RAW.into()),
+        ("com", posting_fixture::distinct_comment(RAW)),
         ("pwd", password.into()),
     ];
     let (content_type, body) = if mode & 1 == 0 {

@@ -25,9 +25,10 @@ fn form(path: &str, name: &str, subject: &str) -> Request<Body> {
         .header("origin", "http://127.0.0.1:3000")
         .header("content-type", "application/x-www-form-urlencoded")
         .body(Body::from(format!(
-            "name={}&sub={}&com=Synthetic+field+boundary&password=owned-field-password&resto=0",
+            "name={}&sub={}&com={}&password=owned-field-password&resto=0",
             encode(name),
-            encode(subject)
+            encode(subject),
+            encode(&posting::distinct_comment("Synthetic field boundary"))
         )))
         .unwrap()
 }

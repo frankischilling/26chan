@@ -1,4 +1,6 @@
 #![cfg(feature = "database-tests")]
+#[path = "support/posting.rs"]
+mod posting_fixture;
 
 use axum::{
     Router,
@@ -59,13 +61,14 @@ async fn post_response(
     email: &str,
     expected_status: u16,
 ) -> Value {
+    let comment = posting_fixture::distinct_comment("Owned poster identity").replace(' ', "+");
     let mut request = Request::post(format!("/{board}/post"))
         .header("origin", "https://boards.example.com")
         .header("content-type", "application/x-www-form-urlencoded")
         .header("accept", "application/json")
         .header("x-forwarded-for", "198.51.100.200")
         .header("x-board-client-ip", "198.51.100.201")
-        .body(Body::from(format!("resto={parent}&name=Owned&sub=Owned&com=Owned+poster+identity&pwd=owned-poster-password&email={email}"))).unwrap();
+        .body(Body::from(format!("resto={parent}&name=Owned&sub=Owned&com={comment}&pwd=owned-poster-password&email={email}"))).unwrap();
     if let Some(peer) = peer {
         request.extensions_mut().insert(axum::extract::ConnectInfo(
             peer.parse::<SocketAddr>().unwrap(),

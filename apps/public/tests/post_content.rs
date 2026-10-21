@@ -85,6 +85,7 @@ async fn submit_options(
     app.clone()
         .oneshot(
             Request::post(format!("/{slug}/{route}"))
+                .extension(posting::distinct_transport(slug))
                 .header("origin", "http://127.0.0.1:3000")
                 .header("accept", accept)
                 .header("content-type", kind)
@@ -217,7 +218,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                     comment: raw.into(),
                     ..post("")
                 };
-                let result = posting::create_post(&public, &slug, parent, &draft).await;
+                let result = posting::create_independent_post(&public, &slug, parent, &draft).await;
                 if blank {
                     let expected = if parent == 0 {
                         "Error: New threads require a subject or comment."
@@ -260,7 +261,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             let public = public.clone();
             let slug = slug.clone();
             tokio::spawn(async move {
-                posting::create_post(
+                posting::create_independent_post(
                     &public,
                     &slug,
                     thread,

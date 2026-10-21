@@ -50,7 +50,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     let mut ids = Vec::new();
     for mask in 0i16..8 {
         set_policy(&owner, &slug, mask).await;
-        let id = posting_fixture::create_post(&public, &slug, 0, &post())
+        let id = posting_fixture::create_independent_post(&public, &slug, 0, &post())
             .await
             .unwrap();
         let saved = board_store::find_post(&public, &slug, id).await.unwrap();
@@ -150,7 +150,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         ),
     ] {
         set_policy(&owner, &slug, mask).await;
-        let id = posting_fixture::create_post(
+        let id = posting_fixture::create_independent_post(
             &public,
             &slug,
             0,
@@ -207,7 +207,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             ),
             (">>>/unknown/term", "&gt;&gt;&gt;/unknown/term"),
         ] {
-            let id = posting_fixture::create_post(
+            let id = posting_fixture::create_independent_post(
                 &public,
                 &slug,
                 0,
@@ -428,7 +428,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         let task_pool = public.clone();
         let task_slug = slug.clone();
         let insertion = tokio::spawn(async move {
-            posting_fixture::create_post(&task_pool, &task_slug, 0, &post()).await
+            posting_fixture::create_independent_post(&task_pool, &task_slug, 0, &post()).await
         });
         let mut witnessed = false;
         for _ in 0..100 {

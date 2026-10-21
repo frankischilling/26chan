@@ -168,7 +168,8 @@ class PublicUpload:
         assert sql(f"SELECT posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards WHERE slug='{self.board}';") == '0|0|0'
         # Only the trusted supervisor can touch private admission state. Both
         # full actor identity and owned board scope must match; no global reset.
-        for table in ('posting_history', 'posting_thread_actions'):
+        # Each completed upload/drawing phase is an independent admission case.
+        for table in ('posting_history', 'posting_thread_actions', 'comment_history'):
             sql(f"DELETE FROM post_secrets.{table} WHERE actor_hash=decode('{self._posting_actor_hex()}','hex') AND board='{self.board}';")
 
     def reset_deletion_quota(self):

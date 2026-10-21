@@ -154,7 +154,7 @@ async fn owned_posts_match_ssr_and_follow_reply_and_thread_deletion() {
         } else {
             resto
         };
-        let response = request(&app, "POST", "/fixture/post", format!("resto={parent}&name=Snapshot&sub=Shared%20markup&com=%3Cscript%3Ealert%281%29%3C%2Fscript%3E&password={password}")).await;
+        let response = request(&app, "POST", "/fixture/post", format!("resto={parent}&name=Snapshot&sub=Shared%20markup&com=%3Cscript%3Ealert%281%29%3C%2Fscript%3E+{parent}&password={password}")).await;
         assert_eq!(response.status(), 303);
         let location = response.headers()["location"].to_str().unwrap();
         let id = location
