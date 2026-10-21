@@ -12,7 +12,7 @@ fn post(subject: &str) -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: subject.into(),
-        comment: "Owned subject post".into(),
+        comment: super::posting_fixture::distinct_comment("Owned subject post"),
         deletion_hash: "owned-test-hash".into(),
         sage: false,
     }
