@@ -2,6 +2,7 @@
 // synthetic credentials supplied on stdin; no database authority reaches Chrome.
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
+import { observeOwnedUploadResponse } from './owned-upload-response.mjs';
 let input = '';
 for await (const chunk of process.stdin) { input += chunk; assert.ok(input.length <= 4096); }
 const { origin, board, target, credential } = JSON.parse(input);
@@ -41,11 +42,11 @@ try {
       await qr.locator('#qrEmail').fill(credential);
       await qr.locator('#qrCom').fill('Owned verified browser duplicate control');
       stage = `${mode}-submit`;
-      const pending = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/${board}/imgboard.php`);
+      const pending = await observeOwnedUploadResponse(page, `${origin}/${board}/imgboard.php`, 'post');
       await qr.locator('input[type=submit]').click();
-      const response = await pending;
-      assert.equal(response.status(), 200);
-      const result = await response.json(); assert.equal(result.tid, Number(target));
+      const { status, result } = await pending();
+      assert.equal(status, 200);
+      assert.equal(result.tid, Number(target));
       assert.ok(Number.isSafeInteger(result.pid) && result.pid > 0); id = String(result.pid);
       await expect(qr.locator('#qrCom')).toHaveValue('');
       stage = `${mode}-inserted-header`;
