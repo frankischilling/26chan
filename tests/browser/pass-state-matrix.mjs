@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { passWritePacer } from './pass-state-pacing.mjs';
+import { observeOwnedUploadResponse } from './owned-upload-response.mjs';
 import { mkdir } from 'node:fs/promises';
 const mode = process.argv[2];
 assert.ok(['http', 'browser', 'noscript'].includes(mode));
@@ -138,9 +139,10 @@ async function browserCases() {
         await expect(qr.locator('[data-posting-captcha]')).toBeHidden();
         await qr.locator('[name="com"]').fill(`Owned Pass ${row.name} Quick Reply`);
         await qr.locator('[name="email"]').fill('since4pass');
-        const response = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === `${fixture.origin}/${fixture.board}/imgboard.php`);
+        const response = await observeOwnedUploadResponse(page, `${fixture.origin}/${fixture.board}/imgboard.php`, 'post');
         await qr.locator('input[type="submit"]').click();
-        const saved = await (await response).json(); assert.equal(saved.error, undefined); assert.equal(saved.tid, thread);
+        const { status, result: saved } = await response();
+        assert.equal(status, 200); assert.equal(saved.error, undefined); assert.equal(saved.tid, thread);
         posted.push({ id: saved.pid, account: row.account, year: 2020 });
         await expect(qr.locator('[name="com"]')).toHaveValue('');
         const data = await api(thread); safe(data); assert.equal(data.posts.length, 2);
