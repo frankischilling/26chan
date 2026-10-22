@@ -224,10 +224,23 @@ pub async fn ready(pool: &PgPool) -> Result<bool, TransferError> {
         "board_staff" => "SELECT content.text_thread_transfer_ready()",
         _ => return Err(TransferError::Forbidden),
     };
-    sqlx::query_scalar(query)
+    let sealed: bool = sqlx::query_scalar(query)
         .fetch_one(pool)
         .await
-        .map_err(database_error)
+        .map_err(database_error)?;
+    if !sealed {
+        return Ok(false);
+    }
+    // Require the comparison-aware issuer without resolving a private schema
+    // through a role that deliberately has no USAGE privilege on that schema.
+    sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace \
+         WHERE n.nspname='staff_identity' AND p.proname='seal_text_thread_transfer_comparisons' \
+         AND p.pronargs=11 AND p.prosecdef AND p.proowner='board_thread_transfer_owner'::regrole)",
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(database_error)
 }
 
 pub async fn prepare(
@@ -296,6 +309,7 @@ struct SealedRows {
     new: Vec<i64>,
     comments: Vec<String>,
     presentations: Vec<Vec<u8>>,
+    original_comparisons: Vec<Vec<u8>>,
     search: Vec<String>,
 }
 
@@ -305,6 +319,7 @@ fn format_snapshot(rows: &[PreparedRow]) -> Result<SealedRows, TransferError> {
         new: Vec::with_capacity(rows.len()),
         comments: Vec::with_capacity(rows.len()),
         presentations: Vec::with_capacity(rows.len()),
+        original_comparisons: Vec::with_capacity(rows.len()),
         search: Vec::with_capacity(rows.len()),
     };
     let mut replacements = Vec::with_capacity(rows.len());
@@ -326,6 +341,7 @@ fn format_snapshot(rows: &[PreparedRow]) -> Result<SealedRows, TransferError> {
             limits,
         })
         .map_err(presentation_error)?;
+        let original_comparison = frozen.source_comparison_hash();
         frozen
             .rewrite_prior(&replacements, &mut budget)
             .map_err(presentation_error)?;
@@ -352,6 +368,9 @@ fn format_snapshot(rows: &[PreparedRow]) -> Result<SealedRows, TransferError> {
         output.new.push(row.destination_post_id);
         output.comments.push(comment);
         output.presentations.push(presentation);
+        output
+            .original_comparisons
+            .push(original_comparison.to_vec());
         output.search.push(search);
         replacements.push(
             PriorReplacement::new(row.source_post_id, row.destination_post_id)
@@ -380,7 +399,7 @@ pub async fn seal(
     .map_err(|_| TransferError::Format)??;
     let mut tx = begin(auth_pool).await?;
     sqlx::query(
-        "SELECT staff_identity.seal_text_thread_transfer($1,$2,$3,$4,1::smallint,$5,$6,$7,$8,$9)",
+        "SELECT staff_identity.seal_text_thread_transfer_comparisons($1,$2,$3,$4,1::smallint,$5,$6,$7,$8,$9,$10)",
     )
     .bind(prepared.ticket.0.as_slice())
     .bind(credentials.session_hash.as_slice())
@@ -391,6 +410,7 @@ pub async fn seal(
     .bind(&output.comments)
     .bind(&output.presentations)
     .bind(&output.search)
+    .bind(&output.original_comparisons)
     .execute(&mut *tx)
     .await
     .map_err(database_error)?;

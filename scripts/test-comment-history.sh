@@ -100,13 +100,51 @@ DO $$ BEGIN
  RAISE EXCEPTION 'Expiry removed content or recent history'; END IF;
 END $$;
 SQL
+history_fingerprint() {
+    "${psql[@]}" -d "$1" -Atc "SELECT encode(sha256(convert_to(coalesce(string_agg(to_jsonb(h)::text,'' ORDER BY post_id),''),'UTF8')),'hex') FROM post_secrets.comment_history h"
+}
+history_before=$(history_fingerprint comment_history)
+# An unsealed schema change must not be silently accepted by the upgrade.
+if "${migrator[@]}" -c BEGIN -c 'ALTER TABLE post_secrets.comment_history ADD COLUMN owned_transfer_drift boolean' \
+    -f migrations/0244_transfer_comment_history.sql -c ROLLBACK > "$cluster/transfer-drift.log" 2>&1; then
+    echo 'Transfer upgrade accepted unsealed history drift' >&2
+    exit 1
+fi
+# The transfer upgrade preserves already retained rows and changes only sealed
+# authority. Rollback must remove the new issuer and column completely.
+"${migrator[@]}" -c BEGIN -f migrations/0244_transfer_comment_history.sql -c ROLLBACK >/dev/null
+"${psql[@]}" -d comment_history <<'SQL'
+DO $$ BEGIN
+ IF to_regprocedure('staff_identity.seal_text_thread_transfer_comparisons(bytea,bytea,bytea,bytea,smallint,bigint[],bigint[],text[],bytea[],text[],bytea[])') IS NOT NULL
+ OR EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='post_secrets.thread_transfer_sealed_rows'::regclass AND attname='original_comparison' AND NOT attisdropped)
+ OR (SELECT count(*) FROM post_secrets.comment_history)<>2
+ OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
+ RAISE EXCEPTION 'Transfer comparison rollback changed history or authority'; END IF;
+END $$;
+SQL
+"${migrator[@]}" --single-transaction -f migrations/0244_transfer_comment_history.sql >/dev/null
+"${psql[@]}" -d comment_history <<'SQL'
+DO $$ BEGIN
+ IF (SELECT count(*) FROM post_secrets.comment_history)<>2
+ OR EXISTS(SELECT 1 FROM post_secrets.thread_transfer_sealed_rows)
+ OR content.text_thread_transfer_ready() IS DISTINCT FROM true THEN
+ RAISE EXCEPTION 'Transfer comparison upgrade changed retained data or authority'; END IF;
+ IF has_table_privilege('board_auth','post_secrets.comment_history','SELECT')
+ OR has_table_privilege('board_staff','post_secrets.comment_history','SELECT')
+ OR has_table_privilege('board_thread_transfer_owner','post_secrets.comment_history','DELETE,TRUNCATE') THEN
+ RAISE EXCEPTION 'Transfer comparison upgrade expanded runtime or erasure authority'; END IF;
+END $$;
+SQL
+[[ $(history_fingerprint comment_history) = "$history_before" ]]
 "${runner[@]}" "$pg_bin/pg_dump" -h 127.0.0.1 -p 15458 -U postgres -d comment_history > "$cluster/restore.sql"
 "${psql[@]}" -d postgres -c 'CREATE DATABASE comment_history_restore OWNER board_migrator'
 "${psql[@]}" -d comment_history_restore -f "$cluster/restore.sql" >/dev/null
 "${psql[@]}" -d comment_history_restore <<'SQL'
 DO $$ BEGIN
- IF content.restrictions_ready() IS DISTINCT FROM true OR (SELECT count(*) FROM post_secrets.comment_history)<>2 THEN
+ IF content.restrictions_ready() IS DISTINCT FROM true OR content.text_thread_transfer_ready() IS DISTINCT FROM true
+ OR (SELECT count(*) FROM post_secrets.comment_history)<>2 THEN
  RAISE EXCEPTION 'Restore changed comment authority'; END IF;
 END $$;
 SQL
-printf 'Comment history upgrade, rollback, bounded expiry and restore passed\n'
+[[ $(history_fingerprint comment_history_restore) = "$history_before" ]]
+printf 'Comment and transfer history upgrade, rollback, bounded expiry and restore passed\n'

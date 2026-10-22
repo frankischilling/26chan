@@ -20,7 +20,7 @@ SELECT
  AND EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
   WHERE n.nspname='post_secrets' AND c.relname='comment_history'
   AND c.relowner='board_migrator'::regrole AND c.relkind='r' AND c.relpersistence='p'
-  AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname NOT IN('board_migrator','board_posting_cooldown_owner')
+  AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname NOT IN('board_migrator','board_posting_cooldown_owner','board_thread_transfer_owner')
     AND left(r.rolname,3)<>'pg_' AND NOT r.rolsuper AND (has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
      OR has_any_column_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES'))))
 "#;

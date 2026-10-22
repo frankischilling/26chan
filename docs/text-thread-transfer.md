@@ -101,6 +101,34 @@ deparse with fixed timestamp settings so administrator dump/restore remains
 valid when object IDs and redundant expression parentheses change. Altered
 constraints, privileges or trigger gates still fail readiness.
 
+## Duplicate-comment history
+
+Migration 0244 extends the sealed handoff with the original frozen comment's
+comparison digest. The auth process computes it before ordered quote replacement.
+The content consumer locks any known private comparison rows, checks those
+original digests, and records a digest of each sealed replacement comment. It
+copies the actor and request time; the transferred post already keeps its original
+creation time. Moving a thread does not restart the five-minute window.
+
+Unknown historical comparisons stay unknown. The consumer does not infer them
+from rendered HTML. A known comparison that cannot be reproduced is refused with
+no destination posts, source deletion or audit receipt committed. This fail-closed
+provenance check also rejects a pre-upgrade sealed request that lacks the required
+comparison assertion. A new request can be prepared after upgrading the binaries.
+
+The private transfer owner receives SELECT, INSERT and UPDATE on the post-ID
+column of comparison history. PostgreSQL needs that column permission for row
+locks; no runtime inherits the owner. Public, staff and auth processes still have
+no raw history access. The transfer checks the destination's 100,000-row comparison
+budget before insertion. It uses NOWAIT for retained-history locks, preserving the
+existing whole-transaction contention behavior. Expiry, source deletion and the
+new comparison rows remain under their existing dedicated authorities.
+
+Tests cover a real duplicate refusal after quote rewriting, strict time boundaries,
+repeated moves, missing history, mismatched digests, private-role denials, row-lock
+contention, rollback and administrator dump/restore. The source's deployed SQL
+collation and EXIF comparison provenance remain tracked separately in issue #213.
+
 ## Remaining qualification
 
 The domain suite currently passes 246 tests, including 23 frozen-presentation

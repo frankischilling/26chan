@@ -385,6 +385,19 @@ impl FrozenPresentation {
         crate::filtered_formatting::source_projection(&self.lines(false))
     }
 
+    /// Digest of this validated frozen source representation, not rendered HTML.
+    /// Transfer authority must match it against existing private history before
+    /// using a rewritten representation as a new comparison key.
+    pub fn source_comparison_hash(&self) -> [u8; 32] {
+        let mut hash = ring::digest::Context::new(&ring::digest::SHA256);
+        hash.update(crate::comment_admission_projection::HASH_PREFIX);
+        hash.update(self.source_projection().as_bytes());
+        hash.finish()
+            .as_ref()
+            .try_into()
+            .expect("SHA-256 output length")
+    }
+
     pub fn search_text(&self) -> String {
         crate::formatting::plain_text(&self.lines(false))
     }
