@@ -329,7 +329,7 @@ fn title_words(input: &str) -> String {
     result
 }
 
-struct BoundedRegex {
+pub(crate) struct BoundedRegex {
     regular: Regex,
     nonempty: Regex,
     utf: bool,
@@ -337,7 +337,7 @@ struct BoundedRegex {
 }
 
 impl BoundedRegex {
-    fn compile(pattern: &str) -> Result<Self, AdmissionError> {
+    pub(crate) fn compile(pattern: &str) -> Result<Self, AdmissionError> {
         let (body, modifiers) = delimited(pattern)?;
         let mut builder = RegexBuilder::new();
         let mut utf = false;
@@ -409,7 +409,7 @@ impl BoundedRegex {
         })
     }
 
-    fn matches(
+    pub(crate) fn matches(
         &self,
         text: &str,
         minimum: usize,

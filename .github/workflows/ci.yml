@@ -665,6 +665,7 @@ jobs:
       - name: Qualify source comment history and bounded retention
         run: |
           php -n scripts/test-comment-duplicate-source.php
+          php -n scripts/test-opening-comment-source.php
           cargo build -p board-store --bin board-comment-history-retention --locked
           sudo bash scripts/test-comment-history.sh
           sudo install -d /opt/paperboard/bin

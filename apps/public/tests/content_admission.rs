@@ -214,3 +214,111 @@ async fn real_forms_preserve_rule_errors_quiet_success_and_fail_closed_storage()
     }
     outcome.unwrap();
 }
+
+#[tokio::test]
+async fn final_opening_rule_uses_source_text_for_html_and_legacy_json() {
+    let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let public = board_store::connect_public(&std::env::var("TEST_PUBLIC_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let board: String =
+        sqlx::query_scalar("SELECT substr(replace(gen_random_uuid()::text,'-',''),1,10)")
+            .fetch_one(&owner)
+            .await
+            .unwrap();
+    sqlx::query("INSERT INTO content.boards(captcha_enabled,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,opening_comment_pattern,opening_comment_refusal) VALUES(false,0,0,0,$1,'Owned final HTTP rule','Synthetic',1000,100,100,100,10,'@https?://@','Your post must contain at least one valid URL')").bind(&board).execute(&owner).await.unwrap();
+    let (app, _) = board_public::routers_with_options(
+        public.clone(),
+        board_public::PublicRouterOptions {
+            origin: "http://127.0.0.1:3000".into(),
+            production: false,
+            media: None,
+            limits: board_config::PublicRequestLimits::default(),
+            proxy_uid: None,
+            tripcode_key: None,
+            poster_id_key: Some(posting_fixture::key(&board)),
+            country_database: None,
+        },
+    );
+    let rejected = submit(&app, &board, 0, "Missing source link", "application/json").await;
+    assert!(!rejected.headers().contains_key("set-cookie"));
+    assert_eq!(
+        json(rejected, StatusCode::OK).await,
+        serde_json::json!({"error":"Your post must contain at least one valid URL"})
+    );
+    let rejected = submit(&app, &board, 0, "HTTP://uppercase.example", "text/html").await;
+    assert_eq!(rejected.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body = String::from_utf8(
+        to_bytes(rejected.into_body(), 16384)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(body.contains("Your post must contain at least one valid URL"));
+    assert!(!body.contains("opening_comment_pattern"));
+    let created = json(
+        submit(
+            &app,
+            &board,
+            0,
+            "https://example.test/accepted",
+            "application/json",
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    let op = created["pid"].as_i64().unwrap();
+    let reply = submit(
+        &app,
+        &board,
+        op,
+        "Replies have no final URL requirement",
+        "text/html",
+    )
+    .await;
+    assert_eq!(reply.status(), StatusCode::SEE_OTHER);
+    sqlx::query("UPDATE content.boards SET opening_comment_pattern='/broken' WHERE slug=$1")
+        .bind(&board)
+        .execute(&owner)
+        .await
+        .unwrap();
+    assert_eq!(
+        json(
+            submit(
+                &app,
+                &board,
+                0,
+                "https://example.test/broken",
+                "application/json"
+            )
+            .await,
+            StatusCode::SERVICE_UNAVAILABLE
+        )
+        .await,
+        serde_json::json!({"error":"Storage is unavailable. Try again later."})
+    );
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+        .bind(&board)
+        .fetch_one(&owner)
+        .await
+        .unwrap();
+    assert_eq!(count, 2);
+    for query in [
+        "DELETE FROM post_secrets.deletion WHERE post_id IN (SELECT id FROM content.posts WHERE board=$1)",
+        "DELETE FROM content.posts WHERE board=$1",
+        "DELETE FROM content.threads WHERE board=$1",
+        "DELETE FROM content.boards WHERE slug=$1",
+    ] {
+        sqlx::query(query)
+            .bind(&board)
+            .execute(&owner)
+            .await
+            .unwrap();
+    }
+    public.close().await;
+    owner.close().await;
+}

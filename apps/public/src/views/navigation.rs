@@ -131,6 +131,8 @@ mod tests {
             board_subtitle: board_store::BoardSubtitle::None,
             max_comment_chars: 16_000,
             max_authorized_comment_chars: 10000,
+            opening_comment_pattern: String::new(),
+            opening_comment_refusal: "Invalid comment".into(),
             comment_code_spacing: true,
             comment_sjis_spacing: false,
             math_tags: false,

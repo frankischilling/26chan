@@ -9,7 +9,10 @@ WITH expected(signature, grantees, owner_name) AS (VALUES
  ('content.revalidate_staff_quota_refusal(bytea,bytea,integer,text)', ARRAY['board_staff']::text[], 'board_staff_post_owner')
 )
 SELECT
- NOT EXISTS (SELECT 1 FROM expected e LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.signature)
+ (SELECT count(*)=2 FROM pg_attribute a WHERE a.attrelid='content.boards'::regclass
+   AND a.attname IN('opening_comment_pattern','opening_comment_refusal')
+   AND a.atttypid='text'::regtype AND a.attnotnull AND NOT a.attisdropped)
+ AND NOT EXISTS (SELECT 1 FROM expected e LEFT JOIN pg_proc p ON p.oid=to_regprocedure(e.signature)
  WHERE p.oid IS NULL OR NOT p.prosecdef OR p.proowner<>e.owner_name::regrole
  OR p.provolatile<>'v' OR p.prolang<>(SELECT oid FROM pg_language WHERE lanname='plpgsql')
  OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp']::text[]

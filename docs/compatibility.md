@@ -114,7 +114,10 @@ checks and resource bounds. [Configured content rules](content-admission.md)
 now apply bounded literal/regexp decisions and private transactional effects
 to public posting before final blank-content admission, while raw/line and
 required-subject checks remain earlier. Complete caller ordering and staff exceptions, private-list
-interfaces and classifiers remain open in #212.
+interfaces and classifiers remain open in #212. The
+[final opening-comment rule](opening-comment-rules.md) imports `COM_REGEX` and
+its refusal message, evaluates the source-formatted text before cooldowns, and
+preserves earlier quiet-filter termination.
 
 [Report eligibility and popup completion](source-report-popup.md) now share the
 source board, sticky-OP and capcode gates across form display and submission.

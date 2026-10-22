@@ -2,7 +2,7 @@
 
 This module models the ordinary comment at the duplicate check in the pinned
 original `imgboard.php:5866-5882`. The store uses its digest for private duplicate
-admission history. The projection never replaces displayed comments or establishes
+admission history and the [final OP pattern](opening-comment-rules.md). The projection never replaces displayed comments or establishes
 the original database's SQL equality semantics.
 
 `comment_admission_projection::project` accepts a typed `PreparedComment` from

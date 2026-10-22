@@ -16,6 +16,7 @@ pub mod email_verification;
 pub mod file_name;
 pub mod identity;
 pub mod name_trip_admission;
+pub mod opening_comment_rule;
 pub mod page_title;
 pub mod pass_mail;
 pub mod pass_policy;

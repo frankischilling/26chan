@@ -160,6 +160,8 @@ pub struct Board {
     pub board_subtitle: BoardSubtitle,
     pub max_comment_chars: i32,
     pub max_authorized_comment_chars: i32,
+    pub opening_comment_pattern: String,
+    pub opening_comment_refusal: String,
     pub comment_code_spacing: bool,
     pub comment_sjis_spacing: bool,
     pub math_tags: bool,

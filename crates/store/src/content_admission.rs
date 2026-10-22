@@ -412,3 +412,18 @@ pub(crate) async fn quiet_post(
         value.and_then(|id| id.checked_add(1)).unwrap_or(0)
     })
 }
+
+/// The final source OP pattern sees formatted comparison data, not raw text or
+/// display HTML. Native matching shares the bounded admission work pool.
+pub(crate) async fn opening_comment(pattern: String, comment: String) -> Result<bool, StoreError> {
+    let permit = WORK
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| unavailable(()))?;
+    tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        board_domain::opening_comment_rule::matches(&pattern, &comment).map_err(unavailable)
+    })
+    .await
+    .map_err(unavailable)?
+}

@@ -1451,6 +1451,31 @@ async fn create_post_in_context(
         .bind(wordfilter_search.as_deref().unwrap_or_default())
         .execute(&mut *tx)
         .await?;
+    if parent == 0
+        && !board.opening_comment_pattern.is_empty()
+        && board.opening_comment_pattern != "0"
+    {
+        let source = projection.as_ref().ok_or(StoreError::Invalid(
+            "Opening comment comparison is unavailable.",
+        ))?;
+        if !crate::content_admission::opening_comment(
+            board.opening_comment_pattern.clone(),
+            source.as_comparison_data().to_owned(),
+        )
+        .await?
+        {
+            if let Some(metadata) = &attachment_admission {
+                metadata.revalidate(&mut tx).await?;
+            }
+            if let Some(authority) = &staff {
+                crate::content_admission::staff::revalidate_quota_refusal(&mut tx, authority, slug)
+                    .await?;
+            }
+            return Err(StoreError::ContentRejected(
+                board.opening_comment_refusal.clone(),
+            ));
+        }
+    }
     // Staff admission waits for the independent proof issuer below. It
     // authoritatively selects named/meta janitor ordinary timers before the
     // separate five-second staff check.
