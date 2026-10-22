@@ -1340,49 +1340,78 @@ async fn create_post_in_context(
     } else {
         None
     };
-    let projection = if attachment.is_some() && matches!(slug, "p" | "test") {
-        // Source EXIF extraction has not yet been qualified. Missing provenance
-        // cannot be interpreted as an empty EXIF result.
+    let needs_exif = attachment.is_some() && matches!(slug, "p" | "test");
+    let exif = if needs_exif {
+        attachment_admission
+            .as_ref()
+            .ok_or(StoreError::Invalid("Attachment admission is unavailable."))?
+            .exif(&mut tx)
+            .await?
+    } else {
+        None
+    };
+    let exif_table = exif.as_ref().filter(|(exif, _)| exif.has_table());
+    let projection = if needs_exif && exif.is_none() {
+        // Historical assets retain unknown provenance. They cannot be
+        // retroactively treated as an empty extraction.
         None
     } else {
         use board_domain::comment_admission_projection as projection;
+        let input = projection::Input {
+            prepared_comment: (&content).into(),
+            board: slug,
+            markup: board_domain::comment_markup::MarkupPolicy {
+                spoilers: board.comment_spoiler_cleanup,
+                code: board.comment_code_spacing,
+                sjis: board.comment_sjis_spacing,
+                op: op_markup,
+            },
+            filter: profile.map_or(projection::Filter::Off, |profile| projection::Filter::On {
+                profile,
+                rolls,
+            }),
+            randomizer: special.as_ref(),
+            source_path: if exif_table.is_some() {
+                projection::SourcePath::ExifPresent
+            } else if metadata.drawing.is_some() {
+                projection::SourcePath::IncomingOekakiWithoutExif
+            } else {
+                projection::SourcePath::OrdinaryWithoutExif
+            },
+        };
         Some(
-            projection::project(
-                projection::Input {
-                    prepared_comment: (&content).into(),
-                    board: slug,
-                    markup: board_domain::comment_markup::MarkupPolicy {
-                        spoilers: board.comment_spoiler_cleanup,
-                        code: board.comment_code_spacing,
-                        sjis: board.comment_sjis_spacing,
-                        op: op_markup,
-                    },
-                    filter: profile.map_or(projection::Filter::Off, |profile| {
-                        projection::Filter::On { profile, rolls }
-                    }),
-                    randomizer: special.as_ref(),
-                    source_path: if metadata.drawing.is_some() {
-                        projection::SourcePath::IncomingOekakiWithoutExif
-                    } else {
-                        projection::SourcePath::OrdinaryWithoutExif
-                    },
-                },
-                post_limits,
-            )
+            match exif_table {
+                Some((exif, Some(tim))) => {
+                    projection::project_with_exif(input, post_limits, exif, *tim)
+                }
+                Some(_) => return Err(StoreError::Invalid("EXIF timestamp is unavailable.")),
+                None => projection::project(input, post_limits),
+            }
             .map_err(|_| StoreError::Invalid("Comment comparison is unavailable."))?,
         )
     };
     let board_domain::PreparedPostContent { comment, subject } = content
-        .finish_with_randomizer(special.as_ref())
+        .finish_with_metadata(special.as_ref(), exif_table.map(|(exif, _)| exif))
         .map_err(|error| StoreError::Invalid(error.0))?;
-    let mut wordfiltered = if board.word_filter_enabled || special.is_some() {
+    let mut wordfiltered = if board.word_filter_enabled || special.is_some() || exif_table.is_some()
+    {
         let markup = board_domain::comment_markup::MarkupPolicy {
             spoilers: board.comment_spoiler_cleanup,
             code: board.comment_code_spacing,
             sjis: board.comment_sjis_spacing,
             op: op_markup,
         };
-        let prepared = if let Some(outcome) = &special {
+        let prepared = if let Some((exif, Some(tim))) = exif_table {
+            board_domain::wordfiltered_comment::prepare_with_exif(
+                &comment,
+                markup,
+                profile,
+                rolls,
+                post_limits,
+                special.as_ref(),
+                (exif, *tim),
+            )
+        } else if let Some(outcome) = &special {
             board_domain::wordfiltered_comment::prepare_with_randomizer(
                 &comment,
                 markup,
@@ -1437,6 +1466,16 @@ async fn create_post_in_context(
     });
     if comment.len() > wordfilter_limits.output_bytes() {
         return Err(StoreError::Invalid("Wordfilter output is too large."));
+    }
+    if exif_table.is_some()
+        && comment.len()
+            + wordfilter_payload.as_ref().map_or(0, Vec::len)
+            + wordfilter_search.as_ref().map_or(0, String::len)
+            > wordfilter_limits.saved_post_read_bytes()
+    {
+        return Err(StoreError::Invalid(
+            "EXIF comment exceeds the saved-content byte limit.",
+        ));
     }
     let encoded_payload = wordfilter_payload
         .as_ref()
@@ -2064,6 +2103,9 @@ async fn create_post_in_context(
             // The pre-savepoint board lock prevents another writer changing
             // the decision between rollback and the state-only commit.
             checked.replay(&mut tx).await?;
+            sqlx::query("SELECT content.discard_attachment_exif()")
+                .execute(&mut *tx)
+                .await?;
             tx.commit().await?;
             return Err(StoreError::Robot9000Rejected(message.clone()));
         }
@@ -2128,6 +2170,9 @@ async fn create_post_in_context(
             } else {
                 None
             };
+            sqlx::query("SELECT content.discard_attachment_exif()")
+                .execute(&mut *tx)
+                .await?;
             tx.commit().await?;
             return Err(StoreError::PostingClassifierRejected(
                 posting_classifiers::Refusal {

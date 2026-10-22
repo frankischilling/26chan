@@ -3,12 +3,15 @@
 use crate::image_geometry::{self, StillFormat};
 use std::io::{self, Read};
 
+#[cfg(target_os = "linux")]
+mod exif;
 mod jpeg;
 mod png;
 pub(crate) mod raster;
 #[cfg(target_os = "linux")]
 mod strip_jpeg;
 
+pub const MAX_EXIF_BYTES: usize = 16_384;
 pub const MAX_INPUT_BYTES: usize = 10 * 1024 * 1024;
 pub const OUTPUT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_THUMBNAIL_BYTES: usize = 1024 * 1024;
@@ -18,6 +21,8 @@ const MAX_MOBILE_BYTES: usize = 4 * 1024 * 1024;
 pub struct Policy {
     pub format: StillFormat,
     pub strip_exif: bool,
+    /// 0: disabled, 1: after general cleanup, 2: before capcode-only cleanup.
+    pub exif_mode: u8,
     pub mobile: bool,
     pub thread: bool,
     pub blue_background: bool,
@@ -29,7 +34,9 @@ impl Policy {
         if header.len() != 16
             || &header[..8] != b"IBSTIL06"
             || header[8] & !15 != 0
-            || header[14..16] != [0, 0]
+            || header[15] != 0
+            || header[14] > 2
+            || (header[14] != 0 && header[9] != 2)
         {
             return Err(rejected());
         }
@@ -46,6 +53,7 @@ impl Policy {
         Ok(Self {
             format,
             strip_exif: header[8] & 1 != 0,
+            exif_mode: header[14],
             mobile: header[8] & 2 != 0,
             thread: header[8] & 4 != 0,
             blue_background: header[8] & 8 != 0,
@@ -66,6 +74,7 @@ impl Policy {
         };
         header[10..12].copy_from_slice(&self.thumbnail.0.to_be_bytes());
         header[12..14].copy_from_slice(&self.thumbnail.1.to_be_bytes());
+        header[14] = self.exif_mode;
         Self::parse(&header)?;
         Ok(header)
     }
@@ -113,6 +122,10 @@ fn process_inner(input: &[u8], policy: Policy) -> io::Result<Vec<u8>> {
         StillFormat::Jpeg if input.starts_with(b"\xff\xd8\xff") => jpeg::decode(input)?,
         _ => return Err(rejected()),
     };
+    let mut extracted = String::new();
+    if policy.exif_mode == 2 {
+        extracted = extract_exif(input)?;
+    }
     let retained = match policy.format {
         StillFormat::Png => png::retained(input)?,
         StillFormat::Jpeg if policy.strip_exif => {
@@ -129,6 +142,14 @@ fn process_inner(input: &[u8], policy: Policy) -> io::Result<Vec<u8>> {
     };
     if retained.is_empty() || retained.len() > MAX_INPUT_BYTES {
         return Err(rejected());
+    }
+    if policy.exif_mode == 1 {
+        extracted = extract_exif(&retained)?;
+        // The fixed copy-none cleaner removes APP1 metadata. Nonempty output
+        // here contradicts the selected source cleanup path.
+        if !extracted.is_empty() {
+            return Err(rejected());
+        }
     }
     let dimensions = (raster.width, raster.height);
     let thumbnail_dimensions = image_geometry::thumbnail(
@@ -172,12 +193,14 @@ fn process_inner(input: &[u8], policy: Policy) -> io::Result<Vec<u8>> {
         (48, retained.len() as u32),
         (52, thumbnail.len() as u32),
         (56, mobile.len() as u32),
+        (60, extracted.len() as u32),
     ] {
         output[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
     }
     output.extend_from_slice(&retained);
     output.extend_from_slice(&thumbnail);
     output.extend_from_slice(&mobile);
+    output.extend_from_slice(extracted.as_bytes());
     if output.len() > OUTPUT_BYTES {
         return Err(rejected());
     }
@@ -203,4 +226,16 @@ pub fn decode_disk(mut input: impl Read) -> io::Result<Vec<u8>> {
     }
     let policy = Policy::parse(&frame[..16])?;
     process(&frame[16..], policy)
+}
+
+fn extract_exif(input: &[u8]) -> io::Result<String> {
+    #[cfg(target_os = "linux")]
+    {
+        exif::extract(input)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = input;
+        Err(rejected())
+    }
 }

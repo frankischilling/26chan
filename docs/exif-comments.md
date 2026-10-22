@@ -1,0 +1,31 @@
+# EXIF comments
+
+The source enables EXIF comments on `/p/` and `/test/`. Its extraction runs after general file cleanup but before capcode-only JPEG stripping. `/p/` therefore retains the extracted comment even when a staff badge causes the published JPEG to lose its metadata. `/test/` extracts from the already stripped file; nonempty output on that path is rejected because the fixed cleaner removes APP1 metadata. Non-JPEG formats produce no EXIF table.
+
+The still-image guest runs the pinned [exiftags runtime](third-party/exiftags.md), with no application credentials or network interface. The host accepts at most 16,384 UTF-8 bytes and 256 lines. NUL bytes, invalid UTF-8, oversized output, signals, missing tools and partial failed output reject processing. Exit status 1 with empty output is the tool's ordinary no-EXIF result. A successful empty extraction is distinct from historical missing provenance. The complete saved comment, typed payload and search text must also fit the existing per-post read budget. These bounds deliberately reject output the old shell call did not bound.
+
+The request's two extraction modes distinguish cleaned input from input before capcode stripping. The worker echoes the authenticated policy and returns the text in the bounded still-output envelope. The host does not decode JPEG or EXIF data. It treats the text as untrusted even after framing validation. Migration 0246 saves immutable extraction text and mode alongside the exact media reservation; retries must reproduce both. Existing assets are not backfilled.
+
+## Posting and display
+
+Posting rechecks the approved upload capability and locks its board, target and job before reading extraction metadata. A private preparation reserves the media number needed by the source table and toggle. The attachment consumer uses that same number. Unused preparations cannot commit; rejected posting transactions roll back their reservations. Intentional state-only classifier and Robot9000 outcomes explicitly discard them after their posting savepoint is rolled back.
+
+The table enters after content-filter hooks and before final markup, word filtering, links, wrapping, opening-comment checks and duplicate checks. It can satisfy the source's final nonblank-comment requirement. The writer shares the filter rolls between comparison and display. Known empty extraction allows the ordinary comparison path; old JPEG assets without provenance remain unknown.
+
+WF05 and WF06 save finite EXIF components and bounded media numbers, not arbitrary HTML. Decoding checks component kinds, balanced delimiters, counts, consistent identifiers and existing ordinary/staff byte limits. The public and staff templates escape metadata text. The legacy inline JavaScript is retained only in private comparison spelling. Display uses a fragment link and an external, comment-scoped event handler. The handler cannot select another post's table, load a resource or execute extractor text.
+
+The worker's preview/updater grammar admits the explicit inert table and toggle recipes. Unknown attributes, executable links, duplicate tables and unmatched targets remain invalid. The client filter worker keeps its existing 256 KiB limit; additional private parse5 method-name minification is guarded against quoted lookup or use outside the parser.
+
+## Verification status
+
+Local checks cover 51 executed source table cases and 180 complete source-formatting cases, including markup, links, quotes, randomizer composition and every selected Test-filter roll. The previous formatter oracle cases remain unchanged. The new typed payload matches the source comparisons and survives encode/decode.
+
+The pinned extractor passes a synthetic-camera JPEG and a no-metadata control. Framing tests reject malformed text and mismatched policies. Real database tests cover immutable reservation retries, a blank opening post qualified by metadata, matching saved media identifiers, comparison history, refusal rollback, private-role denial and rejection of an unconsumed preparation at commit. The real staff HTTP test covers ordinary and badged moderator posting. The public template test confirms inert controls and escaped hostile metadata. Client unit tests cover bounded identifiers, delegated toggles and pinned theme declarations; updater tests include inert-table acceptance and hostile-attribute rejection.
+
+The populated historical file-deletion upgrade, rollback and administrator restore check passes with the additive metadata fields. Full current-head CI, actual-VM extraction, real-browser rendering and complete regression qualification are still pending. The local Chromium download endpoint returned a 195-byte HTML “Site Unavailable” response instead of the archive; that attempt is not a browser pass. The source does not identify its deployed exiftags version or SQL collation, so this work does not establish historical extractor byte identity or complete duplicate-equality parity. Text-thread transfer and retained moderation snapshots need explicit EXIF qualification before claiming those workflows complete.
+
+## Operation
+
+Build the extractor with `scripts/media/build-exif-runtime.sh`, supplying the two hash-pinned archives and a new output directory. Install the resulting `exiftags` under `/usr/lib/26chan-still/` with the same root-owned, non-writable parent requirements as `jpegtran`. Install its supplied `copyright` as `/usr/lib/26chan-still/exiftags-copyright`; the collector verifies and includes that notice in the guest artifact. Rebuild the still initramfs; the collector verifies the executable version, allowed C runtime dependencies and file hashes.
+
+Apply migration 0246 before restarting the updated services. Older workers reject the extended extraction policy rather than providing an unsandboxed fallback. Do not roll back to an application that cannot read WF05/WF06 while those posts are being served. Suspend posting and test the chosen application/database rollback together; do not rewrite applied migrations or discard saved metadata to make an older reader appear compatible.

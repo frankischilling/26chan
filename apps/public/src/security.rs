@@ -407,6 +407,11 @@ fn headers(
     } else {
         script
     };
+    let script = if full_board_page {
+        format!("{script} {}{}", state.origin, crate::ui_assets::EXIF_PATH)
+    } else {
+        script
+    };
     let script = if math {
         format!(
             "{script} {}{}",

@@ -64,6 +64,14 @@ impl PostContentInput {
         self,
         randomizer: Option<&crate::posting_randomizers::Outcome>,
     ) -> Result<PreparedPostContent, ValidationError> {
+        self.finish_with_metadata(randomizer, None)
+    }
+
+    pub fn finish_with_metadata(
+        self,
+        randomizer: Option<&crate::posting_randomizers::Outcome>,
+        exif: Option<&crate::exif_comment::ExtractedExif>,
+    ) -> Result<PreparedPostContent, ValidationError> {
         crate::posting_randomizers::source_wrappers(randomizer)?;
         let Self {
             subject,
@@ -80,7 +88,7 @@ impl PostContentInput {
             markup,
             kind,
             limits,
-            randomizer.is_some(),
+            randomizer.is_some() || exif.is_some_and(crate::exif_comment::ExtractedExif::has_table),
         )
     }
 }

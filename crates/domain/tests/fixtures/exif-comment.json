@@ -1,0 +1,257 @@
+[
+    {
+        "raw": "",
+        "tim": 1,
+        "html": ""
+    },
+    {
+        "raw": "0",
+        "tim": 1,
+        "html": ""
+    },
+    {
+        "raw": "Camera: Example",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td>Camera</td><td>Example</td></tr></table>"
+    },
+    {
+        "raw": "Camera: Example\n",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td>Camera</td><td>Example</td></tr><tr><td colspan=\"2\"><b></b></td></tr></table>"
+    },
+    {
+        "raw": "Heading\nCamera: Example\n",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td colspan=\"2\"><b>Heading</b></td></tr><tr><td>Camera</td><td>Example</td></tr><tr><td colspan=\"2\"><b></b></td></tr></table>"
+    },
+    {
+        "raw": "Key: ",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td colspan=\"2\"><b>Key</b></td></tr></table>"
+    },
+    {
+        "raw": "Key: 0",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td>Key</td><td>0</td></tr></table>"
+    },
+    {
+        "raw": "Key: first: ignored",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td>Key</td><td>first</td></tr></table>"
+    },
+    {
+        "raw": ": value",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td></td><td>value</td></tr></table>"
+    },
+    {
+        "raw": ": ",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td colspan=\"2\"><b></b></td></tr></table>"
+    },
+    {
+        "raw": "\n",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td colspan=\"2\"><b></b></td></tr><tr><td colspan=\"2\"><b></b></td></tr></table>"
+    },
+    {
+        "raw": "Camera: <script>\"&'",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td>Camera</td><td>&lt;script&gt;&quot;&amp;&#039;</td></tr></table>"
+    },
+    {
+        "raw": "A: x\r\nB: y",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td>A</td><td>x\r</td></tr><tr><td>B</td><td>y</td></tr></table>"
+    },
+    {
+        "raw": "Key: [spoiler]x[/spoiler]",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td>Key</td><td>[spoiler]x[/spoiler]</td></tr></table>"
+    },
+    {
+        "raw": "Key: >>123",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td>Key</td><td>&gt;&gt;123</td></tr></table>"
+    },
+    {
+        "raw": "Key: https://example.test",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td>Key</td><td>https://example.test</td></tr></table>"
+    },
+    {
+        "raw": "\u041a\u0430\u043c\u0435\u0440\u0430: \u5199\u771f",
+        "tim": 1,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1\"><tr><td>\u041a\u0430\u043c\u0435\u0440\u0430</td><td>\u5199\u771f</td></tr></table>"
+    },
+    {
+        "raw": "",
+        "tim": 1730000000000,
+        "html": ""
+    },
+    {
+        "raw": "0",
+        "tim": 1730000000000,
+        "html": ""
+    },
+    {
+        "raw": "Camera: Example",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td>Camera</td><td>Example</td></tr></table>"
+    },
+    {
+        "raw": "Camera: Example\n",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td>Camera</td><td>Example</td></tr><tr><td colspan=\"2\"><b></b></td></tr></table>"
+    },
+    {
+        "raw": "Heading\nCamera: Example\n",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td colspan=\"2\"><b>Heading</b></td></tr><tr><td>Camera</td><td>Example</td></tr><tr><td colspan=\"2\"><b></b></td></tr></table>"
+    },
+    {
+        "raw": "Key: ",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td colspan=\"2\"><b>Key</b></td></tr></table>"
+    },
+    {
+        "raw": "Key: 0",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td>Key</td><td>0</td></tr></table>"
+    },
+    {
+        "raw": "Key: first: ignored",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td>Key</td><td>first</td></tr></table>"
+    },
+    {
+        "raw": ": value",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td></td><td>value</td></tr></table>"
+    },
+    {
+        "raw": ": ",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td colspan=\"2\"><b></b></td></tr></table>"
+    },
+    {
+        "raw": "\n",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td colspan=\"2\"><b></b></td></tr><tr><td colspan=\"2\"><b></b></td></tr></table>"
+    },
+    {
+        "raw": "Camera: <script>\"&'",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td>Camera</td><td>&lt;script&gt;&quot;&amp;&#039;</td></tr></table>"
+    },
+    {
+        "raw": "A: x\r\nB: y",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td>A</td><td>x\r</td></tr><tr><td>B</td><td>y</td></tr></table>"
+    },
+    {
+        "raw": "Key: [spoiler]x[/spoiler]",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td>Key</td><td>[spoiler]x[/spoiler]</td></tr></table>"
+    },
+    {
+        "raw": "Key: >>123",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td>Key</td><td>&gt;&gt;123</td></tr></table>"
+    },
+    {
+        "raw": "Key: https://example.test",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td>Key</td><td>https://example.test</td></tr></table>"
+    },
+    {
+        "raw": "\u041a\u0430\u043c\u0435\u0440\u0430: \u5199\u771f",
+        "tim": 1730000000000,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif1730000000000')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif1730000000000\"><tr><td>\u041a\u0430\u043c\u0435\u0440\u0430</td><td>\u5199\u771f</td></tr></table>"
+    },
+    {
+        "raw": "",
+        "tim": 9007199254740991,
+        "html": ""
+    },
+    {
+        "raw": "0",
+        "tim": 9007199254740991,
+        "html": ""
+    },
+    {
+        "raw": "Camera: Example",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td>Camera</td><td>Example</td></tr></table>"
+    },
+    {
+        "raw": "Camera: Example\n",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td>Camera</td><td>Example</td></tr><tr><td colspan=\"2\"><b></b></td></tr></table>"
+    },
+    {
+        "raw": "Heading\nCamera: Example\n",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td colspan=\"2\"><b>Heading</b></td></tr><tr><td>Camera</td><td>Example</td></tr><tr><td colspan=\"2\"><b></b></td></tr></table>"
+    },
+    {
+        "raw": "Key: ",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td colspan=\"2\"><b>Key</b></td></tr></table>"
+    },
+    {
+        "raw": "Key: 0",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td>Key</td><td>0</td></tr></table>"
+    },
+    {
+        "raw": "Key: first: ignored",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td>Key</td><td>first</td></tr></table>"
+    },
+    {
+        "raw": ": value",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td></td><td>value</td></tr></table>"
+    },
+    {
+        "raw": ": ",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td colspan=\"2\"><b></b></td></tr></table>"
+    },
+    {
+        "raw": "\n",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td colspan=\"2\"><b></b></td></tr><tr><td colspan=\"2\"><b></b></td></tr></table>"
+    },
+    {
+        "raw": "Camera: <script>\"&'",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td>Camera</td><td>&lt;script&gt;&quot;&amp;&#039;</td></tr></table>"
+    },
+    {
+        "raw": "A: x\r\nB: y",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td>A</td><td>x\r</td></tr><tr><td>B</td><td>y</td></tr></table>"
+    },
+    {
+        "raw": "Key: [spoiler]x[/spoiler]",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td>Key</td><td>[spoiler]x[/spoiler]</td></tr></table>"
+    },
+    {
+        "raw": "Key: >>123",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td>Key</td><td>&gt;&gt;123</td></tr></table>"
+    },
+    {
+        "raw": "Key: https://example.test",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td>Key</td><td>https://example.test</td></tr></table>"
+    },
+    {
+        "raw": "\u041a\u0430\u043c\u0435\u0440\u0430: \u5199\u771f",
+        "tim": 9007199254740991,
+        "html": "<br><br><span class=\"abbr\">[EXIF data available. Click <a href=\"javascript:void(0)\" onclick=\"toggle('exif9007199254740991')\">here</a> to show/hide.]</span><br><table class=\"exif\" id=\"exif9007199254740991\"><tr><td>\u041a\u0430\u043c\u0435\u0440\u0430</td><td>\u5199\u771f</td></tr></table>"
+    }
+]

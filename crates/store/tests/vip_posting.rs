@@ -703,6 +703,7 @@ async fn owned_upload(_board: &str, _target: i64) -> post_media::NewAttachment {
     assert_eq!(job.id, upload.id);
     let token = job.lease_token.as_deref().unwrap();
     let output = StillOutput {
+        exif: None,
         format: MediaFormat::Png,
         primary: OutputMetadata {
             sha256: "a".repeat(64),

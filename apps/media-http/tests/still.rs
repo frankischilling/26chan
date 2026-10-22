@@ -155,6 +155,7 @@ async fn exercise(format: StillFormat) {
             .map(|i| u8::from_str_radix(&md5[i..i + 2], 16).unwrap())
             .collect();
         let output = StillOutput {
+            exif: None,
             format: if gif {
                 MediaFormat::Gif
             } else {

@@ -123,7 +123,9 @@ pub fn validate_still_request(bytes: &[u8]) -> Result<()> {
         || &bytes[..8] != b"IBSTIL06"
         || bytes[8] & !15 != 0
         || !matches!(bytes[9], 1 | 2)
-        || bytes[14..16] != [0; 2]
+        || bytes[15] != 0
+        || bytes[14] > 2
+        || (bytes[14] != 0 && bytes[9] != 2)
         || !(1..=250).contains(&u16::from_be_bytes([bytes[10], bytes[11]]))
         || !(1..=250).contains(&u16::from_be_bytes([bytes[12], bytes[13]]))
     {

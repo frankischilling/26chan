@@ -13,6 +13,7 @@ pub mod content_admission;
 pub mod country;
 pub mod drawing_annotation;
 pub mod email_verification;
+pub mod exif_comment;
 pub mod file_name;
 pub mod identity;
 pub mod name_trip_admission;

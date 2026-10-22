@@ -34,9 +34,15 @@
 {%- if delimiter.opening() -%}<{{ delimiter.element_name() }}{% if delimiter.has_class() %} {{ delimiter.class_attribute() }}="{{ delimiter.class_value() }}"{% endif %}>{%- else -%}</{{ delimiter.element_name() }}>{%- endif -%}
 {%- elif delimiter.opening() -%}{{ delimiter.source_projection() }}{%- endif -%}
 {%- when Token::FilteredGenerated with (delimiter) -%}
+{%- if delimiter.is_exif() -%}
+{%- if delimiter.valid_element() -%}
+{%- if delimiter.opening() -%}<{{ delimiter.element_name() }}{% if delimiter.has_class() %} {{ delimiter.class_attribute() }}="{{ delimiter.class_value() }}"{% endif %}{% if delimiter.is_exif_toggle() && delimiter.exif_toggle_active() %} href="#{{ delimiter.exif_id() }}" data-exif-toggle="{{ delimiter.exif_id() }}" aria-expanded="false"{% endif %}{% if delimiter.is_exif_table() %} id="{{ delimiter.exif_id() }}" data-exif-table="{{ delimiter.exif_id() }}"{% endif %}{% if delimiter.exif_colspan() %} {{ delimiter.exif_colspan_attribute() }}="2"{% endif %}>{%- else -%}</{{ delimiter.element_name() }}>{%- endif -%}
+{%- elif delimiter.opening() -%}{{ delimiter.source_projection() }}{%- endif -%}
+{%- else -%}
 {%- if delimiter.valid_element() || source_style -%}
 {%- if delimiter.opening() -%}<{{ delimiter.element_name() }}{% if delimiter.has_class() %}{% if source_style %} {{ delimiter.class_attribute() }}="{{ delimiter.class_value() }}" {{ delimiter.style_attribute() }}="{{ delimiter.style_value() }}"{% else %} {{ delimiter.class_attribute() }}="{{ delimiter.html_class_value() }}"{% if let Some(color) = delimiter.extra_color_class() %} class="{{ color }}"{% endif %}{% endif %}{% endif %}>{%- else -%}</{{ delimiter.element_name() }}>{%- endif -%}
 {%- elif delimiter.opening() -%}{{ delimiter.source_projection() }}{%- endif -%}
+{%- endif -%}
 {%- when Token::OpenQuote -%}<span class="quote">
 {%- when Token::CloseQuote -%}</span>
 {%- when Token::GeneratedBold with (open) -%}{%- if open -%}<b>{%- else -%}</b>{%- endif -%}

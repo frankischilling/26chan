@@ -46,6 +46,34 @@ impl<'a> Preflight<'a> {
         })
     }
 
+    /// None means historical extraction provenance is unavailable, not empty.
+    pub async fn exif(
+        &self,
+        connection: &mut PgConnection,
+    ) -> Result<Option<(board_domain::exif_comment::ExtractedExif, Option<i64>)>, StoreError> {
+        let (text, tim): (Option<String>, Option<i64>) = sqlx::query_as(
+            "SELECT exif_text,tim FROM content.prepare_attachment_exif($1,$2,$3,$4,$5,$6)",
+        )
+        .bind(&self.attachment.upload.id)
+        .bind(&self.attachment.upload.capability)
+        .bind(self.target.board)
+        .bind(self.target.parent)
+        .bind(self.target.authorized)
+        .bind(self.target.badged)
+        .fetch_one(connection)
+        .await
+        .map_err(post_media::scoped_error)?;
+        text.map(|text| {
+            let exif = board_domain::exif_comment::ExtractedExif::parse(&text)
+                .map_err(|_| StoreError::Invalid("EXIF extraction is unavailable."))?;
+            if exif.has_table() != tim.is_some() {
+                return Err(StoreError::Invalid("EXIF timestamp is unavailable."));
+            }
+            Ok((exif, tim))
+        })
+        .transpose()
+    }
+
     pub(super) fn file_context(&self) -> FileContext<'_> {
         FileContext {
             board: self.target.board,

@@ -227,7 +227,27 @@ if (($argv[3] ?? '') === '--worker') {
             }
         }
     }
-    foreach ($scenarios as [$input, $policy, $randomizer, $filter_enabled]) {
+    $exif_source = json_decode(file_get_contents(__DIR__ . '/../fixtures/exif-comment-source.json'), true, 512, JSON_THROW_ON_ERROR);
+    if ($exif_source['source_sha256'] !== hash('sha256', $app)) { throw new RuntimeException('EXIF source differs.'); }
+    define('ENABLE_EXIF', 1);
+    define('S_EXIF_TOGGLE', $exif_source['toggle']);
+    eval('function source_exif_table($raw, $tim) { $exif = htmlspecialchars($raw); $exiftext = ""; ' . $exif_source['table_php'] . ' return $exiftext; }');
+    if (BOARD_DIR === 'g') {
+        foreach (["Camera: Example\n", "Camera: [spoiler] [/spoiler][code]a[/code][b]fam[/b]\nURL: https://example.test/a\nQuote: >>42",
+                  "Camera: [code]a\nb[/code]\nTitle: <script>&\"'\nLong: " . str_repeat('界', 40)] as $raw_exif) {
+            foreach (['', '[spoiler]unclosed', '[code]unclosed'] as $input) {
+                foreach ([null, $randomizers[2]] as $randomizer) {
+                    $scenarios[] = [$input, ['spoilers' => true, 'code' => true, 'sjis' => true, 'op' => true], $randomizer, true, $raw_exif];
+                    if ($profile === 'global') {
+                        $scenarios[] = [$input, ['spoilers' => true, 'code' => true, 'sjis' => true, 'op' => true], $randomizer, false, $raw_exif];
+                    }
+                }
+            }
+        }
+    }
+    foreach ($scenarios as $scenario) {
+        [$input, $policy, $randomizer, $filter_enabled] = $scenario;
+        $raw_exif = $scenario[4] ?? null;
         foreach ($filter_enabled ? $projection_rolls : [[null, null]] as $rolls) {
             $GLOBALS['owned_filter_rolls'] = $rolls;
             $comment = htmlspecialchars($input, ENT_QUOTES);
@@ -242,6 +262,11 @@ if (($argv[3] ?? '') === '--worker') {
             }
             $comment = str_replace(['~?rep?~', '~?erep?~'], '', $comment);
             $comment = str_replace("\n", '', nl2br($comment, false));
+            if ($raw_exif !== null) {
+                set_error_handler(static fn() => true, E_WARNING);
+                $comment .= source_exif_table($raw_exif, 1730000000000);
+                restore_error_handler();
+            }
             if ($policy['sjis']) { $comment = sjis_parse($comment); }
             if ($policy['spoilers']) {
                 $comment = spoiler_parse($comment);
@@ -272,13 +297,17 @@ if (($argv[3] ?? '') === '--worker') {
             $projection_cases[] = ['board' => BOARD_DIR, 'synthetic_input' => $input, 'prepared_comment' => $prepared_input, 'policy' => $policy, 'filter_enabled' => $filter_enabled,
                 'rolls' => $rolls, 'randomizer' => $randomizer, 'markup' => $markup, 'filtered' => $filtered,
                 'linked' => $linked, 'link_warnings' => $link_warnings, 'final' => $comment, 'source_check_applies' => (bool)$comment];
+            if ($raw_exif !== null) { $projection_cases[array_key_last($projection_cases)]['exif'] = ['raw' => $raw_exif, 'tim' => 1730000000000]; }
         }
     }
-    echo json_encode(['posting' => $cases, 'admission_projection' => $projection_cases], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    $exif_cases = array_values(array_filter($projection_cases, static fn($case) => isset($case['exif'])));
+    $projection_cases = array_values(array_filter($projection_cases, static fn($case) => !isset($case['exif'])));
+    echo json_encode(['posting' => $cases, 'admission_projection' => $projection_cases, 'exif_projection' => $exif_cases], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     exit(0);
 }
 $profiles = [];
 $admission_projection = [];
+$exif_projection = [];
 $workers = [];
 foreach ($hashes as $profile => $hash) { $workers[] = [$profile, 'g']; }
 $workers[] = ['global', 'po'];
@@ -295,13 +324,14 @@ foreach ($workers as [$profile, $projection_board]) {
     $decoded = json_decode($output, true, 64, JSON_THROW_ON_ERROR);
     if ($projection_board === 'g') { $profiles[$profile] = $decoded['posting']; }
     $admission_projection[$profile] = array_merge($admission_projection[$profile] ?? [], $decoded['admission_projection']);
+    $exif_projection[$profile] = array_merge($exif_projection[$profile] ?? [], $decoded['exif_projection']);
 }
 $files = ['imgboard.php' => hash('sha256', $app), 'lib/util.php' => hash('sha256', $util),
     'lib/postfilter.php' => hash('sha256', $postfilter)];
 foreach ($hashes as $name => $hash) { $files['wordfilters/' . $name . '.php'] = $hash; }
 $json = json_encode(['reference' => 'operator-supplied 4chan-old checkout', 'extractor_php' => PHP_VERSION,
     'extractor_pcre' => PCRE_VERSION, 'board' => 'g', 'markup_policy' => ['spoilers' => true, 'code' => true, 'sjis' => true, 'op' => true],
-    'files' => $files, 'profiles' => $profiles, 'admission_projection' => $admission_projection], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+    'files' => $files, 'profiles' => $profiles, 'admission_projection' => $admission_projection, 'exif_projection' => $exif_projection], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
 if (in_array('--check', $argv, true)) {
     if (file_get_contents($argv[2]) !== $json) { throw new RuntimeException('Posting reference differs.'); }
     echo 'Wordfilter posting reference matches ' . array_sum(array_map('count', $profiles)) . " synthetic cases.\n";

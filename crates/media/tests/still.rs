@@ -4,6 +4,7 @@ use std::io::Cursor;
 fn policy(format: StillFormat) -> StillPolicy {
     StillPolicy {
         format,
+        exif_mode: 0,
         strip_exif: format != StillFormat::Gif,
         mobile: format != StillFormat::Gif,
         thread: true,
@@ -305,4 +306,85 @@ async fn still_files_have_fixed_names_exact_receipts_and_owned_cleanup() {
         std::fs::read(root.join(format!("{other}.png"))).unwrap(),
         b"unrelated owned fixture"
     );
+}
+
+#[tokio::test]
+async fn exif_is_bounded_text_with_explicit_empty_provenance() {
+    let mut expected = policy(StillFormat::Jpeg);
+    expected.exif_mode = 2;
+    for text in ["", "Camera: synthetic\n", "Камера: 写真"] {
+        let mut bytes = disk(StillFormat::Jpeg);
+        bytes[8..24].copy_from_slice(&expected.header().unwrap());
+        let offset = 64
+            + [48, 52, 56]
+                .iter()
+                .map(|&i| u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap()) as usize)
+                .sum::<usize>();
+        bytes[60..64].copy_from_slice(&(text.len() as u32).to_be_bytes());
+        bytes[offset..offset + text.len()].copy_from_slice(text.as_bytes());
+        let output = ValidatedStill::read_disk(Cursor::new(bytes.clone()), expected)
+            .await
+            .unwrap();
+        assert_eq!(output.exif(), Some(text));
+        assert!(
+            ValidatedStill::read_disk(Cursor::new(bytes), policy(StillFormat::Jpeg))
+                .await
+                .is_err()
+        );
+    }
+    let output = ValidatedStill::read_disk(
+        Cursor::new(disk(StillFormat::Jpeg)),
+        policy(StillFormat::Jpeg),
+    )
+    .await
+    .unwrap();
+    assert_eq!(output.exif(), None);
+}
+
+#[tokio::test]
+async fn invalid_exif_metadata_never_gains_publication_authority() {
+    let mut expected = policy(StillFormat::Jpeg);
+    expected.exif_mode = 1;
+    for text in [vec![0], vec![0xff], vec![b'\n'; 256], vec![b'x'; 16_385]] {
+        let mut bytes = disk(StillFormat::Jpeg);
+        bytes[8..24].copy_from_slice(&expected.header().unwrap());
+        let offset = 64
+            + [48, 52, 56]
+                .iter()
+                .map(|&i| u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap()) as usize)
+                .sum::<usize>();
+        bytes[60..64].copy_from_slice(&(text.len() as u32).to_be_bytes());
+        bytes[offset..offset + text.len()].copy_from_slice(&text);
+        assert!(
+            ValidatedStill::read_disk(Cursor::new(bytes), expected)
+                .await
+                .is_err()
+        );
+    }
+    for format in [StillFormat::Gif, StillFormat::Png] {
+        let mut bad = policy(format);
+        bad.exif_mode = 1;
+        assert!(bad.header().is_err());
+    }
+    expected.exif_mode = 3;
+    assert!(expected.header().is_err());
+}
+
+#[test]
+fn extraction_stage_preserves_source_capcode_order() {
+    use board_media::still::source_policy;
+    for staff in [false, true] {
+        let photography = source_policy("p", StillFormat::Jpeg, true, staff).unwrap();
+        assert_eq!(photography.exif_mode, 2);
+        assert_eq!(photography.strip_exif, staff);
+        let test = source_policy("test", StillFormat::Jpeg, true, staff).unwrap();
+        assert_eq!(test.exif_mode, 1);
+        assert!(test.strip_exif);
+        assert_eq!(
+            source_policy("g", StillFormat::Jpeg, true, staff)
+                .unwrap()
+                .exif_mode,
+            0
+        );
+    }
 }

@@ -325,6 +325,12 @@ jobs:
           bash scripts/media/build-still-runtime.sh .local/libjpeg-turbo-3.2.0.tar.gz .local/still-runtime
           sudo install -d -m 0755 /usr/lib/26chan-still
           sudo install -m 0755 .local/still-runtime/jpegtran /usr/lib/26chan-still/jpegtran
+          curl --fail --location --max-time 120 https://deb.debian.org/debian/pool/main/e/exiftags/exiftags_1.01.orig.tar.gz -o .local/exiftags_1.01.orig.tar.gz
+          curl --fail --location --max-time 120 https://deb.debian.org/debian/pool/main/e/exiftags/exiftags_1.01-8.debian.tar.xz -o .local/exiftags_1.01-8.debian.tar.xz
+          bash scripts/media/build-exif-runtime.sh .local/exiftags_1.01.orig.tar.gz .local/exiftags_1.01-8.debian.tar.xz .local/exif-runtime
+          sudo install -m 0755 .local/exif-runtime/exiftags /usr/lib/26chan-still/exiftags
+          sudo install -m 0644 .local/exif-runtime/copyright /usr/lib/26chan-still/exiftags-copyright
+          EXIF_TEST_RUNTIME="$PWD/.local/exif-runtime" cargo test -p board-media-guest --lib owned_runtime_extracts_only_bounded_synthetic_metadata --locked -- --ignored
           python3 scripts/extract-gd-gif-thumbnail-reference.py --check
           curl --fail --location --max-time 120 https://www.lcdf.org/gifsicle/gifsicle-1.97.tar.gz -o .local/gifsicle-1.97.tar.gz
           bash scripts/media/build-gif-runtime.sh .local/gifsicle-1.97.tar.gz .local/gif-runtime
@@ -666,6 +672,7 @@ jobs:
         run: |
           php -n scripts/test-comment-duplicate-source.php
           php -n scripts/test-opening-comment-source.php
+          php -n scripts/test-exif-comment-source.php
           cargo build -p board-store --bin board-comment-history-retention --locked
           sudo bash scripts/test-comment-history.sh
           sudo install -d /opt/paperboard/bin

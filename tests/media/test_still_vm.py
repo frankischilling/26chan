@@ -102,6 +102,23 @@ class StillVmTest(unittest.TestCase):
                     else:
                         self.assertEqual(retained, tagged)
 
+    def test_exif_extraction_before_capcode_cleanup_and_after_general_cleanup(self):
+        source = (REPO / 'tests/media/fixtures/exif/camera.jpg').read_bytes()
+        expected = (REPO / 'tests/media/fixtures/exif/camera.txt').read_bytes()
+        for strip, mode, text in [(False, 2, expected), (True, 2, expected), (True, 1, b'')]:
+            with self.subTest(strip=strip, mode=mode):
+                policy = b'IBSTIL06' + bytes([4 | int(strip), 2]) + struct.pack('>HH', 250, 250) + bytes([mode, 0])
+                output = self.run_job(policy + source)
+                self.assertEqual(output[8:24], policy)
+                retained, thumb, mobile, exif = struct.unpack('>IIII', output[48:64])
+                offset = 64 + retained + thumb + mobile
+                self.assertEqual(output[offset:offset + exif], text)
+                self.assertEqual(output[offset + exif:], bytes(len(output) - offset - exif))
+                if strip:
+                    self.assertNotIn(b'Synthetic Camera', output[64:64 + retained])
+                else:
+                    self.assertEqual(output[64:64 + retained], source)
+
     def test_live_still_vmm_has_only_the_approved_larger_memory_budget(self):
         from test_vm import VmTest
         VmTest().check_live_vmm_limits('still-v6', 2560 * 1024 * 1024)

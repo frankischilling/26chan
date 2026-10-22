@@ -412,6 +412,14 @@ UPDATE public.upgraded_rows SET value=value||jsonb_build_object(
 WHERE relation='content.boards';
 SQL
 fi
+if [[ -f migrations/0246_exif_extraction_provenance.sql ]]; then
+ "${admin[@]}" <<'SQL'
+UPDATE public.upgraded_rows SET value=value||jsonb_build_object('exif_text',NULL::text,'exif_mode',NULL::smallint)
+WHERE relation='media.assets';
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM post_secrets.exif_preparations) THEN
+ RAISE EXCEPTION 'Upgrade invented EXIF preparations'; END IF; END $$;
+SQL
+fi
 cat > "$cluster/assert-retained.sql" <<'SQL'
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM content.posts WHERE saved_presentation IS NOT NULL OR saved_presentation_search IS NOT NULL)

@@ -588,6 +588,7 @@ async fn file_refusal_upload(_board: &str) -> (String, String) {
     assert_eq!(job.id, upload.id);
     let lease = job.lease_token.as_deref().unwrap();
     let output = StillOutput {
+        exif: None,
         format: MediaFormat::Png,
         primary: OutputMetadata {
             sha256: "a".repeat(64),

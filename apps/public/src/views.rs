@@ -552,6 +552,46 @@ mod comment_tests {
     use board_domain::{CommentSpacing, parse_comment, prepare_post_comment};
 
     #[test]
+    fn exif_template_uses_inert_controls_and_escapes_metadata() {
+        let exif = board_domain::exif_comment::ExtractedExif::parse(
+            "Camera: <img src=x onerror=alert(1)>\n",
+        )
+        .unwrap();
+        let mut prepared = board_domain::wordfiltered_comment::prepare_with_exif(
+            "",
+            board_domain::comment_markup::MarkupPolicy::default(),
+            None,
+            None,
+            board_domain::PostLimits::ordinary(2000),
+            None,
+            (&exif, 1730000000000),
+        )
+        .unwrap();
+        prepared.freeze_format("p");
+        let lines = board_domain::filtered_formatting::lines_for_post(&prepared, "p", 488);
+        let html = Comment {
+            lines: &lines,
+            board: "p",
+            dice_result: None,
+            fortune_text: None,
+            fortune_color: None,
+            drawing: None,
+            staff_notices: &[],
+        }
+        .render()
+        .unwrap();
+        assert!(html.contains("data-exif-toggle=\"exif1730000000000\""));
+        assert!(html.contains("data-exif-table=\"exif1730000000000\""));
+        assert!(
+            html.contains("&#60;img src=x onerror=alert(1)&#62;"),
+            "{html}"
+        );
+        assert!(!html.contains("javascript:"));
+        assert!(!html.contains(" onclick="));
+        assert!(!html.contains("<img"));
+    }
+
+    #[test]
     fn post_notices_keep_source_escaping_order_and_duplicates_for_every_profile() {
         let notices = vec![
             "<script>\"&'猫</script>".into(),

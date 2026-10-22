@@ -40,6 +40,7 @@ const allowed = new Set([
   'apps/public/client/native-quote-identity.js',
   'apps/public/client/native-comment-projection.js',
   'apps/public/client/native-wordfilter-markup.js',
+  'apps/public/client/native-exif.js',
   'apps/public/client/native-filter-limits.js',
   'apps/public/static/thread-watcher-core.v1.js',
 ]);

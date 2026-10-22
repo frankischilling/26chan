@@ -47,6 +47,7 @@ async fn preflight_binds_capability_context_and_original_digest_eligibility() {
                 assert_eq!(job.id, upload.id, "Use an idle disposable queue");
                 let token = job.lease_token.as_deref().unwrap();
                 let output = StillOutput {
+                    exif: None,
                     format,
                     primary: OutputMetadata {
                         sha256: "a".repeat(64),

@@ -206,7 +206,16 @@ impl PreparedComment {
     /// Versioned, bounded data; neither HTML nor an executable filter program.
     pub fn encode(&self) -> Result<Vec<u8>, ValidationError> {
         let mut output = Vec::new();
-        output.extend_from_slice(if self.generated {
+        let exif = self
+            .parts
+            .iter()
+            .any(|p| matches!(p, Part::Generated(d) if d.is_exif()));
+        output.extend_from_slice(if exif {
+            match self.limits {
+                WordfilterLimits::Ordinary => b"WF05",
+                WordfilterLimits::Authorized => b"WF06",
+            }
+        } else if self.generated {
             match self.limits {
                 WordfilterLimits::Ordinary => b"WF03",
                 WordfilterLimits::Authorized => b"WF04",
@@ -236,11 +245,16 @@ impl PreparedComment {
                         ChangedEntity::QuoteZeroSeven => 3,
                     },
                 ]),
-                Part::Generated(delimiter) => output.extend_from_slice(&[
-                    4,
-                    delimiter.number(),
-                    u8::from(delimiter.opening()),
-                ]),
+                Part::Generated(delimiter) => {
+                    output.extend_from_slice(&[
+                        if delimiter.is_exif() { 5 } else { 4 },
+                        delimiter.number(),
+                        u8::from(delimiter.opening()),
+                    ]);
+                    if let Some(tim) = delimiter.tim() {
+                        output.extend_from_slice(&tim.to_be_bytes());
+                    }
+                }
                 Part::Break => output.push(2),
                 Part::Delimiter(delimiter) => output.extend_from_slice(&[
                     3,
@@ -258,10 +272,17 @@ impl PreparedComment {
     /// Validate every field before constructing any rendering authority.
     pub fn decode(input: &[u8]) -> Result<Self, ValidationError> {
         const ERROR: ValidationError = ValidationError("Invalid saved wordfilter comment.");
-        let generated = input.starts_with(b"WF03") || input.starts_with(b"WF04");
-        let limits = if input.starts_with(b"WF01") || input.starts_with(b"WF03") {
+        let exif = input.starts_with(b"WF05") || input.starts_with(b"WF06");
+        let generated = exif || input.starts_with(b"WF03") || input.starts_with(b"WF04");
+        let limits = if input.starts_with(b"WF01")
+            || input.starts_with(b"WF03")
+            || input.starts_with(b"WF05")
+        {
             WordfilterLimits::Ordinary
-        } else if input.starts_with(b"WF02") || input.starts_with(b"WF04") {
+        } else if input.starts_with(b"WF02")
+            || input.starts_with(b"WF04")
+            || input.starts_with(b"WF06")
+        {
             WordfilterLimits::Authorized
         } else {
             return Err(ERROR);
@@ -290,6 +311,9 @@ impl PreparedComment {
         let mut depth = [0u8; 8];
         let mut generated_depth = [0u8; 14];
         let mut generated_seen = [false; 14];
+        let mut exif_tim = None;
+        let mut exif_stack = Vec::new();
+        let mut exif_seen = [0u16; 6];
         for _ in 0..count {
             let part = match cursor.take(1)?[0] {
                 0 => {
@@ -370,16 +394,53 @@ impl PreparedComment {
                         GeneratedDelimiter::from_saved(number, opening, rolls).ok_or(ERROR)?;
                     let index = usize::from(number);
                     if opening {
-                        if generated_seen[index] {
+                        if generated_seen[index] && !(exif && index == 0) {
                             return Err(ERROR);
                         }
                         generated_seen[index] = true;
-                        generated_depth[index] = 1;
+                        generated_depth[index] =
+                            generated_depth[index].checked_add(1).ok_or(ERROR)?;
                     } else {
                         if generated_depth[index] == 0 {
                             return Err(ERROR);
                         }
-                        generated_depth[index] = 0;
+                        generated_depth[index] -= 1;
+                    }
+                    source_bytes += delimiter.source_projection().len();
+                    Part::Generated(delimiter)
+                }
+                5 if exif => {
+                    let number = cursor.take(1)?[0];
+                    let opening = match cursor.take(1)?[0] {
+                        0 => false,
+                        1 => true,
+                        _ => return Err(ERROR),
+                    };
+                    let tim = i64::from_be_bytes(cursor.take(8)?.try_into().map_err(|_| ERROR)?);
+                    let delimiter =
+                        GeneratedDelimiter::from_exif(number, opening, tim, rolls).ok_or(ERROR)?;
+                    if exif_tim.is_some_and(|previous| previous != tim) {
+                        return Err(ERROR);
+                    }
+                    exif_tim = Some(tim);
+                    let index = usize::from(number - 14);
+                    if opening {
+                        exif_seen[index] += 1;
+                        if exif_seen[index]
+                            > if number <= 16 {
+                                1
+                            } else if number == 18 {
+                                512
+                            } else {
+                                256
+                            }
+                            || exif_stack.len() >= 4
+                        {
+                            return Err(ERROR);
+                        }
+                        exif_stack.push(number);
+                    } else if exif_stack.pop() != Some(number) {
+                        return Err(ERROR);
                     }
                     source_bytes += delimiter.source_projection().len();
                     Part::Generated(delimiter)
@@ -394,7 +455,10 @@ impl PreparedComment {
         if cursor.offset != input.len()
             || depth.iter().any(|depth| *depth != 0)
             || generated_depth.iter().any(|depth| *depth != 0)
+            || (exif
+                && (exif_tim.is_none() || !exif_stack.is_empty() || exif_seen[..3] != [1, 1, 1]))
             || (generated
+                && !exif
                 && (!generated_seen[0]
                     || generated_seen[1..].iter().filter(|seen| **seen).count() > 1))
         {
@@ -455,6 +519,30 @@ pub fn prepare_with_randomizer(
     outcome: &crate::posting_randomizers::Outcome,
 ) -> Result<PreparedComment, ValidationError> {
     generated::prepare(comment, policy, profile, rolls, post_limits, outcome)
+}
+
+/// Compose already bounded metadata only after the caller establishes its media provenance.
+pub fn prepare_with_exif(
+    comment: &str,
+    policy: MarkupPolicy,
+    profile: Option<Profile>,
+    rolls: Option<LeetRolls>,
+    post_limits: PostLimits,
+    outcome: Option<&crate::posting_randomizers::Outcome>,
+    exif: (&crate::exif_comment::ExtractedExif, i64),
+) -> Result<PreparedComment, ValidationError> {
+    if !exif.0.has_table() {
+        return Err(ValidationError("EXIF table is absent."));
+    }
+    generated::prepare_metadata(
+        comment,
+        policy,
+        profile,
+        rolls,
+        post_limits,
+        outcome,
+        Some(exif),
+    )
 }
 
 pub fn prepare_with_limits(

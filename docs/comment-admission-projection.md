@@ -22,9 +22,11 @@ has private bounded data and version 1; its accessor supplies comparison data,
 never permission to bypass template escaping. It also preserves PHP's false
 values: empty string and exactly `0`.
 
-The caller must explicitly select `OrdinaryWithoutExif` or
-`IncomingOekakiWithoutExif`. Unknown or present EXIF and privileged HTML remain
-unsupported. EXIF needs source media timestamp and extracted-field provenance.
+The caller selects `OrdinaryWithoutExif` or `IncomingOekakiWithoutExif` only
+when absence is known. `project_with_exif` accepts bounded extracted text and a
+reserved source media number through the explicit `ExifPresent` path. Unknown
+EXIF and privileged HTML remain unsupported. [EXIF comments](exif-comments.md)
+records extraction provenance, persistence, display and pending qualification.
 The incoming Oekaki comparison excludes its drawing annotation. A separate
 `persisted_hash` appends the source annotation from validated stored drawing
 facts before hashing. The original replay JavaScript spelling is digest input

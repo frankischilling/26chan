@@ -43,8 +43,10 @@ class StillRuntimeTest(unittest.TestCase):
     def collect(self, version=b'libjpeg-turbo version 3.2.0 (build test)\n',
                 dependencies=b'libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x123)\n/lib64/ld-linux-x86-64.so.2 (0x456)\n'):
         responses = [subprocess.CompletedProcess([], 0, b'', version),
+                     subprocess.CompletedProcess([], 1, b'', b'Usage: exiftags\nVersion: 1.01\n'),
+                     subprocess.CompletedProcess([], 0, dependencies, b''),
                      subprocess.CompletedProcess([], 0, dependencies, b'')]
-        with mock.patch.object(runtime, 'checked_bytes', return_value=b'\x7fELFsynthetic'), \
+        with mock.patch.object(runtime, 'checked_bytes', side_effect=lambda path, **kwargs: (REPO / 'docs/third-party/exiftags-copyright.txt').read_bytes() if path.name == 'exiftags-copyright' else b'\x7fELFsynthetic'), \
                 mock.patch.object(runtime.subprocess, 'run', side_effect=responses) as run:
             result = runtime.collect()
             self.assertEqual(run.call_args_list[0].kwargs['env'],
@@ -54,7 +56,7 @@ class StillRuntimeTest(unittest.TestCase):
 
     def test_fixed_executable_and_manifest(self):
         files, manifest = self.collect()
-        self.assertEqual(set(files), {'usr/bin/board-jpegtran',
+        self.assertEqual(set(files), {'usr/bin/board-jpegtran', 'usr/bin/board-exiftags', 'usr/share/doc/26chan-exiftags/copyright',
                                      'lib/x86_64-linux-gnu/libc.so.6',
                                      'lib64/ld-linux-x86-64.so.2'})
         self.assertEqual(set(files), set(manifest))

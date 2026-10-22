@@ -6,7 +6,7 @@
 {% if moderator %}{% if let Some(category) = r.category_id %}<p>Category: {{ category }}</p>{% endif %}{% if let Some(reason) = r.reason %}<p>Reason: {{ reason }}</p>{% endif %}{% endif %}
 </article>
 {% endmacro %}
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cleared reports</title><link rel="stylesheet" href="/comment-markup.css"></head><body><main>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cleared reports</title><link rel="stylesheet" href="/comment-markup.css"><script type="module" src="/exif.js"></script></head><body><main>
 <h1>Cleared report history: /{{ board }}/</h1>
 <p>Retained group-cleared reports, grouped by post. Showing up to 100 groups in descending order of their newest eligible report ID. The newest eligible report is selected for each group.</p>
 <p>Clear provenance below belongs to each individual report. Its original disposition is unchanged; later reports can inherit an earlier group clear.</p>
