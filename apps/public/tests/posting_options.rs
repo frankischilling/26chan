@@ -242,7 +242,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             .append_pair("resto", &id.to_string())
             .append_pair("email", option)
             .append_pair("name", "Named control")
-            .append_pair("com", "Owned unprivileged option")
+            .append_pair("com", &format!("Owned unprivileged option {option}"))
             .append_pair("password", "synthetic-password-123")
             .finish();
         let response = app

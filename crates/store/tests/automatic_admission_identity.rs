@@ -193,7 +193,7 @@ fn post() -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: "Owned identity".into(),
-        comment: "owned automatic identity content".into(),
+        comment: support::distinct_comment("owned automatic identity content"),
         deletion_hash: "same-independent-recovery-password".into(),
         sage: false,
     }

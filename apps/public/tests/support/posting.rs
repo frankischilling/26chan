@@ -302,3 +302,49 @@ pub async fn cleanup_actor_posting(owner: &PgPool, board: &str, key: &PosterIdKe
             .unwrap();
     }
 }
+
+/// Explicitly separate unrelated fixtures without bypassing production admission.
+pub fn distinct_comment(prefix: &str) -> String {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    format!(
+        "{prefix} {}",
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    )
+}
+/// Keep exact comment vectors while giving independent cases separate owned peers.
+pub fn distinct_transport(board: &str) -> axum::extract::ConnectInfo<std::net::SocketAddr> {
+    static NEXT: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(1);
+    let peer = std::net::Ipv6Addr::new(
+        0x2001,
+        0xdb8,
+        1,
+        0,
+        0,
+        0,
+        0,
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+    )
+    .into();
+    record_actor(board, &key(board), peer);
+    axum::extract::ConnectInfo(std::net::SocketAddr::new(peer, 40000))
+}
+pub async fn create_independent_post(
+    pool: &PgPool,
+    board: &str,
+    parent: i64,
+    post: &NewPost,
+) -> Result<i64, StoreError> {
+    create_post_with_context(
+        pool,
+        board,
+        parent,
+        post,
+        None,
+        PostingContext {
+            request_start: chrono::Utc::now(),
+            peer: Some(distinct_transport(board).0.ip()),
+            op_password_proof: None,
+        },
+    )
+    .await
+}

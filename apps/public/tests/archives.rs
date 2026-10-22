@@ -57,21 +57,21 @@ async fn contract(owner: PgPool, public: PgPool, slug: String) {
             404
         );
     }
-    let new_post = board_store::NewPost {
+    let new_post = || board_store::NewPost {
         name: "Anonymous".into(),
         subject: "<script>archive</script>".into(),
-        comment: "Synthetic archive post".into(),
+        comment: posting_fixture::distinct_comment("Synthetic archive post"),
         deletion_hash: "synthetic-unused-hash".into(),
         sage: false,
     };
-    let mut archived = posting_fixture::create_post(&public, &slug, 0, &new_post)
+    let mut archived = posting_fixture::create_post(&public, &slug, 0, &new_post())
         .await
         .unwrap();
-    let reply = posting_fixture::create_post(&public, &slug, archived, &new_post)
+    let reply = posting_fixture::create_post(&public, &slug, archived, &new_post())
         .await
         .unwrap();
     sqlx::query("UPDATE content.threads SET archived_at='2026-01-01T00:00:00Z',archive_expires_at=now()+interval '1 hour',closed=false WHERE id=$1").bind(archived).execute(&owner).await.unwrap();
-    let active = posting_fixture::create_post(&public, &slug, 0, &new_post)
+    let active = posting_fixture::create_post(&public, &slug, 0, &new_post())
         .await
         .unwrap();
     let mut archive_etag = String::new();
@@ -185,7 +185,7 @@ async fn contract(owner: PgPool, public: PgPool, slug: String) {
         if index == 1 {
             // The deleted archive cannot be revived. Independently prove expiry
             // using another retained archive and its own live cache validators.
-            archived = posting_fixture::create_post(&public, &slug, 0, &new_post)
+            archived = posting_fixture::create_post(&public, &slug, 0, &new_post())
                 .await
                 .unwrap();
             sqlx::query("UPDATE content.threads SET archived_at='2026-01-01T00:00:00Z',archive_expires_at=now()+interval '1 hour' WHERE id=$1")
@@ -280,17 +280,17 @@ async fn contract(owner: PgPool, public: PgPool, slug: String) {
 
 async fn ordering_contract(owner: PgPool, public: PgPool, slug: String) {
     let (web, api) = posting_fixture::routers(public.clone(), &slug, ORIGIN.into(), false);
-    let post = board_store::NewPost {
+    let post = || board_store::NewPost {
         name: "Anonymous".into(),
         subject: "<script>archive ordering</script>".into(),
-        comment: "Synthetic archive ordering".into(),
+        comment: posting_fixture::distinct_comment("Synthetic archive ordering"),
         deletion_hash: "synthetic-unused-hash".into(),
         sage: false,
     };
     let mut ids = Vec::new();
     for _ in 0..6 {
         ids.push(
-            posting_fixture::create_post(&public, &slug, 0, &post)
+            posting_fixture::create_post(&public, &slug, 0, &post())
                 .await
                 .unwrap(),
         );

@@ -136,11 +136,15 @@ impl Fixture {
             upload: receipt,
             spoiler,
         };
+        // Restore cases need distinct comments as well as distinct image bytes.
+        // Keep the same actor so the ordinary duplicate-comment guard still runs.
+        let mut draft = new_post();
+        draft.comment = format!("Synthetic restore comment {red}");
         let post = board_store::create_post_with_identity_keys(
             &self.public,
             "restore",
             parent,
-            &new_post(),
+            &draft,
             Some(&attachment),
             self.posting_context(),
             self.posting_keys(),

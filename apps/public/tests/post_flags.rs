@@ -49,7 +49,11 @@ async fn post(
     extra: &str,
     multipart: bool,
 ) -> Value {
-    let fields = format!("resto={thread}&sub=Owned&com=Owned+flag&pwd=owned-flag-password{extra}");
+    static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
+    let sequence = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let fields = format!(
+        "resto={thread}&sub=Owned&com=Owned+flag+{sequence}&pwd=owned-flag-password{extra}"
+    );
     let (content_type, body) = if multipart {
         let mut body = String::new();
         for field in fields.split('&') {

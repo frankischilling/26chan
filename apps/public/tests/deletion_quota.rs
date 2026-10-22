@@ -84,7 +84,7 @@ impl Fixture {
             &board_store::NewPost {
                 name: "Anonymous".into(),
                 subject: "Owned quota fixture".into(),
-                comment: "Synthetic quota selection".into(),
+                comment: posting::distinct_comment("Synthetic quota selection"),
                 deletion_hash: self.hash.clone(),
                 sage: false,
             },

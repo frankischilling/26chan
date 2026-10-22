@@ -21,6 +21,8 @@ try {
   browser = await chromium.launch({ timeout: 15000 });
   assert.ok(!cancelled, 'owned browser cancelled');
   for (const mode of ['native', 'desktop-qr', 'mobile-qr']) {
+    // These differ for the short duplicate window but share R9K normalization.
+    const comment = 'Owned verified browser duplicate control' + '!'.repeat(ids.length);
     stage = `${mode}-open`;
     const context = await browser.newContext({ javaScriptEnabled: mode !== 'native', viewport: mode === 'mobile-qr' ? { width: 390, height: 844 } : { width: 1280, height: 900 } });
     await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
@@ -31,7 +33,7 @@ try {
     if (mode === 'native') {
       const form = page.locator('form.postEditor').first();
       await form.locator('[name=email]').fill(credential);
-      await form.locator('[name=com]').fill('Owned verified browser duplicate control');
+      await form.locator('[name=com]').fill(comment);
       stage = `${mode}-submit`;
       await Promise.all([page.waitForURL(url => /^#p[1-9][0-9]*$/.test(url.hash)), form.getByRole('button', { name: 'Post', exact: true }).click()]);
       id = new URL(page.url()).hash.slice(2);
@@ -40,7 +42,7 @@ try {
       else await page.locator('.open-qr-link').click();
       const qr = page.locator('#quickReply');
       await qr.locator('#qrEmail').fill(credential);
-      await qr.locator('#qrCom').fill('Owned verified browser duplicate control');
+      await qr.locator('#qrCom').fill(comment);
       stage = `${mode}-submit`;
       const pending = await observeOwnedUploadResponse(page, `${origin}/${board}/imgboard.php`, 'post');
       await qr.locator('input[type=submit]').click();

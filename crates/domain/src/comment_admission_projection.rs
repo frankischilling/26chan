@@ -21,6 +21,7 @@ pub enum Filter {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SourcePath {
     OrdinaryWithoutExif,
+    IncomingOekakiWithoutExif,
     UnknownExif,
     ExifPresent,
     PrivilegedHtml,
@@ -57,12 +58,63 @@ pub struct AdmissionProjection {
     data: String,
 }
 
+/// Validated, persisted drawing facts, not raw form values.
+#[derive(Clone, Copy, Debug)]
+pub struct DrawingAnnotation {
+    pub seconds: i64,
+    pub source_post: Option<i64>,
+    pub replay_tim: Option<i64>,
+}
+
 impl AdmissionProjection {
     pub fn version(&self) -> u16 {
         VERSION
     }
     pub fn as_comparison_data(&self) -> &str {
         &self.data
+    }
+    pub fn comparison_hash(&self) -> [u8; 32] {
+        self.persisted_hash(None)
+    }
+    /// Legacy replay markup participates only in this digest. It must never be
+    /// returned as template-safe HTML or passed to a browser renderer.
+    pub fn persisted_hash(&self, drawing: Option<DrawingAnnotation>) -> [u8; 32] {
+        let mut hash = ring::digest::Context::new(&ring::digest::SHA256);
+        hash.update(b"26chan:source-comment-projection:v1\0");
+        hash.update(self.data.as_bytes());
+        if let Some(drawing) = drawing.filter(|value| (1..=5_184_000).contains(&value.seconds)) {
+            let seconds = drawing.seconds;
+            let time = if seconds < 60 {
+                format!("{seconds}s")
+            } else if seconds < 3600 {
+                format!("{}m", (seconds + 30) / 60)
+            } else {
+                format!("{}h {}m", seconds / 3600, (seconds % 3600 + 30) / 60)
+            };
+            let source = drawing.source_post.filter(|value| *value > 0);
+            let replay = if source.is_none() {
+                drawing
+                    .replay_tim
+                    .filter(|value| *value > 0)
+                    .map(|tim| {
+                        format!(", Replay: <a href=\"javascript:oeReplay({tim});\">View</a>")
+                    })
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+            let source = source
+                .map(|id| format!(", Source: &gt;&gt;{id}"))
+                .unwrap_or_default();
+            hash.update(
+                format!("<br><br><small><b>Oekaki Post</b> (Time: {time}{replay}{source})</small>")
+                    .as_bytes(),
+            );
+        }
+        hash.finish()
+            .as_ref()
+            .try_into()
+            .expect("SHA-256 output length")
     }
     /// PHP's `if ($com)` gate. This says nothing about SQL collation.
     pub fn source_check_applies(&self) -> bool {
@@ -86,7 +138,10 @@ pub fn project(
     input: Input<'_>,
     limits: PostLimits,
 ) -> Result<AdmissionProjection, ProjectionError> {
-    if input.source_path != SourcePath::OrdinaryWithoutExif {
+    if !matches!(
+        input.source_path,
+        SourcePath::OrdinaryWithoutExif | SourcePath::IncomingOekakiWithoutExif
+    ) {
         return Err(ProjectionError::Unsupported(input.source_path));
     }
     if crate::BoardSlug::parse(input.board).is_err()
@@ -364,6 +419,57 @@ fn wrap_source(input: &str) -> String {
 mod tests {
     use super::*;
     use proptest::prelude::*;
+
+    #[test]
+    fn persisted_drawing_hash_matches_original_formatter() {
+        let projection = AdmissionProjection {
+            data: "body".into(),
+        };
+        // Produced by the supplied lib/oekaki.php::oekaki_format_info.
+        for (seconds, replay_tim, source_post, expected) in [
+            (
+                59,
+                None,
+                None,
+                "75b0221eb4c69df112656357b557c355b8e9f4499aebc548ebdd3e5afc6101a9",
+            ),
+            (
+                90,
+                None,
+                None,
+                "51fc0953275631e7bf3e7082e575b7e32ffebb0583a71351f315e88adb6e5fb1",
+            ),
+            (
+                3599,
+                Some(1700000000123),
+                None,
+                "5911bd3faeaac799539ddcd7453b7ae731796d6f683137fb4e9a34910069ae9e",
+            ),
+            (
+                3600,
+                Some(1700000000123),
+                Some(42),
+                "3b45c99e1fa4745d7b94ab5fca293e1b36bec2265a1aa76780904155db7e39b7",
+            ),
+        ] {
+            let hash = projection.persisted_hash(Some(DrawingAnnotation {
+                seconds,
+                source_post,
+                replay_tim,
+            }));
+            let actual: String = hash.iter().map(|byte| format!("{byte:02x}")).collect();
+            assert_eq!(actual, expected);
+            assert_ne!(hash, projection.comparison_hash());
+        }
+        assert_eq!(
+            projection.persisted_hash(Some(DrawingAnnotation {
+                seconds: 0,
+                source_post: None,
+                replay_tim: None,
+            })),
+            projection.comparison_hash()
+        );
+    }
 
     fn ordinary<'a>(comment: &'a str) -> Input<'a> {
         Input {

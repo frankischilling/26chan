@@ -240,11 +240,11 @@ async fn exercise(multipart: bool) {
             StatusCode::UNPROCESSABLE_ENTITY
         );
         for accept in ["*/*", "application/json;q=1", "application/json, text/html"] {
-            let response = app
-                .clone()
-                .oneshot(request(&path, fields, accept))
-                .await
-                .unwrap();
+            let mut independent = request(&path, fields, accept);
+            independent
+                .extensions_mut()
+                .insert(posting_fixture::distinct_transport(&board));
+            let response = app.clone().oneshot(independent).await.unwrap();
             assert_eq!(response.status(), StatusCode::SEE_OTHER);
             assert_eq!(response.headers()["location"], format!("/{board}/"));
         }

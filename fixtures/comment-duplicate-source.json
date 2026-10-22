@@ -1,0 +1,22 @@
+{
+  "source": {
+    "imgboard.php": "caa787cde52eee4c52d85407b077f18938cd15923458a3d95c0c2c614ce7b445",
+    "config/global_config.ini": "8bebeedec119b30559cba4fdccfef416653294cf62118d10288434be99a3034d",
+    "config/global_strings.ini": "3b3b60083db74fb1693af6f0824cccd6ec3ca446242474008cf9be474c65cd17",
+    "lib/util.php": "5307cea255e2d3eb243c7549e1a6521281bf6253c47e010476412b9a4c63a70c"
+  },
+  "gate_php": "function source_duplicate($silent_reject, $com, $host, $time, $dest) {\n\tif( !$silent_reject ) {\n\t\t//logtime( \"Before flood check\" );\n\t\t$may_flood = has_level( 'janitor' );\n\n\t\tif (!$may_flood || (!has_level() && (META_BOARD || $_POST['name'] != ''))) {\n\t\t\tif( $com ) {\n\t\t\t\t// Check for duplicate comments\n\t\t\t\t$query  = \"select sql_no_cache max(time) from `%s` where com='%s' \" .\n\t\t\t\t\t\"and host='%s' \" .\n\t\t\t\t\t\"and time>%d\";\n\t\t\t\t$result = mysql_board_call( $query, SQLLOG, $com, $host, $time - RENZOKU_DUPE );\n\t\t\t\tif( $ltime = mysql_result( $result, 0, 0 ) ) {\n\t\t\t\t\t//check_fail_floodcheck($com);\n\t\t\t\t\t$str = sprintf(S_RENZOKU_DUP, sec2hms( ( $ltime + RENZOKU_DUPE ) - $time, false, true ) );\n\t\t\t\t\terror( $str, $dest );\n\t\t\t\t}\n\t\t\t\tmysql_free_result( $result );\n\t\t\t}\n\t\t\t\n\t\t}\n\t}\n}\n",
+  "duration_php": "function sec2hms($sec, $padTime = false, $showSeconds = false)\n{\n    $hms = \"\";\n    $hours = intval(intval($sec) / 3600);\n\t$minutes = intval(intval($sec) / 60);\n\n\tif ($hours) {\n    $hms .= $padTime\n          ? str_pad($hours, 2, \"0\", STR_PAD_LEFT). \" hour\"\n          : $hours. \" hour\";\n    if( $hours != 1 ) $hms .= 's';\n\n\t$hms .= ' ';\n\t}\n\n\tif ($minutes) {\n    $minutes = intval(($sec / 60) % 60);\n\n    $hms .= $padTime\n\t\t\t? str_pad($minutes, 2, \"0\", STR_PAD_LEFT). \" minute\"\n\t\t\t: $minutes. \" minute\";\n    if( $minutes != 1 ) $hms .= 's';\n\t}\n\n\t$seconds = intval($sec % 60);\n\n\tif ($showSeconds && $seconds) {\n\t\t$hms .= ' ';\n    \t$hms .= $padTime\n\t\t\t\t? str_pad($seconds, 2, \"0\", STR_PAD_LEFT). \" second\"\n\t\t\t\t: $seconds. \" second\";\n\t\tif ($seconds != 1) $hms .= \"s\";\n\t}\n\n    return $hms;\n}\n",
+  "settings": {
+    "config/global_config.ini": [
+      "RENZOKU_DUPE = 300"
+    ],
+    "config/global_strings.ini": [
+      "S_RENZOKU_DUP = Error: You must wait %s before posting a duplicate reply."
+    ]
+  },
+  "limits": [
+    "Synthetic rows exercise temporal and role semantics, not undocumented deployed SQL collation.",
+    "The original application, credentials and network are never loaded."
+  ]
+}

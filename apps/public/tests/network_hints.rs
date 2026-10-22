@@ -51,8 +51,11 @@ async fn request_details(
     cookie: Option<&str>,
 ) -> (u16, serde_json::Value, Vec<String>) {
     let origin = format!("http://{address}");
-    let body =
-        "mode=regist&resto=0&name=Anonymous&sub=&com=Owned+request+hint+matrix&pwd=owned-password";
+    static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
+    let sequence = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let body = format!(
+        "mode=regist&resto=0&name=Anonymous&sub=&com=Owned+request+hint+matrix+{sequence:08x}&pwd=owned-password"
+    );
     let fetch = if reversed {
         "Sec-Fetch-Dest: empty\r\nSec-Fetch-Mode: cors\r\nSec-Fetch-Site: same-origin\r\n"
     } else {

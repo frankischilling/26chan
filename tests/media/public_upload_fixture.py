@@ -50,6 +50,12 @@ def finish_browser(process, script):
     return output
 
 
+def require_running_browser(process, script):
+    if process.poll() is not None:
+        finish_browser(process, script)
+        raise AssertionError("public upload browser completed before queueing")
+
+
 class PublicUnit(UnitProcess):
     def __init__(self, token):
         assert re.fullmatch('[a-z0-9_]{8}', token)
@@ -162,7 +168,8 @@ class PublicUpload:
         assert sql(f"SELECT posting_reply_seconds,posting_image_seconds,posting_thread_seconds FROM content.boards WHERE slug='{self.board}';") == '0|0|0'
         # Only the trusted supervisor can touch private admission state. Both
         # full actor identity and owned board scope must match; no global reset.
-        for table in ('posting_history', 'posting_thread_actions'):
+        # Each completed upload/drawing phase is an independent admission case.
+        for table in ('posting_history', 'posting_thread_actions', 'comment_history'):
             sql(f"DELETE FROM post_secrets.{table} WHERE actor_hash=decode('{self._posting_actor_hex()}','hex') AND board='{self.board}';")
 
     def reset_deletion_quota(self):
@@ -315,7 +322,7 @@ class PublicUpload:
         self.browser = process
         query = f"SELECT j.id FROM media.jobs j WHERE j.filename='{filename}' AND j.state='queued';"
         def queued():
-            assert process.poll() is None, 'public upload browser exited before queueing'
+            require_running_browser(process, script)
             return bool(sql(query))
         wait_until(queued, seconds=25)
         job = sql(query)

@@ -17,7 +17,7 @@ async fn create(public: &PgPool, board: &str, capability: &Capability) -> i64 {
         &NewPost {
             name: "Anonymous".into(),
             subject: "Owned verification fixture".into(),
-            comment: "Synthetic verified ownership".into(),
+            comment: support::distinct_comment("Synthetic verified ownership"),
             deletion_hash: "owned-verification-proof".into(),
             sage: false,
         },

@@ -24,7 +24,9 @@ async fn thread_metadata_and_posts_stay_consistent_during_writes() {
     let writer_key = support::key("fixture");
     let writer_actor = writer_key.public_posting_rate_identity(support::peer());
     let writer = tokio::spawn(async move {
-        for _ in 0..80 {
+        for n in 0..80 {
+            let mut post = post.clone();
+            post.comment = format!("Owned snapshot reply {n}");
             // Independent snapshot writes: keep imported policy unchanged and
             // clear only this owned actor’s earlier fixture reply history.
             sqlx::query(

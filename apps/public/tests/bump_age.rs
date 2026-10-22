@@ -16,7 +16,7 @@ fn post(sage: bool) -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: String::new(),
-        comment: "Owned age fixture".into(),
+        comment: posting_fixture::distinct_comment("Owned age fixture"),
         deletion_hash: "unused-fixture-hash".into(),
         sage,
     }
@@ -213,18 +213,23 @@ impl Fixture {
                 let before = board_store::thread(&self.public, &self.slug, self.id)
                     .await
                     .unwrap();
+                let comment = format!("Owned age reply {route} {multipart}");
                 let (content_type, body) = if multipart {
                     (
                         "multipart/form-data; boundary=age",
                         format!(
-                            "--age\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n{}\r\n--age\r\nContent-Disposition: form-data; name=\"com\"\r\n\r\nOwned age reply\r\n--age\r\nContent-Disposition: form-data; name=\"pwd\"\r\n\r\nowned-secret\r\n--age--\r\n",
+                            "--age\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n{}\r\n--age\r\nContent-Disposition: form-data; name=\"com\"\r\n\r\n{comment}\r\n--age\r\nContent-Disposition: form-data; name=\"pwd\"\r\n\r\nowned-secret\r\n--age--\r\n",
                             self.id
                         ),
                     )
                 } else {
                     (
                         "application/x-www-form-urlencoded",
-                        format!("resto={}&com=Owned+age+reply&pwd=owned-secret", self.id),
+                        format!(
+                            "resto={}&com={}&pwd=owned-secret",
+                            self.id,
+                            comment.replace(' ', "+")
+                        ),
                     )
                 };
                 let response = app

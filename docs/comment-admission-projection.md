@@ -21,11 +21,15 @@ has private bounded data and version 1; its accessor supplies comparison data,
 never permission to bypass template escaping. It also preserves PHP's false
 values: empty string and exactly `0`.
 
-The caller must explicitly select `OrdinaryWithoutExif`. Unknown or present
-EXIF, privileged HTML, and Oekaki return unsupported errors. EXIF requires
-source media timestamp and extracted-field provenance. Oekaki metadata is
-appended after admission, so the incoming and persisted comparison strings
-need separate stages before supporting that path. Source `$admin_highlight`
+The caller must explicitly select `OrdinaryWithoutExif` or
+`IncomingOekakiWithoutExif`. Unknown or present EXIF and privileged HTML remain
+unsupported. EXIF needs source media timestamp and extracted-field provenance.
+The incoming Oekaki comparison excludes its drawing annotation. A separate
+`persisted_hash` appends the source annotation from validated stored drawing
+facts before hashing. The original replay JavaScript spelling is digest input
+only; it never becomes rendered HTML. A resolved source post suppresses the
+replay link, as in the original formatter. Four digest examples were compared
+with the supplied PHP formatter. Source `$admin_highlight`
 is initialized false and never changed in this posting function; staff badge
 highlighting does not add that inactive wrapper.
 

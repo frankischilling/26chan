@@ -12,7 +12,7 @@ fn post(subject: &str) -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: subject.into(),
-        comment: "Owned subject post".into(),
+        comment: super::posting_fixture::distinct_comment("Owned subject post"),
         deletion_hash: "owned-test-hash".into(),
         sage: false,
     }
@@ -43,7 +43,7 @@ pub async fn exercise(app: &Router, owner: &PgPool, public: &PgPool, slug: &str,
         let fields = [
             ("mode", "regist".to_owned()),
             ("resto", thread.to_string()),
-            ("com", "Owned subject reply".to_owned()),
+            ("com", format!("Owned subject reply {index}")),
             ("sub", raw.to_owned()),
             ("pwd", "owned-password".to_owned()),
         ];

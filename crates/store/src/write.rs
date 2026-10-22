@@ -740,13 +740,16 @@ async fn create_post_in_context(
         },
         _ => board_domain::content_admission::network::ProviderValue::Unavailable,
     };
-    let staff_network_bypass = if (ordinary || slug == "test")
-        && let Some(authority) = &staff
-    {
-        crate::content_admission::staff::network_bypass(authority, slug).await?
+    let staff_identity_valid = if let Some(authority) = &staff {
+        if ordinary || slug == "test" || parent == 0 {
+            crate::content_admission::staff::validate_identity(authority, slug).await?
+        } else {
+            false
+        }
     } else {
         false
     };
+    let staff_network_bypass = (ordinary || slug == "test") && staff_identity_valid;
     let mut tx = pool.begin().await?;
     // The decision must see the preceding actor's commit after waiting on its
     // gate, regardless of the connection's default transaction isolation.
@@ -1130,18 +1133,26 @@ async fn create_post_in_context(
     } else {
         None
     };
-    // Source checks active OP quota after bans and before content filters,
-    // duplicate admission and cooldowns. Staff must first obtain the bound
-    // authority below; a cosmetic identity must never authorize this check.
-    if parent == 0 && staff.is_none() {
-        crate::thread_quota::check(
+    // Source checks every OP's quota after bans and before terminal filters.
+    // Preliminary staff authentication grants no posting proof. Revalidate
+    // terminal refusals under locks, then roll back without consuming an intent.
+    if parent == 0
+        && let Err(error) = crate::thread_quota::check(
             &mut tx,
             &posting_actor,
             slug,
             posted_at.timestamp(),
             anonymous,
         )
-        .await?;
+        .await
+    {
+        if matches!(error, StoreError::ContentRejected(_))
+            && let Some(authority) = &staff
+        {
+            crate::content_admission::staff::revalidate_quota_refusal(&mut tx, authority, slug)
+                .await?;
+        }
+        return Err(error);
     }
     // Validate the exact attachment before any filter can commit effects. This
     // also covers badged staff; only the later exact-file rule is badge-exempt.
@@ -1311,28 +1322,60 @@ async fn create_post_in_context(
     {
         return Err(StoreError::ContentRejected(message.into()));
     }
+    use board_domain::wordfilter::{LeetRolls, Profile};
+    let profile = if board.word_filter_enabled {
+        Some(match board.word_filter_profile {
+            0 => Profile::Global,
+            1 => Profile::Basic,
+            2 => Profile::Asp,
+            3 => Profile::Video,
+            4 => Profile::Test,
+            _ => return Err(StoreError::Invalid("Wordfilter policy is unavailable.")),
+        })
+    } else {
+        None
+    };
+    let rolls = if profile == Some(Profile::Test) {
+        Some(LeetRolls::generate().map_err(|_| StoreError::RandomnessUnavailable)?)
+    } else {
+        None
+    };
+    let projection = if attachment.is_some() && matches!(slug, "p" | "test") {
+        // Source EXIF extraction has not yet been qualified. Missing provenance
+        // cannot be interpreted as an empty EXIF result.
+        None
+    } else {
+        use board_domain::comment_admission_projection as projection;
+        Some(
+            projection::project(
+                projection::Input {
+                    prepared_comment: (&content).into(),
+                    board: slug,
+                    markup: board_domain::comment_markup::MarkupPolicy {
+                        spoilers: board.comment_spoiler_cleanup,
+                        code: board.comment_code_spacing,
+                        sjis: board.comment_sjis_spacing,
+                        op: op_markup,
+                    },
+                    filter: profile.map_or(projection::Filter::Off, |profile| {
+                        projection::Filter::On { profile, rolls }
+                    }),
+                    randomizer: special.as_ref(),
+                    source_path: if metadata.drawing.is_some() {
+                        projection::SourcePath::IncomingOekakiWithoutExif
+                    } else {
+                        projection::SourcePath::OrdinaryWithoutExif
+                    },
+                },
+                post_limits,
+            )
+            .map_err(|_| StoreError::Invalid("Comment comparison is unavailable."))?,
+        )
+    };
     let board_domain::PreparedPostContent { comment, subject } = content
         .finish_with_randomizer(special.as_ref())
         .map_err(|error| StoreError::Invalid(error.0))?;
     let mut wordfiltered = if board.word_filter_enabled || special.is_some() {
-        use board_domain::wordfilter::{LeetRolls, Profile};
-        let profile = if board.word_filter_enabled {
-            Some(match board.word_filter_profile {
-                0 => Profile::Global,
-                1 => Profile::Basic,
-                2 => Profile::Asp,
-                3 => Profile::Video,
-                4 => Profile::Test,
-                _ => return Err(StoreError::Invalid("Wordfilter policy is unavailable.")),
-            })
-        } else {
-            None
-        };
-        let rolls = if profile == Some(Profile::Test) {
-            Some(LeetRolls::generate().map_err(|_| StoreError::RandomnessUnavailable)?)
-        } else {
-            None
-        };
         let markup = board_domain::comment_markup::MarkupPolicy {
             spoilers: board.comment_spoiler_cleanup,
             code: board.comment_code_spacing,
@@ -1412,6 +1455,14 @@ async fn create_post_in_context(
     // authoritatively selects named/meta janitor ordinary timers before the
     // separate five-second staff check.
     if staff.is_none() {
+        crate::comment_duplicates::check(
+            &mut tx,
+            &posting_actor,
+            slug,
+            posted_at.timestamp(),
+            projection.as_ref(),
+        )
+        .await?;
         if parent > 0
             && let Some(attachment) = attachment
         {
@@ -1696,6 +1747,14 @@ async fn create_post_in_context(
             .await?;
         }
         if ordinary_timers {
+            crate::comment_duplicates::check(
+                &mut tx,
+                &posting_actor,
+                slug,
+                posted_at.timestamp(),
+                projection.as_ref(),
+            )
+            .await?;
             if parent > 0
                 && let Some(attachment) = attachment
             {
@@ -2058,8 +2117,11 @@ async fn create_post_in_context(
     if let Some(session) = anonymous {
         anonymous_session::record_post(&mut tx, session, slug, id).await?;
     }
-    // Only accepted replies participate: after robot9000 and anonymous
-    // ownership registration, before the enclosing transaction commits.
+    // Only accepted posts register comparison data, after all refusal paths
+    // and before autoarchive can retire ordinary posting history.
+    if let Some(projection) = projection.as_ref() {
+        crate::comment_duplicates::record(&mut tx, &posting_actor, id, projection).await?;
+    }
     if parent != 0 {
         crate::archives::autoarchive_after_reply(&mut tx, &board, parent).await?;
     }

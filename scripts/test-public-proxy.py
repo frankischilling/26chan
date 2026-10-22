@@ -174,9 +174,12 @@ def main():
             with socket.socket() as probe:
                 assert probe.connect_ex(('127.0.0.1', unused_port)) != 0, 'Unexpected public TCP listener'
 
+            submission = 0
             def submit(peer, parent, password='owned-different-password', expected=200):
+                nonlocal submission
+                submission += 1
                 status, body = request('POST', f'/{board}/imgboard.php', peer,
-                                       {'resto': parent, 'com': '[b]Owned proxy fixture[/b]', 'pwd': password})
+                                       {'resto': parent, 'com': f'[b]Owned proxy fixture[/b] {submission}', 'pwd': password})
                 assert status == expected, (status, expected)
                 if expected == 200:
                     value = json.loads(body)

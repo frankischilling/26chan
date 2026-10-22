@@ -1,4 +1,5 @@
 #![cfg(feature = "database-tests")]
+mod support;
 
 use board_domain::poster_id::PosterIdKey;
 use board_store::{
@@ -296,7 +297,7 @@ fn post() -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: "Owned staff timer".into(),
-        comment: "Owned text-only staff timer fixture".into(),
+        comment: support::distinct_comment("Owned text-only staff timer fixture"),
         deletion_hash: "synthetic-not-a-password".into(),
         sage: false,
     }

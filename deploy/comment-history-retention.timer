@@ -1,0 +1,11 @@
+[Unit]
+Description=Run bounded comment comparison history expiry every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=1s
+Unit=comment-history-retention.service
+
+[Install]
+WantedBy=timers.target

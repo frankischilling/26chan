@@ -35,7 +35,7 @@ fn post() -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: "Synthetic archive".into(),
-        comment: "Owned archive lifecycle fixture".into(),
+        comment: support::distinct_comment("Owned archive lifecycle fixture"),
         deletion_hash: "not-a-real-password-hash".into(),
         sage: false,
     }

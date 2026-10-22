@@ -18,7 +18,7 @@ fn post(subject: &str) -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: subject.into(),
-        comment: "Owned required-subject post".into(),
+        comment: posting_fixture::distinct_comment("Owned required-subject post"),
         deletion_hash: "owned-test-hash".into(),
         sage: false,
     }
@@ -40,7 +40,10 @@ async fn submit(
         ("mode", "regist".to_owned()),
         ("resto", parent.to_string()),
         ("sub", subject.to_owned()),
-        ("com", "Owned required-subject HTTP post".to_owned()),
+        (
+            "com",
+            posting_fixture::distinct_comment("Owned required-subject HTTP post"),
+        ),
         ("pwd", "owned-password".to_owned()),
     ];
     let (kind, body) = if index & 1 == 0 {

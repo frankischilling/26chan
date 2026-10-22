@@ -14,7 +14,7 @@ fn post(sage: bool) -> NewPost {
     NewPost {
         name: "Anonymous".into(),
         subject: String::new(),
-        comment: "Owned bump fixture".into(),
+        comment: posting_fixture::distinct_comment("Owned bump fixture"),
         deletion_hash: "synthetic-unused-hash".into(),
         sage,
     }

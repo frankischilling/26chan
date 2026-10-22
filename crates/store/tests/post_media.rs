@@ -19,6 +19,12 @@ use support::{create_post, create_post_with_attachment};
 // Keep independent cases apart; their intentional concurrent operations remain.
 static QUEUE_TEST: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
+fn distinct_post(label: &str) -> NewPost {
+    let mut draft = post();
+    draft.comment = support::distinct_comment(label);
+    draft
+}
+
 #[derive(Clone)]
 struct Fixture {
     admin: PgPool,
@@ -150,6 +156,7 @@ impl Fixture {
 
     async fn insert(&self, thread: i64, a: &NewAttachment) -> Result<i64, StoreError> {
         let mut post = post();
+        post.comment.push_str(&format!(" {}", a.upload.id));
         if self.attachment_only {
             post.comment.clear();
         }
@@ -257,6 +264,21 @@ async fn oekaki_annotation_uses_owned_image_and_source_row_without_provenance_cl
     outcome.unwrap();
 }
 
+fn drawing_peer() -> std::net::IpAddr {
+    static NEXT: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(1);
+    std::net::Ipv6Addr::new(
+        0x2001,
+        0xdb8,
+        0,
+        0,
+        0,
+        0,
+        0,
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+    )
+    .into()
+}
+
 async fn drawing_post(
     fixture: &Fixture,
     parent: i64,
@@ -273,7 +295,7 @@ async fn drawing_post(
         Some(&attachment),
         board_store::PostingContext {
             request_start: chrono::Utc::now(),
-            peer: Some(support::peer()),
+            peer: Some(drawing_peer()),
             op_password_proof: None,
         },
         board_store::PostMetadata {
@@ -323,7 +345,7 @@ async fn exercise_drawing_annotations(fixture: &Fixture) {
         None,
         board_store::PostingContext {
             request_start: chrono::Utc::now(),
-            peer: Some(support::peer()),
+            peer: Some(drawing_peer()),
             op_password_proof: None,
         },
         board_store::PostMetadata {
@@ -643,7 +665,9 @@ async fn exercise(f: &Fixture) {
     );
 
     let a = f.reserve().await;
-    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let mut opening = post();
+    opening.comment = "Owned attachment authorization thread".into();
+    let thread = create_post(&f.public, &f.board, 0, &opening).await.unwrap();
     if f.attachment_only {
         reject_unattached_empty_posts(f, thread).await;
     }
@@ -719,9 +743,9 @@ async fn exercise(f: &Fixture) {
             .unwrap()
             .comment,
         if f.attachment_only {
-            ""
+            String::new()
         } else {
-            "A synthetic\nattachment\ncomment"
+            format!("A synthetic\nattachment\ncomment {}", a.upload.id)
         }
     );
     assert_eq!(saved.asset_id, asset);
@@ -1115,7 +1139,9 @@ async fn direct_sql_spoiler_policy(f: &Fixture) {
     .execute(&f.admin)
     .await
     .unwrap();
-    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &distinct_post("Owned media thread"))
+        .await
+        .unwrap();
     for enabled in [false, true] {
         let receipt = f.reserve().await;
         f.approve(&receipt).await;
@@ -1209,7 +1235,7 @@ async fn poster_counts(f: &Fixture) {
     .into_iter()
     .zip(uploads)
     {
-        let mut draft = post();
+        let mut draft = distinct_post("Owned poster count fixture");
         draft.name = "User#password".into();
         draft.sage = sage;
         sqlx::query("UPDATE content.boards SET meta_board=$2,poster_id_no_heaven=$3 WHERE slug=$1")
@@ -1313,7 +1339,7 @@ async fn poster_counts(f: &Fixture) {
 async fn tripcodes(f: &Fixture) {
     let upload = f.reserve().await;
     f.approve(&upload).await;
-    let mut draft = post();
+    let mut draft = distinct_post("Owned media admission case");
     draft.name = "User#password".into();
     if f.attachment_only {
         draft.comment.clear();
@@ -1335,6 +1361,9 @@ async fn tripcodes(f: &Fixture) {
         .await
         .unwrap();
     draft.name = "User##owned-private-secret".into();
+    if !f.attachment_only {
+        draft.comment = support::distinct_comment("Owned forced-anonymous reply");
+    }
     let id = create_post_with_attachment(&f.public, &f.board, id, &draft, Some(&upload))
         .await
         .unwrap();
@@ -1388,7 +1417,7 @@ async fn source_prepared_names(f: &Fixture) {
     ] {
         let upload = f.reserve().await;
         f.approve(&upload).await;
-        let mut draft = post();
+        let mut draft = distinct_post("Owned media admission case");
         if f.attachment_only {
             draft.comment.clear();
         }
@@ -1448,7 +1477,7 @@ async fn suppressed_trip_attachments(f: &Fixture) {
     ] {
         let upload = f.reserve().await;
         f.approve(&upload).await;
-        let mut draft = post();
+        let mut draft = distinct_post("Owned media admission case");
         draft.name = raw.into();
         if f.attachment_only {
             draft.comment.clear();
@@ -1602,7 +1631,9 @@ async fn forced_anonymous_attachment(f: &Fixture) {
 async fn final_content_admission(f: &Fixture) {
     sqlx::query("UPDATE content.boards SET image_limit=100,require_subject=false,comment_spoiler_cleanup=true,comment_code_spacing=true,comment_sjis_spacing=true WHERE slug=$1")
         .bind(&f.board).execute(&f.admin).await.unwrap();
-    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &distinct_post("Owned media thread"))
+        .await
+        .unwrap();
     for raw in ["", "[spoiler] \n[/spoiler]", "[code]      [/code]"] {
         let upload = f.reserve().await;
         let asset = f.approve(&upload).await;
@@ -1649,7 +1680,9 @@ async fn final_content_admission(f: &Fixture) {
 async fn text_only_policy(f: &Fixture) {
     sqlx::query("UPDATE content.boards SET image_limit=100,require_subject=false,text_only=true WHERE slug=$1")
         .bind(&f.board).execute(&f.admin).await.unwrap();
-    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &distinct_post("Owned media thread"))
+        .await
+        .unwrap();
     let upload = f.reserve().await;
     let asset = f.approve(&upload).await;
     assert!(matches!(
@@ -1718,7 +1751,14 @@ async fn text_only_policy(f: &Fixture) {
             let board = f.board.clone();
             let upload = upload.clone();
             tokio::spawn(async move {
-                create_post_with_attachment(&public, &board, thread, &post(), Some(&upload)).await
+                create_post_with_attachment(
+                    &public,
+                    &board,
+                    thread,
+                    &distinct_post("Owned waiting media reply"),
+                    Some(&upload),
+                )
+                .await
             })
         };
         let witnessed = tokio::time::timeout(Duration::from_secs(5), async { loop {
@@ -1742,6 +1782,11 @@ async fn text_only_policy(f: &Fixture) {
 }
 
 async fn tail_counts(f: &Fixture) {
+    let tail_post = || {
+        let mut draft = post();
+        draft.comment = support::distinct_comment("Owned tail-count reply");
+        draft
+    };
     let generic = sqlx::postgres::PgPoolOptions::new()
         .max_connections(1)
         .after_connect(|connection, _| {
@@ -1760,11 +1805,13 @@ async fn tail_counts(f: &Fixture) {
         .execute(&f.admin)
         .await
         .unwrap();
-    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &tail_post())
+        .await
+        .unwrap();
     let first = f.reserve().await;
     f.approve(&first).await;
     let image = f.insert(thread, &first).await.unwrap();
-    let text = create_post(&f.public, &f.board, thread, &post())
+    let text = create_post(&f.public, &f.board, thread, &tail_post())
         .await
         .unwrap();
     let tail = board_store::thread_snapshot_selection(&f.public, &f.board, thread, true)
@@ -1782,7 +1829,7 @@ async fn tail_counts(f: &Fixture) {
     assert_eq!(tail.images, 0);
     // Put the next attachment beyond the first loader batch.
     for _ in 0..17 {
-        create_post(&f.public, &f.board, thread, &post())
+        create_post(&f.public, &f.board, thread, &tail_post())
             .await
             .unwrap();
     }
@@ -1906,7 +1953,7 @@ async fn comment_spacing(f: &Fixture) {
             .bind(&f.board).bind(code).bind(sjis).execute(&f.admin).await.unwrap();
         let upload = f.reserve().await;
         let asset = f.approve(&upload).await;
-        let mut draft = post();
+        let mut draft = distinct_post("Owned media admission case");
         draft.comment = "😀".repeat(max_chars as usize + 1);
         assert!(matches!(
             create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload)).await,
@@ -1948,9 +1995,20 @@ async fn comment_spacing(f: &Fixture) {
             Err(StoreError::Invalid("Error: New threads require a subject."))
         ));
         draft.subject = " Ｚ##ⓦ\t  <b>│\r\nEND ".into();
-        let id = create_post_with_attachment(&f.public, &f.board, 0, &draft, Some(&upload))
-            .await
-            .unwrap();
+        let id = support::create_post_with_context(
+            &f.public,
+            &f.board,
+            0,
+            &draft,
+            Some(&upload),
+            board_store::PostingContext {
+                request_start: chrono::Utc::now(),
+                peer: Some(drawing_peer()),
+                op_password_proof: None,
+            },
+        )
+        .await
+        .unwrap();
         let stamped: bool = sqlx::query_scalar("SELECT p.comment_format = 232 + b.comment_spoiler_cleanup::integer + 2*b.comment_code_spacing::integer + 4*b.comment_sjis_spacing::integer FROM content.posts p JOIN content.boards b ON b.slug=p.board WHERE p.id=$1")
             .bind(id).fetch_one(&f.public).await.unwrap();
         assert!(stamped);
@@ -1997,7 +2055,9 @@ async fn image_admission_flags(f: &Fixture) {
         .execute(&f.admin)
         .await
         .unwrap();
-    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &distinct_post("Owned media thread"))
+        .await
+        .unwrap();
     let first = f.reserve().await;
     f.approve(&first).await;
     f.insert(thread, &first).await.unwrap();
@@ -2072,7 +2132,7 @@ async fn image_admission_flags(f: &Fixture) {
             .unwrap();
         let pool = f.public.clone();
         let board = f.board.clone();
-        let mut draft = post();
+        let mut draft = distinct_post("Owned media admission case");
         if f.attachment_only {
             draft.comment.clear();
         }
@@ -2157,6 +2217,7 @@ async fn posting_times(f: &Fixture) {
     support::reset_posting_history(&f.admin, &f.board).await;
     use chrono::{DateTime, Timelike, Utc};
     let mut post = post();
+    post.comment = "Owned historical posting-time OP".into();
     if f.attachment_only {
         post.comment.clear();
     }
@@ -2186,6 +2247,9 @@ async fn posting_times(f: &Fixture) {
     let reply = f.reserve().await;
     f.approve(&reply).await;
     let earlier = requested - chrono::Duration::seconds(100);
+    if !f.attachment_only {
+        post.comment = "Owned earlier posting-time reply".into();
+    }
     let rid = support::create_post_with_attachment_at(
         &f.public,
         &f.board,
@@ -2394,7 +2458,9 @@ async fn exercise_waits_and_moderation(f: &Fixture) {
     // The capability expires while an actual job-row lock is held.
     let a = f.reserve().await;
     f.approve(&a).await;
-    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &distinct_post("Owned media thread"))
+        .await
+        .unwrap();
     let mut lock = f.admin.begin().await.unwrap();
     let blocker: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
         .fetch_one(&mut *lock)
@@ -2406,7 +2472,14 @@ async fn exercise_waits_and_moderation(f: &Fixture) {
     let pool = f.public.clone();
     let board = f.board.clone();
     let waiting = tokio::spawn(async move {
-        create_post_with_attachment(&pool, &board, thread, &post(), Some(&a)).await
+        create_post_with_attachment(
+            &pool,
+            &board,
+            thread,
+            &distinct_post("Owned waiting media reply"),
+            Some(&a),
+        )
+        .await
     });
     // Use database witnesses: a scheduler delay alone proves neither the
     // intended row-lock wait nor expiry on PostgreSQL's wall clock.
@@ -2473,7 +2546,14 @@ async fn exercise_waits_and_moderation(f: &Fixture) {
         spoiler: a.spoiler,
     };
     let mut waiting = tokio::spawn(async move {
-        create_post_with_attachment(&pool, &board, thread, &post(), Some(&waiting_attachment)).await
+        create_post_with_attachment(
+            &pool,
+            &board,
+            thread,
+            &distinct_post("Owned waiting media reply"),
+            Some(&waiting_attachment),
+        )
+        .await
     });
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
@@ -2562,7 +2642,9 @@ async fn file_deletion_rechecks_archive_after_post_lock(f: &Fixture, staff: &PgP
         .await
         .unwrap();
     assert_eq!(actual, "board_staff");
-    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &distinct_post("Owned media thread"))
+        .await
+        .unwrap();
     let receipt = f.reserve().await;
     f.approve(&receipt).await;
     let reply = f.insert(thread, &receipt).await.unwrap();
@@ -2791,7 +2873,9 @@ async fn retention(f: &Fixture) {
     // Retirement waits for its job lock, then must see the committed attachment.
     let b = f.reserve().await;
     let live = f.approve(&b).await;
-    let thread = create_post(&f.public, &f.board, 0, &post()).await.unwrap();
+    let thread = create_post(&f.public, &f.board, 0, &distinct_post("Owned media thread"))
+        .await
+        .unwrap();
     let mut posting = f.public.begin().await.unwrap();
     f.prepare_direct_post(&mut posting, thread).await;
     let number: i64 = sqlx::query_scalar("SELECT nextval('content.post_number')")

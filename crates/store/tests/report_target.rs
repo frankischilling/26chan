@@ -108,15 +108,15 @@ async fn report_targets_follow_source_policy_without_exposing_private_activity()
         let owner = &test_owner;
         let public = &test_public;
         let slug = &test_slug;
-        let post = NewPost {
+        let post = || NewPost {
             name: "Anonymous".into(),
             subject: "Owned report fixture".into(),
-            comment: "Owned report target content".into(),
+            comment: support::distinct_comment("Owned report target content"),
             deletion_hash: "owned-report-hash".into(),
             sage: false,
         };
-        let op = support::create_post(public, slug, 0, &post).await.unwrap();
-        let reply = support::create_post(public, slug, op, &post).await.unwrap();
+        let op = support::create_post(public, slug, 0, &post()).await.unwrap();
+        let reply = support::create_post(public, slug, op, &post()).await.unwrap();
         let target = board_store::report_target(public, slug, reply).await.unwrap();
         assert_eq!((target.board.as_str(), target.post_id, target.thread_id), (slug.as_str(), reply, op));
         for worksafe in [false, true] {
@@ -187,7 +187,7 @@ async fn report_targets_follow_source_policy_without_exposing_private_activity()
         rejected(public, slug, op, "Not found.", sessions).await;
         // Fresh erasure is irreversible. Use a new live target for the
         // independent stale-GET admission check rather than reviving a tombstone.
-        let op = support::create_post(public, slug, 0, &post).await.unwrap();
+        let op = support::create_post(public, slug, 0, &post()).await.unwrap();
 
         // A previously eligible GET cannot authorize a report after policy
         // changes while the POST is queued on the ordinary board lock.

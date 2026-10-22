@@ -149,7 +149,9 @@ impl Fixture {
             &NewPost {
                 name: "Anonymous".into(),
                 subject: "Owned deletion authorization".into(),
-                comment: "Owned post that must survive revoked deletion authority".into(),
+                comment: posting_fixture::distinct_comment(
+                    "Owned post that must survive revoked deletion authority",
+                ),
                 deletion_hash: self.hash.clone(),
                 sage: false,
             },

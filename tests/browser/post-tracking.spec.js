@@ -67,7 +67,7 @@ test('successful ordinary and board-return posts auto-watch, track own replies a
 test('concurrent successful posts use distinct receipts and failed posts create none', async ({ page, context }) => {
   await autoWatch(page);
   const results = await withPostingHistory(() => Promise.all(['First concurrent thread', 'Second concurrent thread'].map(sub => context.request.post('/fixture/post', {
-    headers: { Origin: origin }, form: { sub, com: 'Owned concurrent fixture', password, track: '1', awt: '1' }, maxRedirects: 0,
+    headers: { Origin: origin }, form: { sub, com: `Owned concurrent fixture ${sub}`, password, track: '1', awt: '1' }, maxRedirects: 0,
   }))));
   const ids = results.map(response => { expect(response.status()).toBe(303); return response.headers().location.match(/thread\/(\d+)/)[1]; });
   for (const [index, id] of ids.entries()) owned.push({ id, cookie: await ownerCookie(results[index]) });

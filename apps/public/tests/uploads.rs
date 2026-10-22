@@ -1414,7 +1414,7 @@ async fn image_reply_contract(
                     comment: if index % 2 == 0 {
                         String::new()
                     } else {
-                        "Synthetic API fixture".into()
+                        format!("Synthetic API fixture {index}")
                     },
                     deletion_hash: "not-a-password".into(),
                     sage: false,
@@ -1692,7 +1692,7 @@ async fn image_reply_contract(
         .await
         .unwrap();
     for _ in 0..2 {
-        posting::create_post(&public, board, text_thread, &text)
+        posting::create_independent_post(&public, board, text_thread, &text)
             .await
             .unwrap();
     }

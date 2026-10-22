@@ -72,6 +72,7 @@ async fn submit(
     app.clone()
         .oneshot(
             Request::post(format!("/{slug}/{route}"))
+                .extension(posting::distinct_transport(slug))
                 .header("origin", "http://127.0.0.1:3000")
                 .header("accept", accept)
                 .header("content-type", kind)
@@ -110,7 +111,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     .execute(&owner)
     .await
     .unwrap();
-    let historical = posting::create_post(&public, &slug, 0, &post(""))
+    let historical = posting::create_independent_post(&public, &slug, 0, &post(""))
         .await
         .unwrap();
     // These routes only read media settings; intake transport is exercised by
@@ -259,7 +260,9 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         let pending = {
             let public = public.clone();
             let slug = slug.clone();
-            tokio::spawn(async move { posting::create_post(&public, &slug, 0, &post("")).await })
+            tokio::spawn(async move {
+                posting::create_independent_post(&public, &slug, 0, &post("")).await
+            })
         };
         let observed = tokio::time::timeout(Duration::from_secs(5), async { loop {
             let waiting: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid)))")

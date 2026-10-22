@@ -348,3 +348,32 @@ for (const invalidation of ['invalid form', 'closed thread']) {
     expect(await page.evaluate(key => localStorage.getItem(key), key)).toBe(String(stamp));
   });
 }
+
+test('real duplicate-comment refusal preserves the draft and never retries automatically', async ({ page, request, ownedThread }) => {
+  const draft = `Owned duplicate comment ${ownedThread}`;
+  await page.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ persistentQR: true, threadWatcher: false })));
+  await page.goto(`/fixture/thread/${ownedThread}`);
+  await page.locator('.open-qr-link').click();
+  await page.locator('#qrCom').fill(draft);
+  let attempts = 0;
+  page.on('request', req => {
+    if (req.method() === 'POST' && req.url() === `${origin}/fixture/imgboard.php`) attempts++;
+  });
+  await withPostingHistory(async () => {
+    const first = await request.post('/fixture/post', { headers: { Origin: origin }, maxRedirects: 0,
+      form: { resto: ownedThread, com: draft, password } });
+    expect(first.status(), await first.text()).toBe(303);
+    await button(page).click({ modifiers: ['Shift'] });
+    await expect(page.locator('#qrError')).toContainText('before posting a duplicate reply.');
+    await expect(page.locator('#qrCom')).toHaveValue(draft);
+    await expect(button(page)).not.toHaveValue('Sending');
+    expect(attempts).toBe(1);
+    const saved = await (await request.get(`/fixture/thread/${ownedThread}.json`)).json();
+    expect(saved.posts.filter(post => post.com === draft)).toHaveLength(1);
+    // Advancing the page's timers must not trigger a queued resubmission.
+    await page.clock.install();
+    await page.clock.fastForward(310_000);
+    expect(attempts).toBe(1);
+    await expect(page.locator('#qrCom')).toHaveValue(draft);
+  });
+});

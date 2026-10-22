@@ -1,4 +1,5 @@
 #![cfg(feature = "database-tests")]
+mod support;
 use board_domain::{anonymous_session::Capability, poster_id::PosterIdKey};
 use board_store::{
     AnonymousPostingContext, NewPost, PostIdentityKeys, PostMetadata, PostingContext, StoreError,
@@ -98,7 +99,7 @@ impl Fixture {
         let post = NewPost {
             name: "Anonymous".into(),
             subject: "Owned restriction".into(),
-            comment: "Synthetic admission".into(),
+            comment: support::distinct_comment("Synthetic admission"),
             deletion_hash: "Owned recovery proof".into(),
             sage: false,
         };

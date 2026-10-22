@@ -106,14 +106,16 @@ async fn originality_mutes_decay_and_rejections_are_persisted_atomically() {
     let (a, p, b) = (admin.clone(), public.clone(), board.clone());
     let outcome = tokio::spawn(async move {
         // Disabled boards ignore the plugin and its would-be bypass option.
-        for _ in 0..2 {
-            create(&p,&b,0,"ordinary original comment",1,"bypass_r9k",None).await.unwrap();
+        for peer in [10, 11] {
+            create(&p,&b,0,"ordinary original comment",peer,"bypass_r9k",None).await.unwrap();
         }
         assert_eq!(state(&a,&b).await,(2,2,0,0));
         sqlx::query("UPDATE content.boards SET robot9000=true WHERE slug=$1")
             .bind(&b).execute(&a).await.unwrap();
         let first = create(&p,&b,0,"ordinary original comment",1,"",None).await.unwrap();
         assert_eq!(state(&a,&b).await,(3,3,1,0));
+        // Keep the original text in Robot9000 history beyond the separate five-minute duplicate window.
+        sqlx::query("UPDATE content.posts SET created_at=clock_timestamp()-interval '301 seconds' WHERE id=$1").bind(first).execute(&a).await.unwrap();
         let before: String = sqlx::query_scalar("SELECT to_jsonb(t)::text FROM content.threads t WHERE id=$1")
             .bind(first).fetch_one(&a).await.unwrap();
         let message = rejection(create(&p,&b,first,"ORDINARY, original comment!!!",1,"bypass_r9k",None).await);

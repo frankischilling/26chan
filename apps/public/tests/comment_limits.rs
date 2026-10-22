@@ -19,6 +19,9 @@ fn form_request(path: &str, comment: &str, parent: i64) -> Request<Body> {
         .collect();
     Request::builder()
         .method("POST")
+        .extension(posting_fixture::distinct_transport(
+            path.split('/').nth(1).unwrap(),
+        ))
         .uri(path)
         .header("origin", "http://127.0.0.1:3000")
         .header("content-type", "application/x-www-form-urlencoded")

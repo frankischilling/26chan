@@ -2594,7 +2594,8 @@ async fn janitor_http_raw_name_meta_and_role_select_ordinary_reply_timer() {
             let status=seed.status();
             assert_eq!(status,StatusCode::SEE_OTHER,"Reply seed for {role}/{meta}/{name:?}: {}",response_text(seed).await);
             sqlx::query("UPDATE staff_identity.accounts SET role=$2 WHERE id=$1").bind(case.account).bind(role).execute(&case.owner).await.unwrap();
-            let form = || replace_form_field(&ordinary_form(&case,thread,"","","Owned selected timer reply"),"name",name);
+            let comment = posting_fixture::distinct_comment("Owned selected timer reply");
+            let form = || replace_form_field(&ordinary_form(&case,thread,"","",&comment),"name",name);
             let ordinary = role == "janitor" && (meta || !name.is_empty());
             let denied_form=form();
             let password_slot=password_request_slot("/post",Some(&denied_form)).await;
@@ -2653,6 +2654,7 @@ async fn janitor_http_op_ordinary_error_precedes_staff_five_second_error() {
             StatusCode::SEE_OTHER
         );
         let (thread, _, _) = case.latest().await;
+        let form = ordinary_form(&case, 0, "", "", "Owned next named janitor OP");
         for seconds in [0, 51, 90] {
             let password_slot = password_request_slot("/post", Some(&form)).await;
             age_owned_history(&case, &case.board, seconds).await;
@@ -2690,13 +2692,14 @@ async fn private_janitor_timer_uses_original_name_and_preserves_denied_draft() {
         assert!((reply+1)/2>5,"Imported /j/ policy distinguishes ordinary and staff timers");
         assert_eq!(private_request(&case,"/j/imgboard.php",Some(private_form(&case,0,"Owned private timer OP"))).await.status(),StatusCode::SEE_OTHER);
         let thread:i64=sqlx::query_scalar("SELECT post_id FROM staff_identity.discussion_posts WHERE account_id=$1 ORDER BY post_id DESC LIMIT 1").bind(case.account).fetch_one(&case.owner).await.unwrap();
-        for name in [""," ","#trip","Forged Admin"] {
+        for (index, name) in [""," ","#trip","Forged Admin"].into_iter().enumerate() {
             sqlx::query("UPDATE staff_identity.accounts SET role='moderator' WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();
             elapse_staff_timer(&case,"j",posting_fixture::peer()).await;
             assert_eq!(private_request(&case,"/j/imgboard.php",Some(private_form(&case,thread,"Owned private reply seed"))).await.status(),StatusCode::SEE_OTHER);
             sqlx::query("UPDATE staff_identity.accounts SET role='janitor',allow_boards=ARRAY['janitor'] WHERE id=$1").bind(case.account).execute(&case.owner).await.unwrap();
             age_owned_history(&case,"j",5).await;
-            let form=replace_form_field(&private_form(&case,thread,"Keep <script>draft</script>"),"name",name);
+            let comment = format!("Keep <script>draft</script> {index}");
+            let form=replace_form_field(&private_form(&case,thread,&comment),"name",name);
             let before=posting_snapshot(&case,"j",thread).await;
             let response=private_request(&case,"/j/imgboard.php",Some(form.clone())).await;
             assert_eq!(response.status(),if name.is_empty() {StatusCode::SEE_OTHER} else {StatusCode::BAD_REQUEST});
@@ -2704,7 +2707,7 @@ async fn private_janitor_timer_uses_original_name_and_preserves_denied_draft() {
                 let text=response_text(response).await;
                 assert!(text.contains("before posting a reply."));
                 assert!(text.contains("value=\"Owned &#60;script&#62; subject\""));
-                assert!(text.contains(">Keep &#60;script&#62;draft&#60;/script&#62;</textarea>"));
+                assert!(text.contains(&format!(">Keep &#60;script&#62;draft&#60;/script&#62; {index}</textarea>")));
                 assert!(text.contains(&format!("name=\"resto\" value=\"{thread}\"")));
                 assert_eq!(posting_snapshot(&case,"j",thread).await,before);
                 age_owned_history(&case,"j",i64::from((reply+1)/2)).await;

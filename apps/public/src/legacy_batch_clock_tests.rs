@@ -41,9 +41,9 @@ async fn captured_batch_session_clock_survives_a_delayed_first_deletion() {
         let password = "owned-batch-clock-password";
         let hash = Argon2::default().hash_password(password.as_bytes(),&SaltString::generate(&mut OsRng)).unwrap().to_string();
         let mut ids = Vec::new();
-        for _ in 0..2 {
+        for index in 0..2 {
             ids.push(board_store::create_post_with_identity_keys(&run_public,&run_board,0,&board_store::NewPost {
-                name: "Anonymous".into(),subject: "Owned clock fixture".into(),comment: "Keep the younger selection".into(),deletion_hash: hash.clone(),sage: false,
+                name: "Anonymous".into(),subject: "Owned clock fixture".into(),comment: format!("Keep the younger selection {index}"),deletion_hash: hash.clone(),sage: false,
             }, None, board_store::PostingContext {
                 request_start: Utc::now(), peer: Some(peer), op_password_proof: None,
             }, board_store::PostIdentityKeys { tripcode: None, poster_id: Some(&key) }).await.unwrap());

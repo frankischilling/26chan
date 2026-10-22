@@ -47,10 +47,21 @@ async fn public_posts_use_board_character_limits_and_database_global_limits() {
     support::create_post(&public, &slug, thread, &post("e\u{301}".repeat(2)))
         .await
         .unwrap();
-    for raw in ["é\r\n𠮷\r", "é\r𠮷\n", "é\n𠮷\n"] {
-        let id = support::create_post(&public, &slug, thread, &post(raw.into()))
-            .await
-            .unwrap();
+    for (index, raw) in ["é\r\n𠮷\r", "é\r𠮷\n", "é\n𠮷\n"].into_iter().enumerate() {
+        let id = support::create_post_with_context(
+            &public,
+            &slug,
+            thread,
+            &post(raw.into()),
+            None,
+            board_store::PostingContext {
+                request_start: chrono::Utc::now(),
+                peer: Some([192, 0, 2, 210 + index as u8].into()),
+                op_password_proof: None,
+            },
+        )
+        .await
+        .unwrap();
         assert_eq!(
             board_store::find_post(&public, &slug, id)
                 .await

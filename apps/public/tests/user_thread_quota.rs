@@ -17,6 +17,10 @@ use tower::ServiceExt;
 const ORIGIN: &str = "http://127.0.0.1:3000";
 const ERROR: &str = "Error: You may not post more than 2 active threads at a time.";
 
+fn draft_comment(parent: i64, legacy: bool, json_response: bool, attached: bool) -> String {
+    format!("Owned quota comment <preserved> {parent} {legacy} {json_response} {attached}")
+}
+
 async fn submit(
     app: &Router,
     board: &str,
@@ -30,7 +34,10 @@ async fn submit(
         ("resto", parent.to_string()),
         ("name", "Owned quota author".to_owned()),
         ("sub", "Owned quota draft".to_owned()),
-        ("com", "Owned quota comment <preserved>".to_owned()),
+        (
+            "com",
+            draft_comment(parent, legacy, json_response, upload.is_some()),
+        ),
         // Exercise production password validation and hashing unchanged.
         ("pwd", "owned-quota-password".to_owned()),
     ];
@@ -169,7 +176,10 @@ async fn exercise(owner: PgPool, public: PgPool, board: String, filename: String
                 .await
                 .unwrap();
             assert_eq!(saved.thread_id, first);
-            assert_eq!(saved.comment, "Owned quota comment <preserved>");
+            assert_eq!(
+                saved.comment,
+                draft_comment(first, legacy, json_response, false)
+            );
         }
     }
     let intake = IntakeStore::connect(&std::env::var("INTAKE_DATABASE_URL").unwrap())

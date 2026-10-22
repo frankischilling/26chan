@@ -8,7 +8,7 @@ fn post(name: &str) -> NewPost {
     NewPost {
         name: name.into(),
         subject: "Owned identity".into(),
-        comment: "Owned comment".into(),
+        comment: support::distinct_comment("Owned comment"),
         deletion_hash: "owned-synthetic-hash".into(),
         sage: false,
     }

@@ -148,7 +148,7 @@ class PublicUploadBoardTest(unittest.TestCase):
             db.execute('CREATE TABLE content.boards (slug TEXT PRIMARY KEY, posting_reply_seconds INTEGER, posting_image_seconds INTEGER, posting_thread_seconds INTEGER)')
             db.execute('INSERT INTO content.boards VALUES (?,0,0,0)', (fixture.board,))
             sentinels = [(foreign, fixture.board, 42), (own, 'foreign', 43)]
-            for table in ('posting_history', 'posting_thread_actions'):
+            for table in ('posting_history', 'posting_thread_actions', 'comment_history'):
                 db.execute(f'CREATE TABLE post_secrets.{table} (actor_hash BLOB, board TEXT, request_at INTEGER)')
                 db.executemany(f'INSERT INTO post_secrets.{table} VALUES (?,?,?)',
                                [(own, fixture.board, 41), *sentinels])
@@ -160,7 +160,7 @@ class PublicUploadBoardTest(unittest.TestCase):
             with mock.patch('public_upload_fixture.sql', side_effect=sql):
                 fixture.reset_posting_history()
                 fixture.reset_posting_history()
-            for table in ('posting_history', 'posting_thread_actions'):
+            for table in ('posting_history', 'posting_thread_actions', 'comment_history'):
                 self.assertEqual(db.execute(f'SELECT * FROM post_secrets.{table} ORDER BY request_at').fetchall(), sentinels)
 
     def test_posting_reset_rejects_missing_ownership_and_changed_policy(self):
@@ -200,13 +200,13 @@ class PublicUploadBoardTest(unittest.TestCase):
             db.execute("INSERT INTO content.boards VALUES (?,'Upload qualification',true,0,0,0)",
                        (fixture.board,))
             sentinels = [(foreign, fixture.board, 42), (own, 'foreign', 43), (foreign, 'foreign', 44)]
-            for table in ('posting_history', 'posting_thread_actions'):
+            for table in ('posting_history', 'posting_thread_actions', 'comment_history'):
                 db.execute(f'CREATE TABLE post_secrets.{table} (actor_hash BLOB, board TEXT, request_at INTEGER)')
                 db.executemany(f'INSERT INTO post_secrets.{table} VALUES (?,?,?)', sentinels)
 
             def sql(statement):
                 if statement.startswith('DELETE FROM post_secrets.'):
-                    for table in ('posting_history', 'posting_thread_actions'):
+                    for table in ('posting_history', 'posting_thread_actions', 'comment_history'):
                         expected = (f"DELETE FROM post_secrets.{table} WHERE "
                                     f"actor_hash=decode('{fixture._posting_actor_hex()}','hex') "
                                     f"AND board='{fixture.board}';")
@@ -220,12 +220,12 @@ class PublicUploadBoardTest(unittest.TestCase):
 
             def completed_upload(*args, **kwargs):
                 events.append('host-upload')
-                for table in ('posting_history', 'posting_thread_actions'):
+                for table in ('posting_history', 'posting_thread_actions', 'comment_history'):
                     db.execute(f'INSERT INTO post_secrets.{table} VALUES (?,?,?)',
                                (own, fixture.board, 40 + upload.call_count))
 
             def assert_host_history_cleared():
-                for table in ('posting_history', 'posting_thread_actions'):
+                for table in ('posting_history', 'posting_thread_actions', 'comment_history'):
                     self.assertEqual(db.execute(f'SELECT * FROM post_secrets.{table} ORDER BY request_at').fetchall(),
                                      sentinels)
 
@@ -277,7 +277,7 @@ class PublicUploadBoardTest(unittest.TestCase):
             assert_host_history_cleared()
             self.assertEqual(events, [
                 *['host-upload'] * 9,
-                'host-reset-posting_history', 'host-reset-posting_thread_actions',
+                'host-reset-posting_history', 'host-reset-posting_thread_actions', 'host-reset-comment_history',
                 'restart', 'drawing-upload-construct', 'drawing-upload-exercise',
                 'drawing-upload-reset', 'restart', 'drawing-edit-construct', 'drawing-edit-exercise',
             ])

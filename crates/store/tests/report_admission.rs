@@ -62,7 +62,7 @@ impl Fixture {
         for (index, board) in boards.iter().enumerate() {
             sqlx::query("INSERT INTO content.boards(captcha_enabled,slug,title,description,max_comment_chars,reply_limit,bump_limit,thread_limit,threads_per_page,posting_reply_seconds,posting_image_seconds,posting_thread_seconds,archive_retention_seconds) VALUES(false,$1,'Report admission fixture','Synthetic',2000,100,100,100,10,0,0,0,3600)")
                 .bind(board).execute(&owner).await.unwrap();
-            let post = NewPost {
+            let mut post = NewPost {
                 name: "Anonymous".into(),
                 subject: "Report admission".into(),
                 comment: "Owned report admission target".into(),
@@ -73,6 +73,7 @@ impl Fixture {
                 .await
                 .unwrap();
             for target in 1..4 {
+                post.comment = format!("Owned report admission target {target}");
                 posts[index][target] = support::create_post(&public, board, posts[index][0], &post)
                     .await
                     .unwrap();

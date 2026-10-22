@@ -34,18 +34,24 @@ async fn get(
 }
 
 async fn exercise(owner: PgPool, public: PgPool, slug: String) {
-    let post = NewPost {
+    let post = || NewPost {
         name: "Anonymous".into(),
         subject: "Owned clocks".into(),
-        comment: "Owned timestamp fixture".into(),
+        comment: posting_fixture::distinct_comment("Owned timestamp fixture"),
         deletion_hash: "unused-owned-hash".into(),
         sage: false,
     };
     let requested = DateTime::from_timestamp(1_700_000_000, 987_654_321).unwrap();
-    let id =
-        posting_fixture::create_post_with_attachment_at(&public, &slug, 0, &post, None, requested)
-            .await
-            .unwrap();
+    let id = posting_fixture::create_post_with_attachment_at(
+        &public,
+        &slug,
+        0,
+        &post(),
+        None,
+        requested,
+    )
+    .await
+    .unwrap();
     let before = board_store::thread_snapshot(&public, &slug, id)
         .await
         .unwrap();
@@ -63,9 +69,16 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     // A one-reply tail is available only after two surviving replies.
     // Establish that source threshold before testing its cache validators.
     for _ in 0..2 {
-        posting_fixture::create_post_with_attachment_at(&public, &slug, id, &post, None, requested)
-            .await
-            .unwrap();
+        posting_fixture::create_post_with_attachment_at(
+            &public,
+            &slug,
+            id,
+            &post(),
+            None,
+            requested,
+        )
+        .await
+        .unwrap();
     }
     let paths = [
         format!("/{slug}/thread/{id}.json"),
@@ -85,10 +98,16 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
         ));
     }
     // The same source second still changes the representation and its ETag.
-    let same =
-        posting_fixture::create_post_with_attachment_at(&public, &slug, id, &post, None, requested)
-            .await
-            .unwrap();
+    let same = posting_fixture::create_post_with_attachment_at(
+        &public,
+        &slug,
+        id,
+        &post(),
+        None,
+        requested,
+    )
+    .await
+    .unwrap();
     for (path, (etag, modified)) in paths.iter().zip(&validators) {
         let changed = get(&app, path, Some(("if-none-match", etag))).await;
         assert_eq!(changed.status(), 200);
@@ -110,7 +129,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
     // An older request can obtain the mutation lock last. Source last_modified
     // follows that request, while HTTP validators follow the database change.
     let later = board_store::thread(&public, &slug, id).await.unwrap();
-    let mut sage = post.clone();
+    let mut sage = post();
     sage.sage = true;
     let earlier = requested - chrono::Duration::seconds(100);
     posting_fixture::cleanup_actor_posting(
@@ -264,10 +283,12 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                 body_released.store(release, Ordering::SeqCst);
                 let value = if multipart {
                     format!(
-                        "--clock\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n{id}\r\n--clock\r\nContent-Disposition: form-data; name=\"com\"\r\n\r\nOwned delayed clock\r\n--clock\r\nContent-Disposition: form-data; name=\"pwd\"\r\n\r\nowned-secret\r\n--clock--\r\n"
+                        "--clock\r\nContent-Disposition: form-data; name=\"resto\"\r\n\r\n{id}\r\n--clock\r\nContent-Disposition: form-data; name=\"com\"\r\n\r\nOwned delayed clock {route} {multipart}\r\n--clock\r\nContent-Disposition: form-data; name=\"pwd\"\r\n\r\nowned-secret\r\n--clock--\r\n"
                     )
                 } else {
-                    format!("resto={id}&com=Owned+delayed+clock&pwd=owned-secret")
+                    format!(
+                        "resto={id}&com=Owned+delayed+clock+{route}+{multipart}&pwd=owned-secret"
+                    )
                 };
                 Ok::<_, std::io::Error>(bytes::Bytes::from(value))
             }));

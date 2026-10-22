@@ -2,6 +2,7 @@
 // HTTP authority and the one-use approval issued to its own upload.
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import { uploadFixtureTag } from './helpers/upload-fixture-tag.js';
 import { chromium, expect } from '@playwright/test';
 import { observeOwnedDeletionResponse, observeOwnedUploadResponse } from './owned-upload-response.mjs';
 
@@ -18,6 +19,9 @@ for (const name of Object.keys(process.env)) {
     'browser qualification must not inherit service credentials');
 }
 const password = 'owned-quick-reply-upload-password';
+const fixtureTag = uploadFixtureTag(source, flags);
+const threadComment = `Owned image Quick Reply thread ${fixtureTag}`;
+const followupComment = `Text after the consumed image ${fixtureTag}`;
 let browser;
 const stop = () => { if (browser) void browser.close(); };
 process.once('SIGTERM', stop); process.once('SIGINT', stop);
@@ -28,7 +32,7 @@ try {
   const requests = []; page.on('request', request => requests.push(request.url()));
   const url = path => new URL(path, origin).href;
   const created = await context.request.post(url(`/${board}/post`), { headers: { Origin: origin.origin }, maxRedirects: 0,
-    form: { com: 'Owned image Quick Reply thread', password } });
+    form: { com: threadComment, password } });
   assert.equal(created.status(), 303); const thread = /#p(\d+)$/.exec(created.headers().location)[1];
   await context.addInitScript(() => localStorage.setItem('4chan-settings', JSON.stringify({ persistentQR: true })));
   await page.goto(url(`/${board}/thread/${thread}`));
@@ -101,7 +105,7 @@ try {
   await expect(qr.locator('[name=upload_id], [name=upload_capability]')).toHaveCount(0);
   if (inline && spoilers) await expect(qr.locator('[name=spoiler]')).toBeDisabled();
   else await expect(qr.locator('[name=spoiler]')).toHaveCount(0);
-  await expect(page.locator('#qr-pwd')).toHaveValue(''); await page.locator('#qrCom').fill('Text after the consumed image');
+  await expect(page.locator('#qr-pwd')).toHaveValue(''); await page.locator('#qrCom').fill(followupComment);
   const next = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === url(`/${board}/imgboard.php`));
   await qr.locator('input[type=submit]').click(); assert.equal((await next).status(), 200);
   await expect(page.locator('#qrCom')).toHaveValue('');
@@ -109,7 +113,7 @@ try {
   const posts = (await (await context.request.get(api)).json()).posts;
   assert.equal(posts.length, 3); const attached = posts.find(value => String(value.no) === post);
   assert.equal(attached.spoiler, spoilers ? 1 : undefined); assert.equal(attached.com, undefined); assert.equal(attached.ext, outputExtension);
-  assert.equal(posts[2].com, 'Text after the consumed image'); assert.equal(posts[2].tim, undefined);
+  assert.equal(posts[2].com, followupComment); assert.equal(posts[2].tim, undefined);
   const replay = await context.request.post(url(`/${board}/imgboard.php`), { headers: { Origin: origin.origin, Accept: 'application/json' },
     multipart: { resto: thread, mode: 'regist', pwd: password, com: '', upload_id: uploadId, upload_capability: capability } });
   assert.equal(typeof (await replay.json()).error, 'string');
@@ -265,7 +269,7 @@ try {
     assert.deepEqual(retained.map(value => String(value.no)), posts.map(value => String(value.no)));
     assert.equal(retained.find(value => String(value.no) === post).com, attached.com);
     assert.equal(retained.find(value => String(value.no) === post).filedeleted, 1);
-    assert.equal(retained[2].com, 'Text after the consumed image');
+    assert.equal(retained[2].com, followupComment);
     assert.equal((await context.request.get(media)).status(), 404);
     await page.reload();
   } else {

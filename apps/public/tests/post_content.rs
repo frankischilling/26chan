@@ -37,7 +37,7 @@ async fn submit(
     subject: &str,
     comment: &str,
 ) -> axum::response::Response {
-    submit_options(app, slug, index, parent, (subject, comment), "").await
+    submit_options(app, slug, index, parent, (subject, comment), ("", false)).await
 }
 
 async fn submit_options(
@@ -46,8 +46,9 @@ async fn submit_options(
     index: usize,
     parent: i64,
     fields: (&str, &str),
-    options: &str,
+    options: (&str, bool),
 ) -> axum::response::Response {
+    let (options, independent_peer) = options;
     let (subject, comment) = fields;
     let fields = [
         ("email", options.to_owned()),
@@ -82,20 +83,21 @@ async fn submit_options(
     } else {
         "text/html"
     };
-    app.clone()
-        .oneshot(
-            Request::post(format!("/{slug}/{route}"))
-                .header("origin", "http://127.0.0.1:3000")
-                .header("accept", accept)
-                .header("content-type", kind)
-                // These public hints must never replace the trusted socket peer.
-                .header("x-forwarded-for", "203.0.113.9")
-                .header("x-geo-asn", "64512")
-                .body(Body::from(body))
-                .unwrap(),
-        )
-        .await
-        .unwrap()
+    let mut request = Request::post(format!("/{slug}/{route}"))
+        .header("origin", "http://127.0.0.1:3000")
+        .header("accept", accept)
+        .header("content-type", kind)
+        // These public hints must never replace the trusted socket peer.
+        .header("x-forwarded-for", "203.0.113.9")
+        .header("x-geo-asn", "64512")
+        .body(Body::from(body))
+        .unwrap();
+    if independent_peer {
+        request
+            .extensions_mut()
+            .insert(posting::distinct_transport(slug));
+    }
+    app.clone().oneshot(request).await.unwrap()
 }
 
 fn network_router(
@@ -217,7 +219,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
                     comment: raw.into(),
                     ..post("")
                 };
-                let result = posting::create_post(&public, &slug, parent, &draft).await;
+                let result = posting::create_independent_post(&public, &slug, parent, &draft).await;
                 if blank {
                     let expected = if parent == 0 {
                         "Error: New threads require a subject or comment."
@@ -260,7 +262,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             let public = public.clone();
             let slug = slug.clone();
             tokio::spawn(async move {
-                posting::create_post(
+                posting::create_independent_post(
                     &public,
                     &slug,
                     thread,
@@ -353,7 +355,7 @@ async fn exercise(owner: PgPool, public: PgPool, slug: String) {
             } {
                 for parent in [0, thread] {
                     let id = accepted_id(
-                        submit_options(&app, &slug, index, parent, ("", ""), options).await,
+                        submit_options(&app, &slug, index, parent, ("", ""), (options, true)).await,
                         index,
                     )
                     .await;

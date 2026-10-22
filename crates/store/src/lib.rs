@@ -37,6 +37,9 @@ pub mod post_media;
 pub mod posting_challenge;
 pub mod posting_classifiers;
 pub use report_admission::request::RequestFacts as ReportRequestFacts;
+mod comment_duplicate_readiness;
+mod comment_duplicates;
+pub use comment_duplicate_readiness::READINESS_SQL as COMMENT_DUPLICATE_READINESS_SQL;
 mod image_duplicates;
 mod posting_cooldown;
 pub use image_duplicates::ImageDuplicateRefusal;
@@ -485,6 +488,13 @@ pub async fn connect_public(url: &str) -> Result<PgPool, StoreError> {
     .fetch_one(&pool)
     .await?;
     if !ready {
+        pool.close().await;
+        return Err(StoreError::UnsafeRole);
+    }
+    let comment_ready: bool = sqlx::query_scalar(COMMENT_DUPLICATE_READINESS_SQL)
+        .fetch_one(&pool)
+        .await?;
+    if !comment_ready {
         pool.close().await;
         return Err(StoreError::UnsafeRole);
     }

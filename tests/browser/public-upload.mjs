@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { chromium, expect } from '@playwright/test';
+import { uploadFixtureTag } from './helpers/upload-fixture-tag.js';
 import { saveWatcherSettings } from './helpers/watcher-settings.js';
 import { assertViewportFit, qualifyOverflowGuard } from './helpers/viewport-fit.js';
 
@@ -18,6 +19,7 @@ assert.ok(flags.length <= 2 && new Set(flags).size === flags.length
   && flags.every(flag => ['--attachment-only', '--javascript'].includes(flag)));
 const attachmentOnly = flags.includes('--attachment-only');
 const javascript = flags.includes('--javascript');
+const fixtureTag = uploadFixtureTag(source, flags);
 const screenshots = process.env.PUBLIC_UPLOAD_SCREENSHOTS;
 if (screenshots) assert.ok(path.isAbsolute(screenshots));
 assert.equal(origin.hostname, '127.0.0.1');
@@ -101,7 +103,7 @@ try {
   await page.getByLabel('Name', { exact: true }).fill('Synthetic browser');
   await page.getByLabel('Subject', { exact: true }).fill('Isolated upload');
   if (!attachmentOnly) {
-    await page.getByLabel('Comment', { exact: true }).fill(`A synthetic one-pixel image, posted ${javascript ? 'with' : 'without'} site JavaScript.`);
+    await page.getByLabel('Comment', { exact: true }).fill(`A synthetic one-pixel image, posted ${javascript ? 'with' : 'without'} site JavaScript: ${fixtureTag}.`);
   }
   await expect(page.locator('#postPassword')).toHaveValue('');
   if (attachmentOnly) await page.getByLabel('Spoiler image', { exact: true }).check();
@@ -222,7 +224,7 @@ try {
     await expect(page.locator('form.postEditor input[name=track]')).toHaveValue('1');
     await expect(page.locator('form.postEditor input[name=awt]')).toHaveCount(0);
     await page.locator('#togglePostFormLink a').click();
-    await page.locator('#com').fill('Owned reply to an approved upload');
+    await page.locator('#com').fill(`Owned reply to an approved upload ${fixtureTag}`);
     await expect(page.locator('#postPassword')).toHaveValue('');
     await page.locator('#email').fill('nonoko');
     const replied = page.waitForResponse(response => response.request().method() === 'POST'

@@ -39,7 +39,10 @@ async fn post(app: &Router, board: &str, parent: i64) -> i64 {
             ("resto", parent.to_string()),
             ("pwd", "owned-custom-spoiler-password".into()),
             ("sub", "Owned custom-spoiler metadata".into()),
-            ("com", "Owned custom-spoiler text".into()),
+            (
+                "com",
+                posting::distinct_comment("Owned custom-spoiler text"),
+            ),
         ])
         .finish();
     let response = app

@@ -299,3 +299,12 @@ pub fn synthetic_upload_variants(job: &str) -> board_store::media_assets::Output
         },
     }
 }
+
+/// Give independent fixture posts distinct content without clearing admission history.
+pub fn distinct_comment(prefix: &str) -> String {
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    format!(
+        "{prefix} {}",
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    )
+}

@@ -90,6 +90,7 @@ async fn caller_cleanup_precedes_filters_and_markup_without_repeating_the_early_
                     .clone()
                     .oneshot(
                         Request::post(format!("/{b}/imgboard.php"))
+                            .extension(posting_fixture::distinct_transport(&b))
                             .header("origin", "http://127.0.0.1:3000")
                             .header("accept", "application/json")
                             .header("content-type", "application/x-www-form-urlencoded")
@@ -137,6 +138,7 @@ async fn caller_cleanup_precedes_filters_and_markup_without_repeating_the_early_
         let response = app
             .oneshot(
                 Request::post(format!("/{b}/post"))
+                    .extension(posting_fixture::distinct_transport(&b))
                     .header("origin", "http://127.0.0.1:3000")
                     .header("accept", "application/json")
                     .header("content-type", "application/x-www-form-urlencoded")
@@ -228,6 +230,7 @@ async fn original_test_board_keeps_its_source_filter_while_generic_fixtures_stay
         let response = app
             .oneshot(
                 Request::post(format!("/{b}/imgboard.php"))
+                    .extension(posting_fixture::distinct_transport(&b))
                     .header("origin", "http://127.0.0.1:3000")
                     .header("accept", "application/json")
                     .header("content-type", "application/x-www-form-urlencoded")
@@ -273,7 +276,7 @@ async fn negotiated_posts_render_the_same_source_result_on_pages_json_updater_ca
         for (profile, source) in [(0,"global"),(1,"ck"),(2,"asp"),(3,"v"),(4,"test")] {
             sqlx::query("UPDATE content.boards SET word_filter_profile=$2 WHERE slug=$1").bind(&b).bind(profile as i16).execute(&a).await.unwrap();
             let fields = url::form_urlencoded::Serializer::new(String::new()).append_pair("name","soy fam CUCK").append_pair("sub","soy fam CUCK").append_pair("com",input).append_pair("password","owned-wordfilter-http-password").finish();
-            let response = app.clone().oneshot(Request::post(format!("/{b}/post")).header("origin","http://127.0.0.1:3000").header("accept","application/json").header("content-type","application/x-www-form-urlencoded").body(Body::from(fields)).unwrap()).await.unwrap();
+            let response = app.clone().oneshot(Request::post(format!("/{b}/post")).extension(posting_fixture::distinct_transport(&b)).header("origin","http://127.0.0.1:3000").header("accept","application/json").header("content-type","application/x-www-form-urlencoded").body(Body::from(fields)).unwrap()).await.unwrap();
             assert_eq!(response.status(),StatusCode::OK);
             let posted: serde_json::Value = serde_json::from_slice(&to_bytes(response.into_body(),65536).await.unwrap()).unwrap();
             let id = posted["pid"].as_i64().unwrap();
