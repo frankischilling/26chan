@@ -7,6 +7,7 @@ use crate::{
 use pcre2::bytes::{Captures, Regex};
 
 pub const VERSION: u16 = 1;
+pub(crate) const HASH_PREFIX: &[u8] = b"26chan:source-comment-projection:v1\0";
 
 #[derive(Clone, Copy, Debug)]
 pub enum Filter {
@@ -80,7 +81,7 @@ impl AdmissionProjection {
     /// returned as template-safe HTML or passed to a browser renderer.
     pub fn persisted_hash(&self, drawing: Option<DrawingAnnotation>) -> [u8; 32] {
         let mut hash = ring::digest::Context::new(&ring::digest::SHA256);
-        hash.update(b"26chan:source-comment-projection:v1\0");
+        hash.update(HASH_PREFIX);
         hash.update(self.data.as_bytes());
         if let Some(drawing) = drawing.filter(|value| (1..=5_184_000).contains(&value.seconds)) {
             let seconds = drawing.seconds;

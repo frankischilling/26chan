@@ -795,3 +795,128 @@ fn greentext_profile_is_frozen_for_plain_and_wordfiltered_transfers() {
         }
     }
 }
+
+#[test]
+fn frozen_comparison_matches_admitted_source_bytes_before_and_after_quote_rewrite() {
+    use crate::comment_admission_projection::{self as admission, Filter, SourcePath};
+    for raw in [
+        "ordinary comment",
+        ">>123",
+        ">quote",
+        "[spoiler]hidden[/spoiler]",
+        "https://example.com/",
+        "https://boards.4chan.org/g/thread/123",
+        "some &amp; text",
+        "[code]one\ntwo[/code]",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ] {
+        let content = crate::prepare_post_content_input_with_limits(
+            "",
+            "",
+            raw,
+            ordinary(),
+            false,
+            crate::CommentSpacing::for_board("g", true, true),
+            crate::PostKind::Reply,
+        )
+        .unwrap();
+        let projection = admission::project(
+            admission::Input {
+                prepared_comment: (&content).into(),
+                board: "g",
+                markup: MarkupPolicy {
+                    spoilers: true,
+                    code: true,
+                    sjis: true,
+                    op: false,
+                },
+                filter: Filter::Off,
+                randomizer: None,
+                source_path: SourcePath::OrdinaryWithoutExif,
+            },
+            ordinary(),
+        )
+        .unwrap();
+        let mut frozen = freeze(content.comment());
+        assert_eq!(
+            frozen.source_comparison_hash(),
+            projection.comparison_hash(),
+            "{raw}"
+        );
+        let expected = projection
+            .as_comparison_data()
+            .replace("&gt;&gt;123", "&gt;&gt;456");
+        rewrite(&mut frozen, &[(123, 456)]);
+        assert_eq!(frozen.source_projection(), expected);
+        let mut bytes = admission::HASH_PREFIX.to_vec();
+        bytes.extend_from_slice(expected.as_bytes());
+        assert_eq!(
+            frozen.source_comparison_hash().as_slice(),
+            ring::digest::digest(&ring::digest::SHA256, &bytes).as_ref()
+        );
+        let restored = FrozenPresentation::decode(&frozen.encode().unwrap(), ordinary()).unwrap();
+        assert_eq!(
+            restored.source_comparison_hash(),
+            frozen.source_comparison_hash()
+        );
+    }
+}
+
+#[test]
+fn frozen_wordfiltered_comparisons_retain_saved_choices() {
+    use crate::comment_admission_projection::{self as admission, Filter, SourcePath};
+    for profile in [
+        Profile::Global,
+        Profile::Basic,
+        Profile::Asp,
+        Profile::Video,
+        Profile::Test,
+    ] {
+        let rolls = (profile == Profile::Test).then(|| LeetRolls::from_choices(1, 4).unwrap());
+        for raw in [
+            "fam soy CUCK >>123",
+            "[spoiler]fam[/spoiler]",
+            ">fam",
+            "https://example.com/ >>123",
+        ] {
+            let content = crate::prepare_post_content_input_with_limits(
+                "",
+                "",
+                raw,
+                ordinary(),
+                false,
+                crate::CommentSpacing::for_board("g", true, true),
+                crate::PostKind::Thread {
+                    staff_image_only: false,
+                    subject_required: false,
+                    text_only: false,
+                },
+            )
+            .unwrap();
+            let projection = admission::project(
+                admission::Input {
+                    prepared_comment: (&content).into(),
+                    board: "g",
+                    markup: MarkupPolicy {
+                        spoilers: true,
+                        code: true,
+                        sjis: true,
+                        op: true,
+                    },
+                    filter: Filter::On { profile, rolls },
+                    randomizer: None,
+                    source_path: SourcePath::OrdinaryWithoutExif,
+                },
+                ordinary(),
+            )
+            .unwrap();
+            let (comment, payload) = filtered(content.comment(), profile, rolls);
+            let frozen = freeze_filtered(&comment, &payload).unwrap();
+            assert_eq!(
+                frozen.source_comparison_hash(),
+                projection.comparison_hash(),
+                "{profile:?}: {raw}"
+            );
+        }
+    }
+}

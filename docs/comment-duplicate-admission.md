@@ -64,7 +64,7 @@ public-board-only filter refusal validator is unchanged.
 
 ## Deployment
 
-Apply migration 0243 before starting the updated public or staff binary. Their
+Apply migrations 0243 and 0244 before starting the updated public or staff binary. Their
 readiness checks reject a missing comparison boundary. Build
 `board-comment-history-retention`, install it under `/opt/paperboard/bin/`, and
 install `deploy/comment-history-retention.service` and its timer. The service
@@ -79,9 +79,14 @@ transaction. It remains valid inside nested posting savepoints; historical and
 transferred rows keep their existing historical or NULL stamp. Registration
 cannot use an earlier transaction's history to invent a projection for an old post.
 
-Transferred comments change their saved projection. Recomputing their new
-comparison history within the sealed transfer authority remains separate work;
-this migration does not reconstruct unknown projections from rendered HTML.
+Migration 0244 carries known comparison history through sealed text-thread moves.
+The formatter hashes the original frozen representation before rewriting quote
+references. The consumer matches that digest against private history, then hashes
+the sealed replacement comment and preserves the actor, request time and post
+time. Source deletion removes the old history in the same transaction. Repeated
+moves keep the original cooldown clock. Missing historical comparison rows remain
+unknown; a known row whose digest cannot be reproduced blocks the move without
+changing either board. See [text-thread transfers](text-thread-transfer.md).
 
 Independent database fixtures now use distinct comments where their purpose is
 archive, identity, quota or attachment behavior. Exact formatting cases retain

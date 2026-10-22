@@ -309,7 +309,7 @@ fn denied(error: sqlx::Error) {
 async fn raw_runtime_roles_cannot_read_write_private_work_or_cross_issuer_boundary() {
     run(|f| async move {
         for role in [&f.public, &f.staff, &f.auth] {
-            for table in ["thread_transfer_gate", "thread_transfer_intents", "thread_transfer_map", "thread_transfer_sealed_rows", "thread_transfer_active", "thread_transfer_results", "thread_transfer_result_posts", "posting_history", "anonymous_posts"] {
+            for table in ["thread_transfer_gate", "thread_transfer_intents", "thread_transfer_map", "thread_transfer_sealed_rows", "thread_transfer_active", "thread_transfer_results", "thread_transfer_result_posts", "posting_history", "comment_history", "anonymous_posts"] {
                 assert_owned_identifier(table);
                 denied(sqlx::query(sqlx::AssertSqlSafe(format!("SELECT * FROM post_secrets.{table} LIMIT 0"))).fetch_all(role).await.unwrap_err());
                 denied(sqlx::query(sqlx::AssertSqlSafe(format!("DELETE FROM post_secrets.{table} WHERE false"))).execute(role).await.unwrap_err());
@@ -320,6 +320,7 @@ async fn raw_runtime_roles_cannot_read_write_private_work_or_cross_issuer_bounda
         for role in [&f.public, &f.staff] {
             denied(sqlx::query("SELECT * FROM staff_identity.prepare_text_thread_transfer(NULL,NULL,NULL,900,'x',1,'y',1::smallint)").fetch_all(role).await.unwrap_err());
             denied(sqlx::query("SELECT staff_identity.seal_text_thread_transfer(NULL,NULL,NULL,NULL,1::smallint,NULL,NULL,NULL,NULL,NULL)").execute(role).await.unwrap_err());
+            denied(sqlx::query("SELECT staff_identity.seal_text_thread_transfer_comparisons(NULL,NULL,NULL,NULL,1::smallint,NULL,NULL,NULL,NULL,NULL,NULL)").execute(role).await.unwrap_err());
         }
         for role in [&f.public, &f.auth] {
             denied(sqlx::query("SELECT * FROM content.consume_text_thread_transfer(NULL)").fetch_all(role).await.unwrap_err());
@@ -649,6 +650,7 @@ async fn nowait_lock_conflicts_abort_whole_call_without_retry_or_capability_loss
             "SELECT slug FROM content.boards WHERE slug=$1 FOR UPDATE",
             "SELECT id FROM content.threads WHERE board=$1 FOR UPDATE",
             "SELECT id FROM content.posts WHERE board=$1 FOR UPDATE",
+            "SELECT post_id FROM post_secrets.comment_history WHERE board=$1 FOR UPDATE",
         ] {
             let mut blocker = f.owner.begin().await.unwrap();
             sqlx::query(sqlx::AssertSqlSafe(query))
@@ -985,5 +987,116 @@ async fn retained_mobile_metadata_changes_invalidate_prepared_transfer() {
         assert_eq!(transfer::consume(&f.staff, &ticket).await.unwrap_err(), TransferError::Drift);
         assert_eq!(f.snapshot().await, before);
         transfer::discard(&f.auth, &f.credentials(), &ticket).await.unwrap();
+    }).await;
+}
+
+#[tokio::test]
+async fn moved_comments_keep_actor_window_and_rewritten_quote_comparison() {
+    run(|f| async move {
+        let source = f.post(0, 0, None).await;
+        let reply = f.post(0, source, None).await;
+        let before: (Vec<u8>, Vec<u8>, i64) = sqlx::query_as(
+            "SELECT actor_hash,projection_hash,request_at FROM post_secrets.comment_history WHERE post_id=$1",
+        ).bind(reply).fetch_one(&f.owner).await.unwrap();
+        let (ticket, _) = f.sealed(source).await;
+        let result = transfer::consume(&f.staff, &ticket).await.unwrap();
+        let moved_reply = result.posts[1].destination_post_id;
+        let after: (Vec<u8>, Vec<u8>, i64) = sqlx::query_as(
+            "SELECT actor_hash,projection_hash,request_at FROM post_secrets.comment_history WHERE post_id=$1",
+        ).bind(moved_reply).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(after.0, before.0);
+        assert_eq!(after.2, before.2);
+        assert_ne!(after.1, before.1, "rewritten quote changes the comparison");
+        let posted_at: i64 = sqlx::query_scalar("SELECT floor(extract(epoch FROM created_at))::bigint FROM content.posts WHERE id=$1")
+            .bind(moved_reply).fetch_one(&f.owner).await.unwrap();
+        for (request, expected) in [(posted_at + 299, Some(1_i64)), (posted_at + 300, None)] {
+            let remaining: Option<i64> = sqlx::query_scalar("SELECT content.comment_duplicate_remaining($1,$2,$3,$4)")
+                .bind(&after.0).bind(&f.boards[1]).bind(&after.1).bind(request)
+                .fetch_one(&f.public).await.unwrap();
+            assert_eq!(remaining, expected);
+        }
+
+        let old_count: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.comment_history WHERE board=$1")
+            .bind(&f.boards[0]).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(old_count, 0, "source erasure retires source comparison rows");
+        let source_key = support::key(&f.boards[0]);
+        let mut post = NewPost {
+            name: "Anonymous".into(), subject: String::new(),
+            comment: format!("Owned text >>{}", result.destination_thread),
+            deletion_hash: "synthetic-transfer-comparison".into(), sage: false,
+        };
+        let error = board_store::create_post_with_identity_keys(
+            &f.public, &f.boards[1], result.destination_thread, &post, None,
+            PostingContext { request_start: Utc::now(), peer: Some(support::peer()), op_password_proof: None },
+            PostIdentityKeys { tripcode: None, poster_id: Some(&source_key) },
+        ).await.unwrap_err();
+        assert!(matches!(error, board_store::StoreError::ContentRejected(ref text) if text.contains("duplicate reply")));
+        // The old quote spelling is different after the move; no broad reset
+        // or copied source-board digest should reject this ordinary reply.
+        post.comment = format!("Owned text >>{source}");
+        board_store::create_post_with_identity_keys(
+            &f.public, &f.boards[1], result.destination_thread, &post, None,
+            PostingContext { request_start: Utc::now(), peer: Some(support::peer()), op_password_proof: None },
+            PostIdentityKeys { tripcode: None, poster_id: Some(&source_key) },
+        ).await.unwrap();
+    }).await;
+}
+
+#[tokio::test]
+async fn missing_comparison_stays_unknown_and_mismatched_proof_rolls_back_move() {
+    run(|f| async move {
+        let source = f.post(0, 0, None).await;
+        let reply = f.post(0, source, None).await;
+        sqlx::query("DELETE FROM post_secrets.comment_history WHERE post_id=$1")
+            .bind(reply).execute(&f.owner).await.unwrap();
+        let original: Vec<u8> = sqlx::query_scalar("SELECT projection_hash FROM post_secrets.comment_history WHERE post_id=$1")
+            .bind(source).fetch_one(&f.owner).await.unwrap();
+        let (ticket, prepared) = f.sealed(source).await;
+        sqlx::query("UPDATE post_secrets.comment_history SET projection_hash=decode(repeat('00',32),'hex') WHERE post_id=$1")
+            .bind(source).execute(&f.owner).await.unwrap();
+        assert_eq!(transfer::consume(&f.staff, &ticket).await.unwrap_err(), TransferError::Format);
+        let intact: bool = sqlx::query_scalar("SELECT NOT deleted AND NOT content_erased FROM content.threads WHERE id=$1")
+            .bind(source).fetch_one(&f.owner).await.unwrap();
+        assert!(intact);
+        let destination_count: i64 = sqlx::query_scalar("SELECT count(*) FROM content.posts WHERE board=$1")
+            .bind(&f.boards[1]).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(destination_count, 0);
+        assert!(transfer::result(&f.auth, &f.credentials(), prepared.request_id()).await.unwrap().is_none());
+        sqlx::query("UPDATE post_secrets.comment_history SET projection_hash=$2 WHERE post_id=$1")
+            .bind(source).bind(original).execute(&f.owner).await.unwrap();
+        let moved = transfer::consume(&f.staff, &ticket).await.unwrap();
+        let ids: Vec<i64> = sqlx::query_scalar("SELECT post_id FROM post_secrets.comment_history WHERE board=$1 ORDER BY post_id")
+            .bind(&f.boards[1]).fetch_all(&f.owner).await.unwrap();
+        assert_eq!(ids, vec![moved.destination_thread]);
+    }).await;
+}
+
+#[tokio::test]
+async fn repeated_moves_rewrite_known_comparisons_without_refreshing_post_time() {
+    run(|f| async move {
+        let source = f.post(0, 0, None).await;
+        let reply = f.post(0, source, None).await;
+        let original: (Vec<u8>, i64, chrono::DateTime<Utc>) = sqlx::query_as(
+            "SELECT h.actor_hash,h.request_at,p.created_at FROM post_secrets.comment_history h JOIN content.posts p ON p.id=h.post_id WHERE h.post_id=$1",
+        ).bind(reply).fetch_one(&f.owner).await.unwrap();
+        let (ticket, _) = f.sealed(source).await;
+        let first = transfer::consume(&f.staff, &ticket).await.unwrap();
+        let second_ticket = Ticket::from_bytes(Capability::generate().unwrap().storage_hash());
+        let prepared = transfer::prepare(&f.auth, &f.credentials(), &second_ticket,
+            &f.boards[1], first.destination_thread, &f.boards[0]).await.unwrap();
+        transfer::seal(&f.auth, &f.credentials(), &prepared).await.unwrap();
+        let second = transfer::consume(&f.staff, &second_ticket).await.unwrap();
+        let final_reply = second.posts[1].destination_post_id;
+        let after: (Vec<u8>, i64, chrono::DateTime<Utc>) = sqlx::query_as(
+            "SELECT h.actor_hash,h.request_at,p.created_at FROM post_secrets.comment_history h JOIN content.posts p ON p.id=h.post_id WHERE h.post_id=$1",
+        ).bind(final_reply).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(after, original);
+        let matched: bool = sqlx::query_scalar("SELECT h.projection_hash=sha256(convert_to('26chan:source-comment-projection:v1','UTF8')||decode('00','hex')||convert_to($2,'UTF8')) FROM post_secrets.comment_history h WHERE h.post_id=$1")
+            .bind(final_reply).bind(format!("Owned text &gt;&gt;{}",second.destination_thread))
+            .fetch_one(&f.owner).await.unwrap();
+        assert!(matched);
+        let rows: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.comment_history WHERE board=ANY($1)")
+            .bind(&f.boards[..]).fetch_one(&f.owner).await.unwrap();
+        assert_eq!(rows, 2);
     }).await;
 }
