@@ -30,6 +30,46 @@ def frame(payload=b'x'):
     return b'IBJOB001' + len(payload).to_bytes(8, 'big') + payload
 
 
+def socket_snapshot(socket_path):
+    # Recovery removes the stale pathname before binding its replacement.
+    # Take one snapshot per poll; exists() followed by stat() races that unlink.
+    try:
+        return socket_path.stat()
+    except FileNotFoundError:
+        return None
+
+
+def replacement_socket_ready(socket_path, old_inode):
+    info = socket_snapshot(socket_path)
+    return (info is not None and info.st_ino != old_inode
+            and info.st_mode & 0o777 == 0o660)
+
+
+class SocketReadinessTest(unittest.TestCase):
+    def test_unlink_gap_is_not_ready_then_replacement_is_ready(self):
+        path = mock.Mock()
+        path.exists.side_effect = AssertionError('readiness must use one stat snapshot')
+        path.stat.side_effect = [FileNotFoundError(), mock.Mock(st_ino=12, st_mode=0o140660)]
+        self.assertFalse(replacement_socket_ready(path, 11))
+        self.assertTrue(replacement_socket_ready(path, 11))
+        self.assertEqual(path.stat.call_count, 2)
+        path.exists.assert_not_called()
+
+    def test_stale_inode_and_unfinished_permissions_remain_not_ready(self):
+        path = mock.Mock()
+        for inode, mode, expected in [(11, 0o140660, False), (12, 0o140600, False),
+                                      (12, 0o140666, False), (12, 0o140660, True)]:
+            with self.subTest(inode=inode, mode=mode):
+                path.stat.return_value = mock.Mock(st_ino=inode, st_mode=mode)
+                self.assertEqual(replacement_socket_ready(path, 11), expected)
+
+    def test_permission_errors_are_not_hidden_as_startup_delay(self):
+        path = mock.Mock()
+        path.stat.side_effect = PermissionError('owned probe denied')
+        with self.assertRaises(PermissionError):
+            replacement_socket_ready(path, None)
+
+
 class FramingTest(unittest.TestCase):
     def test_bad_frames_never_finish_intake(self):
         cases = [b'BADMAGIC' + (1).to_bytes(8, 'big') + b'x', b'', b'IBJOB001',
@@ -195,15 +235,15 @@ class RootBrokerTest(unittest.TestCase):
     @contextlib.contextmanager
     def running(self, config=None):
         socket_path = self.endpoint / 'broker.sock'
-        old_inode = socket_path.stat().st_ino if socket_path.exists() else None
+        old_socket = socket_snapshot(socket_path)
+        old_inode = old_socket.st_ino if old_socket is not None else None
         process = subprocess.Popen([sys.executable, str(SCRIPTS / 'dispatch-broker.py'),
                                     config or self.config, str(self.endpoint), str(self.gateway.pw_uid)],
                                    env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'APP_ENV': 'development'},
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
             deadline = time.monotonic() + 8
-            while (not socket_path.exists() or socket_path.stat().st_ino == old_inode
-                   or socket_path.stat().st_mode & 0o777 != 0o660):
+            while not replacement_socket_ready(socket_path, old_inode):
                 self.assertIsNone(process.poll(), 'broker exited before binding')
                 self.assertLess(time.monotonic(), deadline, 'broker did not bind')
                 time.sleep(.02)
