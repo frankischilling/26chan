@@ -157,6 +157,21 @@ async fn isolated_exif_provenance_reaches_real_posting_and_rolls_back_refusals()
         |part| matches!(part,board_domain::wordfiltered_comment::Part::Generated(d) if d.is_exif())
     ));
     assert!(board_store::thread_snapshot(&public, "p", id).await.is_ok());
+    // File-only deletion must leave the already-published metadata comment intact.
+    post_media::delete_attachment(&public, "p", id)
+        .await
+        .unwrap();
+    let retained: (String, Vec<u8>, bool) = sqlx::query_as(
+        "SELECT comment,wordfilter_payload,file_deleted FROM content.posts WHERE id=$1",
+    )
+    .bind(id)
+    .fetch_one(&owner)
+    .await
+    .unwrap();
+    assert_eq!(retained.0, comment);
+    assert_eq!(retained.1, payload);
+    assert!(retained.2);
+    assert!(board_store::thread_snapshot(&public, "p", id).await.is_ok());
     let tickets: i64 = sqlx::query_scalar("SELECT count(*) FROM post_secrets.exif_preparations")
         .fetch_one(&owner)
         .await

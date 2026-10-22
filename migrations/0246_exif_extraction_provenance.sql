@@ -118,7 +118,8 @@ BEGIN
    AND e.board=p_board AND e.parent=CASE WHEN p_post=p_thread THEN 0 ELSE p_thread END);
 END $$;
 REVOKE ALL ON FUNCTION content.exif_post_prepared(text,bigint,bigint) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION content.exif_post_prepared(text,bigint,bigint) TO board_public,board_staff,board_attachment_owner;
+-- The invoking stamp trigger also runs during administrator-owned imports.
+GRANT EXECUTE ON FUNCTION content.exif_post_prepared(text,bigint,bigint) TO board_public,board_staff,board_attachment_owner,board_migrator;
 CREATE FUNCTION content.discard_attachment_exif() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 BEGIN

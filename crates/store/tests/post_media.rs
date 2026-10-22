@@ -541,7 +541,12 @@ async fn exercise(f: &Fixture) {
             'content.consume_staff_attachment_receipt(bigint,text,bigint,text,bytea,boolean,boolean)'::regprocedure,
             'content.check_image_board_policy(text,bigint,integer,integer,text)'::regprocedure,
             'content.check_attachment_board_policy(text,bigint,bigint,integer,integer,text,text,bigint,boolean)'::regprocedure,
-            'content.check_still_attachment_context(text,text,bigint,bigint,text)'::regprocedure
+            'content.check_still_attachment_context(text,text,bigint,bigint,text)'::regprocedure,
+            'content.prepare_attachment_exif(text,text,text,bigint,boolean,boolean)'::regprocedure,
+            'content.exif_post_prepared(text,bigint,bigint)'::regprocedure,
+            'content.discard_attachment_exif()'::regprocedure,
+            'content.consume_attachment_exif()'::regprocedure,
+            'content.require_consumed_exif()'::regprocedure
         ] AS functions)
         SELECT count(*)=cardinality(required.functions)
             AND bool_and(p.oid=ANY(required.functions)

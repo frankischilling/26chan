@@ -1471,6 +1471,15 @@ async fn exif_comments_follow_ordinary_and_badged_staff_authority() {
             assert_eq!(&payload[..4],if authorized {b"WF06"} else {b"WF05"});
             assert!(comment.contains(&format!("id=\"exif{tim}\"")));
             assert!(board_domain::wordfiltered_comment::PreparedComment::decode(&payload).is_ok());
+            let response = case.send_form("/thread-options", format!("csrf={}&board=p&target={id}&closed=1", case.csrf)).await;
+            let status = response.status();
+            let body = String::from_utf8(to_bytes(response.into_body(),262_144).await.unwrap().to_vec()).unwrap();
+            assert_eq!(status, StatusCode::SEE_OTHER, "{body}");
+            let snapshot: (String, bool, bool) = sqlx::query_as("SELECT snapshot_comment,snapshot_staff_authorized_limits,snapshot_wordfiltered FROM content.moderation_audit WHERE board='p' AND target_id=$1 AND action='thread-options'")
+                .bind(id).fetch_one(&case.owner).await.unwrap();
+            assert_eq!(snapshot.0, comment);
+            assert_eq!(snapshot.1, authorized);
+            assert!(snapshot.2);
             let actor:Vec<u8>=sqlx::query_scalar("SELECT actor_hash FROM post_secrets.posting_history WHERE post_id=$1").bind(id).fetch_one(&case.owner).await.unwrap();
             for statement in [
                 "DELETE FROM content.moderation_audit WHERE board='p' AND target_id=$1",
