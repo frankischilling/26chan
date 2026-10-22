@@ -130,6 +130,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
     'http://127.0.0.1:3000/static/page-chrome.v1.js',
     'http://127.0.0.1:3000/static/native-post-deletion.v1.js',
     'http://127.0.0.1:3000/static/native-blotter.v1.js',
+    'http://127.0.0.1:3000/static/exif.v1.js',
   ];
   const captchaScript = 'http://127.0.0.1:3000/static/posting-captcha.v1.js';
   expect(response.headers()['content-security-policy'].split('script-src ')[1].split(';')[0].split(' ')).toEqual([
@@ -159,6 +160,7 @@ test('catalog CSP permits only fixed scripts and denies healthy alternate and in
     src: node.getAttribute('src'), type: node.type,
   })))).toEqual([
     { src: '/static/source-post-actions.v1.js', type: 'module' },
+    { src: '/static/exif.v1.js', type: 'module' },
     { src: '/static/thread-watcher.v1.js', type: 'module' },
     { src: '/static/page-chrome.v1.js', type: 'module' },
   ]);
