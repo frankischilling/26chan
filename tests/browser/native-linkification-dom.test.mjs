@@ -1,3 +1,4 @@
+import { wordfilterModuleURL } from '../helpers/wordfilter-module.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -7,10 +8,10 @@ import { FILTER_LIMITS } from '../../apps/public/client/native-filter-limits.js'
 import { sourceLinkification, sourceLinkInputs, linkSummary } from './helpers/source-linkification.js';
 
 async function linkerSources() {
-  const wordfilters = await readFile(new URL('../../apps/public/client/native-wordfilter-markup.js', import.meta.url), 'utf8');
+  const wordfilters = await wordfilterModuleURL();
   return {
     source: (await readFile(new URL('../../apps/public/client/native-linkification.js', import.meta.url), 'utf8'))
-      .replace('./native-wordfilter-markup.js', `data:text/javascript;base64,${Buffer.from(wordfilters).toString('base64')}`),
+      .replace('./native-wordfilter-markup.js', wordfilters),
     limits: await readFile(new URL('../../apps/public/client/native-filter-limits.js', import.meta.url), 'utf8'),
   };
 }

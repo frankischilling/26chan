@@ -1,3 +1,4 @@
+import { wordfilterModuleURL } from '../helpers/wordfilter-module.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -70,7 +71,7 @@ test('local deep delimiter scans cap input and span count independently of worke
 async function source() {
   const base = new URL('../../apps/public/client/', import.meta.url);
   const data = source => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
-  const markup = data(await readFile(new URL('native-wordfilter-markup.js', base), 'utf8'));
+  const markup = await wordfilterModuleURL();
   const projection = data((await readFile(new URL('native-comment-projection.js', base), 'utf8')).replace('./native-wordfilter-markup.js', markup));
   const schema = data(await readFile(new URL('math/schema.mjs', base), 'utf8'));
   return { projection, math: data((await readFile(new URL('native-math.js', base), 'utf8'))

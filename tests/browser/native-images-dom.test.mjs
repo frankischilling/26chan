@@ -1,3 +1,4 @@
+import { wordfilterModuleURL } from '../helpers/wordfilter-module.mjs';
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -13,9 +14,9 @@ const spoilerCache = (await readFile(new URL('apps/public/client/native-spoilers
 const source = (await readFile(new URL('apps/public/client/native-images.js', root), 'utf8'))
   .replace('./native-spoiler-assets.js', assetUrl)
   .replace('./native-spoilers.js', `data:text/javascript;base64,${Buffer.from(spoilerCache).toString('base64')}`);
-const wordfilters = await readFile(new URL('apps/public/client/native-wordfilter-markup.js', root), 'utf8');
+const wordfilters = await wordfilterModuleURL();
 const projection = (await readFile(new URL('apps/public/client/native-comment-projection.js', root), 'utf8'))
-  .replace('./native-wordfilter-markup.js', `data:text/javascript;base64,${Buffer.from(wordfilters).toString('base64')}`);
+  .replace('./native-wordfilter-markup.js', wordfilters);
 const quotes = await readFile(new URL('apps/public/static/native-filter.v1.js', root), 'utf8');
 const customCSSSource = await readFile(new URL('apps/public/static/native-custom-css.v1.js', root), 'utf8');
 const settingsSource = (await readFile(new URL('apps/public/static/native-settings.v1.js', root), 'utf8'))

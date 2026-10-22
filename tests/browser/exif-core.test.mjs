@@ -46,3 +46,11 @@ test('EXIF table geometry and theme colors retain the pinned source declarations
     assert.equal(actual, expected, source);
   }
 });
+
+
+test('isolated browser recipe module includes its EXIF dependency', async () => {
+  const { wordfilterModuleURL } = await import('../helpers/wordfilter-module.mjs');
+  const isolated = await import(await wordfilterModuleURL());
+  const native = await import('../../apps/public/client/native-wordfilter-markup.js');
+  assert.deepEqual(Object.keys(isolated), Object.keys(native));
+});
