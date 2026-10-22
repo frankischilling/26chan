@@ -74,4 +74,5 @@ writer/lock-wait case, both public content-admission HTTP tests, and the staff
 role/badge HTTP case. The populated upgrade script passed drift rejection,
 rollback, retained-history comparison and restore. Strict Clippy passed for the
 domain, store, public and staff packages with all targets and features. The full
-store regression sweep and exact-head hosted CI remain pending at this checkpoint.
+store regression sweep passed all 441 tests. Exact-head hosted CI remains pending
+until publication is permitted.
