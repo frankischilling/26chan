@@ -36,7 +36,7 @@ const browserPrerequisites = [
   'cargo test -p board-public --example deletion-quota-fixture --features browser-tests --locked',
 ];
 const dependencyCommands = ['npm ci --ignore-scripts', 'npx playwright install --with-deps chromium'];
-const suites = ['rust', 'browser-content', 'browser-interactions'];
+const suites = ['rust', 'browser-content', 'browser-interactions', 'browser-posting'];
 const roles = ['TEST_PUBLIC', 'MEDIA', 'MEDIA_READ', 'INTAKE', 'MONITOR', 'AUTH', 'STAFF'];
 const staff = 'npx playwright test --config playwright.staff.config.js';
 // Captured before splitting verification into CI lanes. Keep this expectation
@@ -270,12 +270,12 @@ test('CI suites cover the full runner with only repeated dependency and fixture 
   assert.equal(full.status, 0, full.stderr);
   const results = suites.map(suite => runRunner(t, { args: [suite] }));
   for (const result of results) assert.equal(result.status, 0, result.stderr);
-  // All three runners install dependencies and prepare the same four fixtures.
+  // All four runners install dependencies and prepare the same four fixtures.
   // Every other command must occur with exactly its full-run multiplicity.
   const repeated = [...dependencyCommands, ...browserPrerequisites];
   assert.deepEqual(
     results.flatMap(result => result.commands).sort(),
-    [...full.commands, ...repeated, ...repeated].sort(),
+    [...full.commands, ...repeated, ...repeated, ...repeated].sort(),
   );
   const rust = results[0].commands;
   const installed = position(rust, dependencyCommands[1]);
@@ -290,6 +290,7 @@ test('each browser suite installs dependencies and builds and tests fixtures bef
   for (const [suite, first] of [
     ['browser-content', 'timeout 300s npm run test:math'],
     ['browser-interactions', 'npm run test:display'],
+    ['browser-posting', 'npm run test:quick-reply'],
   ]) {
     const result = runRunner(t, { args: [suite] });
     assert.equal(result.status, 0, result.stderr);
@@ -362,7 +363,11 @@ test('CI suites preserve failures and never execute a command after a failed pre
     ]],
     ['browser-interactions', [
       ...dependencyCommands, ...browserPrerequisites,
-      'npm run test:display', 'npm run test:behavior', staff,
+      'npm run test:display', 'npm run test:settings-transfer',
+    ]],
+    ['browser-posting', [
+      ...dependencyCommands, ...browserPrerequisites,
+      'npm run test:quick-reply', 'npm run test:behavior', staff,
     ]],
   ]) {
     const successful = runRunner(t, { args: [suite] });

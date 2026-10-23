@@ -111,9 +111,9 @@ UPDATE public.homepage_saved_boards SET saved=saved||jsonb_build_object(
  'opening_comment_refusal',CASE WHEN slug='news' THEN 'Your post must contain at least one valid URL' ELSE 'Invalid comment' END,
  'show_thread_uniques',false,'json_indexes_enabled',slug NOT IN('j','test'),
  'json_catalog_enabled',slug NOT IN('j','test'),'json_threads_enabled',slug NOT IN('j','test'));
-UPDATE public.homepage_saved_posts SET saved=saved||jsonb_build_object('staff_notices','[]'::jsonb,'since4pass',0);
-DO $$ BEGIN IF EXISTS(SELECT 1 FROM content.posts WHERE since4pass<>0) THEN
- RAISE EXCEPTION 'Upgrade invented historical Pass years'; END IF; END $$;
+UPDATE public.homepage_saved_posts SET saved=saved||jsonb_build_object('staff_notices','[]'::jsonb,'since4pass',0,'event_perk',NULL);
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM content.posts WHERE since4pass<>0 OR event_perk IS NOT NULL) THEN
+ RAISE EXCEPTION 'Upgrade invented historical Pass years or event perks'; END IF; END $$;
 SQL
     "${psql[@]}" -d "$database" -f - < "$cluster/assertions.sql"
 done
@@ -128,6 +128,7 @@ for database in homepage_upgrade homepage_restored homepage_current_restored; do
     "${psql[@]}" -d "$database" -f - < "$cluster/assertions.sql"
     for mutation in \
       "UPDATE content.posts SET since4pass=2020 WHERE id=15500001;" \
+      "SET LOCAL ROLE board_migrator; UPDATE content.posts SET event_perk=231 WHERE id=15500001; RESET ROLE;" \
       "UPDATE content.boards SET pass_post_only=true WHERE slug='homeup';" \
       "UPDATE content.boards SET image_repost_limit=1 WHERE slug='homeup';" \
       "UPDATE content.boards SET image_history_scope='invented' WHERE slug='homeup';" \

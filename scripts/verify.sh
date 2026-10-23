@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 if (( $# > 1 )); then
-  echo 'Usage: scripts/verify.sh [all|rust|browser-content|browser-interactions]' >&2
+  echo 'Usage: scripts/verify.sh [all|rust|browser-content|browser-interactions|browser-posting]' >&2
   exit 2
 fi
 suite=${1-all}
 case "$suite" in
-  all|rust|browser-content|browser-interactions) ;;
+  all|rust|browser-content|browser-interactions|browser-posting) ;;
   *)
-    echo 'Usage: scripts/verify.sh [all|rust|browser-content|browser-interactions]' >&2
+    echo 'Usage: scripts/verify.sh [all|rust|browser-content|browser-interactions|browser-posting]' >&2
     exit 2
     ;;
 esac
@@ -143,6 +143,9 @@ browser_interactions() {
   npm run test:settings-transfer
   npx playwright test --config playwright.media-visual.config.js tests/media-visual/native-images.spec.js
   npx playwright test --config playwright.media-visual.config.js tests/media-visual/file-presentation.spec.js
+}
+
+browser_posting() {
   npm run test:quick-reply
   npx playwright test tests/browser/mobile-post-headers.spec.js
   npx playwright test tests/browser/post-identities.spec.js
@@ -176,6 +179,7 @@ python3 tests/helpers/test_verification_mail_fixture.py
     rust_checks
     browser_content
     browser_interactions
+    browser_posting
     ;;
   rust)
     npm run check:generated
@@ -192,5 +196,9 @@ python3 tests/helpers/test_verification_mail_fixture.py
   browser-interactions)
     browser_prerequisites
     browser_interactions
+    ;;
+  browser-posting)
+    browser_prerequisites
+    browser_posting
     ;;
 esac
