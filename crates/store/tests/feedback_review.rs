@@ -50,6 +50,7 @@ impl Fixture {
             .unwrap();
     }
 }
+#[track_caller]
 fn code(error: sqlx::Error, expected: &str) {
     assert_eq!(
         error.as_database_error().and_then(|e| e.code()).as_deref(),
@@ -58,8 +59,19 @@ fn code(error: sqlx::Error, expected: &str) {
     );
 }
 async fn pool(name: &str) -> PgPool {
-    PgPoolOptions::new()
-        .max_connections(5)
+    let mut options = PgPoolOptions::new().max_connections(5);
+    if name == "AUTH_DATABASE_URL" {
+        // Match the real staff role even in a minimal owned test cluster.
+        options = options.after_connect(|connection, _| {
+            Box::pin(async move {
+                sqlx::query("SET lock_timeout='2s'")
+                    .execute(connection)
+                    .await?;
+                Ok(())
+            })
+        });
+    }
+    options
         .connect(&std::env::var(name).unwrap())
         .await
         .unwrap()
@@ -258,7 +270,9 @@ async fn exercise(f: Fixture) {
     .await
     .unwrap();
     // A review that wakes after its session expires must leave the row and audit untouched.
-    sqlx::query("UPDATE staff_identity.sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=$1").bind(&f.session).execute(&f.owner).await.unwrap();
+    let expiry: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
+        "UPDATE staff_identity.sessions SET expires_at=clock_timestamp()+interval '1 second' WHERE token_hash=$1 RETURNING expires_at")
+        .bind(&f.session).fetch_one(&f.owner).await.unwrap();
     let mut gate = f.owner.begin().await.unwrap();
     sqlx::query("SELECT id FROM submission_private.feedback WHERE id=$1 FOR UPDATE")
         .bind(f.ids[1])
@@ -274,7 +288,23 @@ async fn exercise(f: Fixture) {
             let waiting:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE usename='board_auth' AND $1=ANY(pg_blocking_pids(pid)))").bind(blocker).fetch_one(&f.owner).await.unwrap();
             if waiting{break;}tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }}).await.unwrap();
-        tokio::time::sleep(std::time::Duration::from_millis(2200)).await;
+        // Cross the database expiry boundary before releasing the row, without
+        // overrunning the auth role's unchanged two-second lock deadline.
+        tokio::time::timeout(std::time::Duration::from_millis(1500), async {
+            loop {
+                let expired: bool = sqlx::query_scalar("SELECT clock_timestamp()>=$1")
+                    .bind(expiry)
+                    .fetch_one(&f.owner)
+                    .await
+                    .unwrap();
+                if expired {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
         gate.rollback().await.unwrap();
     };
     let (expired, ()) = tokio::join!(f.action(f.ids[1], "dismiss"), release);
