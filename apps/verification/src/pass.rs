@@ -249,6 +249,7 @@ pub(crate) async fn write_receipt(
         protocol::Purpose::Thread => "thread",
         protocol::Purpose::Reply => "reply",
         protocol::Purpose::Report => "report",
+        protocol::Purpose::Like => "like",
         _ => return error(StatusCode::BAD_REQUEST),
     };
     let Some(board) = context.board.as_deref() else {

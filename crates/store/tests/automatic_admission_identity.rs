@@ -100,6 +100,7 @@ impl Fixture {
                 session: session(cap, minted, peer, now),
             },
             PostMetadata {
+                event_scores: false,
                 drawing: None,
                 spoiler: false,
                 keys: PostIdentityKeys {

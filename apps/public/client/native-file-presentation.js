@@ -1,3 +1,5 @@
+import { attributeKeys } from './native-attribute-keys.js';
+
 import { isSpoilerAssetPath } from './native-spoiler-assets.js';
 
 // Uploaded filenames remain display metadata. The approved URL supplies format.
@@ -41,8 +43,8 @@ export function validateFilePresentation(tree, context, no) {
           && match && Number(match[3]) <= 107374182 && Number(match[4]) <= 107374182
           && Number(match[1]) * ({B:1,KB:1024,MB:1048576}[match[2]]) <= 10485760
           && context.mediaOrigin && link.attrs.href === `${context.mediaOrigin}/f/${encoded}`
-          && Object.keys(link.attrs).sort().join(',') === 'href,rel,target' && link.attrs.target === '_blank' && link.attrs.rel === 'noopener noreferrer'
-          && Object.keys(node.attrs).sort().join(',') === 'class,id' && Object.keys(parent.attrs).sort().join(',') === 'class,id'
+          && attributeKeys(link.attrs) === 'href,rel,target' && link.attrs.target === '_blank' && link.attrs.rel === 'noopener noreferrer'
+          && attributeKeys(node.attrs) === 'class,id' && attributeKeys(parent.attrs) === 'class,id'
           && link.attrs.title === undefined && node.attrs.title === undefined && elements(parent).length === 1);
         return;
       }

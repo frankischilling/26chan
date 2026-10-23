@@ -143,6 +143,7 @@ async fn source_upload_board_html_json_and_player_policy_follow_posted_swf() {
                     flag: "",
                     options: "",
                     drawing: None,
+                    event_scores: false,
                 },
             )
             .await;

@@ -59,6 +59,7 @@ pub enum ChallengePurpose {
     Thread,
     Reply,
     Report,
+    Like,
     EmailRequest,
     EmailVerify,
     Ticket,
@@ -69,6 +70,7 @@ impl ChallengePurpose {
             Self::Thread => "thread",
             Self::Reply => "reply",
             Self::Report => "report",
+            Self::Like => "like",
             Self::EmailRequest => "email_request",
             Self::EmailVerify => "email_verify",
             Self::Ticket => "ticket",
@@ -304,6 +306,12 @@ impl VerificationStore {
                 .fetch_optional(&self.pool)
                 .await?,
         )
+    }
+
+    pub async fn score_event_open(&self) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar("SELECT content.event_score_open()")
+            .fetch_one(&self.pool)
+            .await?)
     }
 
     pub async fn ticket_advice(

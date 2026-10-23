@@ -118,6 +118,7 @@ async fn source_upload_board_consumes_swf_and_serializes_filename_claims() {
                     flag: "",
                     options: "",
                     drawing: None,
+                    event_scores: false,
                 },
             )
             .await;

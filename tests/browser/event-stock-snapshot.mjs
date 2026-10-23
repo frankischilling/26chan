@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import { parseUpdaterSnapshot } from '../../apps/public/client/native-updater-snapshot.js';
+let input = '';
+for await (const chunk of process.stdin) { input += chunk; assert.ok(input.length <= 4194304); }
+const { snapshot, context } = JSON.parse(input);
+const parsed = parseUpdaterSnapshot(JSON.stringify(snapshot), context);
+assert.equal(parsed.status, 'ok');
+let receive, reply;
+globalThis.WorkerGlobalScope = class { static [Symbol.hasInstance](value) { return value === globalThis; } };
+globalThis.addEventListener = (type, listener) => { assert.equal(type, 'message'); receive = listener; };
+globalThis.postMessage = value => { reply = value; };
+const released = await import('../../apps/public/static/native-filter.v1.js');
+assert.equal(typeof receive, 'function');
+receive({ data: { kind: 'updater-snapshot', raw: JSON.stringify(snapshot), context } });
+assert.equal(typeof reply, 'object');
+const checked = reply;
+assert.equal(checked.status, 'ok');
+assert.equal(checked.snapshot.posts.length, 19);
+for (const post of checked.snapshot.posts) assert.doesNotThrow(() => released.validatePostTree(post.tree, context, post.no));
+assert.deepEqual(checked.snapshot, parsed.snapshot);
+console.log('Stored stock identities passed source and compiled worker snapshot parsing.');

@@ -66,18 +66,42 @@ test('successful ordinary and board-return posts auto-watch, track own replies a
 });
 test('concurrent successful posts use distinct receipts and failed posts create none', async ({ page, context }) => {
   await autoWatch(page);
-  const results = await withPostingHistory(() => Promise.all(['First concurrent thread', 'Second concurrent thread'].map(sub => context.request.post('/fixture/post', {
-    headers: { Origin: origin }, form: { sub, com: `Owned concurrent fixture ${sub}`, password, track: '1', awt: '1' }, maxRedirects: 0,
+  const parentCookie = await post(page, 'Owned concurrent reply parent', { subject: 'Concurrent receipt parent' });
+  await expect(page).toHaveURL(/\/fixture\/thread\/(\d+)#p\d+$/);
+  const parent = page.url().match(/thread\/(\d+)/)[1];
+  owned.push({ id: parent, cookie: parentCookie });
+  await expect.poll(async () => (await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-')).length).toBe(0);
+  // An OP and reply use independent source timer histories. Two OPs can
+  // legitimately reject an earlier-captured request that acquires its lock
+  // second across an epoch-second boundary, even with a zero fixture timer.
+  // Keep actual overlap and two required successes without changing admission.
+  const forms = [
+    { resto: parent, sub: '', com: 'Owned concurrent reply' },
+    { sub: 'Owned concurrent thread', com: 'Owned concurrent thread body' },
+  ];
+  const results = await withPostingHistory(() => Promise.all(forms.map(form => context.request.post('/fixture/post', {
+    headers: { Origin: origin }, form: { ...form, password, track: '1', awt: '1' }, maxRedirects: 0,
   }))));
-  const ids = results.map(response => { expect(response.status()).toBe(303); return response.headers().location.match(/thread\/(\d+)/)[1]; });
-  for (const [index, id] of ids.entries()) owned.push({ id, cookie: await ownerCookie(results[index]) });
+  const posts = [];
+  for (const response of results) {
+    if (response.status() !== 303) continue;
+    const [, thread, post] = response.headers().location.match(/thread\/(\d+)#p(\d+)$/);
+    posts.push({ thread, post });
+    if (thread === post) owned.push({ id: thread, cookie: await ownerCookie(response) });
+  }
+  // Register every committed OP for cleanup before reporting any failure.
+  for (const response of results) expect(response.status(), await response.text()).toBe(303);
+  expect(posts).toHaveLength(2);
+  expect(posts[0].thread).toBe(parent);
+  expect(posts[0].post).not.toBe(parent);
+  expect(posts[1].thread).toBe(posts[1].post);
   const cookies = (await context.cookies()).filter(cookie => cookie.name.startsWith('board-posted-'));
-  expect(cookies.map(cookie => cookie.name).sort()).toEqual(ids.map(id => `board-posted-${id}`).sort());
+  expect(cookies.map(cookie => cookie.name).sort()).toEqual(posts.map(({ post }) => `board-posted-${post}`).sort());
   for (const cookie of cookies) { expect(cookie.path).toBe('/fixture/'); expect(cookie.sameSite).toBe('Strict'); expect(cookie.httpOnly).toBe(false); }
   await page.goto('/fixture/');
-  for (const id of ids) {
-    await expect(page.locator(`#watch-${id}-fixture`)).toBeVisible();
-    await expect.poll(() => page.evaluate(id => JSON.parse(localStorage.getItem(`4chan-track-fixture-${id}`))?.[`>>${id}`], id)).toBe(1);
+  for (const item of posts) {
+    await expect(page.locator(`#watch-${item.thread}-fixture`)).toBeVisible();
+    await expect.poll(() => page.evaluate(({ thread, post }) => JSON.parse(localStorage.getItem(`4chan-track-fixture-${thread}`))?.[`>>${post}`], item)).toBe(1);
   }
   const before = await page.evaluate(() => localStorage.getItem('4chan-watch'));
   const failed = await withPostingHistory(() => context.request.post('/fixture/post', { headers: { Origin: origin }, form: { com: '', password, track: '1', awt: '1' }, maxRedirects: 0 }));

@@ -191,6 +191,7 @@ async fn qualify_posting(enabled: bool, images: bool) {
                             vip: proof,
                         },
                         PostMetadata {
+                            event_scores: false,
                             keys: PostIdentityKeys {
                                 tripcode: None,
                                 poster_id: Some(poster_key),

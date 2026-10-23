@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ heading() }} - 26chan{% endblock %}
+{% block body_attributes %} class="siteHome"{% endblock %}
+{% block board_navigation %}{% endblock %}
+{% block content %}
+<header class="siteHomeHeader"><h1><a href="/">26chan</a></h1></header>
+<section class="homePanel siteInfo"><h2>{{ heading() }}</h2>
+<nav class="eventLinks">[ <a href="/event-market.html">Market</a> / <a href="/event-emotes.html">Emotes</a> / <a href="/event-perks.html">Scores and perks</a> / <a href="/">Boards</a> ]</nav>
+{% if !error.is_empty() %}<p class="eventError" role="alert">{{ error }}</p>{% endif %}
+{% if !active %}<p>This event is closed.</p>
+{% else %}
+<p>Ends {{ ends }}. These are fictional event points, not money.</p>
+{% if has_account %}<p class="eventBalance">{% if market %}Balance: {{ balance }} points{% else %}Available: {{ available }} points{% endif %}</p>
+{% else %}<form method="post" action="{{ path() }}">{% if market %}<input type="hidden" name="create" value="1">{% else %}<input type="hidden" name="action" value="start">{% endif %}<button type="submit">{% if market %}Create account{% else %}Start collecting{% endif %}</button></form>{% endif %}
+{% if market %}
+<div class="eventTableWrap"><table class="eventTable"><thead><tr><th>Stock</th><th>Price</th><th>Owned</th><th>Buy</th><th>Sell</th></tr></thead><tbody>
+{% for row in stocks %}<tr><th scope="row">{{ row.symbol }}</th><td>{% if let Some(price) = row.price %}{{ price }}{% else %}Unavailable{% endif %}</td><td>{{ row.owned }}</td>
+{% for side in ["buy", "sell"] %}<td>{% if let Some(price) = row.price %}<form class="eventTrade" method="post" action="/event-market.html"><input type="hidden" name="mode" value="{{ side }}"><input type="hidden" name="stock" value="{{ row.symbol }}"><input type="hidden" name="price" value="{{ price }}"><label>Amount <input type="number" name="amount" min="1" max="1000" step="1" value="1" required></label><button type="submit"{% if !has_account %} disabled{% endif %}>{% if *side == "buy" %}Buy{% else %}Sell{% endif %}</button></form>{% endif %}</td>{% endfor %}</tr>{% endfor %}
+</tbody></table></div>
+{% else %}
+{% if has_account %}<div class="eventRolls">{% for count in [3, 10] %}<form method="post" action="/event-emotes.html"><input type="hidden" name="action" value="roll{{ count }}"><button type="submit">Roll {{ count }} ({{ count * 10 }} points)</button></form>{% endfor %}</div><p>20 points accrue per completed five minutes. Duplicate rolls return 5 points, or 10 for a rare image.</p>{% endif %}
+{% if !obtained.is_empty() %}<p class="eventObtained" role="status">Obtained: {% for name in obtained %}{{ name }}{% if !loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+<p>Image artwork has not yet been recovered. Its original names remain available; Unicode choices render below.</p>
+<ul class="eventRoster">{% for choice in emotes %}<li><strong>{{ choice.name }}</strong>{% if !choice.glyph.is_empty() %}<span class="eventGlyph" aria-hidden="true">{{ choice.glyph }}</span>{% endif %}<p>{% if choice.owned %}Owned{% else %}{{ choice.price }} points{% endif %}</p><form method="post" action="/event-emotes.html"><input type="hidden" name="action" value="buy"><input type="hidden" name="eid" value="{{ choice.id }}"><button type="submit"{% if !has_account || choice.owned %} disabled{% endif %}>Buy</button></form></li>{% endfor %}</ul>
+{% endif %}
+{% endif %}
+</section>
+{% endblock %}
+{% block page_footer %}<footer class="homeFooter"><p>Local event workflows. Historical event artwork remains incomplete.</p></footer>{% endblock %}

@@ -1,3 +1,4 @@
+import { stockToken, stockBadge } from './native-event-badges.js';
 import { sourceSpoilerPath } from './native-spoilers.js';
 import { quotePostId } from './native-quote-identity.js';
 import { isSpoilerAssetPath } from './native-spoiler-assets.js';
@@ -28,14 +29,14 @@ export function quotePreviewPosition(link, size, viewport, mobile = false) {
 const localTags = {
   article: ['class', 'id', 'data-custom-spoiler'],
   div: ['class', 'id', 'title', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'],
-  span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
+  span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc', 'data-tip'],
   strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title', 'data-m'], blockquote: ['class', 'id'],
   br: [], wbr: [], b: [], s: [], small: [], pre: ['class'], p: ['class'], img: ['class', 'src', 'srcset', 'alt', 'title', 'width', 'height', 'loading'],
 };
 const localClasses = new Set(['postContainer', 'opContainer', 'replyContainer', 'post', 'op', 'reply',
   'postInfo', 'postInfoM', 'mobile', 'dateTime', 'subject', 'name', 'n-pu', 'postertrip', 'posteruid', 'hand', 'postNum', 'file', 'fileText', 'mFileInfo', 'fileThumb', 'imgspoiler', 'fileDeleted', 'fileDeletedRes', 'postMessage',
   'quote', 'quotelink', 'spoiler', 'sjis', 'mu-s', 'mu-i', 'mu-r', 'mu-g', 'mu-b', 'prettyprint',
-  'fortune', 'fortune-0', 'fortune-1', 'fortune-2', 'fortune-3', 'fortune-4', 'fortune-5', 'fortune-6',
+  'like-perk-cnt', 'fortune', 'fortune-0', 'fortune-1', 'fortune-2', 'fortune-3', 'fortune-4', 'fortune-5', 'fortune-6',
   'fortune-7', 'fortune-8', 'fortune-9', 'fortune-10', 'fortune-11', 'fortune-12']);
 const controls = '.postActions,.postMenuBtn,.extButton,.extControls,.filter-preview,.quoteLink,.sideArrows,.backlink,[data-drawing-edit-wrap]';
 
@@ -73,6 +74,7 @@ export function localQuoteTree(article, context, no, projection) {
     for (const key of localTags[tag]) {
       if (tag === 'div' && key.startsWith('data-') && (!(originalAttrs.class || '').split(' ').includes('file')
         || !isSpoilerAssetPath(node.querySelector('a.fileThumb.imgspoiler img')?.getAttribute('src')))) continue;
+      if (key === 'data-tip' && stockBadge(originalAttrs.class) === null) continue;
       if (key === 'title' && tag === 'span' && node.className !== 'n-pu' && !Array.from(node.classList).some(isPostFlagToken)
         && !(['name', 'subject'].includes(node.className) && node.closest('.postInfoM'))) continue;
       if (key === 'title' && tag === 'a' && !node.parentElement?.matches('.postInfo > span.postNum,.postInfoM > span.dateTime.postNum,.file > .fileText')) continue;
@@ -81,7 +83,7 @@ export function localQuoteTree(article, context, no, projection) {
       const value = originalAttrs[key] ?? null;
       if (value !== null) { charge(key); charge(value); attrs[key] = value; }
     }
-    if (attrs.class !== undefined) attrs.class = attrs.class.split(/\s+/).filter(value => localClasses.has(value) || isPostFlagToken(value) || isCapcodeToken(value)
+    if (attrs.class !== undefined) attrs.class = attrs.class.split(/\s+/).filter(value => localClasses.has(value) || isPostFlagToken(value) || isCapcodeToken(value) || stockToken(value)
       || (comment && tag === 'span' && originalAttrs.class === 'deadlink' && value === 'deadlink')).join(' ');
     if (!attrs.class) delete attrs.class;
     if (!ids.has(attrs.id)) delete attrs.id;

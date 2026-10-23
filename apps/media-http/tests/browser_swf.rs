@@ -221,6 +221,7 @@ async fn exercise(
                 flag: "",
                 options: "",
                 drawing: None,
+                event_scores: false,
             },
         )
         .await

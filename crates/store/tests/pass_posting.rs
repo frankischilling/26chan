@@ -60,7 +60,7 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
             let now=chrono::Utc::now();
             create_post_with_challenge(&public,&board,0,&NewPost{name:"Anonymous".into(),subject:format!("Owned Pass {number}"),comment:format!("Owned Pass posting attempt {number}"),deletion_hash:"fixture".into(),sage:false},None,
                 ProtectedPostingContext {request_facts:None,anonymous:AnonymousPostingContext{posting:PostingContext{request_start:now,peer:Some(peer),op_password_proof:None},session:PostingSession{fingerprints,minted:false,now}},challenge:proof},
-                PostMetadata{keys:PostIdentityKeys{tripcode:None,poster_id:Some(poster_key)},country_database:None,flag:"",options:if number==1 || number>=6 {"since4pass"} else {""},spoiler:false,drawing:None}).await
+                PostMetadata{event_scores:false,keys:PostIdentityKeys{tripcode:None,poster_id:Some(poster_key)},country_database:None,flag:"",options:if number==1 || number>=6 {"since4pass"} else {""},spoiler:false,drawing:None}).await
         }};
         let missing=submit(0,None).await.unwrap_err();
         assert!(matches!(missing,StoreError::Database(ref e) if e.as_database_error().and_then(|e|e.code()).as_deref()==Some("P0166")),"{missing:?}");
@@ -96,7 +96,7 @@ async fn pass_receipts_authorize_only_the_bound_post_without_courtesy_credits() 
             let now=reply_clock+chrono::Duration::seconds(seconds);
             create_post_with_challenge(&public,&board,posted,&NewPost{name:"Anonymous".into(),subject:String::new(),comment:format!("Owned membership reply {number}"),deletion_hash:"fixture".into(),sage:false},None,
                 ProtectedPostingContext{request_facts:None,anonymous:AnonymousPostingContext{posting:PostingContext{request_start:now,peer:Some(peer),op_password_proof:None},session:PostingSession{fingerprints,minted:false,now}},challenge:proof},
-                PostMetadata{keys:PostIdentityKeys{tripcode:None,poster_id:Some(poster_key)},country_database:None,flag:"",options:"",spoiler:false,drawing:None}).await
+                PostMetadata{event_scores:false,keys:PostIdentityKeys{tripcode:None,poster_id:Some(poster_key)},country_database:None,flag:"",options:"",spoiler:false,drawing:None}).await
         }};
         assert_eq!(issue_reply(reply_receipt.storage_hash()).await.status,"ready");
         assert!(reply(0,0,WriteChallengeProof::from_issuer(&reply_receipt.encode(),networks.peer,reply_context)).await.unwrap()>0);
@@ -233,6 +233,7 @@ async fn quota_post(
             ),
         },
         PostMetadata {
+            event_scores: false,
             keys: PostIdentityKeys {
                 tripcode: None,
                 poster_id: Some(key),

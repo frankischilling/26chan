@@ -213,6 +213,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
         trip: None,
         poster_id: None,
         since4pass: 0,
+        event_perk: None,
         json_op_poster_id: None,
         capcode: None,
         country: None,
@@ -248,6 +249,7 @@ fn fixture_page(catalog: bool, markup: bool, text_only: bool, forced_anon: bool)
             trip: None,
             poster_id: None,
             since4pass: 0,
+            event_perk: None,
             json_op_poster_id: None,
             capcode: None,
             country: None,
@@ -471,7 +473,7 @@ fn archived_thread() -> String {
             thread_id: thread.id,
             name: "Anonymous".into(),
             trip: None,
-            poster_id: None, since4pass: 0, json_op_poster_id: None, capcode: None,
+            poster_id: None, since4pass: 0, event_perk: None, json_op_poster_id: None, capcode: None,
             country: None,
             country_name: None,
             board_flag: None,
@@ -501,7 +503,7 @@ fn archived_thread() -> String {
             thread_id: thread.id,
             name: "Anonymous".into(),
             trip: None,
-            poster_id: None, since4pass: 0, json_op_poster_id: None, capcode: None,
+            poster_id: None, since4pass: 0, event_perk: None, json_op_poster_id: None, capcode: None,
             country: None,
             country_name: None,
             board_flag: None,
@@ -565,6 +567,7 @@ async fn main() -> std::io::Result<()> {
     // Construct the other shared templates too; this keeps this include honest
     // when production views change and avoids unused-item warning suppression.
     let _ = views::Home {
+        event_workflows: false,
         boards: vec![],
         news: vec![],
         snapshot: Default::default(),
@@ -586,6 +589,7 @@ async fn main() -> std::io::Result<()> {
     .render()
     .unwrap();
     let _ = views::Comment {
+        event_perk: None,
         staff_notices: &[],
         lines: &[],
         board: "demo",
@@ -618,7 +622,7 @@ async fn main() -> std::io::Result<()> {
         .route("/link-visual/", get(|| async { Html(links::page(true)) }))
         .route(
             "/",
-            get(|| async { Html(views::Home { boards: vec![], news:vec![], snapshot: Default::default(), media_origin: String::new() }.render().unwrap()) }),
+            get(|| async { Html(views::Home { event_workflows: false, boards: vec![], news:vec![], snapshot: Default::default(), media_origin: String::new() }.render().unwrap()) }),
         )
         .route("/homepage/", get(|| async { Html(homepage::page()) }))
         .route("/empty/", get(|| async { Html(empty_page(false)) }))

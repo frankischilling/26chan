@@ -1,13 +1,13 @@
 # CI runtime
 
-`Build and test` runs Rust verification, two Linux browser suites, and privileged
+`Build and test` runs Rust verification, three Linux browser suites, and privileged
 qualification on independent Ubuntu 24.04 runners. Every runner creates its own
 disposable database, roles, credentials, and seed data. Browser suites keep one
 worker and zero retries. The media and operations steps run in their established
 order because guest provisioning, dispatch, intake, and monitoring share fixtures
 within that job.
 
-The `rust-and-postgres` check requires `rust-and-browser`, both `browser-suites`
+The `rust-and-postgres` check requires `rust-and-browser`, all three `browser-suites`
 matrix entries, `media-and-operations`, and `http-parser-qualification` to
 succeed. Failed or skipped dependencies cannot produce a passing aggregate;
 cancelling the workflow also cancels its aggregate checks. On Windows, `visual-windows-core` and all eight
@@ -25,9 +25,10 @@ CI selects one of these explicit modes:
 | --- | --- |
 | `rust` | Source references, generated assets, runner guards, formatting, Clippy, workspace builds and tests, and the explicit staff upload and fixture tests |
 | `browser-content` | Math and settings checks, drawing, polls, blotter, page identity, search, posting policies, quotes, images, file labels, spoilers, and board flags |
-| `browser-interactions` | Display, updater, navigation, embeds, settings transfer, quick reply, catalog and watcher behavior, remaining posting policies, and staff browser tests |
+| `browser-interactions` | Display, updater, navigation, embeds, settings transfer, and media presentation |
+| `browser-posting` | Quick reply, catalog and watcher behavior, remaining posting policies, and staff browser tests |
 
-Both browser modes build the workspace binaries and examples, build the quota
+All three browser modes build the workspace binaries and examples, build the quota
 fixture with its browser feature, and run the two dedicated deletion fixture
 tests before starting their browser workloads. They use the existing npm
 commands, including the generated-file checks and Node tests inside those
@@ -38,6 +39,12 @@ Every mode requires development mode and all seven disposable database role
 URLs. Unknown modes and extra arguments fail before executing verification
 commands. The Rust lane also installs Chromium because some Rust tests invoke a
 real browser. The drawing and math commands retain their five-minute bounds.
+
+The interactions lane exceeded its 35-minute job budget twice while tests were
+still passing, after slow dependency installation. Posting and staff browser
+checks now run on a separate disposable runner. The full local command order,
+individual test deadlines, worker counts, zero-retry policy, and required
+aggregate remain unchanged.
 
 Both build and monitoring workflows run on pull requests, pushes to `main`,
 tags, and manual dispatch. New runs cancel superseded runs within the same

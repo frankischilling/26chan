@@ -1111,6 +1111,7 @@ pub async fn post_message(
                 },
             },
             board_store::PostMetadata {
+                event_scores: false,
                 spoiler: input.spoiler,
                 keys: board_store::PostIdentityKeys {
                     tripcode: state.config.tripcode_key.as_deref(),

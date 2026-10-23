@@ -8,7 +8,7 @@ const lock=JSON.parse(await readFile(new URL('package-lock.json',root),'utf8'));
 assert.equal(version,'0.28.2');assert.equal(version,lock.packages['node_modules/esbuild'].version);
 const result=await build({absWorkingDir:fileURLToPath(root),entryPoints:['apps/public/client/native-upload-post.js'],outfile:'apps/public/static/native-upload-post.v1.js',bundle:true,platform:'browser',format:'esm',target:['es2022'],minify:true,charset:'ascii',external:['../static/posting-captcha.v1.js','../static/thread-watcher-core.v1.js'],write:false,metafile:true,logLevel:'silent',banner:{js:'/*! Build: npm run build:native-upload-post */'}});
 assert.equal(result.outputFiles.length,1);
-assert.deepEqual(Object.keys(result.metafile.inputs).sort(),['apps/public/client/native-upload-post.js','apps/public/client/native-upload-post-session.js','apps/public/client/native-quick-reply-transport.js','apps/public/client/native-post-numbers.js'].sort());
+assert.deepEqual(Object.keys(result.metafile.inputs).sort(),['apps/public/client/native-upload-post.js','apps/public/client/native-upload-post-session.js','apps/public/client/native-quick-reply-transport.js','apps/public/client/native-post-numbers.js','apps/public/client/native-attribute-keys.js'].sort());
 const output=Object.values(result.metafile.outputs)[0];
 assert.deepEqual(output.imports.map(item=>[item.path,item.kind,item.external]),[['../static/posting-captcha.v1.js','import-statement',true],['../static/thread-watcher-core.v1.js','import-statement',true]]);
 assert.deepEqual(output.exports,['mountUploadPost']);

@@ -72,6 +72,7 @@ impl Fixture {
                     },
                 },
                 PostMetadata {
+                    event_scores: false,
                     keys: PostIdentityKeys {
                         tripcode: None,
                         poster_id: None,
@@ -87,8 +88,8 @@ impl Fixture {
             .unwrap();
             ids.push(id);
         }
-        // Owned retained metadata tests erasure independently of Pass issuance.
-        sqlx::query("UPDATE content.posts SET since4pass=2020 WHERE board=$1")
+        // Owned retained metadata tests erasure independently of Pass/event issuance.
+        sqlx::query("UPDATE content.posts SET since4pass=2020,event_perk=231 WHERE board=$1")
             .bind(&board)
             .execute(&owner)
             .await
@@ -284,6 +285,7 @@ impl Fixture {
                 "fortune_color",
                 "drawing_time_seconds",
                 "drawing_source_post_id",
+                "event_perk",
             ] {
                 expected[key] = Value::Null;
             }

@@ -31,7 +31,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(media) = &settings.media {
         board_public::media_ready(media).await?;
     }
-    let (metrics, app, api_app) = board_public::observed_routers_with_classifiers(
+    if settings.event_workflows {
+        board_store::events::ready(&pool).await?;
+    }
+    let (metrics, app, api_app) = board_public::observed_routers_with_events(
         pool.clone(),
         settings.api.is_some(),
         board_public::PublicRouterOptions {
@@ -45,9 +48,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             poster_id_key: settings.poster_id_key.clone(),
         },
         settings.verification.clone(),
-        settings.asn_database.clone(),
-        settings.browser_hint_key.clone(),
-        settings.posting_browser_compat_key.clone(),
+        board_public::PublicClassifiers {
+            asn_database: settings.asn_database.clone(),
+            browser_hint_key: settings.browser_hint_key.clone(),
+            posting_browser_compat_key: settings.posting_browser_compat_key.clone(),
+        },
+        settings.event_workflows,
     );
     if let Some(proxy) = &settings.public_proxy {
         tracing::info!(socket = %proxy.socket().display(), proxy_uid = proxy.uid(), "verified public proxy listener started");

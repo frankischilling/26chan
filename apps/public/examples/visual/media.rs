@@ -196,7 +196,7 @@ impl Fixture {
             thread_id: if separate_threads { file.post_id } else { thread.id },
             name: "Anonymous".into(),
             trip: None,
-            poster_id: None, since4pass: 0, json_op_poster_id: None, capcode: None,
+            poster_id: None, since4pass: 0, event_perk: None, json_op_poster_id: None, capcode: None,
             country: None,
             country_name: None,
             board_flag: None,

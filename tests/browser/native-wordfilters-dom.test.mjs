@@ -15,6 +15,10 @@ test('release local previews and comment readers preserve every saved Test marku
   }));
   assert.ok(annotations.some(case_ => case_.input === 'source'));
   assert.ok(annotations.length > 10);
+  const perkSource = JSON.parse(await readFile(new URL('../../fixtures/event-perk-reference.json', import.meta.url), 'utf8'));
+  const perkCases = perkSource.cases.map(row => ({ input: `perk:${row.name}:${row.index}`, final: row.html, perk: true }));
+  assert.equal(perkCases.length, 231);
+  const allCases = [...cases, ...annotations, ...perkCases];
   const files = {};
   for (const name of ['native-filter.v1.js', 'native-backlinks.v1.js']) {
     files[`/static/${name}`] = await readFile(new URL(`../../apps/public/static/${name}`, import.meta.url), 'utf8');
@@ -59,12 +63,12 @@ test('release local previews and comment readers preserve every saved Test marku
           && text === `Saved drawing${case_.annotationText}`);
         return { sameHtml: copied.innerHTML === message.innerHTML, sameText: copied.textContent === text,
           bounded: html.length < 4096 && copied.querySelectorAll('[id],script,img,iframe,style').length === 0,
-          preservesAnnotation };
+          preservesAnnotation, preservesPerk: !case_.perk || projection.clone(message).outerHTML === message.outerHTML };
       });
-    }, [...cases, ...annotations]);
+    }, allCases);
     for (const [index, result] of results.entries()) {
-      const label = index < cases.length ? cases[index].input : annotations[index - cases.length].input;
-      assert.ok(result.sameHtml && result.sameText && result.bounded && result.preservesAnnotation,
+      const label = allCases[index].input;
+      assert.ok(result.sameHtml && result.sameText && result.bounded && result.preservesAnnotation && result.preservesPerk,
         `${label}: ${JSON.stringify(result)}`);
     }
     assert.deepEqual(errors, []);

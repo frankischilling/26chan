@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Like No.{{ post }} - 26chan{% endblock %}
+{% block body_attributes %} class="siteHome"{% endblock %}
+{% block board_navigation %}{% endblock %}
+{% block content %}
+<header class="siteHomeHeader"><h1><a href="/">26chan</a></h1></header>
+<section class="homePanel siteInfo"><h2>Like No.{{ post }}</h2>
+<p><a href="/{{ board }}/thread/{{ thread }}#p{{ post }}">Return to the post</a></p>
+<p>This post has {{ likes }} {% if likes == 1 %}like{% else %}likes{% endif %}.</p>
+{% if !overview %}<form method="post" action="/event-like/{{ board }}/{{ post }}">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="run" value="{{ run }}">
+{% if member %}<p>Your Pass will be checked when you submit.</p>
+{% else if known %}<p>No CAPTCHA is required for this address.</p>
+{% else %}<input type="hidden" name="challenge" value="{{ token }}">
+<p><img src="{{ image }}" alt="CAPTCHA characters"></p>
+<p><label>Verification <input name="answer" maxlength="64" autocomplete="off" required></label></p>{% endif %}
+<button type="submit">Like this post</button></form>{% endif %}
+<p>Optional score event. The historical public score display remains zero.</p>
+</section>
+{% endblock %}
+
+{% block page_footer %}<footer class="homeFooter"><p>Optional local score event.</p></footer>{% endblock %}

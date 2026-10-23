@@ -398,6 +398,7 @@ mod tests {
         let many: Vec<_> = (0..120).map(|i| board(&format!("owned{i}"))).collect();
         assert_eq!(directory(&many).len(), 100);
         let html = super::super::Home {
+            event_workflows: false,
             boards,
             news: vec![],
             snapshot: Default::default(),

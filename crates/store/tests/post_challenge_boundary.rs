@@ -391,6 +391,7 @@ async fn run_scenario(
                         },
                     },
                     PostMetadata {
+                        event_scores: false,
                         keys: PostIdentityKeys {
                             tripcode: None,
                             poster_id: Some(&poster_key),
@@ -588,6 +589,7 @@ async fn run_scenario(
                             ),
                         },
                         PostMetadata {
+                            event_scores: false,
                             keys: PostIdentityKeys {
                                 tripcode: None,
                                 poster_id: Some(poster_key),

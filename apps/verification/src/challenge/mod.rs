@@ -2,5 +2,6 @@
 pub(crate) mod check;
 pub(crate) mod credit;
 pub(crate) mod issue;
+mod likes;
 pub(crate) mod posting;
 pub(crate) mod render;

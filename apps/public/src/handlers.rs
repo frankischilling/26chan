@@ -353,6 +353,9 @@ AND NOT EXISTS (
 const REPORT_ADMISSION_READY_SQL: &str = board_store::report_admission::READINESS_SQL;
 
 pub async fn ready(State(state): State<AppState>) -> Result<&'static str, AppError> {
+    if state.event_workflows {
+        board_store::events::ready(&state.pool).await?;
+    }
     if let Some(verification) = &state.verification {
         verification.ready().await.map_err(|_| {
             AppError(
@@ -593,6 +596,7 @@ pub async fn home(State(state): State<AppState>) -> Result<Response, AppError> {
     crate::output::html(
         &state,
         &Home {
+            event_workflows: state.event_workflows,
             boards: board_store::boards(&state.pool).await?,
             news: board_store::site_content::news_page(&state.pool, None, 3).await?,
             snapshot: board_store::homepage::snapshot(&state.pool).await?,
@@ -1354,6 +1358,7 @@ async fn submit_post(
             },
         },
         board_store::PostMetadata {
+            event_scores: state.event_workflows,
             spoiler: form.spoiler,
             country_database: state.country_database.as_deref(),
             flag: &form.flag,

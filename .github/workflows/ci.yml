@@ -60,6 +60,15 @@ jobs:
           python3 scripts/check-swf-style-reference.py
           node scripts/extract-swf-embed-reference.mjs --check
           node --test tests/browser/native-swf-core.test.mjs tests/browser/native-swf-controls.test.mjs tests/browser/swf-player-bootstrap.test.mjs tests/browser/native-upload-post-session.test.mjs tests/browser/native-upload-post-transport.test.mjs
+      - name: Qualify source event gates and presentation helpers
+        run: |
+          python3 scripts/extract-event-reference.py --check --php php
+          python3 scripts/extract-event-endpoint-reference.py --check --php php
+          python3 scripts/extract-event-market-reference.py --check --php php
+          python3 scripts/extract-event-emote-reference.py --check --php php
+          python3 scripts/extract-event-emote-ledger-reference.py --check --php php
+          python3 scripts/extract-event-score-reference.py --check --php php
+          python3 scripts/extract-event-perk-reference.py --check --php php
       - name: Qualify isolated source page-title function
         run: python3 scripts/extract-page-title-reference.py --fixture-check fixtures/page-title-reference.json --php php
       - name: Qualify isolated source quote callbacks
@@ -134,6 +143,10 @@ jobs:
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
           node --test tests/helpers/pass-state-workflow.test.mjs tests/helpers/pass-state-pacing.test.mjs
+      - name: Qualify optional event native forms and persistence
+        run: |
+          source .local/database.env
+          RUN_EVENT_BROWSER=1 cargo test -p board-public --features database-tests --locked --test events -- --test-threads=1
       - name: Qualify Pass states through native forms, Quick Reply, and JSON
         run: |
           source .local/database.env
@@ -142,7 +155,7 @@ jobs:
       - name: Qualify verified client identity through the actual HTTPS proxy
         run: |
           source .local/database.env
-          cargo test -p board-public --lib --test proxy_https --all-features --locked
+          cargo test -p board-public --lib --test event_readiness --test proxy_https --all-features --locked
       - name: Exercise janitor request and review forms in real browsers
         run: |
           php -n scripts/test-pass-policy-source.php
@@ -199,7 +212,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [content, interactions]
+        suite: [content, interactions, posting]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -676,6 +689,8 @@ jobs:
         run: sudo bash scripts/test-ban-template-migration.sh
       - name: Qualify prior-ban upload history upgrade
         run: sudo bash scripts/test-prior-upload-migration.sh
+      - name: Qualify optional event upgrade and retained account restore
+        run: sudo bash scripts/test-optional-events-migration.sh
       - name: Qualify private classifier history upgrade and restore
         run: sudo bash scripts/test-classifier-history-migration.sh
       - name: Qualify country refusal authority and restored history

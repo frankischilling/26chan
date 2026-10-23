@@ -72,6 +72,26 @@ pub(crate) async fn load(
     Ok(())
 }
 
+/// Whole-thread counts for tail responses use the same small, primary-key
+/// anchored projection as attachment loading. IDs come from one bounded read
+/// snapshot; no raw media table or unrelated board rows are exposed.
+pub(crate) async fn count_reply_images(
+    connection: &mut sqlx::PgConnection,
+    ids: &[i64],
+) -> Result<usize, StoreError> {
+    if ids.len() > 1500 {
+        return Err(StoreError::Invalid("Thread exceeds snapshot limits."));
+    }
+    let mut count = 0usize;
+    for ids in ids.chunks(16) {
+        let batch: i64 = sqlx::query_scalar("SELECT count(*) FROM unnest($1::bigint[]) AS requested(post_id) CROSS JOIN LATERAL (SELECT file_deleted FROM content.visible_post_media WHERE post_id=requested.post_id LIMIT 1) m WHERE NOT m.file_deleted")
+            .bind(ids).fetch_one(&mut *connection).await?;
+        count += usize::try_from(batch)
+            .map_err(|_| StoreError::Invalid("Invalid thread image count."))?;
+    }
+    Ok(count)
+}
+
 pub async fn check_upload(pool: &PgPool, job_id: &str, capability: &str) -> Result<(), StoreError> {
     sqlx::query("SELECT content.check_attachment_upload($1,$2)")
         .bind(job_id)

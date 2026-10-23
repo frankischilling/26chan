@@ -1,0 +1,2442 @@
+{
+  "source_sha256": "527f29c568739fc2a0340d8540f71016b5c02cd0712bc1fa070a27688f018be5",
+  "scope": "Exercise dormant stock-controller arithmetic against an owned in-memory ledger.\n\nThis does not bypass the live source's closed-market gate. Only the listed\nfunctions are evaluated, with a synthetic verified account and fixed quotes.\nNo source bootstrap, credentials, network, database or real balances are used.\n",
+  "functions": "define('CURRENCY_CODE', '_');\ndefine('STARTING_AMOUNT', 1000);\ndefine('MAX_BUY_SELL_SIZE', 1000);\n\nconst STOCK_LIST = [\n  'PEPE', 'WOJK', 'ANIME', 'CHAD', 'CLOWN', 'LOL', 'SICP', 'AUTSM', 'BANE',\n  'CIA', 'BOOB', 'RDDT', 'DESU', 'JANNY', 'GME', 'CHUCK', 'YTSB', 'GACHI'\n];\n\nfunction output_json($data) {\n  header('Content-Type: application/json');\n  echo json_encode($data);\n}\n\nfunction output_error($msg) {\n  output_json(['error' => $msg]);\n  die();\n}\n\nfunction get_account_balance($user_id) {\n  $sql = \"SELECT stock, SUM(amount) as amount FROM april_stock_users WHERE user_id = '%s' GROUP BY stock\";\n  \n  $res = mysql_global_call($sql, $user_id);\n  \n  $data = [];\n  \n  while ($row = mysql_fetch_assoc($res)) {\n    if ($row['stock'] == CURRENCY_CODE) {\n      $amount = (int)$row['amount'];\n      \n      if ($amount < 0) {\n        $amount = 0;\n      }\n      \n      $data['balance'] = $amount;\n    }\n    else if (in_array($row['stock'], STOCK_LIST)) {\n      $amount = (int)$row['amount'];\n      \n      if ($amount <= 0) {\n        continue;\n      }\n      \n      $data[$row['stock']] = $amount;\n    }\n  }\n  \n  return $data;\n}\n\nfunction get_account() {\n  $user_ip = $_SERVER['REMOTE_ADDR'];\n  \n  if (!isset($_COOKIE['4chan_pass'])) {\n    output_error('Account not found');\n  }\n  \n  $userpwd = new UserPwd($user_ip, '4chan.org', $_COOKIE['4chan_pass']);\n  \n  if ($userpwd->isNew()) {\n    output_error('Account not found');\n  }\n  \n  $user_id = $userpwd->getPwd();\n  \n  $data = get_account_balance($user_id);\n  \n  return [$user_id, $data];\n}\n\nfunction get_stock_price($stock) {\n  if ($stock == CURRENCY_CODE) {\n    output_error('Stock not found');\n  }\n  \n  $sql = \"SELECT price FROM april_stock_prices WHERE stock = '%s' ORDER BY id DESC LIMIT 1\";\n  \n  $res = mysql_global_call($sql, $stock);\n  \n  if (!$res) {\n    return false;\n  }\n  \n  $price = (int)mysql_fetch_row($res)[0];\n  \n  if ($price <= 0) {\n    return false;\n  }\n  \n  return $price;\n}\n\nfunction get_stock_http_param() {\n  if (!isset($_POST['stock']) || !$_POST['stock'] || $_POST['stock'] == CURRENCY_CODE) {\n    return false;\n  }\n  \n  return $_POST['stock'];\n}\n\nfunction get_amount_http_param() {\n  if (!isset($_POST['amount']) || !$_POST['amount']) {\n    return false;\n  }\n  \n  $amount = (int)$_POST['amount'];\n  \n  if ($amount < 1 || $amount > MAX_BUY_SELL_SIZE) {\n    return false;\n  }\n  \n  return $amount;\n}\n\nfunction get_price_http_param() {\n  if (!isset($_POST['price']) || !$_POST['price']) {\n    return false;\n  }\n  \n  $price = (int)$_POST['price'];\n  \n  if ($price < 1) {\n    return false;\n  }\n  \n  return $price;\n}\n\nfunction enforce_cooldown($user_id) {\n  $sql =<<<SQL\nSELECT id FROM april_stock_users WHERE user_id = '%s'\nAND created_on > DATE_SUB(NOW(), INTERVAL 10 SECOND)\nSQL;\n  \n  $res = mysql_global_call($sql, $user_id);\n  \n  if (!$res) {\n    return true;\n  }\n  \n  if (mysql_num_rows($res)) {\n    output_error('You can only make an order once every 10 seconds');\n  }\n  \n  return false;\n}\n\n/**\n * BUY\n */\n\nfunction buy_stock() {\n  $stock = get_stock_http_param();\n  \n  if (!$stock) {\n    output_error('Stock not found');\n  }\n  \n  $amount = get_amount_http_param();\n  \n  if (!$amount) {\n    output_error('Invalid amount');\n  }\n  \n  $user_price = get_price_http_param();\n  \n  if (!$user_price) {\n    output_error('Invalid price');\n  }\n  \n  $price = get_stock_price($stock);\n  \n  if (!$price) {\n    output_error('Invalid price');\n  }\n  \n  if ($user_price != $price) {\n    output_error('The price has changed.');\n  }\n  \n  $total_price = $amount * $price;\n  \n  list($user_id, $account) = get_account();\n  \n  if ($total_price > $account['balance']) {\n    output_error('Your account balance is too low');\n  }\n  \n  enforce_cooldown($user_id);\n  \n  // Decrement balance\n  $cur_code = CURRENCY_CODE;\n  \n  $sql =<<<SQL\nINSERT INTO april_stock_users (user_id, stock, amount)\nVALUES ('%s', '$cur_code', -$total_price)\nSQL;\n  \n  $res = mysql_global_call($sql, $user_id);\n  \n  if (!$res) {\n    output_error('Internal Server Error (bi05-2)');\n  }\n  \n  // Increment the stock amount\n  $sql =<<<SQL\nINSERT INTO april_stock_users (user_id, stock, amount)\nVALUES ('%s', '%s', $amount)\nSQL;\n  \n  $res = mysql_global_call($sql, $user_id, $stock);\n  \n  if (!$res) {\n    output_error('Internal Server Error (bi05-2)');\n  }\n  \n  $account = get_account_balance($user_id);\n  \n  output_json($account);\n}\n\n/**\n * SELL\n */\nfunction sell_stock() {\n  $stock = get_stock_http_param();\n  \n  if (!$stock) {\n    output_error('Stock not found');\n  }\n  \n  $amount = get_amount_http_param();\n  \n  if (!$amount) {\n    output_error('Invalid amount');\n  }\n  \n  $user_price = get_price_http_param();\n  \n  if (!$user_price) {\n    output_error('Invalid price');\n  }\n  \n  $price = get_stock_price($stock);\n  \n  if (!$price) {\n    output_error('Invalid price');\n  }\n  \n  if ($user_price != $price) {\n    output_error('The price has changed.');\n  }\n  \n  $total_price = $amount * $price;\n  \n  list($user_id, $account) = get_account();\n  \n  if ($amount > $account[$stock]) {\n    output_error('Your account balance is too low');\n  }\n  \n  // Cooldown\n  enforce_cooldown($user_id);\n  \n  // Decrement the stock amount\n  $sql =<<<SQL\nINSERT INTO april_stock_users (user_id, stock, amount)\nVALUES ('%s', '%s', -$amount)\nSQL;\n  \n  $res = mysql_global_call($sql, $user_id, $stock);\n  \n  if (!$res) {\n    output_error('Internal Server Error (bi05-2)');\n  }\n  \n  // Increment balance\n  $cur_code = CURRENCY_CODE;\n  \n  $sql =<<<SQL\nINSERT INTO april_stock_users (user_id, stock, amount)\nVALUES ('%s', '$cur_code', $total_price)\nSQL;\n  \n  $res = mysql_global_call($sql, $user_id);\n  \n  if (!$res) {\n    output_error('Internal Server Error (bi05-2)');\n  }\n  \n  $account_balance = get_account_balance($user_id);\n  \n  output_json($account_balance);\n}",
+  "cases": [
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "PEPE": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "PEPE": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "WOJK",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "WOJK": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "WOJK",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "WOJK": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "ANIME",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "ANIME": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "ANIME",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "ANIME": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "CHAD",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "CHAD": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "CHAD",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "CHAD": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "CLOWN",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "CLOWN": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "CLOWN",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "CLOWN": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "LOL",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "LOL": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "LOL",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "LOL": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "SICP",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "SICP": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "SICP",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "SICP": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "AUTSM",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "AUTSM": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "AUTSM",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "AUTSM": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "BANE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "BANE": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "BANE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "BANE": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "CIA",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "CIA": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "CIA",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "CIA": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "BOOB",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "BOOB": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "BOOB",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "BOOB": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "RDDT",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "RDDT": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "RDDT",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "RDDT": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "DESU",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "DESU": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "DESU",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "DESU": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "JANNY",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "JANNY": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "JANNY",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "JANNY": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "GME",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "GME": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "GME",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "GME": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "CHUCK",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "CHUCK": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "CHUCK",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "CHUCK": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "YTSB",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "YTSB": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "YTSB",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "YTSB": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "GACHI",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "GACHI": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "GACHI",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "GACHI": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Stock not found"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Stock not found"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "_",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Stock not found"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "_",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Stock not found"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "0",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Stock not found"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "0",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Stock not found"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "pepe",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "pepe",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "UNKNOWN",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "UNKNOWN",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Invalid amount"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Invalid amount"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "0",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Invalid amount"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "0",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Invalid amount"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "-1",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Invalid amount"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "-1",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Invalid amount"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "1001",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Invalid amount"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "1001",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Invalid amount"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "1000",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Your account balance is too low"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "1000",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Your account balance is too low"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "2.9",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 980,
+          "PEPE": 22
+        },
+        "balance": 980,
+        "holding": 22,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "2.9",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1020,
+          "PEPE": 18
+        },
+        "balance": 1020,
+        "holding": 18,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "1e3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Your account balance is too low"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "1e3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Your account balance is too low"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3suffix",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "PEPE": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3suffix",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "PEPE": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": " 3 ",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "PEPE": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": " 3 ",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "PEPE": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "abc",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Invalid amount"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "abc",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Invalid amount"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": ""
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": ""
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "0"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "0"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "-1"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "-1"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "11"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "The price has changed."
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "11"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "The price has changed."
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10suffix"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "PEPE": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10suffix"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "PEPE": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "1e1"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "PEPE": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "1e1"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "PEPE": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": " 10 "
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "PEPE": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": " 10 "
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "PEPE": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 79,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "You can only make an order once every 10 seconds"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 79,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "You can only make an order once every 10 seconds"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 80,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "You can only make an order once every 10 seconds"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 80,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "You can only make an order once every 10 seconds"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 89,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "You can only make an order once every 10 seconds"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 89,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "You can only make an order once every 10 seconds"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 90,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "PEPE": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 90,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 90,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "PEPE": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 90,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 91,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "PEPE": 23
+        },
+        "balance": 970,
+        "holding": 23,
+        "last": 91,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 91,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030,
+          "PEPE": 17
+        },
+        "balance": 1030,
+        "holding": 17,
+        "last": 91,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 0,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Your account balance is too low"
+        },
+        "balance": 0,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 0,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 30,
+          "PEPE": 17
+        },
+        "balance": 30,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 29,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Your account balance is too low"
+        },
+        "balance": 29,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 29,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 59,
+          "PEPE": 17
+        },
+        "balance": 59,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 30,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 0,
+          "PEPE": 23
+        },
+        "balance": 0,
+        "holding": 23,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 30,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 60,
+          "PEPE": 17
+        },
+        "balance": 60,
+        "holding": 17,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 0,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "PEPE": 3
+        },
+        "balance": 970,
+        "holding": 3,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 0,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Your account balance is too low"
+        },
+        "balance": 1000,
+        "holding": 0,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 2,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "PEPE": 5
+        },
+        "balance": 970,
+        "holding": 5,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 2,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Your account balance is too low"
+        },
+        "balance": 1000,
+        "holding": 2,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 3,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "balance": 970,
+          "PEPE": 6
+        },
+        "balance": 970,
+        "holding": 6,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 3,
+      "last": 80,
+      "now": 100,
+      "current_price": 10,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "balance": 1030
+        },
+        "balance": 1030,
+        "holding": 0,
+        "last": 100,
+        "writes": 2
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 0,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 0,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": -1,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": -1,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "Invalid price"
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 11,
+      "side": "buy",
+      "expected": {
+        "response": {
+          "error": "The price has changed."
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    },
+    {
+      "fields": {
+        "stock": "PEPE",
+        "amount": "3",
+        "price": "10"
+      },
+      "balance": 1000,
+      "holding": 20,
+      "last": 80,
+      "now": 100,
+      "current_price": 11,
+      "side": "sell",
+      "expected": {
+        "response": {
+          "error": "The price has changed."
+        },
+        "balance": 1000,
+        "holding": 20,
+        "last": 80,
+        "writes": 0
+      }
+    }
+  ]
+}

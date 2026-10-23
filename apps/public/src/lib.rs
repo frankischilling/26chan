@@ -7,6 +7,7 @@ pub mod archive;
 mod blotter;
 pub mod catalog;
 mod derefer;
+mod events;
 mod handlers;
 mod intake;
 mod legacy_form;
@@ -63,6 +64,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct AppState {
+    event_workflows: bool,
     posting_browser_compat_key: Option<
         Arc<board_domain::content_admission::classifiers::posting::browser::CompatibilityKey>,
     >,
@@ -78,6 +80,15 @@ pub struct AppState {
     poster_id_key: Option<Arc<board_domain::poster_id::PosterIdKey>>,
     tripcode_key: Option<Arc<board_domain::identity::SecureKey>>,
     country_database: Option<Arc<board_domain::country::CountryDatabase>>,
+}
+
+#[derive(Default)]
+pub struct PublicClassifiers {
+    pub asn_database: Option<Arc<board_domain::content_admission::network::asn::Database>>,
+    pub browser_hint_key: Option<Arc<board_domain::content_admission::network::hints::BrowserKey>>,
+    pub posting_browser_compat_key: Option<
+        Arc<board_domain::content_admission::classifiers::posting::browser::CompatibilityKey>,
+    >,
 }
 
 pub struct PublicRouterOptions {
@@ -205,6 +216,28 @@ pub fn observed_routers_with_classifiers(
         Arc<board_domain::content_admission::classifiers::posting::browser::CompatibilityKey>,
     >,
 ) -> (board_observe::Metrics, Router, Router) {
+    observed_routers_with_events(
+        pool,
+        api_enabled,
+        options,
+        verification,
+        PublicClassifiers {
+            asn_database,
+            browser_hint_key,
+            posting_browser_compat_key,
+        },
+        false,
+    )
+}
+
+pub fn observed_routers_with_events(
+    pool: PgPool,
+    api_enabled: bool,
+    options: PublicRouterOptions,
+    verification: Option<board_config::PublicVerificationSettings>,
+    classifiers: PublicClassifiers,
+    event_workflows: bool,
+) -> (board_observe::Metrics, Router, Router) {
     use board_observe::{Listener, Metrics, Pool, PoolSample};
     let mut metrics = Metrics::new();
     let observed_pool = pool.clone();
@@ -215,14 +248,8 @@ pub fn observed_routers_with_classifiers(
             max: observed_pool.options().get_max_connections(),
         })
         .expect("one pool registered before sharing metrics");
-    let (public, api) = routers_with_classifiers(
-        pool,
-        options,
-        verification,
-        asn_database,
-        browser_hint_key,
-        posting_browser_compat_key,
-    );
+    let (public, api) =
+        routers_with_events(pool, options, verification, classifiers, event_workflows);
     let public = metrics.layer(public, Listener::Public);
     let api = if api_enabled {
         metrics.layer(api, Listener::Api)
@@ -323,6 +350,35 @@ pub fn routers_with_classifiers(
         Arc<board_domain::content_admission::classifiers::posting::browser::CompatibilityKey>,
     >,
 ) -> (Router, Router) {
+    routers_with_events(
+        pool,
+        options,
+        verification,
+        PublicClassifiers {
+            asn_database,
+            browser_hint_key,
+            posting_browser_compat_key,
+        },
+        false,
+    )
+}
+
+pub fn routers_with_events(
+    pool: PgPool,
+    options: PublicRouterOptions,
+    verification: Option<board_config::PublicVerificationSettings>,
+    classifiers: PublicClassifiers,
+    event_workflows: bool,
+) -> (Router, Router) {
+    let PublicClassifiers {
+        asn_database,
+        browser_hint_key,
+        posting_browser_compat_key,
+    } = classifiers;
+    assert!(
+        !event_workflows || options.poster_id_key.is_some(),
+        "Event workflows require a credential key"
+    );
     let PublicRouterOptions {
         origin,
         production,
@@ -338,6 +394,7 @@ pub fn routers_with_classifiers(
         "Production media is not qualified"
     );
     let state = AppState {
+        event_workflows,
         posting_browser_compat_key,
         browser_hint_key,
         asn_database,
@@ -368,6 +425,7 @@ pub fn routers_with_classifiers(
         .merge(search::routes())
         .merge(site::routes())
         .merge(polls::routes())
+        .merge(events::routes(event_workflows))
         .merge(restrictions::routes())
         .merge(blotter::routes())
         .merge(signin::routes())

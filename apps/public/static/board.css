@@ -1009,3 +1009,17 @@ table.flashListing tr.highlightPost { background: var(--capcode-highlight, #f0d6
 .board .oldpost { background: inherit; color: var(--flash-old-color, #f00000); font-weight: var(--flash-old-weight, 800); font-family: var(--flash-old-font, inherit); }
 
 .postForm .passNotice { font-size: smaller; padding-left: 6px; }
+/* Explicitly enabled local event pages; ordinary boards are unchanged. */
+.eventLinks { margin: .75rem 0; }
+.eventError { color: #a00; font-weight: bold; }
+.eventBalance { font-weight: bold; }
+.eventTableWrap { overflow-x: auto; }
+.eventTable { border-collapse: collapse; width: 100%; }
+.eventTable th, .eventTable td { padding: .4rem; border: 1px solid #aaa; text-align: left; }
+.eventTrade { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; }
+.eventTrade input[type="number"] { width: 4.5rem; }
+.eventRolls { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1rem 0; }
+.eventObtained { font-weight: bold; }
+.eventRoster { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .6rem; list-style: none; padding: 0; }
+.eventRoster li { border: 1px solid #aaa; padding: .6rem; overflow-wrap: anywhere; }
+.eventGlyph { display: block; font-size: 2rem; min-height: 2.5rem; }

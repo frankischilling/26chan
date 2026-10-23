@@ -126,6 +126,7 @@ async fn public_pass_forms_use_private_issuer_and_ignore_forged_presentation_coo
         axum::serve(listener, service).await.unwrap();
     });
     let state = AppState {
+        event_workflows: false,
         asn_database: None,
         browser_hint_key: None,
         posting_browser_compat_key: None,

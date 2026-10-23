@@ -107,7 +107,9 @@ async fn automatic_archive_threshold_and_preserved_reply() {
         sqlx::query("INSERT INTO content.posts(board,thread_id,name,subject,comment) SELECT $1,$2,'Anonymous','','Historical reply' FROM generate_series(1,1499)").bind(&b).bind(op).execute(&o).await.unwrap();
         sqlx::query("UPDATE content.threads SET reply_count=1499 WHERE board=$1 AND id=$2").bind(&b).bind(op).execute(&o).await.unwrap();
         let last = support::create_post(&p,&b,op,&post()).await.unwrap();
-        let snapshot = board_store::thread_snapshot(&p,&b,op).await.unwrap();
+        let snapshot = board_store::thread_snapshot(&p,&b,op).await;
+        if snapshot.is_err() { explain_owned_snapshot(&p,&b,op).await; }
+        let snapshot = snapshot.unwrap();
         assert_eq!(snapshot.posts.len(),1501);
         assert_eq!(snapshot.posts.last().unwrap().id,last);
         assert!(snapshot.thread.archived_at.is_some());
@@ -151,4 +153,53 @@ async fn automatic_archive_threshold_and_preserved_reply() {
     public.close().await;
     owner.close().await;
     result.unwrap();
+}
+
+// Failure-only metadata for this owned synthetic board. EXPLAIN does not run
+// the failing read or relax the real public role's five-second statement limit.
+async fn explain_owned_snapshot(public: &PgPool, board: &str, thread: i64) {
+    let settings = sqlx::query_as::<_, (String,String,String,bool)>(
+        "SELECT current_user::text,current_setting('statement_timeout'),current_setting('jit'),pg_jit_available()")
+        .fetch_one(public).await;
+    eprintln!("Owned archive read settings: {settings:?}");
+    for (name, query) in [
+        (
+            "bounded reply IDs",
+            "EXPLAIN (VERBOSE,COSTS,SETTINGS) SELECT id FROM content.posts WHERE board=$1 AND thread_id=$2 AND id<>$2 AND NOT deleted ORDER BY id LIMIT 1501",
+        ),
+        (
+            "post rows",
+            "EXPLAIN (VERBOSE,COSTS,SETTINGS) SELECT * FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted ORDER BY id LIMIT 1501",
+        ),
+        (
+            "thread metadata",
+            "EXPLAIN (VERBOSE,COSTS,SETTINGS) SELECT * FROM content.visible_threads WHERE board=$1 AND id=$2 AND NOT deleted",
+        ),
+    ] {
+        match sqlx::query_scalar::<_, String>(query)
+            .bind(board)
+            .bind(thread)
+            .fetch_all(public)
+            .await
+        {
+            Ok(plan) => eprintln!(
+                "Owned archive {name} plan: {:?}",
+                plan.into_iter().take(100).collect::<Vec<_>>()
+            ),
+            Err(_) => eprintln!("Owned archive {name} plan unavailable"),
+        }
+    }
+    let ids: Result<Vec<i64>,_> = sqlx::query_scalar("SELECT id FROM content.posts WHERE board=$1 AND thread_id=$2 AND NOT deleted ORDER BY id LIMIT 16")
+        .bind(board).bind(thread).fetch_all(public).await;
+    if let Ok(ids) = ids {
+        let plan = sqlx::query_scalar::<_,String>("EXPLAIN (VERBOSE,COSTS,SETTINGS) SELECT m.* FROM unnest($1::bigint[]) AS requested(post_id) CROSS JOIN LATERAL (SELECT * FROM content.visible_post_media WHERE post_id=requested.post_id LIMIT 1) m")
+            .bind(&ids).fetch_all(public).await;
+        match plan {
+            Ok(plan) => eprintln!(
+                "Owned archive media batch plan: {:?}",
+                plan.into_iter().take(100).collect::<Vec<_>>()
+            ),
+            Err(_) => eprintln!("Owned archive media batch plan unavailable"),
+        }
+    }
 }

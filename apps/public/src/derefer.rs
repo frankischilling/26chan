@@ -195,6 +195,7 @@ mod tests {
             format!("url={}", "x".repeat(MAX_QUERY_BYTES)),
         ] {
             let state = AppState {
+                event_workflows: false,
                 asn_database: None,
                 browser_hint_key: None,
                 posting_browser_compat_key: None,
@@ -225,6 +226,7 @@ mod tests {
     #[tokio::test]
     async fn linkifier_utf16_bound_accepts_valid_multibyte_url_and_rejects_one_unit_over() {
         let state = || AppState {
+            event_workflows: false,
             asn_database: None,
             browser_hint_key: None,
             posting_browser_compat_key: None,

@@ -113,3 +113,16 @@ dump/restore, both catalog drift refusals, unchanged public view columns and
 sealed readiness. The policy
 extractor test distinguishes disabled, finite and unlimited settings and checks
 the captured board values.
+
+Full thread snapshots read at most 1,501 reply IDs and reject more than 1,500
+replies. Image counts come from the visible attachment metadata already loaded
+for the response. Tail responses count the whole thread in primary-key batches
+of 16, through the same protected media view. This avoids a separate whole-thread
+media semi-join while preserving deleted-file and visibility rules within one
+repeatable-read transaction. The public five-second statement limit is unchanged.
+
+The autoarchive test reads a 1,501-post thread with ordinary and forced-generic
+plans. If its read fails, it records bounded EXPLAIN output and public-role/JIT
+settings for the owned fixture. It does not retry the read, increase its timeout
+or print post bodies and credentials. Attachment tests compare full and tail
+image counts across a batch boundary, file deletion and asset retirement.

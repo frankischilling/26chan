@@ -25,6 +25,7 @@ pub(crate) async fn check(
         protocol::Purpose::Thread => (ChallengePurpose::Thread, "thread"),
         protocol::Purpose::Reply => (ChallengePurpose::Reply, "reply"),
         protocol::Purpose::Report => (ChallengePurpose::Report, "report"),
+        protocol::Purpose::Like => (ChallengePurpose::Like, "like"),
         _ => return error(StatusCode::BAD_REQUEST),
     };
     let Some(context_hash) = state.key.form_context(

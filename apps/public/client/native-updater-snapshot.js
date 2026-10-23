@@ -1,3 +1,7 @@
+import { attributeKeys } from './native-attribute-keys.js';
+
+import { eventPerkRecipe } from './native-event-perks.js';
+import { stockToken, stockBadge, stockContainer } from './native-event-badges.js';
 import { exifTags, exifRecipe } from './native-exif.js';
 import { defaultTreeAdapter, parseFragment } from 'parse5';
 import { quotePostId } from './native-quote-identity.js';
@@ -18,7 +22,7 @@ const classes = new Set(['postContainer', 'opContainer', 'replyContainer', 'side
   'fortune', 'fortune-0', 'fortune-1', 'fortune-2', 'fortune-3', 'fortune-4', 'fortune-5', 'fortune-6',
   'fortune-7', 'fortune-8', 'fortune-9', 'fortune-10', 'fortune-11', 'fortune-12']);
 const attributes = {
-  article: ['class', 'id', 'data-custom-spoiler'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc'],
+  article: ['class', 'id', 'data-custom-spoiler'], div: ['class', 'id', 'title', 'aria-hidden', 'data-image-spoiler', 'data-image-filename', 'data-thumbnail-width', 'data-thumbnail-height', 'data-thumbnail-legacy'], span: ['class', 'tabindex', 'aria-label', 'title', 'data-utc', 'data-tip'],
   strong: ['class', 'title'], time: ['datetime'], a: ['class', 'href', 'target', 'rel', 'title', 'data-drawing-replay', 'data-m'], blockquote: ['class', 'id'],
   br: [], wbr: [], b: [], s: [], small: [], pre: ['class'], p: ['class'], details: ['class'], summary: [], form: ['method', 'action'],
   input: ['type', 'name', 'value', 'id', 'minlength', 'maxlength', 'autocomplete', 'required', 'form', 'aria-label'],
@@ -109,6 +113,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
   const charge = text => { budget.chars += text.length; require(budget.chars <= limits.bytes); };
   const ids = new Set(), expectedIds = new Set(['pc', 'sa', 'p', 'pi', 'pim', 'm', 'f', 'fT', 'delete', 'report', 'select'].map(prefix => prefix + no));
   let selection = null;
+  const stockBadges = []; let hasPass = false, hasCapcode = false;
   const exifTables = new Set(), exifLinks = new Set();
   function visit(node, depth, form = null, comment = false, link = false) {
     require(++budget.nodes <= limits.nodes && depth <= limits.depth);
@@ -117,6 +122,12 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
     const attrs = node.attrs;
     require((Object.hasOwn(attributes, node.tag) || isWordfilterMarkupTag(node.tag) || exifTags.has(node.tag)) && Array.isArray(node.children));
     require(attrs && typeof attrs === 'object' && !Array.isArray(attrs));
+    if (attrs.class === 'like-perk-cnt') {
+      require(comment && !link && eventPerkRecipe(node.tag, attrs, node.children));
+      charge(attrs.class);
+      visit(node.children[0], depth + 1, form, true, false);
+      return;
+    }
     const exif = exifRecipe(node.tag, attrs);
     if (exif) {
       require(comment && !link);
@@ -138,7 +149,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       require(node.tag === 'a' && comment && !link
         && typeof replay === 'string' && /^[1-9][0-9]{0,15}$/.test(replay)
         && BigInt(replay) <= 9007199254740991n && attrs.href === `#replay-${replay}`
-        && Object.keys(attrs).sort().join(',') === 'data-drawing-replay,href'
+        && attributeKeys(attrs) === 'data-drawing-replay,href'
         && node.children.length === 1 && node.children[0] === 'View');
     }
     for (const [key, value] of Object.entries(attrs)) {
@@ -146,7 +157,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       // that size. Preserve those valid links within the aggregate wire budget.
       require(attributes[node.tag].includes(key) && typeof value === 'string' && value.length <= (key === 'href' ? 192000 : 4096));
       charge(value);
-      if (key === 'class') require(value.split(' ').every(token => classes.has(token) || isPostFlagToken(token) || isCapcodeToken(token))
+      if (key === 'class') require(value.split(' ').every(token => classes.has(token) || isPostFlagToken(token) || isCapcodeToken(token) || stockToken(token))
         || value === 'deadlink'); // Its exact inert placement is checked below.
       if (key === 'id') { require(expectedIds.has(value) && !ids.has(value)); ids.add(value); }
       if (key === 'href') require(replay !== undefined || postLinkUrl(value, context));
@@ -167,6 +178,10 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
         if (key === 'data-m' || key === 'data-drawing-replay') continue; // Both have exact structural checks.
         if (key === 'data-custom-spoiler') {
           require(depth === 0 && node.tag === 'article' && /^(?:[1-9]|[1-5][0-9]|6[0-4])$/.test(value));
+          continue;
+        }
+        if (key === 'data-tip') {
+          require(node.tag === 'span' && stockBadge(attrs.class) === value);
           continue;
         }
         if (key === 'data-utc') {
@@ -194,21 +209,31 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
         && node.children.every(child => typeof child === 'string')
         && new TextEncoder().encode(node.children.join('')).length <= 4098);
     }
+    const tokens = (attrs.class || '').split(' ');
+    if (tokens.includes('capcode')) hasCapcode = true;
+    if (tokens.some(token => token.startsWith('p-xa24-'))) require(node === tree && node.tag === 'article');
+    if (tokens.some(token => token.startsWith('n-xa24'))) {
+      const stock = stockBadge(attrs.class);
+      require(!comment && !link && node.tag === 'span' && stock !== null && attrs['data-tip'] === stock
+        && attributeKeys(attrs) === 'class,data-tip' && node.children.length === 0);
+      stockBadges.push(stock);
+    }
     const passBadge = (attrs.class || '').split(' ').includes('n-pu');
+    if (passBadge) hasPass = true;
     if (passBadge) require(!comment && !link && node.tag === 'span' && attrs.class === 'n-pu'
-      && Object.keys(attrs).sort().join(',') === 'class,title' && node.children.length === 0
+      && attributeKeys(attrs) === 'class,title' && node.children.length === 0
       && /^Pass user since [1-9][0-9]{0,3}$/.test(attrs.title));
     const mobileLabel = node.tag === 'span' && ['name', 'subject'].includes(attrs.class) && Object.hasOwn(attrs, 'title');
     const fileTitle = node.tag === 'div' && attrs.class === 'fileText' && Object.hasOwn(attrs, 'title');
-    if (fileTitle) require(Object.keys(attrs).sort().join(',') === 'class,id,title'
+    if (fileTitle) require(attributeKeys(attrs) === 'class,id,title'
       && new TextEncoder().encode(attrs.title).length <= 260 && !/[\u0000-\u001f\u007f-\u009f]/.test(attrs.title));
-    if (mobileLabel) require(Object.keys(attrs).sort().join(',') === 'class,title'
+    if (mobileLabel) require(attributeKeys(attrs) === 'class,title'
       && new TextEncoder().encode(attrs.title).length <= (attrs.class === 'name' ? 255 : 1020)
       && !/[\u0000-\u001f\u007f-\u009f]/.test(attrs.title));
     if ((Object.hasOwn(attrs, 'title') && !['strong', 'img', 'a'].includes(node.tag) && !mobileLabel && !fileTitle && !passBadge)
       || (attrs.class || '').split(' ').some(isPostFlagToken)) {
       require(node.tag === 'span' && isPostFlagClass(attrs.class || '')
-        && Object.keys(attrs).sort().join(',') === 'class,title'
+        && attributeKeys(attrs) === 'class,title'
         && node.children.length === 0 && typeof attrs.title === 'string'
         && new TextEncoder().encode(attrs.title).length >= 1
         && new TextEncoder().encode(attrs.title).length <= 100
@@ -222,7 +247,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
       const a = attrs;
       if (a.form !== undefined) {
         require(selection === null && form === null && !comment && !link && node.children.length === 0
-          && Object.keys(a).sort().join(',') === 'aria-label,form,id,name,type,value'
+          && attributeKeys(a) === 'aria-label,form,id,name,type,value'
           && a.type === 'checkbox' && a.name === no && a.value === 'delete'
           && a.form === 'delform' && a.id === `select${no}` && a['aria-label'] === `Select post No.${no}`);
         selection = node;
@@ -231,7 +256,7 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
         require(form !== null);
         require((a.type === 'hidden' && a.name === 'no' && a.value === no && !a.id)
           || (form.endsWith('/delete') && a.type === 'hidden' && a.name === 'password' && a.id === `delete${no}`
-            && Object.keys(a).sort().join(',') === 'id,name,type')
+            && attributeKeys(a) === 'id,name,type')
           || (form.endsWith('/delete') && a.type === 'password' && a.name === 'password' && a.id === `delete${no}` && a.value === undefined)
           || (form.endsWith('/delete') && a.type === 'checkbox' && a.name === 'file_only' && a.value === 'true' && !a.id)
           || (form.endsWith('/report') && !a.type && a.name === 'reason' && a.id === `report${no}` && a.value === undefined));
@@ -265,8 +290,9 @@ export function validatePostTree(tree, context, no, budget = { nodes: 0 }, limit
   validateCapcodeTree(tree, no);
   validatePostNumbers(tree, context, no);
   validateFilePresentation(tree, context, no);
-  require(tree.tag === 'article' && tree.attrs.id === `pc${no}`
-    && tree.attrs.class === `postContainer ${no === context.thread ? 'opContainer' : 'replyContainer'}`);
+  const stock = stockContainer(tree.attrs.class, `postContainer ${no === context.thread ? 'opContainer' : 'replyContainer'}`);
+  require(tree.tag === 'article' && tree.attrs.id === `pc${no}` && stock !== undefined);
+  require(stock === null ? stockBadges.length === 0 : !hasPass && !hasCapcode && stockBadges.length === 2 && stockBadges.every(value => value === stock));
   for (const prefix of ['pc', 'p', 'pi', 'm']) require(ids.has(prefix + no));
   return tree;
 }
