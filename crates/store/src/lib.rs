@@ -7,6 +7,7 @@ pub mod automatic_admission;
 pub mod blotter;
 mod board_snapshot;
 pub mod checkout;
+pub mod events;
 pub mod site_content;
 pub use blotter::BlotterMessage;
 mod content_admission;

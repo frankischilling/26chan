@@ -561,6 +561,7 @@ async fn main() -> std::io::Result<()> {
     // Construct the other shared templates too; this keeps this include honest
     // when production views change and avoids unused-item warning suppression.
     let _ = views::Home {
+        event_workflows: false,
         boards: vec![],
         news: vec![],
         snapshot: Default::default(),
@@ -614,7 +615,7 @@ async fn main() -> std::io::Result<()> {
         .route("/link-visual/", get(|| async { Html(links::page(true)) }))
         .route(
             "/",
-            get(|| async { Html(views::Home { boards: vec![], news:vec![], snapshot: Default::default(), media_origin: String::new() }.render().unwrap()) }),
+            get(|| async { Html(views::Home { event_workflows: false, boards: vec![], news:vec![], snapshot: Default::default(), media_origin: String::new() }.render().unwrap()) }),
         )
         .route("/homepage/", get(|| async { Html(homepage::page()) }))
         .route("/empty/", get(|| async { Html(empty_page(false)) }))

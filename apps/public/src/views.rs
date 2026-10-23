@@ -26,6 +26,7 @@ pub mod spoilers;
 #[derive(Template)]
 #[template(path = "home.html")]
 pub struct Home {
+    pub event_workflows: bool,
     pub boards: Vec<Board>,
     pub news: Vec<board_store::site_content::NewsItem>,
     pub snapshot: board_store::homepage::Snapshot,

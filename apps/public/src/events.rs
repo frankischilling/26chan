@@ -1,5 +1,7 @@
 //! Snapshot-era event endpoints that are unconditionally closed in the source.
 //! Do not create accounts, read event cookies, or consume request bodies here.
+mod active;
+
 use crate::AppState;
 use axum::{
     Router,
@@ -8,10 +10,15 @@ use axum::{
     routing::any,
 };
 
-pub(crate) fn routes() -> Router<AppState> {
+pub(crate) fn routes(enabled: bool) -> Router<AppState> {
+    if enabled {
+        return active::routes();
+    }
     Router::new()
         .route("/emotes_xa22.php", any(emotes_closed))
         .route("/xa24tb.php", any(market_closed))
+        .route("/event-market.html", any(emotes_closed))
+        .route("/event-emotes.html", any(emotes_closed))
 }
 
 async fn emotes_closed() -> Response {
@@ -44,6 +51,22 @@ mod tests {
     use sqlx::postgres::PgPoolOptions;
     use tower::ServiceExt;
 
+    #[tokio::test]
+    async fn native_pages_are_absent_without_explicit_activation() {
+        let pool = PgPoolOptions::new()
+            .connect_lazy("postgres://unused:synthetic@127.0.0.1:9/unavailable")
+            .unwrap();
+        let web = crate::router(pool, "http://localhost:3000".into(), false);
+        for path in ["/event-market.html", "/event-emotes.html"] {
+            let response = web
+                .clone()
+                .oneshot(Request::get(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+            assert!(!response.headers().contains_key(header::SET_COOKIE));
+        }
+    }
     #[tokio::test]
     async fn closed_source_actions_never_require_database_or_account_state() {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(

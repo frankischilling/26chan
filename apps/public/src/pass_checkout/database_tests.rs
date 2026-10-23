@@ -139,6 +139,7 @@ async fn public_renewal_quotes_are_csrf_bound_idempotent_and_wait_for_signed_pay
         axum::serve(listener, service).await.unwrap();
     });
     let state = AppState {
+        event_workflows: false,
         asn_database: None,
         browser_hint_key: None,
         posting_browser_compat_key: None,

@@ -63,11 +63,15 @@ pub struct Key {
     storage: hmac::Key,
 }
 pub struct Session {
+    run: Run,
     credential: String,
     storage_hash: [u8; 32],
     expires_at: i64,
 }
 impl Session {
+    pub fn run(&self) -> Run {
+        self.run
+    }
     /// Secret bearer credential for the HttpOnly cookie only.
     pub fn credential(&self) -> &str {
         &self.credential
@@ -131,6 +135,7 @@ impl Key {
             URL_SAFE_NO_PAD.encode(tag.as_ref())
         );
         Ok(Session {
+            run,
             credential,
             storage_hash: self.storage_hash(&payload),
             expires_at: expiry,
@@ -168,6 +173,7 @@ impl Key {
             return None;
         }
         Some(Session {
+            run,
             credential: token.to_owned(),
             storage_hash: self.storage_hash(&payload),
             expires_at,

@@ -88,3 +88,6 @@ ALTER ROLE board_checkout SET statement_timeout='5s';
 ALTER ROLE board_checkout SET lock_timeout='2s';
 ALTER ROLE board_checkout SET idle_in_transaction_session_timeout='5s';
 ALTER ROLE board_checkout SET search_path=pg_catalog;
+-- Bootstrap before 0251. Event state has no runtime table grants or login owner.
+CREATE ROLE board_event_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT board_event_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;

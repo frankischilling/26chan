@@ -129,6 +129,7 @@ async fn public_recovery_requires_owner_mail_delivery_csrf_and_one_use_token() {
         axum::serve(listener, service).await.unwrap();
     });
     let state = AppState {
+        event_workflows: false,
         asn_database: None,
         browser_hint_key: None,
         posting_browser_compat_key: None,

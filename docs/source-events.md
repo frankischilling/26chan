@@ -48,7 +48,7 @@ not reuse historical secrets, user records or external payment services.
 Event image and stylesheet files referenced by the source must be inventoried
 separately from their controllers. Missing artwork is not proof of visual
 parity and must not be replaced by unrelated images without being identified.
-The two closed endpoints have local handlers that do not consult a database,
+With workflows disabled, the two closed endpoints do not consult a database,
 read event cookies or create accounts. Eighteen independently executed source
 action cases are replayed through GET, HEAD and same-origin POST. Cross-origin
 writes retain the common refusal. The emote error uses plain text rather than
@@ -59,7 +59,8 @@ badge and perk-option cases. It executes pinned slices with PHP 8.3; the
 historical production PHP version is unknown. Stock valuation is supplied as
 a scalar, and the score-read boundary retains the source's unconditional zero.
 These tests do not establish an active scoring, market or emote workflow.
-Optional activation, persistent state and browser qualification remain open.
+Optional market/emote activation and private persistence are implemented below.
+Scoring, seasonal presentation and final browser qualification remain open.
 
 ## Dormant market model
 
@@ -71,11 +72,10 @@ validation order, zero holdings, insufficient funds and exact cooldown edges.
 No historical account or quote data is used.
 
 The model returns a complete next account rather than changing half a trade.
-Overflow and unsupported symbols are rejected. A future persistent controller
-must authenticate the actor and lock the account and quote in one transaction;
-the pure arithmetic does not provide those guarantees by itself. The HTTP
-endpoint remains closed. None of this code connects to financial services or
-handles real money.
+Overflow and unsupported symbols are rejected. The optional persistent controller
+authenticates the actor, locks the run, quote and account, and rechecks the price
+before applying either side of a trade. The endpoint remains closed by default.
+None of this code connects to financial services or handles real money.
 
 ## Dormant emote model
 
@@ -93,18 +93,17 @@ buy and seeded-roll functions against an owned ledger. Rust replays their
 recorded results, including duplicate ownership, insufficient points, refunds
 and successful acquisitions. Future-time and overflow states are rejected.
 
-A persistent implementation must authenticate the session, serialize each
-account update and generate every random draw on the server. Callers must not
-accept lottery results from a browser. The source's posting-emote hook and
+The persistent implementation authenticates the session, serializes account
+updates and generates lottery draws in PostgreSQL. A browser cannot supply
+winning choices or a seed. The source's posting-emote hook and
 client script include are commented out, and its referenced
 `april_process_post_emotes` implementation is absent from the archive. The
-public emote endpoint remains closed; storage, activation and that missing
-posting contract have not been reconstructed yet.
+public emote endpoint remains closed by default. The missing posting contract
+has not been reconstructed.
 
 ## Credential boundary
 
-The optional account models have a separate credential primitive, not yet wired
-to the closed endpoints. Cookies bind one event kind and run, expire after at
+The optional account controllers use separate signed credentials. Cookies bind one event kind and run, expire after at
 most 48 hours and cannot outlive the configured run. Key changes, altered
 payloads, future issue times and noncanonical encodings invalidate them.
 
@@ -112,7 +111,101 @@ Same-address recovery uses the verified transport peer with a new, separately
 derived HMAC key. IPv4 and its mapped IPv6 form identify the same peer. A
 separate derivation produces the private storage capability; it is not the
 cookie payload or a public poster/rate-limit identifier. No historical source
-secret is reused. Runtime code must keep credentials in HttpOnly cookies,
-keep storage capabilities out of responses and logs, and check current operator
-activation before every operation. These primitives do not grant persistent
-database access or enable an event by themselves.
+secret is reused. Runtime credentials stay in HttpOnly, SameSite=Strict cookies, with Secure and
+the __Host prefix in production. Storage capabilities stay out of public JSON
+and templates. Each operation checks current activation before account access.
+Signing keys alone cannot enable an event.
+
+
+## Optional local runs
+
+`PUBLIC_EVENT_WORKFLOWS` is unset/false by default. Only the literal `true`
+enables the reconstructed controllers and native pages; it also requires
+`POSTER_ID_KEY`. Invalid flag values stop startup. Enabling the flag does not
+create a run or account. With no active run, the historical endpoint responses
+remain unchanged.
+
+Migration 0251 adds a private event schema and a NOLOGIN function owner. On an
+existing installation, the database bootstrap administrator must create that
+role before the migrator applies 0251:
+
+```sql
+CREATE ROLE board_event_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+  NOREPLICATION NOBYPASSRLS;
+GRANT board_event_owner TO board_migrator WITH INHERIT FALSE, SET TRUE;
+```
+
+Fresh installations use `deploy/roles.sql`. Do not rerun that entire bootstrap
+file on an existing installation. Public credentials cannot read private
+accounts, write quotes, enable runs or assume the event owner role. Startup and
+readiness checks reject changed authority when event workflows are enabled.
+
+Build `board-events` from `board-store`. Its `validate` command is offline;
+`start`, `quote` and `close` require `MIGRATION_DATABASE_URL` with the actual
+`board_migrator` login. A privileged login that merely assumes that role is
+rejected.
+
+```sh
+cargo build -p board-store --bin board-events --locked
+./target/debug/board-events validate event.json
+./target/debug/board-events start event.json
+./target/debug/board-events quote quotes.json
+./target/debug/board-events close 1
+```
+
+A profile contains `version: 1`, `kind: "market"` or `"emotes"`, integer Unix
+seconds `starts_at` and `ends_at`, and `account_capacity` from 1 to 100,000.
+The end must follow the start and cannot already have passed. Market profiles
+also require a `prices` object with positive integer quotes for all 18 symbols:
+PEPE, WOJK, ANIME, CHAD, CLOWN, LOL, SICP, AUTSM, BANE, CIA, BOOB, RDDT, DESU,
+JANNY, GME, CHUCK, YTSB and GACHI. Emote profiles omit prices. Quote updates
+contain `version: 1`, the returned `run_id`, and the complete `prices` object.
+Inputs are limited to 16 KiB; duplicate quote keys and unknown fields fail
+validation.
+
+Only one run of each kind can be enabled. Close the previous run before
+starting another. Closing preserves accounts; a new run gets a new ID and
+fresh credentials, so old cookies cannot carry balances into it. Expired runs
+can be replaced without deleting their history. The tool refuses new runs at
+10,000 retained runs rather than silently discarding records. Closing races
+against account writes on the same run lock, preventing a queued operation
+from committing after closure wins that lock.
+
+When enabled, the homepage links to `/event-market.html` and
+`/event-emotes.html`. These pages use ordinary forms and work without JavaScript.
+Successful writes redirect to GET; refreshing a result cannot repeat a trade
+or purchase. Reads do not open accounts. Roll results shown in the redirect
+query are presentation only and must name choices the current account owns.
+The pages reconstruct missing UI; they are not claimed as recovered historical
+screenshots. Unicode emotes render, while unavailable image artwork is named
+and identified as missing.
+
+The source JSON shapes remain on `/xa24tb.php` and `/emotes_xa22.php` when a run
+is explicitly enabled. The server derives same-peer recovery from verified
+transport information, not forwarded headers supplied by a visitor. Emote
+starting credit is 100 only for an existing verified anonymous session whose
+source network-mask age is at least one hour; otherwise it is zero. Native
+pages display elapsed credit, while source JSON retains the stored balance.
+
+## Workflow checks
+
+Local database tests cover account caps, same-run ownership, simultaneous
+trades, duplicate purchases, lottery credit/refunds, quote updates, closure
+while a mutation waits, reset and runtime privilege refusals. HTTP tests cover
+closed defaults, signed-cookie recovery, forged/duplicate cookies, bounded
+forms, origin refusal and native page rendering. Configuration and operator
+input tests reject implicit activation and malformed profiles.
+
+`scripts/test-optional-events-migration.sh` uses its own disposable PostgreSQL
+cluster. It checks populated predecessor history, rollback, rejected authority
+drift, retained event accounts and administrator dump/restore. It compares the
+catalog definition before and after restoration without replacing its stored
+fingerprint. Ordinary Pass, VIP, challenge and report readiness must remain
+valid.
+
+CI also runs `tests/browser/events-native.mjs` against a real public router and
+private database accounts. It exercises successful native purchases/rolls and
+refresh behavior with JavaScript disabled/enabled at desktop/mobile sizes.
+These browser cases require a passing CI result; local HTML tests alone do not
+qualify them. Scoring/perk workflows, seasonal presentation and missing artwork
+remain part of issue #224.

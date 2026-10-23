@@ -135,6 +135,10 @@ jobs:
           npm ci --ignore-scripts
           npx playwright install --with-deps chromium
           node --test tests/helpers/pass-state-workflow.test.mjs tests/helpers/pass-state-pacing.test.mjs
+      - name: Qualify optional event native forms and persistence
+        run: |
+          source .local/database.env
+          RUN_EVENT_BROWSER=1 cargo test -p board-public --features database-tests --locked --test events -- --test-threads=1
       - name: Qualify Pass states through native forms, Quick Reply, and JSON
         run: |
           source .local/database.env
@@ -660,6 +664,8 @@ jobs:
         run: sudo bash scripts/test-ban-template-migration.sh
       - name: Qualify prior-ban upload history upgrade
         run: sudo bash scripts/test-prior-upload-migration.sh
+      - name: Qualify optional event upgrade and retained account restore
+        run: sudo bash scripts/test-optional-events-migration.sh
       - name: Qualify private classifier history upgrade and restore
         run: sudo bash scripts/test-classifier-history-migration.sh
       - name: Qualify country refusal authority and restored history
