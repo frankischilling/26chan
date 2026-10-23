@@ -116,9 +116,32 @@ pub async fn boards(
     let boards = directory
         .iter()
         .filter(|board| board.json_enabled)
-        .map(board_metadata)
+        .map(|board| {
+            let mut metadata = board_metadata(board);
+            finalize_directory_metadata(&mut metadata.value);
+            metadata
+        })
         .collect();
     response(&state.limits, BoardDirectory { boards }, None, &headers)
+}
+
+// rebuild_boards_json applies these transformations after catalog-info RPC.
+// Keep them out of the legacy catalog-info object itself.
+fn finalize_directory_metadata(value: &mut Value) {
+    if value["board"] == "vp" {
+        value["title"] = json!("Pokémon");
+    }
+    if let Some(text) = value["meta_description"].as_str()
+        && !text.is_empty()
+        && text.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        let number = text.bytes().fold(0_i64, |number, byte| {
+            number
+                .saturating_mul(10)
+                .saturating_add(i64::from(byte - b'0'))
+        });
+        value["meta_description"] = json!(number);
+    }
 }
 
 fn board_metadata(board: &Board) -> BoardMetadata {
@@ -1462,6 +1485,38 @@ mod source_upload_subject_tests {
                     "{key}: {row}"
                 );
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod source_directory_builder_tests {
+    use super::*;
+    #[test]
+    fn directory_titles_and_numeric_descriptions_match_source_aggregation() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/json-directory-build-reference.json"
+        ))
+        .unwrap();
+        for case in fixture["cases"].as_array().unwrap() {
+            if case["authorized"] == false {
+                assert!(case["expected"].is_null());
+                continue;
+            }
+            let actual: Vec<_> = case["rows"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|row| {
+                    let board = row["board"].as_str().unwrap();
+                    let mut value = case["metadata"][board].clone();
+                    value["board"] = json!(board);
+                    value["title"] = row["title"].clone();
+                    finalize_directory_metadata(&mut value);
+                    value
+                })
+                .collect();
+            assert_eq!(json!({"boards":actual}), case["expected"]);
         }
     }
 }

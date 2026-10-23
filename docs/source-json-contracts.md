@@ -1,8 +1,10 @@
 # Source JSON contracts
 
-Issue #216 tracks the complete JSON and navigation contract. These checks cover
-directory policy, feed composition, conditional thread state and retained mobile markers. They do
-not establish every generator or close the issue.
+Issue #216 tracks the JSON and navigation contract. These checks exercise the
+public source generators for directory policy, feed composition, conditional
+thread state and retained mobile markers. Existing identity, flag, formatting
+and legacy-navigation fixtures qualify the helper boundaries described below.
+The full rewrite remains tracked in #191.
 
 ## Reference boundaries
 
@@ -13,9 +15,12 @@ qualified source flag tables. It executes `get_catalog_info` for all 82 board
 configurations. Private configuration values, the old application entry point,
 network access and the source database are not needed.
 
-`rebuild_boards_json` obtains board names and titles from a database absent from
-the supplied source. That database is not reconstructed by these fixtures.
-Existing inventory checks still qualify the available board definitions.
+`rebuild_boards_json` runs in 20 additional cases with synthetic database rows
+and local RPC receipts. These cover its authorization gate, the fixed Pokémon
+title and digit-only description conversion, including leading zeroes and
+signed-64-bit saturation. The supplied source database is unavailable, so these
+rows do not establish its historical board names or titles. Existing inventory
+checks qualify the available board definitions.
 
 The post-state extractor executes the unchanged public post and tail serializers
 with the original single-thread cache-state calculation. Its 288 state cases
@@ -64,8 +69,11 @@ Actual route and attachment authority checks are unchanged.
 
 Imported descriptions retain source entity spelling and trailing whitespace.
 The lookup applies only when both board slug and current logical description
-match the imported default. Operator edits remain literal text. This lookup
-supplies JSON strings, never trusted HTML.
+match the imported default. Other operator edits pass through unchanged. The final directory builder follows
+the source's digit-only conversion: a description such as `000123` becomes the
+JSON number `123` in `boards.json`, but stays a string in `cataloginfo`. The
+Pokémon directory title is fixed by the source builder. Neither transformation
+supplies trusted HTML.
 
 The restricted-role integration test compares complete metadata for the 80
 public imported boards on both listeners, with and without media configuration.
@@ -105,6 +113,7 @@ assigned a marker.
 
 ```sh
 python3 scripts/extract-json-directory-reference.py --fixture-only --check --php php
+python3 scripts/extract-json-directory-build-reference.py --check --php php
 python3 scripts/extract-json-post-state-reference.py --check --php php
 python3 scripts/extract-json-feed-reference.py --check --php php
 cargo test -p board-public --lib api::

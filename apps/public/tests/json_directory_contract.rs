@@ -166,6 +166,7 @@ async fn live_operator_policy_is_literal_and_does_not_grant_upload_authority() {
                 .is_err()
         );
         let response = html
+            .clone()
             .oneshot(
                 Request::get(format!("/{board}/"))
                     .body(Body::empty())
@@ -182,6 +183,38 @@ async fn live_operator_policy_is_literal_and_does_not_grant_upload_authority() {
         )
         .unwrap();
         assert!(!body.contains("<owned"));
+        for (description, expected) in [
+            ("000123", serde_json::json!(123)),
+            ("9223372036854775808", serde_json::json!(i64::MAX)),
+            ("-1", serde_json::json!("-1")),
+        ] {
+            sqlx::query("UPDATE content.boards SET description=$2 WHERE slug=$1")
+                .bind(&board)
+                .bind(description)
+                .execute(&owned)
+                .await
+                .unwrap();
+            for router in [&html, &api] {
+                let rows = directory(router).await;
+                assert_eq!(
+                    rows.iter().find(|row| row["board"] == board).unwrap()["meta_description"],
+                    expected
+                );
+            }
+            let (status, _, body) = legacy_request(
+                &html,
+                "GET",
+                &format!("/{board}/imgboard.php?mode=cataloginfo"),
+                "application/x-www-form-urlencoded",
+                "",
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(
+                serde_json::from_slice::<Value>(&body).unwrap()["meta_description"],
+                description
+            );
+        }
     })
     .await;
     sqlx::query("DELETE FROM content.boards WHERE slug=$1")

@@ -51,6 +51,7 @@ jobs:
       - name: Qualify source JSON directory and post states
         run: |
           python3 scripts/extract-json-directory-reference.py --fixture-only --check --php php
+          python3 scripts/extract-json-directory-build-reference.py --check --php php
           python3 scripts/extract-json-post-state-reference.py --check --php php
           python3 scripts/extract-json-feed-reference.py --check --php php
       - name: Qualify isolated source page-title function

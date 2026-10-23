@@ -40,7 +40,8 @@ clauses and four-case truth table are recorded in
 and `text_only` describe stored board policy even when media processing is not
 configured. They do not authorize uploads. Unchanged imported descriptions keep
 the source JSON entity spelling and whitespace; operator-edited descriptions
-remain literal text.
+remain literal text except for the source directory builder's digit-only numeric
+conversion. The catalog-info object retains those digit-only strings.
 
 Ordinary opening posts include numeric zero or one for `bumplimit` and
 `imagelimit`. Sticky posts omit both; permaage posts omit `bumplimit` and retain
