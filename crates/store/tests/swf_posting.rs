@@ -5,8 +5,13 @@ use board_store::{
     media_intake::IntakeStore,
 };
 
+// Each fixture owns the queue's next lease. Serialize only independent cases;
+// the filename-claim race below still submits both posts concurrently.
+static QUEUE_TEST: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 #[tokio::test]
 async fn source_upload_board_consumes_swf_and_serializes_filename_claims() {
+    let _serial = QUEUE_TEST.lock().await;
     let admin = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -223,6 +228,7 @@ async fn claimed_name(admin: &sqlx::PgPool, id: i64) -> Option<String> {
 mod support;
 #[tokio::test]
 async fn concurrent_upload_board_filename_claims_have_one_winner() {
+    let _serial = QUEUE_TEST.lock().await;
     let owner = sqlx::PgPool::connect(&std::env::var("MIGRATION_DATABASE_URL").unwrap())
         .await
         .unwrap();

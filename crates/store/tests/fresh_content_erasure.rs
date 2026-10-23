@@ -11,6 +11,11 @@ use serde_json::{Value, json};
 use sqlx::{PgPool, Postgres, Transaction};
 use std::time::{Duration, Instant};
 
+// These cases intentionally hold the global posting-capacity row while probing
+// lock ordering. Keep unrelated fixture creation out of those waits; every
+// case still runs its own concurrent transactions and the real timeout limits.
+static FIXTURE_SEQUENCE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 #[derive(Clone)]
 struct Fixture {
     owner: PgPool,
@@ -376,6 +381,7 @@ async fn wait_behind(owner: &PgPool, waiter: i32, blocker: i32) {
 
 #[tokio::test]
 async fn actual_roles_erase_all_payload_and_authority_transactionally_without_shared_state_loss() {
+    let _fixture_sequence = FIXTURE_SEQUENCE.lock().await;
     for (staff, private) in [(false, false), (true, false), (true, true)] {
         let f = Fixture::new().await;
         let work = f.clone();
@@ -513,6 +519,7 @@ async fn actual_roles_erase_all_payload_and_authority_transactionally_without_sh
 #[tokio::test]
 async fn tombstones_cannot_resurrect_repopulate_or_regain_authority_and_live_empty_text_still_fails()
  {
+    let _fixture_sequence = FIXTURE_SEQUENCE.lock().await;
     let f = Fixture::new().await;
     let work = f.clone();
     let result=tokio::spawn(async move {
@@ -577,6 +584,7 @@ async fn tombstones_cannot_resurrect_repopulate_or_regain_authority_and_live_emp
 
 #[tokio::test]
 async fn retained_archive_preserves_payload_but_rollover_and_expiry_erase_descendants() {
+    let _fixture_sequence = FIXTURE_SEQUENCE.lock().await;
     for retention in [0, 3600] {
         let f = Fixture::new().await;
         let work = f.clone();
@@ -603,6 +611,7 @@ async fn retained_archive_preserves_payload_but_rollover_and_expiry_erase_descen
 
 #[tokio::test]
 async fn queued_secret_insert_observes_committed_deletion_and_fixed_snapshots_fail_closed() {
+    let _fixture_sequence = FIXTURE_SEQUENCE.lock().await;
     for repeatable in [false, true] {
         let f = Fixture::new().await;
         let work = f.clone();
@@ -639,6 +648,7 @@ async fn queued_secret_insert_observes_committed_deletion_and_fixed_snapshots_fa
 
 #[tokio::test]
 async fn actual_runtime_logins_satisfy_shared_content_erasure_readiness() {
+    let _fixture_sequence = FIXTURE_SEQUENCE.lock().await;
     for variable in ["TEST_PUBLIC_DATABASE_URL", "STAFF_DATABASE_URL"] {
         let pool = PgPool::connect(&std::env::var(variable).unwrap())
             .await
@@ -677,6 +687,7 @@ async fn actual_runtime_logins_satisfy_shared_content_erasure_readiness() {
 
 #[tokio::test]
 async fn deletion_rejects_fixed_snapshots_and_secret_rotation_cannot_join_a_board_lock_cycle() {
+    let _fixture_sequence = FIXTURE_SEQUENCE.lock().await;
     let f = Fixture::new().await;
     let work = f.clone();
     let result=tokio::spawn(async move {
@@ -721,6 +732,7 @@ async fn deletion_rejects_fixed_snapshots_and_secret_rotation_cannot_join_a_boar
 
 #[tokio::test]
 async fn queued_reply_cannot_repopulate_a_thread_erased_while_waiting() {
+    let _fixture_sequence = FIXTURE_SEQUENCE.lock().await;
     let f = Fixture::new().await;
     let work = f.clone();
     let result = tokio::spawn(async move {
@@ -776,6 +788,7 @@ async fn queued_reply_cannot_repopulate_a_thread_erased_while_waiting() {
 
 #[tokio::test]
 async fn queued_author_link_revalidates_post_board_mapping_after_its_lock_wait() {
+    let _fixture_sequence = FIXTURE_SEQUENCE.lock().await;
     let source = Fixture::new().await;
     let destination = Fixture::new().await;
     let a = source.clone();
@@ -838,6 +851,7 @@ async fn queued_author_link_revalidates_post_board_mapping_after_its_lock_wait()
 
 #[tokio::test]
 async fn migrator_cannot_reassign_content_identity_but_unchanged_identity_updates_work() {
+    let _fixture_sequence = FIXTURE_SEQUENCE.lock().await;
     let source = Fixture::new().await;
     let destination = Fixture::new().await;
     let a = source.clone();
@@ -884,6 +898,7 @@ async fn migrator_cannot_reassign_content_identity_but_unchanged_identity_update
 
 #[tokio::test]
 async fn whole_deletion_erases_media_metadata_but_preserves_consumed_identities() {
+    let _fixture_sequence = FIXTURE_SEQUENCE.lock().await;
     let f = Fixture::new().await;
     let work = f.clone();
     let result=tokio::spawn(async move {
