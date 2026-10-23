@@ -16,7 +16,7 @@ test('persisted text catalogs restore GET-excluded rows and sort live without na
   try {
     for (const subject of ['Alpha <script> & literal', 'Bravo', 'Crane']) {
       const response = await withPostingHistory(() => request.post('/news/post', { headers: { Origin: origin }, maxRedirects: 0,
-        form: { sub: `${marker} ${subject}`, com: `${marker} comment\n\nsecond line`, password } }));
+        form: { sub: `${marker} ${subject}`, com: `https://example.org ${marker} comment\n\nsecond line`, password } }));
       expect(response.status()).toBe(303);
       created.push(/#p(\d+)$/.exec(response.headers().location)[1]);
     }

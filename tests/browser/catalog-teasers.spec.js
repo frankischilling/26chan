@@ -14,7 +14,7 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
     { board: 'b', comment: '[spoiler] [/spoiler]', teaser: '[spoiler] [/spoiler]', query: 'spoiler' },
     { board: 'fixture', comment: '[spoiler] [/spoiler]', teaser: '', query: '</b>$' },
     { board: 'sjis', comment: '[sjis]wide  art\nnext[/sjis]after [spoiler]quiet[/spoiler] <script>owned</script>', teaser: '[SJIS]after <s>quiet</s> &lt;script&gt;owned&lt;/script&gt;', query: '[SJIS]after' },
-    { board: 'news', comment: 'first\n\nsecond', teaser: 'first\nsecond', query: 'second$' },
+    { board: 'news', comment: 'https://example.org\nfirst\n\nsecond', teaser: 'https://example.org\nfirst\nsecond', query: 'second$' },
   ];
   const noScript = await browser.newContext({ javaScriptEnabled: false });
   const liveContext = await browser.newContext();
@@ -37,7 +37,7 @@ test('persisted catalog teasers use board policy in HTML, GET filtering and live
       if (!entry.teaser) await expect(card.locator('.teaser')).toHaveText(title);
       if (entry.board === 'b') await expect(card.locator('wbr')).toHaveCount(entry.comment.length === 40 ? 1 : 0);
       if (entry.board === 'news') {
-        expect(await card.locator('template.catalogTeaser').evaluate(node => node.content.querySelector('.teaser').textContent)).toBe(`${title}: first\nsecond`);
+        expect(await card.locator('template.catalogTeaser').evaluate(node => node.content.querySelector('.teaser').textContent)).toBe(`${title}: https://example.org\nfirst\nsecond`);
         await expect(card.locator('.txt-sub > a')).toHaveText(title);
         await expect(card.locator('.teaser')).toHaveCount(0);
       }
