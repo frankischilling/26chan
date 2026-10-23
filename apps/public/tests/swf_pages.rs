@@ -53,6 +53,11 @@ async fn source_upload_board_html_json_and_player_policy_follow_posted_swf() {
                 .fetch_one(&admin)
                 .await
                 .unwrap();
+        let trip_key = board_domain::identity::SecureKey::parse(&"4".repeat(64)).unwrap();
+        let expected_trip = board_domain::identity::prepare("Owned#test", Some(&trip_key))
+            .unwrap()
+            .trip
+            .unwrap();
         let mut assets = Vec::new();
         let mut jobs = Vec::new();
         let mut posts = Vec::new();
@@ -110,7 +115,7 @@ async fn source_upload_board_html_json_and_player_policy_follow_posted_swf() {
                 "f",
                 0,
                 &board_store::NewPost {
-                    name: String::new(),
+                    name: "Owned#test".into(),
                     subject: format!("4|Owned movie {number}"),
                     comment: format!("Owned movie comment {number}"),
                     deletion_hash: "owned-hash".into(),
@@ -130,7 +135,7 @@ async fn source_upload_board_html_json_and_player_policy_follow_posted_swf() {
                 },
                 board_store::PostMetadata {
                     keys: board_store::PostIdentityKeys {
-                        tripcode: None,
+                        tripcode: Some(&trip_key),
                         poster_id: Some(&identity),
                     },
                     spoiler: false,
@@ -165,9 +170,12 @@ async fn source_upload_board_html_json_and_player_policy_follow_posted_swf() {
                 .unwrap();
                 assert!(html.contains("<table class=\"flashListing\">"));
                 assert!(html.contains("owned-shared.swf"));
+                assert!(html.contains(&format!(
+                    "<span class=\"postertrip\">{expected_trip}</span>"
+                )));
                 assert!(html.contains(&format!("Owned movie {number}")));
                 assert!(!html.contains(&format!("4|Owned movie {number}")));
-                assert!(html.contains("application/x-shockwave-flash,.swf"));
+                assert!(html.contains("id=\"postFile\" name=\"upfile\" type=\"file\""));
                 assert!(html.contains("Supported file types are: SWF"));
                 assert!(!html.contains("SWF uploading and the Flash archive are not available"));
                 assert!(html.contains("value=\"9999\" selected=\"selected\">Choose one:"));
@@ -232,6 +240,22 @@ async fn source_upload_board_html_json_and_player_policy_follow_posted_swf() {
                 .unwrap();
                 let post = &json["posts"][0];
                 assert_eq!(post["ext"], ".swf");
+                assert_eq!(post["trip"], expected_trip);
+                let response = web
+                    .clone()
+                    .oneshot(
+                        Request::get(format!("/_watch/f/thread/{id}/posts"))
+                            .body(Body::empty())
+                            .unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(response.status(), StatusCode::OK);
+                let encoded = to_bytes(response.into_body(), 4 * 1024 * 1024)
+                    .await
+                    .unwrap();
+                check_snapshot_contract(id, &encoded).await;
+
                 assert_eq!(post["tn_w"], 0);
                 assert_eq!(post["tn_h"], 0);
                 assert_eq!(post["tag"], "Other");
@@ -375,6 +399,41 @@ async fn browser_controls(public: &sqlx::PgPool, id: i64) {
     server.abort();
     let _ = server.await;
     let output = result.expect("Upload-board browser deadline").unwrap();
+    assert!(
+        output.status.success(),
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+async fn check_snapshot_contract(id: i64, bytes: &[u8]) {
+    use tokio::io::AsyncWriteExt;
+    let mut command = tokio::process::Command::new("node");
+    command.env_clear().kill_on_drop(true);
+    for key in ["PATH", "SystemRoot", "WINDIR", "TEMP", "TMP", "HOME"] {
+        if let Some(value) = std::env::var_os(key) {
+            command.env(key, value);
+        }
+    }
+    command
+        .arg("--max-old-space-size=128")
+        .arg(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/browser/swf-snapshot-contract.mjs"),
+        )
+        .arg("http://127.0.0.1:3000")
+        .arg(id.to_string())
+        .arg("http://localhost:3002")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    let mut child = command.spawn().unwrap();
+    child.stdin.take().unwrap().write_all(bytes).await.unwrap();
+    let output = tokio::time::timeout(std::time::Duration::from_secs(15), child.wait_with_output())
+        .await
+        .expect("Owned snapshot parser deadline")
+        .unwrap();
     assert!(
         output.status.success(),
         "{}\n{}",

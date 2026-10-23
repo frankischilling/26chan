@@ -174,7 +174,7 @@ exit 0
     script = path.join(directory, 'old-order.sh');
     writeFileSync(script, source);
   }
-  const env = { PATH: bin, APP_ENV: 'development', CI: 'true', VERIFY_TEST_LOG: log, VERIFY_TEST_ENV_LOG: environmentLog, VERIFY_TEST_VERIFICATION_LOG: verificationLog, VERIFY_TEST_FAIL: fail };
+  const env = { SWF_PLAYER_ASSETS: path.join(directory, 'owned-prepared-player'), PATH: bin, APP_ENV: 'development', CI: 'true', VERIFY_TEST_LOG: log, VERIFY_TEST_ENV_LOG: environmentLog, VERIFY_TEST_VERIFICATION_LOG: verificationLog, VERIFY_TEST_FAIL: fail };
   for (const role of roles) {
     env[`${role}_DATABASE_URL`] = 'owned-command-trace-only';
   }

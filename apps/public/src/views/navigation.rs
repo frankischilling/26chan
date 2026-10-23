@@ -490,6 +490,32 @@ mod tests {
         );
     }
     #[test]
+    fn upload_form_keeps_source_verification_file_and_tag_order_without_a_second_form() {
+        let mut current = board("f");
+        current.upload_board = true;
+        current.image_limit = 300;
+        let mut view = page(vec![], current);
+        view.media_origin = "http://localhost:3002".into();
+        view.captcha = crate::views::CaptchaView {
+            enabled: true,
+            classic: true,
+            board: "f".into(),
+            ..Default::default()
+        };
+        let html = view.render().unwrap();
+        let captcha = html.find("id=\"captchaFormPart\"").unwrap();
+        let file = html.find("id=\"postFile\"").unwrap();
+        let tag = html.find("id=\"filetag\"").unwrap();
+        assert!(captcha < file && file < tag);
+        assert!(html.contains("<td class=\"desktop\">Verification</td>"));
+        assert!(html.contains("id=\"fileError\""));
+        assert!(html.contains("4chan Pass users can bypass this verification."));
+        assert!(html.contains("href=\"/auth\""));
+        assert!(!html.contains("action=\"/f/upload\""));
+        assert!(!html.contains("data-upload-file-row hidden"));
+    }
+
+    #[test]
     fn posting_notices_follow_source_families_and_active_capabilities() {
         let source: serde_json::Value = serde_json::from_str(include_str!(
             "../../../../fixtures/posting-notices-reference.json"

@@ -27,13 +27,13 @@
 {% endif %}
 {% if archived() %}<p class="archiveNotice">This thread is archived and read-only.</p>{% endif %}
 {% if posting_allowed() %}
-{% if !media_origin.is_empty() && board.image_limit > 0 && !board.text_only && (!board.upload_board || parent == 0) %}
+{% if !media_origin.is_empty() && board.image_limit > 0 && !board.text_only && !board.upload_board %}
 <form action="/{{ board.slug }}/upload" method="post" enctype="multipart/form-data" class="postForm">
-<h2>Post with {% if board.upload_board %}a file{% else %}an image{% endif %}</h2>
+<h2>Post with an image</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
 {% if board.slug == "p" %}<label><input type="checkbox" name="vip_image" value="1"> Verified user image (enter VIP credentials when posting)</label>
-{% endif %}<label for="upfile">File</label> <input id="upfile" name="upfile" type="file" accept="{% if board.upload_board %}application/x-shockwave-flash,.swf{% else if board.gif_only %}image/gif{% else %}image/png,image/jpeg,image/gif{% endif %}{% if board.pdf_enabled %},application/pdf,.pdf{% endif %}{% if board.video_enabled %},video/webm,video/mp4,.webm,.mp4{% endif %}" required>
-<p>Upload {% if board.upload_board %}an SWF{% else if board.gif_only %}a GIF{% else %}a PNG, JPEG, or GIF{% endif %}{% if board.pdf_enabled %}, {% if !board.video_enabled %}or {% endif %}a PDF{% endif %}{% if board.video_enabled %}, or a WebM/MP4 video{% endif %} first, then complete your post. Maximum file size: {{ board.image_file_limit() }} bytes.{% if board.video_enabled %} Video: {{ board.max_video_bytes }} bytes, {{ board.max_video_duration }} seconds.{% if !board.video_audio %} Audio is not allowed.{% endif %}{% endif %}</p>
+{% endif %}<label for="upfile">File</label> <input id="upfile" name="upfile" type="file" accept="{% if board.gif_only %}image/gif{% else %}image/png,image/jpeg,image/gif{% endif %}{% if board.pdf_enabled %},application/pdf,.pdf{% endif %}{% if board.video_enabled %},video/webm,video/mp4,.webm,.mp4{% endif %}" required>
+<p>Upload {% if board.gif_only %}a GIF{% else %}a PNG, JPEG, or GIF{% endif %}{% if board.pdf_enabled %}, {% if !board.video_enabled %}or {% endif %}a PDF{% endif %}{% if board.video_enabled %}, or a WebM/MP4 video{% endif %} first, then complete your post. Maximum file size: {{ board.image_file_limit() }} bytes.{% if board.video_enabled %} Video: {{ board.max_video_bytes }} bytes, {{ board.max_video_duration }} seconds.{% if !board.video_audio %} Audio is not allowed.{% endif %}{% endif %}</p>
 <button type="submit">Upload file</button>
 </form>
 {% endif %}
@@ -42,9 +42,9 @@
 <div id="togglePostFormLink" class="desktop" hidden>[<a href="#postForm" aria-controls="postForm" aria-expanded="false">{% if parent == 0 %}Start a New Thread{% else %}Post a Reply{% endif %}</a>]</div>
 <h2>{% if parent == 0 %}Start a new thread{% else %}Post a reply{% endif %}</h2>
 <input type="hidden" name="resto" value="{{ parent }}">
-{% call posting::fields(parent, false, board.dice_roll || board.fortune_trip, board.comment_spoiler_cleanup, board.text_only, board.forced_anon, board.country_flags, board.flag_options(), quote, drawing_allowed(), board.oekaki_width, board.oekaki_height, captcha, board.upload_categories()) %}{% endcall %}
+{% call posting::fields(parent, false, board.dice_roll || board.fortune_trip, board.comment_spoiler_cleanup, board.text_only, board.forced_anon, board.country_flags, board.flag_options(), quote, drawing_allowed(), board.oekaki_width, board.oekaki_height, captcha, board.upload_categories(), !media_origin.is_empty()) %}{% endcall %}
 {% if drawing_edit_allowed() && !drawing_allowed() %}<div class="painter-ctrl" hidden>Size <input type="text" value="{{ board.oekaki_width }}" maxlength="4" inputmode="numeric" aria-label="Drawing width" data-drawing-width> &times; <input type="text" value="{{ board.oekaki_height }}" maxlength="4" inputmode="numeric" aria-label="Drawing height" data-drawing-height> <button type="button" data-drawing-draw>Edit</button> <button disabled type="button" data-drawing-clear>Clear</button><span role="status" aria-live="polite" data-drawing-status></span></div>{% endif %}
-<p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.ordinary_reply_limit() }} per thread. {% if media_origin.is_empty() || board.image_limit == 0 || board.text_only %}Media uploads are unavailable.{% else %}Use the upload form above to post with {% if board.upload_board %}a file{% else %}an image{% endif %}.{% endif %}</p>
+<p id="postHelp">Comments: {{ board.max_comment_chars }} characters. Replies: {{ board.ordinary_reply_limit() }} per thread. {% if media_origin.is_empty() || board.image_limit == 0 || board.text_only %}Media uploads are unavailable.{% else if board.upload_board %}Attach an SWF and choose a category.{% else %}Use the upload form above to post with {% if board.upload_board %}a file{% else %}an image{% endif %}.{% endif %}</p>
 {% include "posting_notices.html" %}
 {% include "blotter_preview.html" %}
 </form>

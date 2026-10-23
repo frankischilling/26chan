@@ -10,7 +10,7 @@ import unittest
 import zlib
 
 from owned_process import run_owned
-from test_vm import VmTest
+import test_vm
 
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_BYTES = 11 * 1024 * 1024
@@ -26,7 +26,7 @@ class SwfVmTest(unittest.TestCase):
                                 '--input-kind', 'swf-v8', os.environ['MEDIA_VM_TEST_CONFIG'],
                                 str(source), str(output)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=35)
             self.assertEqual(result.returncode, 0, result.stderr.decode(errors='replace'))
-            VmTest().assert_clean()
+            test_vm.VmTest().assert_clean()
             disk = output.read_bytes()
             self.assertEqual(len(disk), OUTPUT_BYTES)
             return disk

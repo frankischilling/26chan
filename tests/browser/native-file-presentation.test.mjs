@@ -118,3 +118,26 @@ test('canonical display filename permits an appended extension without expanding
   assert.equal(parse(video).status, 'ok');
   assert.equal(parse(video.replaceAll(videoName, 'a' + videoName)).status, 'invalid-snapshot');
 });
+
+test('upload-board client fragments keep canonical SWF downloads inert and separate from source-page embeds',()=>{
+  const scoped={...context,board:'f'};
+  const html=original.replace('<div id="f1" class="file">'+original.split('<div id="f1" class="file">')[1].split('<blockquote')[0],
+    '<div id="f1" class="file"><div id="fT1" class="fileText">File: <a href="https://media.test/f/Owned%20%26%20movie.swf" target="_blank" rel="noopener noreferrer">Owned &amp; movie.swf</a> (2 KB, 640x480, Other)</div></div>').replaceAll('/demo/','/f/');
+  const parse=html=>parseUpdaterSnapshot(JSON.stringify({version:2,board:'f',thread:'1',closed:false,archived:false,sticky:false,replies:0,images:0,posts:[{no:'1',file_deleted:false,html}],tail_size:0,tail_id:null}),scoped);
+  assert.equal(parse(html).status,'ok');
+  for(const tag of ['Hentai','Porn','Japanese','Anime','Game','Loop','Other','null','undefined'])assert.equal(parse(html.replace('640x480, Other',`640x480, ${tag}`)).status,'ok');
+  for(const changed of [
+    html.replace('/f/Owned%20%26%20movie.swf','/f/Other.swf'),
+    html.replace('https://media.test/f/','https://other.test/f/'),
+    html.replace('/f/Owned%20%26%20movie.swf','/g/Owned%20%26%20movie.swf'),
+    html.replace('640x480','0x480'),html.replace('640x480','107374183x480'),html.replace('2 KB','11 MB'),
+    html.replace('640x480, Other','640x480, Forged'),
+    html.replace('href="https://media.test/f/','data-m="" href="https://media.test/f/'),
+    html.replace('href="https://media.test/f/','data-player="https://media.test/player/f/1" href="https://media.test/f/'),
+    html.replace('>Owned &amp; movie.swf</a>','><b>Owned &amp; movie.swf</b></a>'),
+    html.replace('</a> (2 KB','</a>-(2 KB'),
+    html.replace('<div id="fT1" class="fileText">','<span id="fT1" class="fileText">').replace('Other)</div>','Other)</span>'),
+    html.replace('</div><blockquote','<iframe src="https://media.test/player/f/1"></iframe></div><blockquote'),
+  ])assert.equal(parse(changed).status,'invalid-snapshot',changed);
+  assert.equal(parseUpdaterSnapshot(JSON.stringify({version:2,board:'demo',thread:'1',closed:false,archived:false,sticky:false,replies:0,images:0,posts:[{no:'1',file_deleted:false,html:html.replaceAll('/f/','/demo/')}],tail_size:0,tail_id:null}),context).status,'invalid-snapshot');
+});

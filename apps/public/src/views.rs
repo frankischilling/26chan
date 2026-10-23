@@ -349,6 +349,17 @@ impl PostView {
         mobile_label::label(&self.post.subject)
     }
 
+    pub fn client_subject<'a>(&'a self, board: &Board) -> &'a str {
+        let title = self.display_subject(board);
+        if board.upload_board && title == "0" {
+            ""
+        } else {
+            title
+        }
+    }
+    pub fn mobile_subject_for_board(&self, board: &Board) -> mobile_label::MobileLabel {
+        mobile_label::label(self.client_subject(board))
+    }
     pub fn pass_year(&self) -> Option<i32> {
         (self.post.capcode.as_deref().is_none_or(str::is_empty)
             && (1..10000).contains(&self.post.since4pass))

@@ -992,7 +992,7 @@ body[data-page-catalog="true"] .globalMessageToggle { width: 18px; height: 18px;
 
 /* Source upload-board listing; filenames remain links, never image thumbnails. */
 table.flashListing { margin: var(--flash-margin, 0); border-spacing: 2px; }
-table.flashListing td { padding: 2px; font-size: var(--flash-cell-size, 9pt); }
+table.flashListing td { box-sizing: content-box; padding: 2px; font-size: var(--flash-cell-size, 9pt); }
 table.flashListing td:not(.subject) { text-align: center; }
 table.flashListing td.postblock { padding: 5px; background: var(--label, #eeaa88); color: var(--label-ink, #880000); font-weight: bold; border: var(--archive-header-border, var(--post-label-border, 1px)) solid var(--label-edge, #880000); }
 table.flashListing .name { color: var(--name, #117743); font-weight: bold; }
@@ -1007,3 +1007,5 @@ table.flashListing tr.highlightPost { background: var(--capcode-highlight, #f0d6
 #swf-embed-close { position: absolute; right: 0; top: 1px; cursor: pointer; }
 
 .board .oldpost { background: inherit; color: var(--flash-old-color, #f00000); font-weight: var(--flash-old-weight, 800); font-family: var(--flash-old-font, inherit); }
+
+.postForm .passNotice { font-size: smaller; padding-left: 6px; }

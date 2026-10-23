@@ -35,6 +35,10 @@ impl Limits {
         }
     }
 
+    pub(crate) fn handler_timeout(&self) -> Duration {
+        self.settings.handler_timeout()
+    }
+
     pub(crate) fn response_writer(&self, limit: usize) -> board_http::ResponseWriter {
         self.output.writer(self.response_limit(limit))
     }

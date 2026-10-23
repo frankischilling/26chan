@@ -1033,6 +1033,17 @@ pub struct PostForm {
     #[serde(default, deserialize_with = "crate::posting_form::drawing_field")]
     oe_src: Option<String>,
 }
+impl PostForm {
+    pub(crate) fn matches_single_upload(
+        &self,
+        upload: &board_store::media_intake::IntakeReservation,
+    ) -> bool {
+        self.resto == 0
+            && !self.textonly
+            && self.upload_id == upload.id
+            && self.upload_capability == upload.capability
+    }
+}
 struct PostingObservations {
     hints: board_domain::content_admission::network::hints::DerivedHints,
     captured: board_domain::content_admission::network::ProviderValue<

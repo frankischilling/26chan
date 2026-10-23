@@ -8,14 +8,14 @@ export function mountUploadPost(doc = document, win = window) {
   try { const settings=win.localStorage.getItem('4chan-settings');if(settings && settings.length <= 32768 && JSON.parse(settings)?.disableAll===true)return null; } catch { /* Storage is optional. */ }
   const form = doc.getElementById('reply'), row = form?.querySelector('[data-upload-file-row]');
   const input = row?.querySelector('input[type=file]'), fallback = doc.querySelector('form.postForm[action="/f/upload"]');
-  if (!form || !input || !fallback) return null;
+  if (!form || !input) return null;
   const captchaRoot = form.querySelector('[data-posting-captcha]');
   if (captchaRoot?.dataset.noscriptOnly === 'true') return null;
   const captcha = captchaRoot ? mountPostingCaptcha(captchaRoot) : null;
   if (captchaRoot && !captcha) return null;
-  const status = doc.createElement('span');status.setAttribute('role', 'status');status.setAttribute('aria-live', 'polite');
+  const status = doc.getElementById('fileError');if(!status)return null;
   const cancel = doc.createElement('button');cancel.type = 'button';cancel.textContent = 'Cancel file';cancel.hidden = true;
-  input.parentElement.append(' ', cancel, ' ', status);
+  input.after(cancel);
   const origin = win.location.origin, target = { board: 'f', thread: '0', origin };
   let controller = null;
   const notify = text => { status.textContent = text; };
@@ -45,9 +45,9 @@ export function mountUploadPost(doc = document, win = window) {
     event.preventDefault();
     if (controller || (captcha && !captcha.canSubmit())) return;
     const selected = input.files?.[0];
-    if (!selected) { notify('Choose one SWF file.');return; }
+    if (!selected) { notify('Error: You must attach a file.');return; }
     const category = form.elements.namedItem('filetag')?.value;
-    if (!['0','6','1','2','3','5','4'].includes(category)) { notify('Error: Invalid file tag.');return; }
+    if (!['0','6','1','2','3','5','4'].includes(category)) { notify('Error: Invalid tag specified.');return; }
     controller = new AbortController();sync(true);
     try {
       const result = await session.submit(selected, fields, () => !captcha || captcha.canSubmit(), controller.signal);
@@ -68,8 +68,8 @@ export function mountUploadPost(doc = document, win = window) {
   }
   const stop = () => controller?.abort();
   form.addEventListener('submit',submit);cancel.addEventListener('click',discard);win.addEventListener('pagehide',stop);
-  row.hidden = false;input.required = true;fallback.hidden = true;
+  row.hidden = false;input.required = false;if(fallback) fallback.hidden = true;
   const help = doc.getElementById('postHelp');if(help) help.textContent = 'Choose an SWF file and category, then post.';
-  return { destroy() { stop();form.removeEventListener('submit',submit);cancel.removeEventListener('click',discard);win.removeEventListener('pagehide',stop);row.hidden=true;input.required=false;fallback.hidden=false;status.remove();cancel.remove(); } };
+  return { destroy() { stop();form.removeEventListener('submit',submit);cancel.removeEventListener('click',discard);win.removeEventListener('pagehide',stop);input.disabled=false;input.required=false;if(fallback) fallback.hidden=false;status.textContent='';cancel.remove(); } };
 }
 if(typeof document !== 'undefined' && typeof window !== 'undefined') mountUploadPost();

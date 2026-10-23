@@ -80,13 +80,21 @@ The upload listing uses the source column order, category labels, filename and
 subject truncation, 30-row window and oldest-row highlighting. The 254 owned
 row cases include escaped text boundaries and the source's distinct listing
 and thread size arithmetic. Thread pages show file metadata without an image
-thumbnail. JSON retains SWF geometry and zero thumbnail dimensions.
+thumbnail. JSON retains SWF geometry and zero thumbnail dimensions. The initial
+PHP-shaped page and client-rendered quote/update fragments stay distinct: the
+client uses its regular size arithmetic, full filename and JSON category value.
+A preview receives only an inert download link, never a player iframe. Missing
+and unknown historical JSON tags retain the source client's `undefined` and
+`null` labels. New posts still require one of the seven admitted categories.
 
 Embed creates the player only after a click. Desktop listing playback uses a
 closeable overlay; thread playback uses Embed/Remove at the file information.
 Mobile listing pages omit the extra Embed column. Source sizing arithmetic is
-covered by 30 captured cases. Display frames additionally reject dimensions
-above 8,192 pixels or an area above 16 megapixels; this is a browser resource
+covered by 30 captured cases. The browser suite compares table fonts, colors,
+padding, borders, dimensions and old-row highlights against pinned source CSS
+for all six themes. It saves owned component screenshots for review; this is
+not a comparison of the surrounding full-page layout. Display frames reject
+dimensions above 8,192 pixels or an area above 16 megapixels; this is a browser resource
 limit, not a change to stored movie metadata.
 
 ## Qualification and remaining work
@@ -95,6 +103,11 @@ The upgrade exercise covers both SWF migrations, rejection of existing schema
 or grant drift, preservation of historical content, private filename authority
 and an administrator dump/restore. Database tests exercise capability
 consumption, filename reuse after retirement and the public file-only refusal.
+The no-script HTTP test covers real intake, approval, posting, original-byte
+downloads and capability revocation after a malformed trailing field. A real
+browser version runs with page scripts disabled; hosted qualification remains
+required. Other legacy forms retain their 256 KiB request-body limit.
+
 The real-browser player test uses owned FWS/CWS movies and checks visible
 playback, opaque-origin storage denial, network blocking and original-byte
 downloads. The test must pass in CI; local unit checks do not establish playback.
@@ -103,10 +116,14 @@ The JavaScript-enabled `/f/` form submits the selected file and category through
 the isolated upload service, waits for approval, then posts once. An expired
 CAPTCHA keeps the approved file while requesting fresh proof. A lost posting
 response blocks a duplicate attempt in that page session. Without JavaScript,
-the separate upload step remains; source no-script single-submit behavior is
-still open under #197. Quick Reply replies remain attachment-free. All-theme
-visual comparison and final-head browser qualification remain open. Ruffle is a replacement runtime, not evidence that
-every historical Flash movie behaves identically. External networking and
+the same form streams its file to intake within the posting request and waits
+for approval before invoking ordinary posting admission. It does not decode
+the movie, retain the draft in a database or queue a background post. The
+existing handler deadline still applies; processing that does not finish in
+time returns a retryable error and revokes the unused capability. Quick Reply
+replies remain attachment-free. All-theme visual comparison and final-head
+browser qualification remain open. Ruffle is a replacement runtime, not evidence
+that every historical Flash movie behaves identically. External networking and
 persistent Flash storage are intentionally unavailable.
 
 ## Enable the local player

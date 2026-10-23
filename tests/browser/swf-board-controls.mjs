@@ -2,6 +2,7 @@
 // actual storage, intake and VM behavior have separate qualification tests.
 import assert from 'node:assert/strict';
 import { chromium,expect } from '@playwright/test';
+import {assertUploadTableStyles} from './swf-source-styles.mjs';
 const origin=new URL(process.argv[2]),id=process.argv[3];
 assert.equal(origin.hostname,'127.0.0.1');assert.equal(origin.protocol,'http:');assert.match(id,/^[1-9][0-9]{0,18}$/);
 for(const key of Object.keys(process.env))assert.ok(!key.endsWith('DATABASE_URL')&&!['POSTER_ID_KEY','PUBLIC_INTAKE_TOKEN'].includes(key),'Browser must not inherit service credentials');
@@ -36,6 +37,7 @@ try {
     await expect(row.locator('.name')).toHaveCSS('color',name);
     await expect(row.locator('.subject')).toHaveCSS('color',subject);
     await expect(row.locator('td').first()).toHaveCSS('font-size',size);
+    await assertUploadTableStyles(page,context,theme);
   }
   await context.addCookies([{name:'board-theme',value:'yotsuba',url:origin.origin}]);
   await page.goto(origin.origin+'/f/');
@@ -46,10 +48,10 @@ try {
   await expect(page.locator('#swf-embed iframe')).toHaveAttribute('sandbox','allow-scripts');
   await page.locator('#swf-embed-close').click();await expect(page.locator('#swf-embed')).toHaveCount(0);
   await page.locator('#togglePostFormLink a').click();
-  await expect(page.locator('#uploadBoardFile')).toBeVisible();
+  await expect(page.locator('#postFile')).toBeVisible();
   await expect(page.locator('form.postForm[action="/f/upload"]')).toBeHidden();
   await page.locator('#sub').fill('Owned one-submit form');await page.locator('#com').fill('Owned upload-board body');
-  await page.locator('#filetag').selectOption('4');await page.locator('#uploadBoardFile').setInputFiles({name:'owned-form.swf',mimeType:'application/x-shockwave-flash',buffer:Buffer.from('FWS-owned-fixture')});
+  await page.locator('#filetag').selectOption('4');await page.locator('#postFile').setInputFiles({name:'owned-form.swf',mimeType:'application/x-shockwave-flash',buffer:Buffer.from('FWS-owned-fixture')});
   assert.equal(uploaded,0);assert.equal(posted,0);
   await page.locator('#reply button[type=submit]').click();
   await page.waitForURL(origin.origin+`/f/thread/${id}#p${id}`);assert.equal(uploaded,1);assert.equal(posted,1);
@@ -60,6 +62,7 @@ try {
   await mobile.route('http://localhost:3002/player/**',route=>route.fulfill({status:200,contentType:'text/html',body:'<!doctype html><title>Owned mobile fixture</title>'}));
   const phone=await mobile.newPage();await phone.goto(origin.origin+'/f/');
   await expect(phone.locator('table.flashListing a').filter({hasText:/^Embed$/})).toHaveCount(0);
+  await assertUploadTableStyles(phone,mobile,'yotsuba','mobile');
   await phone.goto(origin.origin+`/f/thread/${id}`);await phone.locator('[data-swf-toggle]').click();
   const frame=phone.locator('#swf-embed iframe');await expect(frame).toHaveCount(1);assert.ok(Number(await frame.getAttribute('width'))<=360);
   await phone.locator('[data-swf-toggle]').click();await expect(phone.locator('#swf-embed')).toHaveCount(0);

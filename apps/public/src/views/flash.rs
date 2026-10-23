@@ -43,6 +43,22 @@ fn size(bytes: i64, thread: bool) -> String {
 }
 
 impl PostView {
+    pub fn flash_icon_title(&self) -> &'static str {
+        match self.post.capcode.as_deref() {
+            Some("admin" | "admin_highlight") => "This user is the 4chan Administrator.",
+            Some("mod") => "This user is a 4chan Moderator.",
+            Some("developer") => "This user is a 4chan Developer.",
+            Some("manager") => "This user is a 4chan Manager.",
+            _ => "",
+        }
+    }
+    pub fn flash_icon_alt(&self) -> &'static str {
+        if self.post.capcode.as_deref() == Some("manager") {
+            "Manager Icon"
+        } else {
+            self.flash_icon_title()
+        }
+    }
     pub fn flash_post_badge(&self) -> Option<board_domain::capcode::PublicCapcode> {
         match self.post.capcode.as_deref() {
             Some("admin" | "admin_highlight" | "mod" | "developer" | "manager") => self.capcode(),
@@ -142,6 +158,14 @@ impl PostView {
             .0
             .map_or("", |category| category.name)
     }
+    pub fn flash_client_category(&self) -> &'static str {
+        let (category, _, prefixed) = board_domain::upload_board::subject(&self.post.subject);
+        if !prefixed {
+            "undefined"
+        } else {
+            category.map_or("null", |value| value.name)
+        }
+    }
     pub fn flash_listing_size(&self, bytes: &i64) -> String {
         size(*bytes, false)
     }
@@ -158,6 +182,129 @@ impl BoardPage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::views::{Tag, Token, WordPart};
+    #[derive(askama::Template)]
+    #[template(
+        source = "{% import \"formatting.html\" as formatting %}{% import \"attachments.html\" as attachments %}{% include \"flash_post_content.html\" %}",
+        ext = "html"
+    )]
+    struct SourceFlashFragment<'a> {
+        item: &'a PostView,
+        view: &'a super::super::ThreadView,
+        board: &'a Board,
+        media_origin: &'a str,
+        spoiler_thumbnail: &'a str,
+    }
+
+    #[test]
+    fn source_flash_badges_and_mobile_identity_parentage_remain_distinct() {
+        use askama::Template;
+        for reply in [false, true] {
+            for code in [
+                "admin",
+                "admin_highlight",
+                "mod",
+                "developer",
+                "manager",
+                "verified",
+                "founder",
+                "",
+            ] {
+                let mut snapshot = crate::native_updater_snapshot::tests::fixture();
+                snapshot.board.upload_board = true;
+                snapshot.board.slug = "f".into();
+                snapshot.thread.board = "f".into();
+                let mut post = snapshot.posts.remove(usize::from(reply));
+                post.board = "f".into();
+                post.capcode = (!code.is_empty()).then(|| code.to_owned());
+                post.trip = Some("!OwnedTrip1".into());
+                let item = PostView::new(post);
+                let view = super::super::ThreadView {
+                    thread: snapshot.thread,
+                    posts: vec![],
+                    omitted: 0,
+                    image_replies: 0,
+                    tail_size: 0,
+                    latest_reply_id: None,
+                    catalog_position: None,
+                    catalog_last_reply: None,
+                };
+                let html = SourceFlashFragment {
+                    spoiler_thumbnail: "",
+                    item: &item,
+                    view: &view,
+                    board: &snapshot.board,
+                    media_origin: "",
+                }
+                .render()
+                .unwrap();
+                assert!(html.contains(&format!(
+                    "id=\"pim{}\"><span class=\"nameBlock",
+                    item.post.id
+                )));
+                assert_eq!(html.matches("class=\"postertrip\"").count(), 2);
+                let visible = matches!(
+                    code,
+                    "admin" | "admin_highlight" | "mod" | "developer" | "manager"
+                ) || (code == "verified" && !reply);
+                assert_eq!(
+                    html.contains("<strong class=\"capcode"),
+                    visible,
+                    "{code}/{reply}"
+                );
+                let interactive = code == "manager" || (code == "verified" && !reply);
+                assert_eq!(
+                    html.matches("class=\"capcode hand ").count(),
+                    if interactive { 2 } else { 0 },
+                    "{code}/{reply}"
+                );
+                if code == "manager" {
+                    assert_eq!(
+                        html.matches("title=\"Highlight posts by Managers\"")
+                            .count(),
+                        2
+                    );
+                    assert_eq!(html.matches("managericon@2x.gif 2x").count(), 2);
+                    assert_eq!(html.matches("alt=\"Manager Icon\"").count(), 2);
+                }
+                if code == "admin" {
+                    assert_eq!(
+                        html.matches("title=\"This user is the 4chan Administrator.\"")
+                            .count(),
+                        2
+                    );
+                }
+                assert_eq!(
+                    item.flash_badge().is_some(),
+                    matches!(code, "admin" | "admin_highlight" | "mod")
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn initial_and_client_flash_metadata_keep_source_differences() {
+        let mut snapshot = crate::native_updater_snapshot::tests::fixture();
+        snapshot.board.upload_board = true;
+        let mut item = PostView::new(snapshot.posts.remove(0));
+        // The initial PHP thread divides KB by 1048, while its JSON client
+        // uses the ordinary 1024-byte calculation.
+        assert_eq!(item.flash_thread_size(&52_000), "50 KB");
+        assert_eq!(item.file_size(&52_000), "51 KB");
+        for (subject, category, displayed) in [
+            ("3|Owned", "Game", "Owned"),
+            ("99|Owned", "null", "Owned"),
+            ("Owned", "undefined", "Owned"),
+            ("3|0", "Game", ""),
+        ] {
+            item.post.subject = subject.into();
+            assert_eq!(item.flash_client_category(), category);
+            assert_eq!(item.client_subject(&snapshot.board), displayed);
+        }
+        snapshot.board.upload_board = false;
+        assert_eq!(item.client_subject(&snapshot.board), "3|0");
+    }
+
     #[test]
     fn row_fragments_match_executed_source_and_cannot_contain_tags() {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
